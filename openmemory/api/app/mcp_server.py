@@ -17,8 +17,10 @@ Key features:
 
 import contextvars
 import datetime
+import hashlib
 import json
 import logging
+import time
 import uuid
 
 import anyio
@@ -31,10 +33,18 @@ from app.models import (
     MemoryStatusHistory,
     WriteAuditLog,
 )
+from app.utils.metrics import (
+    EMBED_CACHE_HIT,
+    EMBED_CACHE_MISS,
+    SEARCH_CACHE_HIT,
+    SEARCH_CACHE_MISS,
+    SEARCH_LATENCY,
+)
 from app.utils.db import get_user_and_app
 from app.utils.identity import resolve_hostname
 from app.utils.memory import get_memory_client, get_memory_client_safe
 from app.utils.permissions import check_memory_access_permissions
+from app.utils.read_cache import read_cache
 from app.utils.write_queue import WriteJob, write_queue
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -168,53 +178,73 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
     if not project:
         return "Error: project not provided"
 
-    # Get memory client safely (singleton/reused; no reconnect per call)
-    memory_client = get_memory_client_safe()
-    if not memory_client:
-        return "Error: Memory system is currently unavailable. Please try again later."
-
+    started = time.perf_counter()
     try:
-        # Project-only filter: shared read across hosts (no user_id restriction).
-        filters = {
-            "project": project,
-        }
+        memory_client = get_memory_client_safe()
+        if not memory_client:
+            return "Error: Memory system is currently unavailable. Please try again later."
 
-        embeddings = await anyio.to_thread.run_sync(
-            lambda: memory_client.embedding_model.embed(query, "search")
+        filters = {"project": project}
+        filter_hash = hashlib.sha256(
+            json.dumps(filters, sort_keys=True).encode()
+        ).hexdigest()[:16]
+
+        cached_hits = read_cache.get_search(
+            project, query, DEFAULT_SEARCH_TOP_K, filter_hash
         )
+        if cached_hits is not None:
+            SEARCH_CACHE_HIT.inc()
+            results = cached_hits
+        else:
+            SEARCH_CACHE_MISS.inc()
+            embed_model = getattr(memory_client.embedding_model, "model", "default")
+            embeddings = read_cache.get_embedding(embed_model, query)
+            if embeddings is not None:
+                EMBED_CACHE_HIT.inc()
+            else:
+                EMBED_CACHE_MISS.inc()
+                embeddings = await anyio.to_thread.run_sync(
+                    lambda: memory_client.embedding_model.embed(query, "search")
+                )
+                read_cache.set_embedding(embed_model, query, embeddings)
 
-        hits = await anyio.to_thread.run_sync(
-            lambda: memory_client.vector_store.search(
-                query=query,
-                vectors=embeddings,
-                top_k=DEFAULT_SEARCH_TOP_K,
-                filters=filters,
+            hits = await anyio.to_thread.run_sync(
+                lambda: memory_client.vector_store.search(
+                    query=query,
+                    vectors=embeddings,
+                    top_k=DEFAULT_SEARCH_TOP_K,
+                    filters=filters,
+                )
             )
-        )
 
-        results = []
-        for h in hits:
-            # All vector db search functions return OutputData class
-            id, score, payload = h.id, h.score, h.payload
-            results.append({
-                "id": id,
-                "memory": payload.get("data"),
-                "hash": payload.get("hash"),
-                "created_at": payload.get("created_at"),
-                "updated_at": payload.get("updated_at"),
-                "project": payload.get("project"),
-                "score": score,
-            })
+            results = []
+            for h in hits:
+                id, score, payload = h.id, h.score, h.payload
+                results.append({
+                    "id": id,
+                    "memory": payload.get("data"),
+                    "hash": payload.get("hash"),
+                    "created_at": payload.get("created_at"),
+                    "updated_at": payload.get("updated_at"),
+                    "project": payload.get("project"),
+                    "score": score,
+                })
+            read_cache.set_search(
+                project, query, DEFAULT_SEARCH_TOP_K, filter_hash, results
+            )
 
-        # Rerank is disabled by default to prioritize latency; it can be enabled
-        # per-call. When enabled and supported, sort hits by descending score.
         if rerank:
-            results.sort(key=lambda r: (r.get("score") is not None, r.get("score")), reverse=True)
+            results.sort(
+                key=lambda r: (r.get("score") is not None, r.get("score")),
+                reverse=True,
+            )
 
         return json.dumps({"results": results}, indent=2)
     except Exception as e:
         logging.exception(e)
         return f"Error searching memory: {e}"
+    finally:
+        SEARCH_LATENCY.observe(time.perf_counter() - started)
 
 
 @mcp.tool(description="List stored memories scoped by project (shared across all machines).")

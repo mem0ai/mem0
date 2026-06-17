@@ -4,24 +4,40 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# load .env file (make sure you have DATABASE_URL set)
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./openmemory.db")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set in environment")
 
-# SQLAlchemy engine & session
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Needed for SQLite
-)
+
+def is_sqlite(url: str | None = None) -> bool:
+    """Whether ``url`` uses the SQLite dialect."""
+    return (url or DATABASE_URL).startswith("sqlite")
+
+
+def is_postgresql(url: str | None = None) -> bool:
+    """Whether ``url`` uses the PostgreSQL dialect."""
+    return (url or DATABASE_URL).startswith("postgresql")
+
+
+def engine_connect_args(url: str | None = None) -> dict:
+    """SQLAlchemy ``connect_args`` appropriate for the dialect in ``url``.
+
+    SQLite requires ``check_same_thread=False`` for multi-threaded access;
+    PostgreSQL (via PgBouncer or direct) must not receive that argument.
+    """
+    if is_sqlite(url):
+        return {"check_same_thread": False}
+    return {}
+
+
+engine = create_engine(DATABASE_URL, connect_args=engine_connect_args())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base class for models
 Base = declarative_base()
 
-# Dependency for FastAPI
+
 def get_db():
     db = SessionLocal()
     try:

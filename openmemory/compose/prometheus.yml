@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: openmemory-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["openmemory-mcp:8765"]

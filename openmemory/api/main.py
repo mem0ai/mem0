@@ -12,6 +12,7 @@ from uuid import uuid4
 from app.config import DEFAULT_APP_ID, USER_ID
 from app.database import Base, SessionLocal, engine
 from app.mcp_server import setup_mcp_server
+from app.middleware.request_id import RequestIdMiddleware
 from app.models import App, User
 from app.routers import (
     apps_router,
@@ -19,17 +20,23 @@ from app.routers import (
     compat_v3_router,
     config_router,
     discovery_router,
+    health_router,
     memories_router,
+    ops_metrics_router,
     provision_router,
     stats_router,
 )
-from app.workers.write_worker import write_worker
+from app.workers.write_worker import embedded_worker_enabled, write_worker
+from app.utils.logging_context import install_structured_logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 
+install_structured_logging()
+
 app = FastAPI(title="OpenMemory API")
 
+app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -105,18 +112,23 @@ app.include_router(backup_router)
 app.include_router(discovery_router)
 app.include_router(compat_v3_router)
 app.include_router(provision_router)
+app.include_router(health_router)
+app.include_router(ops_metrics_router)
 
 # Add pagination support
 add_pagination(app)
 
 
 # Start/stop the background write worker that consumes the write queue and runs
-# the LLM extraction/persistence out of band (task_06 / ADR-004).
+# the LLM extraction/persistence out of band (task_06 / ADR-004). In scale
+# deployments the worker runs as a separate service (RUN_EMBEDDED_WORKER=false).
 @app.on_event("startup")
 async def _start_write_worker():
-    write_worker.start()
+    if embedded_worker_enabled():
+        write_worker.start()
 
 
 @app.on_event("shutdown")
 async def _stop_write_worker():
-    await write_worker.stop()
+    if embedded_worker_enabled():
+        await write_worker.stop()

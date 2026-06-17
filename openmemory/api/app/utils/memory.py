@@ -130,6 +130,21 @@ def _fix_ollama_urls(config_section):
     return config_section
 
 
+def _fix_ollama_urls_if_localhost(config_section):
+    """Apply Docker localhost rewriting only when the URL is still localhost-based.
+
+    Explicit dedicated service URLs (e.g. ``http://ollama-embed:11434``) take
+    precedence and are never rewritten (ADR-002).
+    """
+    if not config_section or config_section.get("provider") != "ollama":
+        return config_section
+    cfg = config_section.get("config") or {}
+    url = cfg.get("ollama_base_url", "")
+    if url and "localhost" not in url and "127.0.0.1" not in url:
+        return config_section
+    return _fix_ollama_urls(config_section)
+
+
 def reset_memory_client():
     """Reset the global memory client to force reinitialization with new config."""
     global _memory_client, _config_hash
@@ -334,8 +349,8 @@ def persist_model_selection(runtime_config, session_factory=SessionLocal):
 
 def _build_ollama_llm_config(model, api_key, base_url, ollama_base_url):
     config = {"model": model or "llama3.1:latest"}
-    # OLLAMA_BASE_URL takes precedence, then LLM_BASE_URL, then default
-    config["ollama_base_url"] = ollama_base_url or base_url or "http://localhost:11434"
+    # Dedicated LLM URL (OLLAMA_LLM_URL / LLM_BASE_URL) beats generic OLLAMA_BASE_URL.
+    config["ollama_base_url"] = base_url or ollama_base_url or "http://localhost:11434"
     return config
 
 
@@ -530,7 +545,7 @@ def get_default_memory_config():
     llm_provider = os.environ.get('LLM_PROVIDER', 'openai').lower()
     llm_model = os.environ.get('LLM_MODEL')
     llm_api_key = os.environ.get('LLM_API_KEY')
-    llm_base_url = os.environ.get('LLM_BASE_URL')
+    llm_base_url = os.environ.get('OLLAMA_LLM_URL') or os.environ.get('LLM_BASE_URL')
     ollama_base_url = os.environ.get('OLLAMA_BASE_URL')
 
     llm_config = _create_llm_config(
@@ -546,7 +561,7 @@ def get_default_memory_config():
     embedder_provider = os.environ.get('EMBEDDER_PROVIDER', llm_provider if llm_provider == 'ollama' else 'openai').lower()
     embedder_model = os.environ.get('EMBEDDER_MODEL')
     embedder_api_key = os.environ.get('EMBEDDER_API_KEY')
-    embedder_base_url = os.environ.get('EMBEDDER_BASE_URL')
+    embedder_base_url = os.environ.get('OLLAMA_EMBED_URL') or os.environ.get('EMBEDDER_BASE_URL')
 
     embedder_config = _create_embedder_config(
         provider=embedder_provider,
@@ -675,11 +690,12 @@ def get_memory_client(custom_instructions: str = None):
         if instructions_to_use:
             config["custom_fact_extraction_prompt"] = instructions_to_use
 
-        # Fix Ollama URLs for Docker environment (applies to both env-var defaults and DB overrides)
+        # Fix Ollama URLs for Docker environment when still pointing at localhost.
+        # Explicit service endpoints (scale mode) are left untouched.
         if config.get("llm", {}).get("provider") == "ollama":
-            config["llm"] = _fix_ollama_urls(config["llm"])
+            config["llm"] = _fix_ollama_urls_if_localhost(config["llm"])
         if config.get("embedder", {}).get("provider") == "ollama":
-            config["embedder"] = _fix_ollama_urls(config["embedder"])
+            config["embedder"] = _fix_ollama_urls_if_localhost(config["embedder"])
 
         # ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed

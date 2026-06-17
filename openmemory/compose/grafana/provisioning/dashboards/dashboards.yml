@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: default
+    orgId: 1
+    folder: OpenMemory
+    type: file
+    disableDeletion: false
+    options:
+      path: /etc/grafana/provisioning/dashboards

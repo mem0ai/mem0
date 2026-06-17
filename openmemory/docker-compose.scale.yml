@@ -1,0 +1,113 @@
+# Scale deployment stack — Mem0/OpenMemory (ADR-006).
+#
+# Usage:
+#   ./scripts/bootstrap-scale.sh
+#   docker compose -f docker-compose.scale.yml up -d
+#
+# Connect via the reverse proxy (default port 8765). API workers and write
+# workers are decoupled; metadata/queue live in PostgreSQL via PgBouncer.
+#
+# For SQLite dev/single-host, keep using docker-compose.yml instead.
+
+x-api-common: &api-common
+  image: mem0/openmemory-mcp
+  build: api/
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment: &api-env
+    USER: ${USER}
+    API_KEY: ${API_KEY:-}
+    MEM0_LOCAL_ONLY: ${MEM0_LOCAL_ONLY:-1}
+    MEM0_TELEMETRY: ${MEM0_TELEMETRY:-false}
+    QDRANT_HOST: mem0_store
+    QDRANT_PORT: "6333"
+    DATABASE_URL: postgresql://${POSTGRES_USER:-mem0}:${POSTGRES_PASSWORD:-mem0}@pgbouncer:5432/${POSTGRES_DB:-openmemory}
+    REDIS_URL: redis://redis:6379/0
+    LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+    LLM_MODEL: ${LLM_MODEL:-}
+    LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama-llm:11434}
+    OLLAMA_LLM_URL: ${OLLAMA_LLM_URL:-http://ollama-llm:11434}
+    EMBEDDER_PROVIDER: ${EMBEDDER_PROVIDER:-ollama}
+    EMBEDDER_MODEL: ${EMBEDDER_MODEL:-}
+    EMBEDDER_BASE_URL: ${EMBEDDER_BASE_URL:-http://ollama-embed:11434}
+    OLLAMA_EMBED_URL: ${OLLAMA_EMBED_URL:-http://ollama-embed:11434}
+    OPENMEMORY_DISCOVERY_BASE_URL: ${OPENMEMORY_DISCOVERY_BASE_URL:-http://localhost:${PROXY_PORT:-8765}}
+    RUN_EMBEDDED_WORKER: "false"
+    WRITE_WORKER_MAX_CONCURRENCY: ${WRITE_WORKER_MAX_CONCURRENCY:-4}
+  env_file:
+    - api/.env
+  depends_on:
+    mem0_store:
+      condition: service_started
+    pgbouncer:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+include:
+  - compose/postgres.yml
+  - compose/redis.yml
+  - compose/inference.yml
+  - compose/proxy.yml
+  - compose/observability.yml
+
+services:
+  mem0_store:
+    container_name: mem0_store
+    image: qdrant/qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - ${QDRANT_STORAGE:-mem0_storage}:/qdrant/storage
+
+  openmemory-mcp:
+    <<: *api-common
+    container_name: openmemory_api
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.openmemory.rule=PathPrefix(`/`)
+      - traefik.http.routers.openmemory.entrypoints=web
+      - traefik.http.services.openmemory.loadbalancer.server.port=8765
+      - traefik.http.services.openmemory.loadbalancer.sticky.cookie=true
+      - traefik.http.services.openmemory.loadbalancer.sticky.cookie.name=mem0_sse_affinity
+      - traefik.http.middlewares.openmemory-ratelimit.ratelimit.average=100
+      - traefik.http.middlewares.openmemory-ratelimit.ratelimit.burst=50
+      - traefik.http.middlewares.openmemory-cb.circuitbreaker.expression=ResponseCodeRatio(500,600,0) > 0.50
+      - traefik.http.routers.openmemory.middlewares=openmemory-ratelimit,openmemory-cb
+    depends_on:
+      mem0_store:
+        condition: service_started
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama-embed:
+        condition: service_started
+      ollama-llm:
+        condition: service_started
+      traefik:
+        condition: service_started
+    command: >
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --workers 2"
+
+  openmemory-write-worker:
+    <<: *api-common
+    container_name: openmemory_write_worker
+    environment:
+      <<: *api-env
+      RUN_EMBEDDED_WORKER: "false"
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama-embed:
+        condition: service_started
+      ollama-llm:
+        condition: service_started
+    command: python -m app.workers.write_worker
+
+volumes:
+  mem0_storage:

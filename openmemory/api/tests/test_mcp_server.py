@@ -382,19 +382,16 @@ class TestStreamableHTTPResponses:
 # ---------------------------------------------------------------------------
 
 class TestRouteRegistration:
-    """Verify all expected routes are registered in the router."""
+    """Verify expected MCP routes exist on the MCP router."""
 
-    @pytest.mark.asyncio
-    async def test_sse_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+    def test_sse_route_is_registered(self):
+        routes = [r.path for r in mcp_router.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/sse/{user_id}" in routes
 
-    @pytest.mark.asyncio
-    async def test_sse_post_messages_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+    def test_sse_post_messages_route_is_registered(self):
+        routes = [r.path for r in mcp_router.routes if hasattr(r, "path")]
         assert "/mcp/messages/" in routes or "/mcp/{client_name}/sse/{user_id}/messages/" in routes
 
-    @pytest.mark.asyncio
-    async def test_streamable_http_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+    def test_streamable_http_route_is_registered(self):
+        routes = [r.path for r in mcp_router.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes

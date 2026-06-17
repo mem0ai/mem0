@@ -1,0 +1,63 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(mcp_search_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99 search"
+        }
+      ],
+      "title": "MCP search latency p99",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        { "expr": "write_queue_depth", "legendFormat": "queue depth" }
+      ],
+      "title": "Write queue depth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "rate(embed_cache_hit_total[5m]) / (rate(embed_cache_hit_total[5m]) + rate(embed_cache_miss_total[5m]))",
+          "legendFormat": "embed hit rate"
+        }
+      ],
+      "title": "Embedding cache hit rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "rate(write_worker_error_total[5m])",
+          "legendFormat": "worker errors/s"
+        }
+      ],
+      "title": "Write worker error rate",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["openmemory", "scale"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "OpenMemory Scale",
+  "uid": "openmemory-scale",
+  "version": 1
+}

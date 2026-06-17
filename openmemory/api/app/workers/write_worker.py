@@ -26,9 +26,17 @@ loop. :meth:`WriteWorker.run` is the long-running loop used at app startup.
 
 import asyncio
 import logging
+import os
 from typing import Callable, Optional
 
+from app.utils.logging_context import job_id_var
+from app.utils.metrics import (
+    WRITE_QUEUE_DEPTH,
+    WRITE_WORKER_ERRORS,
+    WRITE_WORKER_SUCCESS,
+)
 from app.utils.projects import upsert_project as _default_upsert_project
+from app.utils.read_cache import read_cache
 from app.utils.write_queue import WriteJob
 from app.utils.write_queue import write_queue as _default_write_queue
 
@@ -126,20 +134,26 @@ class WriteWorker:
         configured ceiling is reached, at which point it is marked terminally
         ``failed``. Either way the job is never lost: it stays in the table.
         """
-        async with self._semaphore:
-            try:
-                client = self._client_provider()
-                if client is None:
-                    # LLM/memory backend unavailable: do not lose the job.
-                    raise RuntimeError(
-                        "memory client unavailable (LLM/backend down)"
-                    )
+        job_token = job_id_var.set(job.id)
+        try:
+            async with self._semaphore:
+                try:
+                    client = self._client_provider()
+                    if client is None:
+                        raise RuntimeError(
+                            "memory client unavailable (LLM/backend down)"
+                        )
 
-                await self._run_add(client, job)
-                self._catalog_project(job)
-                self._queue.mark_done(job.id)
-            except Exception as e:  # noqa: BLE001 - background isolation
-                self._handle_failure(job, e)
+                    await self._run_add(client, job)
+                    self._catalog_project(job)
+                    read_cache.invalidate_search(job.project)
+                    self._queue.mark_done(job.id)
+                    WRITE_WORKER_SUCCESS.inc()
+                except Exception as e:  # noqa: BLE001 - background isolation
+                    WRITE_WORKER_ERRORS.inc()
+                    self._handle_failure(job, e)
+        finally:
+            job_id_var.reset(job_token)
 
     def _handle_failure(self, job: WriteJob, error: Exception) -> None:
         """Re-queue the job for another attempt, or fail it terminally.
@@ -217,6 +231,9 @@ class WriteWorker:
     # --------------------------------------------------------------------- #
     async def run(self) -> None:
         """Run the consume loop until :meth:`stop` is requested."""
+        recovered = self._queue.recover_stale_processing()
+        if recovered:
+            logger.info("recovered %s stale processing jobs -> queued", recovered)
         logger.info(
             "write worker started (max_concurrency=%s, batch_size=%s)",
             self._max_concurrency,
@@ -228,6 +245,7 @@ class WriteWorker:
         # stop signal and the loop would never terminate (the task hangs).
         while not self._stopped.is_set():
             try:
+                WRITE_QUEUE_DEPTH.set(self._queue.depth())
                 processed = await self.process_once()
             except Exception:  # noqa: BLE001 - never let the loop die
                 logger.exception("write worker pass failed; continuing")
@@ -263,5 +281,39 @@ class WriteWorker:
                 self._task = None
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return int(raw)
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return float(raw)
+
+
+def worker_from_env() -> WriteWorker:
+    """Build a :class:`WriteWorker` from environment variables."""
+    return WriteWorker(
+        max_concurrency=_env_int("WRITE_WORKER_MAX_CONCURRENCY", DEFAULT_MAX_CONCURRENCY),
+        batch_size=_env_int("WRITE_WORKER_BATCH_SIZE", DEFAULT_BATCH_SIZE),
+        idle_sleep=_env_float("WRITE_WORKER_IDLE_SLEEP", DEFAULT_IDLE_SLEEP),
+        max_attempts=_env_int("WRITE_WORKER_MAX_ATTEMPTS", DEFAULT_MAX_ATTEMPTS),
+    )
+
+
+def embedded_worker_enabled() -> bool:
+    """Whether the API process should run the write worker (dev/single-host)."""
+    return os.environ.get("RUN_EMBEDDED_WORKER", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 # Shared worker instance used by the application startup hook.
-write_worker = WriteWorker()
+write_worker = worker_from_env()

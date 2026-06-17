@@ -138,7 +138,7 @@ async def search(request: SearchRequest) -> dict:
         hits = client.vector_store.search(
             query=request.query,
             vectors=embeddings,
-            limit=fetch_k,
+            top_k=fetch_k,
             filters=vs_filters or None,
         )
     except Exception as e:  # noqa: BLE001

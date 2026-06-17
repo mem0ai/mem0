@@ -1,13 +1,13 @@
+# Redis cache for embedding + search results (ADR-005).
 services:
-  mem0_store:
-    image: redis/redis-stack-server:latest
+  redis:
+    image: redis:7-alpine
     restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
-      - "6379:6379"
-    volumes:
-      - mem0_storage:/var/lib/redis-stack
-    command: >
-      redis-stack-server
-      --appendonly yes
-      --appendfsync everysec
-      --save 900 1 300 10 60 10000
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

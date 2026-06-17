@@ -14,7 +14,7 @@ import uuid
 from dataclasses import dataclass
 from typing import List, Optional
 
-from app.database import SessionLocal
+from app.database import SessionLocal, is_postgresql
 from app.models import WriteQueueJob as WriteQueueModel
 from app.models import WriteQueueStatus
 from sqlalchemy.orm import Session
@@ -85,16 +85,21 @@ class WriteQueue:
         Jobs are returned oldest-first (FIFO) and the transition to
         ``processing`` is committed before returning, so a crash after dequeue
         does not silently re-deliver the same job as ``queued``.
+
+        On PostgreSQL, ``FOR UPDATE SKIP LOCKED`` guarantees each job is
+        delivered to at most one concurrent worker (ADR-003). On SQLite the
+        lock clause is omitted (no-op) so dev mode keeps working.
         """
         db = self._session()
         try:
-            rows = (
+            query = (
                 db.query(WriteQueueModel)
                 .filter(WriteQueueModel.status == WriteQueueStatus.queued)
                 .order_by(WriteQueueModel.created_at.asc())
-                .limit(limit)
-                .all()
             )
+            if is_postgresql(str(db.get_bind().url)):
+                query = query.with_for_update(skip_locked=True)
+            rows = query.limit(limit).all()
             jobs = []
             for row in rows:
                 row.status = WriteQueueStatus.processing
@@ -166,6 +171,23 @@ class WriteQueue:
                 )
                 .count()
             )
+        finally:
+            db.close()
+
+    def recover_stale_processing(self) -> int:
+        """Return orphaned ``processing`` jobs to ``queued`` after worker restarts."""
+        db = self._session()
+        try:
+            rows = (
+                db.query(WriteQueueModel)
+                .filter(WriteQueueModel.status == WriteQueueStatus.processing)
+                .all()
+            )
+            for row in rows:
+                row.status = WriteQueueStatus.queued
+            if rows:
+                db.commit()
+            return len(rows)
         finally:
             db.close()
 

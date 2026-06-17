@@ -1,0 +1,40 @@
+# PostgreSQL + PgBouncer (transaction mode) for scale deployments.
+# API and write workers connect via PgBouncer, not directly to PostgreSQL.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mem0}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mem0}
+      POSTGRES_DB: ${POSTGRES_DB:-openmemory}
+    volumes:
+      - mem0_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mem0} -d ${POSTGRES_DB:-openmemory}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1-p0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-mem0}:${POSTGRES_PASSWORD:-mem0}@postgres:5432/${POSTGRES_DB:-openmemory}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: ${PGBOUNCER_MAX_CLIENT_CONN:-1000}
+      DEFAULT_POOL_SIZE: ${PGBOUNCER_POOL_SIZE:-100}
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mem0_pgdata:

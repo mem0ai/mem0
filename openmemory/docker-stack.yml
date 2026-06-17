@@ -1,0 +1,69 @@
+# Docker Swarm stack — Mem0/OpenMemory em escala (ADR-006).
+#
+# Deploy:
+#   docker stack deploy -c docker-stack.yml mem0
+#
+# Escala manual de réplicas:
+#   docker service scale mem0_openmemory-mcp=4 mem0_openmemory-write-worker=8
+#
+# Para desenvolvimento local, prefira docker-compose.scale.yml.
+
+version: "3.8"
+
+include:
+  - compose/postgres.yml
+  - compose/redis.yml
+  - compose/inference.yml
+  - compose/proxy.yml
+  - compose/observability.yml
+
+services:
+  mem0_store:
+    image: qdrant/qdrant
+    volumes:
+      - mem0_storage:/qdrant/storage
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  openmemory-mcp:
+    image: mem0/openmemory-mcp
+    environment:
+      DATABASE_URL: postgresql://mem0:mem0@pgbouncer:5432/openmemory
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_HOST: mem0_store
+      QDRANT_PORT: "6333"
+      RUN_EMBEDDED_WORKER: "false"
+      OLLAMA_EMBED_URL: http://ollama-embed:11434
+      OLLAMA_LLM_URL: http://ollama-llm:11434
+    deploy:
+      replicas: 4
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.openmemory.rule=PathPrefix(`/`)
+        - traefik.http.routers.openmemory.entrypoints=web
+        - traefik.http.services.openmemory.loadbalancer.server.port=8765
+        - traefik.http.services.openmemory.loadbalancer.sticky.cookie=true
+        - traefik.http.middlewares.openmemory-ratelimit.ratelimit.average=100
+        - traefik.http.middlewares.openmemory-cb.circuitbreaker.expression=ResponseCodeRatio(500,600,0) > 0.50
+        - traefik.http.routers.openmemory.middlewares=openmemory-ratelimit,openmemory-cb
+
+  openmemory-write-worker:
+    image: mem0/openmemory-mcp
+    command: python -m app.workers.write_worker
+    environment:
+      DATABASE_URL: postgresql://mem0:mem0@pgbouncer:5432/openmemory
+      REDIS_URL: redis://redis:6379/0
+      RUN_EMBEDDED_WORKER: "false"
+      OLLAMA_EMBED_URL: http://ollama-embed:11434
+      OLLAMA_LLM_URL: http://ollama-llm:11434
+    deploy:
+      replicas: 8
+      restart_policy:
+        condition: on-failure
+
+volumes:
+  mem0_storage:

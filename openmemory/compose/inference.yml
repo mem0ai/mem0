@@ -1,0 +1,30 @@
+# Dedicated local inference services (ADR-002). Embedding and LLM run in
+# separate containers so they can scale independently without GPU contention.
+services:
+  ollama-embed:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_embed_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  ollama-llm:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_llm_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  ollama_embed_data:
+  ollama_llm_data:
