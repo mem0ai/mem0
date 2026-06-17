@@ -413,7 +413,11 @@ export class Memory {
             matches = await entityStore.search(entityVec, 1, filters);
           } catch {}
 
-          if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+          if (
+            matches.length > 0 &&
+            (matches[0].score ?? 0) >= 0.95 &&
+            this.isSameEntityScope(matches[0].payload, filters)
+          ) {
             const match = matches[0];
             const payload = match.payload || {};
             const linked = new Set<string>(
@@ -562,6 +566,30 @@ export class Memory {
       await this._getTelemetryId();
       await displayPerformanceSlowQueryNotice(this, trigger);
     } catch {}
+  }
+
+  private getEntityScope(source: Record<string, any> = {}): SearchFilters {
+    const scope: SearchFilters = {};
+    for (const key of ["user_id", "agent_id", "run_id"] as const) {
+      const value = source[key];
+      if (value) {
+        scope[key] = value;
+      }
+    }
+    return scope;
+  }
+
+  private isSameEntityScope(
+    payload: Record<string, any> = {},
+    filters: SearchFilters,
+  ): boolean {
+    const payloadScope = this.getEntityScope(payload);
+    const filterScope = this.getEntityScope(filters);
+    return (
+      payloadScope.user_id === filterScope.user_id &&
+      payloadScope.agent_id === filterScope.agent_id &&
+      payloadScope.run_id === filterScope.run_id
+    );
   }
 
   private async _getNoticeTelemetryId() {
@@ -1056,7 +1084,11 @@ export class Memory {
               matches = await entityStore.search(entityVec, 1, filters);
             } catch {}
 
-            if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+            if (
+              matches.length > 0 &&
+              (matches[0].score ?? 0) >= 0.95 &&
+              this.isSameEntityScope(matches[0].payload, filters)
+            ) {
               // Update existing entity
               const match = matches[0];
               const payload = match.payload || {};
