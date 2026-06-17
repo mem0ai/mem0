@@ -696,7 +696,10 @@ export default class MemoryClient {
       throw new Error("Missing filters or schema");
     }
 
-    const { filters, ...rest } = data;
+    // filters and schema are user-controlled blobs whose keys must reach the
+    // API verbatim; only the remaining SDK params (e.g. exportInstructions)
+    // get camel->snake conversion. See issue #5593.
+    const { filters, schema, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/`,
       {
@@ -705,6 +708,7 @@ export default class MemoryClient {
         body: JSON.stringify({
           ...camelToSnakeKeys(rest),
           filters,
+          schema,
         }),
       },
     );
