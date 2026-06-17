@@ -245,6 +245,12 @@ def _make_async_memory(mocker, extracted_texts, embed_fn):
     mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
     mocker.patch("mem0.memory.main.extract_entities_batch", side_effect=lambda texts: [[] for _ in texts])
     mocker.patch("mem0.memory.main.capture_event")
+    # patches so the async add() wrapper is drivable too
+    mocker.patch("mem0.memory.main.parse_vision_messages", side_effect=lambda messages, *a, **k: messages)
+    mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata", return_value=None)
+    mocker.patch("mem0.memory.main.detect_scale_threshold_from_add_result", return_value=None)
+    mocker.patch("mem0.memory.main.display_first_run_notice_async", new=mocker.AsyncMock())
+    mocker.patch("mem0.memory.main._build_filters_and_metadata", return_value=({}, {}))
 
     m = AsyncMemory()
     m.config = mocker.MagicMock()
@@ -282,3 +288,40 @@ async def test_async_provider_and_validation_collected(mocker):
         "prov": EmbeddingErrorClass.PROVIDER,
         "val": EmbeddingErrorClass.VALIDATION,
     }
+
+
+@pytest.mark.asyncio
+async def test_async_add_returns_failed_in_result_by_default(mocker):
+    def embed(text):
+        if text == "bad":
+            raise RuntimeError("503")
+        return [0.1, 0.2, 0.3]
+
+    m = _make_async_memory(mocker, ["good", "bad"], embed)
+    res = await m.add("hello", user_id="u")
+    assert [r["memory"] for r in res["results"]] == ["good"]
+    assert len(res["failed"]) == 1
+    assert res["failed"][0]["error_class"] == EmbeddingErrorClass.PROVIDER
+
+
+@pytest.mark.asyncio
+async def test_async_add_raise_on_partial_failure_raises(mocker):
+    def embed(text):
+        if text == "bad":
+            raise RuntimeError("503")
+        return [0.1, 0.2, 0.3]
+
+    m = _make_async_memory(mocker, ["good", "bad"], embed)
+    with pytest.raises(EmbeddingError):
+        await m.add("hello", user_id="u", raise_on_partial_failure=True)
+
+
+def test_internal_error_on_unexpected_processing_failure(mocker):
+    # An unexpected failure validating/recording a returned vector (not a provider
+    # throw, not a known validation reason) is surfaced as internal_error.
+    m = _make_memory(mocker, ["x"], lambda text: [0.1, 0.2, 0.3])
+    mocker.patch("mem0.memory.main._validate_embedding", side_effect=RuntimeError("boom"))
+    failed = []
+    _run(m, failed)
+    assert len(failed) == 1
+    assert failed[0]["error_class"] == EmbeddingErrorClass.INTERNAL

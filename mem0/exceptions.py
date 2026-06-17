@@ -28,6 +28,7 @@ Example:
                 logger.info(f"Suggestion: {e.suggestion}")
 """
 
+from enum import Enum
 from typing import Any, Dict, Optional
 
 
@@ -343,20 +344,22 @@ class EmbeddingError(MemoryError):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
 
-class EmbeddingErrorClass:
+class EmbeddingErrorClass(str, Enum):
     """Controlled vocabulary for the embedding-failure taxonomy.
 
-    Carried on ``EmbeddingError.error_code`` and on each ``failed[]`` entry's
-    ``error_class`` field. The class is assigned at the point of detection
-    (provider call failure vs. inspecting the returned vector), never
-    re-derived from a stringified error.
+    Carried on each ``failed[]`` entry's ``error_class`` field (and, when
+    ``raise_on_partial_failure`` raises, under ``EmbeddingError.details["failed"]``).
+    Assigned at the point of detection — provider call failure vs. inspecting the
+    returned vector — never re-derived from a stringified error. Subclassing
+    ``str`` keeps JSON output identical (``EmbeddingErrorClass.PROVIDER ==
+    "provider_error"``) while adding membership and exhaustiveness checks.
     """
 
     #: The embed call failed (transport / HTTP / timeout). Transient subset is retry-safe.
     PROVIDER = "provider_error"
     #: The returned vector is structurally invalid (NaN/Inf, wrong dimension, empty). Not retry-safe.
     VALIDATION = "validation_error"
-    #: Any other failure in the processing path. Catch-all.
+    #: Any other failure in mem0's own processing path. Catch-all.
     INTERNAL = "internal_error"
 
 

@@ -12,7 +12,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -810,7 +810,7 @@ class Memory(MemoryBase):
             )
         return {"results": vector_store_result, "failed": failed}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, failed=None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, failed: Optional[List[dict]] = None):
         # `failed` is an out-parameter: add() passes a list that we append
         # per-item embedding failures to (provider_error / validation_error),
         # so the caller can surface them without losing the successes.
@@ -952,13 +952,19 @@ class Memory(MemoryBase):
                     logger.warning(f"Failed to embed memory text: {e}")
                     failed.append({"text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
                     continue
-                reason = _validate_embedding(vec, batch_dim)
-                if reason is None:
-                    embed_map[text] = vec
-                    if batch_dim is None:
-                        batch_dim = len(vec)
-                else:
-                    failed.append({"text": text, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                try:
+                    reason = _validate_embedding(vec, batch_dim)
+                    if reason is None:
+                        embed_map[text] = vec
+                        if batch_dim is None:
+                            batch_dim = len(vec)
+                    else:
+                        failed.append({"text": text, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                except Exception as e:
+                    # Unexpected failure validating/recording a returned vector — not the
+                    # provider's fault and not a known validation reason. Surface as internal.
+                    logger.error(f"Internal error processing embedding for memory text: {e}")
+                    failed.append({"text": text, "error_class": EmbeddingErrorClass.INTERNAL, "error": str(e)})
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -2268,8 +2274,8 @@ class AsyncMemory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
-        raise_on_partial_failure: bool = False,
         llm=None,
+        raise_on_partial_failure: bool = False,
     ):
         """
         Create a new memory asynchronously.
@@ -2365,7 +2371,7 @@ class AsyncMemory(MemoryBase):
         effective_filters: dict,
         infer: bool,
         prompt: Optional[str] = None,
-        failed=None,
+        failed: Optional[List[dict]] = None,
     ):
         # `failed` is an out-parameter (see the sync sibling): append per-item
         # embedding failures so the caller can surface them without losing the
@@ -2509,13 +2515,19 @@ class AsyncMemory(MemoryBase):
                     logger.warning(f"Failed to embed memory text (async): {e}")
                     failed.append({"text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
                     continue
-                reason = _validate_embedding(vec, batch_dim)
-                if reason is None:
-                    embed_map[text] = vec
-                    if batch_dim is None:
-                        batch_dim = len(vec)
-                else:
-                    failed.append({"text": text, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                try:
+                    reason = _validate_embedding(vec, batch_dim)
+                    if reason is None:
+                        embed_map[text] = vec
+                        if batch_dim is None:
+                            batch_dim = len(vec)
+                    else:
+                        failed.append({"text": text, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                except Exception as e:
+                    # Unexpected failure validating/recording a returned vector — not the
+                    # provider's fault and not a known validation reason. Surface as internal.
+                    logger.error(f"Internal error processing embedding for memory text (async): {e}")
+                    failed.append({"text": text, "error_class": EmbeddingErrorClass.INTERNAL, "error": str(e)})
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
