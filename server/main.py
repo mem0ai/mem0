@@ -448,7 +448,13 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
             params["top_k"] = search_req.top_k
         if search_req.threshold is not None:
             params["threshold"] = search_req.threshold
+        if search_req.explain is not None:
+            params["explain"] = search_req.explain
         return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 

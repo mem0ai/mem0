@@ -230,7 +230,7 @@ class PineconeDB(VectorStoreBase):
         if filter_dict:
             query_params["filter"] = filter_dict
 
-        if self.hybrid_search and self.sparse_encoder and "text" in filters:
+        if self.hybrid_search and self.sparse_encoder and filters and "text" in filters:
             query_text = filters.get("text")
             if query_text:
                 sparse_vector = self.sparse_encoder.encode_queries(query_text)

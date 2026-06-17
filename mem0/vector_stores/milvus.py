@@ -290,7 +290,7 @@ class MilvusDB(VectorStoreBase):
         schema = {"id": vector_id, "vectors": vector, "metadata": payload, "text": text}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
-    def get(self, vector_id):
+    def get(self, vector_id) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -298,9 +298,11 @@ class MilvusDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.client.get(collection_name=self.collection_name, ids=vector_id)
+        if not result:
+            return None
         output = OutputData(
             id=result[0].get("id", None),
             score=None,
