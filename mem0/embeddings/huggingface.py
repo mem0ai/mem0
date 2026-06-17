@@ -42,3 +42,20 @@ class HuggingFaceEmbedding(EmbeddingBase):
             ).data[0].embedding
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single call."""
+        if not texts:
+            return []
+        if self.config.huggingface_base_url:
+            response = self.client.embeddings.create(input=texts, model=self.config.model, **self.config.model_kwargs)
+            sorted_data = sorted(response.data, key=lambda x: x.index)
+            embeddings = [item.embedding for item in sorted_data]
+            if len(embeddings) != len(texts):
+                raise ValueError(
+                    f"HuggingFace embed() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                    f" using model '{self.config.model}'"
+                )
+            return embeddings
+        else:
+            return self.model.encode(texts, convert_to_numpy=True).tolist()

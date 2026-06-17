@@ -101,3 +101,63 @@ def test_embed_with_huggingface_base_url():
             truncate=True,
         )
         assert result == [0.1, 0.2, 0.3]
+
+
+def test_embed_batch_sentence_transformer(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    import numpy as np
+
+    mock_sentence_transformer.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+
+    texts = ["First text.", "Second text."]
+    result = embedder.embed_batch(texts)
+
+    mock_sentence_transformer.encode.assert_called_once_with(texts, convert_to_numpy=True)
+    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_empty_list_sentence_transformer(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    result = embedder.embed_batch([])
+
+    assert result == []
+    mock_sentence_transformer.encode.assert_not_called()
+
+
+def test_embed_batch_base_url():
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080", model="my-custom-model")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+
+        mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
+        mock_item1 = Mock(index=1, embedding=[0.4, 0.5, 0.6])
+        mock_client.embeddings.create.return_value = Mock(data=[mock_item0, mock_item1])
+
+        embedder = HuggingFaceEmbedding(config)
+        texts = ["First text.", "Second text."]
+        result = embedder.embed_batch(texts)
+
+        mock_client.embeddings.create.assert_called_once_with(
+            input=texts, model="my-custom-model"
+        )
+        assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_count_mismatch_raises_base_url():
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080", model="my-custom-model")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+
+        mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
+        mock_client.embeddings.create.return_value = Mock(data=[mock_item0])
+
+        embedder = HuggingFaceEmbedding(config)
+
+        with pytest.raises(ValueError):
+            embedder.embed_batch(["first text", "second text"])

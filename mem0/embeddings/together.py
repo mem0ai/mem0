@@ -29,3 +29,17 @@ class TogetherEmbedding(EmbeddingBase):
         """
 
         return self.client.embeddings.create(model=self.config.model, input=text).data[0].embedding
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single Together API call."""
+        if not texts:
+            return []
+        response = self.client.embeddings.create(model=self.config.model, input=texts)
+        sorted_data = sorted(response.data, key=lambda x: x.index)
+        embeddings = [item.embedding for item in sorted_data]
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"Together embed() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
+        return embeddings

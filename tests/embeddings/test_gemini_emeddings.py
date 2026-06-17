@@ -58,3 +58,36 @@ def test_config_initialization(config):
     assert embedder.config.api_key == "dummy_api_key"
     assert embedder.config.model == "test_model"
     assert embedder.config.embedding_dims == 786
+
+
+def test_embed_batch_single_call(mock_genai, config):
+    emb0 = type("Embedding", (), {"values": [0.1, 0.2, 0.3]})()
+    emb1 = type("Embedding", (), {"values": [0.4, 0.5, 0.6]})()
+    mock_genai.return_value = type("Response", (), {"embeddings": [emb0, emb1]})()
+
+    embedder = GoogleGenAIEmbedding(config)
+
+    texts = ["First text.", "Second text."]
+    result = embedder.embed_batch(texts)
+
+    mock_genai.assert_called_once_with(model="test_model", contents=texts, config=ANY)
+    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_empty_list(mock_genai, config):
+    embedder = GoogleGenAIEmbedding(config)
+
+    result = embedder.embed_batch([])
+
+    assert result == []
+    mock_genai.assert_not_called()
+
+
+def test_embed_batch_count_mismatch_raises(mock_genai, config):
+    emb0 = type("Embedding", (), {"values": [0.1, 0.2, 0.3]})()
+    mock_genai.return_value = type("Response", (), {"embeddings": [emb0]})()
+
+    embedder = GoogleGenAIEmbedding(config)
+
+    with pytest.raises(ValueError):
+        embedder.embed_batch(["first text", "second text"])
