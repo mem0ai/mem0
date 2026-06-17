@@ -42,6 +42,14 @@
   <a href="https://mem0.ai/research"><strong>📄 Benchmarking Mem0's token-efficient memory algorithm →</strong></a>
 </p>
 
+<p align="center">
+  <a href="https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mem0">
+    <img src="docs/images/atlas-cloud-logo.png" alt="Atlas Cloud" width="200">
+  </a>
+</p>
+
+> 🎁 **[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mem0)** is a full-modal, OpenAI-compatible AI inference platform — plug it into Mem0 as a drop-in LLM backend (`provider: "atlas"`) to power your memory layer with DeepSeek, Qwen, GLM, Kimi, MiniMax and more through a single API, no multi-vendor setup needed. Budget-friendly [coding plan](https://www.atlascloud.ai/console/coding-plan) available; see the [Atlas Cloud LLM guide](https://docs.mem0.ai/components/llms/models/atlas) for setup.
+
 ## New Memory Algorithm (April 2026)
 
 | Benchmark | Old | New  | Tokens  | Latency p50  |

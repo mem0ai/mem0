@@ -1,0 +1,78 @@
+---
+title: Atlas Cloud
+description: "Configure Atlas Cloud as an LLM provider in Mem0 via its OpenAI-compatible API."
+---
+
+[Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=mem0) is a full-modal, OpenAI-compatible AI inference platform that gives you a single API to access LLMs such as DeepSeek, Qwen, GLM, Kimi and MiniMax. Because it speaks the OpenAI protocol, Mem0 can use it as a drop-in LLM backend.
+
+To use Atlas Cloud, set the `ATLASCLOUD_API_KEY` environment variable. You can also optionally set `ATLASCLOUD_API_BASE` to point at a different endpoint (defaults to `https://api.atlascloud.ai/v1`).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["ATLASCLOUD_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # for embedder model
+
+config = {
+    "llm": {
+        "provider": "atlas",
+        "config": {
+            "model": "deepseek-ai/deepseek-v4-pro",  # default model
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "top_p": 1.0
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+You can also configure the API base URL in the config:
+
+```python
+config = {
+    "llm": {
+        "provider": "atlas",
+        "config": {
+            "model": "deepseek-ai/deepseek-v4-pro",
+            "atlas_base_url": "https://api.atlascloud.ai/v1",
+            "api_key": "your-api-key"  # alternatively to using environment variable
+        }
+    }
+}
+```
+
+<Note>
+  `deepseek-ai/deepseek-v4-pro` is a reasoning model — keep `max_tokens` high enough (>= 512), otherwise the budget may be spent on the reasoning trace and the returned content can be empty.
+</Note>
+
+## Available models
+
+Atlas Cloud exposes the following chat models (synced with [atlascloud.ai/models](https://www.atlascloud.ai/models)). Any of these IDs can be passed as `model`:
+
+- **Anthropic (Claude):** `anthropic/claude-haiku-4.5-20251001`, `anthropic/claude-opus-4.8`, `anthropic/claude-sonnet-4.6`
+- **OpenAI (GPT):** `openai/gpt-5.4`, `openai/gpt-5.5`
+- **Google (Gemini):** `google/gemini-3.1-flash-lite`, `google/gemini-3.1-pro-preview`, `google/gemini-3.5-flash`
+- **Alibaba Qwen:** `qwen/qwen2.5-7b-instruct`, `Qwen/Qwen3-235B-A22B-Instruct-2507`, `qwen/qwen3-235b-a22b-thinking-2507`, `qwen/qwen3-30b-a3b`, `Qwen/Qwen3-30B-A3B-Instruct-2507`, `qwen/qwen3-30b-a3b-thinking-2507`, `qwen/qwen3-32b`, `qwen/qwen3-8b`, `Qwen/Qwen3-Coder`, `qwen/qwen3-coder-next`, `qwen/qwen3-max-2026-01-23`, `Qwen/Qwen3-Next-80B-A3B-Instruct`, `Qwen/Qwen3-Next-80B-A3B-Thinking`, `Qwen/Qwen3-VL-235B-A22B-Instruct`, `qwen/qwen3-vl-235b-a22b-thinking`, `qwen/qwen3-vl-30b-a3b-instruct`, `qwen/qwen3-vl-30b-a3b-thinking`, `qwen/qwen3-vl-8b-instruct`, `qwen/qwen3.5-122b-a10b`, `qwen/qwen3.5-27b`, `qwen/qwen3.5-35b-a3b`, `qwen/qwen3.5-397b-a17b`, `qwen/qwen3.6-35b-a3b`, `qwen/qwen3.6-plus`
+- **DeepSeek:** `deepseek-ai/deepseek-ocr`, `deepseek-ai/deepseek-r1-0528`, `deepseek-ai/DeepSeek-V3-0324`, `deepseek-ai/DeepSeek-V3.1`, `deepseek-ai/DeepSeek-V3.1-Terminus`, `deepseek-ai/deepseek-v3.2`, `deepseek-ai/DeepSeek-V3.2-Exp`, `deepseek-ai/deepseek-v4-flash`, `deepseek-ai/deepseek-v4-pro`
+- **Moonshot (Kimi):** `moonshotai/Kimi-K2-Instruct`, `moonshotai/Kimi-K2-Instruct-0905`, `moonshotai/Kimi-K2-Thinking`, `moonshotai/kimi-k2.5`, `moonshotai/kimi-k2.6`
+- **Zhipu GLM:** `zai-org/GLM-4.6`, `zai-org/glm-4.7`, `zai-org/glm-5`, `zai-org/glm-5-turbo`, `zai-org/glm-5.1`, `zai-org/glm-5v-turbo`
+- **MiniMax:** `MiniMaxAI/MiniMax-M2`, `minimaxai/minimax-m2.1`, `minimaxai/minimax-m2.5`, `minimaxai/minimax-m2.7`
+- **xAI:** `xai/grok-4.3`
+- **Kuaishou KAT:** `kwaipilot/kat-coder-pro-v2`
+- **Other:** `owl`
+
+## Config
+
+All available parameters for the `atlas` config are present in [Master List of All Params in Config](../config).
