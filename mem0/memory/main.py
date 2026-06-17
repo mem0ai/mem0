@@ -80,6 +80,63 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
 
+ADD_CONTEXT_SEARCH_MAX_CHARS = 15000
+ADD_MAX_EXTRACTED_MEMORIES = 20
+ADD_MEMORY_EMBEDDING_MAX_CHARS = 15000
+ADD_MAX_ENTITY_LINKS_PER_EVENT = 100
+SEARCH_QUERY_MAX_CHARS = 15000
+
+
+def _tail_cap_text(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    return text[-max_chars:]
+
+
+def _cap_extracted_memories(extracted_memories: list) -> list:
+    if len(extracted_memories) <= ADD_MAX_EXTRACTED_MEMORIES:
+        return extracted_memories
+    logger.warning(
+        "Extracted memory cap applied: extracted=%d processing=%d",
+        len(extracted_memories),
+        ADD_MAX_EXTRACTED_MEMORIES,
+    )
+    return extracted_memories[-ADD_MAX_EXTRACTED_MEMORIES:]
+
+
+def _cap_memory_embedding_texts(mem_texts: list[str]) -> list[str]:
+    capped = [_tail_cap_text(t, ADD_MEMORY_EMBEDDING_MAX_CHARS) for t in mem_texts]
+    capped_count = sum(1 for original, capped_text in zip(mem_texts, capped) if len(original) != len(capped_text))
+    if capped_count:
+        logger.warning(
+            "Memory embedding input cap applied: capped_count=%d max_chars=%d",
+            capped_count,
+            ADD_MEMORY_EMBEDDING_MAX_CHARS,
+        )
+    return capped
+
+
+def _cap_search_query(query: str) -> str:
+    capped = _tail_cap_text(query, SEARCH_QUERY_MAX_CHARS)
+    if len(capped) != len(query):
+        logger.warning(
+            "Search query cap applied: original_chars=%d searched_chars=%d",
+            len(query),
+            len(capped),
+        )
+    return capped
+
+
+def _cap_entity_keys(entity_keys: list[str]) -> list[str]:
+    if len(entity_keys) <= ADD_MAX_ENTITY_LINKS_PER_EVENT:
+        return entity_keys
+    logger.warning(
+        "ADD entity-linking cap applied: extracted=%d processing=%d",
+        len(entity_keys),
+        ADD_MAX_ENTITY_LINKS_PER_EVENT,
+    )
+    return entity_keys[:ADD_MAX_ENTITY_LINKS_PER_EVENT]
+
 
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
@@ -804,9 +861,16 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        search_messages = _tail_cap_text(parsed_messages, ADD_CONTEXT_SEARCH_MAX_CHARS)
+        if len(search_messages) != len(parsed_messages):
+            logger.warning(
+                "ADD context-search embedding capped: original_chars=%d embedded_chars=%d",
+                len(parsed_messages),
+                len(search_messages),
+            )
+        query_embedding = self.embedding_model.embed(search_messages, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=search_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -860,6 +924,7 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
             extracted_memories = []
+        extracted_memories = _cap_extracted_memories(extracted_memories)
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -868,15 +933,16 @@ class Memory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        mem_embedding_texts = _cap_memory_embedding_texts(mem_texts)
         try:
-            mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
+            mem_embeddings_list = self.embedding_model.embed_batch(mem_embedding_texts, "add")
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             # Fallback: embed individually
             embed_map = {}
-            for text in mem_texts:
+            for text, embedding_text in zip(mem_texts, mem_embedding_texts):
                 try:
-                    embed_map[text] = self.embedding_model.embed(text, "add")
+                    embed_map[text] = self.embedding_model.embed(embedding_text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
 
@@ -978,7 +1044,7 @@ class Memory(MemoryBase):
                         global_entities[key] = [entity_type, entity_text, {memory_id}]
 
             if global_entities:
-                ordered_keys = list(global_entities.keys())
+                ordered_keys = _cap_entity_keys(list(global_entities.keys()))
                 entity_texts = [global_entities[k][1] for k in ordered_keys]
 
                 # 7b: Single batch embed for all unique entities
@@ -1478,6 +1544,7 @@ class Memory(MemoryBase):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
+        query = _cap_search_query(query)
 
         # Step 1: Preprocess query
         query_lemmatized = lemmatize_for_bm25(query)
@@ -2310,10 +2377,17 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        search_messages = _tail_cap_text(parsed_messages, ADD_CONTEXT_SEARCH_MAX_CHARS)
+        if len(search_messages) != len(parsed_messages):
+            logger.warning(
+                "ADD context-search embedding capped: original_chars=%d embedded_chars=%d",
+                len(parsed_messages),
+                len(search_messages),
+            )
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, search_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=search_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -2368,6 +2442,7 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
             extracted_memories = []
+        extracted_memories = _cap_extracted_memories(extracted_memories)
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
@@ -2375,14 +2450,15 @@ class AsyncMemory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        mem_embedding_texts = _cap_memory_embedding_texts(mem_texts)
         try:
-            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_embedding_texts, "add")
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
-            for text in mem_texts:
+            for text, embedding_text in zip(mem_texts, mem_embedding_texts):
                 try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, embedding_text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
 
@@ -2485,7 +2561,7 @@ class AsyncMemory(MemoryBase):
                         global_entities[key] = [entity_type, entity_text, {memory_id}]
 
             if global_entities:
-                ordered_keys = list(global_entities.keys())
+                ordered_keys = _cap_entity_keys(list(global_entities.keys()))
                 entity_texts = [global_entities[k][1] for k in ordered_keys]
 
                 # 7b: Batch embed entities
@@ -2990,6 +3066,7 @@ class AsyncMemory(MemoryBase):
     async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
         if threshold is None:
             threshold = 0.1
+        query = _cap_search_query(query)
 
         # Step 1: Preprocess query (CPU-bound)
         query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)

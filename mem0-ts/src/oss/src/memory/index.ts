@@ -84,6 +84,58 @@ const ENTITY_PARAMS = [
   "runId",
 ];
 
+const ADD_CONTEXT_SEARCH_MAX_CHARS = 15000;
+const ADD_MAX_EXTRACTED_MEMORIES = 20;
+const ADD_MEMORY_EMBEDDING_MAX_CHARS = 15000;
+const ADD_MAX_ENTITY_LINKS_PER_EVENT = 100;
+const SEARCH_QUERY_MAX_CHARS = 15000;
+
+function tailCapText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return text.slice(-maxChars);
+}
+
+function capExtractedMemories<T>(memories: T[]): T[] {
+  if (memories.length <= ADD_MAX_EXTRACTED_MEMORIES) return memories;
+  console.warn(
+    `Extracted memory cap applied: extracted=${memories.length} processing=${ADD_MAX_EXTRACTED_MEMORIES}`,
+  );
+  return memories.slice(-ADD_MAX_EXTRACTED_MEMORIES);
+}
+
+function capMemoryEmbeddingTexts(texts: string[]): string[] {
+  const capped = texts.map((text) =>
+    tailCapText(text, ADD_MEMORY_EMBEDDING_MAX_CHARS),
+  );
+  const cappedCount = texts.filter(
+    (text, index) => text !== capped[index],
+  ).length;
+  if (cappedCount > 0) {
+    console.warn(
+      `Memory embedding input cap applied: capped_count=${cappedCount} max_chars=${ADD_MEMORY_EMBEDDING_MAX_CHARS}`,
+    );
+  }
+  return capped;
+}
+
+function capSearchQuery(query: string): string {
+  const capped = tailCapText(query, SEARCH_QUERY_MAX_CHARS);
+  if (capped.length !== query.length) {
+    console.warn(
+      `Search query cap applied: original_chars=${query.length} searched_chars=${capped.length}`,
+    );
+  }
+  return capped;
+}
+
+function capEntityKeys(keys: string[]): string[] {
+  if (keys.length <= ADD_MAX_ENTITY_LINKS_PER_EVENT) return keys;
+  console.warn(
+    `ADD entity-linking cap applied: extracted=${keys.length} processing=${ADD_MAX_ENTITY_LINKS_PER_EVENT}`,
+  );
+  return keys.slice(0, ADD_MAX_ENTITY_LINKS_PER_EVENT);
+}
+
 /**
  * Validates that no top-level entity parameters are passed in config.
  * @throws Error if entity params are found at top level
@@ -734,7 +786,16 @@ export class Memory {
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
     // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages);
+    const searchMessages = tailCapText(
+      parsedMessages,
+      ADD_CONTEXT_SEARCH_MAX_CHARS,
+    );
+    if (searchMessages.length !== parsedMessages.length) {
+      console.warn(
+        `ADD context-search embedding capped: original_chars=${parsedMessages.length} embedded_chars=${searchMessages.length}`,
+      );
+    }
+    const queryEmbedding = await this.embedder.embed(searchMessages);
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,
@@ -805,6 +866,7 @@ export class Memory {
       console.error("Error parsing extraction response:", e);
       extractedMemories = [];
     }
+    extractedMemories = capExtractedMemories(extractedMemories);
 
     if (extractedMemories.length === 0) {
       // Save messages even if nothing extracted
@@ -826,17 +888,21 @@ export class Memory {
     const memTexts = extractedMemories
       .map((m) => m.text ?? "")
       .filter((t) => t.length > 0);
+    const memEmbeddingTexts = capMemoryEmbeddingTexts(memTexts);
     let embedMap: Record<string, number[]> = {};
     try {
-      const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
+      const memEmbeddingsList =
+        await this.embedder.embedBatch(memEmbeddingTexts);
       for (let i = 0; i < memTexts.length; i++) {
         embedMap[memTexts[i]] = memEmbeddingsList[i];
       }
     } catch {
       // Fallback: embed individually
-      for (const text of memTexts) {
+      for (let i = 0; i < memTexts.length; i++) {
+        const text = memTexts[i];
+        const embeddingText = memEmbeddingTexts[i];
         try {
-          embedMap[text] = await this.embedder.embed(text);
+          embedMap[text] = await this.embedder.embed(embeddingText);
         } catch (e) {
           console.warn(`Failed to embed memory text: ${e}`);
         }
@@ -1007,9 +1073,8 @@ export class Memory {
 
       const orderedKeys = Object.keys(globalEntities);
       if (orderedKeys.length > 0) {
-        const entityTexts = orderedKeys.map(
-          (k) => globalEntities[k].entityText,
-        );
+        const entityKeys = capEntityKeys(orderedKeys);
+        const entityTexts = entityKeys.map((k) => globalEntities[k].entityText);
 
         // 7b: Single batch embed for all unique entities
         let entityEmbeddings: (number[] | null)[];
@@ -1029,9 +1094,9 @@ export class Memory {
 
         // Filter out entities with failed embeddings
         const valid: Array<{ index: number; key: string }> = [];
-        for (let i = 0; i < orderedKeys.length; i++) {
+        for (let i = 0; i < entityKeys.length; i++) {
           if (entityEmbeddings[i] !== null) {
-            valid.push({ index: i, key: orderedKeys[i] });
+            valid.push({ index: i, key: entityKeys[i] });
           }
         }
 
@@ -1256,6 +1321,7 @@ export class Memory {
     }
 
     const searchStartMs = Date.now();
+    query = capSearchQuery(query);
 
     // Step 1: Preprocess query
     const queryLemmatized = lemmatizeForBm25(query);
