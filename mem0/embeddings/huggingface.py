@@ -42,3 +42,18 @@ class HuggingFaceEmbedding(EmbeddingBase):
             ).data[0].embedding
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()
+
+    def embed_batch(self, texts, memory_action="add"):
+        if not texts:
+            return []
+
+        if self.config.huggingface_base_url:
+            response = self.client.embeddings.create(
+                input=list(texts), model=self.config.model, **self.config.model_kwargs
+            )
+            return [item.embedding for item in response.data]
+
+        embeddings = self.model.encode(list(texts), convert_to_numpy=True)
+        if embeddings.ndim == 1:
+            return [embeddings.tolist()]
+        return embeddings.tolist()

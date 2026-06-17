@@ -68,6 +68,7 @@ import {
   scoreAndRank,
   getBm25Params,
   normalizeBm25,
+  ENTITY_BOOST_SEARCH_TOP_K,
   ENTITY_BOOST_WEIGHT,
   ScoredResult,
 } from "../utils/scoring";
@@ -501,17 +502,19 @@ export class Memory {
     }
   }
 
-  private async _captureEvent(methodName: string, additionalData = {}) {
-    try {
-      await this._getTelemetryId();
-      await captureClientEvent(methodName, this, {
-        ...additionalData,
-        api_version: this.apiVersion,
-        collection_name: this.collectionName,
-      });
-    } catch (error) {
-      console.error(`Failed to capture ${methodName} event:`, error);
-    }
+  private _captureEvent(methodName: string, additionalData = {}) {
+    void (async () => {
+      try {
+        await this._getTelemetryId();
+        await captureClientEvent(methodName, this, {
+          ...additionalData,
+          api_version: this.apiVersion,
+          collection_name: this.collectionName,
+        });
+      } catch (error) {
+        console.error(`Failed to capture ${methodName} event:`, error);
+      }
+    })();
   }
 
   private async _displayFirstRunNotice(triggerFunction: string) {
@@ -626,7 +629,7 @@ export class Memory {
     );
 
     await this._ensureInitialized();
-    await this._captureEvent("add", {
+    this._captureEvent("add", {
       message_count: Array.isArray(messages) ? messages.length : 1,
       has_metadata: !!config.metadata,
       has_filters: !!config.filters,
@@ -703,23 +706,115 @@ export class Memory {
   ): Promise<MemoryItem[]> {
     if (!infer) {
       logger.info("addToVectorStore() → raw mode (infer=false) | messages=%d", messages.length);
-      const returnedMemories: MemoryItem[] = [];
+      const validMessages: Array<{
+        content: string;
+        metadata: Record<string, any>;
+      }> = [];
+
       for (const message of messages) {
-        if (message.content === "system") {
+        if (message.role === "system") {
           logger.debug("addToVectorStore() → skipping system message");
           continue;
         }
-        const memoryId = await this.createMemory(
-          message.content as string,
-          {},
-          metadata,
-        );
+        const perMsgMeta = { ...metadata, role: message.role };
+        const actorName = message.name;
+        if (actorName) {
+          perMsgMeta.actor_id = actorName;
+        }
+        validMessages.push({
+          content: message.content as string,
+          metadata: perMsgMeta,
+        });
+      }
+
+      if (validMessages.length === 0) {
+        return [];
+      }
+
+      const contents = validMessages.map((item) => item.content);
+      let embeddings = await this.embedder.embedBatch(contents);
+      if (embeddings.length !== contents.length) {
+        embeddings = await Promise.all(contents.map((text) => this.embedder.embed(text)));
+      }
+
+      const allVectors: number[][] = [];
+      const allIds: string[] = [];
+      const allPayloads: Record<string, any>[] = [];
+      const returnedMemories: MemoryItem[] = [];
+
+      for (const [index, item] of validMessages.entries()) {
+        const memoryId = uuidv4();
+        const memoryMetadata = {
+          ...item.metadata,
+          data: item.content,
+          hash: createHash("md5").update(item.content).digest("hex"),
+          textLemmatized: lemmatizeForBm25(item.content),
+          createdAt: new Date().toISOString(),
+        };
+
+        allVectors.push(embeddings[index]);
+        allIds.push(memoryId);
+        allPayloads.push(memoryMetadata);
         returnedMemories.push({
           id: memoryId,
-          memory: message.content as string,
+          memory: item.content,
           metadata: { event: "ADD" },
         });
       }
+
+      try {
+        await this.vectorStore.insert(allVectors, allIds, allPayloads);
+      } catch {
+        for (let i = 0; i < allIds.length; i++) {
+          try {
+            await this.vectorStore.insert(
+              [allVectors[i]],
+              [allIds[i]],
+              [allPayloads[i]],
+            );
+          } catch {}
+        }
+      }
+
+      if (typeof this.db.batchAddHistory === "function") {
+        try {
+          await this.db.batchAddHistory(
+            allIds.map((memoryId, index) => ({
+              memoryId,
+              previousValue: null,
+              newValue: validMessages[index].content,
+              action: "ADD",
+              createdAt: allPayloads[index].createdAt,
+              isDeleted: 0,
+            })),
+          );
+        } catch {
+          for (let i = 0; i < allIds.length; i++) {
+            try {
+              await this.db.addHistory(
+                allIds[i],
+                null,
+                validMessages[i].content,
+                "ADD",
+                allPayloads[i].createdAt,
+              );
+            } catch {}
+          }
+        }
+      } else {
+        for (let i = 0; i < allIds.length; i++) {
+          try {
+            await this.db.addHistory(
+              allIds[i],
+              null,
+              validMessages[i].content,
+              "ADD",
+              allPayloads[i].createdAt,
+            );
+          } catch {}
+        }
+      }
+
       logger.info("addToVectorStore() raw complete | created=%d", returnedMemories.length);
       return returnedMemories;
     }
@@ -1080,26 +1175,29 @@ export class Memory {
         if (valid.length > 0) {
           const entityStore = await this.getEntityStore();
 
-          // 7c: Search for existing entities one by one (no batch search)
+          // 7c: Search for existing entities in parallel (dedup uses top_k=1)
           const toInsertVectors: number[][] = [];
           const toInsertIds: string[] = [];
           const toInsertPayloads: Record<string, any>[] = [];
 
-          for (const { index: j, key } of valid) {
-            const { entityType, entityText, memoryIds } = globalEntities[key];
-            const entityVec = entityEmbeddings[j]!;
+          const searchResults = await Promise.allSettled(
+            valid.map(async ({ index: j, key }) => {
+              const { entityType, entityText, memoryIds } = globalEntities[key];
+              const entityVec = entityEmbeddings[j]!;
+              const matches = await entityStore.search(entityVec, 1, filters);
+              return { key, entityType, entityText, memoryIds, entityVec, matches };
+            }),
+          );
 
-            let matches: Array<{
-              id: string;
-              score?: number;
-              payload: Record<string, any>;
-            }> = [];
-            try {
-              matches = await entityStore.search(entityVec, 1, filters);
-            } catch {}
+          for (const result of searchResults) {
+            if (result.status === "rejected") {
+              logger.debug("Phase 7: Entity search failed", { error: String(result.reason) });
+              continue;
+            }
+
+            const { entityType, entityText, memoryIds, entityVec, matches } = result.value;
 
             if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
-              // Update existing entity
               const match = matches[0];
               const payload = match.payload || {};
               const linked = new Set<string>(payload.linkedMemoryIds ?? []);
@@ -1111,7 +1209,6 @@ export class Memory {
                 logger.debug("Phase 7: Entity update failed", { entity: entityText, error: String(e) });
               }
             } else {
-              // New entity — collect for batch insert
               const entityPayload: Record<string, any> = {
                 data: entityText,
                 entityType,
@@ -1261,7 +1358,7 @@ export class Memory {
     await this._ensureInitialized();
     const { topK = 20, threshold = 0.1, explain = false } = config;
 
-    await this._captureEvent("search", {
+    this._captureEvent("search", {
       query_length: query.length,
       topK,
       has_filters: !!config.filters,
@@ -1309,32 +1406,20 @@ export class Memory {
     // Step 2: Embed query
     const queryEmbedding = await this.embedder.embed(query);
 
-    // Step 3: Semantic search (over-fetch for scoring pool)
+    // Step 3 & 4: Semantic + keyword search in parallel (over-fetch for scoring pool)
     const internalLimit = Math.max(topK * 4, 60);
-    const semanticResults = await this.vectorStore.search(
-      queryEmbedding,
-      internalLimit,
-      effectiveFilters,
-    );
+    const keywordSearchPromise =
+      typeof this.vectorStore.keywordSearch === "function"
+        ? this.vectorStore
+            .keywordSearch(queryLemmatized, internalLimit, effectiveFilters)
+            .catch(() => null)
+        : Promise.resolve(null);
 
-    // Step 4: Keyword search (if store supports it)
-    let keywordResults: Array<{
-      id: string;
-      score?: number;
-      payload: Record<string, any>;
-    }> | null = null;
-    if (typeof this.vectorStore.keywordSearch === "function") {
-      try {
-        keywordResults =
-          (await this.vectorStore.keywordSearch(
-            queryLemmatized,
-            internalLimit,
-            effectiveFilters,
-          )) ?? null;
-      } catch {
-        keywordResults = null;
-      }
-    }
+    const [semanticResults, keywordResultsRaw] = await Promise.all([
+      this.vectorStore.search(queryEmbedding, internalLimit, effectiveFilters),
+      keywordSearchPromise,
+    ]);
+    const keywordResults = keywordResultsRaw ?? null;
 
     // Step 5: Compute BM25 scores from keyword results
     const bm25Scores: Record<string, number> = {};
@@ -1381,7 +1466,7 @@ export class Memory {
           } else {
             const searchResults = await Promise.allSettled(
               deduped.map((_, i) =>
-                entityStore.search(embeddings[i], 500, entitySearchFilters),
+                entityStore.search(embeddings[i], ENTITY_BOOST_SEARCH_TOP_K, entitySearchFilters),
               ),
             );
 
@@ -1516,7 +1601,7 @@ export class Memory {
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
     await this._ensureInitialized();
-    await this._captureEvent("update", { memory_id: memoryId });
+    this._captureEvent("update", { memory_id: memoryId });
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
     const result = { message: "Memory updated successfully!" };
@@ -1526,7 +1611,7 @@ export class Memory {
 
   async delete(memoryId: string): Promise<{ message: string }> {
     await this._ensureInitialized();
-    await this._captureEvent("delete", { memory_id: memoryId });
+    this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
     const result = { message: "Memory deleted successfully!" };
     const deleteCount = getDecayUsageDeleteCountAfterSuccess();
@@ -1547,7 +1632,7 @@ export class Memory {
     config: DeleteAllMemoryOptions,
   ): Promise<{ message: string }> {
     await this._ensureInitialized();
-    await this._captureEvent("delete_all", {
+    this._captureEvent("delete_all", {
       has_user_id: !!config.userId,
       has_agent_id: !!config.agentId,
       has_run_id: !!config.runId,
@@ -1594,7 +1679,7 @@ export class Memory {
 
   async reset(): Promise<void> {
     await this._ensureInitialized();
-    await this._captureEvent("reset");
+    this._captureEvent("reset");
     await this.db.reset();
 
     // Check provider before attempting deleteCol
@@ -1667,7 +1752,7 @@ export class Memory {
       }).filter(([, v]) => v !== undefined),
     );
 
-    await this._captureEvent("get_all", {
+    this._captureEvent("get_all", {
       topK,
       has_user_id: !!filters.user_id,
       has_agent_id: !!filters.agent_id,

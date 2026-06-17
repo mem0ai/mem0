@@ -8,6 +8,7 @@
  */
 
 export const ENTITY_BOOST_WEIGHT = 0.5;
+export const ENTITY_BOOST_SEARCH_TOP_K = 50;
 
 /**
  * Get BM25 sigmoid parameters based on query length.

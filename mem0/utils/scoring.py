@@ -55,6 +55,7 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 
 
 ENTITY_BOOST_WEIGHT = 0.5
+ENTITY_BOOST_SEARCH_TOP_K = 50
 
 
 def score_and_rank(

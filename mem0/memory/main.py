@@ -72,6 +72,7 @@ from mem0.utils.logger import (
     set_op_ctx,
 )
 from mem0.utils.scoring import (
+    ENTITY_BOOST_SEARCH_TOP_K,
     ENTITY_BOOST_WEIGHT,
     get_bm25_params,
     normalize_bm25,
@@ -839,7 +840,7 @@ class Memory(MemoryBase):
 
         if not infer:
             logger.info("add() → raw mode (infer=False) | msg_count=%d", len(messages))
-            returned_memories = []
+            valid_messages = []
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -860,19 +861,86 @@ class Memory(MemoryBase):
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
-                msg_content = message_dict["content"]
-                msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                valid_messages.append(
+                    (message_dict["content"], per_msg_meta, actor_name, message_dict["role"])
+                )
 
+            if not valid_messages:
+                return []
+
+            msg_contents = [item[0] for item in valid_messages]
+            embeddings_list = self.embedding_model.embed_batch(msg_contents, "add")
+            if len(embeddings_list) != len(msg_contents):
+                embeddings_list = [
+                    self.embedding_model.embed(text, "add") for text in msg_contents
+                ]
+
+            all_vectors = []
+            all_ids = []
+            all_payloads = []
+            history_records = []
+            returned_memories = []
+
+            for (msg_content, per_msg_meta, actor_name, role), embedding in zip(
+                valid_messages, embeddings_list
+            ):
+                memory_id = str(uuid.uuid4())
+                new_metadata = deepcopy(per_msg_meta)
+                new_metadata["data"] = msg_content
+                new_metadata["hash"] = hashlib.md5(msg_content.encode()).hexdigest()
+                if "created_at" not in new_metadata:
+                    new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+                new_metadata["updated_at"] = new_metadata["created_at"]
+                new_metadata["text_lemmatized"] = lemmatize_for_bm25(msg_content)
+
+                all_vectors.append(embedding)
+                all_ids.append(memory_id)
+                all_payloads.append(new_metadata)
+                history_records.append(
+                    {
+                        "memory_id": memory_id,
+                        "old_memory": None,
+                        "new_memory": msg_content,
+                        "event": "ADD",
+                        "created_at": new_metadata.get("created_at"),
+                        "is_deleted": 0,
+                    }
+                )
                 returned_memories.append(
                     {
-                        "id": mem_id,
+                        "id": memory_id,
                         "memory": msg_content,
                         "event": "ADD",
                         "actor_id": actor_name if actor_name else None,
-                        "role": message_dict["role"],
+                        "role": role,
                     }
                 )
+
+            try:
+                self.vector_store.insert(vectors=all_vectors, ids=all_ids, payloads=all_payloads)
+            except Exception:
+                logger.warning("Raw mode batch insert failed, falling back to individual inserts")
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error("Failed to insert memory %s: %s", mid, e)
+
+            try:
+                self.db.batch_add_history(history_records)
+            except Exception:
+                for hr in history_records:
+                    try:
+                        self.db.add_history(
+                            hr["memory_id"],
+                            None,
+                            hr["new_memory"],
+                            "ADD",
+                            created_at=hr.get("created_at"),
+                        )
+                    except Exception as e:
+                        logger.error("Failed to add history for %s: %s", hr["memory_id"], e)
+
             logger.info("add() raw complete | created=%d", len(returned_memories))
             return returned_memories
 
@@ -1724,20 +1792,29 @@ class Memory(MemoryBase):
         # Step 2: Embed query
         embeddings = self.embedding_model.embed(query, "search")
 
-        # Step 3: Semantic search (over-fetch for scoring pool)
+        # Step 3 & 4: Semantic + keyword search in parallel (over-fetch for scoring pool)
         internal_limit = max(limit * 4, 60)
-        semantic_results = self.vector_store.search(
-            query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
+
+        def _semantic_search():
+            return self.vector_store.search(
+                query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            )
+
+        def _keyword_search():
+            return self.vector_store.keyword_search(
+                query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            semantic_future = pool.submit(_semantic_search)
+            keyword_future = pool.submit(_keyword_search)
+            semantic_results = semantic_future.result()
+            keyword_results = keyword_future.result()
+
         logger.info(
             "_search_vector_store | semantic_results=%d keyword_support=%s",
             len(semantic_results),
             "yes" if hasattr(self.vector_store, 'keyword_search') and self.vector_store.keyword_search is not VectorStoreBase.keyword_search else "no",
-        )
-
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
         )
 
         # Step 5: Compute BM25 scores from keyword results
@@ -1862,7 +1939,7 @@ class Memory(MemoryBase):
 
             def _search_entity(entity_text, embedding):
                 return entity_store.search(
-                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
+                    query=entity_text, vectors=embedding, top_k=ENTITY_BOOST_SEARCH_TOP_K, filters=search_filters
                 )
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
@@ -2559,7 +2636,7 @@ class AsyncMemory(MemoryBase):
         prompt: Optional[str] = None,
     ):
         if not infer:
-            returned_memories = []
+            valid_messages = []
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -2579,19 +2656,90 @@ class AsyncMemory(MemoryBase):
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
-                msg_content = message_dict["content"]
-                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
-                mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                valid_messages.append(
+                    (message_dict["content"], per_msg_meta, actor_name, message_dict["role"])
+                )
 
+            if not valid_messages:
+                return []
+
+            msg_contents = [item[0] for item in valid_messages]
+            embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, msg_contents, "add")
+            if len(embeddings_list) != len(msg_contents):
+                embeddings_list = []
+                for text in msg_contents:
+                    embeddings_list.append(await asyncio.to_thread(self.embedding_model.embed, text, "add"))
+
+            all_vectors = []
+            all_ids = []
+            all_payloads = []
+            history_records = []
+            returned_memories = []
+
+            for (msg_content, per_msg_meta, actor_name, role), embedding in zip(
+                valid_messages, embeddings_list
+            ):
+                memory_id = str(uuid.uuid4())
+                new_metadata = deepcopy(per_msg_meta)
+                new_metadata["data"] = msg_content
+                new_metadata["hash"] = hashlib.md5(msg_content.encode()).hexdigest()
+                if "created_at" not in new_metadata:
+                    new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+                new_metadata["updated_at"] = new_metadata["created_at"]
+                new_metadata["text_lemmatized"] = lemmatize_for_bm25(msg_content)
+
+                all_vectors.append(embedding)
+                all_ids.append(memory_id)
+                all_payloads.append(new_metadata)
+                history_records.append(
+                    {
+                        "memory_id": memory_id,
+                        "old_memory": None,
+                        "new_memory": msg_content,
+                        "event": "ADD",
+                        "created_at": new_metadata.get("created_at"),
+                        "is_deleted": 0,
+                    }
+                )
                 returned_memories.append(
                     {
-                        "id": mem_id,
+                        "id": memory_id,
                         "memory": msg_content,
                         "event": "ADD",
                         "actor_id": actor_name if actor_name else None,
-                        "role": message_dict["role"],
+                        "role": role,
                     }
                 )
+
+            try:
+                await asyncio.to_thread(
+                    self.vector_store.insert, vectors=all_vectors, ids=all_ids, payloads=all_payloads
+                )
+            except Exception:
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        await asyncio.to_thread(
+                            self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay]
+                        )
+                    except Exception as e:
+                        logger.error("Failed to insert memory %s: %s", mid, e)
+
+            try:
+                await asyncio.to_thread(self.db.batch_add_history, history_records)
+            except Exception:
+                for hr in history_records:
+                    try:
+                        await asyncio.to_thread(
+                            self.db.add_history,
+                            hr["memory_id"],
+                            None,
+                            hr["new_memory"],
+                            "ADD",
+                            created_at=hr.get("created_at"),
+                        )
+                    except Exception as e:
+                        logger.error("Failed to add history for %s: %s", hr["memory_id"], e)
+
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE (async) ===
@@ -3311,15 +3459,15 @@ class AsyncMemory(MemoryBase):
         # Step 2: Embed query
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
 
-        # Step 3: Semantic search (over-fetch)
+        # Step 3 & 4: Semantic + keyword search in parallel (over-fetch)
         internal_limit = max(limit * 4, 60)
-        semantic_results = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
-
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+        semantic_results, keyword_results = await asyncio.gather(
+            asyncio.to_thread(
+                self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            ),
+            asyncio.to_thread(
+                self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+            ),
         )
 
         # Step 5: Compute BM25 scores
@@ -3435,7 +3583,7 @@ class AsyncMemory(MemoryBase):
                         self.entity_store.search,
                         query=entity_text,
                         vectors=embedding,
-                        top_k=500,
+                        top_k=ENTITY_BOOST_SEARCH_TOP_K,
                         filters=search_filters,
                     )
 
