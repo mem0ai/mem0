@@ -202,6 +202,14 @@ class TestWeaviateDB(unittest.TestCase):
 
         self.client_mock.collections.delete.assert_called_once_with("test_collection")
 
+    def test_reset(self):
+        self.client_mock.collections.exists.return_value = False
+
+        self.weaviate_db.reset()
+
+        self.client_mock.collections.delete.assert_called_once_with("test_collection")
+        self.client_mock.collections.create.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
