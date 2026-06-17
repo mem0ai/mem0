@@ -58,4 +58,10 @@ class HuggingFaceEmbedding(EmbeddingBase):
                 )
             return embeddings
         else:
-            return self.model.encode(texts, convert_to_numpy=True).tolist()
+            result = self.model.encode(texts, convert_to_numpy=True).tolist()
+            if len(result) != len(texts):
+                raise ValueError(
+                    f"HuggingFace embed() returned {len(result)} embeddings for {len(texts)} texts"
+                    f" using model '{self.config.model}'"
+                )
+            return result

@@ -159,5 +159,15 @@ def test_embed_batch_count_mismatch_raises_base_url():
 
         embedder = HuggingFaceEmbedding(config)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
             embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_batch_count_mismatch_raises_sentence_transformer(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([[0.1, 0.2, 0.3]])
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["first text", "second text"])

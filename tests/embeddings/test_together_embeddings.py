@@ -63,5 +63,5 @@ def test_embed_batch_count_mismatch_raises(mock_together_client):
     mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
     mock_together_client.embeddings.create.return_value = Mock(data=[mock_item0])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])

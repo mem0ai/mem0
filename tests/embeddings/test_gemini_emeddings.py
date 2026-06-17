@@ -89,5 +89,15 @@ def test_embed_batch_count_mismatch_raises(mock_genai, config):
 
     embedder = GoogleGenAIEmbedding(config)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_batch_strips_newlines(mock_genai, config):
+    emb0 = type("Embedding", (), {"values": [0.1, 0.2, 0.3]})()
+    mock_genai.return_value = type("Response", (), {"embeddings": [emb0]})()
+
+    embedder = GoogleGenAIEmbedding(config)
+    embedder.embed_batch(["line one\nline two"])
+
+    mock_genai.assert_called_once_with(model="test_model", contents=["line one line two"], config=ANY)

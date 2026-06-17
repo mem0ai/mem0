@@ -32,7 +32,8 @@ class LMStudioEmbedding(EmbeddingBase):
         """Embed multiple texts in a single LM Studio API call."""
         if not texts:
             return []
-        response = self.client.embeddings.create(input=texts, model=self.config.model)
+        cleaned = [t.replace("\n", " ") for t in texts]
+        response = self.client.embeddings.create(input=cleaned, model=self.config.model)
         sorted_data = sorted(response.data, key=lambda x: x.index)
         embeddings = [item.embedding for item in sorted_data]
         if len(embeddings) != len(texts):

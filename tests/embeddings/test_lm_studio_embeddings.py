@@ -57,6 +57,20 @@ def test_embed_batch_empty_list(mock_lm_studio_client):
     mock_lm_studio_client.embeddings.create.assert_not_called()
 
 
+def test_embed_batch_strips_newlines(mock_lm_studio_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf", embedding_dims=512)
+    embedder = LMStudioEmbedding(config)
+
+    mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
+    mock_lm_studio_client.embeddings.create.return_value = Mock(data=[mock_item0])
+
+    embedder.embed_batch(["line one\nline two"])
+
+    mock_lm_studio_client.embeddings.create.assert_called_once_with(
+        input=["line one line two"], model="nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf"
+    )
+
+
 def test_embed_batch_count_mismatch_raises(mock_lm_studio_client):
     config = BaseEmbedderConfig(model="nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf", embedding_dims=512)
     embedder = LMStudioEmbedding(config)
@@ -64,5 +78,5 @@ def test_embed_batch_count_mismatch_raises(mock_lm_studio_client):
     mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
     mock_lm_studio_client.embeddings.create.return_value = Mock(data=[mock_item0])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])

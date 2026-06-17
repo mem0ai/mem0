@@ -42,8 +42,9 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         """Embed multiple texts in a single Gemini API call."""
         if not texts:
             return []
+        cleaned = [t.replace("\n", " ") for t in texts]
         config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims)
-        response = self.client.models.embed_content(model=self.config.model, contents=texts, config=config)
+        response = self.client.models.embed_content(model=self.config.model, contents=cleaned, config=config)
         embeddings = [e.values for e in response.embeddings]
         if len(embeddings) != len(texts):
             raise ValueError(

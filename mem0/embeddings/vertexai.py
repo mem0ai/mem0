@@ -67,7 +67,9 @@ class VertexAIEmbedding(EmbeddingBase):
         """Embed multiple texts, chunking into batches of 250 (Vertex AI per-request limit)."""
         if not texts:
             return []
-        embedding_type = self.embedding_types.get(memory_action, "SEMANTIC_SIMILARITY")
+        if memory_action not in self.embedding_types:
+            raise ValueError(f"Invalid memory action: {memory_action}")
+        embedding_type = self.embedding_types[memory_action]
         all_embeddings = []
         for i in range(0, len(texts), 250):
             chunk = texts[i : i + 250]
