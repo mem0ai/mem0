@@ -27,6 +27,7 @@ from routers import api_keys as api_keys_router
 from routers import auth as auth_router
 from routers import entities as entities_router
 from routers import requests as requests_router
+from routers.entities import EntityType, delete_entity, list_entities
 from schemas import MessageResponse
 from server_state import (
     get_current_config,
@@ -169,6 +170,21 @@ app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
 app.include_router(entities_router.router)
 app.include_router(requests_router.router)
+
+
+# Entity route aliases: registered on app rather than router to avoid prefix collision
+
+
+@app.get("/v1/entities/", include_in_schema=False)
+def v1_list_entities(_auth=Depends(verify_auth)):
+    """List entities (SDK compatibility alias)."""
+    return list_entities(_auth=_auth)
+
+
+@app.delete("/v2/entities/{entity_type}/{entity_id}/", include_in_schema=False)
+def v2_delete_entity(entity_type: EntityType, entity_id: str, _auth=Depends(require_admin)):
+    """Delete entity (SDK compatibility alias)."""
+    return delete_entity(entity_type=entity_type, entity_id=entity_id, _auth=_auth)
 
 
 class Message(BaseModel):
@@ -363,6 +379,26 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
         raise upstream_error()
 
 
+@app.get("/v1/ping/", include_in_schema=False)
+def ping(_auth=Depends(verify_auth)):
+    """Health check for SDK compatibility."""
+    return {"status": "ok"}
+
+
+@app.post("/v3/memories/", include_in_schema=False)
+async def v3_memories_dispatch(request: Request, _auth=Depends(verify_auth)):
+    """Route POST /v3/memories/ to add or get_all based on body content."""
+    body = await request.json()
+    if "messages" in body:
+        memory_create = MemoryCreate(**body)
+        return add_memory(memory_create, _auth=_auth)
+    user_id = body.get("user_id")
+    run_id = body.get("run_id")
+    agent_id = body.get("agent_id")
+    return get_all_memories(request, user_id=user_id, run_id=run_id, agent_id=agent_id, _auth=_auth)
+
+
+@app.post("/v3/memories/add/", include_in_schema=False)
 @app.post("/memories", summary="Create memories")
 def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
@@ -407,6 +443,7 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
+@app.get("/v1/memories/", include_in_schema=False)
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
     request: Request,
@@ -439,6 +476,7 @@ def get_all_memories(
         raise upstream_error()
 
 
+@app.get("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.get("/memories/{memory_id}", summary="Get a memory")
 def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
@@ -448,6 +486,7 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
+@app.post("/v3/memories/search/", include_in_schema=False)
 @app.post("/search", summary="Search memories")
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
@@ -483,6 +522,7 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
+@app.put("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(verify_auth)):
     """Update an existing memory."""
@@ -502,6 +542,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         raise upstream_error()
 
 
+@app.get("/v1/memories/{memory_id}/history/", include_in_schema=False)
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
 def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
@@ -511,6 +552,7 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
+@app.delete("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.delete("/memories/{memory_id}", summary="Delete a memory", response_model=MessageResponse)
 def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Delete a specific memory by ID."""
@@ -523,6 +565,7 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
         raise upstream_error()
 
 
+@app.delete("/v1/memories/", include_in_schema=False)
 @app.delete("/memories", summary="Delete all memories", response_model=MessageResponse)
 def delete_all_memories(
     user_id: Optional[str] = None,
@@ -543,6 +586,7 @@ def delete_all_memories(
         raise upstream_error()
 
 
+@app.post("/v1/reset/", include_in_schema=False)
 @app.post("/reset", summary="Reset all memories")
 def reset_memory(_auth=Depends(require_admin)):
     """Completely reset stored memories. Requires admin role."""
