@@ -23,7 +23,7 @@
     "@types/js-cookie": "^3.0.6",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^10.0.0",
-    "ai": "^4.1.46",
+    "ai": "^5.0.52",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "js-cookie": "^3.0.6",
