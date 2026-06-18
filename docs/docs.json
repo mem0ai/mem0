@@ -458,7 +458,8 @@
                       "integrations/cursor",
                       "integrations/codex",
                       "integrations/opencode",
-                      "integrations/antigravity"
+                      "integrations/antigravity",
+                      "integrations/kilo"
                     ]
                   },
                   {

@@ -273,6 +273,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Codex](https://docs.mem0.ai/integrations/codex) [Both]: Use when wiring memory into Codex / other editor assistants.
 - [OpenCode](https://docs.mem0.ai/integrations/opencode) [Both]: Use when wiring memory into OpenCode.
 - [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Both]: Use when wiring memory into Google Antigravity.
+- [Kilo Code](https://docs.mem0.ai/integrations/kilo) [Both]: Use when wiring memory into Kilo Code.
 
 ### Voice & Real-time
 - [LiveKit](https://docs.mem0.ai/integrations/livekit) [Both]: Use when building real-time voice/video with memory.
@@ -410,6 +411,7 @@ Editor-specific setup docs (already listed above under `## Integrations > AI Cod
 - `integrations/codex` [Both]
 - `integrations/opencode` [Both]
 - `integrations/antigravity` [Both]
+- `integrations/kilo` [Both]
 - `integrations/openclaw` [Both]
 
 ### MCP Endpoints
