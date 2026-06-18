@@ -9,21 +9,60 @@ conteúdo de memória sai da rede.
 > seções abaixo descrevem o que de fato existe e está ativo aqui. O SDK mem0
 > original continua disponível como base (veja [Base: SDK mem0](#base-sdk-mem0)).
 
+## Objetivo: por que este projeto existe
+
+Times que trabalham com agentes de IA (Claude Code, Cursor, Codex) perdem
+contexto o tempo todo: cada sessão começa do zero, cada máquina tem sua própria
+"memória", e o conhecimento do time — decisões de arquitetura, convenções,
+regras de negócio — não se acumula em lugar nenhum. As soluções de mercado
+resolvem isso **na nuvem**, o que é inaceitável quando o conteúdo das memórias
+inclui código proprietário, regras fiscais/financeiras e segredos do ERP.
+
+Este projeto entrega uma **memória central, compartilhada e privada**: um único
+acervo que todos os agentes do time leem e escrevem, rodando **100% na rede
+local**, e que **escala de uma máquina a centenas de milhões de memórias** sem
+nunca enviar conteúdo para fora. O alvo concreto é ~200 devs e dezenas de
+agentes MCP sobre infraestrutura self-hosted.
+
+## Como funciona: princípios de design (e o porquê de cada um)
+
+Cada decisão da arquitetura existe para resolver um problema específico de
+escala, privacidade ou qualidade — não por preferência técnica:
+
+| Princípio | O que fazemos | Por que |
+|-----------|---------------|---------|
+| **Local-first, fail-closed** | O servidor **recusa subir** se o LLM/embedder apontar para um host não-local (`MEM0_LOCAL_ONLY=1`); telemetria desligada. | Privacidade é garantida em código, não em convenção: conteúdo sensível nunca sai da LAN, mesmo por engano de configuração. |
+| **Escopo por `project`, não por máquina** | Memórias são chaveadas por `project`; o hostname serve só para atribuição/auditoria. | É o que torna a memória **compartilhada**: qualquer agente em qualquer host vê o mesmo acervo de um projeto. |
+| **Escrita assíncrona com ack imediato** | `add_memories` enfileira e devolve `{queued, job_id}` na hora; um worker extrai via LLM depois. | O agente não pode travar esperando a extração LLM (lenta). A fila é durável e re-tenta em falha. |
+| **Separar leitura de escrita** | Busca/embedding rodam no caminho da API; extração LLM roda em workers dedicados. | Embedding de busca (rápido, frequente) não compete por recursos com a extração LLM (pesada, em lote). |
+| **Particionar por tenant** | Roteamento de coleção/shard por `project`; projetos gigantes promovidos a coleção dedicada. | Uma coleção única de centenas de milhões de vetores degrada a busca; particionar mantém cada índice pequeno e rápido. |
+| **Governança de qualidade** | Quarentena reversível, TTL, dedup, consolidação semântica, teto por projeto e cold tier. | Em volume alto, a **qualidade** degrada junto com a performance: duplicatas e memórias velhas poluem a busca se não houver lifecycle. |
+| **Operar com confiança** | CI que barra regressões, backup/restauração testáveis, tracing ponta a ponta, rate limit e auth por equipe. | "Funciona na demo" ≠ "pronto para produção": é preciso não regredir, não perder dados, diagnosticar e proteger o serviço. |
+
+O resultado: latência sub-segundo na leitura, filas de escrita controladas e
+privacidade self-hosted — mantendo o contrato MCP estável para os agentes.
+
 ## Estado atual do projeto
 
-O fork evoluiu em **quatro fases** documentadas em `.docs/tasks/`. Todas as
-tarefas planejadas até a Fase 3 estão **concluídas** no código e nos testes.
+O fork evoluiu em **cinco fases** documentadas em `.docs/tasks/`. Todas as
+tarefas planejadas estão **concluídas** no código e cobertas por testes
+(suíte do `openmemory/api`: **375 passed, 2 skipped**).
 
 | Fase | Escopo | Status | Referência |
 |------|--------|--------|------------|
 | **0** | Memória central local-first: escopo `project`, fila de escrita, worker embutido, discovery, provision, instaladores | Concluída | [`.docs/tasks/memoria-central-compartilhada/`](.docs/tasks/memoria-central-compartilhada/) |
 | **1** | Escala self-hosted: PostgreSQL + PgBouncer, Redis (cache), write worker separado, Traefik, observabilidade | Concluída | [`.docs/tasks/self-hosted-scale-architecture/`](.docs/tasks/self-hosted-scale-architecture/) |
-| **2** | Particionamento Qdrant por projeto: roteamento de coleção, migration worker (blue/green), promoção e admin | Concluída | [`openmemory/docs/self-hosted-scale-architecture.md`](openmemory/docs/self-hosted-scale-architecture.md) § Fase 2 |
+| **2** | Particionamento Qdrant por projeto: roteamento de coleção, migration worker (blue/green), promoção e admin | Concluída | [`.docs/tasks/particionamento-qdrant-fase2/`](.docs/tasks/particionamento-qdrant-fase2/) |
 | **3** | Governança de qualidade: quarentena, TTL, dedup, consolidação, purge, políticas e governance-worker | Concluída | [`.docs/tasks/escala-governanca-fase3/`](.docs/tasks/escala-governanca-fase3/) |
+| **Prontidão** | Production-readiness (LAN): gate de CI, backup/restauração, teto por projeto + cold tier, tracing OpenTelemetry, rate limit por projeto e auth por equipe | Concluída | [`.docs/tasks/prontidao-producao/`](.docs/tasks/prontidao-producao/) |
 
-**Ainda fora de escopo** (planejado na arquitetura alvo, não implementado):
-cluster Qdrant multi-nó, autoscaling (HPA), cold tier para projetos inativos,
-busca híbrida opcional e embedding service GPU dedicado com TEI/vLLM.
+**Ainda fora de escopo** (decisão consciente para o alvo LAN — ver
+[ADR-001](.docs/tasks/prontidao-producao/adrs/adr-001.md)): cluster Qdrant
+multi-nó, autoscaling (HPA) e migração para Kubernetes; **uma coleção por
+projeto** (hoje o isolamento é por tenant index/shard_key, que escala até
+~100M vetores/coleção); embedding/LLM em GPU dedicada (TEI/vLLM); mTLS
+service-to-service; e busca híbrida opcional. A resiliência sem cluster é
+coberta por **backup/restauração** (single-node).
 
 ## O que isto entrega
 
@@ -79,6 +118,32 @@ busca híbrida opcional e embedding service GPU dedicado com TEI/vLLM.
   purge e avaliação de qualidade, agendados pelo governance-worker.
 - **Políticas** — defaults globais em `Config(key="governance")` com overrides
   por projeto em `governance_policies`.
+
+### Prontidão para produção (LAN)
+
+Fechou os pontos que faltavam para operar com confiança em rede confiável:
+
+- **Gate de CI** — os ~375 testes do `openmemory/api` rodam no `ci-gate.yml`
+  (workflow `openmemory-api-ci.yml`) e **barram merges** com regressão.
+- **Backup e restauração** — snapshot nativo do Qdrant + `pg_dump` para um
+  object store **MinIO/S3** (sobrevive à falha do nó); endpoints
+  `POST /admin/backup/{run,restore}` e `GET /admin/backup/status` (RPO), com
+  [runbook de drill](openmemory/docs/runbooks/backup-restore.md) (RPO≤24h/RTO≤1h).
+- **Teto por projeto (`max_memories`)** — job `enforce_quota`: em `alert` só
+  reporta; em `enforce` quarentena os menos relevantes até o teto.
+- **Cold tier** — job `cold_tier` arquiva projetos inativos (export para MinIO +
+  remoção reversível) após `cold_tier_idle_days`.
+- **Tracing distribuído** — OpenTelemetry instrumenta FastAPI/HTTPX/SQLAlchemy e
+  exporta OTLP para Collector + Tempo; `trace_id` correlacionado nos logs.
+- **Rate limit por `(project, hostname)`** — janela deslizante no Redis (busca
+  30/min, escrita 60/min, burst 10/10s), substituindo o limite global do Traefik.
+- **Autenticação por equipe** — `TeamAuthMiddleware` com modos `off`/`warn`/
+  `enforce`; tokens vêm de secret (Docker secret), fora do `.env` versionado.
+
+Verificação: a lógica (Python) é coberta por testes; a infraestrutura ao vivo
+(MinIO, Collector/Tempo, PostgreSQL real) é validada por mocks nos testes e
+pelos runbooks/drills em execução real. Runbooks em
+[`openmemory/docs/runbooks/`](openmemory/docs/runbooks/).
 
 ## Perfis de deploy
 
@@ -299,8 +364,12 @@ Política efetiva = defaults globais + override por projeto. Valores padrão
 | `consolidation_enabled` | `false` | Consolidação semântica via LLM |
 | `similarity_threshold` | 0.92 | Limiar para dedup/consolidação |
 | `protected_categories` | `decision`, `security` | Categorias imunes a TTL/purge automático |
+| `max_memories` | `null` | Teto de memórias ativas por projeto (`null` = sem teto) |
+| `max_memories_action` | `alert` | `alert` (só métrica) ou `enforce` (quarentena até o teto) |
+| `cold_tier_idle_days` | 180 | Inatividade que qualifica um projeto para cold tier |
 
-Jobs disponíveis: `dedup`, `ttl_prune`, `consolidate`, `purge`, `quality_eval`.
+Jobs disponíveis: `dedup`, `ttl_prune`, `consolidate`, `purge`, `quality_eval`,
+`enforce_quota`, `cold_tier`.
 
 ## Endpoints operacionais
 
@@ -310,6 +379,9 @@ Jobs disponíveis: `dedup`, `ttl_prune`, `consolidate`, `purge`, `quality_eval`.
 | `GET /provision` | Receita de instalação para agentes |
 | `GET /health` | Health check (modo escala) |
 | `GET /metrics` | Métricas Prometheus |
+| `POST /admin/backup/run` | Dispara backup (Qdrant + PostgreSQL → MinIO/S3) |
+| `POST /admin/backup/restore` | Restaura a partir de um prefixo de backup |
+| `GET /admin/backup/status` | Último backup, total de objetos e RPO corrente |
 | `GET/PUT /admin/governance/policies` | Política global |
 | `PUT /admin/governance/policies/{project}` | Override por projeto |
 | `POST /admin/governance/jobs/{job_type}` | Enfileirar job (`dedup`, `ttl_prune`, …) |
@@ -336,6 +408,11 @@ Jobs disponíveis: `dedup`, `ttl_prune`, `consolidate`, `purge`, `quality_eval`.
 | `GOVERNANCE_ENABLE_SCHEDULER` | `true` no governance-worker para agendamento interno. |
 | `QDRANT_STORAGE` / `SQLITE_STORAGE` | Volumes de dados no host (instalador `--data-dir`). |
 | `OPENMEMORY_DISCOVERY_BASE_URL` | (Opcional) URL base anunciada em `/discovery`. |
+| `AUTH_MODE` | Auth por equipe: `off` / `warn` (default) / `enforce`. |
+| `AUTH_TOKENS_FILE` / `AUTH_TOKENS` | Origem dos tokens por equipe (secret montado ou inline). |
+| `RL_SEARCH_PER_MIN` / `RL_WRITE_PER_MIN` / `RL_BURST` | Limites de rate limit por `(project, hostname)`. |
+| `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Object store de backup/cold tier (MinIO/S3). |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` / `OTEL_SDK_DISABLED` | Tracing OpenTelemetry (endpoint do Collector; desativar). |
 
 Backends locais suportados: **Ollama** (provider `ollama`) e **llama.cpp** (via
 provider `openai` apontando para o servidor OpenAI-compatível). Veja
@@ -357,7 +434,8 @@ Detalhes em [`integrations/mem0-plugin/skills/mode/SKILL.md`](integrations/mem0-
 ## Testes
 
 ```bash
-# OpenMemory API (~300 testes, incl. governança, particionamento, escala)
+# OpenMemory API (375 passed, 2 skipped — governança, particionamento, escala,
+# backup, tracing, rate limit, auth). Os 2 skips exigem POSTGRES_TEST_URL.
 cd openmemory/api && pytest tests/
 
 # SDK Python — escopo project + Qdrant governance filter
@@ -365,7 +443,9 @@ pytest tests/memory/test_project_scope.py tests/vector_stores/test_qdrant.py
 ```
 
 Suítes relevantes: `test_governance_*`, `test_quarantine`, `test_partition_*`,
-`test_migration_*`, `test_write_queue*`, `test_local_only_guard`, `test_discovery`.
+`test_migration_*`, `test_write_queue*`, `test_local_only_guard`, `test_discovery`,
+`test_backup*`, `test_quota`, `test_cold_tier`, `test_tracing`, `test_rate_limit`,
+`test_team_auth`, `test_alerts`. Os mesmos testes rodam no CI (`ci-gate.yml`).
 
 ## Documentação interna
 
@@ -373,9 +453,12 @@ Suítes relevantes: `test_governance_*`, `test_quarantine`, `test_partition_*`,
 |---------|----------|
 | [`.docs/tasks/memoria-central-compartilhada/`](.docs/tasks/memoria-central-compartilhada/) | PRD, TechSpec, ADRs — Fase 0 |
 | [`.docs/tasks/self-hosted-scale-architecture/`](.docs/tasks/self-hosted-scale-architecture/) | PRD, TechSpec, ADRs — Fase 1 |
+| [`.docs/tasks/particionamento-qdrant-fase2/`](.docs/tasks/particionamento-qdrant-fase2/) | PRD, TechSpec, ADRs — Fase 2 |
 | [`.docs/tasks/escala-governanca-fase3/`](.docs/tasks/escala-governanca-fase3/) | PRD, TechSpec, ADRs — Fase 3 |
+| [`.docs/tasks/prontidao-producao/`](.docs/tasks/prontidao-producao/) | PRD, TechSpec, ADRs — Prontidão para produção |
+| [`openmemory/docs/runbooks/`](openmemory/docs/runbooks/) | Runbooks: backup/restore, auth/secrets, governança, incidente |
 | [`openmemory/INSTALL-memoria-compartilhada.md`](openmemory/INSTALL-memoria-compartilhada.md) | Instalação local-first detalhada |
-| [`openmemory/docs/self-hosted-scale-architecture.md`](openmemory/docs/self-hosted-scale-architecture.md) | Arquitetura alvo e roadmap |
+| [`openmemory/docs/self-hosted-scale-architecture.md`](openmemory/docs/self-hosted-scale-architecture.md) | Arquitetura alvo, roadmap e estado de implementação (§15) |
 | [`AGENTS.md`](AGENTS.md) | Monorepo mem0 upstream (build, lint, CI) |
 
 ## Principais mudanças em relação ao upstream
@@ -392,6 +475,11 @@ Suítes relevantes: `test_governance_*`, `test_quarantine`, `test_partition_*`,
 | `openmemory/api/app/routers/governance.py` | Admin de governança (Fase 3). |
 | `openmemory/api/app/routers/discovery.py` | `GET /discovery` para auto-config MCP. |
 | `openmemory/api/app/routers/provision.py` | Provisionamento local-first. |
+| `openmemory/api/app/governance/{quota,cold_tier}.py` | Teto por projeto e cold tier (Prontidão). |
+| `openmemory/api/app/utils/backup.py` + `routers/admin.py` | Backup/restauração para MinIO/S3. |
+| `openmemory/api/app/utils/tracing.py` | Tracing OpenTelemetry (Prontidão). |
+| `openmemory/api/app/middleware/{rate_limit,team_auth}.py` | Rate limit por projeto e auth por equipe. |
+| `.github/workflows/openmemory-api-ci.yml` | Gate de CI dos testes do `openmemory/api`. |
 | `openmemory/docker-compose.scale.yml` | Stack de escala (Compose). |
 | `openmemory/docker-stack.yml` | Stack de escala (Swarm, inclui governance-worker). |
 | `install.py` / `openmemory/install-local-first.sh` | Instaladores local-first. |
