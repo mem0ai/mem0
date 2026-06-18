@@ -59,6 +59,7 @@ class MemoryConfig(BaseModel):
         description="TTL for memories in seconds. Expired memories are excluded from "
                     "search/get_all results. Use cleanup_expired() to delete them.",
         default=None,
+        ge=0,
     )
 
 

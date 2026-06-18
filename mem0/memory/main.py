@@ -387,6 +387,7 @@ setup_config()
 logger = logging.getLogger(__name__)
 
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
+_CLEANUP_MAX_BATCH = 10_000
 
 
 class _OSSProject:
@@ -1098,6 +1099,11 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "get")
             return None
 
+        ttl = self.config.memory_ttl
+        if ttl is not None and _is_expired(memory.payload, ttl):
+            display_first_run_notice(self, "sync", "get")
+            return None
+
         promoted_payload_keys = [
             "user_id",
             "agent_id",
@@ -1781,10 +1787,18 @@ class Memory(MemoryBase):
                 "Pass user_id, agent_id, or run_id to scope the cleanup."
             )
 
-        all_memories = self.vector_store.list(filters=filters, top_k=10000)
+        all_memories = self.vector_store.list(filters=filters, top_k=_CLEANUP_MAX_BATCH)
         if isinstance(all_memories, (tuple, list)) and len(all_memories) > 0:
             if isinstance(all_memories[0], (list, tuple)):
                 all_memories = all_memories[0]
+
+        if len(all_memories) >= _CLEANUP_MAX_BATCH:
+            logger.warning(
+                "cleanup_expired fetched %d memories (max batch size). "
+                "Some expired memories may not have been processed. "
+                "Run cleanup_expired again to continue.",
+                _CLEANUP_MAX_BATCH,
+            )
 
         deleted = 0
         for mem in all_memories:
@@ -2647,6 +2661,11 @@ class AsyncMemory(MemoryBase):
             await display_first_run_notice_async(self, "async", "get")
             return None
 
+        ttl = self.config.memory_ttl
+        if ttl is not None and _is_expired(memory.payload, ttl):
+            await display_first_run_notice_async(self, "async", "get")
+            return None
+
         promoted_payload_keys = [
             "user_id",
             "agent_id",
@@ -3337,10 +3356,18 @@ class AsyncMemory(MemoryBase):
                 "Pass user_id, agent_id, or run_id to scope the cleanup."
             )
 
-        all_memories = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=10000)
+        all_memories = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=_CLEANUP_MAX_BATCH)
         if isinstance(all_memories, (tuple, list)) and len(all_memories) > 0:
             if isinstance(all_memories[0], (list, tuple)):
                 all_memories = all_memories[0]
+
+        if len(all_memories) >= _CLEANUP_MAX_BATCH:
+            logger.warning(
+                "cleanup_expired fetched %d memories (max batch size). "
+                "Some expired memories may not have been processed. "
+                "Run cleanup_expired again to continue.",
+                _CLEANUP_MAX_BATCH,
+            )
 
         delete_tasks = []
         for mem in all_memories:

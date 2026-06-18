@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1205,6 +1205,75 @@ class TestMemoryTTL:
         result = m.cleanup_expired(filters={"user_id": "u1"})
         assert result["deleted"] == 1
         m._delete_memory.assert_called_once()
+
+
+class TestAsyncMemoryTTL:
+    """Tests for async memory_ttl expiry filtering and cleanup."""
+
+    def _make_memory_obj(self, memory_id, created_at, data="some fact"):
+        mem = MagicMock()
+        mem.id = memory_id
+        mem.payload = {"data": data, "hash": "h", "created_at": created_at, "user_id": "u1"}
+        mem.score = 0.9
+        return mem
+
+    @pytest.mark.asyncio
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    async def test_async_cleanup_expired_deletes_old_memories(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        from mem0.memory.main import AsyncMemory
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = AsyncMemory(config)
+
+        now = datetime.now(timezone.utc)
+        fresh = self._make_memory_obj("m1", now.isoformat())
+        old = self._make_memory_obj("m2", (now - timedelta(hours=2)).isoformat())
+
+        m.vector_store.list.return_value = [fresh, old]
+        m._delete_memory = AsyncMock()
+
+        result = await m.cleanup_expired(filters={"user_id": "u1"})
+        assert result["deleted"] == 1
+
+    @pytest.mark.asyncio
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    async def test_async_cleanup_expired_handles_delete_failure(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        from mem0.memory.main import AsyncMemory
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = AsyncMemory(config)
+
+        now = datetime.now(timezone.utc)
+        old1 = self._make_memory_obj("m1", (now - timedelta(hours=2)).isoformat())
+        old2 = self._make_memory_obj("m2", (now - timedelta(hours=3)).isoformat())
+
+        m.vector_store.list.return_value = [old1, old2]
+
+        async def fail_on_m1(memory_id, **kwargs):
+            if memory_id == "m1":
+                raise RuntimeError("vector store error")
+
+        m._delete_memory = AsyncMock(side_effect=fail_on_m1)
+
+        result = await m.cleanup_expired(filters={"user_id": "u1"})
+        assert result["deleted"] == 1
+
 
 @pytest.mark.asyncio
 @patch('mem0.utils.factory.EmbedderFactory.create')
