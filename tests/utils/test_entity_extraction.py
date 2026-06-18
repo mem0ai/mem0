@@ -59,6 +59,16 @@ class TestExtractEntities:
         google_count = sum(1 for _, t in entities if "Google" in t)
         assert google_count <= 1, f"Expected dedup, got {entities}"
 
+    def test_substring_dedup_respects_word_boundaries(self):
+        from mem0.utils.entity_extraction import extract_entities
+
+        # "Sam" is a mid-word substring of "Samsung", not a separate token, so it
+        # must not be dropped as a substring of the longer entity.
+        entities = extract_entities("At Samsung, Sam leads design.")
+        entity_texts = [e[1] for e in entities]
+        assert "Sam" in entity_texts, f"Expected 'Sam' to survive alongside 'Samsung', got {entities}"
+        assert any("Samsung" in t for t in entity_texts), f"Expected 'Samsung', got {entities}"
+
     def test_returns_tuples(self):
         from mem0.utils.entity_extraction import extract_entities
 
