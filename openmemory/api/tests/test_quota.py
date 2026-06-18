@@ -14,6 +14,12 @@ from app.utils.governance_policy import save_global_policy
 from app.utils.quarantine import QuarantineEngine
 
 
+@pytest.fixture(autouse=True)
+def _no_categorize(monkeypatch):
+    # Evita a categorização via OpenAI disparada pelo listener de Memory.
+    monkeypatch.setattr("app.models.categorize_memory", lambda *a, **k: None)
+
+
 @pytest.fixture
 def factory():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False})

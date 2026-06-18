@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Callable, Dict, Optional
 
 from app.database import SessionLocal
+from app.governance.cold_tier import run_cold_tier_job
 from app.governance.consolidation import run_consolidate_job
 from app.governance.dedup import run_dedup_job
 from app.governance.purge import run_purge_job
@@ -269,6 +270,7 @@ def _default_handlers() -> Dict[str, Handler]:
         "consolidate": run_consolidate_job,
         "purge": run_purge_job,
         "enforce_quota": run_enforce_quota_job,
+        "cold_tier": run_cold_tier_job,
     }
 
 
