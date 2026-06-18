@@ -1,0 +1,8 @@
+# Configuração de lint do openmemory/api (task_01 — gate de CI).
+# Mantém os checks padrão E/F do ruff. Ignora E402 porque vários módulos e
+# testes intencionalmente definem variáveis de ambiente (ex.: OPENAI_API_KEY)
+# antes dos imports — padrão necessário para a configuração do cliente mem0.
+line-length = 120
+
+[lint]
+ignore = ["E402"]

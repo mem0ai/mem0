@@ -42,7 +42,7 @@ from app.utils.metrics import (
 )
 from app.utils.db import get_user_and_app
 from app.utils.identity import resolve_hostname
-from app.utils.memory import get_memory_client, get_memory_client_safe
+from app.utils.memory import get_memory_client_safe
 from app.utils.partitioning import bind_active_collection, resolve_and_bind
 from app.utils.permissions import check_memory_access_permissions
 from app.utils.read_cache import read_cache

@@ -3,14 +3,13 @@ import io
 import json 
 import gzip 
 import zipfile
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_
 
 from app.database import get_db
 from app.models import (
@@ -34,7 +33,7 @@ def _iso(dt: Optional[datetime]) -> Optional[str]:
     if isinstance(dt, datetime): 
         try: 
             return dt.astimezone(UTC).isoformat()
-        except: 
+        except Exception:
             return dt.replace(tzinfo=UTC).isoformat()
     return None
 

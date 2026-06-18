@@ -100,9 +100,9 @@ def _recipe(host: str) -> list:
     return [
         {
             "step": "mcp",
-            "action": f"Escrever/mesclar o bloco mcp_config no arquivo do host. "
-                      f"Substituir o token {{hostname}} pelo hostname da máquina. "
-                      f"Idempotente: substituir a entrada 'mem0' existente, nunca anexar.",
+            "action": "Escrever/mesclar o bloco mcp_config no arquivo do host. "
+                      "Substituir o token {hostname} pelo hostname da máquina. "
+                      "Idempotente: substituir a entrada 'mem0' existente, nunca anexar.",
         },
         {
             "step": "env",

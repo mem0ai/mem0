@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Awaitable, Callable, Dict, Optional
+from typing import Callable, Dict, Optional
 
 from app.database import SessionLocal
 from app.governance.consolidation import run_consolidate_job

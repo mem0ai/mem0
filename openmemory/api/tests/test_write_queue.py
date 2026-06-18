@@ -16,7 +16,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.database import Base
 from app.models import WriteQueueJob as WriteQueueModel
 from app.models import WriteQueueStatus
 from app.utils.write_queue import WriteJob, WriteQueue

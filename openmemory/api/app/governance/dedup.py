@@ -6,7 +6,6 @@ import hashlib
 import logging
 from collections import defaultdict
 from typing import Callable, Optional
-from uuid import UUID
 
 from app.database import SessionLocal
 from app.models import Memory, MemoryState
@@ -63,7 +62,7 @@ def run_dedup_job(
             if len(mems) < 2:
                 continue
             mems.sort(key=lambda m: m.created_at or m.id)
-            canonical = mems[0]
+            # mems[0] is the canonical record (oldest); mems[1:] are duplicates.
             for dup in mems[1:]:
                 if deduped >= batch_limit:
                     return deduped

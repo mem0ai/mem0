@@ -1,0 +1,62 @@
+name: OpenMemory API CI
+
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'openmemory/api/**'
+      - '.github/workflows/openmemory-api-ci.yml'
+  workflow_call:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint with ruff
+        working-directory: openmemory/api
+        run: ruff check app tests
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    env:
+      # The MCP route is trust-on-LAN; a placeholder key is enough for tests.
+      OPENAI_API_KEY: test-key
+      # The api imports the in-repo `mem0` package; expose the repo root so
+      # `import mem0` resolves without installing the published `mem0ai` wheel.
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install GEOS libraries
+        run: sudo apt-get update && sudo apt-get install -y libgeos-dev
+
+      - name: Install dependencies
+        working-directory: openmemory/api
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        working-directory: openmemory/api
+        run: pytest tests --cov=app --cov-report=term-missing

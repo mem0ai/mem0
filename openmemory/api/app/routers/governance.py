@@ -11,7 +11,6 @@ from app.governance.quality_eval import get_last_quality
 from app.models import MemoryState, MemoryStatusHistory, Project
 from app.utils.governance_policy import (
     get_global_policy,
-    get_project_override,
     list_policies,
     save_global_policy,
     save_project_override,
@@ -101,7 +100,6 @@ def governance_audit(
     rows = query.limit(limit).all()
     items = []
     for row in rows:
-        mem = row.memory_id
         items.append(
             {
                 "memory_id": str(row.memory_id),

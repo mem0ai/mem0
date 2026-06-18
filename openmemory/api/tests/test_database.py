@@ -1,6 +1,5 @@
 """Tests for dialect-conditional database engine (task_01)."""
 
-import os
 
 import pytest
 from sqlalchemy import create_engine

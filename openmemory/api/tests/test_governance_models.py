@@ -6,7 +6,7 @@ from pathlib import Path
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
 import pytest
-from sqlalchemy import create_engine, inspect, text as sa_text
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 

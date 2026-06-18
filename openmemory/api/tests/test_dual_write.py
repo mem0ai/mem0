@@ -10,10 +10,8 @@ import os
 
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
-import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest
 from qdrant_client import QdrantClient
 
 from app.workers.write_worker import WriteWorker

@@ -1,9 +1,7 @@
 """Tests for ReadCache (task_05 / ADR-005)."""
 
-import json
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from app.utils.read_cache import ReadCache, normalize_query
 

@@ -5,13 +5,11 @@ import os
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from app.workers.write_worker import (
     DEFAULT_MAX_CONCURRENCY,
-    WriteWorker,
     worker_from_env,
 )
 

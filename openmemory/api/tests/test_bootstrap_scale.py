@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 

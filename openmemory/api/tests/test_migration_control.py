@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Base, MigrationStatus
+from app.models import Base
 from app.utils.migration_control import MigrationControl, MigrationError
 from app.utils.partitioning import PartitionResolver
 

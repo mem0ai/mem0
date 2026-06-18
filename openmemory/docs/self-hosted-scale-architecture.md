@@ -521,6 +521,48 @@ Alternativa on-prem sem K8s: **Docker Swarm** ou **Nomad** com os mesmos serviç
 
 ---
 
+## 15. Estado de implementação (auditoria 2026-06-18)
+
+Esta seção registra o **alinhamento entre este documento (alvo) e o código real**. As fases foram decompostas em `.docs/tasks/` e implementadas sobre **Docker Compose/Swarm single-host** (ADR-006), não sobre o Kubernetes/cluster/GPU descrito como alvo nas seções 10 e 12. As divergências abaixo são, em sua maioria, **decisões de escopo** do deploy self-hosted — não pendências de qualidade.
+
+### Resumo por fase
+
+| Fase | Grupo em `.docs` | Estado do código |
+|------|------------------|------------------|
+| 0/1 — Fundação + desacoplamento | `self-hosted-scale-architecture` (8 tasks) | ✅ Fiel ao desenho |
+| 2 — Particionamento Qdrant | `particionamento-qdrant-fase2` (9 tasks) | ✅ Mecânica completa; ⚠️ modelo de coleção divergente |
+| 3 — Governança | `escala-governanca-fase3` (13 tasks) | ✅ ~95%; faltam cold tier e `max_memories` |
+
+### Implementado e fiel à arquitetura
+
+- **PostgreSQL com dialeto condicional** (SQLite dev / PG prod) — `api/app/database.py:14-35`
+- **PgBouncer** transaction-mode — `compose/postgres.yml:19-37`
+- **Dequeue `FOR UPDATE SKIP LOCKED`** + concorrência por env — `api/app/utils/write_queue.py:82-110`
+- **Write worker desacoplado** via flag `RUN_EMBEDDED_WORKER` — `api/app/workers/__main__.py`, `api/main.py:129-138`
+- **Ollama embed/LLM separados** (sem contention) — `compose/inference.yml`
+- **Cache Redis** embed + search com **invalidação por escrita** — `api/app/utils/read_cache.py`, `write_worker.py:152`
+- **Traefik** reverse proxy + rate limit + circuit breaker + sticky SSE — `compose/proxy.yml`, `docker-compose.scale.yml:69-78`
+- **Observabilidade** `/health` + `/metrics` Prometheus + Grafana — `api/app/routers/health.py`, `ops_metrics.py`, `utils/metrics.py`
+- **Fase 2**: `PartitionResolver`, dual-write condicional, migration worker com checkpoint, flip/rollback atômico, promoção a shard_key, `/admin/projects/sizes` — `utils/partitioning.py`, `workers/migration_worker.py`, `utils/migration_control.py`, `utils/promotion.py`, `routers/admin.py`
+- **Fase 3**: policy resolver (global+override), índice payload `state` + filtro `state=active`, `QuarantineEngine`, fila + governance-worker + scheduler interno, jobs dedup/ttl_prune/consolidate(dream)/purge, `/admin/governance/*`, medição de qualidade — `utils/governance_policy.py`, `utils/quarantine.py`, `workers/governance_worker.py`, `governance/*.py`, `routers/governance.py`
+
+### Divergências e pendências
+
+| # | Item da arquitetura | Estado real | Natureza |
+|---|---------------------|-------------|----------|
+| D1 | **Uma coleção Qdrant por project** (§3) | Coleção única global + isolamento por **tenant index / custom shard_key**; sem `collection_registry` (`project → collection_name`) | Divergência de modelo. Custom sharding escala até ~100M/coleção; revisitar se o crescimento exigir multi-coleção |
+| D2 | **Cold tier** — projetos inativos → snapshot S3 + drop coleção (§7) | ❌ Não implementado | Pendência |
+| D3 | **`max_memories` por project** (§7) | ❌ Campo ausente na policy (há `ttl_*`, `quarantine_window`, `protected_categories`) | Pendência |
+| D4 | **Topologia Kubernetes** (HPA, StatefulSet, CronJob) (§10) | Docker Compose + Swarm; réplicas **estáticas**, sem autoscaling | Decisão de escopo (self-hosted) |
+| D5 | **Embedding/LLM em vLLM/TGI com GPU autoscale** (§2) | Ollama, escala manual | Decisão de escopo |
+| D6 | **Qdrant/PostgreSQL/Redis em cluster** (§3, §5, §6) | Todos **single-node** | Decisão de escopo |
+| D7 | **mTLS / API key por equipe; secrets em Vault** (§9) | `trust-on-LAN` (`routers/compat_v3.py:20-21`), `API_KEY` único, `.env` plaintext | Pendência de segurança se exposto fora da LAN |
+| D8 | **Rate limit 30/60 req/min por project+hostname** (§1) | Traefik global (100 avg / 50 burst) | Granularidade divergente |
+| D9 | **OpenTelemetry tracing** (§8) | Apenas Prometheus/Grafana | Pendência de observabilidade |
+| D10 | **CronJobs K8s** para governança (§10) | Scheduler interno asyncio (DB-backed) | Equivalente funcional |
+
+---
+
 ## Referências no repositório
 
 - Deploy atual: `openmemory/docker-compose.yml`

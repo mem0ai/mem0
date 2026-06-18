@@ -37,6 +37,7 @@ jobs:
       ts_sdk: ${{ steps.filter.outputs.ts_sdk }}
       cli_python: ${{ steps.filter.outputs.cli_python }}
       cli_node: ${{ steps.filter.outputs.cli_node }}
+      openmemory_api: ${{ steps.filter.outputs.openmemory_api }}
       openclaw: ${{ steps.filter.outputs.openclaw }}
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
@@ -66,6 +67,10 @@ jobs:
             cli_node:
               - 'cli/node/**'
               - '.github/workflows/cli-node-ci.yml'
+              - '.github/workflows/ci-gate.yml'
+            openmemory_api:
+              - 'openmemory/api/**'
+              - '.github/workflows/openmemory-api-ci.yml'
               - '.github/workflows/ci-gate.yml'
             openclaw:
               - 'integrations/openclaw/**'
@@ -115,6 +120,13 @@ jobs:
     uses: ./.github/workflows/cli-node-ci.yml
     secrets: inherit
 
+  openmemory-api:
+    name: OpenMemory API
+    needs: changes
+    if: needs.changes.outputs.openmemory_api == 'true'
+    uses: ./.github/workflows/openmemory-api-ci.yml
+    secrets: inherit
+
   openclaw:
     name: OpenClaw
     needs: changes
@@ -151,6 +163,7 @@ jobs:
       - ts-sdk
       - cli-python
       - cli-node
+      - openmemory-api
       - openclaw
       - opencode-plugin
       - pi-agent-plugin

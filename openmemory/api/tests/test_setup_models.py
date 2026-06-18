@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
-import pytest
 
 from app import setup_models
 
