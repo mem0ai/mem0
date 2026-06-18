@@ -846,7 +846,8 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        _start_llm_usage_capture(self.llm, include_usage)
+        active_llm = getattr(self, "llm", None)
+        _start_llm_usage_capture(active_llm, include_usage)
         try:
             if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
                 results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
@@ -857,7 +858,7 @@ class Memory(MemoryBase):
                     display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
                 else:
                     display_first_run_notice(self, "sync", "add")
-                return _attach_usage_if_requested(results, self.llm, include_usage)
+                return _attach_usage_if_requested(results, active_llm, include_usage)
 
             if self.config.llm.config.get("enable_vision"):
                 messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
@@ -874,9 +875,9 @@ class Memory(MemoryBase):
                 display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
-            return _attach_usage_if_requested({"results": vector_store_result}, self.llm, include_usage)
+            return _attach_usage_if_requested({"results": vector_store_result}, active_llm, include_usage)
         finally:
-            _stop_llm_usage_capture(self.llm, include_usage)
+            _stop_llm_usage_capture(active_llm, include_usage)
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
@@ -2468,7 +2469,8 @@ class AsyncMemory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        active_llm = (llm or self.llm) if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value else self.llm
+        default_llm = getattr(self, "llm", None)
+        active_llm = (llm or default_llm) if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value else default_llm
         _start_llm_usage_capture(active_llm, include_usage)
         try:
             if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
