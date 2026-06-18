@@ -27,9 +27,6 @@ sort:
 lint:
 	hatch run lint
 
-docs:
-	cd docs && mintlify dev
-
 build:
 	hatch build
 
@@ -38,15 +35,3 @@ publish:
 
 clean:
 	rm -rf dist
-
-test:
-	hatch run test
-
-test-py-3.10:
-	hatch run dev_py_3_10:test
-
-test-py-3.11:
-	hatch run dev_py_3_11:test
-
-test-py-3.12:
-	hatch run dev_py_3_12:test
