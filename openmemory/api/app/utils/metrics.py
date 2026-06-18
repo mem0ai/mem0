@@ -43,6 +43,17 @@ GOVERNANCE_CONTRADICTIONS_RESOLVED_TOTAL = Counter(
     "governance_contradictions_resolved_total", "Contradictions resolved by governance"
 )
 GOVERNANCE_PURGED_TOTAL = Counter("governance_purged_total", "Memories permanently purged")
+# Prontidão produção (task_06 / ADR-005): aplicação de teto por project.
+GOVERNANCE_QUOTA_ENFORCED_TOTAL = Counter(
+    "governance_quota_enforced_total", "Memories quarantined by quota enforcement"
+)
+GOVERNANCE_QUOTA_OVER_LIMIT_PROJECTS = Gauge(
+    "governance_quota_over_limit_projects", "Projects currently over their max_memories"
+)
+# Prontidão produção (task_07 / ADR-003): arquivamento de projects inativos.
+GOVERNANCE_COLD_TIER_ARCHIVED_TOTAL = Counter(
+    "governance_cold_tier_archived_total", "Memories archived to cold tier"
+)
 GOVERNANCE_REVERTED_TOTAL = Counter("governance_reverted_total", "Governance quarantines reverted")
 GOVERNANCE_QUARANTINED_CURRENT = Gauge(
     "governance_quarantined_current", "Memories currently in quarantine"

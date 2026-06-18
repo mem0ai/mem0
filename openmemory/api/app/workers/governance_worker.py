@@ -14,6 +14,7 @@ from app.governance.consolidation import run_consolidate_job
 from app.governance.dedup import run_dedup_job
 from app.governance.purge import run_purge_job
 from app.governance.quality_eval import run_quality_eval_job
+from app.governance.quota import run_enforce_quota_job
 from app.governance.ttl_prune import run_ttl_prune_job
 from app.models import GovernanceJobType, GovernanceSchedule, Project
 from app.utils.governance_policy import GLOBAL_SCOPE, resolve_policy
@@ -267,6 +268,7 @@ def _default_handlers() -> Dict[str, Handler]:
         "ttl_prune": run_ttl_prune_job,
         "consolidate": run_consolidate_job,
         "purge": run_purge_job,
+        "enforce_quota": run_enforce_quota_job,
     }
 
 
