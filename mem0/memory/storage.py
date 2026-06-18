@@ -129,6 +129,9 @@ class SQLiteManager:
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
+                # Eviction and retrieval order by the implicit `rowid` (insertion
+                # order), since a batched save stamps one created_at on every row.
+                # Keep this a rowid table — do not add WITHOUT ROWID.
                 self.connection.execute(
                     """
                     CREATE TABLE IF NOT EXISTS messages (
@@ -300,7 +303,8 @@ class SQLiteManager:
         with self._lock:
             # Subquery picks the latest N rows by insertion order (rowid DESC +
             # LIMIT), outer query re-sorts them chronologically for the caller.
-            # rowid avoids created_at ties within a batched save.
+            # rowid avoids created_at ties within a batched save; it is selected
+            # in the inner query so the outer ORDER BY rowid can resolve it.
             cur = self.connection.execute(
                 """
                 SELECT role, content, name, created_at FROM (
