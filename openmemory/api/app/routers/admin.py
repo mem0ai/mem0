@@ -13,7 +13,7 @@ router by task_07 / task_08.
 
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from app.database import get_db
 from app.models import Project
 from app.utils.metrics import PROJECT_MEMORY_COUNT, PROJECT_SIZE_OVER_THRESHOLD
 from app.utils.migration_control import MigrationControl, MigrationError, default_count_fn
+from app.utils.promotion import PromotionService, default_promotion_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -28,6 +29,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _control() -> MigrationControl:
     """Build a MigrationControl wired to the live Qdrant count function."""
     return MigrationControl(count_fn=default_count_fn())
+
+
+def _promotion() -> PromotionService:
+    """Build a PromotionService wired to the live vector store."""
+    return default_promotion_service()
 
 
 def promotion_threshold() -> int:
@@ -106,3 +112,17 @@ def migration_rollback(control: MigrationControl = Depends(_control)) -> dict:
         return control.rollback()
     except MigrationError as e:
         raise HTTPException(status_code=409, detail=str(e))
+
+
+# --------------------------------------------------------------------------- #
+# Tenant promotion (task_08 / ADR-002)
+# --------------------------------------------------------------------------- #
+@router.post("/projects/{name}/promote", status_code=202)
+def promote_project(
+    name: str,
+    background: BackgroundTasks,
+    service: PromotionService = Depends(_promotion),
+) -> dict:
+    """Enqueue promotion of a project to a dedicated shard key (non-blocking)."""
+    background.add_task(service.promote, name)
+    return {"status": "accepted", "project": name, "shard_key": name}
