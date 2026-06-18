@@ -548,18 +548,24 @@ Esta seção registra o **alinhamento entre este documento (alvo) e o código re
 
 ### Divergências e pendências
 
-| # | Item da arquitetura | Estado real | Natureza |
+> **Atualização 2026-06-18 — esforço de prontidão para produção** (`.docs/tasks/prontidao-producao/`).
+> Fechou os gaps **D2, D3, D7, D8, D9** e adicionou gate de CI + backup/restore.
+> Runbooks: [backup-restore](runbooks/backup-restore.md), [auth-secrets](runbooks/auth-secrets.md), [governança](runbooks/governance.md), [incidente](runbooks/incident-diagnosis.md).
+
+| # | Item da arquitetura | Estado real | Situação |
 |---|---------------------|-------------|----------|
-| D1 | **Uma coleção Qdrant por project** (§3) | Coleção única global + isolamento por **tenant index / custom shard_key**; sem `collection_registry` (`project → collection_name`) | Divergência de modelo. Custom sharding escala até ~100M/coleção; revisitar se o crescimento exigir multi-coleção |
-| D2 | **Cold tier** — projetos inativos → snapshot S3 + drop coleção (§7) | ❌ Não implementado | Pendência |
-| D3 | **`max_memories` por project** (§7) | ❌ Campo ausente na policy (há `ttl_*`, `quarantine_window`, `protected_categories`) | Pendência |
-| D4 | **Topologia Kubernetes** (HPA, StatefulSet, CronJob) (§10) | Docker Compose + Swarm; réplicas **estáticas**, sem autoscaling | Decisão de escopo (self-hosted) |
-| D5 | **Embedding/LLM em vLLM/TGI com GPU autoscale** (§2) | Ollama, escala manual | Decisão de escopo |
-| D6 | **Qdrant/PostgreSQL/Redis em cluster** (§3, §5, §6) | Todos **single-node** | Decisão de escopo |
-| D7 | **mTLS / API key por equipe; secrets em Vault** (§9) | `trust-on-LAN` (`routers/compat_v3.py:20-21`), `API_KEY` único, `.env` plaintext | Pendência de segurança se exposto fora da LAN |
-| D8 | **Rate limit 30/60 req/min por project+hostname** (§1) | Traefik global (100 avg / 50 burst) | Granularidade divergente |
-| D9 | **OpenTelemetry tracing** (§8) | Apenas Prometheus/Grafana | Pendência de observabilidade |
-| D10 | **CronJobs K8s** para governança (§10) | Scheduler interno asyncio (DB-backed) | Equivalente funcional |
+| D1 | **Uma coleção Qdrant por project** (§3) | Coleção única global + isolamento por **tenant index / custom shard_key**; sem `collection_registry` | ⏸️ Adiado (custom sharding escala até ~100M/coleção; revisitar se exigir multi-coleção) |
+| D2 | **Cold tier** — projetos inativos → snapshot S3 + drop (§7) | ✅ `governance/cold_tier.py` — export lógico para MinIO + remoção reversível; job `cold_tier` (mensal) | **Fechado** (task_07) |
+| D3 | **`max_memories` por project** (§7) | ✅ Política `max_memories` + `max_memories_action`; job `enforce_quota` | **Fechado** (task_05/06) |
+| D4 | **Topologia Kubernetes** (HPA, StatefulSet, CronJob) (§10) | Docker Compose + Swarm; réplicas estáticas | ⏸️ Decisão de escopo (LAN) |
+| D5 | **Embedding/LLM em vLLM/TGI com GPU autoscale** (§2) | Ollama, escala manual | ⏸️ Decisão de escopo |
+| D6 | **Qdrant/PostgreSQL/Redis em cluster** (§3, §5, §6) | Todos **single-node**; resiliência via backup/restore | ⏸️ Decisão de escopo (mitigado por backup) |
+| D7 | **mTLS / API key por equipe; secrets** (§9) | ✅ `TeamAuthMiddleware` (off/warn/enforce) + tokens em secret; mTLS permanece adiado (LAN) | **Fechado** parcial (task_11); mTLS ⏸️ |
+| D8 | **Rate limit 30/60 req/min por project+hostname** (§1) | ✅ `RateLimitMiddleware` (Redis sliding-window) por `(project, hostname)` + burst | **Fechado** (task_10) |
+| D9 | **OpenTelemetry tracing** (§8) | ✅ `app/utils/tracing.py` + Collector/Tempo; trace_id no log | **Fechado** (task_08) |
+| D10 | **CronJobs K8s** para governança (§10) | Scheduler interno asyncio (DB-backed) | ✅ Equivalente funcional |
+
+Processo: os testes do `openmemory/api` agora rodam no **CI gate** (`openmemory-api-ci.yml`), barrando regressões (task_01).
 
 ---
 
