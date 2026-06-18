@@ -1,0 +1,25 @@
+# Contexto de build = raiz do repo (Dockerfile da API vendoriza o fork mem0/).
+# Mantem so o necessario: openmemory/api + mem0/.
+.git
+.github
+.docs
+.claude
+.agents
+.gemini
+.ruff_cache
+.pytest_cache
+integrations
+skills
+openmemory/ui
+
+# Segredos / dados / caches (herdado do antigo api/.dockerignore)
+**/.env
+**/.env.*
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.log
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.coverage

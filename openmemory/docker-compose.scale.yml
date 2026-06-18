@@ -11,7 +11,9 @@
 
 x-api-common: &api-common
   image: mem0/openmemory-mcp
-  build: api/
+  build:
+    context: ..
+    dockerfile: openmemory/api/Dockerfile
   restart: unless-stopped
   extra_hosts:
     - "host.docker.internal:host-gateway"

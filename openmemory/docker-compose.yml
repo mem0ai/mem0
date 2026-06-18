@@ -14,7 +14,9 @@ services:
   openmemory-mcp:
     container_name: openmemory_api
     image: mem0/openmemory-mcp
-    build: api/
+    build:
+      context: ..
+      dockerfile: openmemory/api/Dockerfile
     restart: unless-stopped
     # host.docker.internal lets the container reach an Ollama running on the
     # host when OLLAMA_BASE_URL points at it (Linux needs the explicit mapping).
