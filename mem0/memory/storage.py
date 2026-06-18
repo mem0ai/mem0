@@ -277,13 +277,14 @@ class SQLiteManager:
                         ),
                     )
                 # Evict old messages beyond the most recent 10 for this scope.
-                # Wrapped in a derived table to force SQLite to materialize the
-                # ORDER BY before the outer NOT IN evaluates it.
+                # Order by rowid (insertion order): a batched save stamps one
+                # created_at on every row, so ordering by created_at ties and
+                # falls back to retaining the oldest rows.
                 self.connection.execute(
                     """
                     DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
                         SELECT id FROM (
-                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+                            SELECT id FROM messages WHERE session_scope = ? ORDER BY rowid DESC LIMIT 10
                         )
                     )
                 """,
@@ -297,17 +298,18 @@ class SQLiteManager:
 
     def get_last_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
         with self._lock:
-            # Subquery picks the latest N rows (DESC + LIMIT), outer query
-            # re-sorts them chronologically (ASC) for the caller.
+            # Subquery picks the latest N rows by insertion order (rowid DESC +
+            # LIMIT), outer query re-sorts them chronologically for the caller.
+            # rowid avoids created_at ties within a batched save.
             cur = self.connection.execute(
                 """
                 SELECT role, content, name, created_at FROM (
-                    SELECT role, content, name, created_at
+                    SELECT rowid, role, content, name, created_at
                     FROM messages
                     WHERE session_scope = ?
-                    ORDER BY created_at DESC
+                    ORDER BY rowid DESC
                     LIMIT ?
-                ) ORDER BY created_at ASC
+                ) ORDER BY rowid ASC
             """,
                 (session_scope, limit),
             )
