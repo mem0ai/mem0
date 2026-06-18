@@ -263,7 +263,7 @@ class RedisDB(VectorStoreBase):
 
     def get(self, vector_id):
         result = self.index.fetch(vector_id)
-        if not result:
+        if result is None:
             return None
         payload = {
             "hash": result["hash"],
