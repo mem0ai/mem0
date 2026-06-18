@@ -287,6 +287,8 @@ class TestSQLiteManager:
         mgr.add_history(memory_id="m1", old_memory=None, new_memory="new", event="ADD")
         mgr.save_messages([{"role": "user", "content": "hello", "name": None}], "sess1")
         mgr.reset()
-        count = mgr.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
-        assert count == 0, "messages table should be empty after reset"
+        msg_count = mgr.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        hist_count = mgr.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+        assert msg_count == 0, "messages table should be empty after reset"
+        assert hist_count == 0, "history table should be empty after reset"
         mgr.close()
