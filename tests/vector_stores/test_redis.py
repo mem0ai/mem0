@@ -7,7 +7,7 @@ when vector is None.
 """
 
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytz
@@ -113,3 +113,31 @@ def test_list_with_filter_builds_query():
 
     query = mock_index.search.call_args[0][0]
     assert query.query_string() == "@user_id:{alice}"
+
+
+def test_create_col_keeps_distinct_dims_across_instances():
+    """Building the schema for two collections with different embedding
+    dimensions must keep them distinct. Regression: DEFAULT_FIELDS.copy() is a
+    shallow copy, so the shared "embedding" field dict was mutated in place and
+    the second create_col() clobbered the first one's dims (and the module
+    global)."""
+    import mem0.vector_stores.redis as redis_module
+
+    db, _ = _make_redis_db()
+    db.client = MagicMock()
+    db.embedding_model_dims = 384
+
+    captured = []
+
+    def capture_schema(schema):
+        captured.append(schema)
+        return MagicMock()
+
+    with patch.object(redis_module.SearchIndex, "from_dict", side_effect=capture_schema):
+        db.create_col(name="col_384", vector_size=384)
+        db.create_col(name="col_1536", vector_size=1536)
+
+    assert captured[0]["fields"][-1]["attrs"]["dims"] == 384
+    assert captured[1]["fields"][-1]["attrs"]["dims"] == 1536
+    # the module-level default must never be mutated by building a schema
+    assert "dims" not in redis_module.DEFAULT_FIELDS[-1]["attrs"]

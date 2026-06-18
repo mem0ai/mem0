@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from datetime import datetime, timezone
@@ -65,7 +66,7 @@ class RedisDB(VectorStoreBase):
             "prefix": f"mem0:{collection_name}",
         }
 
-        fields = DEFAULT_FIELDS.copy()
+        fields = copy.deepcopy(DEFAULT_FIELDS)
         fields[-1]["attrs"]["dims"] = embedding_model_dims
 
         self.schema = {"index": index_schema, "fields": fields}
@@ -98,8 +99,9 @@ class RedisDB(VectorStoreBase):
             "prefix": f"mem0:{collection_name}",
         }
 
-        # Copy the default fields and update the vector field with the specified dimensions
-        fields = DEFAULT_FIELDS.copy()
+        # Deep-copy the default fields so mutating the nested vector attrs never
+        # leaks into the module global or other instances.
+        fields = copy.deepcopy(DEFAULT_FIELDS)
         fields[-1]["attrs"]["dims"] = embedding_dims
         fields[-1]["attrs"]["distance_metric"] = distance_metric
 
