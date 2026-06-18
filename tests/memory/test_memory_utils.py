@@ -96,6 +96,15 @@ class TestParseVisionMessages:
         result = parse_vision_messages(messages, llm=None)
         assert result == messages
 
+    def test_malformed_image_dict_raises_value_error(self):
+        # A malformed image part (missing the nested url) used to raise an
+        # uncaught KeyError that aborted add(); it should raise a clear ValueError.
+        mock_llm = Mock()
+        messages = [{"role": "user", "content": {"type": "image_url", "image_url": {}}}]
+        with pytest.raises(ValueError):
+            parse_vision_messages(messages, llm=mock_llm)
+        mock_llm.generate_response.assert_not_called()
+
 
 class TestRemoveSpacesFromEntities:
     """
