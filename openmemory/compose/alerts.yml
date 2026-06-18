@@ -1,0 +1,58 @@
+# Regras de alerta Prometheus (task_09 / ADR-004).
+# Limiares iniciais do TechSpec; ajuste conforme a operação real.
+groups:
+  - name: openmemory-prontidao
+    rules:
+      - alert: SearchLatencyP99High
+        expr: histogram_quantile(0.99, sum(rate(mcp_search_latency_seconds_bucket[5m])) by (le)) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latência p99 de busca acima de 500ms"
+          description: "p99 de mcp_search_latency_seconds > 0.5s por 10m."
+
+      - alert: WriteQueueBacklog
+        expr: write_queue_depth > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fila de escrita acumulando"
+          description: "write_queue_depth > 100 por 10m — workers podem não dar conta."
+
+      - alert: GovernanceJobErrors
+        expr: increase(governance_job_errors_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erros em jobs de governança"
+          description: "governance_job_errors_total aumentou nos últimos 15m."
+
+      - alert: BackupRPOViolated
+        expr: time() - backup_last_success_timestamp > 86400
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RPO de backup violado (>24h)"
+          description: "Nenhum backup bem-sucedido há mais de 24h (backup_last_success_timestamp)."
+
+      - alert: ProjectOverSizeThreshold
+        expr: project_size_over_threshold > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Project acima do limite de tamanho"
+          description: "Há projects acima do threshold de promoção/quota."
+
+      - alert: WriteWorkerErrorRate
+        expr: increase(write_worker_error_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Erros no write worker"
+          description: "write_worker_error_total aumentou nos últimos 15m."

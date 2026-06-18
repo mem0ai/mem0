@@ -5,8 +5,19 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
+
+  # Alertmanager opcional (profile alerts): roteia os alertas definidos.
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: ["alerts"]
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
 
   grafana:
     image: grafana/grafana:11.4.0

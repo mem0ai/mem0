@@ -1,6 +1,16 @@
 global:
   scrape_interval: 15s
 
+# Regras de alerta (task_09 / ADR-004).
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+# Alertmanager opcional — só roteia se o serviço estiver de pé.
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   - job_name: openmemory-api
     metrics_path: /metrics

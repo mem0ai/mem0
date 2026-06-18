@@ -1,0 +1,12 @@
+# Config mínima do Alertmanager (task_09 / ADR-004).
+# Roteamento default; configure receivers reais (e-mail/Slack/webhook) conforme
+# a operação. Mantido simples para o alvo LAN.
+route:
+  receiver: default
+  group_by: ["alertname"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+
+receivers:
+  - name: default
