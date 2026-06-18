@@ -253,6 +253,11 @@ export default class MemoryClient {
     messages: Array<Message>,
     options: AddMemoryOptions & Record<string, any> = {},
   ): Promise<Array<Memory>> {
+    // Tightly scoped validation guard to resolve #5465
+    if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+      throw new Error("Cannot process an empty messages payload.");
+    }
+
     if (this.telemetryId === "") await this.ping();
 
     const payload = this._preparePayload(messages, options);
