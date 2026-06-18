@@ -43,6 +43,7 @@ from app.utils.metrics import (
 from app.utils.db import get_user_and_app
 from app.utils.identity import resolve_hostname
 from app.utils.memory import get_memory_client, get_memory_client_safe
+from app.utils.partitioning import bind_active_collection, resolve_and_bind
 from app.utils.permissions import check_memory_access_permissions
 from app.utils.read_cache import read_cache
 from app.utils.write_queue import WriteJob, write_queue
@@ -184,6 +185,10 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
         if not memory_client:
             return "Error: Memory system is currently unavailable. Please try again later."
 
+        # Route to the active collection (blue-green) and the project's shard key
+        # (ADR-002 / ADR-003). The contract of this tool is unchanged.
+        route = resolve_and_bind(memory_client, project)
+
         filters = {"project": project}
         filter_hash = hashlib.sha256(
             json.dumps(filters, sort_keys=True).encode()
@@ -214,6 +219,7 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
                     vectors=embeddings,
                     top_k=DEFAULT_SEARCH_TOP_K,
                     filters=filters,
+                    shard_key_selector=route.shard_key,
                 )
             )
 
@@ -262,6 +268,10 @@ async def list_memories(project: str) -> str:
         return "Error: Memory system is currently unavailable. Please try again later."
 
     try:
+        # Route to the active collection (blue-green); list scans the collection
+        # with the project filter (ADR-003).
+        bind_active_collection(memory_client)
+
         # Project-only filter: shared read across hosts (no user_id restriction).
         filters = {
             "project": project,

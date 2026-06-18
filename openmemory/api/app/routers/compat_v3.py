@@ -25,6 +25,7 @@ import logging
 from typing import Any, Optional
 
 from app.utils.memory import get_memory_client
+from app.utils.partitioning import bind_active_collection, resolve_and_bind
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
@@ -128,6 +129,15 @@ async def search(request: SearchRequest) -> dict:
     project, metadata_filters, is_global = _extract_scope(request.filters)
     vs_filters: dict = {} if is_global else {"project": project} if project else {}
 
+    # Route to the active collection; project-scoped reads also route to the
+    # project's shard key (ADR-002). Global/cross-project reads bind the active
+    # collection only (no shard key).
+    if project and not is_global:
+        shard_key_selector = resolve_and_bind(client, project).shard_key
+    else:
+        bind_active_collection(client)
+        shard_key_selector = None
+
     top_k = max(1, min(request.top_k or DEFAULT_TOP_K, MAX_TOP_K))
     # Over-fetch when we have to post-filter by metadata so the caller still
     # gets up to top_k matches after filtering.
@@ -140,6 +150,7 @@ async def search(request: SearchRequest) -> dict:
             vectors=embeddings,
             top_k=fetch_k,
             filters=vs_filters or None,
+            shard_key_selector=shard_key_selector,
         )
     except Exception as e:  # noqa: BLE001
         logging.exception("compat_v3 search failed: %s", e)
@@ -207,6 +218,9 @@ async def add(request: AddRequest) -> dict:
     metadata.setdefault("project", project)
     metadata.setdefault("source_app", "openmemory")
 
+    # Writes target the active collection (blue-green, ADR-003).
+    bind_active_collection(client)
+
     try:
         result = client.add(
             text,
@@ -240,6 +254,9 @@ async def list_memories(request: Request, body: ListRequest) -> dict:
 
     project, metadata_filters, is_global = _extract_scope(body.filters)
     vs_filters: dict = {} if is_global else {"project": project} if project else {}
+
+    # List scans the active collection with the project filter (ADR-003).
+    bind_active_collection(client)
 
     try:
         page_size = int(request.query_params.get("page_size", DEFAULT_TOP_K))

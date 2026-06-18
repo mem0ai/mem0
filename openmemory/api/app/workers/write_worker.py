@@ -30,6 +30,7 @@ import os
 from typing import Callable, Optional
 
 from app.utils.logging_context import job_id_var
+from app.utils.partitioning import bind_active_collection
 from app.utils.metrics import (
     WRITE_QUEUE_DEPTH,
     WRITE_WORKER_ERRORS,
@@ -204,6 +205,8 @@ class WriteWorker:
                 "mcp_client": job.client_name,
             },
         )
+        # Writes target the active collection (blue-green, ADR-003).
+        bind_active_collection(client)
         add = client.add
         if asyncio.iscoroutinefunction(add):
             return await add(job.text, **kwargs)

@@ -94,26 +94,63 @@ class PartitionResolver:
 
     def _load(self) -> _Snapshot:
         fallback = self._default_collection or _default_collection()
-        db = self._session_factory()
         try:
-            state = (
-                db.query(MigrationState)
-                .order_by(MigrationState.id.desc())
-                .first()
-            )
-            active = state.active_collection if state else fallback
+            db = self._session_factory()
+            try:
+                state = (
+                    db.query(MigrationState)
+                    .order_by(MigrationState.id.desc())
+                    .first()
+                )
+                active = state.active_collection if state else fallback
 
-            dedicated = {
-                p.name: p.shard_key
-                for p in db.query(Project)
-                .filter(Project.partition_tier == PartitionTier.dedicated)
-                .all()
-                if p.shard_key
-            }
-            return _Snapshot(active_collection=active, dedicated=dedicated)
-        finally:
-            db.close()
+                dedicated = {
+                    p.name: p.shard_key
+                    for p in db.query(Project)
+                    .filter(Project.partition_tier == PartitionTier.dedicated)
+                    .all()
+                    if p.shard_key
+                }
+                return _Snapshot(active_collection=active, dedicated=dedicated)
+            finally:
+                db.close()
+        except Exception as e:  # noqa: BLE001 - state must never break routing
+            # No migration_state table yet (pre-migration) or transient DB error:
+            # serve the environment-configured collection, no dedicated shards.
+            logger.debug("partition state unavailable, falling back to %s: %s", fallback, e)
+            return _Snapshot(active_collection=fallback, dedicated={})
 
 
 # Module-level singleton used by the read/write paths (task_04).
 partition_resolver = PartitionResolver()
+
+
+def _bind(memory_client, collection: str) -> None:
+    """Point the client's vector store at ``collection`` (idempotent).
+
+    The active collection is a global property (one served collection at a time),
+    so reassigning the shared vector store's ``collection_name`` is safe under
+    concurrency — every caller resolves the same value.
+    """
+    vs = getattr(memory_client, "vector_store", None)
+    if vs is not None and getattr(vs, "collection_name", None) != collection:
+        vs.collection_name = collection
+
+
+def bind_active_collection(memory_client, resolver: PartitionResolver = partition_resolver) -> str:
+    """Bind the client to the active collection (write path / global reads)."""
+    active = resolver.active_collection()
+    _bind(memory_client, active)
+    return active
+
+
+def resolve_and_bind(memory_client, project: str,
+                     resolver: PartitionResolver = partition_resolver) -> CollectionRoute:
+    """Bind the client to the active collection and return the project's route.
+
+    The returned ``shard_key`` should be passed as ``shard_key_selector`` to
+    ``vector_store.search`` for project-scoped reads (ADR-002).
+    """
+    route = resolver.route_for(project)
+    _bind(memory_client, route.collection)
+    return route
