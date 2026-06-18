@@ -154,6 +154,12 @@ class BackupService:
             "rpo_age_seconds": age,
         }
 
+    def exists(self, key_prefix: str) -> bool:
+        """Whether any backup object lives under ``key_prefix``."""
+        s3 = self._s3_client()
+        listing = s3.list_objects_v2(Bucket=self._bucket, Prefix=key_prefix + "/")
+        return bool(listing.get("Contents"))
+
     # -- restore -----------------------------------------------------------
     def restore(self, key_prefix: str) -> dict:
         """Restaura Qdrant (snapshots) e PostgreSQL (dump) a partir de um prefixo.

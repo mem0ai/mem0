@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Project
+from app.utils.backup import BackupService
 from app.utils.metrics import PROJECT_MEMORY_COUNT, PROJECT_SIZE_OVER_THRESHOLD
 from app.utils.migration_control import MigrationControl, MigrationError, default_count_fn
 from app.utils.promotion import PromotionService, default_promotion_service
@@ -29,6 +30,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _control() -> MigrationControl:
     """Build a MigrationControl wired to the live Qdrant count function."""
     return MigrationControl(count_fn=default_count_fn())
+
+
+def _backup_service() -> BackupService:
+    """Build a BackupService wired to the live S3/Qdrant/PostgreSQL backends."""
+    return BackupService()
 
 
 def _promotion() -> PromotionService:
@@ -126,3 +132,39 @@ def promote_project(
     """Enqueue promotion of a project to a dedicated shard key (non-blocking)."""
     background.add_task(service.promote, name)
     return {"status": "accepted", "project": name, "shard_key": name}
+
+
+# --------------------------------------------------------------------------- #
+# Backup / restore (task_03 / ADR-003)
+# --------------------------------------------------------------------------- #
+class RestoreRequest(BaseModel):
+    key_prefix: str
+
+
+@router.post("/backup/run", status_code=202)
+def backup_run(
+    background: BackgroundTasks,
+    service: BackupService = Depends(_backup_service),
+) -> dict:
+    """Dispara um backup completo (Qdrant + PostgreSQL) em background."""
+    background.add_task(service.run_backup)
+    return {"status": "accepted"}
+
+
+@router.get("/backup/status")
+def backup_status(service: BackupService = Depends(_backup_service)) -> dict:
+    """Último backup, total de objetos e idade (RPO corrente)."""
+    return service.status()
+
+
+@router.post("/backup/restore", status_code=202)
+def backup_restore(
+    req: RestoreRequest,
+    background: BackgroundTasks,
+    service: BackupService = Depends(_backup_service),
+) -> dict:
+    """Inicia restauração a partir de um prefixo de backup; 404 se inexistente."""
+    if not service.exists(req.key_prefix):
+        raise HTTPException(status_code=404, detail=f"no backup under {req.key_prefix}")
+    background.add_task(service.restore, req.key_prefix)
+    return {"status": "accepted", "key_prefix": req.key_prefix}
