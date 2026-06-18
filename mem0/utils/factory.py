@@ -1,4 +1,5 @@
 import importlib
+import inspect
 from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
@@ -102,6 +103,14 @@ class LlmFactory:
                     "vision_details": config.vision_details,
                     "http_client_proxies": config.http_client,
                 }
+                # Only forward reasoning fields to provider configs that accept them
+                # (explicitly or via **kwargs); others would raise on unexpected kwargs.
+                params = inspect.signature(config_class).parameters
+                accepts_kwargs = any(p.kind == p.VAR_KEYWORD for p in params.values())
+                if accepts_kwargs or "reasoning_effort" in params:
+                    config_dict["reasoning_effort"] = config.reasoning_effort
+                if accepts_kwargs or "is_reasoning_model" in params:
+                    config_dict["is_reasoning_model"] = config.is_reasoning_model
                 config_dict.update(kwargs)
                 config = config_class(**config_dict)
             else:
