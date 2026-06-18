@@ -23,6 +23,13 @@ DEFAULT_POLICY: Dict[str, Any] = {
     "similarity_threshold": 0.92,
     "contradiction_tiebreak": "recency",
     "protected_categories": ["decision", "security"],
+    # Teto de memórias por project (task_05 / ADR-005). ``None`` = sem teto.
+    # ``max_memories_action``: "alert" (somente métrica) | "enforce" (quarentena
+    # até o teto). ``cold_tier_idle_days``: inatividade que qualifica um project
+    # para arquivamento em cold tier (task_07).
+    "max_memories": None,
+    "max_memories_action": "alert",
+    "cold_tier_idle_days": 180,
     "schedules": {
         "dedup": "daily",
         "ttl_prune": "daily",
@@ -43,6 +50,9 @@ class GovernancePolicySchema(BaseModel):
     similarity_threshold: float = Field(default=0.92, ge=0.0, le=1.0)
     contradiction_tiebreak: str = "recency"
     protected_categories: Tuple[str, ...] = ("decision", "security")
+    max_memories: Optional[int] = Field(default=None, ge=1)
+    max_memories_action: str = "alert"
+    cold_tier_idle_days: int = Field(default=180, ge=1)
     schedules: Dict[str, str] = Field(default_factory=dict)
     off_peak_hours_utc: Tuple[int, ...] = (2, 3, 4, 5)
     batch_limit: int = Field(default=500, ge=1)
@@ -52,6 +62,13 @@ class GovernancePolicySchema(BaseModel):
     def validate_tiebreak(cls, value: str) -> str:
         if value not in {"recency", "confidence"}:
             raise ValueError("contradiction_tiebreak must be 'recency' or 'confidence'")
+        return value
+
+    @field_validator("max_memories_action")
+    @classmethod
+    def validate_action(cls, value: str) -> str:
+        if value not in {"alert", "enforce"}:
+            raise ValueError("max_memories_action must be 'alert' or 'enforce'")
         return value
 
 
@@ -64,6 +81,9 @@ class EffectivePolicy:
     similarity_threshold: float
     contradiction_tiebreak: str
     protected_categories: Tuple[str, ...] = field(default_factory=tuple)
+    max_memories: Optional[int] = None
+    max_memories_action: str = "alert"
+    cold_tier_idle_days: int = 180
     schedules: Dict[str, str] = field(default_factory=dict)
     off_peak_hours_utc: Tuple[int, ...] = (2, 3, 4, 5)
     batch_limit: int = 500
@@ -86,6 +106,9 @@ def _to_effective(data: Dict[str, Any]) -> EffectivePolicy:
         similarity_threshold=validated["similarity_threshold"],
         contradiction_tiebreak=validated["contradiction_tiebreak"],
         protected_categories=tuple(validated["protected_categories"]),
+        max_memories=validated["max_memories"],
+        max_memories_action=validated["max_memories_action"],
+        cold_tier_idle_days=validated["cold_tier_idle_days"],
         schedules=dict(validated.get("schedules") or DEFAULT_POLICY["schedules"]),
         off_peak_hours_utc=tuple(
             validated.get("off_peak_hours_utc") or DEFAULT_POLICY["off_peak_hours_utc"]
