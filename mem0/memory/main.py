@@ -81,6 +81,11 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+# Batch size for delete_all pagination. Larger than most vector store default
+# page limits (~100) to minimize roundtrips while bounded to avoid memory pressure.
+DELETE_ALL_BATCH_SIZE = 1000
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -207,6 +212,23 @@ def _validate_and_trim_search_query(query: str) -> str:
     if not trimmed:
         raise ValueError("Invalid query: cannot be empty or whitespace-only.")
     return trimmed
+
+
+def _normalize_vector_store_list_result(memories_result):
+    """Normalize vector_store.list() output to a flat list of memory rows.
+
+    Different vector stores return different shapes:
+    - flat list: [OutputData, ...]
+    - tuple/list with rows first: ([OutputData, ...], meta)
+    - dict (e.g. Pinecone error payload): treat as empty, no rows to iterate.
+    """
+    if isinstance(memories_result, dict):
+        return []
+    if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
+        first_element = memories_result[0]
+        if isinstance(first_element, (list, tuple)):
+            return list(first_element)
+    return memories_result
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -1736,14 +1758,28 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        delete_batch_size = DELETE_ALL_BATCH_SIZE
+        deleted_count = 0
 
-        logger.info(f"Deleted {len(memories)} memories")
+        memories_result = self.vector_store.list(filters=filters, top_k=delete_batch_size)
+        memories = _normalize_vector_store_list_result(memories_result)
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        # NOTE: no zero-progress guard here, unlike the async path below. A
+        # failed sync _delete_memory raises and naturally breaks the loop; only
+        # the concurrent async path (return_exceptions=True) can silently make
+        # zero progress per batch and loop forever.
+        while memories:
+            for memory in memories:
+                self._delete_memory(memory.id)
+                deleted_count += 1
+
+            # Re-list after each batch so stores with default page limits are drained fully.
+            memories_result = self.vector_store.list(filters=filters, top_k=delete_batch_size)
+            memories = _normalize_vector_store_list_result(memories_result)
+
+        logger.info(f"Deleted {deleted_count} memories")
+
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3271,26 +3307,35 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        delete_batch_size = DELETE_ALL_BATCH_SIZE
+        deleted_count = 0
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=delete_batch_size)
+        memories = _normalize_vector_store_list_result(memories_result)
 
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        while memories:
+            delete_tasks = [self._delete_memory(memory.id, skip_entity_cleanup=True) for memory in memories]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            errors = [r for r in results if isinstance(r, BaseException)]
+            successful = len(memories) - len(errors)
+            if errors:
+                logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+                for err in errors:
+                    logger.warning("Delete error: %s", err)
+            if successful == 0:
+                logger.warning("No memories deleted in this batch; aborting to prevent infinite loop.")
+                break
+            deleted_count += successful
+
+            memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=delete_batch_size)
+            memories = _normalize_vector_store_list_result(memories_result)
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
-        if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
-            for err in errors:
-                logger.warning("Delete error: %s", err)
+        logger.info(f"Deleted {deleted_count} memories")
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
-
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:

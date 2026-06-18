@@ -988,3 +988,47 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_drains_multiple_batches(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    batch_one = [MagicMock(id=f"id_{i}") for i in range(100)]
+    batch_two = [MagicMock(id=f"id_{100 + i}") for i in range(50)]
+    memory.vector_store.list.side_effect = [(batch_one, None), (batch_two, None), ([], None)]
+    memory._delete_memory = mocker.AsyncMock()
+
+    result = await memory.delete_all(user_id="test_user")
+
+    assert memory._delete_memory.await_count == 150
+    assert memory.vector_store.list.call_count == 3
+    memory.vector_store.list.assert_any_call(filters={"user_id": "test_user"}, top_k=1000)
+    assert result["message"] == "Memories deleted successfully!"
+    assert all(
+        call.kwargs.get("skip_entity_cleanup") is True
+        for call in memory._delete_memory.call_args_list
+    ), "every per-memory delete must use skip_entity_cleanup=True"
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_continues_on_partial_failure(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    batch_one = [MagicMock(id=f"id_{i}") for i in range(3)]
+    batch_two = [MagicMock(id=f"id_{3 + i}") for i in range(2)]
+    memory.vector_store.list.side_effect = [(batch_one, None), (batch_two, None), ([], None)]
+
+    async def delete_memory_side_effect(memory_id, skip_entity_cleanup=False):
+        if memory_id == "id_1":
+            raise Exception("Simulated deletion failure")
+
+    memory._delete_memory = mocker.AsyncMock(side_effect=delete_memory_side_effect)
+
+    result = await memory.delete_all(user_id="test_user")
+
+    assert memory._delete_memory.await_count == 5
+    assert memory.vector_store.list.call_count == 3
+    assert result["message"] == "Memories deleted successfully!"
+    assert all(
+        call.kwargs.get("skip_entity_cleanup") is True
+        for call in memory._delete_memory.call_args_list
+    ), "every per-memory delete must use skip_entity_cleanup=True"
