@@ -41,10 +41,14 @@ sqlalchemy.url = driver://user:pass@localhost/dbname
     from sqlalchemy import create_engine, inspect
 
     eng = create_engine(pg_url)
-    tables = set(inspect(eng).get_table_names())
-    eng.dispose()
-    for name in ("write_queue", "projects", "write_audit_logs"):
+    insp = inspect(eng)
+    tables = set(insp.get_table_names())
+    # task_01: partitioning state must materialize alongside the existing tables.
+    for name in ("write_queue", "projects", "write_audit_logs", "migration_state"):
         assert name in tables
+    project_cols = {c["name"] for c in insp.get_columns("projects")}
+    assert {"partition_tier", "shard_key"} <= project_cols
+    eng.dispose()
 
 
 def test_write_queue_index_exists(pg_url, monkeypatch):
