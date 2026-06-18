@@ -12,6 +12,7 @@ from uuid import uuid4
 from app.config import DEFAULT_APP_ID, USER_ID
 from app.database import Base, SessionLocal, engine
 from app.mcp_server import setup_mcp_server
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIdMiddleware
 from app.models import App, User
 from app.routers import (
@@ -50,6 +51,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Rate limit por (project, hostname) na borda (task_10 / ADR-006).
+app.add_middleware(RateLimitMiddleware)
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
