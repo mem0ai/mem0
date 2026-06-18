@@ -10,6 +10,7 @@ request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
     "request_id", default=""
 )
 job_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("job_id", default="")
+team_var: contextvars.ContextVar[str] = contextvars.ContextVar("team", default="")
 
 
 class StructuredContextFilter(logging.Filter):

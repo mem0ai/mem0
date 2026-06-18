@@ -60,6 +60,9 @@ BACKUP_LAST_SUCCESS_TIMESTAMP = Gauge(
 )
 BACKUP_DURATION_SECONDS = Gauge("backup_duration_seconds", "Duration of the last backup run")
 BACKUP_ERRORS_TOTAL = Counter("backup_errors_total", "Backup run failures")
+# Prontidão produção (task_11 / ADR-006): autenticação por equipe na borda.
+AUTH_DENIED_TOTAL = Counter("auth_denied_total", "Requests with missing/invalid team token", ["mode"])
+AUTH_OK_TOTAL = Counter("auth_ok_total", "Requests authenticated with a valid team token")
 GOVERNANCE_REVERTED_TOTAL = Counter("governance_reverted_total", "Governance quarantines reverted")
 GOVERNANCE_QUARANTINED_CURRENT = Gauge(
     "governance_quarantined_current", "Memories currently in quarantine"

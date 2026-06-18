@@ -35,6 +35,18 @@ x-api-common: &api-common
     OPENMEMORY_DISCOVERY_BASE_URL: ${OPENMEMORY_DISCOVERY_BASE_URL:-http://localhost:${PROXY_PORT:-8765}}
     RUN_EMBEDDED_WORKER: "false"
     WRITE_WORKER_MAX_CONCURRENCY: ${WRITE_WORKER_MAX_CONCURRENCY:-4}
+    # Autenticação por equipe (task_11 / ADR-006): warn (default) -> enforce.
+    AUTH_MODE: ${AUTH_MODE:-warn}
+    # Caminho do secret de tokens (ex.: Docker secret montado em /run/secrets).
+    AUTH_TOKENS_FILE: ${AUTH_TOKENS_FILE:-/run/secrets/team_tokens}
+    # Tracing OTLP (task_08 / ADR-004).
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
+    OTEL_SDK_DISABLED: ${OTEL_SDK_DISABLED:-}
+    # Object store para backup/cold tier (task_02/07 / ADR-003).
+    S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+    S3_BUCKET: ${S3_BUCKET:-mem0-backups}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
   env_file:
     - api/.env
   depends_on:
@@ -51,6 +63,7 @@ include:
   - compose/inference.yml
   - compose/proxy.yml
   - compose/observability.yml
+  - compose/backup.yml
 
 services:
   mem0_store:
