@@ -112,7 +112,9 @@ describe("SQLiteManager", () => {
     }));
     await db.saveMessages(messages, "scope-a");
 
-    const kept = (await db.getLastMessages("scope-a", 10)).map((m) => m.content);
+    const kept = (await db.getLastMessages("scope-a", 10)).map(
+      (m) => m.content,
+    );
 
     expect(kept).toEqual(Array.from({ length: 10 }, (_, i) => `msg${i + 2}`));
   });
@@ -124,7 +126,9 @@ describe("SQLiteManager", () => {
     }));
     await db.saveMessages(messages, "scope-b");
 
-    const order = (await db.getLastMessages("scope-b", 10)).map((m) => m.content);
+    const order = (await db.getLastMessages("scope-b", 10)).map(
+      (m) => m.content,
+    );
 
     expect(order).toEqual(Array.from({ length: 5 }, (_, i) => `msg${i}`));
   });
