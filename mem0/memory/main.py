@@ -993,11 +993,7 @@ class Memory(MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
-                # A misbehaving embedder may return fewer (or more) vectors than
-                # inputs. Normalise to ordered_keys length so the valid-filter
-                # treats missing vectors as failures instead of raising IndexError
-                # (which the outer except would swallow, silently dropping ALL
-                # entity links). Mirrors the count guard in _compute_entity_boosts.
+
                 if len(entity_embeddings) != len(ordered_keys):
                     logger.warning(
                         "embed_batch returned %d vectors for %d entity texts — "
@@ -2535,11 +2531,6 @@ class AsyncMemory(MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
-                # A misbehaving embedder may return fewer (or more) vectors than
-                # inputs. Normalise to ordered_keys length so the valid-filter
-                # treats missing vectors as failures instead of raising IndexError
-                # (which the outer except would swallow, silently dropping ALL
-                # entity links). Mirrors the count guard in _compute_entity_boosts.
                 if len(entity_embeddings) != len(ordered_keys):
                     logger.warning(
                         "embed_batch returned %d vectors for %d entity texts — "
