@@ -1104,21 +1104,29 @@ class Memory(MemoryBase):
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
+                        matched = False
                         if match:
-                            # Update existing entity
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                self.entity_store.update(
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
-                        else:
+                            existing_type = payload.get("entity_type")
+                            if entity_type and existing_type and existing_type != entity_type:
+                                matched = False
+                            else:
+                                matched = True
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                if not existing_type and entity_type:
+                                    payload["entity_type"] = entity_type
+                                try:
+                                    self.entity_store.update(
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}': {e}")
+
+                        if not matched:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
@@ -2733,21 +2741,30 @@ class AsyncMemory(MemoryBase):
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
+                        matched = False
                         if match:
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
+                            existing_type = payload.get("entity_type")
+                            if entity_type and existing_type and existing_type != entity_type:
+                                matched = False
+                            else:
+                                matched = True
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                if not existing_type and entity_type:
+                                    payload["entity_type"] = entity_type
+                                try:
+                                    await asyncio.to_thread(
+                                        self.entity_store.update,
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+
+                        if not matched:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
                             to_insert_payloads.append({
