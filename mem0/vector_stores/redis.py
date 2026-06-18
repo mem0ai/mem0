@@ -263,6 +263,11 @@ class RedisDB(VectorStoreBase):
 
     def get(self, vector_id):
         result = self.index.fetch(vector_id)
+        # redisvl's SearchIndex.fetch() returns None when the id is not found.
+        # Return None (consistent with the other vector stores) instead of
+        # crashing on result["hash"]; Memory relies on get() returning None.
+        if not result:
+            return None
         payload = {
             "hash": result["hash"],
             "data": result["memory"],
