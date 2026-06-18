@@ -1463,3 +1463,129 @@ async def test_async_upsert_entity_insert_persists_semantic_type(
 
     payload = entity_store.insert.call_args.kwargs["payloads"][0]
     assert payload["semantic_type"] == "PERSON"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_upsert_entity_backfills_semantic_type_on_revisited_memory_id(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Re-processing an already-linked memory_id must still back-fill a missing label.
+
+    The link-list update and the semantic_type back-fill are independent: when
+    memory_id is already in linked_memory_ids (re-index/retry), the entity can
+    still be upgraded from no-label to a label.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    # mem-A is already linked and the record has no semantic_type yet.
+    existing = MockVectorMemory("ent-1", {"linked_memory_ids": ["mem-A"]}, score=0.99)
+    entity_store = MagicMock()
+    entity_store.search.return_value = [existing]
+    memory._entity_store = entity_store
+
+    memory._upsert_entity("Alice", "PROPER", "mem-A", {"user_id": "u1"}, semantic_type="PERSON")
+
+    entity_store.update.assert_called_once()
+    payload = entity_store.update.call_args.kwargs["payload"]
+    assert payload["semantic_type"] == "PERSON"
+    assert payload["linked_memory_ids"] == ["mem-A"]  # link list unchanged
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_upsert_entity_no_update_when_nothing_changes(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """A re-visit with an already-linked id and an already-set label must not update."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    existing = MockVectorMemory(
+        "ent-1", {"linked_memory_ids": ["mem-A"], "semantic_type": "PERSON"}, score=0.99
+    )
+    entity_store = MagicMock()
+    entity_store.search.return_value = [existing]
+    memory._entity_store = entity_store
+
+    memory._upsert_entity("Alice", "PROPER", "mem-A", {"user_id": "u1"}, semantic_type="PERSON")
+
+    entity_store.update.assert_not_called()
+
+
+@patch('mem0.memory.main.extract_entities_batch')
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_batch_dedup_upgrades_semantic_type_across_memories(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, mock_extract_batch
+):
+    """Phase 7 dedup: two memories sharing an entity must produce one insert that
+    carries the non-None semantic_type and both memory IDs.
+
+    Exercises the widened global_entities value (semantic_type at index 2, the
+    memory-ID set at index 3) and the None->label upgrade during dedup.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.embed_batch.side_effect = lambda texts, action=None: [[0.1, 0.2, 0.3] for _ in texts]
+    mock_embedder_factory.return_value = embedder
+
+    vector_store = MagicMock()
+    vector_store.search.return_value = []  # no existing memories
+    entity_store = MagicMock()
+    entity_store.search_batch.return_value = [[]]  # the single unique entity has no match
+    # First factory call -> main vector store, second -> entity store
+    mock_vector_factory.side_effect = [vector_store, entity_store]
+
+    llm = MagicMock()
+    llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "Alice joined the team"}, {"text": "Alice shipped the release"}]}
+    )
+    mock_llm_factory.return_value = llm
+    mock_sqlite.return_value = MagicMock()
+
+    # memory-1 sees Alice with no label; memory-2 sees Alice as PERSON -> upgrade path
+    mock_extract_batch.return_value = [
+        [("PROPER", "Alice", None)],
+        [("PROPER", "Alice", "PERSON")],
+    ]
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+    memory._entity_store = entity_store
+
+    memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "Alice joined and shipped"}],
+        metadata={},
+        filters={"user_id": "u1"},
+        infer=True,
+    )
+
+    entity_store.insert.assert_called_once()
+    payloads = entity_store.insert.call_args.kwargs["payloads"]
+    assert len(payloads) == 1
+    assert payloads[0]["semantic_type"] == "PERSON"
+    assert payloads[0]["data"] == "Alice"
+    # both source memories linked to the single deduped entity
+    assert len(payloads[0]["linked_memory_ids"]) == 2

@@ -517,11 +517,18 @@ class Memory(MemoryBase):
                 match = existing[0]
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
+                changed = False
                 if memory_id not in linked_ids:
                     linked_ids.append(memory_id)
                     payload["linked_memory_ids"] = linked_ids
-                    if semantic_type and not payload.get("semantic_type"):
-                        payload["semantic_type"] = semantic_type
+                    changed = True
+                # Back-fill semantic_type independently of the link update so a
+                # re-visited memory_id (re-index/retry) can still upgrade a record
+                # that was first written without a label.
+                if semantic_type and payload.get("semantic_type") is None:
+                    payload["semantic_type"] = semantic_type
+                    changed = True
+                if changed:
                     self.entity_store.update(
                         vector_id=match.id,
                         vector=None,
@@ -978,8 +985,10 @@ class Memory(MemoryBase):
                     key = entity_text.strip().lower()
                     if key in global_entities:
                         global_entities[key][3].add(memory_id)
-                        # Upgrade semantic_type if not yet set
-                        if semantic_type and not global_entities[key][2]:
+                        # Upgrade semantic_type if not yet set. "First non-None
+                        # wins": when memories disagree, the label of whichever
+                        # record is processed first (in `records` order) is kept.
+                        if semantic_type and global_entities[key][2] is None:
                             global_entities[key][2] = semantic_type
                     else:
                         global_entities[key] = [entity_type, entity_text, semantic_type, {memory_id}]
@@ -1039,7 +1048,7 @@ class Memory(MemoryBase):
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
-                            if semantic_type and not payload.get("semantic_type"):
+                            if semantic_type and payload.get("semantic_type") is None:
                                 payload["semantic_type"] = semantic_type
                             try:
                                 self.entity_store.update(
@@ -2073,11 +2082,18 @@ class AsyncMemory(MemoryBase):
                 match = existing[0]
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
+                changed = False
                 if memory_id not in linked_ids:
                     linked_ids.append(memory_id)
                     payload["linked_memory_ids"] = linked_ids
-                    if semantic_type and not payload.get("semantic_type"):
-                        payload["semantic_type"] = semantic_type
+                    changed = True
+                # Back-fill semantic_type independently of the link update so a
+                # re-visited memory_id (re-index/retry) can still upgrade a record
+                # that was first written without a label.
+                if semantic_type and payload.get("semantic_type") is None:
+                    payload["semantic_type"] = semantic_type
+                    changed = True
+                if changed:
                     await asyncio.to_thread(
                         self.entity_store.update,
                         vector_id=match.id,
@@ -2529,7 +2545,10 @@ class AsyncMemory(MemoryBase):
                     key = entity_text.strip().lower()
                     if key in global_entities:
                         global_entities[key][3].add(memory_id)
-                        if semantic_type and not global_entities[key][2]:
+                        # Upgrade semantic_type if not yet set. "First non-None
+                        # wins": when memories disagree, the label of whichever
+                        # record is processed first (in `records` order) is kept.
+                        if semantic_type and global_entities[key][2] is None:
                             global_entities[key][2] = semantic_type
                     else:
                         global_entities[key] = [entity_type, entity_text, semantic_type, {memory_id}]
@@ -2586,7 +2605,7 @@ class AsyncMemory(MemoryBase):
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
-                            if semantic_type and not payload.get("semantic_type"):
+                            if semantic_type and payload.get("semantic_type") is None:
                                 payload["semantic_type"] = semantic_type
                             try:
                                 await asyncio.to_thread(

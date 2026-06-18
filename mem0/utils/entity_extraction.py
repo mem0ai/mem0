@@ -382,4 +382,7 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str, Optional[str]]]:
         if ent.label_ in _SEMANTIC_LABELS:
             spacy_ner_map[ent.text.lower()] = ent.label_
 
+    # `entities`/`cleaned`/`final` above are intentionally 2-tuples (syntactic
+    # type, text); the optional semantic_type is joined here from the NER map so
+    # the public return type is List[Tuple[str, str, Optional[str]]].
     return [(t, e, spacy_ner_map.get(e.lower())) for t, e in final]
