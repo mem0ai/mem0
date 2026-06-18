@@ -107,8 +107,6 @@ def test_embed_batch_sentence_transformer(mock_sentence_transformer):
     config = BaseEmbedderConfig()
     embedder = HuggingFaceEmbedding(config)
 
-    import numpy as np
-
     mock_sentence_transformer.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
 
     texts = ["First text.", "Second text."]

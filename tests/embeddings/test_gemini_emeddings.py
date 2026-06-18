@@ -93,6 +93,22 @@ def test_embed_batch_count_mismatch_raises(mock_genai, config):
         embedder.embed_batch(["first text", "second text"])
 
 
+def test_embed_batch_chunks_over_100_texts(mock_genai, config):
+    def make_chunk_response(**kwargs):
+        chunk = kwargs["contents"]
+        emb = type("Embedding", (), {"values": [0.1, 0.2]})
+        return type("Response", (), {"embeddings": [emb() for _ in chunk]})()
+
+    mock_genai.side_effect = make_chunk_response
+
+    embedder = GoogleGenAIEmbedding(config)
+    texts = [f"text {i}" for i in range(150)]
+    result = embedder.embed_batch(texts)
+
+    assert mock_genai.call_count == 2
+    assert len(result) == 150
+
+
 def test_embed_batch_strips_newlines(mock_genai, config):
     emb0 = type("Embedding", (), {"values": [0.1, 0.2, 0.3]})()
     mock_genai.return_value = type("Response", (), {"embeddings": [emb0]})()

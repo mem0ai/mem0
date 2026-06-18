@@ -37,7 +37,7 @@ class LMStudioEmbedding(EmbeddingBase):
         embeddings = [item.embedding for item in sorted_data]
         if len(embeddings) != len(texts):
             raise ValueError(
-                f"LM Studio embed() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                f"LM Studio embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
                 f" using model '{self.config.model}'"
             )
         return embeddings

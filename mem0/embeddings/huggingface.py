@@ -52,7 +52,7 @@ class HuggingFaceEmbedding(EmbeddingBase):
             embeddings = [item.embedding for item in sorted_data]
             if len(embeddings) != len(texts):
                 raise ValueError(
-                    f"HuggingFace embed() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                    f"HuggingFace embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
                     f" using model '{self.config.model}'"
                 )
             return embeddings
@@ -60,7 +60,7 @@ class HuggingFaceEmbedding(EmbeddingBase):
             result = self.model.encode(texts, convert_to_numpy=True).tolist()
             if len(result) != len(texts):
                 raise ValueError(
-                    f"HuggingFace embed() returned {len(result)} embeddings for {len(texts)} texts"
+                    f"HuggingFace embed_batch() returned {len(result)} embeddings for {len(texts)} texts"
                     f" using model '{self.config.model}'"
                 )
             return result

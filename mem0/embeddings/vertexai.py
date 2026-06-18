@@ -63,7 +63,7 @@ class VertexAIEmbedding(EmbeddingBase):
 
         return embeddings[0].values
 
-    def embed_batch(self, texts, memory_action=None):
+    def embed_batch(self, texts, memory_action="add"):
         if not texts:
             return []
         embedding_type = "SEMANTIC_SIMILARITY"
@@ -79,7 +79,7 @@ class VertexAIEmbedding(EmbeddingBase):
             all_embeddings.extend(r.values for r in results)
         if len(all_embeddings) != len(texts):
             raise ValueError(
-                f"Vertex AI embed() returned {len(all_embeddings)} embeddings for {len(texts)} texts"
+                f"Vertex AI embed_batch() returned {len(all_embeddings)} embeddings for {len(texts)} texts"
                 f" using model '{self.config.model}'"
             )
         return all_embeddings

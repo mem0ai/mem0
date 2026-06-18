@@ -38,7 +38,7 @@ class TogetherEmbedding(EmbeddingBase):
         embeddings = [item.embedding for item in sorted_data]
         if len(embeddings) != len(texts):
             raise ValueError(
-                f"Together embed() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                f"Together embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
                 f" using model '{self.config.model}'"
             )
         return embeddings
