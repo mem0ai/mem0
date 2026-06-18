@@ -1,0 +1,55 @@
+# Object store (MinIO) + rotina de backup (task_02 / ADR-003).
+# MinIO é o destino S3-compatível dos backups (snapshot Qdrant + pg_dump) e dos
+# snapshots de cold tier (task_07). O serviço `backup` roda a rotina sob demanda
+# (profile `backup`) ou pode ser agendado via cron externo / `docker compose run`.
+services:
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Cria o bucket de backups uma vez, de forma idempotente.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-mem0-backups} &&
+      mc version enable local/${S3_BUCKET:-mem0-backups} || true
+      "
+
+  backup:
+    build:
+      context: ../api
+    profiles: ["backup"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-mem0-backups}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      QDRANT_HOST: ${QDRANT_HOST:-mem0_store}
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
+    command: ["python", "-m", "app.scripts.run_backup"]
+
+volumes:
+  minio_data:

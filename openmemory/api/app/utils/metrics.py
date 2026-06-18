@@ -54,6 +54,12 @@ GOVERNANCE_QUOTA_OVER_LIMIT_PROJECTS = Gauge(
 GOVERNANCE_COLD_TIER_ARCHIVED_TOTAL = Counter(
     "governance_cold_tier_archived_total", "Memories archived to cold tier"
 )
+# Prontidão produção (task_02 / ADR-003): backup para object store (MinIO/S3).
+BACKUP_LAST_SUCCESS_TIMESTAMP = Gauge(
+    "backup_last_success_timestamp", "Unix timestamp of the last successful backup"
+)
+BACKUP_DURATION_SECONDS = Gauge("backup_duration_seconds", "Duration of the last backup run")
+BACKUP_ERRORS_TOTAL = Counter("backup_errors_total", "Backup run failures")
 GOVERNANCE_REVERTED_TOTAL = Counter("governance_reverted_total", "Governance quarantines reverted")
 GOVERNANCE_QUARANTINED_CURRENT = Gauge(
     "governance_quarantined_current", "Memories currently in quarantine"
