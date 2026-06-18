@@ -60,15 +60,14 @@ describe("MemoryClient - add()", () => {
   });
 
   test("throws an error when given an empty messages array", async () => {
-    
     setupMockFetch();
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
 
     //Asserts that the validation guard catches the empty input early
-    await expect(client.add([], {userId: "u1"})).rejects.toThrow(
-      "Cannot process an empty messages payload."
-    )
+    await expect(client.add([], { userId: "u1" })).rejects.toThrow(
+      "Cannot process an empty messages payload.",
+    );
   });
 });
 
