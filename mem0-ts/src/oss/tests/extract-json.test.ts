@@ -229,4 +229,75 @@ That's all I found.`;
     const result = extractJson(input);
     expect(JSON.parse(result)).toEqual(["fact1", "fact2"]);
   });
+
+  // Issue #4737: trailing commas are invalid JSON but extremely common in
+  // OpenRouter-proxied / weaker / local model output. Without tolerance the
+  // extraction silently fails closed and memories are skipped.
+  describe("trailing comma tolerance (issue #4737)", () => {
+    it("recovers an object with a trailing comma before the closing brace", () => {
+      const input = '{"facts": ["a"],}';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({ facts: ["a"] });
+    });
+
+    it("recovers an array with a trailing comma before the closing bracket", () => {
+      const input = '{"memory": [{"text": "a"},]}';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({ memory: [{ text: "a" }] });
+    });
+
+    it("recovers a trailing comma inside a nested object", () => {
+      const input = '{"memory": [{"id": "0", "text": "a",}]}';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({
+        memory: [{ id: "0", text: "a" }],
+      });
+    });
+
+    it("recovers multiple trailing commas across nesting levels", () => {
+      const input =
+        '{"memory": [{"id": "0", "text": "a",}, {"id": "1", "text": "b",},],}';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({
+        memory: [
+          { id: "0", text: "a" },
+          { id: "1", text: "b" },
+        ],
+      });
+    });
+
+    it("recovers a trailing comma in a wrapped/chatty response", () => {
+      const input =
+        "Here are the extracted memories:\n" +
+        '{"memory": [{"text": "User likes pizza"},]}\n' +
+        "Let me know if you need more.";
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({
+        memory: [{ text: "User likes pizza" }],
+      });
+    });
+
+    it("recovers a bare top-level array with a trailing comma", () => {
+      const input = 'The results are: ["fact1", "fact2",]';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual(["fact1", "fact2"]);
+    });
+
+    it("does NOT strip commas that appear inside string values", () => {
+      const input = '{"facts": ["a, b, and c"],}';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({ facts: ["a, b, and c"] });
+    });
+
+    it("does NOT mistake a brace inside a string for a trailing-comma boundary", () => {
+      const input = '{"facts": ["weird },] value"],}';
+      const result = extractJson(input);
+      expect(JSON.parse(result)).toEqual({ facts: ["weird },] value"] });
+    });
+
+    it("leaves already-valid JSON byte-for-byte unchanged", () => {
+      const input = '{"facts": ["hello", "world"]}';
+      expect(extractJson(input)).toBe('{"facts": ["hello", "world"]}');
+    });
+  });
 });
