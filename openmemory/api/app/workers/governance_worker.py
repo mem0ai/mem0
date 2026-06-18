@@ -36,6 +36,7 @@ DEFAULT_MAX_ATTEMPTS = 3
 SCHEDULE_INTERVALS = {
     "daily": timedelta(days=1),
     "weekly": timedelta(days=7),
+    "monthly": timedelta(days=30),
 }
 
 

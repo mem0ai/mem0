@@ -18,7 +18,7 @@ temporary database.
 from typing import Optional
 
 from app.database import SessionLocal
-from app.models import Project
+from app.models import Project, get_current_utc_time
 from sqlalchemy.orm import Session
 
 
@@ -57,12 +57,17 @@ def upsert_project(
 
 
 def _upsert(db: Session, name: str, hostname: Optional[str]) -> Project:
+    now = get_current_utc_time()
     project = db.query(Project).filter(Project.name == name).first()
     if project is not None:
-        # Already cataloged -- idempotent no-op.
+        # Already cataloged -- refresh the activity timestamp so the cold-tier
+        # inactivity window (task_07) reflects the latest write/access.
+        project.last_activity_at = now
+        db.commit()
+        db.refresh(project)
         return project
 
-    project = Project(name=name, first_seen_hostname=hostname)
+    project = Project(name=name, first_seen_hostname=hostname, last_activity_at=now)
     db.add(project)
     db.commit()
     db.refresh(project)

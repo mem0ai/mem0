@@ -141,7 +141,10 @@ def test_alembic_round_trip_governance_sqlite(tmp_path, monkeypatch):
     assert "quarantined_at" in memory_cols
     eng.dispose()
 
-    command.downgrade(cfg, "-1")
+    # Downgrade past the governance migration explicitly (revisão anterior à
+    # governança) — robusto a migrations adicionadas no topo, como a de
+    # quota/cold-tier (a6b7c8d9e0f1).
+    command.downgrade(cfg, "e4d5f6a7b8c9")
     eng = create_engine(url)
     insp = inspect(eng)
     tables = set(insp.get_table_names())
@@ -179,4 +182,40 @@ def test_existing_memories_keep_state_after_upgrade(tmp_path, monkeypatch):
     assert loaded.state == MemoryState.active
     assert loaded.quarantined_at is None
     db.close()
+    eng.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Quota / cold-tier state (task_04 / ADR-005)
+# ---------------------------------------------------------------------------
+
+def test_governance_job_type_has_quota_and_cold_tier():
+    from app.models import GovernanceJobType
+
+    assert GovernanceJobType.enforce_quota.value == "enforce_quota"
+    assert GovernanceJobType.cold_tier.value == "cold_tier"
+
+
+def test_schedule_intervals_has_monthly():
+    from datetime import timedelta
+
+    from app.workers.governance_worker import SCHEDULE_INTERVALS
+
+    assert SCHEDULE_INTERVALS["monthly"] == timedelta(days=30)
+
+
+def test_migration_adds_last_activity_at_column(tmp_path, monkeypatch):
+    db_file = tmp_path / "act.db"
+    url = f"sqlite:///{db_file.as_posix()}"
+    monkeypatch.setenv("DATABASE_URL", url)
+
+    from alembic import command
+
+    cfg = _alembic_config()
+    command.upgrade(cfg, "head")
+
+    eng = create_engine(url)
+    insp = inspect(eng)
+    cols = {c["name"] for c in insp.get_columns("projects")}
+    assert "last_activity_at" in cols
     eng.dispose()

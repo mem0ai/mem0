@@ -48,6 +48,10 @@ class GovernanceJobType(enum.Enum):
     ttl_prune = "ttl_prune"
     consolidate = "consolidate"
     purge = "purge"
+    # Fase 2 prontidão (task_04 / ADR-005): aplicação de teto por project e
+    # arquivamento de projects inativos (cold tier).
+    enforce_quota = "enforce_quota"
+    cold_tier = "cold_tier"
 
 
 class GovernanceJobStatus(enum.Enum):
@@ -126,6 +130,9 @@ class Project(Base):
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     first_seen_hostname = Column(String, nullable=True)
     memory_count = Column(Integer, nullable=True, default=0)
+    # Última atividade de escrita/acesso do project (task_04 / ADR-005). Alimenta
+    # a janela de inatividade do cold tier (task_07).
+    last_activity_at = Column(DateTime, nullable=True, index=True)
     # Partitioning state (task_01 / ADR-002): every project starts ``shared`` and
     # may be promoted to a dedicated custom shard key (task_08).
     partition_tier = Column(

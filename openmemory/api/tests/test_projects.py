@@ -110,6 +110,24 @@ class TestUpsertIdempotent:
         assert second.first_seen_hostname == "host-1"
         assert first.name == second.name
 
+
+# ---------------------------------------------------------------------------
+# upsert: last_activity_at (task_04 / ADR-005)
+# ---------------------------------------------------------------------------
+
+class TestLastActivity:
+    def test_upsert_sets_last_activity_on_create(self, session):
+        project = upsert_project("act-create", hostname="h", session=session)
+        assert project.last_activity_at is not None
+        assert isinstance(project.last_activity_at, datetime.datetime)
+
+    def test_repeated_upsert_advances_last_activity(self, session):
+        first = upsert_project("act-touch", hostname="h", session=session)
+        t1 = first.last_activity_at
+        # A subsequent sighting must refresh the activity timestamp (>= the first).
+        second = upsert_project("act-touch", hostname="h", session=session)
+        assert second.last_activity_at >= t1
+
     def test_total_count_after_repeated_upserts(self, session):
         upsert_project("a", hostname="h", session=session)
         upsert_project("a", hostname="h", session=session)
