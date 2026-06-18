@@ -39,6 +39,9 @@ class Qdrant(VectorStoreBase):
         api_key: str = None,
         https: bool | None = None,
         on_disk: bool = False,
+        shard_number: int = None,
+        replication_factor: int = None,
+        custom_sharding: bool = False,
     ):
         """
         Initialize the Qdrant vector store.
@@ -56,6 +59,12 @@ class Qdrant(VectorStoreBase):
                 Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
+            shard_number (int, optional): Number of shards for the collection (Qdrant cluster).
+                Only applied at collection creation when set. Defaults to None.
+            replication_factor (int, optional): Replication factor for the collection (Qdrant cluster).
+                Only applied at collection creation when set. Defaults to None.
+            custom_sharding (bool, optional): Create the collection with ``sharding_method=CUSTOM`` so
+                large tenants can be promoted to dedicated shard keys (ADR-002). Defaults to False.
         """
         if client:
             self.client = client
@@ -83,6 +92,9 @@ class Qdrant(VectorStoreBase):
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.on_disk = on_disk
+        self.shard_number = shard_number
+        self.replication_factor = replication_factor
+        self.custom_sharding = custom_sharding
         self._bm25_encoder = None
         # Whether this collection has the `bm25` named sparse vector slot.
         # Pre-v3 collections lack it; writing a `bm25` sparse vector into such a
@@ -148,7 +160,7 @@ class Qdrant(VectorStoreBase):
                 self._create_filter_indexes()
                 return
 
-        self.client.create_collection(
+        create_kwargs = dict(
             collection_name=self.collection_name,
             vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
             sparse_vectors_config={
@@ -157,8 +169,27 @@ class Qdrant(VectorStoreBase):
                 ),
             },
         )
+        # Cluster topology (ADR-002): only passed when explicitly configured, so
+        # the single-node default keeps the exact previous create_collection call.
+        if self.shard_number is not None:
+            create_kwargs["shard_number"] = self.shard_number
+        if self.replication_factor is not None:
+            create_kwargs["replication_factor"] = self.replication_factor
+        if self.custom_sharding:
+            create_kwargs["sharding_method"] = models.ShardingMethod.CUSTOM
+
+        self.client.create_collection(**create_kwargs)
         self._has_bm25_slot = True
         self._create_filter_indexes()
+
+    # Tenant key co-locates each project's points on disk (ADR-002), making the
+    # project filter fast at scale; `is_tenant=True` is the multitenancy optimization.
+    TENANT_FIELD = "project"
+    # Keyword payload indexes (exact-match filters). `type`/`hash` added for Fase 2
+    # (plugin filters and dedup) alongside the pre-existing identity fields.
+    KEYWORD_INDEX_FIELDS = ["user_id", "agent_id", "run_id", "actor_id", "type", "hash"]
+    # Datetime payload indexes (range filters for TTL/pruning, ADR-002).
+    DATETIME_INDEX_FIELDS = ["created_at"]
 
     def _create_filter_indexes(self):
         """Create indexes for commonly used filter fields to enable filtering."""
@@ -167,20 +198,66 @@ class Qdrant(VectorStoreBase):
             logger.debug("Skipping payload index creation for local Qdrant (not supported)")
             return
 
-        common_fields = ["user_id", "agent_id", "run_id", "actor_id"]
+        # Tenant index for `project` (multitenancy co-location, ADR-002).
+        self._safe_create_index(
+            self.TENANT_FIELD,
+            models.KeywordIndexParams(type=models.KeywordIndexType.KEYWORD, is_tenant=True),
+        )
 
-        for field in common_fields:
-            try:
-                self.client.create_payload_index(
-                    collection_name=self.collection_name,
-                    field_name=field,
-                    field_schema="keyword"
-                )
-                logger.info(f"Created index for {field} in collection {self.collection_name}")
-            except Exception as e:
-                logger.debug(f"Index for {field} might already exist: {e}")
+        for field in self.KEYWORD_INDEX_FIELDS:
+            self._safe_create_index(field, "keyword")
 
-    def insert(self, vectors: list, payloads: list = None, ids: list = None):
+        for field in self.DATETIME_INDEX_FIELDS:
+            self._safe_create_index(field, "datetime")
+
+    def _safe_create_index(self, field_name, field_schema):
+        """Create a payload index, tolerating the case where it already exists."""
+        try:
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name=field_name,
+                field_schema=field_schema,
+            )
+            logger.info(f"Created index for {field_name} in collection {self.collection_name}")
+        except Exception as e:
+            logger.debug(f"Index for {field_name} might already exist: {e}")
+
+    def create_shard_key(self, shard_key: str):
+        """Register a dedicated custom shard key for tenant promotion (ADR-002 / task_08)."""
+        self.client.create_shard_key(self.collection_name, shard_key)
+
+    def replicate_to(self, ids: list, target_collection: str):
+        """Copy points (vectors + payload) by id from this collection to another.
+
+        Used by the dual-write delta (task_05) and reusable for promotion. Upsert
+        preserves the source ids, so re-running is idempotent.
+        """
+        if not ids:
+            return
+        records = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=ids,
+            with_payload=True,
+            with_vectors=True,
+        )
+        if not records:
+            return
+        points = [
+            PointStruct(id=r.id, vector=r.vector, payload=r.payload)
+            for r in records
+        ]
+        self.client.upsert(collection_name=target_collection, points=points)
+
+    def delete_from(self, ids: list, target_collection: str):
+        """Delete points by id from another collection (dual-write of deletions)."""
+        if not ids:
+            return
+        self.client.delete(
+            collection_name=target_collection,
+            points_selector=PointIdsList(points=ids),
+        )
+
+    def insert(self, vectors: list, payloads: list = None, ids: list = None, shard_key: str = None):
         """
         Insert vectors into a collection, including BM25 sparse vectors
         computed from the text_lemmatized payload field.
@@ -189,6 +266,8 @@ class Qdrant(VectorStoreBase):
             vectors (list): List of vectors to insert.
             payloads (list, optional): List of payloads corresponding to vectors. Defaults to None.
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
+            shard_key (str, optional): Route the upsert to a dedicated custom shard key
+                (tenant promotion, ADR-002). Defaults to None (shared shard).
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         points = []
@@ -207,7 +286,10 @@ class Qdrant(VectorStoreBase):
 
             points.append(PointStruct(id=point_id, vector=named_vectors, payload=payload))
 
-        self.client.upsert(collection_name=self.collection_name, points=points)
+        upsert_kwargs = dict(collection_name=self.collection_name, points=points)
+        if shard_key is not None:
+            upsert_kwargs["shard_key_selector"] = shard_key
+        self.client.upsert(**upsert_kwargs)
 
     # ISO 8601 datetime pattern for detecting datetime strings in range filters
     _ISO_DATETIME_RE = re.compile(
@@ -376,7 +458,8 @@ class Qdrant(VectorStoreBase):
             must_not=must_not or None,
         )
 
-    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None) -> list:
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None,
+               shard_key_selector=None) -> list:
         """
         Search for similar vectors.
 
@@ -385,24 +468,36 @@ class Qdrant(VectorStoreBase):
             vectors (list): Query vector.
             top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
+            shard_key_selector (optional): Restrict the search to a dedicated custom
+                shard key when the project was promoted (ADR-002). Defaults to None.
 
         Returns:
             list: Search results.
         """
         query_filter = self._create_filter(filters) if filters else None
-        hits = self.client.query_points(
+        query_kwargs = dict(
             collection_name=self.collection_name,
             query=vectors,
             query_filter=query_filter,
             limit=top_k,
         )
+        if shard_key_selector is not None:
+            query_kwargs["shard_key_selector"] = shard_key_selector
+        hits = self.client.query_points(**query_kwargs)
         return hits.points
 
-    def search_batch(self, queries: list, vectors_list: list, top_k: int = 1, filters: dict = None):
+    def search_batch(self, queries: list, vectors_list: list, top_k: int = 1, filters: dict = None,
+                     shard_key_selector=None):
         """Batch search using Qdrant's query_batch_points for efficiency."""
         query_filter = self._create_filter(filters) if filters else None
         requests = [
-            models.QueryRequest(query=vec, filter=query_filter, limit=top_k, with_payload=True)
+            models.QueryRequest(
+                query=vec,
+                filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+                shard_key=shard_key_selector,
+            )
             for vec in vectors_list
         ]
         try:
@@ -413,7 +508,10 @@ class Qdrant(VectorStoreBase):
             return [r.points for r in results]
         except Exception as e:
             logger.warning(f"Batch search failed, falling back to sequential: {e}")
-            return [self.search(q, v, top_k=top_k, filters=filters) for q, v in zip(queries, vectors_list)]
+            return [
+                self.search(q, v, top_k=top_k, filters=filters, shard_key_selector=shard_key_selector)
+                for q, v in zip(queries, vectors_list)
+            ]
 
     def keyword_search(self, query, top_k=5, filters=None):
         """

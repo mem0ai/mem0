@@ -30,7 +30,9 @@ import os
 from typing import Callable, Optional
 
 from app.utils.logging_context import job_id_var
+from app.utils.partitioning import bind_active_collection, partition_resolver
 from app.utils.metrics import (
+    DUAL_WRITE_ERRORS,
     WRITE_QUEUE_DEPTH,
     WRITE_WORKER_ERRORS,
     WRITE_WORKER_SUCCESS,
@@ -144,7 +146,8 @@ class WriteWorker:
                             "memory client unavailable (LLM/backend down)"
                         )
 
-                    await self._run_add(client, job)
+                    result = await self._run_add(client, job)
+                    self._maybe_dual_write(client, result)
                     self._catalog_project(job)
                     read_cache.invalidate_search(job.project)
                     self._queue.mark_done(job.id)
@@ -204,6 +207,8 @@ class WriteWorker:
                 "mcp_client": job.client_name,
             },
         )
+        # Writes target the active collection (blue-green, ADR-003).
+        bind_active_collection(client)
         add = client.add
         if asyncio.iscoroutinefunction(add):
             return await add(job.text, **kwargs)
@@ -218,6 +223,39 @@ class WriteWorker:
         if asyncio.iscoroutine(result) or asyncio.isfuture(result):
             return await result
         return result
+
+    def _maybe_dual_write(self, client, result) -> None:
+        """Mirror the just-written delta to the migration target (task_05 / ADR-003).
+
+        During the blue-green window (``dual_write_enabled``), the points produced
+        by ``add`` are replicated by id to the target collection so it stays fresh.
+        Replication is best-effort: any failure is counted and logged but never
+        fails the job — the active-collection write already succeeded.
+        """
+        target = partition_resolver.dual_write_target()
+        if not target:
+            return
+
+        vs = getattr(client, "vector_store", None)
+        if vs is None or not hasattr(vs, "replicate_to"):
+            return
+
+        add_ids, del_ids = [], []
+        for r in (result or {}).get("results", []) or []:
+            mid = r.get("id")
+            if not mid:
+                continue
+            if (r.get("event") or "").upper() == "DELETE":
+                del_ids.append(mid)
+            else:
+                add_ids.append(mid)
+
+        try:
+            vs.replicate_to(add_ids, target)
+            vs.delete_from(del_ids, target)
+        except Exception as e:  # noqa: BLE001 - never fail the job on mirror error
+            DUAL_WRITE_ERRORS.inc()
+            logger.warning("dual-write to %s failed: %s", target, e)
 
     def _catalog_project(self, job: WriteJob) -> None:
         """Upsert the project catalog on the first write of each project."""

@@ -42,6 +42,26 @@ class WriteQueueStatus(enum.Enum):
     failed = "failed"
 
 
+class MigrationStatus(enum.Enum):
+    """Lifecycle of the blue-green partition migration (task_01 / ADR-003)."""
+    planned = "planned"
+    copying = "copying"
+    validating = "validating"
+    flipped = "flipped"
+    rolled_back = "rolled_back"
+    done = "done"
+
+
+class PartitionTier(enum.Enum):
+    """Partition tier of a project in the shared Qdrant collection (ADR-002).
+
+    ``shared`` projects live in the shared shard; ``dedicated`` projects have
+    been promoted to their own custom shard key (task_08).
+    """
+    shared = "shared"
+    dedicated = "dedicated"
+
+
 class WriteQueueJob(Base):
     """Persistent write-queue row that decouples the MCP agent from LLM extraction.
 
@@ -91,6 +111,15 @@ class Project(Base):
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     first_seen_hostname = Column(String, nullable=True)
     memory_count = Column(Integer, nullable=True, default=0)
+    # Partitioning state (task_01 / ADR-002): every project starts ``shared`` and
+    # may be promoted to a dedicated custom shard key (task_08).
+    partition_tier = Column(
+        Enum(PartitionTier),
+        nullable=False,
+        default=PartitionTier.shared,
+        server_default=PartitionTier.shared.value,
+    )
+    shard_key = Column(String, nullable=True)
 
 
 class User(Base):
@@ -270,6 +299,35 @@ class WriteAuditLog(Base):
     __table_args__ = (
         Index('idx_write_audit_project_time', 'project', 'created_at'),
         Index('idx_write_audit_hostname_time', 'hostname', 'created_at'),
+    )
+
+
+class MigrationState(Base):
+    """Global state of the blue-green partition migration (task_01 / ADR-003).
+
+    A single logical row tracks the source (blue) and target (green) collections,
+    which collection is currently served (``active_collection`` — the flip
+    pointer), whether the write path is mirroring to the target
+    (``dual_write_enabled``), and the copy checkpoint (``scroll_cursor``) used by
+    the dedicated migration worker (task_06) to resume idempotently.
+    """
+    __tablename__ = "migration_state"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_collection = Column(String, nullable=False)
+    target_collection = Column(String, nullable=False)
+    active_collection = Column(String, nullable=False)
+    dual_write_enabled = Column(
+        Boolean, nullable=False, default=False, server_default=sa.false()
+    )
+    scroll_cursor = Column(String, nullable=True)
+    status = Column(
+        Enum(MigrationStatus),
+        nullable=False,
+        default=MigrationStatus.planned,
+        server_default=MigrationStatus.planned.value,
+    )
+    updated_at = Column(
+        DateTime, default=get_current_utc_time, onupdate=get_current_utc_time
     )
 
 

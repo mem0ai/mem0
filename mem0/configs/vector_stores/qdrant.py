@@ -21,6 +21,9 @@ class QdrantConfig(BaseModel):
         description="Whether to force HTTPS on or off. Explicit schemes in url take precedence.",
     )
     on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    shard_number: Optional[int] = Field(None, description="Number of shards for the collection (Qdrant cluster). Applied only at collection creation when set.")
+    replication_factor: Optional[int] = Field(None, description="Replication factor for the collection (Qdrant cluster). Applied only at collection creation when set.")
+    custom_sharding: Optional[bool] = Field(False, description="Create the collection with sharding_method=CUSTOM to allow promoting large tenants to dedicated shard keys (ADR-002).")
 
     @model_validator(mode="before")
     @classmethod

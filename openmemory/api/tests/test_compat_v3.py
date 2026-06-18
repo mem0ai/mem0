@@ -21,11 +21,20 @@ from pathlib import Path
 # Save originals so the stubs are torn down after compat_v3 is loaded; without
 # this, later test files that import app.utils.memory get the bare stub instead
 # of the real module and fail with "cannot import name …".
-_stub_names = ("app", "app.utils", "app.utils.memory")
+_stub_names = ("app", "app.utils", "app.utils.memory", "app.utils.partitioning")
 _saved_modules = {n: sys.modules.get(n) for n in _stub_names}
+# Swap in *fresh* stub modules (not setdefault): if these were already imported
+# for real, mutating their attributes would leak into the rest of the suite and
+# never get restored. We replace the module objects and restore them after load.
 for _name in _stub_names:
-    sys.modules.setdefault(_name, types.ModuleType(_name))
+    sys.modules[_name] = types.ModuleType(_name)
 sys.modules["app.utils.memory"].get_memory_client = lambda: None
+# Partition routing is exercised in dedicated tests; here it is a no-op so the
+# router's contract (search/add/list shapes) can be asserted with a fake client.
+sys.modules["app.utils.partitioning"].bind_active_collection = lambda *a, **k: "openmemory"
+sys.modules["app.utils.partitioning"].resolve_and_bind = (
+    lambda *a, **k: types.SimpleNamespace(collection="openmemory", shard_key=None)
+)
 
 _PATH = Path(__file__).resolve().parents[1] / "app" / "routers" / "compat_v3.py"
 _spec = importlib.util.spec_from_file_location("compat_v3_under_test", _PATH)
@@ -69,10 +78,10 @@ class _VectorStore:
             hits = [h for h in hits if h.payload.get("project") == filters["project"]]
         return hits
 
-    def search(self, query, vectors, top_k, filters):
+    def search(self, query, vectors, top_k, filters, shard_key_selector=None):
         return self._scoped(filters)[:top_k]
 
-    def list(self, filters, top_k):
+    def list(self, filters, top_k, shard_key_selector=None):
         return self._scoped(filters)[:top_k]
 
 
