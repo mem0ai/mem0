@@ -17,3 +17,8 @@ WRITE_WORKER_SUCCESS = Counter("write_worker_success_total", "Write worker succe
 # Fase 2 (task_05): replication failures while dual-writing to the migration
 # target collection. Active-collection writes are unaffected by these.
 DUAL_WRITE_ERRORS = Counter("dual_write_error_total", "Dual-write replication failures to migration target")
+# Fase 2 (task_06/task_09): monotonic count of points copied by the migration worker.
+MIGRATION_POINTS_COPIED = Counter("migration_points_copied_total", "Points copied to the migration target collection")
+# Fase 2 (task_09): per-project size and how many projects exceed the promotion threshold.
+PROJECT_MEMORY_COUNT = Gauge("project_memory_count", "Cataloged memory count per project", ["project"])
+PROJECT_SIZE_OVER_THRESHOLD = Gauge("project_size_over_threshold", "Number of projects over the promotion threshold")

@@ -15,6 +15,7 @@ from app.mcp_server import setup_mcp_server
 from app.middleware.request_id import RequestIdMiddleware
 from app.models import App, User
 from app.routers import (
+    admin_router,
     apps_router,
     backup_router,
     compat_v3_router,
@@ -104,6 +105,7 @@ create_default_app()
 setup_mcp_server(app)
 
 # Include routers
+app.include_router(admin_router)
 app.include_router(memories_router)
 app.include_router(apps_router)
 app.include_router(stats_router)

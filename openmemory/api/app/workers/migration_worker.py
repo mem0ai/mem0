@@ -20,6 +20,7 @@ from qdrant_client.models import PointStruct
 
 from app.database import SessionLocal
 from app.models import MigrationState, MigrationStatus
+from app.utils.metrics import MIGRATION_POINTS_COPIED
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ class MigrationWorker:
                     for r in records
                 ]
                 self._client.upsert(collection_name=state.target_collection, points=points)
+                MIGRATION_POINTS_COPIED.inc(len(points))
 
             if state.status == MigrationStatus.planned:
                 state.status = MigrationStatus.copying
