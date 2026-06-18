@@ -123,6 +123,9 @@ class LLMBase(ABC):
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
 
+            # Reasoning / o-series / gpt-5 use max_completion_tokens, never legacy max_tokens.
+            supported_params["max_completion_tokens"] = self.config.max_tokens
+
             # Add reasoning_effort if configured
             reasoning_effort = getattr(self.config, 'reasoning_effort', None)
             if reasoning_effort:

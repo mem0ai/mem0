@@ -221,6 +221,27 @@ def test_non_reasoning_model_ignores_reasoning_effort(mock_openai_client):
     assert "reasoning_effort" not in call_kwargs[1]
 
 
+def test_reasoning_model_sends_max_completion_tokens(mock_openai_client):
+    """Reasoning models must forward the configured token cap as max_completion_tokens.
+
+    The reasoning branch previously dropped the cap entirely, so o-series/gpt-5 calls
+    ran with no limit. Reasoning models use max_completion_tokens, never legacy max_tokens.
+    """
+    config = OpenAIConfig(model="o3-mini", max_tokens=100)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs.get("max_completion_tokens") == 100
+    assert "max_tokens" not in call_kwargs
+
+
 def test_reasoning_effort_config_values():
     """Test that reasoning_effort can be set to all valid values."""
     for effort in ["low", "medium", "high"]:
