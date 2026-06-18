@@ -13,14 +13,21 @@ router by task_07 / task_08.
 
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Project
 from app.utils.metrics import PROJECT_MEMORY_COUNT, PROJECT_SIZE_OVER_THRESHOLD
+from app.utils.migration_control import MigrationControl, MigrationError, default_count_fn
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _control() -> MigrationControl:
+    """Build a MigrationControl wired to the live Qdrant count function."""
+    return MigrationControl(count_fn=default_count_fn())
 
 
 def promotion_threshold() -> int:
@@ -59,3 +66,43 @@ def project_sizes(db: Session = Depends(get_db)) -> dict:
 
     PROJECT_SIZE_OVER_THRESHOLD.set(over)
     return {"threshold": threshold, "over_threshold_count": over, "projects": items}
+
+
+# --------------------------------------------------------------------------- #
+# Migration control (task_07 / ADR-003)
+# --------------------------------------------------------------------------- #
+class StartMigrationRequest(BaseModel):
+    source_collection: str
+    target_collection: str
+
+
+@router.post("/migration/start")
+def migration_start(req: StartMigrationRequest, control: MigrationControl = Depends(_control)) -> dict:
+    try:
+        return control.start(req.source_collection, req.target_collection)
+    except MigrationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/migration/validate")
+def migration_validate(control: MigrationControl = Depends(_control)) -> dict:
+    try:
+        return control.validate()
+    except MigrationError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/migration/flip")
+def migration_flip(control: MigrationControl = Depends(_control)) -> dict:
+    try:
+        return control.flip()
+    except MigrationError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.post("/migration/rollback")
+def migration_rollback(control: MigrationControl = Depends(_control)) -> dict:
+    try:
+        return control.rollback()
+    except MigrationError as e:
+        raise HTTPException(status_code=409, detail=str(e))

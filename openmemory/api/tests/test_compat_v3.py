@@ -23,8 +23,11 @@ from pathlib import Path
 # of the real module and fail with "cannot import name …".
 _stub_names = ("app", "app.utils", "app.utils.memory", "app.utils.partitioning")
 _saved_modules = {n: sys.modules.get(n) for n in _stub_names}
+# Swap in *fresh* stub modules (not setdefault): if these were already imported
+# for real, mutating their attributes would leak into the rest of the suite and
+# never get restored. We replace the module objects and restore them after load.
 for _name in _stub_names:
-    sys.modules.setdefault(_name, types.ModuleType(_name))
+    sys.modules[_name] = types.ModuleType(_name)
 sys.modules["app.utils.memory"].get_memory_client = lambda: None
 # Partition routing is exercised in dedicated tests; here it is a no-op so the
 # router's contract (search/add/list shapes) can be asserted with a fake client.

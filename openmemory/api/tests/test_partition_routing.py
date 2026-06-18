@@ -33,8 +33,13 @@ class _FakeClient:
 
 
 @pytest.fixture
-def factory():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+def factory(tmp_path):
+    # File-based SQLite (not in-memory): the seeding session and the resolver's
+    # session reliably share the same database across the full-suite run.
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'routing.db'}",
+        connect_args={"check_same_thread": False},
+    )
     Base.metadata.create_all(bind=engine)
     yield sessionmaker(autocommit=False, autoflush=False, bind=engine)
     engine.dispose()
