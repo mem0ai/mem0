@@ -109,5 +109,23 @@ services:
         condition: service_started
     command: python -m app.workers.write_worker
 
+  # Blue-green partition migration (Fase 2 / task_06 / ADR-003). Run on demand to
+  # copy the existing base into the partitioned (green) collection; isolated from
+  # the write worker so the bulk copy does not compete with the write-queue SLA.
+  openmemory-migration-worker:
+    <<: *api-common
+    container_name: openmemory_migration_worker
+    profiles: ["migration"]
+    restart: "no"
+    environment:
+      <<: *api-env
+      RUN_EMBEDDED_WORKER: "false"
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      ollama-embed:
+        condition: service_started
+    command: python -m app.workers.migration_worker
+
 volumes:
   mem0_storage:
