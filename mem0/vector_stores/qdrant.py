@@ -226,6 +226,37 @@ class Qdrant(VectorStoreBase):
         """Register a dedicated custom shard key for tenant promotion (ADR-002 / task_08)."""
         self.client.create_shard_key(self.collection_name, shard_key)
 
+    def replicate_to(self, ids: list, target_collection: str):
+        """Copy points (vectors + payload) by id from this collection to another.
+
+        Used by the dual-write delta (task_05) and reusable for promotion. Upsert
+        preserves the source ids, so re-running is idempotent.
+        """
+        if not ids:
+            return
+        records = self.client.retrieve(
+            collection_name=self.collection_name,
+            ids=ids,
+            with_payload=True,
+            with_vectors=True,
+        )
+        if not records:
+            return
+        points = [
+            PointStruct(id=r.id, vector=r.vector, payload=r.payload)
+            for r in records
+        ]
+        self.client.upsert(collection_name=target_collection, points=points)
+
+    def delete_from(self, ids: list, target_collection: str):
+        """Delete points by id from another collection (dual-write of deletions)."""
+        if not ids:
+            return
+        self.client.delete(
+            collection_name=target_collection,
+            points_selector=PointIdsList(points=ids),
+        )
+
     def insert(self, vectors: list, payloads: list = None, ids: list = None, shard_key: str = None):
         """
         Insert vectors into a collection, including BM25 sparse vectors

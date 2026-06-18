@@ -14,3 +14,6 @@ SEARCH_CACHE_MISS = Counter("search_cache_miss_total", "Search result cache miss
 WRITE_QUEUE_DEPTH = Gauge("write_queue_depth", "Pending write queue jobs")
 WRITE_WORKER_ERRORS = Counter("write_worker_error_total", "Write worker processing errors")
 WRITE_WORKER_SUCCESS = Counter("write_worker_success_total", "Write worker successful jobs")
+# Fase 2 (task_05): replication failures while dual-writing to the migration
+# target collection. Active-collection writes are unaffected by these.
+DUAL_WRITE_ERRORS = Counter("dual_write_error_total", "Dual-write replication failures to migration target")

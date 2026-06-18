@@ -48,6 +48,9 @@ class _Snapshot:
     active_collection: str
     # Only promoted (dedicated) projects appear here: project -> shard_key.
     dedicated: dict
+    # Blue-green migration window: mirror writes to ``target_collection``.
+    dual_write_enabled: bool = False
+    target_collection: Optional[str] = None
 
 
 class PartitionResolver:
@@ -71,6 +74,11 @@ class PartitionResolver:
 
     def active_collection(self) -> str:
         return self._get_snapshot().active_collection
+
+    def dual_write_target(self) -> Optional[str]:
+        """Target collection to mirror writes to, or None when dual-write is off."""
+        snap = self._get_snapshot()
+        return snap.target_collection if snap.dual_write_enabled else None
 
     def invalidate(self) -> None:
         """Drop the cached snapshot; the next call reloads from the database.
@@ -111,7 +119,12 @@ class PartitionResolver:
                     .all()
                     if p.shard_key
                 }
-                return _Snapshot(active_collection=active, dedicated=dedicated)
+                return _Snapshot(
+                    active_collection=active,
+                    dedicated=dedicated,
+                    dual_write_enabled=bool(state.dual_write_enabled) if state else False,
+                    target_collection=state.target_collection if state else None,
+                )
             finally:
                 db.close()
         except Exception as e:  # noqa: BLE001 - state must never break routing
