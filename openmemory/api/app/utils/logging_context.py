@@ -18,7 +18,18 @@ class StructuredContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = request_id_var.get() or "-"
         record.job_id = job_id_var.get() or "-"
+        record.trace_id = _safe_trace_id()
         return True
+
+
+def _safe_trace_id() -> str:
+    """``trace_id`` do span OTel corrente para pivô log↔trace (``-`` se ausente)."""
+    try:
+        from app.utils.tracing import current_trace_id
+
+        return current_trace_id() or "-"
+    except Exception:  # noqa: BLE001
+        return "-"
 
 
 def install_structured_logging() -> None:

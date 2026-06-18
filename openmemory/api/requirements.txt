@@ -17,6 +17,12 @@ httpx>=0.24.0
 pytest-cov>=4.0.0
 redis>=5.0.0
 prometheus-client>=0.20.0
+opentelemetry-sdk>=1.27.0
+opentelemetry-api>=1.27.0
+opentelemetry-exporter-otlp-proto-grpc>=1.27.0
+opentelemetry-instrumentation-fastapi>=0.48b0
+opentelemetry-instrumentation-httpx>=0.48b0
+opentelemetry-instrumentation-sqlalchemy>=0.48b0
 tenacity==9.1.2
 anthropic==0.51.0
 ollama==0.4.8

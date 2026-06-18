@@ -30,6 +30,7 @@ from app.routers import (
 )
 from app.workers.write_worker import embedded_worker_enabled, write_worker
 from app.utils.logging_context import install_structured_logging
+from app.utils.tracing import configure_tracing
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
@@ -37,6 +38,9 @@ from fastapi_pagination import add_pagination
 install_structured_logging()
 
 app = FastAPI(title="OpenMemory API")
+
+# Tracing distribuído (task_08 / ADR-004): no-op se OTel ausente/desativado.
+configure_tracing(service_name="openmemory-api", app=app, engine=engine)
 
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
