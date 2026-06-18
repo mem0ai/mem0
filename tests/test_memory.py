@@ -1206,6 +1206,32 @@ class TestMemoryTTL:
         assert result["deleted"] == 1
         m._delete_memory.assert_called_once()
 
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_get_returns_none_for_expired_memory(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = Memory(config)
+
+        now = datetime.now(timezone.utc)
+        expired = self._make_memory_obj("m1", (now - timedelta(hours=2)).isoformat())
+        fresh = self._make_memory_obj("m2", now.isoformat())
+
+        m.vector_store.get.return_value = expired
+        assert m.get("m1") is None
+
+        m.vector_store.get.return_value = fresh
+        result = m.get("m2")
+        assert result is not None
+        assert result["id"] == "m2"
+
 
 class TestAsyncMemoryTTL:
     """Tests for async memory_ttl expiry filtering and cleanup."""
