@@ -18,8 +18,18 @@ function snakeToCamel(str: string): string {
  * Keys whose values are user-controlled, opaque blobs. Their nested keys must
  * be passed through verbatim — converting them would silently rewrite the
  * user's own keys and break round-trips (see issue #5055).
+ *
+ * The check runs against the source key, so a multi-word key must be listed in
+ * both casings to be covered in both directions: the camelCase form for the
+ * outbound `camelToSnakeKeys` path and the snake_case form for the inbound
+ * `snakeToCamelKeys` path. `metadata` is spelled identically in both, so one
+ * entry suffices; `structuredDataSchema` needs both.
  */
-const OPAQUE_VALUE_KEYS = new Set(["metadata"]);
+const OPAQUE_VALUE_KEYS = new Set([
+  "metadata",
+  "structuredDataSchema",
+  "structured_data_schema",
+]);
 
 /**
  * Recursively converts all keys of an object from camelCase to snake_case.

@@ -76,4 +76,27 @@ describe("camelToSnakeKeys / snakeToCamelKeys", () => {
       });
     });
   });
+
+  describe("user-controlled structuredDataSchema blob (issue #5055)", () => {
+    it("converts the outer key but leaves user field names on write", () => {
+      expect(
+        camelToSnakeKeys({
+          structuredDataSchema: { firstName: "string", lastName: "string" },
+        }),
+      ).toEqual({
+        // outer SDK key is snake_cased, user-defined field names are not
+        structured_data_schema: { firstName: "string", lastName: "string" },
+      });
+    });
+
+    it("converts the outer key but leaves user field names on read", () => {
+      expect(
+        snakeToCamelKeys({
+          structured_data_schema: { first_name: "string", last_name: "string" },
+        }),
+      ).toEqual({
+        structuredDataSchema: { first_name: "string", last_name: "string" },
+      });
+    });
+  });
 });
