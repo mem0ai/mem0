@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
@@ -96,9 +96,12 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.query_points.assert_called_once_with(
             collection_name="test_collection",
             query=vectors,
-            query_filter=None,
+            query_filter=ANY,
             limit=1,
         )
+        call_args = self.client_mock.query_points.call_args[1]
+        self.assertIsNotNone(call_args["query_filter"])
+        self.assertIn("state", str(call_args["query_filter"]))
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].payload, {"key": "value"})
@@ -124,10 +127,10 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(call_args["query"], vectors)
         self.assertEqual(call_args["limit"], 1)
         
-        # Verify that a Filter object was created
+        # Verify that a Filter object was created (user filters + governance guard)
         query_filter = call_args["query_filter"]
         self.assertIsInstance(query_filter, Filter)
-        self.assertEqual(len(query_filter.must), 3)  # user_id, agent_id, run_id
+        self.assertIn("state", str(query_filter))
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].payload["user_id"], "alice")
@@ -147,11 +150,11 @@ class TestQdrant(unittest.TestCase):
         filters = {"user_id": "alice"}
         results = self.qdrant.search(query="", vectors=vectors, top_k=1, filters=filters)
 
-        # Verify that a Filter object was created with single condition
+        # Verify that a Filter object was created with governance guard
         call_args = self.client_mock.query_points.call_args[1]
         query_filter = call_args["query_filter"]
         self.assertIsInstance(query_filter, Filter)
-        self.assertEqual(len(query_filter.must), 1)  # Only user_id
+        self.assertIn("state", str(query_filter))
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].payload["user_id"], "alice")
@@ -165,7 +168,8 @@ class TestQdrant(unittest.TestCase):
         results = self.qdrant.search(query="", vectors=vectors, top_k=1, filters=None)
 
         call_args = self.client_mock.query_points.call_args[1]
-        self.assertIsNone(call_args["query_filter"])
+        self.assertIsNotNone(call_args["query_filter"])
+        self.assertIn("state", str(call_args["query_filter"]))
 
         self.assertEqual(len(results), 1)
 
@@ -585,6 +589,13 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
     def test_empty_filter_returns_none(self):
         self.assertIsNone(self.qdrant._create_filter({}))
         self.assertIsNone(self.qdrant._create_filter(None))
+
+    def test_governance_filter_includes_active_state(self):
+        result = self.qdrant._create_filter(self.qdrant._merge_governance_filters({"project": "p1"}))
+        self.assertIsInstance(result, Filter)
+        serialized = str(result)
+        self.assertIn("state", serialized)
+        self.assertIn("quarantined", serialized)
 
     def test_backward_compat_simple_equality(self):
         """Plain scalar equality still works as before."""

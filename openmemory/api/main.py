@@ -21,6 +21,7 @@ from app.routers import (
     compat_v3_router,
     config_router,
     discovery_router,
+    governance_router,
     health_router,
     memories_router,
     ops_metrics_router,
@@ -106,6 +107,7 @@ setup_mcp_server(app)
 
 # Include routers
 app.include_router(admin_router)
+app.include_router(governance_router)
 app.include_router(memories_router)
 app.include_router(apps_router)
 app.include_router(stats_router)

@@ -147,12 +147,25 @@ def test_alembic_round_trip_sqlite(tmp_path, monkeypatch):
     command.upgrade(cfg, "head")
     eng = create_engine(url)
     insp = inspect(eng)
-    assert "migration_state" in insp.get_table_names()
+    tables = set(insp.get_table_names())
+    assert "migration_state" in tables
+    assert "governance_jobs" in tables
     project_cols = {c["name"] for c in insp.get_columns("projects")}
     assert {"partition_tier", "shard_key"} <= project_cols
     eng.dispose()
 
-    command.downgrade(cfg, "-1")
+    # Downgrade only the governance revision; partitioning state must remain.
+    command.downgrade(cfg, "e4d5f6a7b8c9")
+    eng = create_engine(url)
+    insp = inspect(eng)
+    tables = set(insp.get_table_names())
+    assert "migration_state" in tables
+    assert "governance_jobs" not in tables
+    project_cols = {c["name"] for c in insp.get_columns("projects")}
+    assert {"partition_tier", "shard_key"} <= project_cols
+    eng.dispose()
+
+    command.downgrade(cfg, "d3c4e5f6a7b8")
     eng = create_engine(url)
     insp = inspect(eng)
     assert "migration_state" not in insp.get_table_names()

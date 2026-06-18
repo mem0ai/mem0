@@ -33,9 +33,24 @@ class MemoryState(enum.Enum):
     paused = "paused"
     archived = "archived"
     deleted = "deleted"
+    quarantined = "quarantined"
 
 
 class WriteQueueStatus(enum.Enum):
+    queued = "queued"
+    processing = "processing"
+    done = "done"
+    failed = "failed"
+
+
+class GovernanceJobType(enum.Enum):
+    dedup = "dedup"
+    ttl_prune = "ttl_prune"
+    consolidate = "consolidate"
+    purge = "purge"
+
+
+class GovernanceJobStatus(enum.Enum):
     queued = "queued"
     processing = "processing"
     done = "done"
@@ -185,6 +200,7 @@ class Memory(Base):
                         onupdate=get_current_utc_time)
     archived_at = Column(DateTime, nullable=True, index=True)
     deleted_at = Column(DateTime, nullable=True, index=True)
+    quarantined_at = Column(DateTime, nullable=True, index=True)
 
     user = relationship("User", back_populates="memories")
     app = relationship("App", back_populates="memories")
@@ -300,6 +316,58 @@ class WriteAuditLog(Base):
         Index('idx_write_audit_project_time', 'project', 'created_at'),
         Index('idx_write_audit_hostname_time', 'hostname', 'created_at'),
     )
+
+
+class GovernanceJob(Base):
+    """Persistent governance job queue (Fase 3 / ADR-002).
+
+    Each row represents a background governance task (dedup, TTL prune,
+    consolidation, purge) enqueued by the scheduler or admin API and consumed
+    by ``governance-worker``.
+    """
+    __tablename__ = "governance_jobs"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    job_type = Column(Enum(GovernanceJobType), nullable=False, index=True)
+    project = Column(String, nullable=True, index=True)
+    status = Column(
+        Enum(GovernanceJobStatus),
+        default=GovernanceJobStatus.queued,
+        nullable=False,
+        index=True,
+    )
+    attempts = Column(Integer, nullable=False, default=0)
+    payload = Column(JSON, default=dict)
+    error = Column(String, nullable=True)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
+    updated_at = Column(
+        DateTime,
+        default=get_current_utc_time,
+        onupdate=get_current_utc_time,
+    )
+
+    __table_args__ = (
+        Index("idx_governance_jobs_status_created", "status", "created_at"),
+    )
+
+
+class GovernancePolicy(Base):
+    """Per-project override of the global governance policy (ADR-005)."""
+    __tablename__ = "governance_policies"
+    project_name = Column(String, ForeignKey("projects.name"), primary_key=True)
+    overrides = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime,
+        default=get_current_utc_time,
+        onupdate=get_current_utc_time,
+    )
+
+
+class GovernanceSchedule(Base):
+    """Last scheduled run per job type and scope (idempotent scheduling)."""
+    __tablename__ = "governance_schedule"
+    job_type = Column(Enum(GovernanceJobType), primary_key=True)
+    scope = Column(String, primary_key=True)
+    last_run_at = Column(DateTime, nullable=True, index=True)
 
 
 class MigrationState(Base):

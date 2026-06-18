@@ -65,5 +65,22 @@ services:
       restart_policy:
         condition: on-failure
 
+  openmemory-governance-worker:
+    image: mem0/openmemory-mcp
+    command: python -m app.workers.governance_worker
+    environment:
+      DATABASE_URL: postgresql://mem0:mem0@pgbouncer:5432/openmemory
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_HOST: mem0_store
+      QDRANT_PORT: "6333"
+      RUN_EMBEDDED_WORKER: "false"
+      OLLAMA_EMBED_URL: http://ollama-embed:11434
+      OLLAMA_LLM_URL: http://ollama-llm:11434
+      GOVERNANCE_ENABLE_SCHEDULER: "true"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
 volumes:
   mem0_storage:

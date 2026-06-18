@@ -25,6 +25,13 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+_ACTIVE_STATE_FILTER = {
+    "OR": [
+        {"state": "active"},
+        {"NOT": [{"state": "quarantined"}]},
+    ]
+}
+
 
 class Qdrant(VectorStoreBase):
     def __init__(
@@ -187,7 +194,7 @@ class Qdrant(VectorStoreBase):
     TENANT_FIELD = "project"
     # Keyword payload indexes (exact-match filters). `type`/`hash` added for Fase 2
     # (plugin filters and dedup) alongside the pre-existing identity fields.
-    KEYWORD_INDEX_FIELDS = ["user_id", "agent_id", "run_id", "actor_id", "type", "hash"]
+    KEYWORD_INDEX_FIELDS = ["user_id", "agent_id", "run_id", "actor_id", "type", "hash", "state"]
     # Datetime payload indexes (range filters for TTL/pruning, ADR-002).
     DATETIME_INDEX_FIELDS = ["created_at"]
 
@@ -382,6 +389,43 @@ class Qdrant(VectorStoreBase):
                 f"Supported operators: {supported}"
             )
 
+    def _merge_governance_filters(self, filters: dict | None) -> dict:
+        """Inject active-state guard so quarantined points never appear in search."""
+        if not filters:
+            return dict(_ACTIVE_STATE_FILTER)
+        return {"AND": [filters, _ACTIVE_STATE_FILTER]}
+
+    def backfill_state_payload(self, *, default: str = "active", batch_size: int = 256) -> int:
+        """Set ``state`` payload on legacy points missing the field."""
+        if self.is_local:
+            return 0
+        updated = 0
+        offset = None
+        while True:
+            points, offset = self.client.scroll(
+                collection_name=self.collection_name,
+                limit=batch_size,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            if not points:
+                break
+            for point in points:
+                payload = dict(point.payload or {})
+                if payload.get("state"):
+                    continue
+                payload["state"] = default
+                self.client.set_payload(
+                    collection_name=self.collection_name,
+                    payload={"state": default},
+                    points=[point.id],
+                )
+                updated += 1
+            if offset is None:
+                break
+        return updated
+
     def _create_filter(self, filters: dict) -> Optional[Filter]:
         """
         Create a Filter object from the provided filters.
@@ -474,7 +518,7 @@ class Qdrant(VectorStoreBase):
         Returns:
             list: Search results.
         """
-        query_filter = self._create_filter(filters) if filters else None
+        query_filter = self._create_filter(self._merge_governance_filters(filters))
         query_kwargs = dict(
             collection_name=self.collection_name,
             query=vectors,
@@ -489,7 +533,7 @@ class Qdrant(VectorStoreBase):
     def search_batch(self, queries: list, vectors_list: list, top_k: int = 1, filters: dict = None,
                      shard_key_selector=None):
         """Batch search using Qdrant's query_batch_points for efficiency."""
-        query_filter = self._create_filter(filters) if filters else None
+        query_filter = self._create_filter(self._merge_governance_filters(filters))
         requests = [
             models.QueryRequest(
                 query=vec,
@@ -532,7 +576,7 @@ class Qdrant(VectorStoreBase):
             return None
 
         try:
-            query_filter = self._create_filter(filters) if filters else None
+            query_filter = self._create_filter(self._merge_governance_filters(filters))
             hits = self.client.query_points(
                 collection_name=self.collection_name,
                 query=sparse_query,

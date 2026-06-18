@@ -1,3 +1,4 @@
+from .governance import router as governance_router
 from .admin import router as admin_router
 from .apps import router as apps_router
 from .backup import router as backup_router
@@ -22,4 +23,5 @@ __all__ = [
     "provision_router",
     "health_router",
     "ops_metrics_router",
+    "governance_router",
 ]
