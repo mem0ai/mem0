@@ -121,6 +121,30 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
+def test_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path):
+    """Regression: Memory.reset() must clear the messages table, not just history."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = Memory(config)
+
+    memory.db.save_messages([{"role": "user", "content": "hello", "name": None}], "sess1")
+    memory.db.add_history(memory_id="m1", old_memory=None, new_memory="x", event="ADD")
+
+    memory.reset()
+
+    msg_count = memory.db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    hist_count = memory.db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+    assert msg_count == 0, "messages table must be empty after Memory.reset()"
+    assert hist_count == 0, "history table must be empty after Memory.reset()"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
 def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that search operations handle memory objects with missing 'data' key gracefully."""
