@@ -1,6 +1,7 @@
 """Standalone telemetry sender — runs as a detached subprocess.
 
-Usage: python -m mem0_cli.telemetry_sender '<json context>'
+Usage: python -m mem0_cli.telemetry_sender   (JSON context is read from stdin;
+a single argv argument is still accepted as a legacy fallback)
 
 This module is spawned by telemetry.capture_event() and runs independently
 of the parent CLI process. It:
@@ -20,8 +21,23 @@ import sys
 import urllib.request
 
 
+def _load_context() -> dict:
+    """Load telemetry context from stdin, falling back to argv for compatibility.
+
+    The current parent pipes the context via stdin; stdin is only read when it
+    is not a TTY. The single-argv branch is a legacy fallback for a pre-stdin
+    parent — parent and child ship together, so it is rarely exercised.
+    """
+    raw = ""
+    if not sys.stdin.isatty():
+        raw = sys.stdin.read().strip()
+    if not raw and len(sys.argv) > 1:
+        raw = sys.argv[1]
+    return json.loads(raw)
+
+
 def main() -> None:
-    ctx = json.loads(sys.argv[1])
+    ctx = _load_context()
     payload = ctx["payload"]
 
     if ctx.get("needs_email") and ctx.get("mem0_api_key"):

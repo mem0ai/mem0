@@ -145,11 +145,14 @@ export function captureEvent(
 			anonDistinctIdToAlias: anonIdToAlias,
 		};
 
-		const child = spawn(
-			process.execPath,
-			[SENDER_SCRIPT, JSON.stringify(context)],
-			{ detached: true, stdio: "ignore" },
-		);
+		// Pass the context (which includes the Mem0 API key) over stdin rather
+		// than argv so the secret never appears in the process list (`ps`,
+		// /proc/<pid>/cmdline, Activity Monitor).
+		const child = spawn(process.execPath, [SENDER_SCRIPT], {
+			detached: true,
+			stdio: ["pipe", "ignore", "ignore"],
+		});
+		child.stdin?.end(JSON.stringify(context));
 		child.unref();
 	} catch {
 		/* silently swallow */

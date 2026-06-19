@@ -1,7 +1,8 @@
 /**
  * Standalone telemetry sender — runs as a detached child process.
  *
- * Usage: node telemetry-sender.cjs '<json context>'
+ * Usage: node telemetry-sender.cjs   (JSON context is read from stdin; a single
+ * argv argument is still accepted as a legacy fallback)
  *
  * This script is spawned by telemetry.captureEvent() and runs independently
  * of the parent CLI process. It:
@@ -18,6 +19,35 @@
 
 const https = require("https");
 const fs = require("fs");
+
+function loadContext() {
+	return new Promise((resolve, reject) => {
+		// Backward-compat: older parent processes passed the context as argv[2].
+		// The current parent always pipes it via stdin (keeps the API key out of
+		// the process list); this branch can be removed once every shipped parent
+		// uses stdin.
+		if (process.argv[2]) {
+			try {
+				resolve(JSON.parse(process.argv[2]));
+			} catch (err) {
+				reject(err);
+			}
+			return;
+		}
+
+		let data = "";
+		process.stdin.setEncoding("utf8");
+		process.stdin.on("data", (chunk) => (data += chunk));
+		process.stdin.on("end", () => {
+			try {
+				resolve(JSON.parse(data));
+			} catch (err) {
+				reject(err);
+			}
+		});
+		process.stdin.on("error", reject);
+	});
+}
 
 function httpsRequest(url, method, headers, body) {
 	return new Promise((resolve, reject) => {
@@ -108,7 +138,7 @@ async function sendIdentifyEvent(ctx, payload, anonId) {
 }
 
 async function main() {
-	const ctx = JSON.parse(process.argv[2]);
+	const ctx = await loadContext();
 	const payload = ctx.payload;
 
 	if (ctx.needsEmail && ctx.mem0ApiKey) {
