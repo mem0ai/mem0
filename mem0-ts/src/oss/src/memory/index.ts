@@ -750,7 +750,13 @@ export class Memory {
         // getLastMessages not supported — proceed without context
       }
     }
-    const parsedMessages = messages.map((m) => m.content).join("\n");
+    // Preserve role on the messages being extracted so the prompt's role-aware
+    // logic and the required `attributed_to` output have the speaker to work
+    // with. Matches the Python oss `parse_messages` helper (`role: content`);
+    // without this, assistant statements get attributed to the user.
+    const parsedMessages = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
 
     // Phase 1: Existing memory retrieval
     const queryEmbedding = await this.embedder.embed(parsedMessages);
