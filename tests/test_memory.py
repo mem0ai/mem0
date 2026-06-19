@@ -1570,7 +1570,7 @@ class TestEntityTypeMergeGate:
 
         m._entity_store.update.assert_not_called()
         m._entity_store.insert.assert_called_once()
-        inserted_payload = m._entity_store.insert.call_args[1]["payloads"][0]
+        inserted_payload = m._entity_store.insert.call_args.kwargs["payloads"][0]
         assert inserted_payload["entity_type"] == "animal"
 
     def test_no_type_on_existing_still_merges(self):
@@ -1586,7 +1586,7 @@ class TestEntityTypeMergeGate:
         m._upsert_entity("python", "language", "mem-B", {})
 
         m._entity_store.update.assert_called_once()
-        updated_payload = m._entity_store.update.call_args[1]["payload"]
+        updated_payload = m._entity_store.update.call_args.kwargs["payload"]
         assert updated_payload["entity_type"] == "language"
 
     def test_no_type_on_new_still_merges(self):
@@ -1656,4 +1656,31 @@ class TestEntityTypeMergeGate:
         entity_store.update.assert_not_called()
         entity_store.insert.assert_called_once()
         inserted_payload = entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["entity_type"] == "NOUN"
+
+    @pytest.mark.asyncio
+    async def test_async_upsert_entity_different_type_creates_new(self):
+        """_upsert_entity_async must not merge entities with different entity_type."""
+        from mem0.memory.main import AsyncMemory
+
+        with patch.object(AsyncMemory, "__init__", return_value=None):
+            m = AsyncMemory()
+        m.embedding_model = MagicMock()
+        m.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        m._entity_store = MagicMock()
+
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "PROPER", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+        m._entity_store.update = MagicMock()
+        m._entity_store.insert = MagicMock()
+
+        await m._upsert_entity_async("python", "NOUN", "mem-B", {})
+
+        m._entity_store.update.assert_not_called()
+        m._entity_store.insert.assert_called_once()
+        inserted_payload = m._entity_store.insert.call_args.kwargs["payloads"][0]
         assert inserted_payload["entity_type"] == "NOUN"
