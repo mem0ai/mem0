@@ -289,7 +289,9 @@ def test_generate_with_http_proxies(default_headers):
             api_version=None,
             default_headers=default_headers,
         )
-        mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+        # httpx >= 0.28 removed the ``proxies=`` argument; a single proxy is now
+        # passed as ``proxy=``. _build_http_client builds the client accordingly.
+        mock_http_client.assert_called_once_with(proxy="http://testproxy.mem0.net:8000")
 
 
 def test_init_with_api_key(monkeypatch):
