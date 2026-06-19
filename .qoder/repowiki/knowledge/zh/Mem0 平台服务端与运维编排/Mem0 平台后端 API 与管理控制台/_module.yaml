@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: platform_server/backend_api
+title: Mem0 平台后端 API 与管理控制台
+scope:
+    - server/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/api_backend
+    - path: docs
+    - path: platform_server/dashboard_frontend
+    - path: mem0_typescript_sdk
+    - path: cli/python_cli
+    - path: openmemory/api_backend/infrastructure
+    - path: mem0_python_sdk

@@ -1,0 +1,18 @@
+schema_version: 1
+module_path: examples
+title: Mem0 集成示例与演示套件
+scope:
+    - examples/
+source_files: []
+depends_on: []
+related_to:
+    - path: integrations/vercel_ai_sdk
+    - path: mem0_python_sdk
+    - path: mem0_typescript_sdk
+    - path: integrations/openclaw
+    - path: integrations/pi_agent_plugin
+    - path: sdk_tests
+    - path: docs
+    - path: openmemory/api_backend/infrastructure
+    - path: platform_server/dashboard_frontend
+    - path: integrations/mem0_plugin

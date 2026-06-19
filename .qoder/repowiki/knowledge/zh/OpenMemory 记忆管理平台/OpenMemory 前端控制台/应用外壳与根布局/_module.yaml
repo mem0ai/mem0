@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: openmemory/ui_frontend/app_shell
+title: 应用外壳与根布局
+scope:
+    - openmemory/ui/app/globals.css
+    - openmemory/ui/app/layout.tsx
+    - openmemory/ui/app/loading.tsx
+    - openmemory/ui/app/not-found.tsx
+    - openmemory/ui/app/page.tsx
+    - openmemory/ui/app/providers.tsx
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/ui_frontend/shared_ui
+    - path: openmemory/ui_frontend/apps_feature
+    - path: openmemory/ui_frontend/memories_feature
+    - path: platform_server/dashboard_frontend

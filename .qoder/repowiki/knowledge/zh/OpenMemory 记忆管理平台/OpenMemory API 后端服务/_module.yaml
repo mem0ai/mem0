@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: openmemory/api_backend
+title: OpenMemory API 后端服务
+scope:
+    - openmemory/api/
+source_files: []
+depends_on: []
+related_to:
+    - path: platform_server/backend_api
+    - path: docs
+    - path: openmemory/ui_frontend
+    - path: integrations/mem0_plugin
+    - path: openmemory/ui_frontend/memories_feature
+    - path: openmemory/ui_frontend/apps_feature

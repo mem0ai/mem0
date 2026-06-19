@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: openmemory
+title: OpenMemory 记忆管理平台
+scope:
+    - openmemory/
+source_files: []
+depends_on: []
+related_to:
+    - path: platform_server

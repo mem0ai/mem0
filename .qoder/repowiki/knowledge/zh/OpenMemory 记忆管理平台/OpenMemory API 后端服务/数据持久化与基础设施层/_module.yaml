@@ -1,0 +1,20 @@
+schema_version: 1
+module_path: openmemory/api_backend/infrastructure
+title: 数据持久化与基础设施层
+scope:
+    - openmemory/api/alembic/
+    - openmemory/api/app/database.py
+    - openmemory/api/app/models.py
+    - openmemory/api/app/schemas.py
+    - openmemory/api/app/config.py
+    - openmemory/api/app/utils/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/api_backend/operational_endpoints
+    - path: openmemory/api_backend/entry_and_tests
+    - path: sdk_tests
+    - path: mem0_python_sdk
+    - path: examples
+    - path: platform_server/backend_api
+    - path: openmemory/ui_frontend/memories_feature

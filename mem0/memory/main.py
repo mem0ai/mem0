@@ -542,6 +542,19 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
 
+    @staticmethod
+    def _extract_entity_rows(listed):
+        """Unwrap the heterogeneous return format of vector store list() into a flat row list."""
+        if not listed:
+            return []
+        if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
+            return listed[0]
+        return listed
+
+    # Upper bound for the broad entity scan fallback.  Kept as a class attr so
+    # tests (or subclasses) can override without monkey-patching constants.
+    _ENTITY_SCAN_LIMIT = 10000
+
     def _remove_memory_from_entity_store(self, memory_id, filters):
         """Strip `memory_id` from every entity record scoped to `filters`.
 
@@ -549,6 +562,12 @@ class Memory(MemoryBase):
           - remove the id; if the list becomes empty, delete the entity record.
           - otherwise re-embed the entity text and update the payload
             (the vector store's update() requires a vector).
+
+        Optimisation: first attempts a targeted filter (linked_memory_ids ==
+        memory_id) which is resolved server-side by stores supporting array-
+        element matching (e.g. Qdrant MatchValue on list fields).  Falls back
+        to a broader scan with application-layer filtering for stores that do
+        not support this.
 
         No-op if the entity store has never been initialized in this process.
         Errors on individual entities are swallowed at debug level; outer
@@ -559,9 +578,8 @@ class Memory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
+            rows = self._get_entity_rows_for_memory(memory_id, search_filters)
+            for row in rows:
                 try:
                     payload = getattr(row, "payload", None) or {}
                     linked = payload.get("linked_memory_ids", [])
@@ -596,6 +614,37 @@ class Memory(MemoryBase):
                     logger.debug(f"Entity cleanup error: {e}")
         except Exception as e:
             logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
+
+    def _get_entity_rows_for_memory(self, memory_id, search_filters):
+        """Return entity rows that reference *memory_id*.
+
+        Fast path: ask the store to filter by linked_memory_ids == memory_id
+        (server-side array-element match on Qdrant and similar stores).
+        Slow path: broad scan with application-layer filtering.
+        """
+        # --- Fast path: targeted DB filter ---
+        try:
+            targeted_filters = {**search_filters, "linked_memory_ids": memory_id}
+            rows = self._extract_entity_rows(
+                self.entity_store.list(filters=targeted_filters, top_k=self._ENTITY_SCAN_LIMIT)
+            )
+            if rows:
+                return rows
+        except Exception:
+            # Store does not support array-element filtering; fall through.
+            pass
+
+        # --- Slow path: broad scan + app-layer filter ---
+        listed = self.entity_store.list(filters=search_filters, top_k=self._ENTITY_SCAN_LIMIT)
+        all_rows = self._extract_entity_rows(listed)
+        if all_rows and len(all_rows) >= self._ENTITY_SCAN_LIMIT:
+            logger.warning(
+                "Entity store scan hit limit (%d); some entity records may not be "
+                "cleaned up for memory_id=%s",
+                self._ENTITY_SCAN_LIMIT,
+                memory_id,
+            )
+        return all_rows or []
 
     def _link_entities_for_memory(self, memory_id, text, filters):
         """Extract entities from `text` and link them to `memory_id` in the
@@ -1970,6 +2019,8 @@ class Memory(MemoryBase):
 
 
 class AsyncMemory(MemoryBase):
+    _ENTITY_SCAN_LIMIT = 10000
+
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
@@ -2098,8 +2149,8 @@ class AsyncMemory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=self._ENTITY_SCAN_LIMIT)
+            rows = Memory._extract_entity_rows(listed)
             for row in rows or []:
                 try:
                     await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
@@ -2114,9 +2165,8 @@ class AsyncMemory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
+            rows = await self._get_entity_rows_for_memory(memory_id, search_filters)
+            for row in rows:
                 try:
                     payload = getattr(row, "payload", None) or {}
                     linked = payload.get("linked_memory_ids", [])
@@ -2152,6 +2202,33 @@ class AsyncMemory(MemoryBase):
                     logger.debug(f"Entity cleanup error (async): {e}")
         except Exception as e:
             logger.warning(f"Entity store cleanup failed for memory_id={memory_id} (async): {e}")
+
+    async def _get_entity_rows_for_memory(self, memory_id, search_filters):
+        """Async variant of `Memory._get_entity_rows_for_memory`."""
+        # --- Fast path: targeted DB filter ---
+        try:
+            targeted_filters = {**search_filters, "linked_memory_ids": memory_id}
+            rows = Memory._extract_entity_rows(
+                await asyncio.to_thread(self.entity_store.list, filters=targeted_filters, top_k=self._ENTITY_SCAN_LIMIT)
+            )
+            if rows:
+                return rows
+        except Exception:
+            pass
+
+        # --- Slow path: broad scan + app-layer filter ---
+        listed = await asyncio.to_thread(
+            self.entity_store.list, filters=search_filters, top_k=self._ENTITY_SCAN_LIMIT
+        )
+        all_rows = Memory._extract_entity_rows(listed)
+        if all_rows and len(all_rows) >= self._ENTITY_SCAN_LIMIT:
+            logger.warning(
+                "Entity store scan hit limit (%d); some entity records may not be "
+                "cleaned up for memory_id=%s (async)",
+                self._ENTITY_SCAN_LIMIT,
+                memory_id,
+            )
+        return all_rows or []
 
     async def _link_entities_for_memory(self, memory_id, text, filters):
         """Async variant of `Memory._link_entities_for_memory`."""

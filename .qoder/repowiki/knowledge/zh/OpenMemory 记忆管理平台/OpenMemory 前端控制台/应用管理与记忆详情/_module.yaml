@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: openmemory/ui_frontend/apps_feature
+title: 应用管理与记忆详情
+scope:
+    - openmemory/ui/app/apps/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/ui_frontend/memories_feature
+    - path: openmemory/ui_frontend/shared_ui
+    - path: openmemory/ui_frontend/app_shell
+    - path: openmemory/api_backend

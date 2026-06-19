@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: platform_server
+title: Mem0 平台服务端与运维编排
+scope:
+    - server/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory

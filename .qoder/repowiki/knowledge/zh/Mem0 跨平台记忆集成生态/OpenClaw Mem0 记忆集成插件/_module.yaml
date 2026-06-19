@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: integrations/openclaw
+title: OpenClaw Mem0 记忆集成插件
+scope:
+    - integrations/openclaw/
+source_files: []
+depends_on: []
+related_to:
+    - path: integrations/mem0_plugin
+    - path: integrations/pi_agent_plugin
+    - path: skills
+    - path: mem0_python_sdk
+    - path: mem0_typescript_sdk
+    - path: examples
+    - path: cli/node_cli

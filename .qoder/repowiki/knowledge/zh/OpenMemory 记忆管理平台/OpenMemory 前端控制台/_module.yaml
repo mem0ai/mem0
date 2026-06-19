@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: openmemory/ui_frontend
+title: OpenMemory 前端控制台
+scope:
+    - openmemory/ui/
+source_files: []
+depends_on: []
+related_to:
+    - path: platform_server/dashboard_frontend
+    - path: openmemory/api_backend
+    - path: openmemory/api_backend/operational_endpoints
