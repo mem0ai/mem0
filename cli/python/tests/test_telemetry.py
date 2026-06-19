@@ -59,7 +59,6 @@ def test_capture_event_writes_context_to_stdin_not_argv(isolate_config, monkeypa
     assert ctx["mem0_api_key"] == "m0-test-secret"
     assert ctx["payload"]["event"] == "unit_test_event"
 
-    # The pipe must be closed so the detached child receives EOF and can read.
     assert proc.stdin.closed
 
 

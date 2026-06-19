@@ -22,12 +22,7 @@ import urllib.request
 
 
 def _load_context() -> dict:
-    """Load telemetry context from stdin, falling back to argv for compatibility.
-
-    The current parent pipes the context via stdin; stdin is only read when it
-    is not a TTY. The single-argv branch is a legacy fallback for a pre-stdin
-    parent — parent and child ship together, so it is rarely exercised.
-    """
+    """Load telemetry context from stdin, falling back to argv for compatibility."""
     raw = ""
     if not sys.stdin.isatty():
         raw = sys.stdin.read().strip()

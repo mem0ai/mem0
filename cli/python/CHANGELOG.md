@@ -5,6 +5,19 @@ All notable changes to `mem0-cli` (Python) are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] — 2026-06-19
+
+### Security
+
+- Telemetry no longer passes the Mem0 API key to its child process via
+  command-line arguments. The context is now sent over stdin, so the key is no
+  longer visible in the process list (`ps`, `/proc/<pid>/cmdline`, Activity
+  Monitor). Fixes #4862.
+
+### Fixed
+
+- `__version__` now matches the packaged version (was stale at 0.2.4).
+
 ## [0.2.7] — 2026-05-20
 
 ### Added

@@ -22,10 +22,6 @@ const fs = require("fs");
 
 function loadContext() {
 	return new Promise((resolve, reject) => {
-		// Backward-compat: older parent processes passed the context as argv[2].
-		// The current parent always pipes it via stdin (keeps the API key out of
-		// the process list); this branch can be removed once every shipped parent
-		// uses stdin.
 		if (process.argv[2]) {
 			try {
 				resolve(JSON.parse(process.argv[2]));

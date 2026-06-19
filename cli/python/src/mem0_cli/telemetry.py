@@ -137,9 +137,6 @@ def capture_event(
             "anon_distinct_id_to_alias": anon_id_to_alias,
         }
 
-        # Pass the context (which includes the Mem0 API key) over stdin rather
-        # than argv so the secret never appears in the process list (`ps`,
-        # /proc/<pid>/cmdline, Activity Monitor).
         child = subprocess.Popen(
             [sys.executable, "-m", "mem0_cli.telemetry_sender"],
             stdin=subprocess.PIPE,
