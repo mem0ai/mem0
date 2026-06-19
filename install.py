@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -120,20 +121,119 @@ def detect_llamacpp_models(llamacpp_url):
     return names
 
 
-def select_backend(backends):
-    """Prompt to choose between multiple detected backends; return the name."""
-    labels = {"ollama": "Ollama", "llamacpp": "llama.cpp"}
-    print("  Múltiplos backends locais detectados:")
-    for i, name in enumerate(backends, start=1):
+def select_source(sources, labels):
+    """Prompt to choose how to provide models (local backend or remote API)."""
+    print("  Como informar os modelos:")
+    for i, name in enumerate(sources, start=1):
         print(f"    {i}. {labels.get(name, name)}")
-    choice = input("  Selecione o backend (número ou nome): ").strip()
+    choice = input("  Selecione (número ou nome): ").strip()
     if choice.isdigit():
         idx = int(choice) - 1
-        if 0 <= idx < len(backends):
-            return backends[idx]
-    if choice in backends:
+        if 0 <= idx < len(sources):
+            return sources[idx]
+    if choice in sources:
         return choice
-    return backends[0]
+    return sources[0]
+
+
+def prompt_remote_api(args):
+    """Entrada manual de um endpoint compatível com OpenAI (URL + modelo + token).
+
+    Usa as flags (--api-url/--llm/--embedder/--api-key) como default quando
+    informadas; caso contrário, pergunta interativamente. Retorna a tupla
+    (base_url, llm, embedder, api_key).
+    """
+    print("  API remota (compatível com OpenAI):")
+    base_url = args.api_url or input(
+        "    Base URL (ex.: https://api.openai.com/v1): ").strip()
+    while not base_url:
+        base_url = input("    Base URL (obrigatória): ").strip()
+    llm = args.llm or input("    Modelo LLM (ex.: gpt-4o-mini): ").strip()
+    while not llm:
+        llm = input("    Modelo LLM (obrigatório): ").strip()
+    embedder = args.embedder or input(
+        "    Modelo embedder (ex.: text-embedding-3-small): ").strip()
+    while not embedder:
+        embedder = input("    Modelo embedder (obrigatório): ").strip()
+    api_key = args.api_key
+    if api_key is None:
+        api_key = input("    Token/API key (Enter se não houver): ").strip()
+    return base_url, llm, embedder, (api_key or "").strip()
+
+
+def _http(url, headers=None, data=None, timeout=15):
+    """HTTP GET (ou POST se ``data``). Retorna (status, body_bytes).
+
+    Levanta urllib.error.URLError em falha de conexão; HTTPError vira (code, body).
+    """
+    req = urllib.request.Request(url, data=data, headers=headers or {},
+                                 method="POST" if data else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return getattr(resp, "status", resp.getcode()), resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
+def _short(body):
+    try:
+        return body.decode("utf-8", "replace").strip()[:200]
+    except Exception:
+        return ""
+
+
+def test_remote_api(base_url, api_key, llm, embedder):
+    """Testa o endpoint remoto compatível com OpenAI. Retorna (ok, mensagem).
+
+    Tenta GET /models (conexão + autenticação, sem custo de tokens). Se o provedor
+    não expõe /models (404/405), faz um probe real em /chat/completions e
+    /embeddings com os modelos informados.
+    """
+    base = (base_url or "").rstrip("/")
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    # 1. Conexão + autenticação via GET /models.
+    try:
+        status, body = _http(base + "/models", headers=headers)
+    except Exception as e:
+        return False, f"não foi possível conectar a {base} ({e})."
+
+    if status in (401, 403):
+        return False, "autenticação recusada (HTTP %d) — verifique o token." % status
+    if status == 200:
+        try:
+            ids = [m.get("id") for m in (json.loads(body).get("data") or [])]
+        except Exception:
+            ids = []
+        faltando = [m for m in (llm, embedder) if ids and m not in ids]
+        if faltando:
+            warn(f"Conexão OK, mas estes modelos não aparecem no /models: "
+                 f"{', '.join(faltando)} (a lista pode estar incompleta).")
+        return True, f"conexão e autenticação OK ({len(ids)} modelos visíveis)."
+    if status not in (404, 405):
+        return False, f"GET /models retornou HTTP {status}: {_short(body)}"
+
+    # 2. /models indisponível → probe real (chat + embeddings).
+    chat = json.dumps({"model": llm,
+                       "messages": [{"role": "user", "content": "ping"}],
+                       "max_tokens": 1}).encode("utf-8")
+    try:
+        s, b = _http(base + "/chat/completions", headers=headers, data=chat)
+    except Exception as e:
+        return False, f"falha no /chat/completions ({e})."
+    if s != 200:
+        return False, f"/chat/completions retornou HTTP {s}: {_short(b)}"
+
+    emb = json.dumps({"model": embedder, "input": "ping"}).encode("utf-8")
+    try:
+        s, b = _http(base + "/embeddings", headers=headers, data=emb)
+    except Exception as e:
+        return False, f"falha no /embeddings ({e})."
+    if s != 200:
+        return False, f"/embeddings retornou HTTP {s}: {_short(b)}"
+    return True, "chat e embeddings responderam 200."
 
 
 def select_model(models, role):
@@ -209,12 +309,16 @@ def wait_for_discovery(api_port, timeout):
 def parse_args(argv):
     p = argparse.ArgumentParser(
         description="Instalador rápido local-first (multiplataforma).")
-    p.add_argument("--backend", choices=("auto", "ollama", "llamacpp"), default="auto",
-                   help="Backend local: auto (default, detecta os dois), ollama ou llamacpp.")
+    p.add_argument("--backend", choices=("auto", "ollama", "llamacpp", "api"), default="auto",
+                   help="Backend: auto (detecta locais), ollama, llamacpp ou "
+                        "api (endpoint remoto compatível com OpenAI — use --api-url).")
     p.add_argument("--ollama-url", default=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
                    help="Endpoint do Ollama para detecção (default http://localhost:11434).")
     p.add_argument("--llamacpp-url", default=os.environ.get("LLAMACPP_URL", "http://localhost:8080"),
                    help="Endpoint do servidor llama.cpp para detecção (default http://localhost:8080).")
+    p.add_argument("--api-url", default=os.environ.get("API_BASE_URL"),
+                   help="Base URL do endpoint remoto compatível com OpenAI "
+                        "(backend api). Ex.: https://api.openai.com/v1")
     p.add_argument("--llm", help="Nome do modelo LLM (não-interativo; exige --embedder e --yes).")
     p.add_argument("--embedder", help="Nome do modelo embedder (idem).")
     p.add_argument("--api-key", default=None,
@@ -280,28 +384,44 @@ def main(argv=None):
             if m:
                 available["llamacpp"] = m
 
-        labels = {"ollama": "Ollama", "llamacpp": "llama.cpp"}
+        labels = {"ollama": "Ollama", "llamacpp": "llama.cpp",
+                  "api": "API remota (compatível com OpenAI)",
+                  "manual": "Modelos locais (informar nomes manualmente)"}
         llm, embedder, backend = args.llm, args.embedder, None
+        base_url = None  # definido quando backend == "api"
 
-        if llm and embedder:
+        if args.backend == "api":
+            # API remota explícita (via flags ou prompt).
+            backend = "api"
+            if args.yes:
+                base_url = args.api_url
+                if not (base_url and llm and embedder):
+                    die("--backend api com --yes exige --api-url, --llm e --embedder.")
+            else:
+                base_url, llm, embedder, args.api_key = prompt_remote_api(args)
+        elif llm and embedder:
             backend = "llamacpp" if args.backend == "llamacpp" else "ollama"
             ok(f"Usando modelos informados por flag (backend {labels[backend]}).")
         elif args.yes:
             die("--yes exige --llm e --embedder.")
-        elif available:
-            backend = next(iter(available)) if len(available) == 1 \
-                else select_backend(list(available))
-            models = available[backend]
-            ok(f"Backend {labels[backend]} — modelos detectados:")
-            for i, name in enumerate(models, start=1):
-                print(f"    {i}. {name}")
-            llm = select_model(models, "LLM")
-            embedder = select_model(models, "embedder")
         else:
-            warn("Nenhum backend local detectou modelos — entrada manual.")
-            backend = args.backend if args.backend in ("ollama", "llamacpp") else "ollama"
-            llm = input("  Nome do modelo LLM: ").strip()
-            embedder = input("  Nome do modelo embedder: ").strip()
+            # Menu: backends locais detectados + API remota; ou, se nada foi
+            # detectado, escolher entre API remota e nomes locais à mão.
+            sources = (list(available) + ["api"]) if available else ["api", "manual"]
+            backend = select_source(sources, labels)
+            if backend == "api":
+                base_url, llm, embedder, args.api_key = prompt_remote_api(args)
+            elif backend == "manual":
+                backend = args.backend if args.backend in ("ollama", "llamacpp") else "ollama"
+                llm = input("  Nome do modelo LLM: ").strip()
+                embedder = input("  Nome do modelo embedder: ").strip()
+            else:
+                models = available[backend]
+                ok(f"Backend {labels[backend]} — modelos detectados:")
+                for i, name in enumerate(models, start=1):
+                    print(f"    {i}. {name}")
+                llm = select_model(models, "LLM")
+                embedder = select_model(models, "embedder")
 
         if not llm:
             die("Modelo LLM não definido.")
@@ -317,10 +437,30 @@ def main(argv=None):
             ).strip()
         api_key = (api_key or "").strip()
 
+        # API remota: só prossegue se o endpoint responder (conexão + auth).
+        if backend == "api":
+            log("Testando conexão com a API remota")
+            ok_conn, msg = test_remote_api(base_url, api_key, llm, embedder)
+            if not ok_conn:
+                die(f"Teste de conexão com a API falhou: {msg}")
+            ok(msg)
+
         log(f"Gravando a seleção em {compose_env.relative_to(ROOT)}")
         set_env(compose_env, "LLM_MODEL", llm)
         set_env(compose_env, "EMBEDDER_MODEL", embedder)
-        if backend == "llamacpp":
+        if backend == "api":
+            # Endpoint remoto compatível com OpenAI: usa a URL informada como
+            # está. O provider openai exige key não-vazia — usa um placeholder
+            # quando o usuário não passa token.
+            base = (base_url or "").rstrip("/")
+            key = api_key or "sk-no-key"
+            set_env(compose_env, "LLM_PROVIDER", "openai")
+            set_env(compose_env, "EMBEDDER_PROVIDER", "openai")
+            set_env(compose_env, "LLM_BASE_URL", base)
+            set_env(compose_env, "EMBEDDER_BASE_URL", base)
+            set_env(compose_env, "LLM_API_KEY", key)
+            set_env(compose_env, "EMBEDDER_API_KEY", key)
+        elif backend == "llamacpp":
             # llama.cpp via provider openai apontando para o servidor local. O
             # provider openai exige uma key não-vazia: usa a informada ou um
             # placeholder ("llama.cpp") quando o usuário não passa token.
