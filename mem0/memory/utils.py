@@ -318,3 +318,48 @@ def remove_spaces_from_entities(
         cleaned.append(item)
     return cleaned
 
+
+_EMBEDDING_MAX_TOKENS = 8000  # Conservative limit for OpenAI 8192, with buffer
+
+
+def _count_tokens(text):
+    """Count tokens using tiktoken if available, else char-based heuristic."""
+    try:
+        import tiktoken
+
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text))
+    except Exception:
+        logger.warning("tiktoken not available; using approximate token count (len/4).")
+        return len(text) // 4
+
+
+def truncate_to_token_limit(text, max_tokens=_EMBEDDING_MAX_TOKENS):
+    """Truncate text to fit within token limit, keeping the tail (most recent context).
+
+    Returns the original text if within limits, otherwise truncates from the head.
+    """
+    if not text:
+        return text
+    token_count = _count_tokens(text)
+    if token_count <= max_tokens:
+        return text
+    # Estimate chars to keep: use ratio of max_tokens/token_count
+    # Keep tail (most recent messages are most relevant for dedup)
+    chars_per_token = len(text) / token_count
+    max_chars = int(max_tokens * chars_per_token)
+    logger.warning(
+        "Truncating embedding input from ~%d tokens to ~%d tokens (keeping tail).",
+        token_count,
+        max_tokens,
+    )
+    result = text[-max_chars:]
+    # Second pass: verify truncation didn't overshoot
+    result_tokens = _count_tokens(result)
+    if result_tokens > max_tokens:
+        # Reduce further using more conservative ratio
+        overshoot_ratio = max_tokens / result_tokens
+        max_chars = int(len(result) * overshoot_ratio * 0.95)  # 5% safety margin
+        result = result[-max_chars:]
+    return result
+
