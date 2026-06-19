@@ -1,8 +1,10 @@
 import os
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
+from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.llms.openai import OpenAILLM
 
@@ -451,3 +453,18 @@ def test_callback_with_tools(mock_openai_client):
     mock_callback.assert_called_once()
     # Check that tool_calls exists in the message
     assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
+
+
+def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
+    # Constructing a provider directly with a BaseLlmConfig (not OpenAIConfig)
+    # must forward the raw proxies value, not the already-built httpx.Client.
+    # The factory path is covered separately; this exercises the direct path
+    # that integration examples and tests/llms/test_openai.py rely on.
+    config = BaseLlmConfig(
+        model="gpt-4.1-nano-2025-04-14",
+        api_key="api_key",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    llm = OpenAILLM(config)
+    assert llm.config.http_client_proxies == "http://proxy.local:8080"
+    assert isinstance(llm.config.http_client, httpx.Client)
