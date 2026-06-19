@@ -2335,14 +2335,21 @@ class AsyncMemory(MemoryBase):
 
         # === V3 PHASED BATCH PIPELINE (async) ===
 
-        # Phase 0: Context gathering
+        # Phase 0 + Phase 1a: Overlap DB I/O with embedding computation
         session_scope = _build_session_scope(effective_filters)
-        last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
-
-        # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+
+        async def _get_history():
+            return await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
+
+        async def _embed_query():
+            return await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+
+        # Parallel: DB I/O ∥ embedding (exceptions propagate normally)
+        last_messages, query_embedding = await asyncio.gather(_get_history(), _embed_query())
+
+        # Phase 1b: Vector search (requires embedding result)
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
             query=parsed_messages,
