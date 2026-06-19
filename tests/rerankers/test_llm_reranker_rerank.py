@@ -27,6 +27,23 @@ class TestExtractScore:
     def test_clamps_to_1(self, reranker):
         assert reranker._extract_score("1.0") == 1.0
 
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("2.0", 1.0),
+            ("5", 1.0),
+            ("10", 1.0),
+            ("-0.3", 0.0),
+            ("-2", 0.0),
+        ],
+    )
+    def test_out_of_range_scores_are_clamped(self, reranker, text, expected):
+        assert reranker._extract_score(text) == expected
+
+    def test_decimal_score_preferred_over_leading_integer(self, reranker):
+        # A distractor integer before the score must not be picked up.
+        assert reranker._extract_score("Confidence 100%. Relevance: 0.1") == 0.1
+
 
 class TestRerank:
     def test_empty_documents(self, mock_llm):

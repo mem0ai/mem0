@@ -32,7 +32,7 @@ class AzureOpenAILLM(LLMBase):
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
                 reasoning_effort=getattr(config, 'reasoning_effort', None),
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
                 is_reasoning_model=getattr(config, 'is_reasoning_model', None),
             )
 

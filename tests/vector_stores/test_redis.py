@@ -136,3 +136,18 @@ def test_col_info_with_argument():
     mock_index.info.assert_called_once()
     assert info == {"num_docs": 5}
 
+
+def test_get_returns_none_for_missing_id():
+    """get() must return None for a missing id.
+
+    redisvl's SearchIndex.fetch() returns None when the id is not found, so the
+    old code raised ``TypeError: 'NoneType' object is not subscriptable`` on
+    ``result["hash"]``. Every other vector store returns None for a missing id,
+    and Memory relies on it (``if existing_memory is None``), so get() must too.
+    """
+    db, mock_index = _make_redis_db()
+    mock_index.fetch.return_value = None
+
+    assert db.get("missing_id") is None
+    mock_index.fetch.assert_called_once_with("missing_id")
+

@@ -84,6 +84,24 @@ describe("Memory Input Validation", () => {
         memory.add(null, { userId: testUserId }),
       ).rejects.toThrow("messages is required");
     });
+
+    it("should throw error when messages is an empty array", async () => {
+      await expect(memory.add([], { userId: testUserId })).rejects.toThrow(
+        "messages array cannot be empty",
+      );
+    });
+
+    it("should throw error when messages array contains only blank content", async () => {
+      await expect(
+        memory.add([{ role: "user", content: "   " }], { userId: testUserId }),
+      ).rejects.toThrow("messages array cannot contain only blank content");
+    });
+
+    it("should throw error when messages is an empty string", async () => {
+      await expect(memory.add("   ", { userId: testUserId })).rejects.toThrow(
+        "messages string cannot be empty",
+      );
+    });
   });
 
   describe("search() threshold validation", () => {

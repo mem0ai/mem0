@@ -1,8 +1,11 @@
 """Tests for MemoryClient entity parameter rejection."""
 
+import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+import requests
 
 
 @pytest.fixture
@@ -207,3 +210,56 @@ class TestDeleteLinked:
 
         call_args = mock_memory_client.client.delete.call_args
         assert "delete_linked" not in call_args.kwargs.get("params", {})
+
+
+class TestValidateApiKeyHttpError:
+    """_validate_api_key should surface a clear ValueError on a non-JSON HTTP error.
+
+    A 5xx from a CDN/proxy often has an HTML body, so response.json() fails. The
+    HTTP status must be checked before json() so the intended ValueError is raised
+    instead of a confusing JSONDecodeError during client construction.
+    """
+
+    def test_sync_client_non_json_5xx_raises_clear_error(self):
+        # HTML body from a CDN/proxy: json() fails, but raise_for_status() reports the 503.
+        request = httpx.Request("GET", "https://api.mem0.ai/v1/ping/")
+        error_response = httpx.Response(503, text="<html>503 Service Unavailable</html>", request=request)
+        response = MagicMock()
+        response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
+        response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server error", request=request, response=error_response
+        )
+
+        with patch("mem0.client.main.httpx.Client") as mock_httpx:
+            mock_http_client = MagicMock()
+            mock_http_client.get.return_value = response
+            mock_httpx.return_value = mock_http_client
+
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import MemoryClient
+
+                with pytest.raises(ValueError) as exc_info:
+                    MemoryClient(api_key="test-api-key")
+
+        # The HTTP status must surface as the intended "Error: ..." ValueError,
+        # not the raw JSONDecodeError from parsing the HTML body.
+        assert not isinstance(exc_info.value, json.JSONDecodeError)
+        assert "Error:" in str(exc_info.value)
+
+    def test_async_client_non_json_5xx_raises_clear_error(self):
+        request = httpx.Request("GET", "https://api.mem0.ai/v1/ping/")
+        error_response = httpx.Response(503, text="<html>503 Service Unavailable</html>", request=request)
+        response = MagicMock()
+        response.json.side_effect = requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0)
+        http_error = requests.exceptions.HTTPError("Server error", response=error_response)
+        response.raise_for_status.side_effect = http_error
+
+        with patch("mem0.client.main.requests.get", return_value=response):
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import AsyncMemoryClient
+
+                with pytest.raises(ValueError) as exc_info:
+                    AsyncMemoryClient(api_key="test-api-key")
+
+        assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
+        assert "Error:" in str(exc_info.value)

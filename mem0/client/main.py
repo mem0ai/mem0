@@ -151,9 +151,9 @@ class MemoryClient:
         try:
             params = self._prepare_params()
             response = self.client.get("/v1/ping/", params=params)
-            data = response.json()
-
             response.raise_for_status()
+
+            data = response.json()
 
             if data.get("org_id") and data.get("project_id"):
                 self.org_id = data.get("org_id")
@@ -1044,9 +1044,9 @@ class AsyncMemoryClient:
                 },
                 params=params,
             )
-            data = response.json()
-
             response.raise_for_status()
+
+            data = response.json()
 
             if data.get("org_id") and data.get("project_id"):
                 self.org_id = data.get("org_id")
