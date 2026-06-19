@@ -619,6 +619,25 @@ export class Memory {
         "messages is required and cannot be undefined or null. Provide a string or array of messages.",
       );
     }
+    if (Array.isArray(messages)) {
+      if (messages.length === 0) {
+        throw new Error(
+          "messages array cannot be empty. Provide at least one message with non-empty content.",
+        );
+      }
+      const allBlank = messages.every(
+        (m) => typeof m.content === "string" && m.content.trim() === "",
+      );
+      if (allBlank) {
+        throw new Error(
+          "messages array cannot contain only blank content. Provide at least one message with non-empty content.",
+        );
+      }
+    } else if (messages.trim() === "") {
+      throw new Error(
+        "messages string cannot be empty. Provide non-empty content.",
+      );
+    }
 
     const temporalUsageNotice = detectTemporalUsageFromMetadata(
       config?.metadata,
@@ -731,7 +750,13 @@ export class Memory {
         // getLastMessages not supported — proceed without context
       }
     }
-    const parsedMessages = messages.map((m) => m.content).join("\n");
+    // Preserve role on the messages being extracted so the prompt's role-aware
+    // logic and the required `attributed_to` output have the speaker to work
+    // with. Matches the Python oss `parse_messages` helper (`role: content`);
+    // without this, assistant statements get attributed to the user.
+    const parsedMessages = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
 
     // Phase 1: Existing memory retrieval
     const queryEmbedding = await this.embedder.embed(parsedMessages);

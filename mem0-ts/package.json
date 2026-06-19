@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "3.0.8",
+  "version": "3.0.9",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -139,6 +139,7 @@
       "better-sqlite3"
     ],
     "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
       "picomatch@<2.3.2": "^2.3.2",
       "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
       "jws@4.0.0": "4.0.1",

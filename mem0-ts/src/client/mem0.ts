@@ -253,6 +253,11 @@ export default class MemoryClient {
     messages: Array<Message>,
     options: AddMemoryOptions & Record<string, any> = {},
   ): Promise<Array<Memory>> {
+    // Tightly scoped validation guard to resolve #5465
+    if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+      throw new Error("Cannot process an empty messages payload.");
+    }
+
     if (this.telemetryId === "") await this.ping();
 
     const payload = this._preparePayload(messages, options);
@@ -696,7 +701,10 @@ export default class MemoryClient {
       throw new Error("Missing filters or schema");
     }
 
-    const { filters, ...rest } = data;
+    // filters and schema are user-controlled blobs whose keys must reach the
+    // API verbatim; only the remaining SDK params (e.g. exportInstructions)
+    // get camel->snake conversion. See issue #5593.
+    const { filters, schema, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/`,
       {
@@ -705,6 +713,7 @@ export default class MemoryClient {
         body: JSON.stringify({
           ...camelToSnakeKeys(rest),
           filters,
+          schema,
         }),
       },
     );

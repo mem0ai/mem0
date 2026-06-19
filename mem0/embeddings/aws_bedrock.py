@@ -34,7 +34,12 @@ class AWSBedrockEmbedding(EmbeddingBase):
             aws_access_key = self.config.aws_access_key_id
         if hasattr(self.config, "aws_secret_access_key"):
             aws_secret_key = self.config.aws_secret_access_key
-        
+        # Honor a session token supplied via config (temporary credentials from
+        # STS / assume-role), falling back to the env var when unset. The LLM
+        # Bedrock provider already supports this; mirror it here.
+        if getattr(self.config, "aws_session_token", None):
+            aws_session_token = self.config.aws_session_token
+
         # AWS region is always set in config - see BaseEmbedderConfig
         aws_region = self.config.aws_region or "us-west-2"
 

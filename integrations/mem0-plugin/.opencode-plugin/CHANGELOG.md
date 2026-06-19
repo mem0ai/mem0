@@ -2,6 +2,36 @@
 
 All notable changes to the `@mem0/opencode-plugin` will be documented in this file.
 
+## 0.2.0 — Native SDK tools, MCP-free, leaner skill set
+
+### Changed (breaking)
+
+- **Memory tools are now native OpenCode tools** registered via the `@opencode-ai/plugin` `tool()` helper and backed by the `mem0ai` SDK directly. The plugin no longer registers or depends on the remote MCP server (`mcp.mem0.ai`); the bundled `opencode.json` and the regex-based MCP call interception have been removed. Tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, plus a `get_event_status` helper for async-write status.
+- **Skills load via the `config` hook (`skills.paths`)** instead of being copied into the project's `.opencode/` directory on startup. The `installSkills()` filesystem copy and the `cli.ts` installer (`mem0-opencode` bin) have been removed — install with `opencode plugin @mem0/opencode-plugin`.
+- **Trimmed to 9 focused skills** (`context-loader`, `dream`, `forget`, `status`, `search`, `scope`, `pin`, `remember`, `tour`). Removed `import`, `export`, `memory-reviewer`, `mem0` (SDK reference), `list-projects`, `stats`, and `onboard`. The old stateful `switch-project` skill is superseded by the project/session/global scope model and the new `/mem0-scope` skill.
+
+### Added
+
+- **Expanded telemetry to the full shared `plugin.*` schema.** In addition to `plugin.session_start` and `plugin.tool_use`, the plugin now emits `plugin.user_prompt`, `plugin.bash_error`, `plugin.pre_compact`, and `plugin.session_stop`. `tool_use` now fires from inside each native tool. Every event also carries `project_hash` (anonymized `sha256(app_id)`) and `os_version`, matching the editor plugin's `telemetry.py`.
+- **Auto-dream — gated automatic memory consolidation** (ported from the pi-agent plugin). When the time (`minHours`, default 24), session-count (`minSessions`, default 5), and memory-count (`minMemories`, default 20) gates all pass, the plugin injects a consolidation protocol so the agent merges duplicates, drops stale/sensitive entries, and rewrites vague ones before answering. A filesystem lock (`~/.mem0/mem0-dream.lock`) prevents concurrent sessions from dreaming at once, and completion resets the gates. Tune via the `dream` block in `~/.mem0/settings.json`; disable with `MEM0_DREAM=false`. Emits `plugin.dream_triggered` / `plugin.dream_completed`.
+- **Memory `scope` — per-call parameter and a persistent default.** `search_memories`, `get_memories`, `add_memory`, and `delete_all_memories` accept an optional `scope`: `"project"` (this repo, default), `"session"` (this run, adds `run_id`), or `"global"` (across all the user's projects — `app_id: "*"` for reads, user-wide for writes). The new **`/mem0-scope` skill** views and changes the *default* scope (used when no scope is passed), persisted to `~/.mem0/settings.json` (`default_scope`) and read **fresh on each memory operation** so changes apply immediately — no restart. `add_memory` / `search_memories` / `get_memories` honor the default (an explicit `scope`, `filters`, or `agent_id` still wins; a `project` default preserves prior behavior, including `global_search`).
+
+### Changed
+
+- **`/mem0-status` now reports the active default scope and auto-dream readiness.** It reads `default_scope` from `~/.mem0/settings.json` (falling back to `project`) and shows the auto-dream gate progress (sessions / memories / time vs. thresholds) so it's clear *why* a consolidation hasn't run yet.
+
+### Fixed
+
+- **Skills load in place via `skills.paths` — no copying.** The `config` hook adds the plugin's own `opencode-skills/` directory to OpenCode's `skills.paths`, so OpenCode discovers the skills directly from the linked/installed plugin package (recursive `**/SKILL.md` scan). The `installSkills()` step that copied skills into `~/.config/opencode/skills/` (and the legacy `~/.opencode/skills/`) and its version-marker gating are removed — the plugin no longer writes into those directories or creates `~/.opencode`. The `config` hook still registers the `/mem0-*` slash commands via `config.command`: OpenCode's TUI slash menu is built from `config.command`, and skills on `skills.paths` are available to the agent's skill tool but do not appear as slash commands on their own. Skill dir names are `mem0-<skill>` (matching `^[a-z0-9]+(-[a-z0-9]+)*$`); commands are `/mem0-<skill>`.
+- **Robust project-id (`app_id`) detection.** Parsed from the git remote's `owner/repo` — handling https, scp-style ssh, and **custom ssh host aliases** like `git@github.com-work:owner/repo.git` — falling back to the git repo's **root directory name** (not the cwd, which may be a sub-directory or your home dir), then the cwd. Fixes the project showing as your username/home when OpenCode was launched outside the repo root.
+- **Auto-dream visibility + robustness.** When auto-dream doesn't fire, the plugin logs the blocking gate (e.g. `auto-dream waiting — memories: 3 < 20`), and `/mem0-status` surfaces the same gate progress. The session-start memory count is parsed defensively (handles both paginated `{count}` and bare-array SDK responses) so the memory gate evaluates correctly.
+- **Error-pattern lookup** in `tool.execute.after` no longer issues two identical `mem0.search()` calls; it now performs a single `topK: 6` search.
+- Corrected the documented system-prompt hook name from `experimental.chat.system.transform` to the actual `experimental.chat.messages.transform`.
+
+### Safety
+
+- **`delete_all_memories` deliberately ignores the default scope.** Deleting user-wide always requires an explicit `scope="global"`, so raising the default to `global` can never turn a routine cleanup into a cross-project wipe.
+
 ## 0.1.3 — File-context injection, session summaries & activity timeline, anonymous telemetry
 
 ### Added

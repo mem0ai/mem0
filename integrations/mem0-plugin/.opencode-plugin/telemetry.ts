@@ -13,11 +13,13 @@
  * installs without a key emit nothing). Disable with MEM0_TELEMETRY=false.
  *
  * Never sends: memory content, API keys, raw user/project IDs. Only sends:
- * event type, platform, plugin version, anonymized hash of the API key.
+ * event type, platform, plugin version, and anonymized hashes of the API key
+ * and project ID.
  */
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { release } from "node:os";
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
@@ -62,6 +64,7 @@ export function buildEvent(
   eventType: string,
   properties: Record<string, unknown>,
   apiKey: string | undefined,
+  projectId?: string,
 ): Record<string, unknown> | null {
   if (!isTelemetryEnabled() || !apiKey) return null;
   return {
@@ -74,9 +77,14 @@ export function buildEvent(
       platform: "opencode",
       plugin_version: PLUGIN_VERSION,
       os: process.platform,
+      os_version: release(),
       sample_rate: 1.0,
       $process_person_profile: false,
       $lib: "posthog-node",
+      // Anonymized project segmentation, matching telemetry.py's project_hash.
+      ...(projectId
+        ? { project_hash: createHash("sha256").update(projectId).digest("hex") }
+        : {}),
     },
   };
 }
@@ -86,8 +94,9 @@ export function captureEvent(
   eventType: string,
   properties: Record<string, unknown>,
   apiKey: string | undefined,
+  projectId?: string,
 ): void {
-  const payload = buildEvent(eventType, properties, apiKey);
+  const payload = buildEvent(eventType, properties, apiKey, projectId);
   if (!payload) return;
   try {
     void fetch(POSTHOG_HOST, {

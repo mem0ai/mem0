@@ -158,29 +158,10 @@ Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the co
 ### OpenCode
 
 ```bash
-bunx @mem0/opencode-plugin@latest install
+opencode plugin @mem0/opencode-plugin
 ```
 
-Or via OpenCode's built-in CLI: `opencode plugin @mem0/opencode-plugin`
-
-Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
-
-```json
-{
-  "mcp": {
-    "mem0": {
-      "type": "remote",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token {env:MEM0_API_KEY}"
-      },
-      "oauth": false
-    }
-  }
-}
-```
-
-Restart OpenCode. The plugin installs hooks and skills automatically. Drop the `plugin` install if you only want MCP.
+Add `--global` to install for all projects. The plugin auto-registers its native memory tools, hooks, and skills via its `config` hook — no MCP server to configure. Restart OpenCode after installing.
 
 See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for full details.
 
