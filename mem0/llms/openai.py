@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from contextvars import ContextVar
 from typing import Any, Dict, List, Optional, Union
 
 from openai import OpenAI
@@ -35,8 +36,14 @@ class OpenAILLM(LLMBase):
             )
 
         super().__init__(config)
-        self._last_usage: Optional[Dict[str, Any]] = None
-        self._capture_usage = False
+        self._last_usage_var: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
+            f"openai_last_usage_{id(self)}",
+            default=None,
+        )
+        self._capture_usage_var: ContextVar[bool] = ContextVar(
+            f"openai_capture_usage_{id(self)}",
+            default=False,
+        )
 
         if not self.config.model:
             self.config.model = "gpt-5-mini"
@@ -74,19 +81,20 @@ class OpenAILLM(LLMBase):
         return usage_dict or None
 
     def reset_last_usage(self) -> None:
-        self._last_usage = None
+        self._last_usage_var.set(None)
 
     def get_last_usage(self) -> Optional[Dict[str, Any]]:
-        if self._last_usage is None:
+        usage = self._last_usage_var.get()
+        if usage is None:
             return None
-        return dict(self._last_usage)
+        return dict(usage)
 
     def start_usage_capture(self) -> None:
         self.reset_last_usage()
-        self._capture_usage = True
+        self._capture_usage_var.set(True)
 
     def stop_usage_capture(self) -> None:
-        self._capture_usage = False
+        self._capture_usage_var.set(False)
 
     def _merge_usage_values(self, current, incoming):
         if isinstance(current, dict) and isinstance(incoming, dict):
@@ -106,12 +114,13 @@ class OpenAILLM(LLMBase):
         return incoming
 
     def _store_usage(self, usage: Optional[Dict[str, Any]]) -> None:
-        if not self._capture_usage:
-            self._last_usage = usage
+        if not self._capture_usage_var.get():
+            self._last_usage_var.set(usage)
             return
 
         if usage:
-            self._last_usage = self._merge_usage_values(self._last_usage or {}, usage)
+            current_usage = self._last_usage_var.get() or {}
+            self._last_usage_var.set(self._merge_usage_values(current_usage, usage))
 
     def _parse_response(self, response, tools):
         """
@@ -164,7 +173,7 @@ class OpenAILLM(LLMBase):
         Returns:
             json: The generated response.
         """
-        if not self._capture_usage:
+        if not self._capture_usage_var.get():
             self.reset_last_usage()
         params = self._get_supported_params(messages=messages, **kwargs)
 

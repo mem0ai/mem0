@@ -1,5 +1,6 @@
 import logging
 import time
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
@@ -1070,3 +1071,58 @@ async def test_async_add_includes_usage_only_when_requested(mocker):
     }
     memory.llm.start_usage_capture.assert_called_once()
     memory.llm.stop_usage_capture.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_add_includes_usage_from_threaded_llm_path(mocker):
+    class ContextVarUsageLLM:
+        def __init__(self):
+            self._capture = ContextVar("capture", default=False)
+            self._usage = ContextVar("usage", default=None)
+
+        def start_usage_capture(self):
+            self._capture.set(True)
+            self._usage.set(None)
+
+        def stop_usage_capture(self):
+            self._capture.set(False)
+
+        def get_last_usage(self):
+            usage = self._usage.get()
+            return dict(usage) if usage else None
+
+        def generate_response(self, messages, response_format=None, **kwargs):
+            if self._capture.get():
+                self._usage.set({
+                    "prompt_tokens": 5,
+                    "completion_tokens": 3,
+                    "total_tokens": 8,
+                })
+            return '{"memory": [{"text": "Likes pizza"}]}'
+
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.config.llm.config = {}
+    memory.custom_instructions = None
+    memory.llm = ContextVarUsageLLM()
+    memory.embedding_model = Mock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+    memory.vector_store.search.return_value = []
+    memory.vector_store.insert = Mock()
+    memory.db.get_last_messages.return_value = []
+    memory.db.save_messages = Mock()
+    memory.db.batch_add_history = Mock()
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+    mocker.patch("mem0.memory.main.display_first_run_notice_async", mocker.AsyncMock())
+    mocker.patch("mem0.memory.main.display_temporal_usage_notice_async", mocker.AsyncMock())
+    mocker.patch("mem0.memory.main.display_scale_threshold_notice_async", mocker.AsyncMock())
+
+    result = await memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert result["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+    assert result["results"][0]["memory"] == "Likes pizza"

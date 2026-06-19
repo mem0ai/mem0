@@ -1,4 +1,5 @@
 import os
+import threading
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -491,7 +492,7 @@ def test_generate_response_resets_stale_usage_when_missing(mock_openai_client):
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Hello"}]
 
-    llm._last_usage = {"prompt_tokens": 99}
+    llm._last_usage_var.set({"prompt_tokens": 99})
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Response"))]
     mock_response.usage = None
@@ -526,4 +527,67 @@ def test_usage_capture_accumulates_multiple_responses(mock_openai_client):
         "prompt_tokens": 16,
         "completion_tokens": 10,
         "total_tokens": 26,
+    }
+
+
+def test_usage_capture_isolation_across_threads(mock_openai_client):
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14")
+    llm = OpenAILLM(config)
+    responses = {
+        "first": SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="First"))],
+            usage=SimpleNamespace(prompt_tokens=11, completion_tokens=7, total_tokens=18),
+        ),
+        "second": SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="Second"))],
+            usage=SimpleNamespace(prompt_tokens=5, completion_tokens=3, total_tokens=8),
+        ),
+    }
+    mock_openai_client.chat.completions.create.side_effect = (
+        lambda **kwargs: responses[kwargs["messages"][0]["content"]]
+    )
+
+    first_generated = threading.Event()
+    second_finished = threading.Event()
+    results = {}
+
+    def run_first_capture():
+        llm.start_usage_capture()
+        try:
+            llm.generate_response([{"role": "user", "content": "first"}])
+            first_generated.set()
+            assert second_finished.wait(timeout=2), "second capture did not finish in time"
+            results["first"] = llm.get_last_usage()
+        finally:
+            llm.stop_usage_capture()
+
+    def run_second_capture():
+        assert first_generated.wait(timeout=2), "first capture did not reach the overlap point"
+        llm.start_usage_capture()
+        try:
+            llm.generate_response([{"role": "user", "content": "second"}])
+            results["second"] = llm.get_last_usage()
+        finally:
+            llm.stop_usage_capture()
+            second_finished.set()
+
+    first_thread = threading.Thread(target=run_first_capture)
+    second_thread = threading.Thread(target=run_second_capture)
+
+    first_thread.start()
+    second_thread.start()
+    first_thread.join(timeout=2)
+    second_thread.join(timeout=2)
+
+    assert not first_thread.is_alive()
+    assert not second_thread.is_alive()
+    assert results["first"] == {
+        "prompt_tokens": 11,
+        "completion_tokens": 7,
+        "total_tokens": 18,
+    }
+    assert results["second"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
     }
