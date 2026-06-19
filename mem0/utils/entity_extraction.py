@@ -352,7 +352,7 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
             best[k] = (t, e)
     deduped = list(best.values())
 
-    # Remove entities that are whole-word subsequences of longer entities.
+    # Remove entities that are whole-word substrings of longer entities.
     # Word-boundary anchoring avoids dropping distinct entities that only share a
     # leading substring (e.g. "Sam" must survive alongside "Samsung").
     all_lower = [e[1].lower() for e in deduped]
