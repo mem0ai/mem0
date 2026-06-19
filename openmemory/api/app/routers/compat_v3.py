@@ -26,6 +26,7 @@ from typing import Any, Optional
 
 from app.utils.memory import get_memory_client
 from app.utils.partitioning import bind_active_collection, resolve_and_bind
+from app.utils.recency import recency_weighted_sort
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
@@ -165,11 +166,15 @@ async def search(request: SearchRequest) -> dict:
         if request.threshold and score is not None and score < request.threshold:
             continue
         results.append(_hit_to_result(h))
-        if len(results) >= top_k:
-            break
 
-    if request.rerank:
-        results.sort(key=lambda r: (r.get("score") is not None, r.get("score")), reverse=True)
+    # Order by semantic relevance blended with recency, THEN truncate to top_k, so
+    # a recently-updated fact can win over a more-similar but stale one even when it
+    # sat below top_k by raw score (ADR-003 at read time; parity with
+    # app.mcp_server.search_memory). The `rerank` arg is kept for backward
+    # compatibility but no longer gates ordering; set MEM0_SEARCH_RECENCY_WEIGHT=0
+    # for pure semantic order.
+    recency_weighted_sort(results)
+    results = results[:top_k]
 
     return {"results": results}
 

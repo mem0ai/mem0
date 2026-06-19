@@ -5,7 +5,9 @@ the shared-read behavior mandated by ADR-003:
 
 - reads are filtered by ``project`` and NEVER by ``user_id`` (shared across all
   machines on the local network — the hostname only feeds attribution on writes);
-- a bounded default ``top_k`` is applied and rerank is OFF by default;
+- a bounded default ``top_k`` is applied; results are ordered by semantic score
+  blended with recency (``updated_at`` → ``created_at``), so the most recently
+  changed fact wins over the stale version it supersedes (ADR-003 at read time);
 - the memory client is reused via ``get_memory_client_safe`` (no per-call reconnect);
 - a memory written by host ``maqA`` in project ``A`` is retrievable by a search
   issued as host ``maqB`` in project ``A`` (verified at the mock level: no
@@ -17,6 +19,7 @@ The memory client is fully mocked, so these run without Qdrant/Ollama/LLM access
 
 import json
 import os
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -26,6 +29,7 @@ os.environ.setdefault("OPENAI_API_KEY", "test-key")
 import pytest
 
 from app import mcp_server
+from app.utils import recency
 from app.mcp_server import (
     DEFAULT_LIST_TOP_K,
     DEFAULT_SEARCH_TOP_K,
@@ -111,27 +115,55 @@ class TestSearchMemoryProjectScope:
         assert DEFAULT_SEARCH_TOP_K == 20
 
     @pytest.mark.asyncio
-    async def test_search_rerank_off_by_default_preserves_order(self, patched_client):
+    async def test_search_orders_by_score_without_timestamps(self, patched_client):
         client, _ = patched_client
-        # Hits returned out of score order; default (rerank off) must keep order.
+        # With no timestamps, recency is neutral and order falls back to score.
         client.vector_store.search.return_value = [
             _hit("low", "low", "A", score=0.1),
             _hit("high", "high", "A", score=0.9),
         ]
         out = await search_memory("q", project="A")
         ids = [r["id"] for r in json.loads(out)["results"]]
-        assert ids == ["low", "high"]
+        assert ids == ["high", "low"]
 
     @pytest.mark.asyncio
-    async def test_search_rerank_optionally_sorts_by_score(self, patched_client):
+    async def test_search_recency_outranks_older_more_similar(self, patched_client):
         client, _ = patched_client
+        # The "old" fact is a closer semantic match (higher score) but was last
+        # changed years ago. The "new" fact is less similar but was UPDATED today
+        # (despite an old created_at) — recency must surface it first. This is the
+        # ADR-003 "recent wins" rule applied at read time, keyed off updated_at.
+        now = datetime.now(timezone.utc)
         client.vector_store.search.return_value = [
-            _hit("low", "low", "A", score=0.1),
-            _hit("high", "high", "A", score=0.9),
+            _hit(
+                "old", "old fact", "A", score=0.95,
+                created_at="2020-01-01T00:00:00+00:00",
+                updated_at="2020-01-01T00:00:00+00:00",
+            ),
+            _hit(
+                "new", "new fact", "A", score=0.80,
+                created_at="2019-01-01T00:00:00+00:00",
+                updated_at=now.isoformat(),
+            ),
         ]
-        out = await search_memory("q", project="A", rerank=True)
+        out = await search_memory("q", project="A")
         ids = [r["id"] for r in json.loads(out)["results"]]
-        assert ids == ["high", "low"]
+        assert ids == ["new", "old"]
+
+    @pytest.mark.asyncio
+    async def test_search_recency_weight_zero_is_pure_score(self, patched_client, monkeypatch):
+        client, _ = patched_client
+        # Disabling recency (weight 0) restores pure semantic ordering even when a
+        # less-similar fact is far more recent.
+        monkeypatch.setattr(recency, "SEARCH_RECENCY_WEIGHT", 0.0)
+        now = datetime.now(timezone.utc)
+        client.vector_store.search.return_value = [
+            _hit("old", "old", "A", score=0.95, updated_at="2020-01-01T00:00:00+00:00"),
+            _hit("new", "new", "A", score=0.80, updated_at=now.isoformat()),
+        ]
+        out = await search_memory("q", project="A")
+        ids = [r["id"] for r in json.loads(out)["results"]]
+        assert ids == ["old", "new"]
 
     @pytest.mark.asyncio
     async def test_search_requires_project(self, patched_client):

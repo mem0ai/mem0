@@ -46,6 +46,7 @@ from app.utils.memory import get_memory_client_safe
 from app.utils.partitioning import bind_active_collection, resolve_and_bind
 from app.utils.permissions import check_memory_access_permissions
 from app.utils.read_cache import read_cache
+from app.utils.recency import recency_weighted_sort
 from app.utils.write_queue import WriteJob, write_queue
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -67,8 +68,8 @@ mcp = FastMCP("mem0-mcp-server")
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
-# Read-path defaults (task_03 / ADR-003): keep top_k bounded and rerank off by
-# default so project-scoped reads stay low-latency on the single shared collection.
+# Read-path defaults (task_03 / ADR-003): keep top_k bounded so project-scoped
+# reads stay low-latency on the single shared collection.
 DEFAULT_SEARCH_TOP_K = 20
 DEFAULT_LIST_TOP_K = 20
 
@@ -239,11 +240,12 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
                 project, query, DEFAULT_SEARCH_TOP_K, filter_hash, results
             )
 
-        if rerank:
-            results.sort(
-                key=lambda r: (r.get("score") is not None, r.get("score")),
-                reverse=True,
-            )
+        # Order by semantic relevance blended with recency so the most recently
+        # updated fact wins over the stale version it supersedes (ADR-003,
+        # applied at read time). Always on now; the `rerank` arg is kept for
+        # backward compatibility but no longer gates ordering. Set
+        # MEM0_SEARCH_RECENCY_WEIGHT=0 to fall back to pure semantic order.
+        recency_weighted_sort(results)
 
         return json.dumps({"results": results}, indent=2)
     except Exception as e:

@@ -21,7 +21,13 @@ from pathlib import Path
 # Save originals so the stubs are torn down after compat_v3 is loaded; without
 # this, later test files that import app.utils.memory get the bare stub instead
 # of the real module and fail with "cannot import name …".
-_stub_names = ("app", "app.utils", "app.utils.memory", "app.utils.partitioning")
+_stub_names = (
+    "app",
+    "app.utils",
+    "app.utils.memory",
+    "app.utils.partitioning",
+    "app.utils.recency",
+)
 _saved_modules = {n: sys.modules.get(n) for n in _stub_names}
 # Swap in *fresh* stub modules (not setdefault): if these were already imported
 # for real, mutating their attributes would leak into the rest of the suite and
@@ -35,6 +41,12 @@ sys.modules["app.utils.partitioning"].bind_active_collection = lambda *a, **k: "
 sys.modules["app.utils.partitioning"].resolve_and_bind = (
     lambda *a, **k: types.SimpleNamespace(collection="openmemory", shard_key=None)
 )
+# recency.py has no heavy deps (datetime/os only), so path-load the REAL module
+# to exercise true recency-weighted ordering rather than a no-op stub.
+_REC_PATH = Path(__file__).resolve().parents[1] / "app" / "utils" / "recency.py"
+_rec_spec = importlib.util.spec_from_file_location("app.utils.recency", _REC_PATH)
+sys.modules["app.utils.recency"] = importlib.util.module_from_spec(_rec_spec)
+_rec_spec.loader.exec_module(sys.modules["app.utils.recency"])
 
 _PATH = Path(__file__).resolve().parents[1] / "app" / "routers" / "compat_v3.py"
 _spec = importlib.util.spec_from_file_location("compat_v3_under_test", _PATH)
@@ -50,10 +62,25 @@ for _name in _stub_names:
         sys.modules[_name] = _prior
 del _stub_names, _saved_modules, _name, _prior
 
+from datetime import datetime, timezone
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+
+
+async def _search(body):
+    """Drive a single /search/ request against a freshly-mounted router.
+
+    The memory client must be installed via ``monkeypatch.setattr(compat_v3,
+    "get_memory_client", ...)`` before calling.
+    """
+    app = FastAPI()
+    app.include_router(compat_v3.router)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        return (await ac.post("/v3/memories/search/", json=body)).json()
 
 
 class _Hit:
@@ -149,6 +176,46 @@ class TestSearch:
         r = (await client.post("/v3/memories/search/", json=body)).json()["results"][0]
         for key in ("id", "memory", "score", "metadata"):
             assert key in r
+
+    @pytest.mark.asyncio
+    async def test_recency_outranks_older_more_similar(self, monkeypatch):
+        # Parity with app.mcp_server.search_memory: the older fact is a closer
+        # match (higher score) but was last changed years ago; the newer fact is
+        # less similar but UPDATED today (despite an old created_at) — recency,
+        # keyed off updated_at, must surface it first (ADR-003 at read time).
+        now = datetime.now(timezone.utc).isoformat()
+        hits = [
+            _Hit("old", 0.95, {"data": "old", "project": "A",
+                               "created_at": "2020-01-01T00:00:00+00:00",
+                               "updated_at": "2020-01-01T00:00:00+00:00"}),
+            _Hit("new", 0.80, {"data": "new", "project": "A",
+                               "created_at": "2019-01-01T00:00:00+00:00",
+                               "updated_at": now}),
+        ]
+        monkeypatch.setattr(compat_v3, "get_memory_client", lambda: _FakeClient(hits))
+        data = await _search({"query": "x", "filters": _and({"app_id": "A"})})
+        assert [r["id"] for r in data["results"]] == ["new", "old"]
+
+    @pytest.mark.asyncio
+    async def test_recency_ordering_runs_before_topk_truncation(self, monkeypatch):
+        # With a metadata filter the router over-fetches (fetch_k = top_k*4), so a
+        # recent fact ranked below top_k by raw score is still rescued: recency
+        # ordering happens BEFORE the cut to top_k.
+        now = datetime.now(timezone.utc).isoformat()
+        hits = [
+            _Hit("old", 0.95, {"data": "old", "project": "A", "type": "decision",
+                               "updated_at": "2020-01-01T00:00:00+00:00"}),
+            _Hit("new", 0.80, {"data": "new", "project": "A", "type": "decision",
+                               "updated_at": now}),
+        ]
+        monkeypatch.setattr(compat_v3, "get_memory_client", lambda: _FakeClient(hits))
+        body = {
+            "query": "x",
+            "top_k": 1,
+            "filters": _and({"app_id": "A"}, {"metadata": {"type": "decision"}}),
+        }
+        data = await _search(body)
+        assert [r["id"] for r in data["results"]] == ["new"]
 
 
 class TestAdd:
