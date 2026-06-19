@@ -4,10 +4,12 @@
 import { describe, it, expect } from "vitest";
 import {
   safePath,
+  normalizeModuleUrlToPath,
   loadSkill,
   loadTriagePrompt,
   loadCompactTriagePrompt,
 } from "./skill-loader.ts";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // ---------------------------------------------------------------------------
 // safePath — path containment
@@ -71,6 +73,22 @@ describe("loadSkill path traversal", () => {
     // Should still succeed (skill itself is valid), domain overlay is just skipped
     expect(result).not.toBeNull();
     expect(result?.prompt).toBeTruthy();
+  });
+});
+
+describe("resolveMetaDir normalization", () => {
+  it("normalizes raw Windows paths before fileURLToPath conversion", () => {
+    const rawWindowsMetaUrl = "C:\\Users\\example\\openclaw\\index.ts";
+    const expected = fileURLToPath(pathToFileURL(rawWindowsMetaUrl).toString());
+
+    expect(normalizeModuleUrlToPath(rawWindowsMetaUrl)).toBe(expected);
+  });
+
+  it("leaves already-correct file URLs unchanged", () => {
+    const fileMetaUrl = "file:///C:/Users/example/openclaw/index.ts";
+    const expected = fileURLToPath(fileMetaUrl);
+
+    expect(normalizeModuleUrlToPath(fileMetaUrl)).toBe(expected);
   });
 });
 
