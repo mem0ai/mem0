@@ -34,6 +34,10 @@ DEFAULT_BATCH_SIZE = 4
 DEFAULT_IDLE_SLEEP = 2.0
 DEFAULT_SCHEDULER_SLEEP = 60.0
 DEFAULT_MAX_ATTEMPTS = 3
+# Seconds to cache the off-peak window decision in the processing loop so the
+# curfew check does not hit the DB (resolve_policy) on every batch. The window
+# has hour granularity, so a short TTL is plenty fresh.
+DEFAULT_WINDOW_CACHE_TTL = 60.0
 
 SCHEDULE_INTERVALS = {
     "daily": timedelta(days=1),
@@ -57,6 +61,8 @@ class GovernanceWorker:
         scheduler_sleep: float = DEFAULT_SCHEDULER_SLEEP,
         max_attempts: int = DEFAULT_MAX_ATTEMPTS,
         enable_scheduler: bool = True,
+        enforce_off_peak: bool = True,
+        window_cache_ttl: float = DEFAULT_WINDOW_CACHE_TTL,
         session_factory=SessionLocal,
     ):
         self._queue = queue or governance_queue
@@ -67,6 +73,10 @@ class GovernanceWorker:
         self._scheduler_sleep = scheduler_sleep
         self._max_attempts = max_attempts
         self._enable_scheduler = enable_scheduler
+        self._enforce_off_peak = enforce_off_peak
+        self._window_cache_ttl = window_cache_ttl
+        self._window_checked_at = float("-inf")
+        self._window_open = True
         self._session_factory = session_factory
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._stopped = asyncio.Event()
@@ -76,8 +86,8 @@ class GovernanceWorker:
     def register_handler(self, job_type: str, handler: Handler) -> None:
         self._handlers[job_type] = handler
 
-    async def process_once(self) -> int:
-        jobs = self._queue.dequeue(limit=self._batch_size)
+    async def process_once(self, *, manual_only: bool = False) -> int:
+        jobs = self._queue.dequeue(limit=self._batch_size, manual_only=manual_only)
         if not jobs:
             return 0
         await asyncio.gather(*(self._process_job(job) for job in jobs))
@@ -162,6 +172,29 @@ class GovernanceWorker:
         policy = resolve_policy("")
         return hour in policy.off_peak_hours_utc
 
+    def _in_active_window(self) -> bool:
+        """Whether SCHEDULED jobs may run now (off-peak curfew).
+
+        Mirrors the scheduler's enqueue gate so heavy scheduled LLM processing
+        cannot bleed into peak hours. Manual (admin-forced) jobs are NOT gated by
+        this — they always run. The window decision is cached for
+        ``window_cache_ttl`` seconds to avoid a DB hit (resolve_policy) per batch.
+        """
+        if not self._enforce_off_peak:
+            return True
+        now = time.monotonic()
+        if (now - self._window_checked_at) >= self._window_cache_ttl:
+            self._window_open = self._in_off_peak_window()
+            self._window_checked_at = now
+        return self._window_open
+
+    async def _wait(self, timeout: float) -> None:
+        """Sleep up to ``timeout`` seconds, returning early if stop is requested."""
+        try:
+            await asyncio.wait_for(self._stopped.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+
     @staticmethod
     def _interval(cadence: str) -> timedelta:
         return SCHEDULE_INTERVALS.get(cadence, timedelta(days=1))
@@ -209,10 +242,7 @@ class GovernanceWorker:
                     )
             except Exception:  # noqa: BLE001
                 logger.exception("governance scheduler pass failed")
-            try:
-                await asyncio.wait_for(self._stopped.wait(), timeout=self._scheduler_sleep)
-            except asyncio.TimeoutError:
-                pass
+            await self._wait(self._scheduler_sleep)
 
     async def run(self) -> None:
         recovered = self._queue.recover_stale_processing()
@@ -221,16 +251,18 @@ class GovernanceWorker:
         if self._enable_scheduler and self._scheduler_task is None:
             self._scheduler_task = asyncio.create_task(self._scheduler_loop())
         while not self._stopped.is_set():
+            # Off-peak curfew: outside the window only manually-forced jobs are
+            # pulled; scheduled jobs wait for the window (next night) so heavy
+            # scheduled LLM processing cannot bleed into peak hours. In-flight jobs
+            # always finish (bounded by batch_limit).
+            manual_only = not self._in_active_window()
             try:
-                processed = await self.process_once()
+                processed = await self.process_once(manual_only=manual_only)
             except Exception:  # noqa: BLE001
                 logger.exception("governance worker pass failed")
                 processed = 0
             if processed == 0:
-                try:
-                    await asyncio.wait_for(self._stopped.wait(), timeout=self._idle_sleep)
-                except asyncio.TimeoutError:
-                    pass
+                await self._wait(self._idle_sleep)
 
     def start(self) -> asyncio.Task:
         self._stopped.clear()
@@ -282,6 +314,7 @@ def worker_from_env() -> GovernanceWorker:
         scheduler_sleep=_env_float("GOVERNANCE_SCHEDULER_SLEEP", DEFAULT_SCHEDULER_SLEEP),
         max_attempts=_env_int("GOVERNANCE_WORKER_MAX_ATTEMPTS", DEFAULT_MAX_ATTEMPTS),
         enable_scheduler=_env_bool("GOVERNANCE_ENABLE_SCHEDULER", True),
+        enforce_off_peak=_env_bool("GOVERNANCE_ENFORCE_OFF_PEAK", True),
     )
 
 

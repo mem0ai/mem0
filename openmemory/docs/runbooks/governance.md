@@ -5,6 +5,28 @@
 A governança roda no **governance-worker** (scheduler interno, janela off-peak).
 Políticas são resolvidas como **global + override por project**.
 
+## Janela off-peak (parada obrigatória)
+
+O processamento "inteligente" (consolidação/dream, dedup, ttl, quota, cold tier —
+todos com chamadas de LLM/varredura) só ocorre dentro da janela `off_peak_hours_utc`.
+
+| Campo / env | Default | Efeito |
+|-------------|---------|--------|
+| `off_peak_hours_utc` (policy) | `[2, 3, 4, 5]` | Horas **UTC** em que a governança pode rodar. Default = **23:00–02:59 (BRT, UTC−3)**. |
+| `GOVERNANCE_ENFORCE_OFF_PEAK` | `true` | Liga a parada obrigatória no **processador**. `false` = drena a fila 24/7 (comportamento antigo). |
+| `GOVERNANCE_ENABLE_SCHEDULER` | `true` | Liga o **agendador** (enfileiramento de jobs vencidos). |
+
+Comportamento (start/stop/“acordar”):
+- **Entra na janela** → o agendador enfileira jobs vencidos e o processador os drena.
+- **Sai da janela** → o agendador para de enfileirar **e** o processador para de puxar
+  jobs **agendados**. Jobs **em voo terminam** (não há interrupção no meio de um item, mas cada
+  job é limitado por `batch_limit`); jobs agendados ainda na fila **aguardam a próxima janela** (noite seguinte).
+- A checagem da janela é em UTC — ajuste `off_peak_hours_utc` ao fuso desejado.
+
+> ℹ️ Jobs **forçados manualmente** (`/admin/governance/jobs/...`, marcados com
+> `payload.manual`) **furam o curfew**: rodam imediatamente, a qualquer horário. Só os
+> jobs **agendados** respeitam a janela. Útil para troubleshooting sem precisar mexer em env.
+
 ## Políticas relevantes
 
 | Campo | Default | Efeito |
@@ -54,4 +76,5 @@ restauração / re-add via pipeline de escrita).
 
 - `enforce`/cold tier removem dados; ambos são **reversíveis** (quarentena antes do
   purge; export antes do drop). Prefira `alert` até validar os limiares.
-- Jobs respeitam `batch_limit` e a janela `off_peak_hours_utc`.
+- Jobs respeitam `batch_limit` e a janela `off_peak_hours_utc` (parada obrigatória no
+  processador via `GOVERNANCE_ENFORCE_OFF_PEAK`; ver seção "Janela off-peak").

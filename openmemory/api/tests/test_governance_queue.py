@@ -87,3 +87,49 @@ async def test_failed_job_requeues_until_max_attempts(queue):
     row = db.query(GovernanceJob).one()
     assert row.status == GovernanceJobStatus.failed
     db.close()
+
+
+@pytest.mark.asyncio
+async def test_off_peak_curfew_defers_scheduled_but_runs_manual(queue):
+    """Off-peak curfew: outside the window scheduled jobs wait, but a manually
+    forced job runs immediately; when the window opens the scheduled job drains
+    (tasks 05–06 / off-peak stop+wake, manual bypass)."""
+    import asyncio
+
+    from app.models import GovernanceJob
+    from app.workers import governance_worker as gw
+
+    sched_id = queue.enqueue("dedup", project="p1", payload={"scheduled": True})
+    man_id = queue.enqueue("dedup", project="p2", payload={"manual": True})
+    handler = MagicMock(return_value=1)
+    worker = gw.GovernanceWorker(
+        queue=queue,
+        handlers={"dedup": handler},
+        enable_scheduler=False,
+        enforce_off_peak=True,
+        window_cache_ttl=0.0,  # re-check the window every loop (deterministic test)
+        idle_sleep=0.01,
+        scheduler_sleep=0.01,
+        session_factory=queue._session_factory,
+    )
+
+    def _statuses():
+        db = queue._session_factory()
+        try:
+            return {str(r.id): r.status for r in db.query(GovernanceJob).all()}
+        finally:
+            db.close()
+
+    # Outside the window: manual job runs, scheduled job is held back.
+    worker._in_off_peak_window = lambda: False
+    worker.start()
+    await asyncio.sleep(0.05)
+    st = _statuses()
+    assert st[man_id] == GovernanceJobStatus.done
+    assert st[sched_id] == GovernanceJobStatus.queued
+
+    # Window opens: the scheduled job drains too.
+    worker._in_off_peak_window = lambda: True
+    await asyncio.sleep(0.05)
+    await worker.stop()
+    assert _statuses()[sched_id] == GovernanceJobStatus.done

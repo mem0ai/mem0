@@ -64,7 +64,15 @@ class GovernanceQueue:
         finally:
             db.close()
 
-    def dequeue(self, limit: int = 1) -> List[GovernanceJob]:
+    def dequeue(self, limit: int = 1, *, manual_only: bool = False) -> List[GovernanceJob]:
+        """Claim up to ``limit`` queued jobs (FIFO), marking them ``processing``.
+
+        With ``manual_only=True`` only admin-forced jobs (``payload.manual``) are
+        claimed; scheduled jobs are left queued. The off-peak curfew uses this so
+        a manually-forced job runs immediately while scheduled work waits for the
+        window. The governance queue is small, so scanning queued rows and
+        filtering in Python is cheap and avoids non-portable JSON predicates.
+        """
         db = self._session()
         try:
             query = (
@@ -74,11 +82,17 @@ class GovernanceQueue:
             )
             if is_postgresql(str(db.get_bind().url)):
                 query = query.with_for_update(skip_locked=True)
-            rows = query.limit(limit).all()
+            if not manual_only:
+                query = query.limit(limit)
+            rows = query.all()
             jobs = []
             for row in rows:
+                if manual_only and not (row.payload or {}).get("manual"):
+                    continue
                 row.status = GovernanceJobStatus.processing
                 jobs.append(_to_job(row))
+                if len(jobs) >= limit:
+                    break
             db.commit()
             return jobs
         finally:
