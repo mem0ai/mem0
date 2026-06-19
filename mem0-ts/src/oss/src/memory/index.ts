@@ -1189,7 +1189,13 @@ export class Memory {
       }
     }
 
-    const result = { ...memoryItem, ...filters };
+    const result = {
+      ...memoryItem,
+      ...filters,
+      ...(memory.payload.attributedTo && {
+        attributedTo: memory.payload.attributedTo,
+      }),
+    };
     await this._displayFirstRunNotice("get");
     return result;
   }
@@ -1453,6 +1459,7 @@ export class Memory {
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
+          ...(payload.attributedTo && { attributedTo: payload.attributedTo }),
           ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
       });
@@ -1687,6 +1694,9 @@ export class Memory {
       ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
       ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
       ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
+      ...(mem.payload.attributedTo && {
+        attributedTo: mem.payload.attributedTo,
+      }),
     }));
 
     const result = { results };
