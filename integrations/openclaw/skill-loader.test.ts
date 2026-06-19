@@ -76,7 +76,7 @@ describe("loadSkill path traversal", () => {
   });
 });
 
-describe("resolveMetaDir normalization", () => {
+describe("normalizeModuleUrlToPath", () => {
   it("normalizes raw Windows paths before fileURLToPath conversion", () => {
     const rawWindowsMetaUrl = "C:\\Users\\example\\openclaw\\index.ts";
     const expected = fileURLToPath(pathToFileURL(rawWindowsMetaUrl).toString());
