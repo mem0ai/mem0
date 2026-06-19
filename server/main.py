@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import time
@@ -57,8 +58,19 @@ SENSITIVE_CONFIG_KEYS = {
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
-BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
-BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+def _csv_env(name: str, default: str) -> tuple[str, ...]:
+    return tuple(item.strip() for item in os.environ.get(name, default).split(",") if item.strip())
+
+
+def _optional_int_env(name: str) -> int | None:
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
+BUNDLED_LLM_PROVIDERS = _csv_env("MEM0_BUNDLED_LLM_PROVIDERS", "openai,anthropic,gemini")
+BUNDLED_EMBEDDER_PROVIDERS = _csv_env("MEM0_BUNDLED_EMBEDDER_PROVIDERS", "openai,gemini,ollama")
 
 
 def _warn_if_unconfigured() -> None:
@@ -111,28 +123,63 @@ POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+DEFAULT_LLM_PROVIDER = os.environ.get("MEM0_DEFAULT_LLM_PROVIDER", "openai")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
+DEFAULT_EMBEDDER_PROVIDER = os.environ.get("MEM0_DEFAULT_EMBEDDER_PROVIDER", "openai")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+DEFAULT_EMBEDDER_DIMS = _optional_int_env("MEM0_DEFAULT_EMBEDDER_DIMS")
+DEFAULT_VECTOR_STORE_DIMS = _optional_int_env("MEM0_DEFAULT_VECTOR_STORE_DIMS") or DEFAULT_EMBEDDER_DIMS
+DEFAULT_EMBEDDER_API_KEY = os.environ.get("MEM0_DEFAULT_EMBEDDER_API_KEY")
+DEFAULT_EMBEDDER_OPENAI_BASE_URL = os.environ.get("MEM0_DEFAULT_EMBEDDER_OPENAI_BASE_URL")
+DEFAULT_EMBEDDER_OLLAMA_BASE_URL = os.environ.get("MEM0_DEFAULT_EMBEDDER_OLLAMA_BASE_URL")
+
+
+def _default_llm_config() -> Dict[str, Any]:
+    config: Dict[str, Any] = {
+        "model": DEFAULT_LLM_MODEL,
+        "temperature": float(os.environ.get("MEM0_DEFAULT_LLM_TEMPERATURE", "0.2")),
+    }
+    if DEFAULT_LLM_PROVIDER == "openai":
+        config["api_key"] = OPENAI_API_KEY
+        if OPENAI_BASE_URL:
+            config["openai_base_url"] = OPENAI_BASE_URL
+    return {"provider": DEFAULT_LLM_PROVIDER, "config": config}
+
+
+def _default_embedder_config() -> Dict[str, Any]:
+    config: Dict[str, Any] = {"model": DEFAULT_EMBEDDER_MODEL}
+    if DEFAULT_EMBEDDER_DIMS is not None:
+        config["embedding_dims"] = DEFAULT_EMBEDDER_DIMS
+    if DEFAULT_EMBEDDER_PROVIDER == "openai":
+        config["api_key"] = DEFAULT_EMBEDDER_API_KEY or OPENAI_API_KEY
+        base_url = DEFAULT_EMBEDDER_OPENAI_BASE_URL or OPENAI_BASE_URL
+        if base_url:
+            config["openai_base_url"] = base_url
+    elif DEFAULT_EMBEDDER_PROVIDER == "ollama" and DEFAULT_EMBEDDER_OLLAMA_BASE_URL:
+        config["ollama_base_url"] = DEFAULT_EMBEDDER_OLLAMA_BASE_URL
+    return {"provider": DEFAULT_EMBEDDER_PROVIDER, "config": config}
+
+
+def _default_vector_store_config() -> Dict[str, Any]:
+    config: Dict[str, Any] = {
+        "host": POSTGRES_HOST,
+        "port": int(POSTGRES_PORT),
+        "dbname": POSTGRES_DB,
+        "user": POSTGRES_USER,
+        "password": POSTGRES_PASSWORD,
+        "collection_name": POSTGRES_COLLECTION_NAME,
+    }
+    if DEFAULT_VECTOR_STORE_DIMS is not None:
+        config["embedding_model_dims"] = DEFAULT_VECTOR_STORE_DIMS
+    return {"provider": "pgvector", "config": config}
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
-    "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
-    },
-    "llm": {
-        "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
-    },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "vector_store": _default_vector_store_config(),
+    "llm": _default_llm_config(),
+    "embedder": _default_embedder_config(),
     "history_db_path": HISTORY_DB_PATH,
 }
 
@@ -398,19 +445,28 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    filters: Optional[str] = None,
+    limit: Optional[int] = None,
     _auth=Depends(verify_auth),
 ):
     """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
     try:
+        if filters:
+            try:
+                parsed_filters = json.loads(filters)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="filters must be valid JSON.")
+            return get_memory_instance().get_all(filters=parsed_filters, top_k=limit or 20)
+
         if not any([user_id, run_id, agent_id]):
             auth_type = getattr(request.state, "auth_type", "none")
             if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
                 raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
-            return _list_all_memories()
+            return _list_all_memories(limit or ALL_MEMORIES_LIMIT)
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        return get_memory_instance().get_all(filters=filters)
+        return get_memory_instance().get_all(filters=filters, top_k=limit or 20)
     except HTTPException:
         raise
     except Exception:

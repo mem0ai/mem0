@@ -118,6 +118,150 @@ function loadDefaultScope(): Scope {
   return resolveDefaultScope(loadSettings());
 }
 
+type MemoryBackend = any;
+
+function isSelfHostedMode(): boolean {
+  return process.env.MEM0_SELF_HOST === "true" || process.env.MEM0_API_MODE === "self-host";
+}
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+function flattenSelfHostedFilters(filters: any): any {
+  if (!filters || typeof filters !== "object") return filters;
+  if (Array.isArray(filters.AND)) {
+    return filters.AND.reduce((acc: any, item: any) => ({...acc, ...flattenSelfHostedFilters(item)}), {});
+  }
+  if (Array.isArray(filters.OR) && filters.OR.length === 1) {
+    return flattenSelfHostedFilters(filters.OR[0]);
+  }
+  return filters;
+}
+
+class SelfHostedMemoryClient {
+  private host: string;
+  private apiKey: string;
+
+  client = {
+    get: async (_path: string) => {
+      throw new Error("Self-hosted Mem0 does not expose hosted async event status endpoints.");
+    },
+  };
+
+  constructor(apiKey: string, host: string) {
+    this.apiKey = apiKey;
+    this.host = normalizeBaseUrl(host);
+  }
+
+  private async request(path: string, init: RequestInit = {}) {
+    const response = await fetch(`${this.host}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": this.apiKey,
+        ...(init.headers || {}),
+      },
+    });
+    const text = await response.text();
+    const body = text ? JSON.parse(text) : {};
+    if (!response.ok) {
+      throw new Error(body?.detail || body?.message || `Mem0 self-host request failed: ${response.status}`);
+    }
+    return body;
+  }
+
+  async add(messages: any[], options: any = {}) {
+    const metadata = {...(options.metadata || {})};
+    if (options.app_id && metadata.app_id === undefined) metadata.app_id = options.app_id;
+
+    return this.request("/memories", {
+      method: "POST",
+      body: JSON.stringify({
+        messages,
+        user_id: options.user_id,
+        agent_id: options.agent_id,
+        run_id: options.run_id,
+        metadata,
+        infer: options.infer,
+      }),
+    });
+  }
+
+  async search(query: string, options: any = {}) {
+    return this.request("/search", {
+      method: "POST",
+      body: JSON.stringify({
+        query,
+        filters: flattenSelfHostedFilters(options.filters),
+        top_k: options.topK ?? options.top_k ?? options.limit,
+        threshold: options.threshold,
+      }),
+    });
+  }
+
+  async getAll(options: any = {}) {
+    const params = new URLSearchParams();
+    const filters = flattenSelfHostedFilters(options.filters);
+    if (filters) params.set("filters", JSON.stringify(filters));
+    const limit = options.pageSize ?? options.page_size ?? options.limit;
+    if (limit) params.set("limit", String(limit));
+    const query = params.toString();
+    return this.request(`/memories${query ? `?${query}` : ""}`);
+  }
+
+  async get(id: string) {
+    return this.request(`/memories/${encodeURIComponent(id)}`);
+  }
+
+  async update(id: string, body: any = {}) {
+    return this.request(`/memories/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify({text: body.text ?? "", metadata: body.metadata}),
+    });
+  }
+
+  async delete(id: string) {
+    return this.request(`/memories/${encodeURIComponent(id)}`, {method: "DELETE"});
+  }
+
+  async deleteAll(options: any = {}) {
+    if (options.app_id && options.app_id !== "*") {
+      throw new Error("Project-scoped delete_all is not supported by the self-host REST API. Delete individual memories instead.");
+    }
+    const params = new URLSearchParams();
+    for (const key of ["user_id", "agent_id", "run_id"]) {
+      if (options[key]) params.set(key, options[key]);
+    }
+    return this.request(`/memories?${params.toString()}`, {method: "DELETE"});
+  }
+
+  async deleteUsers(options: any = {}) {
+    if (options.appId) {
+      throw new Error("Self-hosted Mem0 entities are user, agent, and run scoped; app_id entities are stored as metadata.");
+    }
+    const entity = options.userId
+      ? ["user", options.userId]
+      : options.agentId
+        ? ["agent", options.agentId]
+        : options.runId
+          ? ["run", options.runId]
+          : null;
+    if (!entity) throw new Error("Pass userId, agentId, or runId to delete an entity.");
+    return this.request(`/entities/${entity[0]}/${encodeURIComponent(entity[1])}`, {method: "DELETE"});
+  }
+
+  async users() {
+    return this.request("/entities");
+  }
+}
+
+function createMemoryBackend(apiKey: string): MemoryBackend {
+  if (!isSelfHostedMode()) return new MemoryClient({apiKey});
+  const host = process.env.MEM0_BASE_URL || process.env.MEM0_HOST || "http://localhost:8888";
+  return new SelfHostedMemoryClient(apiKey, host);
+}
+
 const CODING_CATEGORIES = [
   "architecture_decisions", "api_design", "data_models", "algorithms",
   "dependencies", "environment_setup", "testing_strategy", "debugging_notes",
@@ -135,7 +279,7 @@ function apiKeyFingerprint(apiKey: string): string {
   return createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
 }
 
-async function autoSetupCategories(mem0: MemoryClient, apiKey: string): Promise<void> {
+async function autoSetupCategories(mem0: MemoryBackend, apiKey: string): Promise<void> {
   const stateDir = join(homedir(), ".mem0");
   const stateFile = join(stateDir, "categories_setup.json");
   const keyFp = apiKeyFingerprint(apiKey);
@@ -267,7 +411,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
           service: "mem0",
           level: "error",
           message:
-            "MEM0_API_KEY environment variable not set. Get one at https://app.mem0.ai/dashboard/api-keys",
+            "MEM0_API_KEY environment variable not set. Use a hosted Mem0 key or the self-host key from .mem0-api-key.",
         },
       });
     } catch {
@@ -275,7 +419,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
     return {};
   }
 
-  const mem0 = new MemoryClient({apiKey});
+  const mem0 = createMemoryBackend(apiKey);
   const userId = await getUserId();
   const appId = await getProjectId($);
   const branch = await getBranch($);

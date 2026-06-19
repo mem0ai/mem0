@@ -1,0 +1,104 @@
+name: mem0-closed-network
+
+services:
+  mem0:
+    build:
+      context: ../..
+      dockerfile: deployments/closed-network-mem0/Dockerfile.mem0
+    ports:
+      - "${API_PORT:-8888}:8000"
+    env_file:
+      - .env
+      - .openapi.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      DASHBOARD_URL: http://localhost:${DASHBOARD_PORT:-3000}
+      MEM0_DEFAULT_LLM_PROVIDER: openai
+      MEM0_DEFAULT_EMBEDDER_PROVIDER: ollama
+      MEM0_DEFAULT_EMBEDDER_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      MEM0_DEFAULT_EMBEDDER_OLLAMA_BASE_URL: http://ollama:11434
+      MEM0_DEFAULT_EMBEDDER_DIMS: ${MEM0_DEFAULT_EMBEDDER_DIMS:-768}
+      MEM0_BUNDLED_EMBEDDER_PROVIDERS: openai,gemini,ollama
+    networks:
+      - mem0_network
+    volumes:
+      - mem0_history:/app/history
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-init:
+        condition: service_completed_successfully
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: on-failure
+    shm_size: "128mb"
+    networks:
+      - mem0_network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -d postgres -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+      - ../../server/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "${POSTGRES_PORT:-8432}:5432"
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    networks:
+      - mem0_network
+    volumes:
+      - ollama_models:/root/.ollama
+
+  ollama-init:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    networks:
+      - mem0_network
+    depends_on:
+      ollama:
+        condition: service_started
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+    entrypoint: ["/bin/sh", "-lc"]
+    command:
+      - 'until ollama list >/dev/null 2>&1; do sleep 2; done; ollama pull "$${OLLAMA_EMBEDDING_MODEL}"'
+    restart: "no"
+
+  mem0-dashboard:
+    build: ../../server/dashboard
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    networks:
+      - mem0_network
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8888}
+      API_INTERNAL_URL: http://mem0:8000
+      NEXT_PUBLIC_INSTANCE_NAME: Mem0 Closed Network
+    depends_on:
+      mem0:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+volumes:
+  postgres_db:
+  mem0_history:
+  ollama_models:
+
+networks:
+  mem0_network:
+    driver: bridge

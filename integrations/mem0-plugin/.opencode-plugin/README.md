@@ -24,6 +24,23 @@ echo 'export MEM0_API_KEY="m0-your-key"' >> ~/.zshrc && source ~/.zshrc
 
 Restart OpenCode.
 
+### Self-hosted Mem0
+
+For a self-hosted server, start the stack first and export the generated server
+API key instead of a hosted Platform key:
+
+```bash
+cd deployments/closed-network-mem0
+./scripts/bootstrap.sh
+
+export MEM0_SELF_HOST=true
+export MEM0_BASE_URL=http://localhost:8888
+export MEM0_API_KEY="$(cat .mem0-api-key)"
+```
+
+Launch OpenCode from the same shell. The plugin will call the self-host REST API
+with `X-API-Key`; it will not call `api.mem0.ai`.
+
 ## What's included
 
 | Component | Description |

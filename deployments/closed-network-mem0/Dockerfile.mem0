@@ -1,0 +1,25 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml README.md LICENSE ./
+COPY mem0 ./mem0
+RUN pip install --no-cache-dir -e .
+
+COPY server/requirements.txt /tmp/server-requirements.txt
+RUN sed '/^mem0ai[<>=]/d' /tmp/server-requirements.txt > /tmp/server-requirements-local.txt \
+    && pip install --no-cache-dir -r /tmp/server-requirements-local.txt
+
+WORKDIR /app
+COPY server ./
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
