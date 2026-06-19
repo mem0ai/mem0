@@ -2,24 +2,8 @@ import os
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
-
 from mem0.configs.base import AzureConfig
-
-
-def _build_http_client(http_client_proxies: Optional[Union[Dict, str]]) -> Optional[httpx.Client]:
-    """Build an httpx.Client for the given proxy settings.
-
-    httpx >= 0.28 removed the ``proxies=`` argument: a single proxy is passed as
-    ``proxy=`` and per-scheme proxies via ``mounts=``.
-    """
-    if not http_client_proxies:
-        return None
-    if isinstance(http_client_proxies, dict):
-        return httpx.Client(
-            mounts={scheme: httpx.HTTPTransport(proxy=url) for scheme, url in http_client_proxies.items()}
-        )
-    return httpx.Client(proxy=http_client_proxies)
+from mem0.utils.http import build_http_client
 
 
 class BaseEmbedderConfig(ABC):
@@ -97,7 +81,7 @@ class BaseEmbedderConfig(ABC):
 
         # AzureOpenAI specific
         self.http_client_proxies = http_client_proxies
-        self.http_client = _build_http_client(http_client_proxies)
+        self.http_client = build_http_client(http_client_proxies)
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
@@ -125,4 +109,3 @@ class BaseEmbedderConfig(ABC):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
-

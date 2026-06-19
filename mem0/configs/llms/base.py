@@ -1,22 +1,7 @@
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
-
-
-def _build_http_client(http_client_proxies: Optional[Union[Dict, str]]) -> Optional[httpx.Client]:
-    """Build an httpx.Client for the given proxy settings.
-
-    httpx >= 0.28 removed the ``proxies=`` argument: a single proxy is passed as
-    ``proxy=`` and per-scheme proxies via ``mounts=``.
-    """
-    if not http_client_proxies:
-        return None
-    if isinstance(http_client_proxies, dict):
-        return httpx.Client(
-            mounts={scheme: httpx.HTTPTransport(proxy=url) for scheme, url in http_client_proxies.items()}
-        )
-    return httpx.Client(proxy=http_client_proxies)
+from mem0.utils.http import build_http_client
 
 
 class BaseLlmConfig(ABC):
@@ -89,7 +74,5 @@ class BaseLlmConfig(ABC):
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
         self.is_reasoning_model = is_reasoning_model
-        # Keep the raw proxies value so it survives config conversion (e.g. in
-        # LlmFactory) instead of only the built client.
         self.http_client_proxies = http_client_proxies
-        self.http_client = _build_http_client(http_client_proxies)
+        self.http_client = build_http_client(http_client_proxies)
