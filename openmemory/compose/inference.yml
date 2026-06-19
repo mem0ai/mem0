@@ -1,8 +1,16 @@
 # Dedicated local inference services (ADR-002). Embedding and LLM run in
 # separate containers so they can scale independently without GPU contention.
+#
+# OPT-IN via profile `local-inference`. By default the scale stack uses an
+# EXTERNAL Ollama (host/LAN) — see OLLAMA_*_URL in docker-compose.scale.yml.
+# To run Ollama in containers instead:
+#   docker compose -f docker-compose.scale.yml --profile local-inference up -d
+# and point OLLAMA_LLM_URL/OLLAMA_EMBED_URL at ollama-llm:11434 / ollama-embed:11434.
+# (docker stack deploy ignores profiles, so the Swarm stack still deploys these.)
 services:
   ollama-embed:
     image: ollama/ollama:latest
+    profiles: ["local-inference"]
     restart: unless-stopped
     volumes:
       - ollama_embed_data:/root/.ollama
@@ -15,6 +23,7 @@ services:
 
   ollama-llm:
     image: ollama/ollama:latest
+    profiles: ["local-inference"]
     restart: unless-stopped
     volumes:
       - ollama_llm_data:/root/.ollama

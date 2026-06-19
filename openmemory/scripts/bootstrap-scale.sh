@@ -2,14 +2,24 @@
 #
 # Bootstrap idempotente para o stack de escala (ADR-006).
 #
-# Provisiona PostgreSQL (via compose), roda migrations Alembic, detecta backend
-# de inferência local (Ollama / llama.cpp) quando endpoints explícitos não
-# estiverem definidos, e aguarda /health antes de liberar o proxy.
+# Sobe o stack completo em um único comando (sem Python no host):
+#   - PostgreSQL + PgBouncer + Redis + Qdrant + Traefik + observability + backup
+#   - API/MCP, write-worker e governance-worker (processamento off-peak)
+#   - migrations Alembic rodam DENTRO da imagem da API (não exige Python no host)
+#   - inferência via Ollama EXTERNO (host/LAN); para Ollama em container use o
+#     profile `local-inference`
+# Aguarda /health via proxy antes de concluir.
+#
+# Pré-requisitos no host: docker + docker compose v2 + curl. (Nenhum Python.)
 #
 # Uso:
 #   ./scripts/bootstrap-scale.sh
-#   ./scripts/bootstrap-scale.sh --skip-detect    # produção com URLs explícitas
+#   ./scripts/bootstrap-scale.sh --skip-detect    # produção com URLs explícitas no .env
 #   ./scripts/bootstrap-scale.sh --migrate-sqlite /path/to/openmemory.db
+#
+# Ollama externo: por padrão os containers usam http://host.docker.internal:11434.
+# Para um Ollama em outra máquina, defina no .env: OLLAMA_LLM_URL, OLLAMA_EMBED_URL,
+# LLM_MODEL, EMBEDDER_MODEL (e OLLAMA_PROBE_URL para a sonda do host).
 #
 set -euo pipefail
 
@@ -27,12 +37,41 @@ while [ $# -gt 0 ]; do
     --migrate-sqlite) SQLITE_SOURCE="$2"; shift 2 ;;
     --migrate-sqlite=*) SQLITE_SOURCE="${1#*=}"; shift ;;
     -h|--help)
-      sed -n '2,20p' "$0"
+      sed -n '2,23p' "$0"
       exit 0
       ;;
     *) echo "Argumento desconhecido: $1" >&2; exit 2 ;;
   esac
 done
+
+echo "==> Verificando pré-requisitos (docker, docker compose v2, curl)..."
+command -v docker >/dev/null 2>&1 || { echo "ERRO: Docker não encontrado." >&2; exit 1; }
+docker compose version >/dev/null 2>&1 || { echo "ERRO: Docker Compose v2 não encontrado." >&2; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "ERRO: curl não encontrado." >&2; exit 1; }
+
+# O compose declara env_file: api/.env — garante o arquivo (a partir do exemplo)
+# para o 'docker compose' não falhar. Preserva um .env já existente.
+if [ ! -f api/.env ]; then
+  [ -f api/.env.example ] || { echo "ERRO: api/.env.example ausente (rode a partir de openmemory/)." >&2; exit 1; }
+  cp api/.env.example api/.env
+  echo "==> Criado api/.env a partir do exemplo."
+fi
+
+# Os modelos são lidos pelo compose via ${LLM_MODEL}/${EMBEDDER_MODEL}, que são
+# interpolados de openmemory/.env (ou do shell) — NÃO de api/.env (o bloco
+# environment: do compose tem precedência sobre o env_file). Validamos cedo para
+# o stack não subir "pronto" e falhar na primeira escrita por modelo vazio.
+get_env() { grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- ; }
+LLM_MODEL_VAL="${LLM_MODEL:-$(get_env LLM_MODEL)}"
+EMB_MODEL_VAL="${EMBEDDER_MODEL:-$(get_env EMBEDDER_MODEL)}"
+if [ -z "$LLM_MODEL_VAL" ] || [ -z "$EMB_MODEL_VAL" ]; then
+  echo "ERRO: defina LLM_MODEL e EMBEDDER_MODEL em openmemory/.env (lidos pelo compose)." >&2
+  echo "      Liste os modelos do seu Ollama:  curl -s \${OLLAMA_PROBE_URL:-http://localhost:11434}/api/tags" >&2
+  echo "      Ex.:  printf 'LLM_MODEL=llama3.1:8b\\nEMBEDDER_MODEL=nomic-embed-text\\n' >> .env" >&2
+  echo "      (Ollama em outra máquina? adicione também OLLAMA_LLM_URL e OLLAMA_EMBED_URL no .env.)" >&2
+  exit 1
+fi
+echo "==> Modelos configurados: LLM=$LLM_MODEL_VAL | embedder=$EMB_MODEL_VAL"
 
 echo "==> Subindo infraestrutura base (PostgreSQL, PgBouncer, Redis, Qdrant)..."
 docker compose -f "$COMPOSE_FILE" up -d postgres pgbouncer redis mem0_store
@@ -45,38 +84,36 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 
-export DATABASE_URL="postgresql://${POSTGRES_USER:-mem0}:${POSTGRES_PASSWORD:-mem0}@localhost:${PGBOUNCER_PORT:-6432}/${POSTGRES_DB:-openmemory}"
+echo "==> Construindo a imagem da API..."
+docker compose -f "$COMPOSE_FILE" build openmemory-mcp
 
-echo "==> Rodando migrations (alembic upgrade head)..."
-(
-  cd api
-  if [ -d .venv ]; then source .venv/bin/activate; fi
-  alembic upgrade head
-)
+echo "==> Rodando migrations em container (alembic upgrade head)..."
+# Sem dependência de Python no host: o alembic roda dentro da imagem da API,
+# que já o contém. O DATABASE_URL vem do compose (aponta para pgbouncer na rede
+# interna). --no-deps: a infra base já está de pé.
+docker compose -f "$COMPOSE_FILE" run --rm --no-deps openmemory-mcp alembic upgrade head
 
 if [ -n "$SQLITE_SOURCE" ]; then
-  echo "==> Migração guiada SQLite -> PostgreSQL..."
+  echo "==> Migração guiada SQLite -> PostgreSQL (requer python3 no host)..."
   python3 scripts/migrate_sqlite_to_postgres.py "$SQLITE_SOURCE"
 fi
 
 if [ "$SKIP_DETECT" -eq 0 ] && [ -z "${OLLAMA_EMBED_URL:-}" ] && [ -z "${EMBEDDER_BASE_URL:-}" ]; then
-  echo "==> Detectando backends locais (Ollama / llama.cpp)..."
-  (
-    cd api
-    python3 - <<'PY'
-import json
-from app.utils.model_detection import detect_local_models
-
-backends = detect_local_models()
-print(json.dumps(backends, indent=2))
-if backends.get("ollama", {}).get("available"):
-    print("Ollama detectado — configure LLM_MODEL/EMBEDDER_MODEL no .env se necessário.")
-elif backends.get("llamacpp", {}).get("available"):
-    print("llama.cpp detectado — use provider openai + base_url no .env.")
-else:
-    print("Nenhum backend local detectado; defina OLLAMA_EMBED_URL / OLLAMA_LLM_URL.")
-PY
-  )
+  # Sonda o Ollama externo (host/LAN) via curl — sem Python no host. Do host, um
+  # Ollama no próprio servidor responde em localhost:11434; ajuste OLLAMA_PROBE_URL
+  # para um Ollama em outra máquina.
+  PROBE_URL="${OLLAMA_PROBE_URL:-http://localhost:11434}"
+  echo "==> Verificando Ollama externo em ${PROBE_URL} ..."
+  if curl -fsS "${PROBE_URL%/}/api/tags" >/tmp/om_tags.json 2>/dev/null; then
+    echo "    Ollama respondeu. Modelos disponíveis:"
+    grep -oE '"model"[[:space:]]*:[[:space:]]*"[^"]+"' /tmp/om_tags.json \
+      | sed -E 's/.*"([^"]+)"$/      - \1/' || true
+    echo "    Confirme que LLM_MODEL e EMBEDDER_MODEL no .env apontam para modelos acima."
+  else
+    echo "    ! Ollama não respondeu em ${PROBE_URL}."
+    echo "      Defina OLLAMA_LLM_URL/OLLAMA_EMBED_URL e LLM_MODEL/EMBEDDER_MODEL no .env"
+    echo "      (Ollama no host usa http://host.docker.internal:11434 de dentro dos containers)."
+  fi
 fi
 
 echo "==> Subindo stack completo..."
@@ -96,3 +133,8 @@ echo "==> Stack pronto."
 echo "    Proxy MCP:  http://localhost:${PROXY_PORT}/discovery"
 echo "    Prometheus: http://localhost:${PROMETHEUS_PORT:-9090}"
 echo "    Grafana:    http://localhost:${GRAFANA_PORT:-3001}"
+echo
+echo "    Governança (off-peak) roda no serviço openmemory-governance-worker."
+echo "    Logs:   docker compose -f ${COMPOSE_FILE} logs -f openmemory-governance-worker"
+echo "    Forçar um job agora (fura o curfew): "
+echo "      curl -X POST http://localhost:${PROXY_PORT}/admin/governance/jobs/dedup -d '{\"project\":\"<project>\"}'"

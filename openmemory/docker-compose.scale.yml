@@ -18,7 +18,7 @@ x-api-common: &api-common
   extra_hosts:
     - "host.docker.internal:host-gateway"
   environment: &api-env
-    USER: ${USER}
+    USER: ${USER:-openmemory}
     API_KEY: ${API_KEY:-}
     MEM0_LOCAL_ONLY: ${MEM0_LOCAL_ONLY:-1}
     MEM0_TELEMETRY: ${MEM0_TELEMETRY:-false}
@@ -26,14 +26,19 @@ x-api-common: &api-common
     QDRANT_PORT: "6333"
     DATABASE_URL: postgresql://${POSTGRES_USER:-mem0}:${POSTGRES_PASSWORD:-mem0}@pgbouncer:5432/${POSTGRES_DB:-openmemory}
     REDIS_URL: redis://redis:6379/0
+    # Inferência via Ollama EXTERNO (host/rede), o padrão deste stack. Default
+    # host.docker.internal cobre um Ollama no próprio host; para um Ollama em
+    # outra máquina da LAN, defina estas URLs no .env com o IP/porta dele.
+    # Para subir Ollama em container, use o profile `local-inference` (compose/
+    # inference.yml) e aponte estas URLs para ollama-llm / ollama-embed.
     LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
     LLM_MODEL: ${LLM_MODEL:-}
-    LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama-llm:11434}
-    OLLAMA_LLM_URL: ${OLLAMA_LLM_URL:-http://ollama-llm:11434}
+    LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:11434}
+    OLLAMA_LLM_URL: ${OLLAMA_LLM_URL:-http://host.docker.internal:11434}
     EMBEDDER_PROVIDER: ${EMBEDDER_PROVIDER:-ollama}
     EMBEDDER_MODEL: ${EMBEDDER_MODEL:-}
-    EMBEDDER_BASE_URL: ${EMBEDDER_BASE_URL:-http://ollama-embed:11434}
-    OLLAMA_EMBED_URL: ${OLLAMA_EMBED_URL:-http://ollama-embed:11434}
+    EMBEDDER_BASE_URL: ${EMBEDDER_BASE_URL:-http://host.docker.internal:11434}
+    OLLAMA_EMBED_URL: ${OLLAMA_EMBED_URL:-http://host.docker.internal:11434}
     OPENMEMORY_DISCOVERY_BASE_URL: ${OPENMEMORY_DISCOVERY_BASE_URL:-http://localhost:${PROXY_PORT:-8765}}
     RUN_EMBEDDED_WORKER: "false"
     WRITE_WORKER_MAX_CONCURRENCY: ${WRITE_WORKER_MAX_CONCURRENCY:-4}
@@ -98,10 +103,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama-embed:
-        condition: service_started
-      ollama-llm:
-        condition: service_started
       traefik:
         condition: service_started
     command: >
@@ -118,11 +119,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama-embed:
-        condition: service_started
-      ollama-llm:
-        condition: service_started
     command: python -m app.workers.write_worker
+
+  # Governança (Fase 3 / ADR-005): consome a fila de governança e roda o
+  # processamento "inteligente" off-peak — dedup, consolidação (dream), ttl,
+  # quota e cold tier — com scheduler interno e parada obrigatória na janela
+  # off_peak_hours_utc. Singleton (uma instância); o lock é a própria fila.
+  openmemory-governance-worker:
+    <<: *api-common
+    container_name: openmemory_governance_worker
+    environment:
+      <<: *api-env
+      RUN_EMBEDDED_WORKER: "false"
+      GOVERNANCE_ENABLE_SCHEDULER: "true"
+    depends_on:
+      mem0_store:
+        condition: service_started
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python -m app.workers.governance_worker
 
   # Blue-green partition migration (Fase 2 / task_06 / ADR-003). Run on demand to
   # copy the existing base into the partitioned (green) collection; isolated from
@@ -138,8 +155,6 @@ services:
     depends_on:
       pgbouncer:
         condition: service_healthy
-      ollama-embed:
-        condition: service_started
     command: python -m app.workers.migration_worker
 
 volumes:
