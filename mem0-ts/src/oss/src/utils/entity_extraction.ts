@@ -306,6 +306,11 @@ try {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/** Escape a string for safe interpolation into a RegExp. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Check for formatting artifacts that indicate non-entity text. */
 function hasArtifacts(txt: string): boolean {
   if (txt.includes("**") || txt.includes("__") || txt.includes(":*")) {
@@ -700,16 +705,18 @@ export function extractEntities(text: string): ExtractedEntity[] {
   }
   const bestEntities = Array.from(best.values());
 
-  // Remove entities that are substrings of longer entities
+  // Remove entities that are whole-word substrings of longer entities.
+  // Word-boundary anchoring avoids dropping distinct entities that only share a
+  // leading substring (e.g. "Sam" must survive alongside "Samsung"), while still
+  // dropping whole-word subsets (e.g. "learning" inside "machine learning").
   const allLower = bestEntities.map((e) => e.text.toLowerCase());
-  return bestEntities.filter(
-    (entity) =>
-      !allLower.some(
-        (other) =>
-          entity.text.toLowerCase() !== other &&
-          other.includes(entity.text.toLowerCase()),
-      ),
-  );
+  return bestEntities.filter((entity) => {
+    const lower = entity.text.toLowerCase();
+    const wordBoundary = new RegExp(`\\b${escapeRegExp(lower)}\\b`);
+    return !allLower.some(
+      (other) => lower !== other && wordBoundary.test(other),
+    );
+  });
 }
 
 /**
