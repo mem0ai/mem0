@@ -188,3 +188,11 @@ def test_count_with_none_vector_count(pinecone_db):
     count = pinecone_db.count()
     assert count == 0
     pinecone_db.index.describe_index_stats.assert_called_once()
+
+
+def test_list_error_returns_list_not_dict(pinecone_db):
+    """list() error path must return [[]] so callers can do result[0]."""
+    pinecone_db.index.query.side_effect = Exception("connection error")
+    result = pinecone_db.list(filters={"user_id": "alice"}, top_k=10)
+    assert isinstance(result, list)
+    assert result == [[]]
