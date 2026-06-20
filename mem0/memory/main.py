@@ -993,6 +993,17 @@ class Memory(MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
+
+                if len(entity_embeddings) != len(ordered_keys):
+                    logger.warning(
+                        "embed_batch returned %d vectors for %d entity texts — "
+                        "padding/truncating to avoid dropping entity links",
+                        len(entity_embeddings),
+                        len(ordered_keys),
+                    )
+                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
+
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 if valid:
@@ -2076,6 +2087,27 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
 
+    async def _bulk_clear_entity_store(self, filters):
+        """Delete all entity records matching the given scope filters.
+
+        Used by delete_all to avoid the race condition that occurs when
+        concurrent _delete_memory coroutines each try to read-modify-write
+        the same entity rows' linked_memory_ids lists.
+        """
+        if self._entity_store is None:
+            return
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        try:
+            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            for row in rows or []:
+                try:
+                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                except Exception as e:
+                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
+        except Exception as e:
+            logger.warning(f"Bulk entity store cleanup failed: {e}")
+
     async def _remove_memory_from_entity_store(self, memory_id, filters):
         """Async variant of `Memory._remove_memory_from_entity_store`."""
         if self._entity_store is None:
@@ -2498,6 +2530,16 @@ class AsyncMemory(MemoryBase):
                             entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
                         except Exception:
                             entity_embeddings.append(None)
+
+                if len(entity_embeddings) != len(ordered_keys):
+                    logger.warning(
+                        "embed_batch returned %d vectors for %d entity texts — "
+                        "padding/truncating to avoid dropping entity links",
+                        len(entity_embeddings),
+                        len(ordered_keys),
+                    )
+                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
 
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 if valid:
@@ -3233,9 +3275,12 @@ class AsyncMemory(MemoryBase):
 
         delete_tasks = []
         for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
+            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
 
         results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+
+        if self._entity_store is not None:
+            await self._bulk_clear_entity_store(filters)
 
         errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
@@ -3418,7 +3463,7 @@ class AsyncMemory(MemoryBase):
 
         return memory_id
 
-    async def _delete_memory(self, memory_id, existing_memory=None):
+    async def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
@@ -3444,9 +3489,8 @@ class AsyncMemory(MemoryBase):
             is_deleted=1,
         )
 
-        # Entity-store cleanup: strip this memory's id from any entity records
-        # that linked to it. Non-fatal — the helper swallows errors.
-        await self._remove_memory_from_entity_store(memory_id, session_filters)
+        if not skip_entity_cleanup:
+            await self._remove_memory_from_entity_store(memory_id, session_filters)
 
         return memory_id
 
@@ -3474,6 +3518,13 @@ class AsyncMemory(MemoryBase):
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
+
+        if self._entity_store is not None:
+            try:
+                await asyncio.to_thread(self._entity_store.reset)
+            except Exception as e:
+                logger.warning(f"Failed to reset entity store: {e}")
+            self._entity_store = None
 
         capture_event("mem0.reset", self, {"sync_type": "async"})
         await display_first_run_notice_async(self, "async", "reset")

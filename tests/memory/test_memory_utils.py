@@ -10,23 +10,34 @@ from mem0.memory.utils import (
 
 
 class TestParseMessages:
-    def test_formats_all_roles(self):
+    def test_skips_message_without_content_key(self):
+        # Reproduces #5067: a FunctionCalling assistant message carries
+        # `tool_calls` but no `content` key -> used to raise KeyError.
         messages = [
-            {"role": "system", "content": "You are helpful."},
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there"},
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "tool_calls": [{"id": "1", "function": {"name": "search"}}]},
+            {"role": "assistant", "content": "done"},
         ]
         result = parse_messages(messages)
-        assert result == (
-            "system: You are helpful.\n"
-            "user: Hello\n"
-            "assistant: Hi there\n"
-        )
+        assert result == "user: hi\nassistant: done\n"
+
+    def test_skips_explicit_none_content(self):
+        messages = [{"role": "assistant", "content": None}, {"role": "user", "content": "ok"}]
+        assert parse_messages(messages) == "user: ok\n"
+
+    def test_plain_roles_pass_through(self):
+        messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "u"},
+            {"role": "assistant", "content": "a"},
+        ]
+        assert parse_messages(messages) == "system: sys\nuser: u\nassistant: a\n"
 
     def test_empty_messages_returns_empty_string(self):
         assert parse_messages([]) == ""
 
     def test_unknown_roles_are_ignored(self):
+        # Roles other than system/user/assistant produce no output line.
         messages = [
             {"role": "tool", "content": "result"},
             {"role": "user", "content": "Continue"},
@@ -35,6 +46,16 @@ class TestParseMessages:
 
 
 class TestParseVisionMessages:
+    def test_skips_message_without_content_key(self):
+        # Reproduces #5067 for the vision parser path.
+        messages = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "tool_calls": [{"id": "1", "function": {"name": "search"}}]},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert len(result) == 1
+        assert result[0] == {"role": "user", "content": "hi"}
+
     def test_multimodal_list_without_llm_extracts_text(self):
         messages = [
             {"role": "user", "content": [

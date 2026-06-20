@@ -13,6 +13,7 @@ onlyBuiltDependencies:
   - protobufjs
 
 overrides:
+  "form-data@<4.0.6": ">=4.0.6"
   "protobufjs@<7.5.5": "^7.5.5"
   "vite": "^8.0.5"
   "langsmith@<0.6.0": "^0.6.0"

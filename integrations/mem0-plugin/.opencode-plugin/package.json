@@ -1,6 +1,6 @@
 {
   "name": "@mem0/opencode-plugin",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "dist/index.js",
@@ -11,9 +11,6 @@
       "import": "./dist/index.js"
     }
   },
-  "bin": {
-    "mem0-opencode": "./cli.ts"
-  },
   "publishConfig": {
     "access": "public"
   },
@@ -23,7 +20,6 @@
     "opencode-plugin",
     "mem0",
     "memory",
-    "mcp",
     "ai-memory",
     "persistent-memory"
   ],
@@ -34,8 +30,6 @@
   },
   "files": [
     "dist",
-    "cli.ts",
-    "opencode.json",
     "LICENSE",
     "opencode-skills"
   ],
@@ -49,6 +43,7 @@
   "opencode": {
     "type": "plugin",
     "hooks": [
+      "config",
       "chat.message",
       "tool.execute.before",
       "tool.execute.after",
@@ -59,7 +54,7 @@
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.0.162",
-    "mem0ai": "^3.0.7"
+    "mem0ai": "^3.0.8"
   },
   "devDependencies": {
     "bun-types": ">=1.3.14",

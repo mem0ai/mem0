@@ -1,0 +1,93 @@
+---
+title: "Graph Memory"
+description: "Mem0 Platform builds a native graph linking people, places, and concepts across your memories, with no external graph database to provision."
+icon: "circle-nodes"
+iconType: "solid"
+---
+
+Mem0 Platform automatically organizes your memories into a **graph**: the **graph entities** mentioned across your memories (the people, places, organizations, and concepts they refer to) become nodes, and memories that share an entity are connected. This is how Mem0 reasons across separate facts, for example linking everything it knows about a person, a company, or a project, without you defining any schema.
+
+Graph Memory is **built in**. There is no Neo4j, Memgraph, or other graph store to deploy, no connection strings to manage, and nothing to enable. It runs natively inside the platform and is always on.
+
+<Info>
+  **Graph Memory matters when…**
+  - You ask entity-centric questions like "what do we know about Alice?" and expect facts pulled from many different conversations
+  - Your app needs multi-hop recall, connecting a fact in one memory to a related fact in another
+  - You previously used an external graph store and want the same cross-memory connections with zero infrastructure
+</Info>
+
+<Note>
+  **Graph entities vs. entity IDs.** The entities in your graph (people, places, and concepts extracted from memory text) are different from the *entity IDs* (`user_id`, `agent_id`, `app_id`, `run_id`) used to scope memories. Those are covered in [Entity-Scoped Memory](/platform/features/entity-scoped-memory).
+</Note>
+
+<Note>
+  Graph Memory is the native successor to Mem0's earlier graph store integration. Earlier versions connected an external graph database (Neo4j and others) and exposed a `relations` field. Mem0 now builds the graph itself from your memories. See [What changed from the external graph store](#what-changed-from-the-external-graph-store) below.
+</Note>
+
+## How it works
+
+Graph Memory is built and used across the two phases of the memory pipeline: **extraction** (when you add memories) and **retrieval** (when you search).
+
+### 1. Entities become nodes
+
+Every time you add a memory, Mem0 extracts the **entities** it contains: the proper nouns, names, and key phrases that identify a specific person, place, organization, product, or concept (for example *Alice*, *San Francisco*, *Acme Corp*, *the Q1 roadmap*). Each distinct entity is stored once and embedded, so entities that refer to the same thing can be matched even when they are phrased differently.
+
+### 2. Shared entities become connections
+
+When the same entity appears in more than one memory, those memories are **linked** through that entity. Over time this forms a graph: a web of entities, each connecting all the memories that mention it. The connections are derived directly from your data. There is no relationship schema to define and nothing to label by hand.
+
+### 3. The graph powers retrieval
+
+At search time, Mem0 extracts the entities from your query and matches them against the graph. Memories connected to those entities receive a ranking boost, which is combined with semantic (vector) and keyword (BM25) scores into the single `score` returned on each result.
+
+This is what lets Mem0 answer entity-centric and multi-hop questions: a query about *Alice* surfaces facts about Alice that live in completely different memories, because the graph connects them. The connecting-facts-across-memories behavior contributes to Mem0's gains on multi-hop and temporal benchmarks. See [Memory Evaluation](/core-concepts/memory-evaluation).
+
+<Info>
+Graph Memory affects **ranking**, not the response shape. Search results come back in the normal format with a combined `score`; there is no separate graph payload to parse.
+</Info>
+
+## What's in the graph
+
+| Element | What it is |
+| --- | --- |
+| **Graph entity** (node) | A distinct person, place, organization, product, or concept extracted from your memories (e.g. *Alice*, *Acme Corp*). Distinct from the user/agent/app/run *entity IDs* used to scope memories. |
+| **Memory node** | An individual memory (fact) stored for a user, agent, or session. |
+| **Connection** | A link between an entity and every memory that mentions it. Two entities are related when they co-occur in one or more memories. |
+
+Graph Memory captures **which entities your memories are about and how they connect through shared context**. It does not assign typed, labeled relationships between entities (it won't, for example, record a "manages" edge from one person to another); connections are inferred from co-occurrence rather than declared. This is what makes it schema-free and zero-configuration.
+
+## Availability
+
+Graph Memory is **automatic and included on all plans**. It activates on the new memory algorithm with no flag, no configuration, and no external dependencies. You don't need to do anything to benefit from it.
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Entities are extracted and linked into the graph automatically on add
+client.add(
+    messages=[
+        {"role": "user", "content": "I work at Acme Corp with Alice on the Q1 roadmap"}
+    ],
+    user_id="jordan",
+)
+
+# Entity matches from the query are used to connect and boost related memories
+results = client.search(
+    query="who does jordan work with?",
+    filters={"user_id": "jordan"},
+)
+```
+
+## What changed from the external graph store
+
+Earlier versions of Mem0 offered graph memory by connecting an **external graph database** (Neo4j, Memgraph, Kuzu, Apache AGE, or Neptune) through an `enable_graph` flag and a `graph_store` configuration block. That integration has been replaced by **native, built-in Graph Memory**:
+
+- **No external graph store.** The graph is built inside Mem0 from your memories. There is nothing to provision or connect.
+- **Always on, all plans.** The `enable_graph` flag is no longer needed; Graph Memory is automatic. (If you still send the parameter, it is ignored.)
+- **Connections power retrieval directly.** Entity connections are folded into the combined `score` on each result. The standalone `relations` field that the external graph store returned is no longer populated. If your application read that field, see the migration guide below.
+
+<Card title="Platform Migration Guide" icon="arrow-right" href="/migration/platform-v2-to-v3">
+  Full details on the move to the new algorithm, including the `relations` field change.
+</Card>

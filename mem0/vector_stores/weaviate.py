@@ -342,7 +342,6 @@ class Weaviate(VectorStoreBase):
         """
         collections = self.client.collections.list_all()
         logger.debug(f"collections: {collections}")
-        print(f"collections: {collections}")
         return {"collections": [{"name": col.name} for col in collections]}
 
     def delete_col(self):
@@ -388,4 +387,4 @@ class Weaviate(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.create_col()
+        self.create_col(self.embedding_model_dims)
