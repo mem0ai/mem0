@@ -355,6 +355,14 @@ def _build_filters_and_metadata(
             suggestion="Please provide at least one identifier to scope the memory operation."
         )
 
+    # ---------- metadata scope keys ----------
+    # Merge non-entity metadata keys into query filters so add() scopes
+    # Phase 1 retrieval and session partitioning the same way search() does.
+    if input_metadata:
+        for k, v in input_metadata.items():
+            if k not in effective_query_filters and v is not None:
+                effective_query_filters[k] = v
+
     # ---------- optional actor filter ----------
     resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
     if resolved_actor_id:
@@ -364,9 +372,9 @@ def _build_filters_and_metadata(
 
 
 def _build_session_scope(filters):
-    """Build deterministic session scope string from entity IDs."""
+    """Build deterministic session scope string from filter keys."""
     parts = []
-    for key in sorted(["user_id", "agent_id", "run_id"]):
+    for key in sorted(filters.keys()):
         val = filters.get(key)
         if val:
             parts.append(f"{key}={val}")
@@ -872,7 +880,7 @@ class Memory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = {k: v for k, v in filters.items() if v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -2494,7 +2502,7 @@ class AsyncMemory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = {k: v for k, v in effective_filters.items() if v}
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
