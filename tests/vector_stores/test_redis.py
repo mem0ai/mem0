@@ -125,7 +125,6 @@ def test_create_col_keeps_distinct_dims_across_instances():
 
     db, _ = _make_redis_db()
     db.client = MagicMock()
-    db.embedding_model_dims = 384
 
     captured = []
 
@@ -140,4 +139,29 @@ def test_create_col_keeps_distinct_dims_across_instances():
     assert captured[0]["fields"][-1]["attrs"]["dims"] == 384
     assert captured[1]["fields"][-1]["attrs"]["dims"] == 1536
     # the module-level default must never be mutated by building a schema
+    assert "dims" not in redis_module.DEFAULT_FIELDS[-1]["attrs"]
+
+
+def test_init_keeps_distinct_dims_from_module_global():
+    """__init__ must stamp the requested dims into the index schema without
+    mutating the shared module-level DEFAULT_FIELDS. The create_col test above
+    covers the other deepcopy site; all other tests build RedisDB via __new__
+    and so skip __init__, leaving this call site otherwise uncovered."""
+    import mem0.vector_stores.redis as redis_module
+    from mem0.vector_stores.redis import RedisDB
+
+    captured = []
+
+    def capture_schema(schema):
+        captured.append(schema)
+        return MagicMock()
+
+    with (
+        patch("mem0.vector_stores.redis.redis.Redis.from_url", return_value=MagicMock()),
+        patch.object(redis_module.SearchIndex, "from_dict", side_effect=capture_schema),
+    ):
+        RedisDB("redis://localhost:6379", "col_384", 384)
+
+    assert captured[0]["fields"][-1]["attrs"]["dims"] == 384
+    # the module-level default must never be mutated by constructing an instance
     assert "dims" not in redis_module.DEFAULT_FIELDS[-1]["attrs"]
