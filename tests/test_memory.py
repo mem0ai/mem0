@@ -489,6 +489,59 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
+def test_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """A backing-store failure while fetching the memory during update must
+    surface as the original error, not be masked as a 'provide a valid
+    memory_id' ValueError. The REST layer relies on this so an outage maps to
+    5xx instead of a misleading 4xx."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mock_vector_store.get.side_effect = ConnectionError("vector store unreachable")
+
+    with pytest.raises(ConnectionError, match="vector store unreachable"):
+        memory._update_memory("mem-1", "new data", {"new data": [0.1, 0.2]})
+
+    mock_vector_store.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Async twin: a backing-store failure during update re-raises the original
+    error instead of masking it as a ValueError."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mock_vector_store.get.side_effect = ConnectionError("vector store unreachable")
+
+    with pytest.raises(ConnectionError, match="vector store unreachable"):
+        await memory._update_memory("mem-1", "new data", {"new data": [0.1, 0.2]})
+
+    mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Regression test for issue #3723: adding with infer=False should not trigger duplicate embedding calls.

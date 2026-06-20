@@ -1831,8 +1831,9 @@ class Memory(MemoryBase):
         try:
             existing_memory = self.vector_store.get(vector_id=memory_id)
         except Exception:
+            # Backing-store failure, not a bad memory_id: re-raise the original so the REST layer maps it to 5xx, not 4xx.
             logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+            raise
 
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
@@ -3363,8 +3364,9 @@ class AsyncMemory(MemoryBase):
         try:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         except Exception:
+            # Backing-store failure, not a bad memory_id: re-raise the original so the REST layer maps it to 5xx, not 4xx.
             logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+            raise
 
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
