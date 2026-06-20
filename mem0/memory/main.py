@@ -3381,7 +3381,7 @@ class AsyncMemory(MemoryBase):
             if llm is not None:
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
-                procedural_memory = response.content
+                procedural_memory = remove_code_blocks(response.content)
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
