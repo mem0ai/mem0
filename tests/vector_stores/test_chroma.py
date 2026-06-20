@@ -122,7 +122,7 @@ def test_delete_vector(chromadb_instance):
 
     chromadb_instance.delete(vector_id=vector_id)
 
-    chromadb_instance.collection.delete.assert_called_once_with(ids=vector_id)
+    chromadb_instance.collection.delete.assert_called_once_with(ids=[vector_id])
 
 
 def test_update_vector(chromadb_instance):
