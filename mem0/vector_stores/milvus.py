@@ -262,7 +262,7 @@ class MilvusDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.client.delete(collection_name=self.collection_name, ids=vector_id)
+        self.client.delete(collection_name=self.collection_name, ids=[vector_id])
 
     def update(self, vector_id=None, vector=None, payload=None):
         """
