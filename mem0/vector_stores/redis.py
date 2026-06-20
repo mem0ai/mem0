@@ -122,11 +122,13 @@ class RedisDB(VectorStoreBase):
         data = []
         for vector, payload, id in zip(vectors, payloads, ids):
             # Start with required fields
+            created_at_str = payload.get("created_at")
+            created_at_ts = int(datetime.fromisoformat(created_at_str).timestamp()) if created_at_str else 0
             entry = {
                 "memory_id": id,
-                "hash": payload["hash"],
-                "memory": payload["data"],
-                "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
+                "hash": payload.get("hash", ""),
+                "memory": payload.get("data", ""),
+                "created_at": created_at_ts,
                 "embedding": np.array(vector, dtype=np.float32).tobytes(),
             }
 

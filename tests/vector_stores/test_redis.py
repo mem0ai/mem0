@@ -128,3 +128,28 @@ def test_get_returns_none_for_missing_id():
 
     assert db.get("missing_id") is None
     mock_index.fetch.assert_called_once_with("missing_id")
+
+
+def test_insert_entity_payload_without_hash_and_created_at():
+    """insert() must not crash on entity payloads that lack hash/created_at."""
+    db, mock_index = _make_redis_db()
+
+    entity_payload = {
+        "data": "OpenAI",
+        "entity_type": "organization",
+        "linked_memory_ids": ["mem-1"],
+        "user_id": "test_user",
+    }
+
+    db.insert(
+        vectors=[[0.1, 0.2, 0.3]],
+        payloads=[entity_payload],
+        ids=["entity-1"],
+    )
+
+    mock_index.load.assert_called_once()
+    data = mock_index.load.call_args[0][0]
+    assert data[0]["memory_id"] == "entity-1"
+    assert data[0]["memory"] == "OpenAI"
+    assert data[0]["hash"] == ""
+    assert data[0]["created_at"] == 0
