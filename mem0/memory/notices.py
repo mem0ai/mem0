@@ -1418,13 +1418,19 @@ def _get_provider_memory_count(memory_instance) -> Optional[int]:
     try:
         col_info = getattr(vector_store, "col_info", None)
         if callable(col_info):
-            info = col_info()
+            collection_name = getattr(vector_store, "collection_name", None)
+            if collection_name is not None:
+                try:
+                    info = col_info(collection_name)
+                except TypeError:
+                    info = col_info()
+            else:
+                info = col_info()
             value = _extract_count(info)
             if value is not None:
                 return value
 
             client = getattr(vector_store, "client", None)
-            collection_name = getattr(vector_store, "collection_name", None)
             client_count = (
                 getattr(client, "count", None) if client is not None and collection_name is not None else None
             )

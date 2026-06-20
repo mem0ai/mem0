@@ -1404,10 +1404,14 @@ def test_scale_threshold_provider_count_helpers_are_safe():
             return {"count": 2300}
 
     class RedisInfoStore:
+        def __init__(self):
+            self.collection_name = "test_collection"
+
         def count(self):
             raise RuntimeError("count unavailable")
 
-        def col_info(self):
+        def col_info(self, name):
+            assert name == self.collection_name
             return {"index_name": "test_collection", "num_docs": 2300}
 
     class SearchMetadataStore:
@@ -1419,7 +1423,8 @@ def test_scale_threshold_provider_count_helpers_are_safe():
         def count(self):
             raise RuntimeError("count unavailable")
 
-        def col_info(self):
+        def col_info(self, name):
+            assert name == self.collection_name
             return {"test_collection": {"settings": {"index": {}}}}
 
     memory = MagicMock()
