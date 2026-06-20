@@ -29,13 +29,13 @@ class AnthropicLLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
             )
 
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "claude-3-5-sonnet-20240620"
+            self.config.model = "claude-sonnet-4-6"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key)
@@ -106,7 +106,20 @@ class AnthropicLLM(LLMBase):
 
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            params["tool_choice"] = {"type": tool_choice}
 
         response = self.client.messages.create(**params)
+        return self._parse_response(response, tools)
+
+    def _parse_response(self, response, tools):
+        if tools:
+            result = {"content": None, "tool_calls": []}
+            for block in response.content:
+                if block.type == "text":
+                    result["content"] = block.text
+                elif block.type == "tool_use":
+                    result["tool_calls"].append(
+                        {"name": block.name, "arguments": block.input}
+                    )
+            return result
         return response.content[0].text

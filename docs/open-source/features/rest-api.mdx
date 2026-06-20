@@ -119,7 +119,7 @@ docker build -t mem0-api-server .
 </Tip>
 
 <Note>
-  The REST server reads the same configuration you use locally, so you can point it at your preferred LLM, vector store, graph backend, and reranker without changing code.
+  The REST server reads the same configuration you use locally, so you can point it at your preferred LLM, vector store, and reranker without changing code.
 </Note>
 
 ---
@@ -226,6 +226,20 @@ curl -X POST http://localhost:8888/search \
   }'
 ```
 
+Set `explain` to inspect the scoring signals used by OSS hybrid search:
+
+```bash
+curl -X POST http://localhost:8888/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "vegetable pizza",
+    "user_id": "alice",
+    "explain": true
+  }'
+```
+
+Each returned memory includes `score_details` only when explanation mode is enabled.
+
 ### Explore with OpenAPI docs
 
 1. Navigate to `http://localhost:8888/docs` (Compose) or `http://localhost:8000/docs` (raw Docker / uvicorn).
@@ -319,7 +333,7 @@ The `/auth/*`, `/api-keys`, `/requests`, and `/entities` routes are new to the s
 
 <CardGroup cols={2}>
   <Card title="Configure OSS Components" icon="sliders" href="/open-source/configuration">
-    Fine-tune LLMs, vector stores, and graph backends that power the REST server.
+    Fine-tune LLMs, vector stores, and rerankers that power the REST server.
   </Card>
   <Card title="Automate Agent Integrations" icon="plug" href="/cookbooks/integrations/agents-sdk-tool">
     See how services call the REST endpoints as part of an automation pipeline.

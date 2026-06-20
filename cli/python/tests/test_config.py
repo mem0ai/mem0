@@ -67,7 +67,8 @@ class TestConfig:
         from mem0_cli.config import CONFIG_FILE
 
         mode = os.stat(CONFIG_FILE).st_mode & 0o777
-        assert mode == 0o600
+        if os.name != "nt":
+            assert mode == 0o600
 
     def test_defaults_save_and_load(self, isolate_config):
         config = Mem0Config()

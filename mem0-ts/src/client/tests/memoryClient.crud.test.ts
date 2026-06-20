@@ -59,16 +59,15 @@ describe("MemoryClient - add()", () => {
     expect(getFetchBody(call!).user_id).toBe("user_1");
   });
 
-  test("sends empty messages array without crashing", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/add/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
+  test("throws an error when given an empty messages array", async () => {
+    setupMockFetch();
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add([], { userId: "u1" });
 
-    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
-    expect(getFetchBody(call!).messages).toEqual([]);
+    //Asserts that the validation guard catches the empty input early
+    await expect(client.add([], { userId: "u1" })).rejects.toThrow(
+      "Cannot process an empty messages payload.",
+    );
   });
 });
 
@@ -200,9 +199,26 @@ describe("MemoryClient - delete()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.delete("mem_123");
 
-    expect(
-      findFetchCall(mock, "/v1/memories/mem_123/", "DELETE"),
-    ).toBeDefined();
+    const call = findFetchCall(mock, "/v1/memories/mem_123/", "DELETE");
+    expect(call).toBeDefined();
+    // Default: no cascade query param, URL byte-identical to before.
+    expect(call![0]).not.toContain("delete_linked");
+  });
+
+  test("serializes deleteLinked as delete_linked query param", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem_123/", {
+      status: 200,
+      body: { message: "Memory deleted successfully", cascade_count: 1 },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.delete("mem_123", { deleteLinked: true });
+
+    const call = findFetchCall(mock, "/v1/memories/mem_123/", "DELETE");
+    expect(call).toBeDefined();
+    expect(call![0]).toContain("delete_linked=true");
   });
 });
 

@@ -71,3 +71,60 @@ def test_update_with_vector_includes_embedding():
     )
     expected_bytes = np.array(vector, dtype=np.float32).tobytes()
     assert data_dict["embedding"] == expected_bytes
+
+
+def test_search_with_none_filters_does_not_crash():
+    """search() with the base-class default filters=None must run an unfiltered
+    query, not raise. Regression: filters.items() on None raised AttributeError
+    and reduce() over an empty list raised TypeError. keyword_search() in the
+    same file already guards this; search() did not."""
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    assert db.search("query", [0.1, 0.2, 0.3, 0.4], top_k=5, filters=None) == []
+    mock_index.query.assert_called_once()
+
+
+def test_search_with_empty_or_all_none_filters_does_not_crash():
+    db, mock_index = _make_redis_db()
+    mock_index.query.return_value = []
+
+    assert db.search("query", [0.1, 0.2, 0.3, 0.4], filters={}) == []
+    assert db.search("query", [0.1, 0.2, 0.3, 0.4], filters={"user_id": None}) == []
+
+
+def test_list_with_none_filters_matches_all():
+    """list() with no filters must issue a match-all ('*') query, not raise."""
+    db, mock_index = _make_redis_db()
+    mock_index.search.return_value = MagicMock(docs=[])
+
+    db.list(filters=None)
+
+    query = mock_index.search.call_args[0][0]
+    assert query.query_string() == "*"
+
+
+def test_list_with_filter_builds_query():
+    """A real filter is still translated into a tag query (no regression)."""
+    db, mock_index = _make_redis_db()
+    mock_index.search.return_value = MagicMock(docs=[])
+
+    db.list(filters={"user_id": "alice"})
+
+    query = mock_index.search.call_args[0][0]
+    assert query.query_string() == "@user_id:{alice}"
+
+
+def test_get_returns_none_for_missing_id():
+    """get() must return None for a missing id.
+
+    redisvl's SearchIndex.fetch() returns None when the id is not found, so the
+    old code raised ``TypeError: 'NoneType' object is not subscriptable`` on
+    ``result["hash"]``. Every other vector store returns None for a missing id,
+    and Memory relies on it (``if existing_memory is None``), so get() must too.
+    """
+    db, mock_index = _make_redis_db()
+    mock_index.fetch.return_value = None
+
+    assert db.get("missing_id") is None
+    mock_index.fetch.assert_called_once_with("missing_id")

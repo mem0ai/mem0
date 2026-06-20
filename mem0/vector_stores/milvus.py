@@ -11,7 +11,14 @@ try:
 except ImportError:
     raise ImportError("The 'pymilvus' library is required. Please install it using 'pip install pymilvus'.")
 
-from pymilvus import CollectionSchema, DataType, FieldSchema, Function, FunctionType, MilvusClient
+from pymilvus import (
+    CollectionSchema,
+    DataType,
+    FieldSchema,
+    Function,
+    FunctionType,
+    MilvusClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -167,11 +174,14 @@ class MilvusDB(VectorStoreBase):
         memory = []
 
         for value in data:
-            uid, score, metadata = (
-                value.get("id"),
-                value.get("distance"),
-                value.get("entity", {}).get("metadata"),
-            )
+            uid = value.get("id")
+            raw_distance = value.get("distance")
+            metadata = value.get("entity", {}).get("metadata")
+
+            if raw_distance is not None and self.metric_type in (MetricType.L2, "L2"):
+                score = 1.0 / (1.0 + raw_distance)
+            else:
+                score = raw_distance
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
@@ -280,7 +290,7 @@ class MilvusDB(VectorStoreBase):
         schema = {"id": vector_id, "vectors": vector, "metadata": payload, "text": text}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
-    def get(self, vector_id):
+    def get(self, vector_id) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -288,9 +298,11 @@ class MilvusDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.client.get(collection_name=self.collection_name, ids=vector_id)
+        if not result:
+            return None
         output = OutputData(
             id=result[0].get("id", None),
             score=None,

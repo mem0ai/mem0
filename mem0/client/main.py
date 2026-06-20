@@ -33,6 +33,15 @@ setup_config()
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 
 
+def _validate_and_trim_search_query(query: str) -> str:
+    if not isinstance(query, str):
+        raise ValueError("Invalid query: must be a non-empty string.")
+    trimmed = query.strip()
+    if not trimmed:
+        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
+    return trimmed
+
+
 def _maybe_alias_anon_to_email(user_email):
     """Fire $identify per prior anon ID so PostHog merges them into email.
 
@@ -142,9 +151,9 @@ class MemoryClient:
         try:
             params = self._prepare_params()
             response = self.client.get("/v1/ping/", params=params)
-            data = response.json()
-
             response.raise_for_status()
+
+            data = response.json()
 
             if data.get("org_id") and data.get("project_id"):
                 self.org_id = data.get("org_id")
@@ -306,6 +315,7 @@ class MemoryClient:
 
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        query = _validate_and_trim_search_query(query)
         payload = {"query": query, **params}
 
         response = self.client.post("/v3/memories/search/", json=payload)
@@ -360,11 +370,16 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete(self, memory_id: str) -> Dict[str, Any]:
+    def delete(self, memory_id: str, delete_linked: bool = False) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
             memory_id: The ID of the memory to delete.
+            delete_linked: When True, also delete the older memories this one
+                superseded (the v3 ``linked_memory_ids`` chain), transitively.
+                This is the delete-side counterpart of ``latest_only`` — it
+                stops a superseded memory from resurfacing after you delete the
+                current one. Defaults to False (only the given memory is deleted).
 
         Returns:
             A dictionary containing the API response.
@@ -377,10 +392,12 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        params = self._prepare_params()
+        params = self._prepare_params({"delete_linked": delete_linked or None})
         response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
+        capture_client_event(
+            "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
@@ -1027,9 +1044,9 @@ class AsyncMemoryClient:
                 },
                 params=params,
             )
-            data = response.json()
-
             response.raise_for_status()
+
+            data = response.json()
 
             if data.get("org_id") and data.get("project_id"):
                 self.org_id = data.get("org_id")
@@ -1214,6 +1231,7 @@ class AsyncMemoryClient:
 
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        query = _validate_and_trim_search_query(query)
         payload = {"query": query, **params}
 
         response = await self.async_client.post("/v3/memories/search/", json=payload)
@@ -1268,11 +1286,16 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete(self, memory_id: str) -> Dict[str, Any]:
+    async def delete(self, memory_id: str, delete_linked: bool = False) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
             memory_id: The ID of the memory to delete.
+            delete_linked: When True, also delete the older memories this one
+                superseded (the v3 ``linked_memory_ids`` chain), transitively.
+                This is the delete-side counterpart of ``latest_only`` — it
+                stops a superseded memory from resurfacing after you delete the
+                current one. Defaults to False (only the given memory is deleted).
 
         Returns:
             A dictionary containing the API response.
@@ -1285,10 +1308,12 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        params = self._prepare_params()
+        params = self._prepare_params({"delete_linked": delete_linked or None})
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id, "sync_type": "async"})
+        capture_client_event(
+            "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "async"}
+        )
         return response.json()
 
     @api_error_handler

@@ -186,6 +186,72 @@ def test_azure_config_accepts_reasoning_effort():
     assert config.model == "o3-mini"
 
 
+def test_is_reasoning_model_override_forces_reasoning_path(mock_openai_client):
+    """Versioned Azure gpt-5.x deployments can opt in via is_reasoning_model=True.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/5296 — the
+    name-based heuristic does not recognize dated deployment names like
+    ``gpt-5.4-nano-2026-03-17``, so the call sent max_tokens and Azure replied
+    400. The explicit override forces the reasoning-model parameter set, which
+    drops max_tokens (and temperature).
+    """
+    config = AzureOpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        is_reasoning_model=True,
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "I have oily skin."}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert "temperature" not in call_kwargs
+
+
+def test_is_reasoning_model_override_false_keeps_standard_params(mock_openai_client):
+    """is_reasoning_model=False forces the standard param set even for o-series names."""
+    config = AzureOpenAIConfig(
+        model="o3-mini",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        is_reasoning_model=False,
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["max_tokens"] == MAX_TOKENS
+    assert call_kwargs["temperature"] == TEMPERATURE
+
+
+def test_is_reasoning_model_defaults_to_name_heuristic(mock_openai_client):
+    """When is_reasoning_model is None (default), classification stays name-based."""
+    config = AzureOpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+    )
+    llm = AzureOpenAILLM(config)
+    # Unrecognized versioned name -> heuristic says "not reasoning" (unchanged).
+    assert config.is_reasoning_model is None
+    assert llm._is_reasoning_model("gpt-5.4-nano-2026-03-17") is False
+
+
 @pytest.mark.parametrize(
     "default_headers",
     [None, {"Firstkey": "FirstVal", "SecondKey": "SecondVal"}],
@@ -223,7 +289,7 @@ def test_generate_with_http_proxies(default_headers):
             api_version=None,
             default_headers=default_headers,
         )
-        mock_http_client.assert_called_once_with(proxies="http://testproxy.mem0.net:8000")
+        mock_http_client.assert_called_once_with(proxy="http://testproxy.mem0.net:8000")
 
 
 def test_init_with_api_key(monkeypatch):

@@ -87,7 +87,6 @@ def capture_event(
     try:
         from mem0_cli import __version__
         from mem0_cli.config import CONFIG_FILE, load_config, save_config
-        from mem0_cli.state import is_agent_mode
 
         config = load_config()
         distinct_id = pre_resolved_email or _get_distinct_id()
@@ -107,6 +106,9 @@ def capture_event(
             with contextlib.suppress(Exception):
                 save_config(config)
 
+        # M4: every cli.* event carries agent_mode based on the config flag
+        # (unclaimed Agent Mode key). This is the growth-doc property used to
+        # join init → add → search funnels in PostHog.
         payload = {
             "api_key": POSTHOG_API_KEY,
             "distinct_id": distinct_id,
@@ -115,7 +117,7 @@ def capture_event(
                 "source": "CLI",
                 "language": "python",
                 "cli_version": __version__,
-                "agent_mode": is_agent_mode(),
+                "agent_mode": bool(config.platform.agent_mode),
                 "python_version": sys.version,
                 "os": sys.platform,
                 "os_version": platform.version(),
@@ -135,12 +137,19 @@ def capture_event(
             "anon_distinct_id_to_alias": anon_id_to_alias,
         }
 
-        subprocess.Popen(
-            [sys.executable, "-m", "mem0_cli.telemetry_sender", json.dumps(context)],
+        child = subprocess.Popen(
+            [sys.executable, "-m", "mem0_cli.telemetry_sender"],
+            stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             close_fds=True,
+            text=True,
         )
+        if child.stdin:
+            with contextlib.suppress(Exception):
+                child.stdin.write(json.dumps(context))
+            with contextlib.suppress(Exception):
+                child.stdin.close()
     except Exception:
         pass

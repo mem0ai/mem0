@@ -46,7 +46,7 @@ standalone `SKILL.md` with triggers, examples, and version-pinned code.
 - SDK (Python + TS, Platform + OSS): https://raw.githubusercontent.com/mem0ai/mem0/main/skills/mem0/SKILL.md
 - CLI: https://raw.githubusercontent.com/mem0ai/mem0/main/skills/mem0-cli/SKILL.md
 - Vercel AI SDK: https://raw.githubusercontent.com/mem0ai/mem0/main/skills/mem0-vercel-ai-sdk/SKILL.md
-- Editor/MCP plugin glue (9 MCP tools): https://github.com/mem0ai/mem0/tree/main/mem0-plugin
+- Editor/MCP plugin glue (9 MCP tools): https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
 
 ### SDK source (read when docs are ambiguous)
 Public repo. Cross-check against the `mem0_tested_versions` range in this
@@ -109,7 +109,7 @@ the target stack. If yes, delegate — copy its call-site pattern into
 |---|---|---|
 | `@ai-sdk/*` + `ai` in `package.json` | `skills/mem0-vercel-ai-sdk` | Integration is via `createMem0` provider wrapper, not raw `MemoryClient`. |
 | CLI-only repo (Typer, Commander, Click, Cobra) with no LLM call sites | `skills/mem0-cli` | Call sites are command handlers, not model wrappers. Consider whether mem0 actually fits first. |
-| Target is an MCP client / editor config (Claude Code, Cursor, Codex settings) | `mem0-plugin` | Wire via MCP server URL + hooks; no SDK code usually needed. |
+| Target is an MCP client / editor config (Claude Code, Cursor, Codex settings) | `integrations/mem0-plugin` | Wire via MCP server URL + hooks; no SDK code usually needed. |
 | Any other Python or TS repo with an LLM call site | `skills/mem0` | Default SDK integration path. |
 
 Record the delegated skill's raw URL in `plan.md` under a
@@ -248,8 +248,8 @@ Bake the choice into the goal doc in step 5. Do not re-decide later.
 | OSS (default LLM) | `OPENAI_API_KEY` | https://platform.openai.com/api-keys |
 
 If present in env → continue.
-If missing → **interactive mode** asks; **CI mode** (`MEM0_INTEGRATE_CI=1`)
-exits with code 2 and the name of the missing key.
+If `MEM0_API_KEY` is missing AND the track is **Platform** → **default to Agent Mode**: run `mem0 init --agent --agent-caller <your-name> --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`), substituting your agent identity (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init. Cache the key to `.env` (with user consent) and continue. Tell the user to claim later with `mem0 init --email <their-email>` — same key, no agent disruption.
+If missing AND **CI mode** (`MEM0_INTEGRATE_CI=1`) → exit with code 2 and the name of the missing key.
 
 Never echo key values into `trace.jsonl`. Persist to `.env` only with
 explicit user consent, and append `.env` to `.gitignore` if not already there.

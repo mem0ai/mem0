@@ -7,6 +7,92 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-06-17" description="v2.0.7">
+
+**New Features:**
+- **LLMs:** Add Gemini via Vertex AI as LLM provider ([#4030](https://github.com/mem0ai/mem0/pull/4030))
+- **Embeddings:** Add native `embed_batch` to `OllamaEmbedding` for batched embedding requests ([#5415](https://github.com/mem0ai/mem0/pull/5415))
+
+**Bug Fixes:**
+- **Core:** Fix `api_error_handler` silently dropping return values from async methods ([#5540](https://github.com/mem0ai/mem0/pull/5540))
+- **Core:** Fix `AsyncMemory.reset()` not resetting the entity store ([#5535](https://github.com/mem0ai/mem0/pull/5535))
+- **Core:** Fix `async delete_all` aborting on first error, leaving partial deletion ([#5529](https://github.com/mem0ai/mem0/pull/5529))
+- **Core:** Skip messages without a `content` key in message parsers to prevent `KeyError` crashes ([#5575](https://github.com/mem0ai/mem0/pull/5575))
+- **Core:** Preserve custom metadata fields during memory update ([#5480](https://github.com/mem0ai/mem0/pull/5480))
+- **LLMs:** Fix Anthropic `tool_choice` format and tool response parsing ([#5537](https://github.com/mem0ai/mem0/pull/5537))
+- **LLMs:** Fix Ollama `json` format mutating the caller's messages list in-place ([#5539](https://github.com/mem0ai/mem0/pull/5539))
+- **LLMs:** Omit `None` config values from Gemini `GenerateContentConfig` to prevent validation errors ([#5528](https://github.com/mem0ai/mem0/pull/5528))
+- **LLMs:** Honor reasoning-model params in `AzureOpenAIStructuredLLM` ([#5548](https://github.com/mem0ai/mem0/pull/5548))
+- **LLMs:** Honor reasoning-model params in `OpenAIStructuredLLM` ([#5458](https://github.com/mem0ai/mem0/pull/5458))
+- **LLMs:** Send `max_completion_tokens` for the GPT-5 family across all providers ([#5547](https://github.com/mem0ai/mem0/pull/5547))
+- **LLMs:** Accept and forward `**kwargs` in Together, LangChain, and Sarvam providers ([#5556](https://github.com/mem0ai/mem0/pull/5556))
+- **LLMs:** Fix Bedrock AI21 response parse default using `dict` literal instead of `set` ([#5527](https://github.com/mem0ai/mem0/pull/5527))
+- **LLMs:** Fix LiteLLM function-calling check blocking all calls on non-tool models ([#5536](https://github.com/mem0ai/mem0/pull/5536))
+- **LLMs:** Fix HuggingFace provider using `self.config` instead of raw `config` parameter ([#5538](https://github.com/mem0ai/mem0/pull/5538))
+- **Embeddings:** Honor `aws_session_token` in AWS Bedrock embeddings ([#5566](https://github.com/mem0ai/mem0/pull/5566))
+- **Rerankers:** Respect `config.top_k` in Cohere and ZeroEntropy fallback paths ([#5560](https://github.com/mem0ai/mem0/pull/5560))
+- **Vector Stores:** Fix FAISS filtered search dropping over-fetched candidates before filtering ([#5453](https://github.com/mem0ai/mem0/pull/5453))
+- **Vector Stores:** Fix Weaviate `reset()` crashing with missing `vector_size` argument ([#5531](https://github.com/mem0ai/mem0/pull/5531))
+- **Vector Stores:** Pass embedding dims in Weaviate `reset()` to avoid re-init crash ([#5570](https://github.com/mem0ai/mem0/pull/5570))
+- **Vector Stores:** Fix MongoDB `reset()` passing wrong argument to `create_col()` ([#5532](https://github.com/mem0ai/mem0/pull/5532))
+- **Vector Stores:** Fix Pinecone hybrid search crashing when `filters` is `None` ([#5533](https://github.com/mem0ai/mem0/pull/5533))
+- **Vector Stores:** Fix Redis crashing on empty or `None` filters in `search()` and `list()` ([#5446](https://github.com/mem0ai/mem0/pull/5446))
+- **Vector Stores:** Return `None` from `get()` for missing IDs in Milvus, Weaviate, and Supabase ([#5562](https://github.com/mem0ai/mem0/pull/5562))
+- **Vector Stores:** Return `None` from ChromaDB `get()` for missing IDs ([#5561](https://github.com/mem0ai/mem0/pull/5561))
+
+</Update>
+
+<Update label="2026-06-13" description="v2.0.6">
+
+**New Features:**
+- **Memory:** Add a contextual OSS-to-Platform notices system that surfaces occasional, situation-aware messages (first run, scale/performance thresholds, slow queries, and when temporal/decay features are relevant) pointing to the corresponding Mem0 Platform capabilities; disable via `MEM0_TELEMETRY=false` ([#5494](https://github.com/mem0ai/mem0/pull/5494))
+
+**Bug Fixes:**
+- **Memory:** Prevent a crash in `parse_vision_messages` when vision support is disabled ([#5487](https://github.com/mem0ai/mem0/pull/5487))
+- **Vector Stores:** Expose the `https` option on the Qdrant vector store configuration so TLS endpoints can be targeted explicitly ([#5380](https://github.com/mem0ai/mem0/pull/5380))
+- **Vector Stores:** Use valid S3 Vectors entity index names, fixing index operations that failed on invalid names ([#5416](https://github.com/mem0ai/mem0/pull/5416))
+- **Vector Stores:** Fix `search()` crashing with a `TypeError` in the LangChain vector store when a result score is `None` ([#5072](https://github.com/mem0ai/mem0/pull/5072))
+- **Vector Stores:** Use `is not None` instead of a truthiness check for vector/payload in the PGVector `update()` path, so valid empty/zero values are no longer skipped ([#5488](https://github.com/mem0ai/mem0/pull/5488))
+- **Vector Stores:** Index the Valkey `memory` field as `TEXT` rather than `TAG` so full-text search behaves correctly ([#5443](https://github.com/mem0ai/mem0/pull/5443))
+- **Vector Stores:** Implement `$not` filter support in the ChromaDB vector store ([#5485](https://github.com/mem0ai/mem0/pull/5485))
+
+</Update>
+
+<Update label="2026-06-10" description="v2.0.5">
+
+**New Features:**
+- **Memory:** Warn at init time when hybrid/BM25 search silently degrades to semantic-only because the configured vector store does not implement `keyword_search`. Affected stores: Chroma, FAISS, Cassandra, LangChain, Neptune Analytics, S3 Vectors, Supabase, TurboPuffer, Valkey ([#5444](https://github.com/mem0ai/mem0/pull/5444))
+- **Memory:** Add opt-in `explain=True` parameter to `Memory.search()` and `AsyncMemory.search()`. When enabled, each result includes a `score_breakdown` dict with `semantic`, `keyword` (normalized BM25), `entity_boost`, and `temporal_boost` signals so callers can understand and tune retrieval ranking ([#5102](https://github.com/mem0ai/mem0/pull/5102))
+
+**Bug Fixes:**
+- **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) consistently across all backends. 11 adapters previously returned raw distance metrics (lower = better) — FAISS, Chroma, Milvus, Redis, Cassandra, PGVector, S3 Vectors, Supabase, Valkey, Azure MySQL, and Vertex AI Vector Search — causing incorrect ranking in multi-store setups ([#5391](https://github.com/mem0ai/mem0/pull/5391))
+- **Memory:** Parallelize entity boost searches in `Memory.search()` and `AsyncMemory.search()`. Previously up to 8 entities were embedded and queried sequentially (16 serial round-trips with remote embedders); all entity lookups now run concurrently, eliminating multi-second latency on entity-rich queries ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **Memory:** Reject empty or whitespace-only queries in `Memory.search()`, `AsyncMemory.search()`, `MemoryClient.search()`, and `AsyncMemoryClient.search()` before any embedding or API call is made. Also strips leading/trailing whitespace from valid queries ([#5258](https://github.com/mem0ai/mem0/pull/5258))
+- **LLMs:** Add `is_reasoning_model: Optional[bool]` override to `BaseLlmConfig` (surfaced on `OpenAILlmConfig` and `AzureOpenAILlmConfig`). Fixes silent zero-extraction when using Azure deployments with versioned `gpt-5.x` names that the automatic name-based heuristic cannot recognize ([#5327](https://github.com/mem0ai/mem0/pull/5327))
+- **LLMs:** Fix xAI LLM provider: add `XAIConfig` with `xai_base_url`, forward `tools`/`tool_choice` in `generate_response()`, and parse `tool_calls` in the response. Previously the provider raised `AttributeError` at init and silently dropped tool results ([#5190](https://github.com/mem0ai/mem0/pull/5190))
+- **Vector Stores:** Fix PGVector `ConnectionPool` hang in Docker Compose environments where the app container starts before Postgres is DNS-resolvable — switched to `open=False` to avoid blocking constructor or silent zombie pool ([#5155](https://github.com/mem0ai/mem0/pull/5155))
+- **Vector Stores:** Fix PGVector `sslmode` handling for PostgreSQL URIs — the `sslmode` query parameter is now correctly extracted and forwarded when building the async connection pool ([#5308](https://github.com/mem0ai/mem0/pull/5308))
+- **Vector Stores:** Fix S3 Vectors `list()` not applying metadata filters — filtering is now done client-side after fetching, with pagination preserved and `top_k` applied after filtering to prevent pre-truncation of matching rows ([#5018](https://github.com/mem0ai/mem0/pull/5018))
+- **Vector Stores:** Fix Upstash Vector `search()` routing all queries to the default namespace — `namespace` is now passed as a top-level keyword argument to `query_many()` instead of inside the per-query dict where it was silently ignored ([#5202](https://github.com/mem0ai/mem0/pull/5202))
+- **Core:** Replace mutable default arguments with `None` sentinels in embedder configs and the proxy module, preventing cross-request state contamination ([#5302](https://github.com/mem0ai/mem0/pull/5302))
+
+</Update>
+
+<Update label="2026-05-27" description="v2.0.4">
+
+**New Features:**
+- **Client:** `delete()` and async `delete()` accept `delete_linked` (default `False`). When `True`, deleting a memory also removes the older memories it superseded (the v3 `linked_memory_ids` chain), transitively — the delete-side counterpart of `latest_only`, so a superseded memory does not resurface after the current one is deleted ([#5270](https://github.com/mem0ai/mem0/pull/5270))
+
+</Update>
+
+<Update label="2026-05-26" description="v2.0.3">
+
+**Bug Fixes:**
+- **Vector Stores:** PGVector adapter now supports rich filter operators (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`, wildcard `*`, `$or`, `$not`) in `search()`, `keyword_search()`, and `list()`. Previously only exact-equality filters worked — operator dicts were silently stringified and returned zero results ([#5263](https://github.com/mem0ai/mem0/pull/5263))
+- **Server:** Fixed `/search` endpoint returning 502 when `user_id`, `agent_id`, or `run_id` are sent as top-level request fields. The server now maps these into the `filters` dict before calling `Memory.search()`, matching the v3 API contract. Top-level entity ID fields are marked as deprecated in the OpenAPI schema and emit a warning log — clients should migrate to `filters={"user_id": "..."}` ([#5263](https://github.com/mem0ai/mem0/pull/5263))
+
+</Update>
+
 <Update label="2026-05-08" description="v2.0.2">
 
 **Bug Fixes:**
@@ -55,7 +141,7 @@ mode: "wide"
 **Breaking Changes:**
 - **`add()` returns ADD-only events** — No more `"UPDATE"` or `"DELETE"` events. Memories accumulate; nothing is overwritten ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`search()` default `threshold` is now `0.1`** — Pass `threshold=0.0` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
-- **`search()` `score` is now a combined multi-signal score** — The top-level `score` fuses semantic similarity, BM25 keyword match, and entity boost into one value. Absolute numbers shift versus the old raw cosine score; retune any hard thresholds against representative queries. Per-signal scores are not exposed on the response ([#4805](https://github.com/mem0ai/mem0/pull/4805), [#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **`search()` `score` is now a combined multi-signal score** — The top-level `score` fuses semantic similarity, BM25 keyword match, entity signals, and temporal boosts into one value. Absolute numbers shift versus the old raw cosine score; retune any hard thresholds against representative queries ([#4805](https://github.com/mem0ai/mem0/pull/4805), [#4836](https://github.com/mem0ai/mem0/pull/4836))
 - **`search()` default `rerank` is now `False`** — Pass `rerank=True` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`top_k` default changed 100 → 20** in `Memory.get_all()` and `Memory.search()` (sync + async). Pass `top_k=100` explicitly to restore the old behavior ([#4843](https://github.com/mem0ai/mem0/pull/4843))
 - **Entity ID validation:** `user_id` / `agent_id` / `run_id` are trimmed; empty-string and whitespace-only values now raise `ValueError` ([#4843](https://github.com/mem0ai/mem0/pull/4843))
@@ -63,8 +149,8 @@ mode: "wide"
 - **`messages` in `Memory.add()` rejects invalid types:** Passing `None` or non-`(str | dict | list)` values raises `Mem0ValidationError` (`error_code="VALIDATION_003"`) ([#4843](https://github.com/mem0ai/mem0/pull/4843))
 - **`qdrant-client>=1.12.0` required** — Upgrade from `>=1.9.1` ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`org_id` and `project_id` removed** — Removed from `MemoryClient` constructor and all method signatures ([#4740](https://github.com/mem0ai/mem0/pull/4740))
-- **Graph Memory Removed (OSS):** `mem0/memory/graph_memory.py`, `memgraph_memory.py`, `kuzu_memory.py`, `apache_age_memory.py`, and `mem0/graphs/` (Neo4j / Memgraph / Kuzu / Apache AGE / Neptune drivers) deleted — ~4,000 lines. Graph memory is no longer supported in the OSS SDK; graph drivers (neo4j, memgraph, kuzu, etc.) can be uninstalled. Use the Platform API for graph features. Remove `enable_graph` and `graph_store` from your config ([#4805](https://github.com/mem0ai/mem0/pull/4805))
-- **`enable_graph` removed from Client SDK** — Graph memory is now a project-level setting on the Platform. Remove `enable_graph` from `MemoryClient.add()` / `search()` / `get_all()` / `update_project()` calls ([#4776](https://github.com/mem0ai/mem0/pull/4776))
+- **External Graph Store Removed (OSS):** `mem0/memory/graph_memory.py`, `memgraph_memory.py`, `kuzu_memory.py`, `apache_age_memory.py`, and `mem0/graphs/` (Neo4j / Memgraph / Kuzu / Apache AGE / Neptune drivers) deleted, about 4,000 lines. The external graph store integration is no longer part of the OSS SDK; graph drivers (neo4j, memgraph, kuzu, etc.) can be uninstalled. Graph memory now runs natively as built-in entity linking. Remove `enable_graph` and `graph_store` from your config ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`enable_graph` removed from Client SDK:** Graph memory now runs automatically and no longer needs a flag. Remove `enable_graph` from `MemoryClient.add()` / `search()` / `get_all()` / `update_project()` calls ([#4776](https://github.com/mem0ai/mem0/pull/4776))
 - **`custom_fact_extraction_prompt` renamed to `custom_instructions`** — Update config and memory module references ([#4740](https://github.com/mem0ai/mem0/pull/4740))
 - **Typed option classes** — Added Pydantic v2 typed classes: `AddMemoryOptions`, `SearchMemoryOptions`, `GetAllMemoryOptions`, `DeleteAllMemoryOptions`, `UpdateMemoryOptions`, `ProjectUpdateOptions` ([#4740](https://github.com/mem0ai/mem0/pull/4740))
 
@@ -924,6 +1010,64 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-06-17" description="v3.0.9">
+
+**Bug Fixes:**
+- **LLMs:** Fix Anthropic `tool_choice` format — was incorrectly sent as a bare string `"auto"` (rejected by the API); now correctly sent as `{ type: "auto" }`. Also fixes tool response parsing: `tool_use` blocks are now parsed into `toolCalls` objects instead of throwing. Updated default model to `claude-sonnet-4-6` and default `max_tokens` to `2000` to match the Python provider. Added `temperature`, `topP`, and `maxTokens` to `LLMConfig` so Anthropic params can be configured ([#5537](https://github.com/mem0ai/mem0/pull/5537))
+- **Memory (OSS):** Preserve custom metadata fields during `update()` — fields such as `category`, `priority`, and other user-defined keys were previously dropped on update; the existing payload is now spread before applying the new data ([#5480](https://github.com/mem0ai/mem0/pull/5480))
+- **Client:** Preserve user-defined schema keys in `createMemoryExport` ([#5594](https://github.com/mem0ai/mem0/pull/5594))
+
+**Security:**
+- **Dependencies:** Bump `esbuild` to `>=0.28.1` across all npm packages via pnpm overrides to remediate upstream vulnerability ([#5563](https://github.com/mem0ai/mem0/pull/5563))
+
+</Update>
+
+<Update label="2026-06-13" description="v3.0.8">
+
+**New Features:**
+- **Memory:** Add a contextual OSS-to-Platform notices system that surfaces occasional, situation-aware messages (first run, scale/performance thresholds, slow queries, and when temporal/decay features are relevant) pointing to the corresponding Mem0 Platform capabilities; disable via `MEM0_TELEMETRY=false` ([#5494](https://github.com/mem0ai/mem0/pull/5494))
+
+**Security:**
+- **Dependencies:** Upgrade `@langchain/community` to `^1.1.18` to remediate CVE-2026-27795 and CVE-2026-26019 ([#5510](https://github.com/mem0ai/mem0/pull/5510))
+- **Dependencies:** Resolve all open MEDIUM Dependabot alerts via pnpm overrides ([#5489](https://github.com/mem0ai/mem0/pull/5489))
+
+</Update>
+
+<Update label="2026-06-10" description="v3.0.7">
+
+**New Features:**
+- **Embeddings:** Add `LMStudioEmbedding` provider for local embeddings via the LM Studio server ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **Memory:** Add opt-in `explain: true` option to `Memory.search()`. When enabled, each result includes a `scoreBreakdown` object with `semantic`, `keyword`, `entityBoost`, and `temporalBoost` fields so callers can inspect and tune retrieval ranking ([#5102](https://github.com/mem0ai/mem0/pull/5102))
+
+**Bug Fixes:**
+- **Memory:** Parallelize entity boost searches in `Memory.search()`. All entity embed + store lookups now run concurrently instead of sequentially, eliminating multi-second latency on entity-rich queries with remote embedding providers ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) — fixed score inversion in the Redis vector store adapter ([#5391](https://github.com/mem0ai/mem0/pull/5391))
+- **Embeddings:** Request `encoding_format: "float"` from the OpenAI embedder in both `embed()` and `embedBatch()`. Fixes incorrect vector dimensions when using OpenAI-compatible proxies that default to base64 encoding ([#5170](https://github.com/mem0ai/mem0/pull/5170))
+
+</Update>
+
+<Update label="2026-06-01" description="v3.0.6">
+
+**Security:**
+- **Dependencies:** Bumped `axios` to `^1.16.0` to remediate high-severity prototype-pollution CVEs (credential theft, MITM, DoS). Pinned transitive dependencies via pnpm overrides: `jws` → 4.0.1 (CVE-2025-65945), `langsmith` → ^0.6.0 (CVE-2026-45134), `tar-fs` → ^2.1.4 (CVE-2025-48387, CVE-2025-59343), `picomatch` → ^2.3.2 (CVE-2026-33671), `minimatch` → ^3.1.3 / ^5.1.8 / ^9.0.7 (CVE-2026-27903, CVE-2026-27904, CVE-2026-26996), `path-to-regexp` → ^8.4.0 (CVE-2026-4926), `rollup` → ^4.59.0 (CVE-2026-27606), `glob` → ^10.5.0 (CVE-2025-64756), `@modelcontextprotocol/sdk` → ^1.25.4 (CVE-2025-66414, CVE-2026-0621)
+
+</Update>
+
+<Update label="2026-05-27" description="v3.0.5">
+
+**New Features:**
+- **Client:** `delete()` accepts an options object with `deleteLinked` (serialized as `delete_linked`, default `false`). When `true`, deleting a memory also removes the older memories it superseded (the v3 linked chain), transitively — the delete-side counterpart of `latestOnly`, so a superseded memory does not resurface after the current one is deleted ([#5270](https://github.com/mem0ai/mem0/pull/5270))
+
+</Update>
+
+<Update label="2026-05-26" description="v3.0.4">
+
+**Bug Fixes:**
+- **Vector Stores:** PGVector adapter now supports rich filter operators (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`, wildcard `*`, `$or`, `$not`) in `search()`, `keywordSearch()`, and `list()`. Previously only exact-equality filters worked — operator objects were passed as raw values and returned incorrect results ([#5263](https://github.com/mem0ai/mem0/pull/5263))
+
+</Update>
+
 <Update label="2026-05-08" description="v3.0.3">
 
 **Bug Fixes:**
@@ -969,7 +1113,7 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 - **Default model:** `gpt-5-mini` is now the default in `OpenAI`, `OpenAIStructured`, and `Azure` LLM providers ([#4829](https://github.com/mem0ai/mem0/pull/4829))
 
 **Breaking Changes:**
-- **Graph Memory Removed (OSS):** `graph_memory.ts` (675 lines), `graphs/tools.ts` (267 lines), `graphs/utils.ts` (116 lines), `graphs/configs.ts` (30 lines) deleted. Graph memory is no longer supported in the OSS SDK — use Platform API for graph features ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **External Graph Store Removed (OSS):** `graph_memory.ts` (675 lines), `graphs/tools.ts` (267 lines), `graphs/utils.ts` (116 lines), `graphs/configs.ts` (30 lines) deleted. The external graph store integration is no longer part of the OSS SDK; graph memory now runs natively as built-in entity linking ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **camelCase Parameters (Client SDK):** All user-facing parameters converted from snake_case to camelCase. Mapping is transparent at API boundary via `camelToSnakeKeys()` / `snakeToCamelKeys()` ([#4776](https://github.com/mem0ai/mem0/pull/4776))
   ```typescript
   // Before
@@ -1323,6 +1467,37 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-06-01" description="Node v0.2.8">
+
+**Security:**
+- **Dependencies:** Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs: `jws` → 4.0.1 (CVE-2025-65945), `langsmith` → ^0.6.0 (CVE-2026-45134), `tar-fs` → ^2.1.4 (CVE-2025-48387, CVE-2025-59343), `picomatch` → ^2.3.2 (CVE-2026-33671), `minimatch` → ^3.1.3 / ^5.1.8 / ^9.0.7 (CVE-2026-27903, CVE-2026-27904, CVE-2026-26996), `path-to-regexp` → ^8.4.0 (CVE-2026-4926), `rollup` → ^4.59.0 (CVE-2026-27606), `glob` → ^10.5.0 (CVE-2025-64756), `@modelcontextprotocol/sdk` → ^1.25.4 (CVE-2025-66414, CVE-2026-0621)
+
+</Update>
+
+<Update label="2026-05-16" description="Python v0.2.6 / Node v0.2.6">
+
+**Bug Fixes:**
+- **Claim flow error message:** The `email_already_claimed` tip in `mem0 init --email` previously suggested running `mem0 link <key>` — a command that doesn't exist. Replaced with honest copy pointing the user to sign in at app.mem0.ai with their existing credentials ([#5152](https://github.com/mem0ai/mem0/pull/5152))
+
+</Update>
+
+<Update label="2026-05-14" description="Python v0.2.5 / Node v0.2.5">
+
+**New Features:**
+- **Agent Mode (`mem0 init --agent`):** Zero-friction signup for AI agents — mints a working Mem0 API key in under 5 seconds with no email, no dashboard, no OTP. Returns an unclaimed shadow account the human can later claim with `mem0 init --email <their-email>` (memories preserved, same key keeps working) ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Self-declared agent identity:** Agents pass `--agent-caller <name>` (e.g. `claude-code`, `cursor`, `codex`) on `mem0 init --agent` so signups attribute to the right tool in analytics. Proof Editor-style — the agent declares itself rather than the CLI sniffing it from env vars ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **`mem0 identify <name>`:** New subcommand to self-tag an Agent Mode key after the fact when the agent forgot to pass `--agent-caller` on init. Idempotent — re-running just overwrites ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Plugin sync:** `~/.claude/settings.json::env::MEM0_API_KEY` and `~/.zshrc`/`.bashrc` `export MEM0_API_KEY=` lines stay in sync with `~/.mem0/config.json` automatically. Idempotent — only updates EXISTING entries, never creates new ones ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Claim flow:** `mem0 init --email <email>` claims an existing Agent Mode shadow via OTP. Upgrade-in-place — the API key never changes, memories transfer to the human's account ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+
+**Bug Fixes:**
+- **Decision tree network resilience:** `pingKey` now distinguishes network errors from invalid keys — returns false ONLY on HTTP 401/403, returns true on connection failures / timeouts / 5xx. Prevents a VPN flap from silently rotating the user's API key and rewriting plugin-sync targets ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Rate-limit error clarity:** DRF's opaque `"You do not have permission"` 403 from Agent Mode rate limits is now translated to `"Daily Agent Mode signup limit reached for this network (5/day). Try again from a different IP or after midnight UTC."` ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **JSON envelope `command` field:** `mem0 init --agent --json` error envelopes now populate the `command` field correctly instead of returning an empty string ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Bootstrap envelope validation:** Defends against partial/malformed backend responses (e.g. `{api_key: null}`) silently persisting null/undefined into typed string fields ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+
+</Update>
+
 <Update label="2026-04-22" description="Python v0.2.4 / Node v0.2.4">
 
 **New Features:**
@@ -1414,6 +1589,43 @@ A full-featured command-line interface for Mem0, available in both Python and No
 </Tab>
 
 <Tab title="Plugins">
+
+<Update label="2026-06-01" description="openclaw-mem0 v1.0.12">
+
+**Security:**
+- **Dependencies:** Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs: `protobufjs` → ^7.5.5, `vite` → ^8.0.5, `langsmith` → ^0.6.0 (CVE-2026-45134), `picomatch` → ^2.3.2 (CVE-2026-33671), `@qdrant/js-client-rest` → ^1.18.0
+
+</Update>
+
+<Update label="2026-06-10" description="Vercel AI SDK v3.0.0">
+
+**Major Release** — Migrated to Vercel AI SDK v6 (`LanguageModelV3` / `ProviderV3`) and Mem0 v3 API.
+
+**Breaking Changes:**
+- **AI SDK v6:** Upgraded from AI SDK v5 (`LanguageModelV2`) to v6 (`LanguageModelV3`). Users must upgrade `ai` to `^6.0.199` and all `@ai-sdk/*` provider packages to `^3.x` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Mem0 v3 API:** Memory endpoints migrated from `/v1/memories/` and `/v2/memories/search/` to `/v3/memories/add/` and `/v3/memories/search/`. Entity IDs (`user_id`, `agent_id`, `run_id`) now go inside the `filters` object for search requests ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Graph memory removed:** All `enable_graph`, graph prompts, and relation-extraction code removed. Graph memory is now a project-level setting on the Platform ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Deprecated params removed:** `org_id`, `project_id`, `org_name`, `project_name`, `output_format`, `filter_memories`, `async_mode`, `enable_graph`, `version`, `api_version` removed from `Mem0ConfigSettings` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+
+**New Features:**
+- **V3 provider contract:** `specificationVersion: 'v3'`, `supportedUrls` property, V3 content array in `doGenerate`, V3 stream lifecycle events in `doStream` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Mem0 source in responses:** Memories are attached as a `source` in `generateText`/`streamText` responses with `providerMetadata.mem0.memories` for programmatic access ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+
+**Bug Fixes:**
+- **Async memory storage:** `addMemories` is now properly `await`ed — memories no longer silently fail to store ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Prompt mutation:** Prompt array is now cloned before injecting memory context, preventing side effects on the caller's array ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Null guard on content:** `doGenerate` guards against null `content` from upstream providers ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Stream response:** `doStream` now returns the full `LanguageModelV3StreamResult` object preserving all V3 fields ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Response normalization:** `getMemories` and `retrieveMemories` now handle both array and `{results: [...]}` envelope responses from the v3 API ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+
+</Update>
+
+<Update label="2026-06-01" description="Vercel AI SDK v2.0.6">
+
+**Security:**
+- **Dependencies:** Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs: `glob` → ^10.5.0 (CVE-2025-64756), `minimatch` → ^3.1.3 / ^5.1.8 / ^9.0.7 (CVE-2026-27903, CVE-2026-27904, CVE-2026-26996), `picomatch` → ^2.3.2 (CVE-2026-33671), `rollup` → ^4.59.0 (CVE-2026-27606)
+
+</Update>
 
 <Update label="2026-04-02" description="mem0-plugin v1.0.0">
 

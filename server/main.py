@@ -4,16 +4,10 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
+import telemetry
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
+from db import SessionLocal
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
-from pydantic import BaseModel, Field
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, select
-
-from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
 from errors import (
     UpstreamError,
     install_request_id_logging,
@@ -22,16 +16,27 @@ from errors import (
     upstream_error,
     upstream_error_handler,
 )
-from rate_limit import limiter
-from db import SessionLocal
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from models import RequestLog, User
-import telemetry
-from routers import auth as auth_router
+from pydantic import BaseModel, Field
+from rate_limit import limiter
 from routers import api_keys as api_keys_router
+from routers import auth as auth_router
 from routers import entities as entities_router
 from routers import requests as requests_router
 from schemas import MessageResponse
-from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
+from server_state import (
+    get_current_config,
+    get_memory_instance,
+    initialize_state,
+    set_session_factory,
+    update_config,
+)
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy import func, select
 
 load_dotenv()
 
@@ -188,12 +193,13 @@ class MemoryUpdate(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query.")
-    user_id: Optional[str] = None
-    run_id: Optional[str] = None
-    agent_id: Optional[str] = None
+    user_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
+    run_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
+    agent_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
+    explain: Optional[bool] = Field(None, description="Include score details for each search result.")
 
 
 class GenerateInstructionsRequest(BaseModel):
@@ -311,8 +317,8 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
-    """Set memory configuration."""
+def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
+    """Set memory configuration. Requires admin role."""
     _validate_bundled_providers(config)
     update_config(config)
     return {"message": "Configuration set successfully"}
@@ -354,6 +360,8 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
         response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        if response.get("results"):
+            telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)
     except Exception:
         raise upstream_error()
@@ -386,19 +394,25 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
 
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
+    request: Request,
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     _auth=Depends(verify_auth),
 ):
-    """Retrieve stored memories. Lists all memories when no identifier is provided."""
+    """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
     try:
         if not any([user_id, run_id, agent_id]):
+            auth_type = getattr(request.state, "auth_type", "none")
+            if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
+                raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
             return _list_all_memories()
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
         return get_memory_instance().get_all(filters=filters)
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
@@ -416,8 +430,31 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
-        params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
-        return get_memory_instance().search(query=search_req.query, **params)
+        filters = search_req.filters or {}
+        deprecated_keys = []
+        for entity_key in ("user_id", "agent_id", "run_id"):
+            entity_val = getattr(search_req, entity_key, None)
+            if entity_val is not None:
+                filters[entity_key] = entity_val
+                deprecated_keys.append(entity_key)
+        if deprecated_keys:
+            logging.warning(
+                "Top-level %s in /search is deprecated. Use filters={%s} instead.",
+                ", ".join(deprecated_keys),
+                ", ".join(f'"{k}": "..."' for k in deprecated_keys),
+            )
+        params = {}
+        if search_req.top_k is not None:
+            params["top_k"] = search_req.top_k
+        if search_req.threshold is not None:
+            params["threshold"] = search_req.threshold
+        if search_req.explain is not None:
+            params["explain"] = search_req.explain
+        return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
@@ -457,9 +494,9 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
-    _auth=Depends(verify_auth),
+    _auth=Depends(require_admin),
 ):
-    """Delete all memories for a given identifier."""
+    """Delete all memories for a given identifier. Requires admin role."""
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
@@ -473,8 +510,8 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory(_auth=Depends(verify_auth)):
-    """Completely reset stored memories."""
+def reset_memory(_auth=Depends(require_admin)):
+    """Completely reset stored memories. Requires admin role."""
     try:
         get_memory_instance().reset()
         return {"message": "All memories reset"}

@@ -9,7 +9,7 @@ iconType: "solid"
     <Accordion title="How does Mem0 work?">
         Mem0 utilizes a sophisticated hybrid database system to efficiently manage and retrieve memories for AI agents and assistants. Each memory is linked to a unique identifier, such as a user ID or agent ID, enabling Mem0 to organize and access memories tailored to specific individuals or contexts.
 
-        When a message is added to Mem0 via the `add` method, the system extracts pertinent facts and preferences, distributing them across various data stores: a vector database and a graph database. This hybrid strategy ensures that diverse types of information are stored optimally, facilitating swift and effective searches.
+        When a message is added to Mem0 via the `add` method, the system extracts pertinent facts and preferences, distributing them in a managed vector store. This strategy ensures that diverse types of information are stored optimally, facilitating swift and effective searches.
 
         When an AI agent or LLM needs to access memories, it employs the `search` method. Mem0 conducts a comprehensive search across these data stores, retrieving relevant information from each.
 
@@ -140,6 +140,24 @@ iconType: "solid"
         ```
 
         Setting this environment variable will prevent Mem0 from collecting and sending any usage data, ensuring complete privacy for your application.
+    </Accordion>
+
+    <Accordion title="How do I delete my Mem0 account?">
+        You can delete your Mem0 account at any time directly from the dashboard:
+
+        1. Sign in at [app.mem0.ai](https://app.mem0.ai).
+        2. Go to **Settings → Account**.
+        3. Click **Delete account** and confirm.
+
+        Deletion is immediate and irreversible. The following is removed:
+
+        - Your user profile and login credentials
+        - All memories, agents, and runs you created
+        - API keys and access tokens issued to your account
+        - Organizations you solely own, along with their data
+        - Your membership in any shared organizations (the orgs themselves are not affected)
+
+        Any application still using your old API keys will start receiving `401 Unauthorized` responses immediately. If you'd like to use Mem0 again later, you can create a new account at any time — it will start fresh with no data carried over.
     </Accordion>
 
 </AccordionGroup>

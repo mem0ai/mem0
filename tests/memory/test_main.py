@@ -1,5 +1,7 @@
 import logging
+import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -663,3 +665,326 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+def _make_match(score, linked_memory_ids):
+    return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
+
+
+class TestEntityBoostParallelism:
+    """Tests for parallelized entity boost searches (#5214)."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        return Memory()
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        return AsyncMemory()
+
+    def test_sync_boosts_preserve_scoring(self, mock_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
+        }
+
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    def test_sync_embed_batch_called_once(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
+    @pytest.mark.asyncio
+    async def test_async_boosts_preserve_scoring(self, mock_async_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
+        }
+
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    @pytest.mark.asyncio
+    async def test_async_embed_batch_called_once(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_async_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
+    def test_sync_one_entity_failure_does_not_abort_others(self, mock_memory, caplog):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = mock_memory._compute_entity_boosts(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = await mock_async_memory._compute_entity_boosts_async(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    def test_sync_searches_run_concurrently(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = mock_memory._compute_entity_boosts(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4
+
+    @pytest.mark.asyncio
+    async def test_async_searches_run_concurrently(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = await mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4
+
+
+class TestAddPipelineEntityEmbeddingCountGuard:
+    """A misbehaving embedder returning fewer (or more) vectors than entity
+    texts must not silently drop ALL entity links via a swallowed IndexError.
+
+    Before the fix, `entity_embeddings[i]` (indexed by ordered_keys length) raised
+    IndexError on a short return; the outer `except Exception` in the Phase 7
+    entity-linking block swallowed it, so no entity was ever searched/inserted and
+    no error surfaced. The search path (_compute_entity_boosts) already guarded
+    this; the add path did not.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _short_entity_embed_batch(texts, memory_action="add"):
+        # Memory-text embeddings are well-behaved; entity embeddings come back short.
+        if memory_action == "add" and any(t in ("Alice", "Bob") for t in texts):
+            return [[0.1] * 10]  # 1 vector for 2 entity texts
+        return [[0.1] * 10 for _ in texts]
+
+    def test_sync_short_entity_embeddings_still_link_valid_entity(self, mock_memory, mocker, caplog):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "Alice met Bob"}, {"text": "Bob called Alice"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=self._short_entity_embed_batch)
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search_batch = Mock(return_value=[[]])
+        mock_memory._entity_store.insert = Mock()
+        mock_memory._entity_store.update = Mock()
+
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=[
+                [("person", "Alice"), ("person", "Bob")],
+                [("person", "Bob"), ("person", "Alice")],
+            ],
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "Alice met Bob; Bob called Alice"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        # Both memories persist regardless.
+        assert len(result) == 2
+        # The entity block did NOT abort: it searched + inserted the one valid entity
+        # instead of swallowing an IndexError and linking nothing.
+        assert mock_memory._entity_store.search_batch.call_count == 1
+        assert mock_memory._entity_store.insert.call_count == 1
+        assert not any("Batch entity linking failed" in r.message for r in caplog.records), (
+            "entity linking aborted on a swallowed IndexError"
+        )
+        assert any("padding/truncating" in r.message for r in caplog.records), (
+            "expected count-mismatch warning was not emitted"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_short_entity_embeddings_still_link_valid_entity(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "Alice met Bob"}, {"text": "Bob called Alice"}]}'
+        )
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._short_entity_embed_batch)
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search_batch = Mock(return_value=[[]])
+        mock_async_memory._entity_store.insert = Mock()
+        mock_async_memory._entity_store.update = Mock()
+
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=[
+                [("person", "Alice"), ("person", "Bob")],
+                [("person", "Bob"), ("person", "Alice")],
+            ],
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "Alice met Bob; Bob called Alice"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert len(result) == 2
+        assert mock_async_memory._entity_store.search_batch.call_count == 1
+        assert mock_async_memory._entity_store.insert.call_count == 1
+        assert not any("Batch entity linking failed" in r.message for r in caplog.records), (
+            "async entity linking aborted on a swallowed IndexError"
+        )
+        assert any("padding/truncating" in r.message for r in caplog.records), (
+            "expected count-mismatch warning was not emitted"
+        )

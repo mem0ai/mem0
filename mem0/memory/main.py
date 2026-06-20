@@ -1,9 +1,11 @@
 import asyncio
+import concurrent.futures
 import gc
 import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 import warnings
 from copy import deepcopy
@@ -25,6 +27,29 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
+from mem0.memory.notices import (
+    PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
+    detect_decay_usage_from_delete,
+    detect_decay_usage_from_delete_all,
+    detect_temporal_usage_from_metadata,
+    detect_temporal_usage_from_search,
+    display_decay_usage_notice,
+    display_decay_usage_notice_async,
+    display_first_run_notice,
+    display_first_run_notice_async,
+    display_performance_slow_query_notice,
+    display_performance_slow_query_notice_async,
+    display_scale_threshold_notice,
+    display_scale_threshold_notice_async,
+    display_temporal_usage_notice,
+    display_temporal_usage_notice_async,
+    get_decay_feature_error_message,
+    get_decay_feature_error_message_async,
+    get_temporal_feature_error_message,
+    get_temporal_feature_error_message_async,
+)
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -46,6 +71,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
+from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
@@ -166,6 +192,21 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             raise ValueError(
                 f"Invalid top_k: {top_k}. Must be a non-negative integer."
             )
+
+
+def _validate_and_trim_search_query(query: str) -> str:
+    """
+    Validates and normalizes a search query before embedding/vector search.
+
+    Raises:
+        ValueError: If query is not a string or is empty/whitespace-only.
+    """
+    if not isinstance(query, str):
+        raise ValueError("Invalid query: must be a non-empty string.")
+    trimmed = query.strip()
+    if not trimmed:
+        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
+    return trimmed
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -324,8 +365,43 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _entity_collection_name(provider: str, collection_name: str) -> str:
+    separator = "-" if provider == "s3_vectors" else "_"
+    return f"{collection_name}{separator}entities"
+
+
 setup_config()
 logger = logging.getLogger(__name__)
+
+_PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
+
+
+class _OSSProject:
+    def update(
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[list] = None,
+        retrieval_criteria: Optional[list] = None,
+        multilingual: Optional[bool] = None,
+        decay: Optional[bool] = None,
+    ):
+        if decay is True:
+            raise ValueError(get_decay_feature_error_message("sync", "project.update", "decay"))
+        raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
+
+
+class _AsyncOSSProject:
+    async def update(
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[list] = None,
+        retrieval_criteria: Optional[list] = None,
+        multilingual: Optional[bool] = None,
+        decay: Optional[bool] = None,
+    ):
+        if decay is True:
+            raise ValueError(await get_decay_feature_error_message_async("async", "project.update", "decay"))
+        raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
 
 
 class Memory(MemoryBase):
@@ -384,14 +460,27 @@ class Memory(MemoryBase):
             self._telemetry_vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, telemetry_config
             )
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
+
         capture_event("mem0.init", self, {"sync_type": "sync"})
+
+    @property
+    def project(self):
+        return _OSSProject()
 
     @property
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             # Set collection name on the cloned config
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
@@ -534,20 +623,11 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
@@ -578,6 +658,7 @@ class Memory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -595,6 +676,7 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+            timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
                 If False, 'messages' are added as raw memories directly.
@@ -617,7 +699,10 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        if timestamp is not None:
+            raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
+        temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
@@ -649,6 +734,13 @@ class Memory(MemoryBase):
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+            scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
+            if temporal_usage_notice:
+                display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+            elif scale_threshold_notice:
+                display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
+            else:
+                display_first_run_notice(self, "sync", "add")
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -657,6 +749,13 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
+        if temporal_usage_notice:
+            display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
+        else:
+            display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
@@ -894,6 +993,17 @@ class Memory(MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
+
+                if len(entity_embeddings) != len(ordered_keys):
+                    logger.warning(
+                        "embed_batch returned %d vectors for %d entity texts — "
+                        "padding/truncating to avoid dropping entity links",
+                        len(entity_embeddings),
+                        len(ordered_keys),
+                    )
+                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
+
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 if valid:
@@ -983,6 +1093,7 @@ class Memory(MemoryBase):
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         memory = self.vector_store.get(vector_id=memory_id)
         if not memory:
+            display_first_run_notice(self, "sync", "get")
             return None
 
         promoted_payload_keys = [
@@ -1011,6 +1122,7 @@ class Memory(MemoryBase):
         if additional_metadata:
             result_item["metadata"] = additional_metadata
 
+        display_first_run_notice(self, "sync", "get")
         return result_item
 
     def get_all(
@@ -1066,6 +1178,7 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1074,6 +1187,10 @@ class Memory(MemoryBase):
 
         all_memories_result = self._get_all_from_vector_store(effective_filters, limit)
 
+        if scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "get_all", *scale_threshold_notice)
+        else:
+            display_first_run_notice(self, "sync", "get_all")
         return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
@@ -1131,6 +1248,8 @@ class Memory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        explain: bool = False,
+        reference_date: Optional[Any] = None,
         **kwargs,
     ):
         """
@@ -1161,6 +1280,8 @@ class Memory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            explain (bool, optional): Whether to include score_details for each result. Defaults to False.
+            reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1170,11 +1291,16 @@ class Memory(MemoryBase):
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
                 or if threshold/top_k values are invalid.
         """
+        if reference_date is not None:
+            raise ValueError(get_temporal_feature_error_message("sync", "search", "reference_date"))
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        query = _validate_and_trim_search_query(query)
+        temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -1197,6 +1323,7 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -1220,11 +1347,14 @@ class Memory(MemoryBase):
                 "encoded_ids": encoded_ids,
                 "sync_type": "sync",
                 "threshold": threshold,
+                "explain": explain,
                 "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
             },
         )
 
-        original_memories = self._search_vector_store(query, effective_filters, limit, threshold)
+        search_start = time.perf_counter()
+        original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -1234,6 +1364,21 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
+        if temporal_usage_notice:
+            display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "search", *scale_threshold_notice)
+        elif search_elapsed_seconds > PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS:
+            display_performance_slow_query_notice(
+                self,
+                "sync",
+                "search",
+                search_elapsed_seconds,
+                top_k,
+                len(original_memories),
+            )
+        else:
+            display_first_run_notice(self, "sync", "search")
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -1340,7 +1485,7 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1):
+    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1395,6 +1540,7 @@ class Memory(MemoryBase):
             entity_boosts=entity_boosts,
             threshold=threshold,
             top_k=limit,
+            explain=explain,
         )
 
         # Step 9: Format results
@@ -1432,6 +1578,8 @@ class Memory(MemoryBase):
                 if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
                 memory_item_dict["metadata"].update(additional_metadata)
+            if explain and "score_details" in scored:
+                memory_item_dict["score_details"] = scored["score_details"]
 
             original_memories.append(memory_item_dict)
 
@@ -1464,34 +1612,55 @@ class Memory(MemoryBase):
         memory_boosts = {}
 
         try:
-            for _, entity_text in deduped:
-                entity_embedding = self.embedding_model.embed(entity_text, "search")
-                matches = self.entity_store.search(
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
+            entity_texts = [text for _, text in deduped]
+            embeddings = self.embedding_model.embed_batch(entity_texts, "search")
+
+            if len(embeddings) != len(entity_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
+                    len(embeddings),
+                    len(entity_texts),
+                )
+                return memory_boosts
+
+            entity_store = self.entity_store
+
+            def _search_entity(entity_text, embedding):
+                return entity_store.search(
+                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
                 )
 
-                for match in matches:
-                    similarity = match.score if hasattr(match, 'score') else 0.0
-                    if similarity < 0.5:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                futures = {
+                    pool.submit(_search_entity, text, emb): text
+                    for text, emb in zip(entity_texts, embeddings)
+                }
+
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        matches = future.result()
+                    except Exception as e:
+                        logger.warning("Entity boost search failed for one entity: %s", e)
                         continue
 
-                    payload = match.payload if hasattr(match, 'payload') else {}
-                    linked_memory_ids = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked_memory_ids, list):
-                        continue
+                    for match in matches:
+                        similarity = match.score if hasattr(match, 'score') else 0.0
+                        if similarity < 0.5:
+                            continue
 
-                    # Spread-attenuated boost: entities linking to many memories get attenuated
-                    num_linked = max(len(linked_memory_ids), 1)
-                    memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
-                    boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
+                        payload = match.payload if hasattr(match, 'payload') else {}
+                        linked_memory_ids = payload.get("linked_memory_ids", [])
+                        if not isinstance(linked_memory_ids, list):
+                            continue
 
-                    for memory_id in linked_memory_ids:
-                        if memory_id:
-                            memory_key = str(memory_id)
-                            memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
+                        num_linked = max(len(linked_memory_ids), 1)
+                        memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
+                        boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
+
+                        for memory_id in linked_memory_ids:
+                            if memory_id:
+                                memory_key = str(memory_id)
+                                memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
 
         except Exception as e:
             logger.warning(f"Entity boost computation failed: {e}")
@@ -1519,6 +1688,7 @@ class Memory(MemoryBase):
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
         self._update_memory(memory_id, data, existing_embeddings, metadata)
+        display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -1535,6 +1705,11 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         self._delete_memory(memory_id, existing_memory)
+        decay_usage_notice = detect_decay_usage_from_delete()
+        if decay_usage_notice:
+            display_decay_usage_notice(self, "sync", "delete", *decay_usage_notice)
+        else:
+            display_first_run_notice(self, "sync", "delete")
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
@@ -1568,6 +1743,11 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
+        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        if decay_usage_notice:
+            display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
+        else:
+            display_first_run_notice(self, "sync", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
     def history(self, memory_id):
@@ -1581,7 +1761,9 @@ class Memory(MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
-        return self.db.get_history(memory_id)
+        history = self.db.get_history(memory_id)
+        display_first_run_notice(self, "sync", "history")
+        return history
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
@@ -1668,7 +1850,9 @@ class Memory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata = deepcopy(existing_memory.payload)
+        if metadata is not None:
+            new_metadata.update(metadata)
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -1676,17 +1860,9 @@ class Memory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # Preserve session identifiers from existing memory only if not provided in new metadata
-        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
-            new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
-            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
+        # actor_id is immutable after creation (issue #4490)
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" not in new_metadata and "role" in existing_memory.payload:
-            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -1781,6 +1957,7 @@ class Memory(MemoryBase):
             self._entity_store = None
 
         capture_event("mem0.reset", self, {"sync_type": "sync"})
+        display_first_run_notice(self, "sync", "reset")
 
     def close(self):
         """Release resources held by this Memory instance (SQLite connections, etc.)."""
@@ -1828,14 +2005,27 @@ class AsyncMemory(MemoryBase):
                 os.makedirs(telemetry_config.path, exist_ok=True)
             self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
 
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
+
         capture_event("mem0.init", self, {"sync_type": "async"})
+
+    @property
+    def project(self):
+        return _AsyncOSSProject()
 
     @property
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
@@ -1896,6 +2086,27 @@ class AsyncMemory(MemoryBase):
                 )
         except Exception as e:
             logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
+
+    async def _bulk_clear_entity_store(self, filters):
+        """Delete all entity records matching the given scope filters.
+
+        Used by delete_all to avoid the race condition that occurs when
+        concurrent _delete_memory coroutines each try to read-modify-write
+        the same entity rows' linked_memory_ids lists.
+        """
+        if self._entity_store is None:
+            return
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        try:
+            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            for row in rows or []:
+                try:
+                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                except Exception as e:
+                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
+        except Exception as e:
+            logger.warning(f"Bulk entity store cleanup failed: {e}")
 
     async def _remove_memory_from_entity_store(self, memory_id, filters):
         """Async variant of `Memory._remove_memory_from_entity_store`."""
@@ -1964,20 +2175,11 @@ class AsyncMemory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
@@ -2008,6 +2210,7 @@ class AsyncMemory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -2022,6 +2225,7 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+            timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
@@ -2030,6 +2234,10 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
+        if timestamp is not None:
+            raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
+
+        temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
@@ -2057,6 +2265,13 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
+            scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
+            if temporal_usage_notice:
+                await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+            elif scale_threshold_notice:
+                await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
+            else:
+                await display_first_run_notice_async(self, "async", "add")
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -2065,6 +2280,13 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
+        if temporal_usage_notice:
+            await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "add")
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2309,6 +2531,16 @@ class AsyncMemory(MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
+                if len(entity_embeddings) != len(ordered_keys):
+                    logger.warning(
+                        "embed_batch returned %d vectors for %d entity texts — "
+                        "padding/truncating to avoid dropping entity links",
+                        len(entity_embeddings),
+                        len(ordered_keys),
+                    )
+                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
+
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
@@ -2398,6 +2630,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "async"})
         memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         if not memory:
+            await display_first_run_notice_async(self, "async", "get")
             return None
 
         promoted_payload_keys = [
@@ -2426,6 +2659,7 @@ class AsyncMemory(MemoryBase):
         if additional_metadata:
             result_item["metadata"] = additional_metadata
 
+        await display_first_run_notice_async(self, "async", "get")
         return result_item
 
     async def get_all(
@@ -2481,6 +2715,7 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -2489,6 +2724,10 @@ class AsyncMemory(MemoryBase):
 
         all_memories_result = await self._get_all_from_vector_store(effective_filters, limit)
 
+        if scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "get_all", *scale_threshold_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "get_all")
         return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
@@ -2546,6 +2785,8 @@ class AsyncMemory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        explain: bool = False,
+        reference_date: Optional[Any] = None,
         **kwargs,
     ):
         """
@@ -2576,6 +2817,8 @@ class AsyncMemory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            explain (bool, optional): Whether to include score_details for each result. Defaults to False.
+            reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -2585,11 +2828,18 @@ class AsyncMemory(MemoryBase):
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
                 or if threshold/top_k values are invalid.
         """
+        if reference_date is not None:
+            raise ValueError(
+                await get_temporal_feature_error_message_async("async", "search", "reference_date")
+            )
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        query = _validate_and_trim_search_query(query)
+        temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -2614,6 +2864,7 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -2637,11 +2888,14 @@ class AsyncMemory(MemoryBase):
                 "encoded_ids": encoded_ids,
                 "sync_type": "async",
                 "threshold": threshold,
+                "explain": explain,
                 "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
             },
         )
 
-        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold)
+        search_start = time.perf_counter()
+        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -2654,6 +2908,21 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
+        if temporal_usage_notice:
+            await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "search", *scale_threshold_notice)
+        elif search_elapsed_seconds > PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS:
+            await display_performance_slow_query_notice_async(
+                self,
+                "async",
+                "search",
+                search_elapsed_seconds,
+                top_k,
+                len(original_memories),
+            )
+        else:
+            await display_first_run_notice_async(self, "async", "search")
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -2760,7 +3029,7 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1):
+    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
         if threshold is None:
             threshold = 0.1
 
@@ -2814,6 +3083,7 @@ class AsyncMemory(MemoryBase):
             entity_boosts=entity_boosts,
             threshold=threshold,
             top_k=limit,
+            explain=explain,
         )
 
         # Step 9: Format results
@@ -2850,6 +3120,8 @@ class AsyncMemory(MemoryBase):
                 if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
                 memory_item_dict["metadata"].update(additional_metadata)
+            if explain and "score_details" in scored:
+                memory_item_dict["score_details"] = scored["score_details"]
 
             original_memories.append(memory_item_dict)
 
@@ -2872,15 +3144,38 @@ class AsyncMemory(MemoryBase):
         memory_boosts = {}
 
         try:
-            for _, entity_text in deduped:
-                entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
-                matches = await asyncio.to_thread(
-                    self.entity_store.search,
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
+            entity_texts = [text for _, text in deduped]
+            embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
+
+            if len(embeddings) != len(entity_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
+                    len(embeddings),
+                    len(entity_texts),
                 )
+                return memory_boosts
+
+            sem = asyncio.Semaphore(4)
+
+            async def _search_entity(entity_text, embedding):
+                async with sem:
+                    return await asyncio.to_thread(
+                        self.entity_store.search,
+                        query=entity_text,
+                        vectors=embedding,
+                        top_k=500,
+                        filters=search_filters,
+                    )
+
+            results = await asyncio.gather(
+                *(_search_entity(text, emb) for text, emb in zip(entity_texts, embeddings)),
+                return_exceptions=True,
+            )
+
+            for matches in results:
+                if isinstance(matches, BaseException):
+                    logger.warning("Entity boost search failed for one entity: %s", matches)
+                    continue
 
                 for match in matches:
                     similarity = match.score if hasattr(match, 'score') else 0.0
@@ -2928,6 +3223,7 @@ class AsyncMemory(MemoryBase):
         existing_embeddings = {data: embeddings}
 
         await self._update_memory(memory_id, data, existing_embeddings, metadata)
+        await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 
     async def delete(self, memory_id):
@@ -2944,6 +3240,11 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         await self._delete_memory(memory_id, existing_memory)
+        decay_usage_notice = detect_decay_usage_from_delete()
+        if decay_usage_notice:
+            await display_decay_usage_notice_async(self, "async", "delete", *decay_usage_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "delete")
         return {"message": "Memory deleted successfully!"}
 
     async def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -2974,12 +3275,26 @@ class AsyncMemory(MemoryBase):
 
         delete_tasks = []
         for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
+            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
 
-        await asyncio.gather(*delete_tasks)
+        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
 
-        logger.info(f"Deleted {len(memories[0])} memories")
+        if self._entity_store is not None:
+            await self._bulk_clear_entity_store(filters)
 
+        errors = [r for r in results if isinstance(r, BaseException)]
+        if errors:
+            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            for err in errors:
+                logger.warning("Delete error: %s", err)
+
+        logger.info(f"Deleted {len(results) - len(errors)} memories")
+
+        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        if decay_usage_notice:
+            await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
     async def history(self, memory_id):
@@ -2993,7 +3308,9 @@ class AsyncMemory(MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
-        return await asyncio.to_thread(self.db.get_history, memory_id)
+        history = await asyncio.to_thread(self.db.get_history, memory_id)
+        await display_first_run_notice_async(self, "async", "history")
+        return history
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
@@ -3099,7 +3416,9 @@ class AsyncMemory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata = deepcopy(existing_memory.payload)
+        if metadata is not None:
+            new_metadata.update(metadata)
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -3107,18 +3426,9 @@ class AsyncMemory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # Preserve session identifiers from existing memory only if not provided in new metadata
-        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
-            new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
-            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
-
+        # actor_id is immutable after creation (issue #4490)
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" not in new_metadata and "role" in existing_memory.payload:
-            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3153,7 +3463,7 @@ class AsyncMemory(MemoryBase):
 
         return memory_id
 
-    async def _delete_memory(self, memory_id, existing_memory=None):
+    async def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
@@ -3179,9 +3489,8 @@ class AsyncMemory(MemoryBase):
             is_deleted=1,
         )
 
-        # Entity-store cleanup: strip this memory's id from any entity records
-        # that linked to it. Non-fatal — the helper swallows errors.
-        await self._remove_memory_from_entity_store(memory_id, session_filters)
+        if not skip_entity_cleanup:
+            await self._remove_memory_from_entity_store(memory_id, session_filters)
 
         return memory_id
 
@@ -3210,7 +3519,15 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
 
+        if self._entity_store is not None:
+            try:
+                await asyncio.to_thread(self._entity_store.reset)
+            except Exception as e:
+                logger.warning(f"Failed to reset entity store: {e}")
+            self._entity_store = None
+
         capture_event("mem0.reset", self, {"sync_type": "async"})
+        await display_first_run_notice_async(self, "async", "reset")
 
     def close(self):
         """Release resources held by this AsyncMemory instance."""

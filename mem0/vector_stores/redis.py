@@ -142,8 +142,11 @@ class RedisDB(VectorStoreBase):
         self.index.load(data, id_field="memory_id")
 
     def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None):
-        conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
-        filter = reduce(lambda x, y: x & y, conditions)
+        filter = None
+        if filters:
+            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            if conditions:
+                filter = reduce(lambda x, y: x & y, conditions)
 
         v = VectorQuery(
             vector=np.array(vectors, dtype=np.float32).tobytes(),
@@ -158,7 +161,7 @@ class RedisDB(VectorStoreBase):
         return [
             MemoryResult(
                 id=result["memory_id"],
-                score=float(result["vector_distance"]),
+                score=max(0.0, 1.0 - float(result["vector_distance"])),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],
@@ -260,6 +263,8 @@ class RedisDB(VectorStoreBase):
 
     def get(self, vector_id):
         result = self.index.fetch(vector_id)
+        if result is None:
+            return None
         payload = {
             "hash": result["hash"],
             "data": result["memory"],
@@ -312,11 +317,14 @@ class RedisDB(VectorStoreBase):
         """
         List all recent created memories from the vector store.
         """
-        conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
-        filter = reduce(lambda x, y: x & y, conditions)
-        query = Query(str(filter)).sort_by("created_at", asc=False)
+        filter = None
+        if filters:
+            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            if conditions:
+                filter = reduce(lambda x, y: x & y, conditions)
+        query = Query(str(filter) if filter is not None else "*").sort_by("created_at", asc=False)
         if top_k is not None:
-            query = Query(str(filter)).sort_by("created_at", asc=False).paging(0, top_k)
+            query = query.paging(0, top_k)
 
         results = self.index.search(query)
         return [

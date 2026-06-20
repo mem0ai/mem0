@@ -45,10 +45,12 @@ Let your assistant execute an end-to-end workflow in an existing repo. Invoked a
 ```bash
 npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
 npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
 ```
 
 - `/mem0-integrate` — wire Mem0 into an existing repository using a goal-driven, test-first pipeline. Detects the stack, asks whether to use Platform or OSS, writes failing tests first, and keeps the integration additive and feature-flagged.
 - `/mem0-test-integration` — verify what `/mem0-integrate` produced. Runs the repo's native test suite and a real end-to-end smoke flow against your API key, then produces a scorecard.
+- `/mem0-oss-to-platform` — migrate an existing project from Mem0 OSS to the hosted Platform SDK. Audits where Mem0 is used, writes a reviewable migration plan, then executes it on approval.
 
 See the [skills index](https://github.com/mem0ai/mem0/tree/main/skills) for the full catalog.
 
@@ -96,7 +98,7 @@ applications that gives agents persistent context across sessions.
 Mem0 is a memory layer for AI apps — managed (Mem0 Platform) or self-hosted
 (Open Source). It stores, retrieves, and manages user memories so agents
 remember preferences, learn from interactions, and personalize over time.
-Sub-50ms retrieval. Dual storage: vector embeddings + graph databases.
+Sub-50ms retrieval. Storage: vector embeddings.
 
 **Architecture Overview:**
 - Memory is scoped by user_id, agent_id, or run_id

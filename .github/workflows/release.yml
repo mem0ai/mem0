@@ -1,0 +1,68 @@
+name: Release Router 🚦
+
+# Single entry point for all release publishing.
+#
+# Package CD workflows no longer listen to release events themselves — this
+# router inspects the release tag and dispatches only the matching pipeline,
+# so each release produces one routed run instead of one real run plus seven
+# skipped ones.
+#
+# Re-publishing a release (e.g. after fixing registry settings) does NOT
+# require deleting and recreating it anymore — manually dispatch the
+# package's CD workflow from the tag instead:
+#
+#   gh workflow run <package>-cd.yml --ref refs/tags/<tag> -f tag=<tag>
+#
+# Note: dispatching runs the workflow file as it exists at the given ref, so
+# this router can only dispatch tags created after the workflow_dispatch
+# conversion landed on main. For older tags, dispatch manually from main.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  actions: write
+
+jobs:
+  route:
+    name: Route ${{ github.event.release.tag_name }} to its CD pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Match tag prefix to CD workflow
+        id: match
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Specific package prefixes first; the bare v* (Python SDK) arm
+          # must stay last so prefixed tags that also start with 'v'
+          # (vercel-ai-v*) can never be routed to the Python pipeline.
+          case "$TAG" in
+            ts-v*)        workflow="ts-sdk-cd.yml" ;;
+            cli-node-v*)  workflow="cli-node-cd.yml" ;;
+            cli-v*)       workflow="cli-python-cd.yml" ;;
+            vercel-ai-v*) workflow="vercel-ai-cd.yml" ;;
+            openclaw-v*)  workflow="openclaw-cd.yml" ;;
+            opencode-v*)  workflow="opencode-plugin-cd.yml" ;;
+            pi-agent-v*)  workflow="pi-agent-plugin-cd.yml" ;;
+            v*)           workflow="cd.yml" ;;
+            *)
+              echo "::error::Release tag '$TAG' does not match any known package prefix — nothing will be published. See the tag prefix table in AGENTS.md."
+              exit 1
+              ;;
+          esac
+          echo "workflow=$workflow" >> "$GITHUB_OUTPUT"
+          echo ":outbox_tray: Routed \`$TAG\` → \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch ${{ steps.match.outputs.workflow }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # --ref points at the tag so the dispatched run builds (and signs
+          # provenance for) the exact tagged commit.
+          gh workflow run "${{ steps.match.outputs.workflow }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "refs/tags/$TAG" \
+            -f tag="$TAG" \
+            -f prerelease="${{ github.event.release.prerelease }}"
