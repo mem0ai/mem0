@@ -1405,13 +1405,13 @@ def test_scale_threshold_provider_count_helpers_are_safe():
 
     class RedisInfoStore:
         def __init__(self):
-            self.collection_name = "test_collection"
+            self.schema = {"index": {"name": "test_collection"}}
 
         def count(self):
             raise RuntimeError("count unavailable")
 
         def col_info(self, name):
-            assert name == self.collection_name
+            assert name == self.schema["index"]["name"]
             return {"index_name": "test_collection", "num_docs": 2300}
 
     class SearchMetadataStore:

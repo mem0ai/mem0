@@ -1419,6 +1419,12 @@ def _get_provider_memory_count(memory_instance) -> Optional[int]:
         col_info = getattr(vector_store, "col_info", None)
         if callable(col_info):
             collection_name = getattr(vector_store, "collection_name", None)
+            if collection_name is None:
+                schema = getattr(vector_store, "schema", None)
+                if isinstance(schema, dict):
+                    index = schema.get("index")
+                    if isinstance(index, dict):
+                        collection_name = index.get("name")
             if collection_name is not None:
                 try:
                     info = col_info(collection_name)
