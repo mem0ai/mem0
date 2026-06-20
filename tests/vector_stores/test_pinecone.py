@@ -196,3 +196,28 @@ def test_list_error_returns_list_not_dict(pinecone_db):
     result = pinecone_db.list(filters={"user_id": "alice"}, top_k=10)
     assert isinstance(result, list)
     assert result == [[]]
+
+
+def test_create_filter_plain_value(pinecone_db):
+    result = pinecone_db._create_filter({"user_id": "alice"})
+    assert result == {"user_id": {"$eq": "alice"}}
+
+
+def test_create_filter_range(pinecone_db):
+    result = pinecone_db._create_filter({"age": {"gte": 18, "lte": 65}})
+    assert result == {"age": {"$gte": 18, "$lte": 65}}
+
+
+def test_create_filter_gt_operator(pinecone_db):
+    result = pinecone_db._create_filter({"score": {"gt": 0.5}})
+    assert result == {"score": {"$gt": 0.5}}
+
+
+def test_create_filter_in_operator(pinecone_db):
+    result = pinecone_db._create_filter({"status": {"in": ["active", "pending"]}})
+    assert result == {"status": {"$in": ["active", "pending"]}}
+
+
+def test_create_filter_ne_operator(pinecone_db):
+    result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
+    assert result == {"status": {"$ne": "deleted"}}
