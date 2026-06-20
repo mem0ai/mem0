@@ -31,6 +31,24 @@ def test_embed_text(mock_openai_client):
     assert embedding == [0.1, 0.2, 0.3]
 
 
+def test_embed_passes_dimensions_only_when_explicit(mock_openai_client):
+    """Azure honors embedding_dims by sending it as `dimensions` (Azure OpenAI
+    text-embedding-3 supports it), mirroring OpenAIEmbedding (#4153). Previously
+    embedding_dims was silently ignored on Azure."""
+    config = BaseEmbedderConfig(model="text-embedding-3-small", embedding_dims=256)
+    embedder = AzureOpenAIEmbedding(config)
+
+    mock_embedding_response = Mock()
+    mock_embedding_response.data = [Mock(embedding=[0.1] * 256)]
+    mock_openai_client.embeddings.create.return_value = mock_embedding_response
+
+    embedder.embed("truncate me")
+
+    mock_openai_client.embeddings.create.assert_called_once_with(
+        input=["truncate me"], model="text-embedding-3-small", dimensions=256
+    )
+
+
 @pytest.mark.parametrize(
     "default_headers, expected_header",
     [(None, None), ({"Test": "test_value"}, "test_value"), ({}, None)],
