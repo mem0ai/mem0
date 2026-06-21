@@ -14,4 +14,4 @@ class HuggingFaceRerankerConfig(BaseRerankerConfig):
     device: Optional[str] = Field(default=None, description="Device to run the model on ('cpu', 'cuda', etc.)")
     batch_size: int = Field(default=32, description="Batch size for processing documents")
     max_length: int = Field(default=512, description="Maximum length for tokenization")
-    normalize: bool = Field(default=True, description="Whether to normalize scores")
+    normalize: bool = Field(default=True, description="Apply sigmoid to map raw logits to [0, 1] relevance scores")

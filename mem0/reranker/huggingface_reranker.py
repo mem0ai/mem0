@@ -113,11 +113,9 @@ class HuggingFaceReranker(BaseReranker):
 
                     scores.extend(batch_scores)
 
-            # Normalize scores if requested
+            # Map raw logits to [0, 1] via sigmoid (per-document; preserves ranking)
             if self.config.normalize:
-                scores = np.array(scores)
-                scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
-                scores = scores.tolist()
+                scores = (1.0 / (1.0 + np.exp(-np.array(scores)))).tolist()
 
             # Combine documents with scores
             doc_score_pairs = list(zip(documents, scores))
