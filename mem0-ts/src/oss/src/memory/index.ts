@@ -1532,7 +1532,9 @@ export class Memory {
       has_agent_id: !!config.agentId,
       has_run_id: !!config.runId,
     });
-    const { userId, agentId, runId } = config;
+    const userId = validateAndTrimEntityId(config.userId, "userId");
+    const agentId = validateAndTrimEntityId(config.agentId, "agentId");
+    const runId = validateAndTrimEntityId(config.runId, "runId");
 
     // Convert camelCase entity params to snake_case for filters (matches storage and search/getAll)
     const filters: SearchFilters = {};

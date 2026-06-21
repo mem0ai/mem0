@@ -1721,6 +1721,10 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
+        user_id = _validate_and_trim_entity_id(user_id, "user_id")
+        agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
+        run_id = _validate_and_trim_entity_id(run_id, "run_id")
+
         filters: Dict[str, Any] = {}
         if user_id:
             filters["user_id"] = user_id
@@ -3256,6 +3260,10 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
+        user_id = _validate_and_trim_entity_id(user_id, "user_id")
+        agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
+        run_id = _validate_and_trim_entity_id(run_id, "run_id")
+
         filters = {}
         if user_id:
             filters["user_id"] = user_id
