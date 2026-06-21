@@ -371,7 +371,7 @@ class OpenSearchDB(VectorStoreBase):
             return [results]  # VectorStore expects tuple/list format
         except Exception as e:
             logger.error(f"Error listing vectors: {e}", exc_info=True)
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
