@@ -135,6 +135,52 @@ def test_generate_response_without_response_format(mock_openai_client):
     assert response == "Why did the chicken cross the road?"
 
 
+def test_generate_response_does_not_mutate_caller_messages(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "my assistant helps me schedule meetings"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    assert messages[-1]["content"] == "my assistant helps me schedule meetings"
+
+
+def test_generate_response_rewrites_assistant_keyword_for_model_only(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "my assistant helps me"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    sent_messages = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == "my ai helps me"
+    assert messages[-1]["content"] == "my assistant helps me"
+
+
+def test_generate_response_handles_multimodal_content(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": [{"type": "text", "text": "describe my assistant"}]}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == "ok"
+    sent_messages = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == [{"type": "text", "text": "describe my assistant"}]
+
+
 def test_reasoning_model_with_reasoning_effort(mock_openai_client):
     """Test that reasoning_effort is passed to the API for Azure reasoning models."""
     config = AzureOpenAIConfig(model="o3-mini", reasoning_effort="low")
