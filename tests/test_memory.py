@@ -142,6 +142,33 @@ def test_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factor
     assert hist_count == 0, "history table must be empty after Memory.reset()"
 
 
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+async def test_async_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path):
+    """Regression: AsyncMemory.reset() must clear the messages table, not just history."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = AsyncMemory(config)
+
+    memory.db.save_messages([{"role": "user", "content": "hi", "name": None}], "s1")
+    memory.db.add_history(memory_id="m1", old_memory=None, new_memory="x", event="ADD")
+
+    await memory.reset()
+
+    msg_count = memory.db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    hist_count = memory.db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+    assert msg_count == 0, "messages must be empty after AsyncMemory.reset()"
+    assert hist_count == 0, "history must be empty after AsyncMemory.reset()"
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')

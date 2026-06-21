@@ -281,14 +281,21 @@ class TestSQLiteManager:
         assert history[0]["is_deleted"] is False
         mgr.close()
 
-    def test_reset_clears_messages_table(self, temp_db_path):
-        """Regression: reset() must drop both history and messages tables."""
+    def test_reset_drops_tables(self, temp_db_path):
+        """reset() must drop both history and messages tables."""
         mgr = SQLiteManager(temp_db_path)
         mgr.add_history(memory_id="m1", old_memory=None, new_memory="new", event="ADD")
         mgr.save_messages([{"role": "user", "content": "hello", "name": None}], "sess1")
         mgr.reset()
-        msg_count = mgr.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
-        hist_count = mgr.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
-        assert msg_count == 0, "messages table should be empty after reset"
-        assert hist_count == 0, "history table should be empty after reset"
+        tables = mgr.connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('history','messages')"
+        ).fetchall()
+        assert tables == [], "both tables should be dropped after reset"
         mgr.close()
+
+        mgr2 = SQLiteManager(temp_db_path)
+        msg_count = mgr2.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+        hist_count = mgr2.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+        assert msg_count == 0
+        assert hist_count == 0
+        mgr2.close()
