@@ -296,9 +296,9 @@ describe("HistoryManagerFactory", () => {
 
   test("throws for unsupported provider", async () => {
     const config: HistoryStoreConfig = { provider: "bad", config: {} };
-    await expect(
-      HistoryManagerFactory.create("bad", config),
-    ).rejects.toThrow("Unsupported history store provider: bad");
+    await expect(HistoryManagerFactory.create("bad", config)).rejects.toThrow(
+      "Unsupported history store provider: bad",
+    );
   });
 
   test("does not eagerly load SQLiteManager for non-sqlite providers", async () => {
