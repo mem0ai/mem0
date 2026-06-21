@@ -271,7 +271,10 @@ export class RerankerFactory {
 }
 
 export class HistoryManagerFactory {
-  static async create(provider: string, config: HistoryStoreConfig): Promise<HistoryManager> {
+  static async create(
+    provider: string,
+    config: HistoryStoreConfig,
+  ): Promise<HistoryManager> {
     switch (provider.toLowerCase()) {
       case "sqlite": {
         const { SQLiteManager } = await import("../storage/SQLiteManager");
