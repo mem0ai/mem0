@@ -124,7 +124,7 @@ class TestSpacyModelConfig:
 
             # Call with custom model
             model_name = "de_core_news_sm"
-            result = extract_entities("sample text", spacy_model=model_name)
+            extract_entities("sample text", spacy_model=model_name)
 
             # Verify spacy.load was called with correct model
             mock_spacy.load.assert_called_with(model_name)
@@ -155,7 +155,7 @@ class TestSpacyModelConfig:
 
             # Call with custom model
             model_name = "it_core_news_sm"
-            result = lemmatize_for_bm25("sample text", spacy_model=model_name)
+            lemmatize_for_bm25("sample text", spacy_model=model_name)
 
             # Verify spacy.load was called with correct model and disable list
             mock_spacy.load.assert_called_with(model_name, disable=["ner", "parser"])
@@ -201,7 +201,7 @@ class TestSpacyModelConfig:
 
             # Call with custom model
             model_name = "zh_core_web_sm"
-            result = extract_entities_batch(["text1", "text2"], spacy_model=model_name)
+            extract_entities_batch(["text1", "text2"], spacy_model=model_name)
 
             # Verify spacy.load was called with correct model
             mock_spacy.load.assert_called_with(model_name)
