@@ -21,7 +21,7 @@ Adding memory is how Mem0 captures useful details from a conversation so your ag
 - **Messages** – The ordered list of user/assistant turns you send to `add`.
 - **Infer** – Controls whether Mem0 extracts structured memories (`infer=True`, default) or stores raw messages.
 - **Metadata** – Optional filters (e.g., `{"category": "movie_recommendations"}`) that improve retrieval later.
-- **User / Session identifiers** – `user_id`, `agent_id`, or `run_id` that scope the memory for future searches.
+- **User / Session identifiers** – `user_id`, `agent_id`, `app_id`, or `run_id` that scope the memory for future searches.
 
 ## How does it work?
 
@@ -30,22 +30,22 @@ Mem0 offers two flows:
 - **Mem0 Platform** – Fully managed API with dashboard and scaling.
 - **Mem0 Open Source** – Local SDK that you run in your own environment.
 
-Both flows take the same payload and pass it through the same pipeline.
+Both flows take the same payload and add memories through an additive pipeline.
 
 <Steps>
 <Step title="Information extraction">
 Mem0 sends the messages through an LLM that pulls out key facts, decisions, or preferences to remember.
 </Step>
-<Step title="Conflict resolution">
-Existing memories are checked for duplicates or contradictions so the latest truth wins.
+<Step title="Additive storage">
+New memories are added without overwriting or deleting existing memories.
 </Step>
-<Step title="Storage">
-The resulting memories land in managed vector storage so future searches return them quickly.
+<Step title="Retrieval">
+Future searches rank the most relevant memories for the query.
 </Step>
 </Steps>
 
 <Warning>
-Duplicate protection only runs during that conflict-resolution step when you let Mem0 infer memories (`infer=True`, the default). If you switch to `infer=False`, Mem0 stores your payload exactly as provided, so duplicates will land. Mixing both modes for the same fact will save it twice.
+When you switch to `infer=False`, Mem0 stores your payload exactly as provided, so duplicates can land. Mixing both modes for the same fact can save it twice.
 </Warning>
 
 You trigger this pipeline with a single `add` call—no manual orchestration needed.
@@ -80,13 +80,13 @@ const messages = [
 ];
 
 await client.add(messages, {
-  user_id: "alice",
+  userId: "alice",
 });
 ```
 </CodeGroup>
 
 <Info icon="check">
-  Expect a `memory_id` (or list of IDs) in the response. Check the Mem0 dashboard to confirm the new entry under the correct user.
+  Expect a `status: "PENDING"` response with an `event_id`. Poll `GET /v1/event/{event_id}/` to confirm completion.
 </Info>
 
 ## Add with Mem0 Open Source
@@ -138,7 +138,7 @@ const result = memory.add(messages, {
 </Tip>
 
 <Warning>
-If you do choose `infer=False`, keep it consistent. Raw inserts skip conflict resolution, so a later `infer=True` call with the same content will create a second memory instead of updating the first.
+If you do choose `infer=False`, keep it consistent. Raw inserts skip inference, so a later `infer=True` call with the same content can create a second memory.
 </Warning>
 
 ## When Should You Add Memory?
@@ -167,7 +167,7 @@ For full list of supported fields, required formats, and advanced options, see t
 
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
-| Conflict resolution | Automatic with dashboard visibility | SDK handles merges locally; you control storage |
+| Add behavior | ADD-only; memories accumulate | ADD-only; you control storage |
 | Rate limits | Managed quotas per workspace | Limited by your hardware and provider APIs |
 | Dashboard visibility | Yes — inspect memories visually | Inspect via CLI, logs, or custom UI |
 
