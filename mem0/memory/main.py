@@ -1598,7 +1598,7 @@ class Memory(MemoryBase):
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
         if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
+            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized, spacy_model=self.config.spacy_model)
             for mem in keyword_results:
                 mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
                 raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
@@ -3225,7 +3225,7 @@ class AsyncMemory(MemoryBase):
         # Step 5: Compute BM25 scores
         bm25_scores = {}
         if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
+            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized, spacy_model=self.config.spacy_model)
             for mem in keyword_results:
                 mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
                 raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
