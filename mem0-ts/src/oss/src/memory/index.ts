@@ -217,13 +217,6 @@ export class Memory {
       }
     }
 
-    if (!this.config.disableHistory) {
-      this.db = await HistoryManagerFactory.create(
-        this.config.historyStore!.provider,
-        this.config.historyStore!,
-      );
-    }
-
     this.vectorStore = VectorStoreFactory.create(
       this.config.vectorStore.provider,
       this.config.vectorStore.config,
@@ -234,6 +227,13 @@ export class Memory {
     // store (collections, tables, etc.) is ready before any public method
     // attempts to read or write.
     await this.vectorStore.initialize();
+
+    if (!this.config.disableHistory) {
+      this.db = await HistoryManagerFactory.create(
+        this.config.historyStore!.provider,
+        this.config.historyStore!,
+      );
+    }
 
     await this._initializeTelemetry();
   }
