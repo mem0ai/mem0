@@ -382,10 +382,10 @@ class MongoDB(VectorStoreBase):
             cursor = self.collection.find(query).limit(top_k)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
-            return results
+            return [results]
         except PyMongoError as e:
             logger.error(f"Error listing documents: {e}")
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
