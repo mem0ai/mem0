@@ -185,14 +185,7 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
-    if (this.config.disableHistory) {
-      this.db = new DummyHistoryManager();
-    } else {
-      this.db = HistoryManagerFactory.create(
-        this.config.historyStore!.provider,
-        this.config.historyStore!,
-      );
-    }
+    this.db = new DummyHistoryManager();
 
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
@@ -222,6 +215,13 @@ export class Memory {
             `Please set 'dimension' in vectorStore.config or 'embeddingDims' in embedder.config explicitly.`,
         );
       }
+    }
+
+    if (!this.config.disableHistory) {
+      this.db = await HistoryManagerFactory.create(
+        this.config.historyStore!.provider,
+        this.config.historyStore!,
+      );
     }
 
     this.vectorStore = VectorStoreFactory.create(
