@@ -1,0 +1,108 @@
+---
+title: Governed Memory Observability
+description: "Use Mem0 with an OpenAI-compatible control plane while keeping memory content in Mem0."
+---
+
+This cookbook keeps **Mem0** as the owner of long-term memory and uses an
+OpenAI-compatible endpoint for the LLM operations that extract and summarize
+memories. It is useful when a team needs centralized policy, audit, cost, and
+run-level trace correlation around an agent without copying memory contents to
+an observability system.
+
+The example uses [Tuning Engines](https://tuningengines.com) as the endpoint,
+but the configuration pattern applies to any compatible endpoint that accepts
+an API key and base URL.
+
+## Environment setup
+
+Use an inference key for model calls and a separate tenant API token only when
+recording optional runtime references. Keep both in a secret manager or local
+environment; do not commit them.
+
+```bash
+export OPENAI_API_KEY="$TE_INFERENCE_KEY"
+export OPENAI_BASE_URL="https://api.tuningengines.com/v1"
+export TE_API_TOKEN="te_your_tenant_api_token"
+```
+
+## Configure Mem0
+
+Mem0 already supports `openai_base_url` in its OpenAI LLM configuration. The
+memory content, embeddings, and vector database remain entirely under your
+Mem0 deployment and retention policy.
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "approved-model",
+            "api_key": os.environ["OPENAI_API_KEY"],
+            "openai_base_url": os.environ["OPENAI_BASE_URL"],
+            "temperature": 0.1,
+        },
+    },
+}
+
+memory = Memory.from_config(config)
+```
+
+## Correlate a memory namespace without exporting memory content
+
+When your application has a run or request ID, send a small reference after a
+memory operation. This is intentionally a pointer, not a memory export: do not
+include text, embeddings, prompts, credentials, or customer secrets in the
+payload.
+
+```python
+import os
+import requests
+
+run_id = "run_123"
+request_id = "req_456"
+
+requests.post(
+    "https://app.tuningengines.com/api/v1/runtime_state_references",
+    headers={
+        "Authorization": f"Bearer {os.environ['TE_API_TOKEN']}",
+        "Content-Type": "application/json",
+    },
+    json={
+        "reference_type": "vector_namespace",
+        "runtime": "mem0",
+        "provider": "mem0",
+        "external_id": "support-assistant:customer-42",
+        "resource_type": "memory_namespace",
+        "resource_name": "support-assistant",
+        "run_id": run_id,
+        "request_id": request_id,
+        "status": "active",
+        "metadata": {"scope": "customer-42"},
+    },
+    timeout=3,
+).raise_for_status()
+```
+
+The reference write is asynchronous. A failure to record it should not prevent
+your application from reading or writing memory; log and retry it in a
+background task instead.
+
+## Policy and privacy boundaries
+
+- Apply policy before model or tool calls that can create a side effect.
+- Keep memory contents in Mem0 and use its access controls, retention settings,
+  and vector-store encryption for the underlying data.
+- Send only opaque IDs, resource names, run IDs, request IDs, and redacted
+  labels to an external trace or governance service.
+- Treat approval-required results as a pause: wait for an authorized reviewer
+  before retrying the exact requested action.
+
+## Next steps
+
+- [Configure OpenAI](https://docs.mem0.ai/components/llms/models/openai) for
+  all OpenAI LLM options supported by Mem0.
+- Use Mem0's existing LangGraph and agent integrations when your application
+  needs durable memory-aware workflows.

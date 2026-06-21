@@ -373,6 +373,7 @@
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
+                      "cookbooks/integrations/governed-memory-observability",
                       "cookbooks/integrations/tavily-search"
                     ]
                   },
