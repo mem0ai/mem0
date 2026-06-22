@@ -235,3 +235,22 @@ def test_col_info(mochow_instance, mock_mochow_client):
     result = mochow_instance.col_info()
 
     assert result == mock_table_info
+
+
+def test_create_filter_rejects_dict_value(mochow_instance):
+    """Dict filter values could contain expression injection payloads."""
+    with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+        mochow_instance._create_filter({"user_id": {"$ne": ""}})
+
+
+def test_create_filter_rejects_malicious_key(mochow_instance):
+    """Keys with special characters must be rejected."""
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        mochow_instance._create_filter({'"] = "") or true or ("': "x"})
+
+
+def test_create_filter_escapes_quotes_in_value(mochow_instance):
+    """Double-quotes inside string values must be escaped."""
+    result = mochow_instance._create_filter({"user_id": 'alice"}'})
+    assert '\\"' in result
+    assert 'alice\\"' in result
