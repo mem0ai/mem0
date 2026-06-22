@@ -254,3 +254,16 @@ def test_create_filter_escapes_quotes_in_value(mochow_instance):
     result = mochow_instance._create_filter({"user_id": 'alice"}'})
     assert '\\"' in result
     assert 'alice\\"' in result
+
+
+def test_create_filter_escapes_backslash_and_quote(mochow_instance):
+    """Backslashes and double-quotes in the same value must both be escaped."""
+    result = mochow_instance._create_filter({"user_id": r'alice\path"beta'})
+    assert result == r'metadata["user_id"] = "alice\\path\"beta"'
+
+
+def test_create_filter_renders_boolean(mochow_instance):
+    """Boolean values must be rendered unquoted in the backend's expected format."""
+    result = mochow_instance._create_filter({"active": True, "deleted": False})
+    assert 'metadata["active"] = True' in result
+    assert 'metadata["deleted"] = False' in result
