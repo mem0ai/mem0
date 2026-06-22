@@ -401,3 +401,29 @@ def test_list_with_no_filters(mongo_vector_fixture):
 
     assert len(results) == 1
     assert len(results[0]) == 1
+
+
+def test_search_rejects_operator_injection(mongo_vector_fixture):
+    """Filter values containing MongoDB operators (dicts) must be rejected."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    with pytest.raises(ValueError, match="not a dict"):
+        mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": {"$ne": ""}})
+
+
+def test_list_rejects_operator_injection(mongo_vector_fixture):
+    """list() must also reject MongoDB operator injection."""
+    mongo_vector, _, _ = mongo_vector_fixture
+
+    with pytest.raises(ValueError, match="not a dict"):
+        mongo_vector.list(filters={"user_id": {"$regex": ".*"}})
+
+
+def test_search_allows_scalar_filter_values(mongo_vector_fixture):
+    """Normal scalar filter values (str, int, bool) must still work."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.aggregate.return_value = []
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": "alice", "count": 5})
