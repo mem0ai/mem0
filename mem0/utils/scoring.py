@@ -57,6 +57,77 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 ENTITY_BOOST_WEIGHT = 0.5
 
 
+def _record_id(mem: Any) -> str:
+    return str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+
+
+def _record_payload(mem: Any) -> Dict[str, Any]:
+    if hasattr(mem, "payload"):
+        return mem.payload or {}
+    return mem.get("payload", {}) or {}
+
+
+def build_hybrid_candidate_map(
+    semantic_results: Optional[List[Any]],
+    keyword_results: Optional[List[Any]] = None,
+) -> Dict[str, Dict[str, Any]]:
+    """Merge semantic and keyword hits into one candidate map keyed by memory ID.
+
+    Keyword matches that are absent from the semantic top-k pool are included
+    with semantic_score=0 so BM25 can still rescue exact-match memories.
+    """
+    candidates_by_id: Dict[str, Dict[str, Any]] = {}
+
+    for mem in semantic_results or []:
+        mem_id = _record_id(mem)
+        if not mem_id:
+            continue
+        score = mem.score if hasattr(mem, "score") else mem.get("score", 0)
+        candidates_by_id[mem_id] = {
+            "id": mem_id,
+            "score": score,
+            "payload": _record_payload(mem),
+        }
+
+    for mem in keyword_results or []:
+        mem_id = _record_id(mem)
+        if not mem_id or mem_id in candidates_by_id:
+            continue
+        candidates_by_id[mem_id] = {
+            "id": mem_id,
+            "score": 0.0,
+            "payload": _record_payload(mem),
+        }
+
+    return candidates_by_id
+
+
+def add_entity_boost_candidates(
+    candidates_by_id: Dict[str, Dict[str, Any]],
+    entity_boosts: Dict[str, float],
+    threshold: float,
+    vector_store: Any,
+) -> None:
+    """Add entity-linked memories missing from the hybrid pool (in-place)."""
+    for mem_id, boost in entity_boosts.items():
+        if mem_id in candidates_by_id or boost < threshold:
+            continue
+        try:
+            existing = vector_store.get(vector_id=mem_id)
+        except Exception:
+            continue
+        if existing is None:
+            continue
+        payload = existing.payload if hasattr(existing, "payload") else {}
+        if not payload.get("data"):
+            continue
+        candidates_by_id[mem_id] = {
+            "id": mem_id,
+            "score": 0.0,
+            "payload": payload,
+        }
+
+
 def score_and_rank(
     semantic_results: List[Dict[str, Any]],
     bm25_scores: Dict[str, float],
@@ -71,8 +142,8 @@ def score_and_rank(
         semantic_score is taken from the result's score field.
         combined = (semantic + bm25 + entity_boost) / max_possible
 
-    Threshold gates the semantic score BEFORE combining -- candidates
-    below the threshold are excluded even if BM25/entity would boost them.
+    Threshold gates each signal independently -- a candidate passes if its
+    semantic score, BM25 score, or entity boost meets the threshold.
 
     The divisor adapts based on which signals are active:
         - Semantic only: max_possible = 1.0
@@ -84,7 +155,7 @@ def score_and_rank(
         semantic_results: Candidate memories from vector search.
         bm25_scores: Normalized keyword scores keyed by memory ID.
         entity_boosts: Entity-link boosts keyed by memory ID.
-        threshold: Minimum semantic score required before hybrid scoring.
+        threshold: Minimum score on at least one signal (semantic, BM25, or entity).
         top_k: Maximum number of results to return.
         explain: Include score_details in each result when true.
 
@@ -108,12 +179,12 @@ def score_and_rank(
             continue
 
         semantic_score = result.get("score") or 0.0
-        if semantic_score < threshold:
-            continue
-
         mem_id_str = str(mem_id)
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
+
+        if semantic_score < threshold and bm25_score < threshold and entity_boost < threshold:
+            continue
 
         raw_combined = semantic_score + bm25_score + entity_boost
         combined = min(raw_combined / max_possible, 1.0)

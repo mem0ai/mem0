@@ -67,6 +67,8 @@ from mem0.utils.factory import (
 from mem0.utils.lemmatization import lemmatize_for_bm25
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
+    add_entity_boost_candidates,
+    build_hybrid_candidate_map,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
@@ -1523,15 +1525,11 @@ class Memory(MemoryBase):
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        for mem in semantic_results:
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
-            })
+        # Step 7: Build hybrid candidate pool (semantic ∪ keyword ∪ entity-rescued)
+        candidates_by_id = build_hybrid_candidate_map(semantic_results, keyword_results)
+        if entity_boosts:
+            add_entity_boost_candidates(candidates_by_id, entity_boosts, threshold, self.vector_store)
+        candidates = list(candidates_by_id.values())
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -3065,15 +3063,17 @@ class AsyncMemory(MemoryBase):
         if query_entities:
             entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        for mem in semantic_results:
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
-            })
+        # Step 7: Build hybrid candidate pool (semantic ∪ keyword ∪ entity-rescued)
+        candidates_by_id = build_hybrid_candidate_map(semantic_results, keyword_results)
+        if entity_boosts:
+            await asyncio.to_thread(
+                add_entity_boost_candidates,
+                candidates_by_id,
+                entity_boosts,
+                threshold,
+                self.vector_store,
+            )
+        candidates = list(candidates_by_id.values())
 
         # Step 8: Score and rank
         scored_results = score_and_rank(

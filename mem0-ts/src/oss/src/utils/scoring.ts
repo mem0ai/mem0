@@ -9,6 +9,80 @@
 
 export const ENTITY_BOOST_WEIGHT = 0.5;
 
+export interface HybridCandidate {
+  id: string;
+  score: number;
+  payload: Record<string, any>;
+}
+
+function recordId(mem: { id?: string | number }): string {
+  return String(mem.id ?? "");
+}
+
+function recordPayload(mem: { payload?: Record<string, any> }): Record<string, any> {
+  return mem.payload ?? {};
+}
+
+/**
+ * Merge semantic and keyword hits into one candidate map keyed by memory ID.
+ */
+export function buildHybridCandidateMap(
+  semanticResults: Array<{ id: string | number; score?: number | null; payload?: Record<string, any> }>,
+  keywordResults?: Array<{ id: string | number; score?: number | null; payload?: Record<string, any> }> | null,
+): Map<string, HybridCandidate> {
+  const candidatesById = new Map<string, HybridCandidate>();
+
+  for (const mem of semanticResults ?? []) {
+    const memId = recordId(mem);
+    if (!memId) continue;
+    candidatesById.set(memId, {
+      id: memId,
+      score: mem.score ?? 0,
+      payload: recordPayload(mem),
+    });
+  }
+
+  for (const mem of keywordResults ?? []) {
+    const memId = recordId(mem);
+    if (!memId || candidatesById.has(memId)) continue;
+    candidatesById.set(memId, {
+      id: memId,
+      score: 0,
+      payload: recordPayload(mem),
+    });
+  }
+
+  return candidatesById;
+}
+
+export interface EntityBoostVectorStore {
+  get(
+    id: string,
+  ): Promise<{ payload?: Record<string, any> } | null> | { payload?: Record<string, any> } | null;
+}
+
+/**
+ * Add entity-linked memories missing from the hybrid pool (in-place).
+ */
+export async function addEntityBoostCandidates(
+  candidatesById: Map<string, HybridCandidate>,
+  entityBoosts: Record<string, number>,
+  threshold: number,
+  vectorStore: EntityBoostVectorStore,
+): Promise<void> {
+  for (const [memId, boost] of Object.entries(entityBoosts)) {
+    if (candidatesById.has(memId) || boost < threshold) continue;
+    try {
+      const existing = await vectorStore.get(memId);
+      const payload = existing?.payload ?? {};
+      if (!payload.data) continue;
+      candidatesById.set(memId, { id: memId, score: 0, payload });
+    } catch {
+      // Non-fatal: skip memories we cannot load
+    }
+  }
+}
+
 /**
  * Get BM25 sigmoid parameters based on query length.
  *
@@ -79,8 +153,8 @@ export interface ScoredResult {
  * For each candidate:
  *   combined = (semantic + bm25 + entity_boost) / max_possible
  *
- * Threshold gates the semantic score BEFORE combining -- candidates
- * below the threshold are excluded even if BM25/entity would boost them.
+ * Threshold gates each signal independently — a candidate passes if its
+ * semantic score, BM25 score, or entity boost meets the threshold.
  *
  * The divisor adapts based on which signals are active:
  *   - Semantic only: max_possible = 1.0
@@ -91,7 +165,7 @@ export interface ScoredResult {
  * @param semanticResults - Candidate results with id, score, and payload.
  * @param bm25Scores - Map of memory ID to normalized BM25 score.
  * @param entityBoosts - Map of memory ID to entity boost score.
- * @param threshold - Minimum semantic score to include a candidate.
+ * @param threshold - Minimum score on at least one signal (semantic, BM25, or entity).
  * @param topK - Maximum number of results to return.
  * @param explain - Include scoreDetails in each result when true.
  * @returns Sorted list of scored results, highest score first.
@@ -128,13 +202,17 @@ export function scoreAndRank(
     }
 
     const semanticScore = result.score ?? 0.0;
-    if (semanticScore < threshold) {
-      continue;
-    }
-
     const memIdStr = String(memId);
     const bm25Score = bm25Scores[memIdStr] ?? 0.0;
     const entityBoost = entityBoosts[memIdStr] ?? 0.0;
+
+    if (
+      semanticScore < threshold &&
+      bm25Score < threshold &&
+      entityBoost < threshold
+    ) {
+      continue;
+    }
 
     const rawCombined = semanticScore + bm25Score + entityBoost;
     const combined = Math.min(rawCombined / maxPossible, 1.0);

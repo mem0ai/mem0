@@ -1,6 +1,8 @@
 import pytest
 
 from mem0.utils.scoring import (
+    add_entity_boost_candidates,
+    build_hybrid_candidate_map,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
@@ -86,15 +88,27 @@ class TestScoreAndRank:
         expected = (0.8 + 0.6 + 0.3) / 2.5
         assert scored[0]["score"] == pytest.approx(expected)
 
-    def test_threshold_gates_on_semantic(self):
+    def test_threshold_allows_bm25_rescue(self):
         results = [
-            {"id": "a", "score": 0.05, "payload": {"data": "mem a"}},  # Below threshold
+            {"id": "a", "score": 0.05, "payload": {"data": "mem a"}},  # Below semantic threshold
             {"id": "b", "score": 0.5, "payload": {"data": "mem b"}},
         ]
-        bm25 = {"a": 0.99}  # High BM25 shouldn't save it
+        bm25 = {"a": 0.99}  # Strong BM25 should rescue keyword-only hit
         scored = score_and_rank(results, bm25, {}, threshold=0.1, top_k=10)
+        assert len(scored) == 2
+        assert any(item["id"] == "a" for item in scored)
+
+    def test_threshold_allows_entity_rescue(self):
+        results = [{"id": "a", "score": 0.05, "payload": {"data": "mem a"}}]
+        entity = {"a": 0.2}
+        scored = score_and_rank(results, {}, entity, threshold=0.1, top_k=10)
         assert len(scored) == 1
-        assert scored[0]["id"] == "b"
+        assert scored[0]["id"] == "a"
+
+    def test_threshold_excludes_weak_candidates(self):
+        results = [{"id": "a", "score": 0.05, "payload": {"data": "mem a"}}]
+        scored = score_and_rank(results, {"a": 0.05}, {"a": 0.05}, threshold=0.1, top_k=10)
+        assert scored == []
 
     def test_top_k_limit(self):
         results = [{"id": str(i), "score": 0.5, "payload": {}} for i in range(20)]
@@ -159,3 +173,39 @@ class TestScoreAndRank:
 class TestEntityBoostWeight:
     def test_weight_value(self):
         assert ENTITY_BOOST_WEIGHT == 0.5
+
+
+class TestBuildHybridCandidateMap:
+    def test_merges_keyword_only_hits(self):
+        semantic = [type("Mem", (), {"id": "sem-1", "score": 0.9, "payload": {"data": "semantic"}})()]
+        keyword = [
+            type("Mem", (), {"id": "sem-1", "score": 8.0, "payload": {"data": "semantic"}})(),
+            type("Mem", (), {"id": "kw-only", "score": 12.0, "payload": {"data": "exact match"}})(),
+        ]
+        candidates = build_hybrid_candidate_map(semantic, keyword)
+        assert set(candidates.keys()) == {"sem-1", "kw-only"}
+        assert candidates["sem-1"]["score"] == 0.9
+        assert candidates["kw-only"]["score"] == 0.0
+        assert candidates["kw-only"]["payload"]["data"] == "exact match"
+
+    def test_add_entity_boost_candidates_fetches_missing_memory(self):
+        candidates = {"sem-1": {"id": "sem-1", "score": 0.8, "payload": {"data": "x"}}}
+
+        class MockVectorStore:
+            def get(self, vector_id):
+                if vector_id == "entity-only":
+                    return type(
+                        "Rec",
+                        (),
+                        {"payload": {"data": "entity linked", "user_id": "u1"}},
+                    )()
+                return None
+
+        add_entity_boost_candidates(
+            candidates,
+            {"entity-only": 0.4},
+            threshold=0.1,
+            vector_store=MockVectorStore(),
+        )
+        assert "entity-only" in candidates
+        assert candidates["entity-only"]["payload"]["data"] == "entity linked"

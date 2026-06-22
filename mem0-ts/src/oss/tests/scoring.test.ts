@@ -46,4 +46,11 @@ describe("scoreAndRank", () => {
     expect(details.maxPossibleScore).toBe(1.0);
     expect(details.finalScore).toBe(0.8);
   });
+
+  it("allows BM25 to rescue candidates below semantic threshold", () => {
+    const lowSemantic = [{ id: "a", score: 0.05, payload: { data: "mem a" } }];
+    const scored = scoreAndRank(lowSemantic, { a: 0.95 }, {}, 0.1, 10);
+    expect(scored).toHaveLength(1);
+    expect(scored[0].id).toBe("a");
+  });
 });
