@@ -169,7 +169,9 @@ export interface PaginatedMemories {
 
 export interface ProjectResponse {
   customInstructions?: string;
-  customCategories?: string[];
+  // The API returns category objects (`[{ "<name>": "<description>" }]`),
+  // not bare strings (see issue #5738).
+  customCategories?: custom_categories[];
   [key: string]: any;
 }
 
