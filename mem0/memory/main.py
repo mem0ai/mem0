@@ -1842,8 +1842,9 @@ class Memory(MemoryBase):
         try:
             existing_memory = self.vector_store.get(vector_id=memory_id)
         except Exception:
+            # Backing-store failure, not a bad memory_id: re-raise the original so the REST layer maps it to 5xx, not 4xx.
             logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+            raise
 
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
@@ -1934,10 +1935,8 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
-        if hasattr(self.db, "connection") and self.db.connection:
-            self.db.connection.execute("DROP TABLE IF EXISTS history")
-            self.db.connection.close()
-
+        self.db.reset()
+        self.db.close()
         self.db = SQLiteManager(self.config.history_db_path)
 
         if hasattr(self.vector_store, "reset"):
@@ -3408,8 +3407,9 @@ class AsyncMemory(MemoryBase):
         try:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         except Exception:
+            # Backing-store failure, not a bad memory_id: re-raise the original so the REST layer maps it to 5xx, not 4xx.
             logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
+            raise
 
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
@@ -3509,10 +3509,8 @@ class AsyncMemory(MemoryBase):
         if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
             await asyncio.to_thread(self.vector_store.client.close)
 
-        if hasattr(self.db, "connection") and self.db.connection:
-            await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
-            await asyncio.to_thread(self.db.connection.close)
-
+        await asyncio.to_thread(self.db.reset)
+        await asyncio.to_thread(self.db.close)
         self.db = SQLiteManager(self.config.history_db_path)
 
         self.vector_store = VectorStoreFactory.create(

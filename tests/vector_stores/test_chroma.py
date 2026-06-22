@@ -244,12 +244,18 @@ def test_generate_where_clause_single_filter():
 
 
 def test_generate_where_clause_no_filters():
-    """Test _generate_where_clause with no filters."""
+    """Test _generate_where_clause with no filters returns None."""
     result = ChromaDB._generate_where_clause(None)
-    assert result == {}
+    assert result is None
 
     result = ChromaDB._generate_where_clause({})
-    assert result == {}
+    assert result is None
+
+
+def test_generate_where_clause_all_wildcards_returns_none():
+    """All-wildcard filters must return None, not {}, to avoid ChromaDB ValueError."""
+    result = ChromaDB._generate_where_clause({"user_id": "*"})
+    assert result is None
 
 
 def test_generate_where_clause_non_string_values():

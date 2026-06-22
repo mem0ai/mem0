@@ -391,7 +391,7 @@ class PineconeDB(VectorStoreBase):
             return [results]
         except Exception as e:
             logger.error(f"Error listing vectors: {e}")
-            return {"points": [], "next_page_token": None}
+            return [[]]
 
     def count(self) -> int:
         """

@@ -322,9 +322,10 @@ def test_list(mongo_vector_fixture):
 
     mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
-    assert len(results) == 2
-    assert results[0].id == "id1"
-    assert results[0].payload == {"key": "value1"}
+    assert len(results) == 1
+    assert len(results[0]) == 2
+    assert results[0][0].id == "id1"
+    assert results[0][0].payload == {"key": "value1"}
 
 
 def test_list_with_filters(mongo_vector_fixture):
@@ -338,7 +339,7 @@ def test_list_with_filters(mongo_vector_fixture):
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
     results = mongo_vector.list(filters=filters, top_k=2)
-    
+
     # Verify that the find method was called with the correct query
     expected_query = {
         "$and": [
@@ -349,11 +350,12 @@ def test_list_with_filters(mongo_vector_fixture):
     }
     mock_collection.find.assert_called_once_with(expected_query)
     mock_cursor.limit.assert_called_once_with(2)
-    
+
     assert len(results) == 1
-    assert results[0].payload["user_id"] == "alice"
-    assert results[0].payload["agent_id"] == "agent1"
-    assert results[0].payload["run_id"] == "run1"
+    assert len(results[0]) == 1
+    assert results[0][0].payload["user_id"] == "alice"
+    assert results[0][0].payload["agent_id"] == "agent1"
+    assert results[0][0].payload["run_id"] == "run1"
 
 
 def test_list_with_single_filter(mongo_vector_fixture):
@@ -367,7 +369,7 @@ def test_list_with_single_filter(mongo_vector_fixture):
 
     filters = {"user_id": "alice"}
     results = mongo_vector.list(filters=filters, top_k=2)
-    
+
     # Verify that the find method was called with the correct query
     expected_query = {
         "$and": [
@@ -376,9 +378,10 @@ def test_list_with_single_filter(mongo_vector_fixture):
     }
     mock_collection.find.assert_called_once_with(expected_query)
     mock_cursor.limit.assert_called_once_with(2)
-    
+
     assert len(results) == 1
-    assert results[0].payload["user_id"] == "alice"
+    assert len(results[0]) == 1
+    assert results[0][0].payload["user_id"] == "alice"
 
 
 def test_list_with_no_filters(mongo_vector_fixture):
@@ -391,9 +394,10 @@ def test_list_with_no_filters(mongo_vector_fixture):
     ]
 
     results = mongo_vector.list(filters=None, top_k=2)
-    
+
     # Verify that the find method was called with empty query
     mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
-    
+
     assert len(results) == 1
+    assert len(results[0]) == 1
