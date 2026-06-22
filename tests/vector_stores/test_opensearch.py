@@ -247,6 +247,34 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
 
+    def test_list_returns_nested_list(self):
+        mock_response = {
+            "hits": {
+                "hits": [
+                    {"_source": {"id": "id1", "payload": {"key1": "value1"}}},
+                ]
+            }
+        }
+        self.client_mock.search.return_value = mock_response
+        result = self.os_db.list(filters={"user_id": "alice"})
+        # Contract is List[List[OutputData]] so callers can do result[0].
+        self.assertIsInstance(result, list)
+        self.assertIsInstance(result[0], list)
+        self.assertEqual(len(result[0]), 1)
+        self.assertEqual(result[0][0].id, "id1")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_list_error_returns_nested_empty_list(self, mock_logger):
+        """list() error path must return [[]] (not bare []) so callers can do
+        result[0]; e.g. Memory.delete_all() does list(filters=...)[0]."""
+        self.client_mock.search.side_effect = Exception("Listing failed")
+        result = self.os_db.list(filters={"user_id": "alice"})
+        self.assertEqual(result, [[]])
+        self.assertEqual(result[0], [])
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
     def test_delete(self):
         mock_search_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
         self.client_mock.search.return_value = mock_search_response
