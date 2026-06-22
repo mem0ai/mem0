@@ -101,7 +101,16 @@ class TestParseVisionMessages:
         # uncaught KeyError that aborted add(); it should raise a clear ValueError.
         mock_llm = Mock()
         messages = [{"role": "user", "content": {"type": "image_url", "image_url": {}}}]
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"missing image_url\.url"):
+            parse_vision_messages(messages, llm=mock_llm)
+        mock_llm.generate_response.assert_not_called()
+
+    def test_none_image_url_raises_value_error(self):
+        # image_url present but None (or any non-dict) must also raise the clear
+        # ValueError, not an AttributeError from calling .get() on None.
+        mock_llm = Mock()
+        messages = [{"role": "user", "content": {"type": "image_url", "image_url": None}}]
+        with pytest.raises(ValueError, match=r"missing image_url\.url"):
             parse_vision_messages(messages, llm=mock_llm)
         mock_llm.generate_response.assert_not_called()
 

@@ -206,7 +206,8 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
         elif isinstance(content, dict) and content.get("type") == "image_url":
             if llm is None:
                 continue
-            image_url = content.get("image_url", {}).get("url")
+            image_url_obj = content.get("image_url")
+            image_url = image_url_obj.get("url") if isinstance(image_url_obj, dict) else None
             if not image_url:
                 raise ValueError("image_url content part is missing image_url.url")
             try:
