@@ -603,7 +603,7 @@ class FAISS(VectorStoreBase):
             List[OutputData]: List of vectors.
         """
         if self.index is None:
-            return []
+            return [[]]
 
         results = []
         count = 0

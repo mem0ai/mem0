@@ -285,6 +285,20 @@ def test_list(faiss_instance):
         assert result.payload["category"] == "A"
 
 
+def test_list_uninitialized_index_returns_nested_list(faiss_instance):
+    # Regression for the List[List[OutputData]] contract: callers (e.g.
+    # Memory.delete_all) do `vector_store.list(filters=...)[0]`, so an
+    # uninitialized index must return [[]] (one level deep) and NOT a bare
+    # [], which would make result[0] raise IndexError on an empty store.
+    faiss_instance.index = None
+
+    results = faiss_instance.list()
+
+    assert results == [[]]
+    # The contract callers rely on: result[0] is the (empty) memory list.
+    assert results[0] == []
+
+
 def test_col_info(faiss_instance, mock_faiss_index):
     # Mock index attributes
     mock_faiss_index.ntotal = 5
