@@ -258,7 +258,7 @@ class ChromaDB(VectorStoreBase):
             dict[str, any]: Properly formatted where clause for ChromaDB.
         """
         if where is None:
-            return {}
+            return None
         
         def convert_condition(key: str, value: any) -> dict:
             """Convert universal filter format to ChromaDB format."""
@@ -352,7 +352,7 @@ class ChromaDB(VectorStoreBase):
         
         # Return appropriate format based on number of conditions
         if len(processed_filters) == 0:
-            return {}
+            return None
         elif len(processed_filters) == 1:
             return processed_filters[0]
         else:
