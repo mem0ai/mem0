@@ -342,7 +342,6 @@ class Weaviate(VectorStoreBase):
         """
         collections = self.client.collections.list_all()
         logger.debug(f"collections: {collections}")
-        print(f"collections: {collections}")
         return {"collections": [{"name": col.name} for col in collections]}
 
     def delete_col(self):

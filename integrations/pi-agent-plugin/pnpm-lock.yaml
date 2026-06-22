@@ -8,6 +8,7 @@ overrides:
   form-data@<4.0.6: '>=4.0.6'
   uuid@<11.1.1: '>=11.1.1'
   esbuild: '>=0.28.1'
+  undici@>=8.0.0 <8.5.0: '>=8.5.0'
 
 importers:
 
@@ -2354,8 +2355,8 @@ packages:
     resolution: {integrity: sha512-4yqz8a3n5HmGTlsbADNtr/dJlhkh/55Rq798G6ibiULcXbDtaLpTl1pvdqcbFfeoj3iSi52lePFM7h9H21cw/A==}
     engines: {node: '>=18.17'}
 
-  undici@8.3.0:
-    resolution: {integrity: sha512-TkUDgb6tl7KOGZ+7e8E3d2FYgUQgF6z5YypqjWmixVQSQERFcVrVg0ySADm2LVLRh5ljAaHTCR5Fmz3Q34rB7Q==}
+  undici@8.5.0:
+    resolution: {integrity: sha512-xamtWoB1EshgjpmlXd7GGm2VfdDtw1+rD8uhry8pSNW3If6S8E0m2T2+orSKeZXEn/aPJMviCpDBA65WJt8zhg==}
     engines: {node: '>=22.19.0'}
 
   util-deprecate@1.0.2:
@@ -2938,7 +2939,7 @@ snapshots:
       minimatch: 10.2.5
       proper-lockfile: 4.1.2
       typebox: 1.1.38
-      undici: 8.3.0
+      undici: 8.5.0
       yaml: 2.9.0
     optionalDependencies:
       '@mariozechner/clipboard': 0.3.9
@@ -4895,7 +4896,7 @@ snapshots:
 
   undici@6.26.0: {}
 
-  undici@8.3.0: {}
+  undici@8.5.0: {}
 
   util-deprecate@1.0.2: {}
 
