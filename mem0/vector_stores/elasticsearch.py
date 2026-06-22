@@ -251,9 +251,10 @@ class ElasticsearchDB(VectorStoreBase):
         """Delete a collection (index)."""
         self.client.indices.delete(index=self.collection_name)
 
-    def col_info(self, name: str) -> Any:
+    def col_info(self, name: Optional[str] = None) -> Any:
         """Get information about a collection (index)."""
-        return self.client.indices.get(index=name)
+        index_name = name or self.collection_name
+        return self.client.indices.get(index=index_name)
 
     def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[List[OutputData]]:
         """List all memories."""

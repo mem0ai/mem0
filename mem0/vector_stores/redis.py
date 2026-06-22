@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from functools import reduce
+from typing import Optional
 
 import numpy as np
 import redis
@@ -292,7 +293,7 @@ class RedisDB(VectorStoreBase):
     def delete_col(self):
         self.index.delete()
 
-    def col_info(self, name):
+    def col_info(self, name: Optional[str] = None):
         return self.index.info()
 
     def reset(self):
