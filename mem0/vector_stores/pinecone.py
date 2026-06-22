@@ -195,9 +195,27 @@ class PineconeDB(VectorStoreBase):
 
         pinecone_filter = {}
 
+        # Map the universal operators emitted by Memory._process_metadata_filters
+        # to Pinecone's filter syntax (see the sibling translation in
+        # ChromaDB._generate_where_clause / Qdrant._build_field_condition).
+        operator_map = {
+            "eq": "$eq",
+            "ne": "$ne",
+            "gt": "$gt",
+            "gte": "$gte",
+            "lt": "$lt",
+            "lte": "$lte",
+            "in": "$in",
+            "nin": "$nin",
+        }
+
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                pinecone_filter[key] = {"$gte": value["gte"], "$lte": value["lte"]}
+            if isinstance(value, dict):
+                # An operator dict such as {"gte": 5}, {"in": [...]} or a closed
+                # range {"gte": 5, "lte": 10}. Translate every operator (Pinecone
+                # has no substring match, so contains/icontains fall back to
+                # equality, matching the ChromaDB sibling).
+                pinecone_filter[key] = {operator_map.get(op, "$eq"): val for op, val in value.items()}
             else:
                 pinecone_filter[key] = {"$eq": value}
 

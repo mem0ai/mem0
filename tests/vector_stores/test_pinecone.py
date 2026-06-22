@@ -188,3 +188,25 @@ def test_count_with_none_vector_count(pinecone_db):
     count = pinecone_db.count()
     assert count == 0
     pinecone_db.index.describe_index_stats.assert_called_once()
+
+
+def test_create_filter_translates_all_operators(pinecone_db):
+    """Operator dicts must map to Pinecone operators, not be wrapped as a value.
+
+    Regression test: ``_create_filter`` previously only handled a closed
+    ``{"gte": ..., "lte": ...}`` range and wrapped every other operator dict as
+    ``{"$eq": value}`` (e.g. ``{"score": {"gte": 5}}`` -> ``{"score": {"$eq":
+    {"gte": 5}}}``), which matches nothing on Pinecone.
+    """
+    # single-bound ranges
+    assert pinecone_db._create_filter({"score": {"gte": 5}}) == {"score": {"$gte": 5}}
+    assert pinecone_db._create_filter({"age": {"lt": 30}}) == {"age": {"$lt": 30}}
+    # membership
+    assert pinecone_db._create_filter({"category": {"in": ["a", "b"]}}) == {"category": {"$in": ["a", "b"]}}
+    assert pinecone_db._create_filter({"tag": {"nin": ["x"]}}) == {"tag": {"$nin": ["x"]}}
+    # inequality
+    assert pinecone_db._create_filter({"k": {"ne": 1}}) == {"k": {"$ne": 1}}
+    # closed range still works (regression)
+    assert pinecone_db._create_filter({"score": {"gte": 5, "lte": 10}}) == {"score": {"$gte": 5, "$lte": 10}}
+    # scalar equality is unchanged
+    assert pinecone_db._create_filter({"user_id": "alice"}) == {"user_id": {"$eq": "alice"}}
