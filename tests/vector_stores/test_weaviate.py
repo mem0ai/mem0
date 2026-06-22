@@ -197,6 +197,16 @@ class TestWeaviateDB(unittest.TestCase):
 
         self.client_mock.collections.list_all.assert_called_once()
 
+    def test_list_cols_does_not_print(self):
+        mock_collection = MagicMock()
+        mock_collection.name = "collection1"
+        self.client_mock.collections.list_all.return_value = [mock_collection]
+
+        with patch("builtins.print") as mock_print:
+            self.weaviate_db.list_cols()
+
+        mock_print.assert_not_called()
+
     def test_delete_col(self):
         self.weaviate_db.delete_col()
 

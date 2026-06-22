@@ -59,16 +59,15 @@ describe("MemoryClient - add()", () => {
     expect(getFetchBody(call!).user_id).toBe("user_1");
   });
 
-  test("sends empty messages array without crashing", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/add/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
+  test("throws an error when given an empty messages array", async () => {
+    setupMockFetch();
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add([], { userId: "u1" });
 
-    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
-    expect(getFetchBody(call!).messages).toEqual([]);
+    //Asserts that the validation guard catches the empty input early
+    await expect(client.add([], { userId: "u1" })).rejects.toThrow(
+      "Cannot process an empty messages payload.",
+    );
   });
 });
 

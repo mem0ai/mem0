@@ -165,3 +165,18 @@ def test_init_keeps_distinct_dims_from_module_global():
     assert captured[0]["fields"][-1]["attrs"]["dims"] == 384
     # the module-level default must never be mutated by constructing an instance
     assert "dims" not in redis_module.DEFAULT_FIELDS[-1]["attrs"]
+
+
+def test_get_returns_none_for_missing_id():
+    """get() must return None for a missing id.
+
+    redisvl's SearchIndex.fetch() returns None when the id is not found, so the
+    old code raised ``TypeError: 'NoneType' object is not subscriptable`` on
+    ``result["hash"]``. Every other vector store returns None for a missing id,
+    and Memory relies on it (``if existing_memory is None``), so get() must too.
+    """
+    db, mock_index = _make_redis_db()
+    mock_index.fetch.return_value = None
+
+    assert db.get("missing_id") is None
+    mock_index.fetch.assert_called_once_with("missing_id")
