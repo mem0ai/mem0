@@ -152,27 +152,23 @@ class TestOpenSearchDB(unittest.TestCase):
         self.client_mock.indices.create.assert_not_called()
 
     def test_auto_refresh_disabled_by_default(self):
-        """Test that auto_refresh is disabled by default (Issue #3739).
-
-        This ensures OpenSearch Serverless compatibility out-of-the-box since
-        the indices.refresh() API is not supported in serverless mode.
+        """auto_refresh is off by default (#3739) for OpenSearch Serverless compat:
+        the indices.refresh() API is unsupported there, so the batched insert must
+        NOT refresh unless explicitly enabled.
         """
-        # Default instance should have auto_refresh=False
         self.assertFalse(self.os_db.auto_refresh)
         self.client_mock.reset_mock()
 
-        vectors = [[0.1] * 1536]
-        payloads = [{"key1": "value1"}]
-        ids = ["id1"]
+        with patch("mem0.vector_stores.opensearch.bulk") as mock_bulk:
+            self.os_db.insert(vectors=[[0.1] * 1536], payloads=[{"key1": "value1"}], ids=["id1"])
 
-        self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
-
-        # Verify index was called but refresh was NOT called (default behavior)
-        self.assertEqual(self.client_mock.index.call_count, 1)
+        # The batch still goes out as one bulk request, but refresh is skipped.
+        mock_bulk.assert_called_once()
         self.client_mock.indices.refresh.assert_not_called()
 
-    def test_auto_refresh_enabled(self):
-        """Test that refresh is called once per batch (not per document) when auto_refresh=True."""
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_auto_refresh_enabled(self, mock_bulk):
+        """When auto_refresh=True, refresh fires exactly once for the whole batch."""
         with patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock):
             auto_refresh_db = OpenSearchDB(
                 host="localhost",
@@ -184,48 +180,45 @@ class TestOpenSearchDB(unittest.TestCase):
 
         self.assertTrue(auto_refresh_db.auto_refresh)
         # auto_refresh_db reuses self.client_mock (patched above), so reset to drop
-        # the index calls made during construction before asserting on insert().
+        # the calls made during construction before asserting on insert().
         self.client_mock.reset_mock()
 
-        # Insert a batch of 3 vectors to verify the refresh is hoisted out of the
-        # per-document loop: index() is called once per document, but refresh()
-        # must fire exactly once for the whole batch.
         vectors = [[0.1] * 1536, [0.2] * 1536, [0.3] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}, {"key3": "value3"}]
         ids = ["id1", "id2", "id3"]
 
         auto_refresh_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-        # index() once per document, but refresh() only once for the batch
-        self.assertEqual(self.client_mock.index.call_count, 3)
+        # One bulk for the whole batch, and exactly one refresh because auto_refresh=True.
+        mock_bulk.assert_called_once()
+        self.assertEqual(len(mock_bulk.call_args[0][1]), 3)
         self.assertEqual(self.client_mock.indices.refresh.call_count, 1)
 
-    def test_insert(self):
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_insert(self, mock_bulk):
         vectors = [[0.1] * 1536, [0.2] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
         ids = ["id1", "id2"]
 
-        # Mock the index method
-        self.client_mock.index = MagicMock()
-
         results = self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
-        # Verify index was called twice (once for each vector)
-        self.assertEqual(self.client_mock.index.call_count, 2)
+        # A single bulk request for all vectors, not one index() call per vector.
+        mock_bulk.assert_called_once()
+        self.client_mock.index.assert_not_called()
+        bulk_client, actions = mock_bulk.call_args[0]
+        self.assertIs(bulk_client, self.client_mock)
+        self.assertEqual(len(actions), 2)
+        for action, vec, payload, id_ in zip(actions, vectors, payloads, ids):
+            self.assertEqual(action["_index"], "test_collection")
+            self.assertNotIn("_id", action)  # OpenSearch auto-assigns _id, as before
+            self.assertEqual(action["_source"]["vector_field"], vec)
+            self.assertEqual(action["_source"]["payload"], payload)
+            self.assertEqual(action["_source"]["id"], id_)
 
-        # Check first call
-        first_call = self.client_mock.index.call_args_list[0]
-        self.assertEqual(first_call[1]["index"], "test_collection")
-        self.assertEqual(first_call[1]["body"]["vector_field"], vectors[0])
-        self.assertEqual(first_call[1]["body"]["payload"], payloads[0])
-        self.assertEqual(first_call[1]["body"]["id"], ids[0])
-
-        # Check second call
-        second_call = self.client_mock.index.call_args_list[1]
-        self.assertEqual(second_call[1]["index"], "test_collection")
-        self.assertEqual(second_call[1]["body"]["vector_field"], vectors[1])
-        self.assertEqual(second_call[1]["body"]["payload"], payloads[1])
-        self.assertEqual(second_call[1]["body"]["id"], ids[1])
+        # The default instance is auto_refresh=False (Serverless-safe), so the batched
+        # insert issues no refresh at all; the refresh path is covered by
+        # test_auto_refresh_enabled.
+        self.client_mock.indices.refresh.assert_not_called()
 
         # Check results
         self.assertEqual(len(results), 2)
@@ -233,6 +226,21 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(results[0].payload, payloads[0])
         self.assertEqual(results[1].id, "id2")
         self.assertEqual(results[1].payload, payloads[1])
+
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_insert_uses_one_bulk_regardless_of_count(self, mock_bulk):
+        """The number of bulk requests must not grow with #vectors (one batch call)."""
+        n = 5
+        vectors = [[0.1] * 1536 for _ in range(n)]
+        payloads = [{"i": i} for i in range(n)]
+        ids = [f"id{i}" for i in range(n)]
+
+        self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        mock_bulk.assert_called_once()
+        self.assertEqual(len(mock_bulk.call_args[0][1]), n)
+        # auto_refresh=False by default → no refresh regardless of batch size.
+        self.client_mock.indices.refresh.assert_not_called()
 
     def test_get(self):
         mock_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1", "payload": {"key1": "value1"}}}]}}
@@ -407,13 +415,14 @@ class TestOpenSearchDB(unittest.TestCase):
         call_kwargs = mock_logger.error.call_args
         self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
 
+    @patch("mem0.vector_stores.opensearch.bulk")
     @patch("mem0.vector_stores.opensearch.logger")
-    def test_insert_error_logs_with_exc_info(self, mock_logger):
+    def test_insert_error_logs_with_exc_info(self, mock_logger, mock_bulk):
         """Error logging should include exc_info for full stack trace."""
         vectors = [[0.1] * 1536]
         payloads = [{"key": "value"}]
         ids = ["id1"]
-        self.client_mock.index.side_effect = Exception("Connection refused")
+        mock_bulk.side_effect = Exception("Connection refused")
 
         with self.assertRaises(Exception):
             self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)

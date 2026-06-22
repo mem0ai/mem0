@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 try:
     from opensearchpy import OpenSearch, RequestsHttpConnection
+    from opensearchpy.helpers import bulk
 except ImportError:
     raise ImportError("OpenSearch requires extra dependencies. Install with `pip install opensearch-py`") from None
 
@@ -141,36 +142,38 @@ class OpenSearchDB(VectorStoreBase):
                     f"Ensure your embedding model's output dimensions match the vector store configuration."
                 )
 
-        results = []
-        for i, (vec, id_) in enumerate(zip(vectors, ids)):
-            body = {
-                "vector_field": vec,
-                "payload": payloads[i],
-                "id": id_,
+        actions = [
+            {
+                "_index": self.collection_name,
+                # ``_id`` is intentionally omitted so OpenSearch auto-assigns it,
+                # preserving the previous per-document ``client.index`` behavior;
+                # the mem0 id stays in ``_source`` like before.
+                "_source": {
+                    "vector_field": vec,
+                    "payload": payloads[i],
+                    "id": id_,
+                },
             }
-            try:
-                self.client.index(index=self.collection_name, body=body)
+            for i, (vec, id_) in enumerate(zip(vectors, ids))
+        ]
+        try:
+            # One bulk request instead of an index() call per document
+            # (mirrors elasticsearch.py).
+            bulk(self.client, actions)
+            # Refresh once after the full batch (not per document) and only when
+            # explicitly enabled. Disabled by default for Serverless compatibility:
+            # OpenSearch Serverless does not support the indices.refresh() API (#3893).
+            # See: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html
+            if self.auto_refresh:
+                self.client.indices.refresh(index=self.collection_name)
+        except Exception as e:
+            logger.error(f"Error inserting {len(actions)} vectors: {e}", exc_info=True)
+            raise
 
-                results.append(
-                    OutputData(
-                        id=id_,
-                        score=1.0,  # No score for inserts
-                        payload=payloads[i],
-                    )
-                )
-            except Exception as e:
-                logger.error(f"Error inserting vector {id_}: {e}", exc_info=True)
-                raise
-
-        # Refresh once after the full batch (not per document) if explicitly enabled.
-        # Disabled by default for Serverless compatibility: OpenSearch Serverless does not
-        # support the indices.refresh() API, and refreshing per document would cause a
-        # cluster-level I/O stall on every insert.
-        # See: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html
-        if self.auto_refresh:
-            self.client.indices.refresh(index=self.collection_name)
-
-        return results
+        return [
+            OutputData(id=id_, score=1.0, payload=payloads[i])  # No score for inserts
+            for i, id_ in enumerate(ids)
+        ]
 
     def search(
         self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
