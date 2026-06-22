@@ -1061,3 +1061,30 @@ def test_build_index_schema_indexes_memory_as_text(valkey_db):
     )
     # And it must not be declared as TAG.
     assert ["memory", "TAG"] != cmd[memory_idx : memory_idx + 2]
+
+
+def test_escape_tag_value_wildcards(valkey_db):
+    """Wildcard characters in filter values must be escaped to prevent query injection."""
+    assert "\\*" in valkey_db._escape_tag_value("*")
+    assert "\\|" in valkey_db._escape_tag_value("a|b")
+
+
+def test_build_search_query_escapes_filter_values(valkey_db):
+    """_build_search_query must escape special chars in filter values."""
+    knn_part = "[KNN 5 @embedding $vec_param AS vector_score]"
+    query = valkey_db._build_search_query(knn_part, {"user_id": "*"})
+    assert "\\*" in query
+    assert "@user_id:{\\*}" in query
+
+
+def test_build_list_query_escapes_filter_values(valkey_db):
+    """_build_list_query must escape special chars in filter values."""
+    query = valkey_db._build_list_query({"user_id": "*"})
+    assert "\\*" in query
+    assert "@user_id:{\\*}" in query
+
+
+def test_escape_tag_value_normal_strings(valkey_db):
+    """Normal alphanumeric filter values must pass through unchanged."""
+    assert valkey_db._escape_tag_value("alice") == "alice"
+    assert valkey_db._escape_tag_value("user123") == "user123"

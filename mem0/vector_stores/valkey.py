@@ -41,7 +41,20 @@ class OutputData(BaseModel):
     payload: Dict
 
 
+_VALKEY_TAG_SPECIAL = set(r',.<>{}[]"\':;!@#$%^&*()-+=~| ')
+
+
 class ValkeyDB(VectorStoreBase):
+    @staticmethod
+    def _escape_tag_value(value):
+        """Escape special characters in a Valkey FT.SEARCH tag filter value.
+
+        Without escaping, characters like * (wildcard) or | (OR) alter query
+        semantics and can bypass tenant-isolation filters.
+        """
+        s = str(value)
+        return "".join(f"\\{c}" if c in _VALKEY_TAG_SPECIAL else c for c in s)
+
     def __init__(
         self,
         valkey_url: str,
@@ -345,8 +358,8 @@ class ValkeyDB(VectorStoreBase):
         filter_parts = []
         for key, value in filters.items():
             if value is not None:
-                # Use the correct filter syntax for Valkey
-                filter_parts.append(f"@{key}:{{{value}}}")
+                escaped = self._escape_tag_value(value)
+                filter_parts.append(f"@{key}:{{{escaped}}}")
 
         # No valid filter parts
         if not filter_parts:
@@ -771,7 +784,8 @@ class ValkeyDB(VectorStoreBase):
             filter_conditions = []
             for key, value in filters.items():
                 if value is not None:
-                    filter_conditions.append(f"@{key}:{{{value}}}")
+                    escaped = self._escape_tag_value(value)
+                    filter_conditions.append(f"@{key}:{{{escaped}}}")
 
             if filter_conditions:
                 q = " ".join(filter_conditions)
