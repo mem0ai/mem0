@@ -81,293 +81,74 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
-# Fields that hold runtime auth/connection objects and must be preserved.
-# These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
-# needed by clients like OpenSearch — not sensitive strings to redact.
-_RUNTIME_FIELDS = frozenset({
-    "http_auth",
-    "auth",
-    "connection_class",
-    "ssl_context",
-})
-
-# Fields that are known to contain sensitive secrets and must be redacted.
-_SENSITIVE_FIELDS_EXACT = frozenset({
-    "api_key",
-    "secret_key",
-    "private_key",
-    "access_key",
-    "password",
-    "credentials",
-    "credential",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "auth_token",
-    "session_token",
-    "client_secret",
-    "auth_client_secret",
-    "azure_client_secret",
-    "service_account_json",
-    "aws_session_token",
-})
-
-# Suffixes that indicate a field likely holds a secret value.
-_SENSITIVE_SUFFIXES = (
-    "_password",
-    "_secret",
-    "_token",
-    "_credential",
-    "_credentials",
+# Validation helpers — module-level names re-exported for backward compatibility
+# with any code that imports directly from mem0.memory.main.
+from mem0.memory.core.validation import (  # noqa: E402
+    ENTITY_PARAMS,
+    _reject_top_level_entity_params,
+    _validate_and_trim_entity_id,
+    _validate_search_params,
+    _validate_and_trim_search_query,
 )
 
-# Entity parameters that must be passed via filters, not top-level kwargs
-ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
+# Config / deepcopy helpers
+from mem0.memory.core.config import (  # noqa: E402
+    _RUNTIME_FIELDS,
+    _SENSITIVE_FIELDS_EXACT,
+    _SENSITIVE_SUFFIXES,
+    _is_sensitive_field,
+    _safe_deepcopy_config,
+    _normalize_iso_timestamp_to_utc,
+)
 
+# Filter / metadata builders
+from mem0.memory.core.filters import (  # noqa: E402
+    _build_filters_and_metadata,
+    _build_session_scope,
+    _entity_collection_name,
+)
 
-def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
-    """Reject top-level entity parameters - must use filters instead."""
-    invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
-    if invalid_keys:
-        raise ValueError(
-            f"Top-level entity parameters {invalid_keys} are not supported in {method_name}(). "
-            f"Use filters={{'user_id': '...'}} instead."
-        )
+# Extraction pipeline
+from mem0.memory.core.extraction import (  # noqa: E402
+    add_to_vector_store,
+    add_to_vector_store_async,
+    create_procedural_memory,
+    create_procedural_memory_async,
+    should_use_agent_memory_extraction,
+)
 
+# Search / retrieval internals
+from mem0.memory.core.search import (  # noqa: E402
+    compute_entity_boosts,
+    compute_entity_boosts_async,
+    get_all_from_vector_store,
+    get_all_from_vector_store_async,
+    has_advanced_operators,
+    process_metadata_filters,
+    search_vector_store,
+    search_vector_store_async,
+)
 
-def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
-    """
-    Validates and normalizes an entity ID.
-    - Trims leading/trailing whitespace
-    - Rejects empty or whitespace-only strings
-    - Rejects strings containing internal whitespace
+# Entity store helpers
+from mem0.memory.core.entities import (  # noqa: E402
+    bulk_clear_entity_store,
+    link_entities_for_memory,
+    link_entities_for_memory_async,
+    remove_memory_from_entity_store,
+    remove_memory_from_entity_store_async,
+    upsert_entity,
+    upsert_entity_async,
+)
 
-    Args:
-        value: The entity ID value to validate
-        name: The parameter name (for error messages)
-
-    Returns:
-        The trimmed entity ID, or None if input is None
-
-    Raises:
-        ValueError: If entity ID is invalid
-    """
-    if value is None:
-        return None
-    trimmed = value.strip()
-    if trimmed == "":
-        raise ValueError(
-            f"Invalid {name}: cannot be empty or whitespace-only. Provide a valid identifier."
-        )
-    if any(c.isspace() for c in trimmed):
-        raise ValueError(
-            f"Invalid {name}: cannot contain whitespace. Provide a valid identifier without spaces."
-        )
-    return trimmed
-
-
-def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[int] = None) -> None:
-    """
-    Validates search parameters.
-
-    Args:
-        threshold: Similarity threshold (must be between 0 and 1)
-        top_k: Number of results to return (must be non-negative integer)
-
-    Raises:
-        ValueError: If threshold or top_k are invalid
-    """
-    if threshold is not None:
-        if not isinstance(threshold, (int, float)):
-            raise ValueError("threshold must be a valid number")
-        if threshold < 0 or threshold > 1:
-            raise ValueError(
-                f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive)."
-            )
-    if top_k is not None:
-        if not isinstance(top_k, int) or isinstance(top_k, bool):
-            raise ValueError("top_k must be a valid integer")
-        if top_k < 0:
-            raise ValueError(
-                f"Invalid top_k: {top_k}. Must be a non-negative integer."
-            )
-
-
-def _validate_and_trim_search_query(query: str) -> str:
-    """
-    Validates and normalizes a search query before embedding/vector search.
-
-    Raises:
-        ValueError: If query is not a string or is empty/whitespace-only.
-    """
-    if not isinstance(query, str):
-        raise ValueError("Invalid query: must be a non-empty string.")
-    trimmed = query.strip()
-    if not trimmed:
-        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
-    return trimmed
-
-
-def _is_sensitive_field(field_name: str) -> bool:
-    """Check if a field should be redacted for telemetry safety.
-
-    Uses a layered approach:
-    1. Runtime fields (allowlist) — always preserved, highest priority.
-    2. Exact deny list — known secret field names.
-    3. Suffix deny list — catches patterns like db_password, auth_secret, etc.
-    """
-    name = field_name.lower().strip()
-    if name in _RUNTIME_FIELDS:
-        return False
-    if name in _SENSITIVE_FIELDS_EXACT:
-        return True
-    return any(name.endswith(suffix) for suffix in _SENSITIVE_SUFFIXES)
-
-
-def _safe_deepcopy_config(config):
-    """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects."""
-    try:
-        return deepcopy(config)
-    except Exception as e:
-        logger.debug(f"Deepcopy failed, using dict-based cloning: {e}")
-
-        config_class = type(config)
-
-        if hasattr(config, "model_dump"):
-            try:
-                clone_dict = config.model_dump()
-            except Exception:
-                clone_dict = dict(config.__dict__)
-        else:
-            clone_dict = dict(config.__dict__)
-
-        # Restore runtime fields, redact sensitive ones
-        for field_name in list(clone_dict.keys()):
-            if field_name in _RUNTIME_FIELDS and hasattr(config, field_name):
-                clone_dict[field_name] = getattr(config, field_name)
-            elif _is_sensitive_field(field_name):
-                clone_dict[field_name] = None
-
-        try:
-            return config_class(**clone_dict)
-        except Exception:
-            logger.debug("Config reconstruction failed, returning shallow dict clone")
-            return type("Config", (), clone_dict)()
-
-
-def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
-    """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
-    if not timestamp:
-        return timestamp
-    try:
-        parsed = datetime.fromisoformat(timestamp)
-    except ValueError:
-        return timestamp
-    if parsed.tzinfo is None:
-        return timestamp
-    return parsed.astimezone(timezone.utc).isoformat()
-
-
-def _build_filters_and_metadata(
-    *,  # Enforce keyword-only arguments
-    user_id: Optional[str] = None,
-    agent_id: Optional[str] = None,
-    run_id: Optional[str] = None,
-    actor_id: Optional[str] = None,  # For query-time filtering
-    input_metadata: Optional[Dict[str, Any]] = None,
-    input_filters: Optional[Dict[str, Any]] = None,
-) -> tuple[Dict[str, Any], Dict[str, Any]]:
-    """
-    Constructs metadata for storage and filters for querying based on session and actor identifiers.
-
-    This helper supports multiple session identifiers (`user_id`, `agent_id`, and/or `run_id`)
-    for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
-
-    1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
-    2. `effective_query_filters`: Used for querying existing memories. It includes all
-       provided session identifier(s), any `input_filters`, and a resolved actor
-       identifier for targeted filtering if specified by any actor-related inputs.
-
-    Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
-    This resolved actor ID is used for querying but is not added to `base_metadata_template`,
-    as the actor for storage is typically derived from message content at a later stage.
-
-    Args:
-        user_id (Optional[str]): User identifier, for session scoping.
-        agent_id (Optional[str]): Agent identifier, for session scoping.
-        run_id (Optional[str]): Run identifier, for session scoping.
-        actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
-            actor-specific filtering. See actor resolution precedence in the main description.
-        input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
-            session identifiers for the storage metadata template. Defaults to an empty dict.
-        input_filters (Optional[Dict[str, Any]]): Base dictionary to be augmented with
-            session and actor identifiers for query filters. Defaults to an empty dict.
-
-    Returns:
-        tuple[Dict[str, Any], Dict[str, Any]]: A tuple containing:
-            - base_metadata_template (Dict[str, Any]): Metadata template for storing memories,
-              scoped to the provided session(s).
-            - effective_query_filters (Dict[str, Any]): Filters for querying memories,
-              scoped to the provided session(s) and potentially a resolved actor.
-    """
-
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
-    effective_query_filters = deepcopy(input_filters) if input_filters else {}
-
-    # ---------- validate and add all provided session ids ----------
-    session_ids_provided = []
-
-    # Validate and trim entity IDs
-    user_id = _validate_and_trim_entity_id(user_id, "user_id")
-    agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
-    run_id = _validate_and_trim_entity_id(run_id, "run_id")
-
-    if user_id:
-        base_metadata_template["user_id"] = user_id
-        effective_query_filters["user_id"] = user_id
-        session_ids_provided.append("user_id")
-
-    if agent_id:
-        base_metadata_template["agent_id"] = agent_id
-        effective_query_filters["agent_id"] = agent_id
-        session_ids_provided.append("agent_id")
-
-    if run_id:
-        base_metadata_template["run_id"] = run_id
-        effective_query_filters["run_id"] = run_id
-        session_ids_provided.append("run_id")
-
-    if not session_ids_provided:
-        raise Mem0ValidationError(
-            message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
-            error_code="VALIDATION_001",
-            details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
-            suggestion="Please provide at least one identifier to scope the memory operation."
-        )
-
-    # ---------- optional actor filter ----------
-    resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
-    if resolved_actor_id:
-        effective_query_filters["actor_id"] = resolved_actor_id
-
-    return base_metadata_template, effective_query_filters
-
-
-def _build_session_scope(filters):
-    """Build deterministic session scope string from entity IDs."""
-    parts = []
-    for key in sorted(["user_id", "agent_id", "run_id"]):
-        val = filters.get(key)
-        if val:
-            parts.append(f"{key}={val}")
-    return "&".join(parts)
-
-
-def _entity_collection_name(provider: str, collection_name: str) -> str:
-    separator = "-" if provider == "s3_vectors" else "_"
-    return f"{collection_name}{separator}entities"
+# Storage CRUD helpers
+from mem0.memory.core.storage import (  # noqa: E402
+    create_memory,
+    create_memory_async,
+    delete_memory,
+    delete_memory_async,
+    update_memory,
+    update_memory_async,
+)
 
 
 setup_config()
@@ -500,125 +281,13 @@ class Memory(MemoryBase):
         return self._entity_store
 
     def _upsert_entity(self, entity_text, entity_type, memory_id, filters):
-        """Upsert an entity into the entity store, linking it to a memory."""
-        try:
-            entity_embedding = self.embedding_model.embed(entity_text, "add")
-            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-
-            existing = self.entity_store.search(
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=1,
-                filters=search_filters,
-            )
-
-            if existing and existing[0].score >= 0.95:
-                # Update existing entity's linked_memory_ids
-                match = existing[0]
-                payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    self.entity_store.update(
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
-                # Create new entity
-                entity_id = str(uuid.uuid4())
-                entity_payload = {
-                    "data": entity_text,
-                    "entity_type": entity_type,
-                    "linked_memory_ids": [memory_id],
-                    **{k: v for k, v in search_filters.items()},
-                }
-                self.entity_store.insert(
-                    vectors=[entity_embedding],
-                    ids=[entity_id],
-                    payloads=[entity_payload],
-                )
-        except Exception as e:
-            logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
+        return upsert_entity(self, entity_text, entity_type, memory_id, filters)
 
     def _remove_memory_from_entity_store(self, memory_id, filters):
-        """Strip `memory_id` from every entity record scoped to `filters`.
-
-        For each entity whose `linked_memory_ids` contains `memory_id`:
-          - remove the id; if the list becomes empty, delete the entity record.
-          - otherwise re-embed the entity text and update the payload
-            (the vector store's update() requires a vector).
-
-        No-op if the entity store has never been initialized in this process.
-        Errors on individual entities are swallowed at debug level; outer
-        failures are swallowed at warning level so the primary delete/update
-        path is never broken by entity cleanup.
-        """
-        if self._entity_store is None:
-            return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    payload = getattr(row, "payload", None) or {}
-                    linked = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked, list) or memory_id not in linked:
-                        continue
-                    remaining = [mid for mid in linked if mid != memory_id]
-                    if not remaining:
-                        try:
-                            self.entity_store.delete(vector_id=row.id)
-                        except Exception as e:
-                            logger.debug(f"Entity delete failed for id={row.id}: {e}")
-                    else:
-                        entity_text = payload.get("data")
-                        if not isinstance(entity_text, str) or not entity_text:
-                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup")
-                            continue
-                        try:
-                            vec = self.embedding_model.embed(entity_text, "update")
-                        except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
-                            continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
-                        try:
-                            self.entity_store.update(
-                                vector_id=row.id,
-                                vector=vec,
-                                payload=new_payload,
-                            )
-                        except Exception as e:
-                            logger.debug(f"Entity update failed for id={row.id}: {e}")
-                except Exception as e:
-                    logger.debug(f"Entity cleanup error: {e}")
-        except Exception as e:
-            logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
+        return remove_memory_from_entity_store(self, memory_id, filters)
 
     def _link_entities_for_memory(self, memory_id, text, filters):
-        """Extract entities from `text` and link them to `memory_id` in the
-        entity store, scoped to `filters`. Simpler single-memory variant of
-        Phase 7 in add(): per-entity search-then-update-or-insert via the
-        existing `_upsert_entity` helper. Non-fatal on any failure.
-        """
-        try:
-            entities = extract_entities(text)
-            if not entities:
-                return
-            seen = set()
-            for entity_type, entity_text in entities:
-                key = entity_text.strip().lower()
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                try:
-                    self._upsert_entity(entity_text, entity_type, memory_id, filters)
-                except Exception as e:
-                    logger.debug(f"Entity link failed for '{entity_text}': {e}")
-        except Exception as e:
-            logger.warning(f"Entity linking failed for memory_id={memory_id}: {e}")
+        return link_entities_for_memory(self, memory_id, text, filters)
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -630,25 +299,7 @@ class Memory(MemoryBase):
         return cls(config)
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
+        return should_use_agent_memory_extraction(messages, metadata)
 
     def add(
         self,
@@ -759,326 +410,7 @@ class Memory(MemoryBase):
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
-        if not infer:
-            returned_memories = []
-            for message_dict in messages:
-                if (
-                    not isinstance(message_dict, dict)
-                    or message_dict.get("role") is None
-                    or message_dict.get("content") is None
-                ):
-                    logger.warning(f"Skipping invalid message format: {message_dict}")
-                    continue
-
-                if message_dict["role"] == "system":
-                    continue
-
-                per_msg_meta = deepcopy(metadata)
-                per_msg_meta["role"] = message_dict["role"]
-
-                actor_name = message_dict.get("name")
-                if actor_name:
-                    per_msg_meta["actor_id"] = actor_name
-
-                msg_content = message_dict["content"]
-                msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
-
-                returned_memories.append(
-                    {
-                        "id": mem_id,
-                        "memory": msg_content,
-                        "event": "ADD",
-                        "actor_id": actor_name if actor_name else None,
-                        "role": message_dict["role"],
-                    }
-                )
-            return returned_memories
-
-        # === V3 PHASED BATCH PIPELINE ===
-
-        # Phase 0: Context gathering
-        session_scope = _build_session_scope(filters)
-        last_messages = self.db.get_last_messages(session_scope, limit=10)
-        parsed_messages = parse_messages(messages)
-
-        # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
-        existing_results = self.vector_store.search(
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
-        )
-
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
-
-        # Phase 2: LLM extraction (single call)
-        is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
-        if is_agent_scoped:
-            system_prompt += AGENT_CONTEXT_SUFFIX
-
-        custom_instr = prompt or self.custom_instructions
-
-        user_prompt = generate_additive_extraction_prompt(
-            existing_memories=existing_memories,
-            new_messages=parsed_messages,
-            last_k_messages=last_messages,
-            custom_instructions=custom_instr,
-        )
-
-        try:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            logger.error(f"LLM extraction failed: {e}")
-            return []
-
-        # Parse response
-        try:
-            response = remove_code_blocks(response)
-            if not response or not response.strip():
-                extracted_memories = []
-            else:
-                try:
-                    extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
-        except Exception as e:
-            logger.error(f"Error parsing extraction response: {e}")
-            extracted_memories = []
-
-        if not extracted_memories:
-            # Save messages even if nothing extracted
-            self.db.save_messages(messages, session_scope)
-            return []
-
-        # Phase 3: Batch embed all extracted memory texts
-        mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            # Fallback: embed individually
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = self.embedding_model.embed(text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text: {e}")
-
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        # Build set of existing hashes for dedup
-        existing_hashes = set()
-        for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
-            if h:
-                existing_hashes.add(h)
-
-        records = []  # (memory_id, text, embedding, payload)
-        seen_hashes = set()  # dedup within the current batch
-        for mem in extracted_memories:
-            text = mem.get("text")
-            if not text or text not in embed_map:
-                continue
-
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
-            if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
-                continue
-            seen_hashes.add(mem_hash)
-
-            text_lemmatized = lemmatize_for_bm25(text)
-
-            memory_id = str(uuid.uuid4())
-            mem_metadata = deepcopy(metadata)
-            mem_metadata["data"] = text
-            mem_metadata["text_lemmatized"] = text_lemmatized
-            mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
-                mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-            mem_metadata["updated_at"] = mem_metadata["created_at"]
-            if mem.get("attributed_to"):
-                mem_metadata["attributed_to"] = mem["attributed_to"]
-
-            records.append((memory_id, text, embed_map[text], mem_metadata))
-
-        if not records:
-            self.db.save_messages(messages, session_scope)
-            return []
-
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
-
-        try:
-            self.vector_store.insert(
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
-
-        # Batch history
-        history_records = [
-            {
-                "memory_id": r[0],
-                "old_memory": None,
-                "new_memory": r[1],
-                "event": "ADD",
-                "created_at": r[3].get("created_at"),
-                "is_deleted": 0,
-            }
-            for r in records
-        ]
-        try:
-            self.db.batch_add_history(history_records)
-        except Exception:
-            # Fallback: add one by one
-            for hr in history_records:
-                try:
-                    self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
-
-        # Phase 7: Batch entity linking
-        try:
-            all_texts = [r[1] for r in records]
-            all_entities = extract_entities_batch(all_texts)
-
-            # 7a: Global dedup — collect unique entities across all memories
-            global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
-                entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
-                    if key in global_entities:
-                        global_entities[key][2].add(memory_id)
-                    else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
-
-            if global_entities:
-                ordered_keys = list(global_entities.keys())
-                entity_texts = [global_entities[k][1] for k in ordered_keys]
-
-                # 7b: Single batch embed for all unique entities
-                try:
-                    entity_embeddings = self.embedding_model.embed_batch(entity_texts, "add")
-                except Exception:
-                    # Fallback: embed individually, use None for failures
-                    entity_embeddings = []
-                    for t in entity_texts:
-                        try:
-                            entity_embeddings.append(self.embedding_model.embed(t, "add"))
-                        except Exception:
-                            entity_embeddings.append(None)
-
-
-                if len(entity_embeddings) != len(ordered_keys):
-                    logger.warning(
-                        "embed_batch returned %d vectors for %d entity texts — "
-                        "padding/truncating to avoid dropping entity links",
-                        len(entity_embeddings),
-                        len(ordered_keys),
-                    )
-                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
-                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
-
-                # Filter out entities with failed embeddings
-                valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
-                    valid_indices, valid_keys = zip(*valid)
-                    valid_vectors = [entity_embeddings[i] for i in valid_indices]
-
-                    # 7c: Batch search for existing entities
-                    valid_texts = [global_entities[k][1] for k in valid_keys]
-                    existing_matches = self.entity_store.search_batch(
-                        queries=valid_texts,
-                        vectors_list=valid_vectors,
-                        top_k=1,
-                        filters=search_filters,
-                    )
-
-                    # 7d: Separate into inserts vs updates
-                    to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
-                    for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
-                        matches = existing_matches[j] if j < len(existing_matches) else []
-
-                        if matches and matches[0].score >= 0.95:
-                            # Update existing entity
-                            match = matches[0]
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                self.entity_store.update(
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
-                        else:
-                            # New entity — collect for batch insert
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
-
-                    # 7e: Single batch insert for all new entities
-                    if to_insert_vectors:
-                        try:
-                            self.entity_store.insert(
-                                vectors=to_insert_vectors,
-                                ids=to_insert_ids,
-                                payloads=to_insert_payloads,
-                            )
-                        except Exception as e:
-                            logger.warning(f"Batch entity insert failed: {e}")
-        except Exception as e:
-            logger.warning(f"Batch entity linking failed: {e}")
-
-        # Phase 8: Save messages + return
-        self.db.save_messages(messages, session_scope)
-
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
-
-        keys, encoded_ids = process_telemetry_filters(filters)
-        capture_event(
-            "mem0.add",
-            self,
-            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"},
-        )
-        return returned_memories
+        return add_to_vector_store(self, messages, metadata, filters, infer, prompt=prompt)
 
     def get(self, memory_id):
         """
@@ -1194,51 +526,8 @@ class Memory(MemoryBase):
         return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
-        memories_result = self.vector_store.list(filters=filters, top_k=limit)
+        return get_all_from_vector_store(self, filters, limit)
 
-        # Handle different vector store return formats by inspecting first element
-        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
-            first_element = memories_result[0]
-
-            # If first element is a container, unwrap one level
-            if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
-
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
-        formatted_memories = []
-        for mem in actual_memories:
-            memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
-            ).model_dump(exclude={"score"})
-
-            for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
-
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                memory_item_dict["metadata"] = additional_metadata
-
-            formatted_memories.append(memory_item_dict)
-
-        return formatted_memories
 
     def search(
         self,
@@ -1382,290 +671,16 @@ class Memory(MemoryBase):
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process enhanced metadata filters and convert them to vector store compatible format.
-
-        Args:
-            metadata_filters: Enhanced metadata filters with operators
-
-        Returns:
-            Dict of processed filters compatible with vector store
-        """
-        processed_filters = {}
-
-        def process_condition(key: str, condition: Any) -> Dict[str, Any]:
-            if not isinstance(condition, dict):
-                # Simple equality: {"key": "value"}
-                if condition == "*":
-                    # Wildcard: match everything for this field (implementation depends on vector store)
-                    return {key: "*"}
-                return {key: condition}
-
-            result = {}
-            for operator, value in condition.items():
-                # Map platform operators to universal format that can be translated by each vector store
-                operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
-                }
-
-                if operator in operator_map:
-                    result.setdefault(key, {})[operator_map[operator]] = value
-                else:
-                    raise ValueError(f"Unsupported metadata filter operator: {operator}")
-            return result
-
-        def merge_filters(target: Dict[str, Any], source: Dict[str, Any]) -> None:
-            """Merge source into target, deep-merging nested operator dicts for the same key."""
-            for key, value in source.items():
-                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
-                    target[key].update(value)
-                else:
-                    target[key] = value
-
-        for key, value in metadata_filters.items():
-            if key == "AND":
-                # Logical AND: combine multiple conditions
-                if not isinstance(value, list):
-                    raise ValueError("AND operator requires a list of conditions")
-                for condition in value:
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
-            elif key == "OR":
-                # Logical OR: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("OR operator requires a non-empty list of conditions")
-                # Store OR conditions in a way that vector stores can interpret
-                processed_filters["$or"] = []
-                for condition in value:
-                    or_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(or_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$or"].append(or_condition)
-            elif key == "NOT":
-                # Logical NOT: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("NOT operator requires a non-empty list of conditions")
-                processed_filters["$not"] = []
-                for condition in value:
-                    not_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(not_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$not"].append(not_condition)
-            else:
-                merge_filters(processed_filters, process_condition(key, value))
-
-        return processed_filters
+        return process_metadata_filters(metadata_filters)
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
-        """
-        Check if filters contain advanced operators that need special processing.
-        
-        Args:
-            filters: Dictionary of filters to check
-            
-        Returns:
-            bool: True if advanced operators are detected
-        """
-        if not isinstance(filters, dict):
-            return False
-            
-        for key, value in filters.items():
-            # Check for platform-style logical operators
-            if key in ["AND", "OR", "NOT"]:
-                return True
-            # Check for comparison operators (without $ prefix for universal compatibility)
-            if isinstance(value, dict):
-                for op in value.keys():
-                    if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
-                        return True
-            # Check for wildcard values
-            if value == "*":
-                return True
-        return False
+        return has_advanced_operators(filters)
 
     def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
-        # Guard against None threshold (backward compat)
-        if threshold is None:
-            threshold = 0.1
-
-        # Step 1: Preprocess query
-        query_lemmatized = lemmatize_for_bm25(query)
-        query_entities = extract_entities(query)
-
-        # Step 2: Embed query
-        embeddings = self.embedding_model.embed(query, "search")
-
-        # Step 3: Semantic search (over-fetch for scoring pool)
-        internal_limit = max(limit * 4, 60)
-        semantic_results = self.vector_store.search(
-            query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
-
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
-
-        # Step 5: Compute BM25 scores from keyword results
-        bm25_scores = {}
-        if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-            for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
-
-        # Step 6: Compute entity boosts
-        entity_boosts = {}
-        if query_entities:
-            entity_boosts = self._compute_entity_boosts(query_entities, filters)
-
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        for mem in semantic_results:
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
-            })
-
-        # Step 8: Score and rank
-        scored_results = score_and_rank(
-            semantic_results=candidates,
-            bm25_scores=bm25_scores,
-            entity_boosts=entity_boosts,
-            threshold=threshold,
-            top_k=limit,
-            explain=explain,
-        )
-
-        # Step 9: Format results
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
-        original_memories = []
-        for scored in scored_results:
-            payload = scored.get("payload") or {}
-
-            if not payload.get("data"):
-                continue  # Skip candidates with no payload data
-
-            memory_item_dict = MemoryItem(
-                id=scored["id"],
-                memory=payload.get("data", ""),
-                hash=payload.get("hash"),
-                created_at=payload.get("created_at"),
-                updated_at=payload.get("updated_at"),
-                score=scored["score"],
-            ).model_dump()
-
-            for key in promoted_payload_keys:
-                if key in payload:
-                    memory_item_dict[key] = payload[key]
-
-            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                if not memory_item_dict.get("metadata"):
-                    memory_item_dict["metadata"] = {}
-                memory_item_dict["metadata"].update(additional_metadata)
-            if explain and "score_details" in scored:
-                memory_item_dict["score_details"] = scored["score_details"]
-
-            original_memories.append(memory_item_dict)
-
-        return original_memories
+        return search_vector_store(self, query, filters, limit, threshold, explain=explain)
 
     def _compute_entity_boosts(self, query_entities, filters):
-        """Compute per-memory entity boosts from entity store search.
-
-        For each extracted entity from the query:
-        1. Embed the entity text
-        2. Search the entity store (threshold >= 0.5)
-        3. For each matched entity, boost its linked memories
-
-        Returns:
-            Dict mapping memory_id (str) -> max entity boost [0, 0.5].
-        """
-        # Deduplicate entities (max 8)
-        seen = set()
-        deduped = []
-        for entity_type, entity_text in query_entities[:8]:
-            key = entity_text.strip().lower()
-            if key and key not in seen:
-                seen.add(key)
-                deduped.append((entity_type, entity_text))
-
-        if not deduped:
-            return {}
-
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        memory_boosts = {}
-
-        try:
-            entity_texts = [text for _, text in deduped]
-            embeddings = self.embedding_model.embed_batch(entity_texts, "search")
-
-            if len(embeddings) != len(entity_texts):
-                logger.warning(
-                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
-                    len(embeddings),
-                    len(entity_texts),
-                )
-                return memory_boosts
-
-            entity_store = self.entity_store
-
-            def _search_entity(entity_text, embedding):
-                return entity_store.search(
-                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
-                )
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {
-                    pool.submit(_search_entity, text, emb): text
-                    for text, emb in zip(entity_texts, embeddings)
-                }
-
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        matches = future.result()
-                    except Exception as e:
-                        logger.warning("Entity boost search failed for one entity: %s", e)
-                        continue
-
-                    for match in matches:
-                        similarity = match.score if hasattr(match, 'score') else 0.0
-                        if similarity < 0.5:
-                            continue
-
-                        payload = match.payload if hasattr(match, 'payload') else {}
-                        linked_memory_ids = payload.get("linked_memory_ids", [])
-                        if not isinstance(linked_memory_ids, list):
-                            continue
-
-                        num_linked = max(len(linked_memory_ids), 1)
-                        memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
-                        boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
-
-                        for memory_id in linked_memory_ids:
-                            if memory_id:
-                                memory_key = str(memory_id)
-                                memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
-
-        except Exception as e:
-            logger.warning(f"Entity boost computation failed: {e}")
-
-        return memory_boosts
+        return compute_entity_boosts(self, query_entities, filters)
 
     def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
         """
@@ -1766,164 +781,19 @@ class Memory(MemoryBase):
         return history
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
-        logger.debug(f"Creating memory with {data=}")
-        if data in existing_embeddings:
-            embeddings = existing_embeddings[data]
-        else:
-            embeddings = self.embedding_model.embed(data, memory_action="add")
-        memory_id = str(uuid.uuid4())
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
-            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-        new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        return create_memory(self, data, existing_embeddings, metadata=metadata)
 
-        self.vector_store.insert(
-            vectors=[embeddings],
-            ids=[memory_id],
-            payloads=[new_metadata],
-        )
-        self.db.add_history(
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
-        return memory_id
 
     def _create_procedural_memory(self, messages, metadata=None, prompt=None):
-        """
-        Create a procedural memory
-
-        Args:
-            messages (list): List of messages to create a procedural memory from.
-            metadata (dict): Metadata to create a procedural memory from.
-            prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
-        """
-        logger.info("Creating procedural memory")
-
-        parsed_messages = [
-            {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
-            *messages,
-            {
-                "role": "user",
-                "content": "Create procedural memory of the above conversation.",
-            },
-        ]
-
-        try:
-            procedural_memory = self.llm.generate_response(messages=parsed_messages)
-            procedural_memory = remove_code_blocks(procedural_memory)
-        except Exception as e:
-            logger.error(f"Error generating procedural memory summary: {e}")
-            raise
-
-        if metadata is None:
-            raise ValueError("Metadata cannot be done for procedural memory.")
-
-        metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
-        embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
-        memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
-        capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
-
-        result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
-
-        return result
+        return create_procedural_memory(self, messages, metadata=metadata, prompt=prompt)
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
-        logger.info(f"Updating memory with {data=}")
+        return update_memory(self, memory_id, data, existing_embeddings, metadata=metadata)
 
-        try:
-            existing_memory = self.vector_store.get(vector_id=memory_id)
-        except Exception:
-            logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
-
-        if existing_memory is None:
-            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-
-        prev_value = existing_memory.payload.get("data")
-
-        new_metadata = deepcopy(existing_memory.payload)
-        if metadata is not None:
-            new_metadata.update(metadata)
-
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-
-        if data in existing_embeddings:
-            embeddings = existing_embeddings[data]
-        else:
-            embeddings = self.embedding_model.embed(data, "update")
-
-        self.vector_store.update(
-            vector_id=memory_id,
-            vector=embeddings,
-            payload=new_metadata,
-        )
-        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
-
-        self.db.add_history(
-            memory_id,
-            prev_value,
-            data,
-            "UPDATE",
-            created_at=new_metadata["created_at"],
-            updated_at=new_metadata["updated_at"],
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
-
-        # Entity-store cleanup: strip this memory's id from old-text entities,
-        # then re-extract entities from the new text and link them back.
-        session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
-        self._remove_memory_from_entity_store(memory_id, session_filters)
-        self._link_entities_for_memory(memory_id, data, session_filters)
-
-        return memory_id
 
     def _delete_memory(self, memory_id, existing_memory=None):
-        logger.info(f"Deleting memory with {memory_id=}")
-        if existing_memory is None:
-            existing_memory = self.vector_store.get(vector_id=memory_id)
-            if existing_memory is None:
-                raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-        prev_value = existing_memory.payload.get("data", "")
-        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
-        updated_at = datetime.now(timezone.utc).isoformat()
-        payload = existing_memory.payload or {}
-        session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
-        self.vector_store.delete(vector_id=memory_id)
-        self.db.add_history(
-            memory_id,
-            prev_value,
-            None,
-            "DELETE",
-            created_at=created_at,
-            updated_at=updated_at,
-            actor_id=existing_memory.payload.get("actor_id"),
-            role=existing_memory.payload.get("role"),
-            is_deleted=1,
-        )
+        return delete_memory(self, memory_id, existing_memory=existing_memory)
 
-        # Entity-store cleanup: strip this memory's id from any entity records
-        # that linked to it. Non-fatal — the helper swallows errors.
-        self._remove_memory_from_entity_store(memory_id, session_filters)
-
-        return memory_id
 
     def reset(self):
         """
@@ -2044,133 +914,18 @@ class AsyncMemory(MemoryBase):
         return self._entity_store
 
     async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
-        """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
-        try:
-            entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
-            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-
-            existing = await asyncio.to_thread(
-                self.entity_store.search,
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=1,
-                filters=search_filters,
-            )
-
-            if existing and existing[0].score >= 0.95:
-                match = existing[0]
-                payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
-                        self.entity_store.update,
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
-                entity_id = str(uuid.uuid4())
-                entity_payload = {
-                    "data": entity_text,
-                    "entity_type": entity_type,
-                    "linked_memory_ids": [memory_id],
-                    **{k: v for k, v in search_filters.items()},
-                }
-                await asyncio.to_thread(
-                    self.entity_store.insert,
-                    vectors=[entity_embedding],
-                    ids=[entity_id],
-                    payloads=[entity_payload],
-                )
-        except Exception as e:
-            logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
+        return await upsert_entity_async(self, entity_text, entity_type, memory_id, filters)
 
     async def _bulk_clear_entity_store(self, filters):
-        """Delete all entity records matching the given scope filters.
-
-        Used by delete_all to avoid the race condition that occurs when
-        concurrent _delete_memory coroutines each try to read-modify-write
-        the same entity rows' linked_memory_ids lists.
-        """
-        if self._entity_store is None:
-            return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
-                except Exception as e:
-                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
-        except Exception as e:
-            logger.warning(f"Bulk entity store cleanup failed: {e}")
+        return await bulk_clear_entity_store(self, filters)
 
     async def _remove_memory_from_entity_store(self, memory_id, filters):
-        """Async variant of `Memory._remove_memory_from_entity_store`."""
-        if self._entity_store is None:
-            return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    payload = getattr(row, "payload", None) or {}
-                    linked = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked, list) or memory_id not in linked:
-                        continue
-                    remaining = [mid for mid in linked if mid != memory_id]
-                    if not remaining:
-                        try:
-                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
-                        except Exception as e:
-                            logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
-                    else:
-                        entity_text = payload.get("data")
-                        if not isinstance(entity_text, str) or not entity_text:
-                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup (async)")
-                            continue
-                        try:
-                            vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
-                        except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
-                            continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
-                        try:
-                            await asyncio.to_thread(
-                                self.entity_store.update,
-                                vector_id=row.id,
-                                vector=vec,
-                                payload=new_payload,
-                            )
-                        except Exception as e:
-                            logger.debug(f"Entity update failed for id={row.id} (async): {e}")
-                except Exception as e:
-                    logger.debug(f"Entity cleanup error (async): {e}")
-        except Exception as e:
-            logger.warning(f"Entity store cleanup failed for memory_id={memory_id} (async): {e}")
+        return await remove_memory_from_entity_store_async(self, memory_id, filters)
+
 
     async def _link_entities_for_memory(self, memory_id, text, filters):
-        """Async variant of `Memory._link_entities_for_memory`."""
-        try:
-            entities = await asyncio.to_thread(extract_entities, text)
-            if not entities:
-                return
-            seen = set()
-            for entity_type, entity_text in entities:
-                key = entity_text.strip().lower()
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                try:
-                    await self._upsert_entity_async(entity_text, entity_type, memory_id, filters)
-                except Exception as e:
-                    logger.debug(f"Entity link failed for '{entity_text}' (async): {e}")
-        except Exception as e:
-            logger.warning(f"Entity linking failed for memory_id={memory_id} (async): {e}")
+        return await link_entities_for_memory_async(self, memory_id, text, filters)
+
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -2182,25 +937,7 @@ class AsyncMemory(MemoryBase):
         return cls(config)
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
+        return should_use_agent_memory_extraction(messages, metadata)
 
     async def add(
         self,
@@ -2297,325 +1034,9 @@ class AsyncMemory(MemoryBase):
         infer: bool,
         prompt: Optional[str] = None,
     ):
-        if not infer:
-            returned_memories = []
-            for message_dict in messages:
-                if (
-                    not isinstance(message_dict, dict)
-                    or message_dict.get("role") is None
-                    or message_dict.get("content") is None
-                ):
-                    logger.warning(f"Skipping invalid message format (async): {message_dict}")
-                    continue
-
-                if message_dict["role"] == "system":
-                    continue
-
-                per_msg_meta = deepcopy(metadata)
-                per_msg_meta["role"] = message_dict["role"]
-
-                actor_name = message_dict.get("name")
-                if actor_name:
-                    per_msg_meta["actor_id"] = actor_name
-
-                msg_content = message_dict["content"]
-                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
-                mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
-
-                returned_memories.append(
-                    {
-                        "id": mem_id,
-                        "memory": msg_content,
-                        "event": "ADD",
-                        "actor_id": actor_name if actor_name else None,
-                        "role": message_dict["role"],
-                    }
-                )
-            return returned_memories
-
-        # === V3 PHASED BATCH PIPELINE (async) ===
-
-        # Phase 0: Context gathering
-        session_scope = _build_session_scope(effective_filters)
-        last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
-        parsed_messages = parse_messages(messages)
-
-        # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
-        existing_results = await asyncio.to_thread(
-            self.vector_store.search,
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
+        return await add_to_vector_store_async(
+            self, messages, metadata, effective_filters, infer, prompt=prompt
         )
-
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
-
-        # Phase 2: LLM extraction (single call)
-        is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
-        if is_agent_scoped:
-            system_prompt += AGENT_CONTEXT_SUFFIX
-
-        custom_instr = prompt or self.custom_instructions
-
-        user_prompt = generate_additive_extraction_prompt(
-            existing_memories=existing_memories,
-            new_messages=parsed_messages,
-            last_k_messages=last_messages,
-            custom_instructions=custom_instr,
-        )
-
-        try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
-        except Exception as e:
-            logger.error(f"LLM extraction failed (async): {e}")
-            return []
-
-        # Parse response
-        try:
-            response = remove_code_blocks(response)
-            if not response or not response.strip():
-                extracted_memories = []
-            else:
-                try:
-                    extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
-        except Exception as e:
-            logger.error(f"Error parsing extraction response (async): {e}")
-            extracted_memories = []
-
-        if not extracted_memories:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            return []
-
-        # Phase 3: Batch embed all extracted memory texts
-        mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text (async): {e}")
-
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        existing_hashes = set()
-        for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
-            if h:
-                existing_hashes.add(h)
-
-        records = []
-        seen_hashes = set()
-        for mem in extracted_memories:
-            text = mem.get("text")
-            if not text or text not in embed_map:
-                continue
-
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
-            if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
-                continue
-            seen_hashes.add(mem_hash)
-
-            text_lemmatized = lemmatize_for_bm25(text)
-
-            memory_id = str(uuid.uuid4())
-            mem_metadata = deepcopy(metadata)
-            mem_metadata["data"] = text
-            mem_metadata["text_lemmatized"] = text_lemmatized
-            mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
-                mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-            mem_metadata["updated_at"] = mem_metadata["created_at"]
-            if mem.get("attributed_to"):
-                mem_metadata["attributed_to"] = mem["attributed_to"]
-
-            records.append((memory_id, text, embed_map[text], mem_metadata))
-
-        if not records:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            return []
-
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
-
-        try:
-            await asyncio.to_thread(
-                self.vector_store.insert,
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
-
-        # Batch history
-        history_records = [
-            {
-                "memory_id": r[0],
-                "old_memory": None,
-                "new_memory": r[1],
-                "event": "ADD",
-                "created_at": r[3].get("created_at"),
-                "is_deleted": 0,
-            }
-            for r in records
-        ]
-        try:
-            await asyncio.to_thread(self.db.batch_add_history, history_records)
-        except Exception:
-            for hr in history_records:
-                try:
-                    await asyncio.to_thread(
-                        self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                        created_at=hr.get("created_at")
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
-
-        # Phase 7: Batch entity linking
-        try:
-            all_texts = [r[1] for r in records]
-            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
-
-            # 7a: Global dedup
-            global_entities = {}
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
-                entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
-                    if key in global_entities:
-                        global_entities[key][2].add(memory_id)
-                    else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
-
-            if global_entities:
-                ordered_keys = list(global_entities.keys())
-                entity_texts = [global_entities[k][1] for k in ordered_keys]
-
-                # 7b: Batch embed entities
-                try:
-                    entity_embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "add")
-                except Exception:
-                    entity_embeddings = []
-                    for t in entity_texts:
-                        try:
-                            entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
-                        except Exception:
-                            entity_embeddings.append(None)
-
-                if len(entity_embeddings) != len(ordered_keys):
-                    logger.warning(
-                        "embed_batch returned %d vectors for %d entity texts — "
-                        "padding/truncating to avoid dropping entity links",
-                        len(entity_embeddings),
-                        len(ordered_keys),
-                    )
-                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
-                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
-
-                valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
-                    valid_indices, valid_keys = zip(*valid)
-                    valid_vectors = [entity_embeddings[i] for i in valid_indices]
-
-                    # 7c: Batch search for existing entities
-                    valid_texts = [global_entities[k][1] for k in valid_keys]
-                    existing_matches = await asyncio.to_thread(
-                        self.entity_store.search_batch,
-                        queries=valid_texts,
-                        vectors_list=valid_vectors,
-                        top_k=1,
-                        filters=search_filters,
-                    )
-
-                    # 7d: Separate into inserts vs updates
-                    to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
-                    for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
-                        matches = existing_matches[j] if j < len(existing_matches) else []
-
-                        if matches and matches[0].score >= 0.95:
-                            match = matches[0]
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
-
-                    # 7e: Batch insert new entities
-                    if to_insert_vectors:
-                        try:
-                            await asyncio.to_thread(
-                                self.entity_store.insert,
-                                vectors=to_insert_vectors,
-                                ids=to_insert_ids,
-                                payloads=to_insert_payloads,
-                            )
-                        except Exception as e:
-                            logger.warning(f"Batch entity insert failed (async): {e}")
-        except Exception as e:
-            logger.warning(f"Batch entity linking failed (async): {e}")
-
-        # Phase 8: Save messages + return
-        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
-
-        keys, encoded_ids = process_telemetry_filters(effective_filters)
-        capture_event(
-            "mem0.add",
-            self,
-            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
-        )
-        return returned_memories
 
     async def get(self, memory_id):
         """
@@ -2731,51 +1152,8 @@ class AsyncMemory(MemoryBase):
         return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
-        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
+        return await get_all_from_vector_store_async(self, filters, limit)
 
-        # Handle different vector store return formats by inspecting first element
-        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
-            first_element = memories_result[0]
-
-            # If first element is a container, unwrap one level
-            if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
-
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
-        formatted_memories = []
-        for mem in actual_memories:
-            memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
-            ).model_dump(exclude={"score"})
-
-            for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
-
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                memory_item_dict["metadata"] = additional_metadata
-
-            formatted_memories.append(memory_item_dict)
-
-        return formatted_memories
 
     async def search(
         self,
@@ -2926,280 +1304,17 @@ class AsyncMemory(MemoryBase):
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process enhanced metadata filters and convert them to vector store compatible format.
-
-        Args:
-            metadata_filters: Enhanced metadata filters with operators
-
-        Returns:
-            Dict of processed filters compatible with vector store
-        """
-        processed_filters = {}
-
-        def process_condition(key: str, condition: Any) -> Dict[str, Any]:
-            if not isinstance(condition, dict):
-                # Simple equality: {"key": "value"}
-                if condition == "*":
-                    # Wildcard: match everything for this field (implementation depends on vector store)
-                    return {key: "*"}
-                return {key: condition}
-
-            result = {}
-            for operator, value in condition.items():
-                # Map platform operators to universal format that can be translated by each vector store
-                operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
-                }
-
-                if operator in operator_map:
-                    result.setdefault(key, {})[operator_map[operator]] = value
-                else:
-                    raise ValueError(f"Unsupported metadata filter operator: {operator}")
-            return result
-
-        def merge_filters(target: Dict[str, Any], source: Dict[str, Any]) -> None:
-            """Merge source into target, deep-merging nested operator dicts for the same key."""
-            for key, value in source.items():
-                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
-                    target[key].update(value)
-                else:
-                    target[key] = value
-
-        for key, value in metadata_filters.items():
-            if key == "AND":
-                # Logical AND: combine multiple conditions
-                if not isinstance(value, list):
-                    raise ValueError("AND operator requires a list of conditions")
-                for condition in value:
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
-            elif key == "OR":
-                # Logical OR: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("OR operator requires a non-empty list of conditions")
-                # Store OR conditions in a way that vector stores can interpret
-                processed_filters["$or"] = []
-                for condition in value:
-                    or_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(or_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$or"].append(or_condition)
-            elif key == "NOT":
-                # Logical NOT: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("NOT operator requires a non-empty list of conditions")
-                processed_filters["$not"] = []
-                for condition in value:
-                    not_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        merge_filters(not_condition, process_condition(sub_key, sub_value))
-                    processed_filters["$not"].append(not_condition)
-            else:
-                merge_filters(processed_filters, process_condition(key, value))
-
-        return processed_filters
+        return process_metadata_filters(metadata_filters)
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
-        """
-        Check if filters contain advanced operators that need special processing.
-
-        Args:
-            filters: Dictionary of filters to check
-
-        Returns:
-            bool: True if advanced operators are detected
-        """
-        if not isinstance(filters, dict):
-            return False
-
-        for key, value in filters.items():
-            # Check for platform-style logical operators
-            if key in ["AND", "OR", "NOT"]:
-                return True
-            # Check for comparison operators (without $ prefix for universal compatibility)
-            if isinstance(value, dict):
-                for op in value.keys():
-                    if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
-                        return True
-            # Check for wildcard values
-            if value == "*":
-                return True
-        return False
+        return has_advanced_operators(filters)
 
     async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
-        if threshold is None:
-            threshold = 0.1
-
-        # Step 1: Preprocess query (CPU-bound)
-        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
-        query_entities = await asyncio.to_thread(extract_entities, query)
-
-        # Step 2: Embed query
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
-
-        # Step 3: Semantic search (over-fetch)
-        internal_limit = max(limit * 4, 60)
-        semantic_results = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
-
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
-
-        # Step 5: Compute BM25 scores
-        bm25_scores = {}
-        if keyword_results is not None:
-            midpoint, steepness = get_bm25_params(query, lemmatized=query_lemmatized)
-            for mem in keyword_results:
-                mem_id = str(mem.id) if hasattr(mem, 'id') else str(mem.get('id', ''))
-                raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
-                if raw_score and raw_score > 0:
-                    bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
-
-        # Step 6: Compute entity boosts
-        entity_boosts = {}
-        if query_entities:
-            entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
-
-        # Step 7: Build candidate set from semantic results
-        candidates = []
-        for mem in semantic_results:
-            mem_id = str(mem.id)
-            candidates.append({
-                "id": mem_id,
-                "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
-            })
-
-        # Step 8: Score and rank
-        scored_results = score_and_rank(
-            semantic_results=candidates,
-            bm25_scores=bm25_scores,
-            entity_boosts=entity_boosts,
-            threshold=threshold,
-            top_k=limit,
-            explain=explain,
-        )
-
-        # Step 9: Format results
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
-
-        original_memories = []
-        for scored in scored_results:
-            payload = scored.get("payload") or {}
-            if not payload.get("data"):
-                continue
-
-            memory_item_dict = MemoryItem(
-                id=scored["id"],
-                memory=payload.get("data", ""),
-                hash=payload.get("hash"),
-                created_at=payload.get("created_at"),
-                updated_at=payload.get("updated_at"),
-                score=scored["score"],
-            ).model_dump()
-
-            for key in promoted_payload_keys:
-                if key in payload:
-                    memory_item_dict[key] = payload[key]
-
-            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                if not memory_item_dict.get("metadata"):
-                    memory_item_dict["metadata"] = {}
-                memory_item_dict["metadata"].update(additional_metadata)
-            if explain and "score_details" in scored:
-                memory_item_dict["score_details"] = scored["score_details"]
-
-            original_memories.append(memory_item_dict)
-
-        return original_memories
+        return await search_vector_store_async(self, query, filters, limit, threshold, explain=explain)
 
     async def _compute_entity_boosts_async(self, query_entities, filters):
-        """Async version of entity boost computation."""
-        seen = set()
-        deduped = []
-        for entity_type, entity_text in query_entities[:8]:
-            key = entity_text.strip().lower()
-            if key and key not in seen:
-                seen.add(key)
-                deduped.append((entity_type, entity_text))
+        return await compute_entity_boosts_async(self, query_entities, filters)
 
-        if not deduped:
-            return {}
-
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        memory_boosts = {}
-
-        try:
-            entity_texts = [text for _, text in deduped]
-            embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
-
-            if len(embeddings) != len(entity_texts):
-                logger.warning(
-                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
-                    len(embeddings),
-                    len(entity_texts),
-                )
-                return memory_boosts
-
-            sem = asyncio.Semaphore(4)
-
-            async def _search_entity(entity_text, embedding):
-                async with sem:
-                    return await asyncio.to_thread(
-                        self.entity_store.search,
-                        query=entity_text,
-                        vectors=embedding,
-                        top_k=500,
-                        filters=search_filters,
-                    )
-
-            results = await asyncio.gather(
-                *(_search_entity(text, emb) for text, emb in zip(entity_texts, embeddings)),
-                return_exceptions=True,
-            )
-
-            for matches in results:
-                if isinstance(matches, BaseException):
-                    logger.warning("Entity boost search failed for one entity: %s", matches)
-                    continue
-
-                for match in matches:
-                    similarity = match.score if hasattr(match, 'score') else 0.0
-                    if similarity < 0.5:
-                        continue
-
-                    payload = match.payload if hasattr(match, 'payload') else {}
-                    linked_memory_ids = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked_memory_ids, list):
-                        continue
-
-                    num_linked = max(len(linked_memory_ids), 1)
-                    memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
-                    boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
-
-                    for memory_id in linked_memory_ids:
-                        if memory_id:
-                            memory_key = str(memory_id)
-                            memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
-
-        except Exception as e:
-            logger.warning(f"Entity boost computation failed: {e}")
-
-        return memory_boosts
 
     async def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
         """
@@ -3313,186 +1428,23 @@ class AsyncMemory(MemoryBase):
         return history
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
-        logger.debug(f"Creating memory with {data=}")
-        if data in existing_embeddings:
-            embeddings = existing_embeddings[data]
-        else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
+        return await create_memory_async(self, data, existing_embeddings, metadata=metadata)
 
-        memory_id = str(uuid.uuid4())
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        if "created_at" not in new_metadata:
-            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-        new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
-
-        await asyncio.to_thread(
-            self.vector_store.insert,
-            vectors=[embeddings],
-            ids=[memory_id],
-            payloads=[new_metadata],
-        )
-
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            None,
-            data,
-            "ADD",
-            created_at=new_metadata.get("created_at"),
-            updated_at=new_metadata.get("updated_at"),
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
-
-        return memory_id
 
     async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
-        """
-        Create a procedural memory asynchronously
-
-        Args:
-            messages (list): List of messages to create a procedural memory from.
-            metadata (dict): Metadata to create a procedural memory from.
-            llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
-            prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
-        """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
-        logger.info("Creating procedural memory")
-
-        parsed_messages = [
-            {"role": "system", "content": prompt or PROCEDURAL_MEMORY_SYSTEM_PROMPT},
-            *messages,
-            {"role": "user", "content": "Create procedural memory of the above conversation."},
-        ]
-
-        try:
-            if llm is not None:
-                parsed_messages = convert_to_messages(parsed_messages)
-                response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
-                procedural_memory = response.content
-            else:
-                procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
-                procedural_memory = remove_code_blocks(procedural_memory)
-        
-        except Exception as e:
-            logger.error(f"Error generating procedural memory summary: {e}")
-            raise
-
-        if metadata is None:
-            raise ValueError("Metadata cannot be done for procedural memory.")
-
-        metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
-        memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
-        capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
-
-        result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
-
-        return result
+        return await create_procedural_memory_async(
+            self, messages, metadata=metadata, llm=llm, prompt=prompt
+        )
 
     async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
-        logger.info(f"Updating memory with {data=}")
+        return await update_memory_async(self, memory_id, data, existing_embeddings, metadata=metadata)
 
-        try:
-            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
-        except Exception:
-            logger.error(f"Error getting memory with ID {memory_id} during update.")
-            raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
-
-        if existing_memory is None:
-            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-
-        prev_value = existing_memory.payload.get("data")
-
-        new_metadata = deepcopy(existing_memory.payload)
-        if metadata is not None:
-            new_metadata.update(metadata)
-
-        new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-
-        if data in existing_embeddings:
-            embeddings = existing_embeddings[data]
-        else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
-
-        await asyncio.to_thread(
-            self.vector_store.update,
-            vector_id=memory_id,
-            vector=embeddings,
-            payload=new_metadata,
-        )
-        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
-
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            prev_value,
-            data,
-            "UPDATE",
-            created_at=new_metadata["created_at"],
-            updated_at=new_metadata["updated_at"],
-            actor_id=new_metadata.get("actor_id"),
-            role=new_metadata.get("role"),
-        )
-
-        # Entity-store cleanup: strip this memory's id from old-text entities,
-        # then re-extract entities from the new text and link them back.
-        session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
-        await self._remove_memory_from_entity_store(memory_id, session_filters)
-        await self._link_entities_for_memory(memory_id, data, session_filters)
-
-        return memory_id
 
     async def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
-        logger.info(f"Deleting memory with {memory_id=}")
-        if existing_memory is None:
-            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
-            if existing_memory is None:
-                raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-        prev_value = existing_memory.payload.get("data", "")
-        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
-        updated_at = datetime.now(timezone.utc).isoformat()
-        payload = existing_memory.payload or {}
-        session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
-
-        await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            prev_value,
-            None,
-            "DELETE",
-            created_at=created_at,
-            updated_at=updated_at,
-            actor_id=existing_memory.payload.get("actor_id"),
-            role=existing_memory.payload.get("role"),
-            is_deleted=1,
+        return await delete_memory_async(
+            self, memory_id, existing_memory=existing_memory, skip_entity_cleanup=skip_entity_cleanup
         )
 
-        if not skip_entity_cleanup:
-            await self._remove_memory_from_entity_store(memory_id, session_filters)
-
-        return memory_id
 
     async def reset(self):
         """
