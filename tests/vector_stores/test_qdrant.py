@@ -86,6 +86,50 @@ class TestQdrant(unittest.TestCase):
 
         self.assertEqual(points[0].payload, payloads[0])
 
+    def test_insert_batch_encodes_bm25_in_a_single_call(self):
+        """BM25 encoding runs in one batched embed() for the whole insert, only for
+        text-bearing rows, and is mapped back to the correct points."""
+        self.qdrant._has_bm25_slot = True
+
+        class _Arr(list):
+            def tolist(self):
+                return list(self)
+
+        class _Sparse:
+            def __init__(self, i):
+                self.indices = _Arr([i])
+                self.values = _Arr([1.0])
+
+        class _Encoder:
+            def __init__(self):
+                self.embed_calls = []
+
+            def embed(self, texts):
+                texts = list(texts)
+                self.embed_calls.append(texts)
+                return iter(_Sparse(i) for i in range(len(texts)))
+
+        encoder = _Encoder()
+        with patch.object(self.qdrant, "_get_bm25_encoder", return_value=encoder):
+            vectors = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+            payloads = [
+                {"data": "first"},
+                {"key": "no text"},  # no text -> no bm25
+                {"text_lemmatized": "third lemma"},
+            ]
+            ids = [str(uuid.uuid4()) for _ in range(3)]
+            self.qdrant.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # The encoder is invoked exactly once, with only the two text-bearing rows.
+        self.assertEqual(len(encoder.embed_calls), 1)
+        self.assertEqual(encoder.embed_calls[0], ["first", "third lemma"])
+
+        points = self.client_mock.upsert.call_args[1]["points"]
+        self.assertEqual(len(points), 3)
+        self.assertIn("bm25", points[0].vector)  # row with "data"
+        self.assertNotIn("bm25", points[1].vector)  # no text
+        self.assertIn("bm25", points[2].vector)  # row with "text_lemmatized"
+
     def test_search(self):
         vectors = [[0.1, 0.2]]
         mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})

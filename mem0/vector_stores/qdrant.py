@@ -122,6 +122,29 @@ class Qdrant(VectorStoreBase):
             logger.debug(f"BM25 encoding failed: {e}")
         return None
 
+    def _encode_bm25_batch(self, texts: list[str]) -> list[SparseVector | None]:
+        """Encode multiple texts into BM25 sparse vectors in a single batched call.
+
+        Returns one entry per input text, in order (``None`` where the encoder is
+        unavailable or a vector cannot be produced), so callers can zip the result
+        back to their inputs. fastembed batches the texts internally, so this is a
+        single forward pass instead of one ``embed()`` call per text.
+        """
+        encoder = self._get_bm25_encoder()
+        if encoder is None:
+            return [None] * len(texts)
+        try:
+            results = list(encoder.embed(texts))
+        except Exception as e:
+            logger.debug(f"BM25 batch encoding failed: {e}")
+            return [None] * len(texts)
+        encoded: list[SparseVector | None] = [
+            SparseVector(indices=sparse.indices.tolist(), values=sparse.values.tolist()) for sparse in results
+        ]
+        if len(encoded) < len(texts):
+            encoded.extend([None] * (len(texts) - len(encoded)))
+        return encoded
+
     def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
         """
         Create a new collection with dense vectors and BM25 sparse vectors.
@@ -191,6 +214,24 @@ class Qdrant(VectorStoreBase):
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
+        # Precompute BM25 sparse vectors for all text-bearing rows in ONE batched
+        # encode (a single fastembed forward pass) instead of one encoder call per
+        # point. Only rows with text are encoded; the result maps back by index.
+        bm25_by_index: dict[int, SparseVector] = {}
+        if self._has_bm25_slot:
+            texts_to_encode: list[str] = []
+            indices_to_encode: list[int] = []
+            for idx in range(len(vectors)):
+                payload = payloads[idx] if payloads else {}
+                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
+                if text_for_bm25:
+                    texts_to_encode.append(text_for_bm25)
+                    indices_to_encode.append(idx)
+            if texts_to_encode:
+                for idx, sparse in zip(indices_to_encode, self._encode_bm25_batch(texts_to_encode)):
+                    if sparse is not None:
+                        bm25_by_index[idx] = sparse
+
         points = []
         for idx, vector in enumerate(vectors):
             payload = payloads[idx] if payloads else {}
@@ -198,12 +239,9 @@ class Qdrant(VectorStoreBase):
 
             # Build named vectors: dense + optional BM25 sparse (only if collection has the slot).
             named_vectors = {"": vector}
-            if self._has_bm25_slot:
-                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-                if text_for_bm25:
-                    sparse = self._encode_bm25(text_for_bm25)
-                    if sparse is not None:
-                        named_vectors["bm25"] = sparse
+            sparse = bm25_by_index.get(idx)
+            if sparse is not None:
+                named_vectors["bm25"] = sparse
 
             points.append(PointStruct(id=point_id, vector=named_vectors, payload=payload))
 
