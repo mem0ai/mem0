@@ -75,7 +75,7 @@ Here are the parameters available for configuring pgvector:
 | `ssl` | TypeScript OSS | SSL option passed directly to `pg`, either `true` or an SSL config object, for both `connectionString` and split-field connections. | `None` |
 | `dbname` | TypeScript OSS | Split-field database name. This is only used when `connectionString` is absent. | `vector_store` |
 | `collectionName` | TypeScript OSS | Collection name. | `memories` |
-| `embeddingModelDims` | TypeScript OSS | Dimensions of the embedding model. | `1536` |
+| `embeddingModelDims` | TypeScript OSS | Dimensions of the embedding model. | Required |
 | `user` | TypeScript OSS + Python | Database user for split-field connections. | `None` |
 | `password` | TypeScript OSS + Python | Database password for split-field connections. | `None` |
 | `host` | TypeScript OSS + Python | Database host for split-field connections. | `None` |

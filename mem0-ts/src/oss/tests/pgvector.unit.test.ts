@@ -181,6 +181,19 @@ describe("PGVector", () => {
     );
   });
 
+  test("throws when connectionString is absent and split-field params are missing", () => {
+    expect(
+      () =>
+        new PGVector({
+          collectionName: "memories",
+          embeddingModelDims: 3,
+          dimension: 3,
+        } as any),
+    ).toThrow(
+      "PGVector requires either connectionString or user, password, host, port",
+    );
+  });
+
   test("returns similarity score (1 - distance) clamped to [0, 1]", async () => {
     const store = new PGVector({
       collectionName: "memories",
