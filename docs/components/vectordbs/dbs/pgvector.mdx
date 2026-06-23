@@ -2,6 +2,7 @@
 title: "pgvector"
 description: "Use pgvector as a vector store in Mem0 for PostgreSQL-based vector similarity search with open-source simplicity."
 ---
+
 [pgvector](https://github.com/pgvector/pgvector) is an open-source vector similarity search extension for Postgres. After connecting to Postgres, run `CREATE EXTENSION IF NOT EXISTS vector;` to create the vector extension.
 
 ### Usage
@@ -14,37 +15,38 @@ from mem0 import Memory
 os.environ["OPENAI_API_KEY"] = "sk-xx"
 
 config = {
-    "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "user": "test",
-            "password": "123",
-            "host": "127.0.0.1",
-            "port": "5432",
-        }
-    }
+"vector_store": {
+"provider": "pgvector",
+"config": {
+"user": "test",
+"password": "123",
+"host": "127.0.0.1",
+"port": "5432",
+},
+}
 }
 
 m = Memory.from_config(config)
 messages = [
-    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
-    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+{"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+{"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+{"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+{"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
-```
+
+````
 
 ```typescript TypeScript
-import { Memory } from 'mem0ai/oss';
+import { Memory } from "mem0ai/oss";
 
 const config = {
   vectorStore: {
-    provider: 'pgvector',
+    provider: "pgvector",
     config: {
-      collectionName: 'memories',
+      collectionName: "memories",
       embeddingModelDims: 1536,
-      connectionString: 'postgresql://test:123@ep-example.us-east-1.aws.neon.tech/neondb?sslmode=require',
+      connectionString: "postgresql://test:123@ep-example.us-east-1.aws.neon.tech/neondb?sslmode=require",
       ssl: {
         rejectUnauthorized: false,
       },
@@ -56,41 +58,44 @@ const config = {
 
 const memory = new Memory(config);
 const messages = [
-    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
-    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
-]
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+
 await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
-```
+````
+
 </CodeGroup>
 
 ### Config
 
 Here are the parameters available for configuring pgvector:
 
-| Parameter | SDK | Description | Default Value |
-| --- | --- | --- | --- |
-| `connectionString` | TypeScript OSS | PostgreSQL connection string for direct connections. When set, Mem0 connects to the target database directly and skips the bootstrap `postgres` database flow. | `None` |
-| `ssl` | TypeScript OSS | SSL option passed directly to `pg`, either `true` or an SSL config object, for both `connectionString` and split-field connections. | `None` |
-| `dbname` | TypeScript OSS | Split-field database name. This is only used when `connectionString` is absent. | `vector_store` |
-| `collectionName` | TypeScript OSS | Collection name. | `memories` |
-| `embeddingModelDims` | TypeScript OSS | Dimensions of the embedding model. | Required |
-| `user` | TypeScript OSS + Python | Database user for split-field connections. | `None` |
-| `password` | TypeScript OSS + Python | Database password for split-field connections. | `None` |
-| `host` | TypeScript OSS + Python | Database host for split-field connections. | `None` |
-| `port` | TypeScript OSS + Python | Database port for split-field connections. | `None` |
-| `diskann` | TypeScript OSS + Python | Whether to use DiskANN for vector similarity search, requires pgvectorscale. | `False` |
-| `hnsw` | TypeScript OSS + Python | Whether to use HNSW for vector similarity search. | TypeScript OSS: `False`, Python: `True` |
-| `connection_string` | Python only | PostgreSQL connection string, overrides individual connection parameters. | `None` |
-| `sslmode` | Python only | SSL mode for PostgreSQL connections, such as `require`, `prefer`, or `disable`. | `None` |
-| `connection_pool` | Python only | psycopg connection pool object, overrides connection string and individual connection parameters. | `None` |
+| Parameter            | SDK                     | Description                                                                                                                                                    | Default Value                           |
+| -------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `connectionString`   | TypeScript OSS          | PostgreSQL connection string for direct connections. When set, Mem0 connects to the target database directly and skips the bootstrap `postgres` database flow. | `None`                                  |
+| `ssl`                | TypeScript OSS          | SSL option passed directly to `pg`, either `true` or an SSL config object, for both `connectionString` and split-field connections.                            | `None`                                  |
+| `dbname`             | TypeScript OSS          | Split-field database name. This is only used when `connectionString` is absent.                                                                                | `vector_store`                          |
+| `collectionName`     | TypeScript OSS          | Collection name.                                                                                                                                               | `memories`                              |
+| `embeddingModelDims` | TypeScript OSS          | Dimensions of the embedding model.                                                                                                                             | Required                                |
+| `user`               | TypeScript OSS + Python | Database user for split-field connections.                                                                                                                     | `None`                                  |
+| `password`           | TypeScript OSS + Python | Database password for split-field connections.                                                                                                                 | `None`                                  |
+| `host`               | TypeScript OSS + Python | Database host for split-field connections.                                                                                                                     | `None`                                  |
+| `port`               | TypeScript OSS + Python | Database port for split-field connections.                                                                                                                     | `None`                                  |
+| `diskann`            | TypeScript OSS + Python | Whether to use DiskANN for vector similarity search, requires pgvectorscale.                                                                                   | `False`                                 |
+| `hnsw`               | TypeScript OSS + Python | Whether to use HNSW for vector similarity search.                                                                                                              | TypeScript OSS: `False`, Python: `True` |
+| `connection_string`  | Python only             | PostgreSQL connection string, overrides individual connection parameters.                                                                                      | `None`                                  |
+| `sslmode`            | Python only             | SSL mode for PostgreSQL connections, such as `require`, `prefer`, or `disable`.                                                                                | `None`                                  |
+| `connection_pool`    | Python only             | psycopg connection pool object, overrides connection string and individual connection parameters.                                                              | `None`                                  |
 
 **TypeScript OSS:** Use `connectionString` plus optional `ssl` for managed Postgres setups. If you omit `connectionString`, Mem0 falls back to split fields and uses `dbname`, `user`, `password`, `host`, `port`, and optional `ssl`.
 
 **Python:** The Python SDK uses snake_case keys such as `connection_string`, `sslmode`, `collection_name`, and `embedding_model_dims`.
 
 **Python connection priority**:
+
 1. `connection_pool` (highest priority)
 2. `connection_string`
 3. Individual connection parameters (`user`, `password`, `host`, `port`, `sslmode`)
