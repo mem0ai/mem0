@@ -694,7 +694,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     };
   }
 
-  function createMockNeptuneClient() {
+  function createMockNeptuneClient(options?: { failUpdateUpsert?: boolean }) {
     const nodes = new Map<
       string,
       { embedding: number[]; properties: Record<string, any> }
@@ -716,6 +716,10 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       }
 
       if (filter.equals) {
+        if (filter.equals.property === "~label") {
+          return properties.label === filter.equals.value;
+        }
+
         return properties[filter.equals.property] === filter.equals.value;
       }
 
@@ -771,6 +775,10 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           queryString.includes("CALL neptune.algo.vectors.upsert") &&
           parameters.vectorId
         ) {
+          if (options?.failUpdateUpsert) {
+            return createMockResponse({ results: [{ success: false }] });
+          }
+
           const existing = nodes.get(parameters.vectorId);
           if (existing) {
             nodes.set(parameters.vectorId, {
@@ -781,9 +789,9 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           return createMockResponse({ results: [{ success: true }] });
         }
 
-        if (queryString.includes("topKByEmbeddingWithFiltering")) {
+        if (queryString.includes("topK.byEmbedding")) {
           const match = [...nodes.entries()].find(([, node]) =>
-            matchesFilter(node.properties, parameters.nodeFilter),
+            matchesFilter(node.properties, parameters.vertexFilter),
           );
 
           return createMockResponse({
@@ -998,19 +1006,17 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         data: "alpha",
         user_id: "u1",
       }),
-      score: 0.25,
+      score: 0.8,
     });
 
     const searchCall =
       mockClient.send.mock.calls[mockClient.send.mock.calls.length - 1];
-    expect(searchCall[0].input.queryString).toContain(
-      "topKByEmbeddingWithFiltering",
-    );
-    expect(searchCall[0].input.parameters.nodeFilter).toEqual({
+    expect(searchCall[0].input.queryString).toContain("topK.byEmbedding");
+    expect(searchCall[0].input.parameters.vertexFilter).toEqual({
       andAll: [
         {
           equals: {
-            property: "label",
+            property: "~label",
             value: "MEM0_VECTOR_test",
           },
         },
@@ -1081,6 +1087,28 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
     await store.delete("id-1");
     expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("throws when Neptune rejects an update upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failUpdateUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    await expect(
+      store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
+    ).rejects.toThrow("Update failed in Neptune Analytics");
   });
 });
 

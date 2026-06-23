@@ -109,13 +109,13 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     this.assertVectorDimension(query, "Query");
 
-    const nodeFilter = this.buildNodeFilter(filters);
+    const vertexFilter = this.buildVertexFilter(filters);
     const results = await this.executeQuery(
       `
-        CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({
+        CALL neptune.algo.vectors.topK.byEmbedding({
           topK: $topK,
           embedding: $embedding,
-          nodeFilter: $nodeFilter
+          vertexFilter: $vertexFilter
         })
         YIELD node, score
         RETURN node, score
@@ -123,7 +123,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       {
         topK,
         embedding: query,
-        nodeFilter,
+        vertexFilter,
       },
     );
 
@@ -174,7 +174,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     }
 
     if (vector.length > 0) {
-      await this.executeQuery(
+      const updateResults = await this.executeQuery(
         `
           MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
           WITH n, $embedding AS embedding
@@ -187,6 +187,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
           embedding: vector,
         },
       );
+      this.assertSuccessfulResults(updateResults, "Update");
     }
   }
 
@@ -264,7 +265,6 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
-    this.cachedUserId = userId;
     await this.executeQuery(
       `
         MERGE (n:${this.userLabelExpr} {\`~id\`: $userNodeId})
@@ -276,6 +276,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
         userId,
       },
     );
+    this.cachedUserId = userId;
   }
 
   async listCols(): Promise<string[]> {
@@ -328,13 +329,13 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     };
   }
 
-  private buildNodeFilter(
+  private buildVertexFilter(
     filters?: SearchFilters,
   ): Record<string, any> | undefined {
     const conditions = [
       {
         equals: {
-          property: "label",
+          property: "~label",
           value: this.collectionLabel,
         },
       },
@@ -464,7 +465,8 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       return undefined;
     }
 
-    return numericScore;
+    // Neptune returns squared Euclidean distance, while Memory search expects higher-is-better scores.
+    return 1 / (1 + Math.max(0, numericScore));
   }
 
   private assertSuccessfulResults(
