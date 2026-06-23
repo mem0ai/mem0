@@ -185,7 +185,11 @@ class ChromaDB(VectorStoreBase):
             vector (Optional[List[float]], optional): Updated vector. Defaults to None.
             payload (Optional[Dict], optional): Updated payload. Defaults to None.
         """
-        self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
+        self.collection.update(
+            ids=[vector_id],
+            embeddings=[vector] if vector is not None else None,
+            metadatas=[payload] if payload is not None else None,
+        )
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
