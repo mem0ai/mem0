@@ -618,6 +618,16 @@ class TestGetMemories:
         # 3. Verify the core logic: the param was mapped to the filters dict!
         _, kwargs = mock_memory.get_all.call_args
         assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert "top_k" not in kwargs
+
+    def test_get_memories_entity_filters_forward_top_k(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1000")
+
+        assert response.status_code == 200
+
+        _, kwargs = mock_memory.get_all.call_args
+        assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert kwargs["top_k"] == 1000
 
 
 # ===========================================================================
