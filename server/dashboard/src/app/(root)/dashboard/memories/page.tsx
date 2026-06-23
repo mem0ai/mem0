@@ -27,6 +27,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { Memory } from "@/types/api";
 
 const PAGE_SIZE = 20;
+// Keep in sync with ALL_MEMORIES_LIMIT in server/main.py.
 const MEMORY_FETCH_LIMIT = 1000;
 
 export default function MemoriesPage() {
