@@ -988,3 +988,101 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestPhase7aEntityTypeDedup:
+    """Phase 7a global dedup must not merge same-name entities with different types.
+
+    Related to #5587 — open #5497 adds merge gates at upsert/7d but left this path.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _entity_batch_return():
+        return [
+            [("PROPER", "Python")],
+            [("NOUN", "Python")],
+        ]
+
+    def _setup_entity_mocks(self, memory, mocker):
+        memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "Python is a language"}, {"text": "Python is a snake"}]}'
+        )
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed_batch = Mock(
+            side_effect=lambda texts, memory_action="add": [[0.1] * 10 for _ in texts]
+        )
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory._entity_store = Mock()
+        memory._entity_store.search_batch = Mock(return_value=[[], []])
+        memory._entity_store.insert = Mock()
+        memory._entity_store.update = Mock()
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=self._entity_batch_return(),
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+
+    def test_sync_same_name_different_types_create_separate_entities(self, mock_memory, mocker):
+        self._setup_entity_mocks(mock_memory, mocker)
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Python language and snake"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert len(result) == 2
+        assert mock_memory._entity_store.insert.call_count == 1
+        payloads = mock_memory._entity_store.insert.call_args.kwargs["payloads"]
+        assert len(payloads) == 2
+        assert {p["entity_type"] for p in payloads} == {"PROPER", "NOUN"}
+        assert all(len(p["linked_memory_ids"]) == 1 for p in payloads)
+
+    @pytest.mark.asyncio
+    async def test_async_same_name_different_types_create_separate_entities(
+        self, mock_async_memory, mocker
+    ):
+        self._setup_entity_mocks(mock_async_memory, mocker)
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Python language and snake"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert len(result) == 2
+        assert mock_async_memory._entity_store.insert.call_count == 1
+        payloads = mock_async_memory._entity_store.insert.call_args.kwargs["payloads"]
+        assert len(payloads) == 2
+        assert {p["entity_type"] for p in payloads} == {"PROPER", "NOUN"}
+        assert all(len(p["linked_memory_ids"]) == 1 for p in payloads)

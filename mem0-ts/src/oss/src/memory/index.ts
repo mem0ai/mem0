@@ -1017,7 +1017,7 @@ export class Memory {
         const memoryId = records[idx].memoryId;
         const entities = idx < allEntities.length ? allEntities[idx] : [];
         for (const entity of entities) {
-          const key = entity.text.trim().toLowerCase();
+          const key = `${entity.type.trim().toLowerCase()}:${entity.text.trim().toLowerCase()}`;
           if (key in globalEntities) {
             globalEntities[key].memoryIds.add(memoryId);
           } else {
