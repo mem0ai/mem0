@@ -694,7 +694,10 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     };
   }
 
-  function createMockNeptuneClient(options?: { failUpdateUpsert?: boolean }) {
+  function createMockNeptuneClient(options?: {
+    failInsertUpsert?: boolean;
+    failUpdateUpsert?: boolean;
+  }) {
     const nodes = new Map<
       string,
       { embedding: number[]; properties: Record<string, any> }
@@ -740,35 +743,28 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         const parameters = command.input.parameters || {};
 
         if (
-          queryString.includes("MERGE (n:`MEM0_VECTOR_test`") &&
-          queryString.includes("ON CREATE SET n = row.properties")
+          queryString.includes("CALL neptune.algo.vectors.upsert") &&
+          Array.isArray(parameters.rows) &&
+          queryString.includes("SET n += row.properties")
         ) {
-          for (const row of parameters.rows || []) {
+          for (const row of parameters.rows) {
             const existing = nodes.get(row.node_id);
+            if (options?.failInsertUpsert) {
+              continue;
+            }
+
             nodes.set(row.node_id, {
-              embedding: existing?.embedding || [],
+              embedding: row.embedding,
               properties: existing
                 ? { ...existing.properties, ...row.properties }
                 : { ...row.properties },
             });
           }
-          return createMockResponse({ results: [] });
-        }
-
-        if (
-          queryString.includes("CALL neptune.algo.vectors.upsert") &&
-          Array.isArray(parameters.rows)
-        ) {
-          for (const row of parameters.rows) {
-            const existing = nodes.get(row.node_id);
-            if (existing) {
-              nodes.set(row.node_id, {
-                embedding: row.embedding,
-                properties: existing.properties,
-              });
-            }
-          }
-          return createMockResponse({ results: [{ success: true }] });
+          return createMockResponse({
+            results: (parameters.rows || []).map(() => ({
+              success: !options?.failInsertUpsert,
+            })),
+          });
         }
 
         if (
@@ -986,17 +982,15 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     );
 
     expect(mockClient.send).toHaveBeenCalled();
-    const insertCalls = mockClient.send.mock.calls.slice(0, 2);
-    expect(insertCalls[0][0].input.queryString).toContain("MERGE");
-    expect(insertCalls[0][0].input.parameters.rows[0].properties.label).toBe(
-      "MEM0_VECTOR_test",
-    );
-    expect(insertCalls[1][0].input.queryString).toContain(
+    const insertCall = mockClient.send.mock.calls[0][0];
+    expect(insertCall.input.queryString).toContain("MERGE");
+    expect(insertCall.input.queryString).toContain(
       "CALL neptune.algo.vectors.upsert",
     );
-    expect(insertCalls[1][0].input.parameters.rows[0].embedding).toEqual([
-      1, 2, 3,
-    ]);
+    expect(insertCall.input.parameters.rows[0].properties.label).toBe(
+      "MEM0_VECTOR_test",
+    );
+    expect(insertCall.input.parameters.rows[0].embedding).toEqual([1, 2, 3]);
 
     const results = await store.search([1, 2, 3], 1, { user_id: "u1" });
     expect(results).toHaveLength(1);
@@ -1078,12 +1072,6 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
     await store.setUserId("custom-user");
     expect(await store.getUserId()).toBe("custom-user");
-    expect(await store.listCols()).toEqual(
-      expect.arrayContaining([
-        "MEM0_VECTOR_test",
-        "MEM0_VECTOR_memory_migrations",
-      ]),
-    );
 
     await store.delete("id-1");
     expect(await store.get("id-1")).toBeNull();
@@ -1118,6 +1106,24 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         user_id: "u1",
       }),
     );
+  });
+
+  it("does not leave a phantom record when Neptune rejects an insert upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failInsertUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.insert([[1, 2, 3]], ["id-1"], [{ data: "alpha", user_id: "u1" }]),
+    ).rejects.toThrow("Insert failed in Neptune Analytics");
+
+    expect(await store.get("id-1")).toBeNull();
   });
 });
 

@@ -78,23 +78,17 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
 
     const insertQuery = `
       UNWIND $rows AS row
+      OPTIONAL MATCH (existing:${this.collectionLabelExpr} {\`~id\`: row.node_id})
       MERGE (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
-      ON CREATE SET n = row.properties
-      ON MATCH SET n += row.properties
-    `;
-
-    await this.executeQuery(insertQuery, { rows });
-
-    const upsertQuery = `
-      UNWIND $rows AS row
-      MATCH (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
-      WITH n, row.embedding AS embedding
-      CALL neptune.algo.vectors.upsert(n, embedding)
+      WITH n, row, existing IS NULL AS created
+      CALL neptune.algo.vectors.upsert(n, row.embedding)
       YIELD success
+      FOREACH (_ IN CASE WHEN success THEN [1] ELSE [] END | SET n += row.properties)
+      FOREACH (_ IN CASE WHEN success OR NOT created THEN [] ELSE [1] END | DETACH DELETE n)
       RETURN success
     `;
 
-    const results = await this.executeQuery(upsertQuery, { rows });
+    const results = await this.executeQuery(insertQuery, { rows });
     this.assertSuccessfulResults(results, "Insert");
   }
 
@@ -169,9 +163,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
           WITH n, $embedding AS embedding, $properties AS properties
           CALL neptune.algo.vectors.upsert(n, embedding)
           YIELD success
-          WITH n, success, properties
-          WHERE success = true
-          SET n = properties
+          FOREACH (_ IN CASE WHEN success THEN [1] ELSE [] END | SET n = properties)
           RETURN success
         `,
         {
@@ -305,7 +297,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     this.cachedUserId = userId;
   }
 
-  async listCols(): Promise<string[]> {
+  private async listCols(): Promise<string[]> {
     const results = await this.executeQuery(
       `
         CALL neptune.graph.pg_schema()
@@ -355,9 +347,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     };
   }
 
-  private buildVertexFilter(
-    filters?: SearchFilters,
-  ): Record<string, any> | undefined {
+  private buildVertexFilter(filters?: SearchFilters): Record<string, any> {
     const conditions = [
       {
         equals: {
