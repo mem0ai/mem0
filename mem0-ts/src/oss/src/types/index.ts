@@ -72,6 +72,7 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customInstructions?: string;
+  locales?: string[];
 }
 
 export interface MemoryItem {
@@ -148,4 +149,5 @@ export const MemoryConfigSchema = z.object({
     })
     .optional(),
   disableHistory: z.boolean().optional(),
+  locales: z.array(z.string()).optional(),
 });
