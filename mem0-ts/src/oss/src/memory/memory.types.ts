@@ -12,6 +12,10 @@ export interface AddMemoryOptions extends Entity {
   filters?: SearchFilters;
   infer?: boolean;
   timestamp?: number | string | Date | null;
+  // When true, add() throws an EmbeddingError after persisting the good
+  // memories if any failed to embed. Default false: failures come back on
+  // the returned `failed[]` instead.
+  raiseOnPartialFailure?: boolean;
 }
 
 export interface SearchMemoryOptions {
