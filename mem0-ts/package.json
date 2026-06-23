@@ -100,7 +100,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "@aws-sdk/client-neptune-graph": "^3.1075.0",
+    "@aws-sdk/client-neptune-graph": "3.966.0",
     "axios": "^1.16.0",
     "openai": "^4.93.0",
     "uuid": "^11.1.1",

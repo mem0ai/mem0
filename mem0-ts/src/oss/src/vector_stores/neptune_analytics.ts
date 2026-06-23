@@ -158,7 +158,33 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       this.assertVectorDimension(vector, "Vector");
     }
 
-    if (payload && Object.keys(payload).length > 0) {
+    const hasPayload = !!payload && Object.keys(payload).length > 0;
+    const hasVector = vector.length > 0;
+
+    if (hasPayload && hasVector) {
+      const properties = this.buildStoredPayload(payload);
+      const results = await this.executeQuery(
+        `
+          MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
+          WITH n, $embedding AS embedding, $properties AS properties
+          CALL neptune.algo.vectors.upsert(n, embedding)
+          YIELD success
+          WITH n, success, properties
+          WHERE success = true
+          SET n = properties
+          RETURN success
+        `,
+        {
+          vectorId,
+          embedding: vector,
+          properties,
+        },
+      );
+      this.assertSuccessfulResults(results, "Update");
+      return;
+    }
+
+    if (hasPayload) {
       const properties = this.buildStoredPayload(payload);
       await this.executeQuery(
         `
@@ -173,7 +199,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       );
     }
 
-    if (vector.length > 0) {
+    if (hasVector) {
       const updateResults = await this.executeQuery(
         `
           MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})

@@ -783,7 +783,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           if (existing) {
             nodes.set(parameters.vectorId, {
               embedding: parameters.embedding,
-              properties: existing.properties,
+              properties: parameters.properties || existing.properties,
             });
           }
           return createMockResponse({ results: [{ success: true }] });
@@ -1109,6 +1109,15 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     await expect(
       store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
     ).rejects.toThrow("Update failed in Neptune Analytics");
+
+    const unchanged = await store.get("id-1");
+    expect(unchanged).not.toBeNull();
+    expect(unchanged!.payload).toEqual(
+      expect.objectContaining({
+        data: "alpha",
+        user_id: "u1",
+      }),
+    );
   });
 });
 
