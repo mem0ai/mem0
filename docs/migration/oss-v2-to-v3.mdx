@@ -87,7 +87,23 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
     # For hybrid search + entity extraction (recommended)
     pip install --upgrade "mem0ai[nlp]"
     python -m spacy download en_core_web_sm
+    ```
 
+    BM25 keyword preprocessing includes built-in multilingual tokenization for non-Latin scripts such as CJK, Thai, Arabic, and Cyrillic. No language-specific spaCy model is required for non-Latin BM25 tokenization. The default spaCy model remains `en_core_web_sm` for English lemmatization and entity extraction.
+
+    Install/download any non-default spaCy model before setting it, e.g. `python -m spacy download zh_core_web_sm`. To use a different spaCy pipeline for entity extraction or lemmatization, configure the model names with environment variables:
+
+    ```bash
+    export MEM0_SPACY_MODEL=zh_core_web_sm
+    export MEM0_SPACY_ENTITY_MODEL=zh_core_web_sm
+    export MEM0_SPACY_LEMMA_MODEL=en_core_web_sm
+    ```
+
+    `MEM0_SPACY_ENTITY_MODEL` and `MEM0_SPACY_LEMMA_MODEL` override `MEM0_SPACY_MODEL` for their specific pipelines.
+
+    Existing collections keep the `text_lemmatized` payload stored at insert or update time. Re-add, update, or reindex existing memories to refresh BM25 tokens after upgrading. Backends that add BM25 fields or sparse vector slots may require a fresh v3 collection or backend-specific reindexing.
+
+    ```bash
     # Qdrant users: also install fastembed to enable BM25 keyword search
     pip install fastembed
     ```
@@ -104,11 +120,11 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 </Tabs>
 
 <Info>
-The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
+The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and English keyword lemmatization. Without spaCy, Mem0 skips spaCy statistical NER/noun-chunk extraction; quoted/code fallback extraction still runs. BM25 preprocessing falls back to the dependency-free tokenizer. Whether BM25 keyword search is available still depends on the vector store/backend; Qdrant requires `fastembed` for sparse BM25 vectors.
 </Info>
 
 <Warning>
-**Qdrant users — install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without it, BM25 is silently disabled and search falls back to semantic-only — you'll see a log warning `"fastembed not installed — BM25 keyword search disabled"` on the first search call. Other vector stores use their native full-text capabilities and don't need `fastembed`.
+**Qdrant users — install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without `fastembed`, Qdrant cannot encode sparse BM25 vectors, so the BM25 keyword signal is disabled — you'll see a log warning `"fastembed not installed — BM25 keyword search disabled"` on the first search call. Search continues with semantic results and any other configured signals. Other vector stores do not use Qdrant sparse-vector encoding, but BM25 availability varies by backend and configuration.
 
 ```bash
 pip install fastembed
@@ -345,7 +361,7 @@ Mem0 now builds the graph itself. It extracts entities (proper nouns, quoted tex
 - Remove `enable_graph` / `enableGraph` from your config
 - Remove the `graph_store` / `graphStore` block — it is no longer read
 - Uninstall external graph drivers (neo4j, memgraph, etc.) if you were using them only for Mem0
-- No data migration is required. Built-in graph memory activates automatically on the next `add()` call.
+- No schema migration is required for the SDK to run, but existing memories need re-add, update, reindex, or backfill to refresh BM25 payloads and participate in entity boosting.
 
 <Warning>
 The old `relations` field on search results (populated by the external graph store) is no longer returned. Entity connections are now applied through retrieval ranking rather than exposed as a separate, directly traversable structure. If your application read or traversed the `relations` array, you will need to redesign that part against the new API.
@@ -379,17 +395,17 @@ Query
     → Score fusion → Top-K selection
 ```
 
-**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic-only, semantic + BM25, or all three when spaCy + the entity store are active).
+**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic alone, semantic + BM25, or all three when backend BM25 is available and entity extraction has produced linked entities; spaCy broadens statistical NER/noun-chunk coverage).
 
 **BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates — BM25 and entity scores boost ranking but don't add new candidates.
 
 ## Vector Store Compatibility
 
-All 15 supported vector stores have been enhanced with two new capabilities:
+Supported vector stores expose a common compatibility interface for keyword search and batch search where the backend supports it.
 
 | Capability | Purpose | Fallback if Unsupported |
 |---|---|---|
-| `keyword_search()` | BM25/full-text keyword matching | Falls back to semantic-only search |
+| `keyword_search()` | BM25/full-text keyword matching | Omits the keyword signal; semantic ranking still works |
 | `search_batch()` | Batch search for entity matching | Falls back to sequential search |
 
 **Qdrant-specific changes:**
@@ -397,9 +413,8 @@ All 15 supported vector stores have been enhanced with two new capabilities:
 - Requires `fastembed` library for BM25 encoding (lazy-loaded, gracefully degrades)
 - Install: `pip install fastembed`
 
-**All other vector stores:**
-- Enhanced with `keyword_search()` methods using their native full-text capabilities
-- No additional dependencies required
+**Other vector stores:**
+Other vector stores vary by backend and configuration. Backends with native full-text support use their provider keyword-search capability; unsupported or incompletely configured backends may omit the keyword signal. Install any provider-specific extras and verify BM25 support for your selected store.
 
 ## Graceful Degradation
 
@@ -407,8 +422,8 @@ The new features degrade gracefully when optional dependencies are missing:
 
 | Missing Dependency | Impact | Search Still Works? |
 |---|---|---|
-| spaCy (`mem0ai[nlp]`) | No entity extraction, no BM25 lemmatization | Yes (semantic-only) |
-| `fastembed` (Qdrant) | No BM25 keyword search | Yes (semantic + entity) |
+| spaCy (`mem0ai[nlp]`) | No spaCy statistical NER/noun-chunk extraction; quoted/code fallback extraction still runs; BM25 preprocessing uses the dependency-free tokenizer | Yes (semantic + backend-supported BM25) |
+| `fastembed` (Qdrant) | No Qdrant BM25 keyword signal | Yes (semantic + entity if configured) |
 | Entity store unavailable | No entity boosting | Yes (semantic + BM25) |
 
 You always get semantic search. Hybrid search features layer on top when available.
@@ -509,10 +524,16 @@ results = m.search("query", filters={"user_id": "alice"}, threshold=0.0)
 
 ### spaCy model not found
 
-If you see errors about missing spaCy models, download the required model:
+If you see errors about missing spaCy models, download the model named in the warning or configuration. Default English users should install `en_core_web_sm`:
 
 ```bash
 python -m spacy download en_core_web_sm
+```
+
+Custom model users should download that configured model first. For example, if you set `zh_core_web_sm`:
+
+```bash
+python -m spacy download zh_core_web_sm
 ```
 
 If spaCy is not installed at all, install the NLP extras:

@@ -122,12 +122,26 @@ Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? 
 pip install mem0ai
 ```
 
-For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+For spaCy-based English lemmatization and entity extraction, install with NLP support:
 
 ```bash
-pip install mem0ai[nlp]
+pip install "mem0ai[nlp]"
 python -m spacy download en_core_web_sm
 ```
+
+BM25 keyword preprocessing includes dependency-free multilingual tokenization for non-Latin scripts such as CJK, Thai, Arabic, and Cyrillic. No language-specific spaCy model is required for non-Latin BM25 tokenization. The default spaCy model remains `en_core_web_sm` for English lemmatization and entity extraction.
+
+Install/download any non-default spaCy model before setting it, e.g. `python -m spacy download zh_core_web_sm`. To use a different spaCy pipeline for entity extraction or lemmatization, set:
+
+```bash
+export MEM0_SPACY_MODEL=zh_core_web_sm
+export MEM0_SPACY_ENTITY_MODEL=zh_core_web_sm
+export MEM0_SPACY_LEMMA_MODEL=en_core_web_sm
+```
+
+`MEM0_SPACY_ENTITY_MODEL` and `MEM0_SPACY_LEMMA_MODEL` override `MEM0_SPACY_MODEL` for their specific pipelines.
+
+Existing collections keep the `text_lemmatized` value stored at insert/update time. Re-add, update, or reindex existing memories to refresh BM25 tokens after upgrading. Backends that add BM25 fields or sparse vector slots may require a fresh v3 collection or backend-specific reindexing.
 
 Install sdk via npm:
 
