@@ -1,16 +1,18 @@
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def _ensure_spacy():
-    """Skip tests if spaCy model is not available."""
+@pytest.fixture(scope="session")
+def ensure_spacy():
+    """Skip a test when the English spaCy model is not available."""
     try:
         import spacy
+
         spacy.load("en_core_web_sm")
     except Exception:
         pytest.skip("spaCy en_core_web_sm model not available")
 
 
+@pytest.mark.usefixtures("ensure_spacy")
 class TestLemmatizeForBm25:
     def test_basic_lemmatization(self):
         from mem0.utils.lemmatization import lemmatize_for_bm25
@@ -65,3 +67,97 @@ class TestLemmatizeForBm25:
         tokens = result.split()
         for stop in ["this", "is", "a", "very", "of", "the"]:
             assert stop not in tokens
+
+
+class TestMultilingualBm25Fallback:
+    def test_non_latin_inputs_do_not_touch_spacy(self, monkeypatch):
+        from mem0.utils import spacy_models
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        def fail_if_called():
+            raise AssertionError("spaCy should not be loaded for non-Latin text")
+
+        monkeypatch.setattr(spacy_models, "get_nlp_lemma", fail_if_called)
+
+        chinese_tokens = lemmatize_for_bm25("我喜欢喝榛子拿铁和年糕汤").split()
+        thai_tokens = lemmatize_for_bm25("ฉันชอบดื่มกาแฟในตอนเช้า").split()
+        mixed_tokens = lemmatize_for_bm25("员工 EMP-123 使用 sku_77").split()
+
+        assert "榛子" in chinese_tokens
+        assert "拿铁" in chinese_tokens
+        assert len(thai_tokens) > 3
+        assert "emp-123" in mixed_tokens
+        assert "emp" in mixed_tokens
+        assert "123" in mixed_tokens
+        assert "sku_77" in mixed_tokens
+
+    def test_chinese_memory_and_query_have_overlap(self):
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        stored = set(lemmatize_for_bm25("我喜欢喝榛子拿铁和年糕汤").split())
+        query = set(lemmatize_for_bm25("榛子拿铁").split())
+
+        assert "榛子" in stored
+        assert "拿铁" in stored
+        assert stored & query
+
+    def test_thai_does_not_become_empty(self):
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        result = lemmatize_for_bm25("ฉันชอบดื่มกาแฟในตอนเช้า")
+
+        assert result
+        assert len(result.split()) > 3
+
+    def test_mixed_identifier_is_preserved_for_exact_match(self):
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        tokens = lemmatize_for_bm25("员工 EMP-123 使用 sku_77").split()
+
+        assert "emp-123" in tokens
+        assert "emp" in tokens
+        assert "123" in tokens
+        assert "sku_77" in tokens
+
+    def test_latin_text_falls_back_when_spacy_unavailable(self, monkeypatch):
+        from mem0.utils import spacy_models
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        monkeypatch.setattr(spacy_models, "get_nlp_lemma", lambda: None)
+
+        tokens = lemmatize_for_bm25("EMP-123 sku_77").split()
+
+        assert "emp-123" in tokens
+        assert "emp" in tokens
+        assert "123" in tokens
+        assert "sku_77" in tokens
+        assert "sku" in tokens
+        assert "77" in tokens
+
+    def test_spacy_path_falls_back_when_all_tokens_are_discarded(self, monkeypatch):
+        from mem0.utils import spacy_models
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        class FakeToken:
+            def __init__(self, text, lemma, *, is_punct=False, is_stop=False):
+                self.text = text
+                self.lemma_ = lemma
+                self.is_punct = is_punct
+                self.is_stop = is_stop
+
+        def fake_nlp(text):
+            return [
+                FakeToken("!", "!", is_punct=True),
+                FakeToken(text, text, is_stop=True),
+            ]
+
+        monkeypatch.setattr(spacy_models, "get_nlp_lemma", lambda: fake_nlp)
+
+        tokens = lemmatize_for_bm25("EMP-123 sku_77").split()
+
+        assert "emp-123" in tokens
+        assert "emp" in tokens
+        assert "123" in tokens
+        assert "sku_77" in tokens
+        assert "sku" in tokens
+        assert "77" in tokens
