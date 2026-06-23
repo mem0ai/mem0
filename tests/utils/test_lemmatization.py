@@ -192,3 +192,25 @@ class TestMultilingualBm25Fallback:
         assert "sku_77" in tokens
         assert "sku" in tokens
         assert "77" in tokens
+
+    def test_spacy_path_normalizes_fullwidth_ascii_tokens(self, monkeypatch):
+        from mem0.utils import spacy_models
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        class FakeToken:
+            def __init__(self, text):
+                self.text = text
+                self.lemma_ = text
+                self.is_punct = False
+                self.is_stop = False
+
+        def fake_nlp(text):
+            return [FakeToken(part) for part in text.split()]
+
+        monkeypatch.setattr(spacy_models, "get_nlp_lemma", lambda: fake_nlp)
+
+        fullwidth = set(lemmatize_for_bm25("ＡＢＣ １２３").split())
+        ascii_tokens = set(lemmatize_for_bm25("ABC 123").split())
+
+        assert {"abc", "123"} <= fullwidth
+        assert fullwidth & ascii_tokens

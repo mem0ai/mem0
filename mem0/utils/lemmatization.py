@@ -8,6 +8,8 @@ so BM25 still has overlapping terms for CJK, Thai, Arabic, Cyrillic, and IDs.
 
 from __future__ import annotations
 
+import unicodedata
+
 from mem0.utils.text_tokenization import contains_non_latin_letters, tokenize_for_bm25
 
 
@@ -29,14 +31,15 @@ def lemmatize_for_bm25(text: str) -> str:
     if nlp is None:
         return _fallback_tokenize(text)
 
-    doc = nlp(text.casefold())
+    normalized_text = unicodedata.normalize("NFKC", text).casefold()
+    doc = nlp(normalized_text)
     tokens = []
 
     for token in doc:
         if token.is_punct or token.is_stop:
             continue
 
-        lemma = token.lemma_
+        lemma = unicodedata.normalize("NFKC", token.lemma_)
         if lemma.isalnum():
             tokens.append(lemma)
         else:
