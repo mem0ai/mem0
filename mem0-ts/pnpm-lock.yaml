@@ -76,6 +76,9 @@ importers:
       groq-sdk:
         specifier: 0.3.0
         version: 0.3.0
+      mongodb:
+        specifier: ^7.0.0
+        version: 7.2.0
       natural:
         specifier: ^8.0.1
         version: 8.1.1
