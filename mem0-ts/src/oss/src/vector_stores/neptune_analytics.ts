@@ -76,6 +76,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     payloads: Record<string, any>[],
   ): Promise<void> {
     this.assertBatchDimensions(vectors, "Insert");
+    const existingIds = await this.findExistingIds(ids);
 
     const rows = vectors.map((vector, index) => ({
       node_id: ids[index],
@@ -95,8 +96,13 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       RETURN success
     `;
 
-    const results = await this.executeQuery(insertQuery, { rows });
-    this.assertSuccessfulResults(results, "Insert");
+    try {
+      const results = await this.executeQuery(insertQuery, { rows });
+      this.assertSuccessfulResults(results, "Insert");
+    } catch (error) {
+      await this.cleanupFailedInsert(ids.filter((id) => !existingIds.has(id)));
+      throw error;
+    }
   }
 
   async keywordSearch(): Promise<null> {
@@ -334,6 +340,50 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     }
 
     return [];
+  }
+
+  private async findExistingIds(nodeIds: string[]): Promise<Set<string>> {
+    if (nodeIds.length === 0) {
+      return new Set();
+    }
+
+    const results = await this.executeQuery(
+      `
+        UNWIND $nodeIds AS nodeId
+        MATCH (n:${this.collectionLabelExpr} {\`~id\`: nodeId})
+        RETURN nodeId
+      `,
+      {
+        nodeIds,
+      },
+    );
+
+    return new Set(
+      results
+        .map((record) => record.nodeId)
+        .filter((nodeId): nodeId is string => typeof nodeId === "string"),
+    );
+  }
+
+  private async cleanupFailedInsert(nodeIds: string[]): Promise<void> {
+    if (nodeIds.length === 0) {
+      return;
+    }
+
+    try {
+      await this.executeQuery(
+        `
+          UNWIND $nodeIds AS nodeId
+          MATCH (n:${this.collectionLabelExpr} {\`~id\`: nodeId})
+          DETACH DELETE n
+        `,
+        {
+          nodeIds,
+        },
+      );
+    } catch {
+      return;
+    }
   }
 
   private resolveGraphIdentifier(config: NeptuneAnalyticsConfig): string {
