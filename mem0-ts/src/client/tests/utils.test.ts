@@ -99,4 +99,38 @@ describe("camelToSnakeKeys / snakeToCamelKeys", () => {
       });
     });
   });
+
+  describe("user-controlled customCategories blob", () => {
+    it("converts the outer key but leaves custom category names on write", () => {
+      expect(
+        camelToSnakeKeys({
+          customCategories: [
+            { work_life_balance: "Work and personal life" },
+            { AIResearch: "AI research topics" },
+          ],
+        }),
+      ).toEqual({
+        custom_categories: [
+          { work_life_balance: "Work and personal life" },
+          { AIResearch: "AI research topics" },
+        ],
+      });
+    });
+
+    it("converts the outer key but leaves custom category names on read", () => {
+      expect(
+        snakeToCamelKeys({
+          custom_categories: [
+            { work_life_balance: "Work and personal life" },
+            { AIResearch: "AI research topics" },
+          ],
+        }),
+      ).toEqual({
+        customCategories: [
+          { work_life_balance: "Work and personal life" },
+          { AIResearch: "AI research topics" },
+        ],
+      });
+    });
+  });
 });

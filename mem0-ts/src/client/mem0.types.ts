@@ -169,7 +169,7 @@ export interface PaginatedMemories {
 
 export interface ProjectResponse {
   customInstructions?: string;
-  customCategories?: string[];
+  customCategories?: custom_categories[];
   [key: string]: any;
 }
 

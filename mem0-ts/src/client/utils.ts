@@ -29,6 +29,8 @@ const OPAQUE_VALUE_KEYS = new Set([
   "metadata",
   "structuredDataSchema",
   "structured_data_schema",
+  "customCategories",
+  "custom_categories",
 ]);
 
 /**
