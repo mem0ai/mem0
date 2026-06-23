@@ -56,9 +56,7 @@ export function buildHybridCandidateMap(
 }
 
 export interface EntityBoostVectorStore {
-  get(
-    id: string,
-  ): Promise<{ payload?: Record<string, any> } | null> | { payload?: Record<string, any> } | null;
+  get(id: string): Promise<{ payload?: Record<string, any> } | null>;
 }
 
 /**
@@ -70,17 +68,22 @@ export async function addEntityBoostCandidates(
   threshold: number,
   vectorStore: EntityBoostVectorStore,
 ): Promise<void> {
-  for (const [memId, boost] of Object.entries(entityBoosts)) {
-    if (candidatesById.has(memId) || boost < threshold) continue;
-    try {
-      const existing = await vectorStore.get(memId);
-      const payload = existing?.payload ?? {};
-      if (!payload.data) continue;
-      candidatesById.set(memId, { id: memId, score: 0, payload });
-    } catch {
-      // Non-fatal: skip memories we cannot load
-    }
-  }
+  const entriesToFetch = Object.entries(entityBoosts).filter(
+    ([memId, boost]) => !candidatesById.has(memId) && boost >= threshold,
+  );
+
+  await Promise.all(
+    entriesToFetch.map(async ([memId]) => {
+      try {
+        const existing = await vectorStore.get(memId);
+        const payload = existing?.payload ?? {};
+        if (!payload.data) return;
+        candidatesById.set(memId, { id: memId, score: 0, payload });
+      } catch {
+        // Non-fatal: skip memories we cannot load
+      }
+    }),
+  );
 }
 
 /**
