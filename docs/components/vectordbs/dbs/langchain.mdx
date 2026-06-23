@@ -1,5 +1,6 @@
 ---
 title: LangChain
+description: "Use LangChain as a unified vector store provider in Mem0 to access multiple vector databases through one interface."
 ---
 
 Mem0 supports LangChain as a provider for vector store integration. LangChain provides a unified interface to various vector databases, making it easy to integrate different vector store providers through a consistent API.
@@ -14,7 +15,7 @@ Mem0 supports LangChain as a provider for vector store integration. LangChain pr
 ```python Python
 import os
 from mem0 import Memory
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
 # Initialize a LangChain vector store

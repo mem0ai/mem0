@@ -80,7 +80,7 @@ def test_insert_vectors(pinecone_db):
 
 def test_search_vectors(pinecone_db):
     pinecone_db.index.query.return_value.matches = [{"id": "id1", "score": 0.9, "metadata": {"name": "vector1"}}]
-    results = pinecone_db.search("test query", [0.1] * 128, limit=1)
+    results = pinecone_db.search("test query", [0.1] * 128, top_k=1)
     pinecone_db.index.query.assert_called_with(
         vector=[0.1] * 128,
         top_k=1,
@@ -188,3 +188,36 @@ def test_count_with_none_vector_count(pinecone_db):
     count = pinecone_db.count()
     assert count == 0
     pinecone_db.index.describe_index_stats.assert_called_once()
+
+
+def test_list_error_returns_list_not_dict(pinecone_db):
+    """list() error path must return [[]] so callers can do result[0]."""
+    pinecone_db.index.query.side_effect = Exception("connection error")
+    result = pinecone_db.list(filters={"user_id": "alice"}, top_k=10)
+    assert isinstance(result, list)
+    assert result == [[]]
+
+
+def test_create_filter_plain_value(pinecone_db):
+    result = pinecone_db._create_filter({"user_id": "alice"})
+    assert result == {"user_id": {"$eq": "alice"}}
+
+
+def test_create_filter_range(pinecone_db):
+    result = pinecone_db._create_filter({"age": {"gte": 18, "lte": 65}})
+    assert result == {"age": {"$gte": 18, "$lte": 65}}
+
+
+def test_create_filter_gt_operator(pinecone_db):
+    result = pinecone_db._create_filter({"score": {"gt": 0.5}})
+    assert result == {"score": {"$gt": 0.5}}
+
+
+def test_create_filter_in_operator(pinecone_db):
+    result = pinecone_db._create_filter({"status": {"in": ["active", "pending"]}})
+    assert result == {"status": {"$in": ["active", "pending"]}}
+
+
+def test_create_filter_ne_operator(pinecone_db):
+    result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
+    assert result == {"status": {"$ne": "deleted"}}

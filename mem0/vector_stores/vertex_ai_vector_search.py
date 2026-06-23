@@ -5,7 +5,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import google.api_core.exceptions
 from google.cloud import aiplatform, aiplatform_v1
-from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import Namespace
+from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import (
+    Namespace,
+)
 from google.oauth2 import service_account
 from pydantic import BaseModel
 
@@ -112,10 +114,12 @@ class GoogleMatchingEngine(VectorStoreBase):
         results = data.get("nearestNeighbors", {}).get("neighbors", [])
         output_data = []
         for result in results:
+            raw_distance = result.get("distance")
+            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
             output_data.append(
                 OutputData(
                     id=result.get("datapoint").get("datapointId"),
-                    score=result.get("distance"),
+                    score=score,
                     payload=result.get("datapoint").get("metadata"),
                 )
             )
@@ -206,20 +210,20 @@ class GoogleMatchingEngine(VectorStoreBase):
             raise
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
         Returns:
             List[OutputData]: Search results (unwrapped)
         """
         logger.debug("Starting search")
-        logger.debug("Limit: %d, Filters: %s", limit, filters)
+        logger.debug("Limit: %d, Filters: %s", top_k, filters)
 
         try:
             filter_namespaces = []
@@ -241,7 +245,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             response = self.index_endpoint.find_neighbors(
                 deployed_index_id=self.deployment_index_id,
                 queries=[vectors],
-                num_neighbors=limit,
+                num_neighbors=top_k,
                 filter=filter_namespaces if filter_namespaces else None,
                 return_full_datapoint=True,
             )
@@ -262,7 +266,8 @@ class GoogleMatchingEngine(VectorStoreBase):
                             logger.debug("Adding %s: %s", restrict.name, restrict.allow_tokens[0])
                             payload[restrict.name] = restrict.allow_tokens[0]
 
-                output_data = OutputData(id=neighbor.id, score=neighbor.distance, payload=payload)
+                score = max(0.0, 1.0 - neighbor.distance) if neighbor.distance is not None else None
+                output_data = OutputData(id=neighbor.id, score=score, payload=payload)
                 results.append(output_data)
 
             logger.debug("Returning %d results", len(results))
@@ -273,6 +278,11 @@ class GoogleMatchingEngine(VectorStoreBase):
             logger.error("Error type: %s", type(e))
             logger.error("Stack trace: %s", traceback.format_exc())
             raise
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        # Vertex AI hybrid search requires sparse embeddings configuration.
+        # Not yet supported - requires HybridQuery with sparse encoder setup.
+        return None
 
     def delete(self, vector_id: Optional[str] = None, ids: Optional[List[str]] = None) -> bool:
         """
@@ -406,7 +416,8 @@ class GoogleMatchingEngine(VectorStoreBase):
                                 if restrict.allow_list:
                                     payload[restrict.namespace] = restrict.allow_list[0]
 
-                        return OutputData(id=neighbor.datapoint.datapoint_id, score=neighbor.distance, payload=payload)
+                        score = max(0.0, 1.0 - neighbor.distance) if neighbor.distance is not None else None
+                        return OutputData(id=neighbor.datapoint.datapoint_id, score=score, payload=payload)
 
                 logger.debug("No results found")
                 return None
@@ -453,12 +464,12 @@ class GoogleMatchingEngine(VectorStoreBase):
             "region": self.region,
         }
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[List[OutputData]]:
         """List vectors matching the given filters.
 
         Args:
             filters: Optional filters to apply
-            limit: Optional maximum number of results to return
+            top_k: Optional maximum number of results to return
 
         Returns:
             List[List[OutputData]]: List of matching vectors wrapped in an extra array
@@ -466,17 +477,17 @@ class GoogleMatchingEngine(VectorStoreBase):
         """
         logger.debug("Starting list operation")
         logger.debug("Filters: %s", filters)
-        logger.debug("Limit: %s", limit)
+        logger.debug("Limit: %s", top_k)
 
         try:
             # Use a zero vector for the search
             dimension = 768  # This should be configurable based on the model
             zero_vector = [0.0] * dimension
 
-            # Use a large limit if none specified
-            search_limit = limit if limit is not None else 10000
+            # Use a large top_k if none specified
+            search_limit = top_k if top_k is not None else 10000
 
-            results = self.search(query=zero_vector, limit=search_limit, filters=filters)
+            results = self.search(query="", vectors=zero_vector, top_k=search_limit, filters=filters)
 
             logger.debug("Found %d results", len(results))
             return [results]  # Wrap in extra array to match interface
@@ -609,7 +620,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         logger.debug("Filter: %s", filter)
 
         embedding = self.embedder.embed_query(query)
-        results = self.search(query=embedding, limit=k, filters=filter)
+        results = self.search(query=query, vectors=embedding, top_k=k, filters=filter)
 
         docs_and_scores = [
             (Document(page_content=result.payload.get("text", ""), metadata=result.payload), result.score)

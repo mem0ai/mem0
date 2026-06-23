@@ -20,6 +20,7 @@ export class VectorizeDB implements VectorStore {
   private dimensions: number;
   private indexName: string;
   private accountId: string;
+  private _initPromise?: Promise<void>;
 
   constructor(config: VectorizeConfig) {
     this.client = new Cloudflare({ apiToken: config.apiKey });
@@ -73,9 +74,13 @@ export class VectorizeDB implements VectorStore {
     }
   }
 
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     try {
@@ -86,7 +91,7 @@ export class VectorizeDB implements VectorStore {
           vector: query,
           filter: filters,
           returnMetadata: "all",
-          topK: limit,
+          topK: topK,
         },
       );
 
@@ -196,7 +201,7 @@ export class VectorizeDB implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 20,
+    topK: number = 20,
   ): Promise<[VectorStoreResult[], number]> {
     try {
       const result = await this.client?.vectorize.indexes.query(
@@ -205,7 +210,7 @@ export class VectorizeDB implements VectorStore {
           account_id: this.accountId,
           vector: Array(this.dimensions).fill(0), // Dummy vector for listing
           filter: filters,
-          topK: limit,
+          topK: topK,
           returnMetadata: "all",
         },
       );
@@ -343,6 +348,13 @@ export class VectorizeDB implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       // Check if the index already exists
       let indexFound = false;

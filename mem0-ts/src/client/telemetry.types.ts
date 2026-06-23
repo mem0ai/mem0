@@ -3,7 +3,7 @@ export interface TelemetryClient {
     distinctId: string,
     eventName: string,
     properties?: Record<string, any>,
-  ): Promise<void>;
+  ): Promise<boolean>;
   shutdown(): Promise<void>;
 }
 

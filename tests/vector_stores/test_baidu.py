@@ -112,7 +112,7 @@ def test_search(mochow_instance, mock_mochow_client):
     mochow_instance._table.vector_search.return_value = mock_search_results
 
     vectors = [0.1, 0.2, 0.3]
-    results = mochow_instance.search(query="test", vectors=vectors, limit=2)
+    results = mochow_instance.search(query="test", vectors=vectors, top_k=2)
 
     # Verify search was called with correct parameters
     mochow_instance._table.vector_search.assert_called_once()
@@ -143,7 +143,7 @@ def test_search_with_filters(mochow_instance, mock_mochow_client):
     vectors = [0.1, 0.2, 0.3]
     filters = {"user_id": "user123", "agent_id": "agent456"}
 
-    mochow_instance.search(query="test", vectors=vectors, limit=2, filters=filters)
+    mochow_instance.search(query="test", vectors=vectors, top_k=2, filters=filters)
 
     # Verify search was called with filter
     call_args = mochow_instance._table.vector_search.call_args
@@ -196,7 +196,7 @@ def test_list(mochow_instance, mock_mochow_client):
     mock_result.rows = [{"id": "id1", "metadata": {"name": "vector1"}}, {"id": "id2", "metadata": {"name": "vector2"}}]
     mochow_instance._table.select.return_value = mock_result
 
-    results = mochow_instance.list(limit=2)
+    results = mochow_instance.list(top_k=2)
 
     mochow_instance._table.select.assert_called_once_with(filter=None, projections=["id", "metadata"], limit=2)
 
@@ -235,3 +235,35 @@ def test_col_info(mochow_instance, mock_mochow_client):
     result = mochow_instance.col_info()
 
     assert result == mock_table_info
+
+
+def test_create_filter_rejects_dict_value(mochow_instance):
+    """Dict filter values could contain expression injection payloads."""
+    with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+        mochow_instance._create_filter({"user_id": {"$ne": ""}})
+
+
+def test_create_filter_rejects_malicious_key(mochow_instance):
+    """Keys with special characters must be rejected."""
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        mochow_instance._create_filter({'"] = "") or true or ("': "x"})
+
+
+def test_create_filter_escapes_quotes_in_value(mochow_instance):
+    """Double-quotes inside string values must be escaped."""
+    result = mochow_instance._create_filter({"user_id": 'alice"}'})
+    assert '\\"' in result
+    assert 'alice\\"' in result
+
+
+def test_create_filter_escapes_backslash_and_quote(mochow_instance):
+    """Backslashes and double-quotes in the same value must both be escaped."""
+    result = mochow_instance._create_filter({"user_id": r'alice\path"beta'})
+    assert result == r'metadata["user_id"] = "alice\\path\"beta"'
+
+
+def test_create_filter_renders_boolean(mochow_instance):
+    """Boolean values must be rendered unquoted in the backend's expected format."""
+    result = mochow_instance._create_filter({"active": True, "deleted": False})
+    assert 'metadata["active"] = True' in result
+    assert 'metadata["deleted"] = False' in result

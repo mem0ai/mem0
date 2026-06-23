@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Any, Dict, Optional
+
 from pydantic import Field
 
 from mem0.configs.rerankers.base import BaseRerankerConfig
@@ -45,4 +46,9 @@ class LLMRerankerConfig(BaseRerankerConfig):
     scoring_prompt: Optional[str] = Field(
         default=None,
         description="Custom prompt template for scoring documents"
+    )
+    llm: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Nested LLM configuration with 'provider' and 'config' keys. "
+        "Overrides top-level provider/model/api_key when provided.",
     )

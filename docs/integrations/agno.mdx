@@ -1,5 +1,6 @@
 ---
 title: Agno
+description: "Add persistent multimodal memory to Agno-based agents using Mem0 for text and image interactions."
 ---
 
 This integration of [**Mem0**](https://github.com/mem0ai/mem0) with [Agno](https://github.com/agno-agi/agno) enables persistent, multimodal memory for Agno-based agents - improving personalization, context awareness, and continuity across conversations.
@@ -22,7 +23,7 @@ pip install agno mem0ai python-dotenv
 ```
 
 2. Valid API keys:
-   - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys)
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-agno" rel="nofollow">Mem0 API Key</a>
    - OpenAI API Key (for the agent model)
 
 ## Quick Integration (Using `Mem0Tools`)
@@ -36,7 +37,7 @@ from agno.tools.mem0 import Mem0Tools
 
 agent = Agent(
     name="Memory Agent",
-    model=OpenAIChat(id="gpt-4.1-nano-2025-04-14"),
+    model=OpenAIChat(id="gpt-5-mini"),
     tools=[Mem0Tools()],
     description="An assistant that remembers and personalizes using Mem0 memory."
 )
@@ -125,7 +126,7 @@ def chat_user(
 
     if user_input:
         # Search for relevant memories
-        memories = client.search(user_input, user_id=user_id)
+        memories = client.search(user_input, filters={"user_id": user_id})
         memory_context = "\n".join(f"- {m['memory']}" for m in memories['results'])
 
         # Construct the prompt

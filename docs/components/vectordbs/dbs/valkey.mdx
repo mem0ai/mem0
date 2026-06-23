@@ -1,3 +1,7 @@
+---
+title: "Valkey"
+description: "Use Valkey as an open-source vector store in Mem0 for high-performance key-value storage with vector search."
+---
 # Valkey Vector Store
 
 [Valkey](https://valkey.io/) is an open source (BSD) high-performance key/value datastore that supports a variety of workloads and rich datastructures including vector search.
@@ -46,4 +50,25 @@ Here are the parameters available for configuring Valkey:
 | `hnsw_m` | Number of bi-directional links for HNSW | `16` |
 | `hnsw_ef_construction` | Size of dynamic candidate list for HNSW | `200` |
 | `hnsw_ef_runtime` | Size of dynamic candidate list for search | `10` |
+| `cluster_mode` | Enable cluster mode for Valkey cluster (CME) deployments | `false` |
 | `distance_metric` | Distance metric for vector similarity | `cosine` |
+
+## Cluster Mode
+
+To use Valkey with cluster mode enabled (CME), set `cluster_mode` to `true`:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "valkey",
+        "config": {
+            "collection_name": "memories",
+            "valkey_url": "valkey://cluster-endpoint:6379",
+            "embedding_model_dims": 1536,
+            "cluster_mode": True
+        }
+    }
+}
+```
+
+When cluster mode is enabled, the connector uses `ValkeyCluster` instead of the standalone client, which handles `MOVED`/`ASK` redirections automatically. Search queries are coordinated across all shards by the valkey-search module's built-in coordinator. See the [valkey-search documentation](https://github.com/valkey-io/valkey-search) for details on cluster mode behavior.

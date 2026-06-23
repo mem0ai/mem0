@@ -16,24 +16,49 @@ export class GoogleLLM implements LLM {
     responseFormat?: { type: string },
     tools?: any[],
   ): Promise<string | LLMResponse> {
-    const completion = await this.google.models.generateContent({
-      contents: messages.map((msg) => ({
-        parts: [
-          {
-            text:
-              typeof msg.content === "string"
-                ? msg.content
-                : JSON.stringify(msg.content),
-          },
-        ],
-        role: msg.role === "system" ? "model" : "user",
-      })),
+    const contents = messages.map((msg) => ({
+      parts: [
+        {
+          text:
+            typeof msg.content === "string"
+              ? msg.content
+              : JSON.stringify(msg.content),
+        },
+      ],
+      role: msg.role === "system" ? "model" : "user",
+    }));
 
+    // Build config with tools if provided
+    const config: Record<string, any> = {};
+    if (tools && tools.length > 0) {
+      config.tools = [
+        {
+          functionDeclarations: tools.map((tool) => ({
+            name: tool.function.name,
+            description: tool.function.description,
+            parameters: tool.function.parameters,
+          })),
+        },
+      ];
+    }
+
+    const completion = await this.google.models.generateContent({
+      contents,
       model: this.model,
-      // config: {
-      //   responseSchema: {}, // Add response schema if needed
-      // },
+      config,
     });
+
+    // Handle function call responses
+    if (completion.functionCalls && completion.functionCalls.length > 0) {
+      return {
+        content: completion.text || "",
+        role: "assistant",
+        toolCalls: completion.functionCalls.map((call) => ({
+          name: call.name!,
+          arguments: JSON.stringify(call.args),
+        })),
+      };
+    }
 
     const text = completion.text
       ?.replace(/^```json\n/, "")

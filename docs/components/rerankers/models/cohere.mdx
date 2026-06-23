@@ -1,6 +1,6 @@
 ---
 title: Cohere
-description: "Reranking with Cohere"
+description: "Configure Cohere as a reranker in Mem0 with support for English and multilingual reranking models."
 ---
 
 Cohere provides enterprise-grade reranking models with excellent multilingual support and production-ready performance.
@@ -35,7 +35,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4.1-nano-2025-04-14"
+            "model": "gpt-5-mini"
         }
     },
     "reranker": {
@@ -95,7 +95,7 @@ messages = [
 memory.add(messages, user_id="bob")
 
 # Search with reranking
-results = memory.search("What is the user's profession?", user_id="bob")
+results = memory.search("What is the user's profession?", filters={"user_id": "bob"})
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")

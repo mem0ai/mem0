@@ -2,6 +2,8 @@ from unittest.mock import Mock
 
 import pytest
 
+pytest.importorskip("langchain", reason="langchain not installed")
+
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.langchain import LangchainLLM
 
@@ -111,6 +113,20 @@ def test_generate_response_with_tools(mock_langchain_model):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_forwards_extra_kwargs(mock_langchain_model):
+    """Per the LLMBase contract, extra model kwargs must be accepted and forwarded to
+    the underlying LangChain model's ``invoke``."""
+    config = BaseLlmConfig(model=mock_langchain_model, temperature=0.7, max_tokens=100, api_key="test-api-key")
+    llm = LangchainLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    response = llm.generate_response(messages, frequency_penalty=0.5)
+
+    mock_langchain_model.invoke.assert_called_once()
+    assert mock_langchain_model.invoke.call_args.kwargs["frequency_penalty"] == 0.5
+    assert response == "This is a test response"
 
 
 def test_invalid_model():

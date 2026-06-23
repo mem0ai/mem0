@@ -26,7 +26,7 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
-    VECTOR_TYPE = "knnVector"
+    VECTOR_TYPE = "vector"
     SIMILARITY_METRIC = "cosine"
 
     def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
@@ -51,7 +51,7 @@ class MongoDB(VectorStoreBase):
         """Create new collection with vector search index."""
         try:
             database = self.client[self.db_name]
-            collection_names = database.list_collection_names()
+            collection_names = database.list_collection_names(authorizedCollections=True)
             if self.collection_name not in collection_names:
                 logger.info(f"Collection '{self.collection_name}' does not exist. Creating it now.")
                 collection = database[self.collection_name]
@@ -69,23 +69,57 @@ class MongoDB(VectorStoreBase):
             else:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
+                    type="vectorSearch",
                     definition={
-                        "mappings": {
-                            "dynamic": False,
-                            "fields": {
-                                "embedding": {
-                                    "type": self.VECTOR_TYPE,
-                                    "dimensions": self.embedding_model_dims,
-                                    "similarity": self.SIMILARITY_METRIC,
-                                }
-                            },
-                        }
+                        "fields": [
+                            {
+                                "type": self.VECTOR_TYPE,
+                                "path": "embedding",
+                                "numDimensions": self.embedding_model_dims,
+                                "similarity": self.SIMILARITY_METRIC,
+                            }
+                        ]
                     },
                 )
                 collection.create_search_index(search_index_model)
                 logger.info(
                     f"Search index '{self.index_name}' created successfully for collection '{self.collection_name}'."
                 )
+
+            # Create Atlas Search text index for keyword_search()
+            text_index_name = f"{self.collection_name}_text_search_index"
+            try:
+                found_text_indexes = list(collection.list_search_indexes(name=text_index_name))
+                if not found_text_indexes:
+                    text_search_index_model = SearchIndexModel(
+                        name=text_index_name,
+                        definition={
+                            "mappings": {
+                                "dynamic": False,
+                                "fields": {
+                                    "payload": {
+                                        "type": "document",
+                                        "fields": {
+                                            "data": {"type": "string"},
+                                            "text_lemmatized": {"type": "string"},
+                                        },
+                                    }
+                                },
+                            }
+                        },
+                    )
+                    collection.create_search_index(text_search_index_model)
+                    logger.info(
+                        f"Text search index '{text_index_name}' created successfully for collection '{self.collection_name}'."
+                    )
+                else:
+                    logger.info(f"Text search index '{text_index_name}' already exists in collection '{self.collection_name}'.")
+            except Exception as e:
+                logger.warning(
+                    f"Could not create text search index '{text_index_name}': {e}. "
+                    "Atlas Search may not be available. keyword_search() will not work."
+                )
+
             return collection
         except PyMongoError as e:
             logger.error(f"Error creating collection and search index: {e}")
@@ -114,14 +148,30 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
-    def search(self, query: str, vectors: List[float], limit=5, filters: Optional[Dict] = None) -> List[OutputData]:
+    @staticmethod
+    def _validate_filter_value(key: str, value: Any) -> None:
+        """Reject values that could inject MongoDB query operators (e.g. $ne, $gt)."""
+        if isinstance(value, dict):
+            raise ValueError(
+                f"Filter value for {key!r} must be a scalar (str, int, float, bool), "
+                f"not a dict. Dicts may contain MongoDB query operators."
+            )
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    raise ValueError(
+                        f"Filter list for {key!r} contains a dict, "
+                        f"which may contain MongoDB query operators."
+                    )
+
+    def search(self, query: str, vectors: List[float], top_k=5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
 
         Args:
             query (str): Query string
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -133,6 +183,10 @@ class MongoDB(VectorStoreBase):
             logger.error(f"Index '{self.index_name}' does not exist.")
             return []
 
+        if filters:
+            for key, value in filters.items():
+                self._validate_filter_value(key, value)
+
         results = []
         try:
             collection = self.client[self.db_name][self.collection_name]
@@ -140,8 +194,8 @@ class MongoDB(VectorStoreBase):
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
-                        "limit": limit,
-                        "numCandidates": limit,
+                        "limit": top_k,
+                        "numCandidates": min(top_k * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -168,6 +222,61 @@ class MongoDB(VectorStoreBase):
 
         output = [OutputData(id=str(doc["_id"]), score=doc.get("score"), payload=doc.get("payload")) for doc in results]
         return output
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Perform keyword-based search using MongoDB Atlas Search.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results, or None if Atlas Search index is not available.
+        """
+        if filters:
+            for key, value in filters.items():
+                self._validate_filter_value(key, value)
+        try:
+            collection = self.client[self.db_name][self.collection_name]
+            search_index_name = f"{self.collection_name}_text_search_index"
+
+            pipeline = [
+                {
+                    "$search": {
+                        "index": search_index_name,
+                        "text": {
+                            "query": query,
+                            "path": ["payload.data", "payload.text_lemmatized"],
+                        },
+                    }
+                },
+                {"$set": {"score": {"$meta": "searchScore"}}},
+                {"$project": {"embedding": 0}},
+            ]
+
+            # Add filter stage if filters are provided
+            if filters:
+                filter_conditions = []
+                for key, value in filters.items():
+                    filter_conditions.append({"payload." + key: value})
+                if filter_conditions:
+                    pipeline.insert(1, {"$match": {"$and": filter_conditions}})
+
+            pipeline.append({"$limit": top_k})
+
+            results = list(collection.aggregate(pipeline))
+            logger.info(f"Keyword search completed. Found {len(results)} documents.")
+
+            output = [
+                OutputData(id=str(doc["_id"]), score=doc.get("score"), payload=doc.get("payload"))
+                for doc in results
+            ]
+            return output
+        except Exception as e:
+            logger.error(f"Error during keyword search for query '{query}': {e}")
+            return None
 
     def delete(self, vector_id: str) -> None:
         """
@@ -198,7 +307,8 @@ class MongoDB(VectorStoreBase):
         if vector is not None:
             update_fields["embedding"] = vector
         if payload is not None:
-            update_fields["payload"] = payload
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
@@ -240,7 +350,7 @@ class MongoDB(VectorStoreBase):
             List[str]: List of collection names.
         """
         try:
-            collections = self.db.list_collection_names()
+            collections = self.db.list_collection_names(authorizedCollections=True)
             logger.info(f"Listing collections in database '{self.db_name}': {collections}")
             return collections
         except PyMongoError as e:
@@ -271,17 +381,20 @@ class MongoDB(VectorStoreBase):
             logger.error(f"Error getting collection info: {e}")
             return {}
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return.
+            top_k (int, optional): Number of vectors to return.
 
         Returns:
             List[OutputData]: List of vectors.
         """
+        if filters:
+            for key, value in filters.items():
+                self._validate_filter_value(key, value)
         try:
             query = {}
             if filters:
@@ -292,19 +405,19 @@ class MongoDB(VectorStoreBase):
                 if filter_conditions:
                     query = {"$and": filter_conditions}
 
-            cursor = self.collection.find(query).limit(limit)
+            cursor = self.collection.find(query).limit(top_k)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
-            return results
+            return [results]
         except PyMongoError as e:
             logger.error(f"Error listing documents: {e}")
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.collection = self.create_col(self.collection_name)
+        self.collection = self.create_col()
 
     def __del__(self) -> None:
         """Close the database connection when the object is deleted."""
