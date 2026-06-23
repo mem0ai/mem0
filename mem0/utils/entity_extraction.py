@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,51 @@ _GENERIC_CAPS = {
 # Markdown/formatting markers to skip during extraction
 _FORMATTING_MARKERS = {"*", "-", "+", "\u2022", "\u2013", "\u2014", "#", "##", "###", "**", "__"}
 
+_CODE_ENTITY_RE = re.compile(
+    r"\b(?=[A-Za-z0-9._:-]*[A-Za-z])(?=[A-Za-z0-9._:-]*\d)[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)+\b"
+    r"|\b(?=[A-Za-z]*\d)(?=\d*[A-Za-z])[A-Za-z0-9]{3,}\b"
+)
+_QUOTE_PAIRS = (
+    ('"', '"'),
+    ("\u201c", "\u201d"),
+    ("\u2018", "\u2019"),
+    ("\u300c", "\u300d"),
+    ("\u300e", "\u300f"),
+    ("\u300a", "\u300b"),
+)
+
+
+def _has_entity_signal(text: str) -> bool:
+    stripped = text.strip()
+    has_non_ascii_letter = any(unicodedata.category(ch).startswith("L") and not ch.isascii() for ch in stripped)
+    return len(stripped) > 2 or (len(stripped) >= 2 and has_non_ascii_letter)
+
+
+def _extract_quoted_entities(text: str) -> List[Tuple[str, str]]:
+    entities = []
+
+    for open_quote, close_quote in _QUOTE_PAIRS:
+        pattern = rf"{re.escape(open_quote)}([^{re.escape(close_quote)}]+){re.escape(close_quote)}"
+        for m in re.finditer(pattern, text):
+            if _has_entity_signal(m.group(1)):
+                entities.append(("QUOTED", m.group(1).strip()))
+    for m in re.finditer(r"(?:^|[\s\(\[{,;])'([^']+)'(?=[\s\.,;:!?\)\]]|$)", text):
+        if _has_entity_signal(m.group(1)):
+            entities.append(("QUOTED", m.group(1).strip()))
+
+    return entities
+
+
+def _extract_regex_entities(text: str) -> List[Tuple[str, str]]:
+    entities: List[Tuple[str, str]] = _extract_quoted_entities(text)
+
+    for m in _CODE_ENTITY_RE.finditer(text):
+        value = m.group(0).strip()
+        if _has_entity_signal(value):
+            entities.append(("PROPER", value))
+
+    return entities
+
 
 def _is_sentence_start(tokens: list, idx: int) -> bool:
     """Check if a token is at the start of a sentence or after formatting."""
@@ -121,67 +167,96 @@ def _has_artifacts(txt: str) -> bool:
 
 
 def extract_entities(text: str) -> List[Tuple[str, str]]:
-    """Extract named entities, quoted text, and noun compounds from text.
-
-    This is the public API that accepts a string. It loads the spaCy model
-    internally and delegates to _extract_entities_from_doc().
-
-    Args:
-        text: Input text to extract entities from.
-
-    Returns:
-        Deduplicated list of (entity_type, entity_text) tuples.
-        Entity types: PROPER, QUOTED, COMPOUND, NOUN.
-        Returns empty list if spaCy is unavailable.
-    """
+    """Extract named entities, quoted text, noun compounds, and ID/code entities from text."""
     from mem0.utils.spacy_models import get_nlp_full
 
+    fallback_entities = _extract_regex_entities(text)
     nlp = get_nlp_full()
     if nlp is None:
-        return []
+        return _dedupe_and_clean_entities(fallback_entities)
 
     doc = nlp(text)
-    return _extract_entities_from_doc(doc)
+    return _dedupe_and_clean_entities(fallback_entities + _extract_entities_from_doc(doc))
 
 
 def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[Tuple[str, str]]]:
-    """Extract entities from multiple texts using spaCy's nlp.pipe() for batched NER.
-
-    Uses spaCy's efficient batch processing pipeline instead of calling
-    nlp() individually per text. Significantly faster for multiple texts.
-
-    Args:
-        texts: List of input texts to extract entities from.
-        batch_size: Number of texts to process in each spaCy batch.
-
-    Returns:
-        List of entity lists, one per input text. Each entity list contains
-        (entity_type, entity_text) tuples. Returns list of empty lists if
-        spaCy is unavailable.
-    """
+    """Extract entities from multiple texts using spaCy nlp.pipe when available."""
     if not texts:
         return []
 
     from mem0.utils.spacy_models import get_nlp_full
 
+    fallback_results = [_extract_regex_entities(text) for text in texts]
     nlp = get_nlp_full()
     if nlp is None:
-        return [[] for _ in texts]
+        return [_dedupe_and_clean_entities(entities) for entities in fallback_results]
 
-    results = []
-    for doc in nlp.pipe(texts, batch_size=batch_size):
-        results.append(_extract_entities_from_doc(doc))
+    results = [_dedupe_and_clean_entities(entities) for entities in fallback_results]
+    docs_seen = 0
+    for idx, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
+        if idx >= len(texts):
+            logger.warning("spaCy nlp.pipe returned more docs than input texts; ignoring extra docs")
+            break
+        results[idx] = _dedupe_and_clean_entities(fallback_results[idx] + _extract_entities_from_doc(doc))
+        docs_seen += 1
+    if docs_seen < len(texts):
+        logger.warning(
+            "spaCy nlp.pipe returned fewer docs than input texts; using fallback-only extraction for missing docs"
+        )
     return results
 
 
-def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
-    """Extract entities from a spaCy Doc object.
+def _is_code_like_entity(entity_type: str, entity_text: str) -> bool:
+    return entity_type == "PROPER" and _CODE_ENTITY_RE.fullmatch(entity_text.strip()) is not None
 
-    Ported from platform's shared.core.utils.entity_extraction.extract_entities().
-    """
+
+def _dedupe_and_clean_entities(entities: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    seen: set = set()
+    deduped = []
+    for t, e in entities:
+        k = e.lower().strip()
+        if k not in seen and _has_entity_signal(k):
+            seen.add(k)
+            deduped.append((t, e))
+
+    cleaned: List[Tuple[str, str]] = []
+    for etype, etext in deduped:
+        txt = re.sub(r"^\*+\s*|\s*\*+$", "", etext.strip())
+        txt = re.sub(r"\s*:+$", "", txt)
+        txt = re.sub(r"^\d+\s*\.\s*", "", txt)
+        if not txt or not _has_entity_signal(txt) or _has_artifacts(txt):
+            continue
+        if etype == "PROPER" and " " not in txt and txt.lower() in _GENERIC_CAPS:
+            continue
+        cleaned.append((etype, txt))
+
+    type_pri = {"PROPER": 0, "COMPOUND": 1, "QUOTED": 2, "NOUN": 3, "VERB": 4}
+    best: dict = {}
+    for t, e in cleaned:
+        k = e.lower()
+        if k not in best or type_pri.get(t, 99) < type_pri.get(best[k][0], 99):
+            best[k] = (t, e)
+    deduped = list(best.values())
+
+    all_lower = [e[1].lower() for e in deduped]
+    return [
+        (t, e)
+        for t, e in deduped
+        if _is_code_like_entity(t, e)
+        or not any(e.lower() != o and re.search(rf"\b{re.escape(e.lower())}\b", o) for o in all_lower)
+    ]
+
+
+def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
+    """Extract entities from a spaCy Doc object."""
     entities: List[Tuple[str, str]] = []
     text = doc.text
     tokens = list(doc)
+
+    for ent in getattr(doc, "ents", ()):
+        ent_text = getattr(ent, "text", "").strip()
+        if _has_entity_signal(ent_text):
+            entities.append(("PROPER", ent_text))
 
     # === PROPER NOUN SEQUENCES ===
     i = 0
@@ -223,15 +298,15 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
             i += 1
 
     # === QUOTED TEXT ===
-    for m in re.finditer(r'"([^"]+)"', text):
-        if len(m.group(1).strip()) > 2:
-            entities.append(("QUOTED", m.group(1).strip()))
-    for m in re.finditer(r"(?:^|[\s\(\[{,;])'([^']+)'(?=[\s\.,;:!?\)\]]|$)", text):
-        if len(m.group(1).strip()) > 2:
-            entities.append(("QUOTED", m.group(1).strip()))
+    entities.extend(_extract_quoted_entities(text))
 
     # === NOUN-NOUN COMPOUNDS ===
-    for chunk in doc.noun_chunks:
+    try:
+        noun_chunks = list(doc.noun_chunks)
+    except (NotImplementedError, ValueError):
+        noun_chunks = []
+
+    for chunk in noun_chunks:
         chunk_tokens = list(chunk)
         split_indices: list = []
         poss_splits: list = []
@@ -323,41 +398,4 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
                     entities.append(("COMPOUND", phrase))
                     processed.add(phrase.lower())
 
-    # === DEDUPLICATION & CLEANUP ===
-    seen: set = set()
-    deduped = []
-    for t, e in entities:
-        k = e.lower().strip()
-        if k not in seen and len(k) > 2:
-            seen.add(k)
-            deduped.append((t, e))
-
-    cleaned: List[Tuple[str, str]] = []
-    for etype, etext in deduped:
-        txt = re.sub(r"^\*+\s*|\s*\*+$", "", etext.strip())
-        txt = re.sub(r"\s*:+$", "", txt)
-        txt = re.sub(r"^\d+\s*\.\s*", "", txt)
-        if not txt or len(txt) <= 2 or _has_artifacts(txt):
-            continue
-        if etype == "PROPER" and " " not in txt and txt.lower() in _GENERIC_CAPS:
-            continue
-        cleaned.append((etype, txt))
-
-    # Keep best type per entity (PROPER > COMPOUND > QUOTED > NOUN)
-    type_pri = {"PROPER": 0, "COMPOUND": 1, "QUOTED": 2, "NOUN": 3, "VERB": 4}
-    best: dict = {}
-    for t, e in cleaned:
-        k = e.lower()
-        if k not in best or type_pri.get(t, 99) < type_pri.get(best[k][0], 99):
-            best[k] = (t, e)
-    deduped = list(best.values())
-
-    # Remove entities that are whole-word substrings of longer entities.
-    # Word-boundary anchoring avoids dropping distinct entities that only share a
-    # leading substring (e.g. "Sam" must survive alongside "Samsung").
-    all_lower = [e[1].lower() for e in deduped]
-    return [
-        (t, e)
-        for t, e in deduped
-        if not any(e.lower() != o and re.search(rf"\b{re.escape(e.lower())}\b", o) for o in all_lower)
-    ]
+    return entities
