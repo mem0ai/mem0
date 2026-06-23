@@ -186,6 +186,17 @@ class PineconeDB(VectorStoreBase):
 
             return result
 
+    OPERATOR_MAP = {
+        "eq": "$eq",
+        "ne": "$ne",
+        "gt": "$gt",
+        "gte": "$gte",
+        "lt": "$lt",
+        "lte": "$lte",
+        "in": "$in",
+        "nin": "$nin",
+    }
+
     def _create_filter(self, filters: Optional[Dict]) -> Dict:
         """
         Create a filter dictionary from the provided filters.
@@ -196,8 +207,15 @@ class PineconeDB(VectorStoreBase):
         pinecone_filter = {}
 
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                pinecone_filter[key] = {"$gte": value["gte"], "$lte": value["lte"]}
+            if isinstance(value, dict):
+                condition = {}
+                for op, operand in value.items():
+                    pc_op = self.OPERATOR_MAP.get(op)
+                    if pc_op:
+                        condition[pc_op] = operand
+                    else:
+                        condition[f"${op}"] = operand
+                pinecone_filter[key] = condition
             else:
                 pinecone_filter[key] = {"$eq": value}
 
