@@ -1,4 +1,4 @@
-import type { Client as ClientType } from "pg";
+import type { Client as ClientType, ClientConfig } from "pg";
 import pkg from "pg";
 const { Client, escapeIdentifier } = pkg;
 import { VectorStore } from "./base";
@@ -157,13 +157,57 @@ export function buildFilterConditions(
 
 interface PGVectorConfig extends VectorStoreConfig {
   dbname?: string;
-  user: string;
-  password: string;
-  host: string;
-  port: number;
+  user?: string;
+  password?: string;
+  host?: string;
+  port?: number;
+  connectionString?: string;
+  ssl?: ClientConfig["ssl"];
   embeddingModelDims: number;
   diskann?: boolean;
   hnsw?: boolean;
+}
+
+function getConnectionString(config: PGVectorConfig): string | undefined {
+  return config.connectionString?.trim() || undefined;
+}
+
+function validateConnectionConfig(config: PGVectorConfig): void {
+  if (getConnectionString(config)) {
+    return;
+  }
+
+  const missingFields = ["user", "password", "host", "port"].filter(
+    (field) => config[field as keyof PGVectorConfig] === undefined,
+  );
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `PGVector requires either connectionString or ${missingFields.join(", ")}`,
+    );
+  }
+}
+
+function buildClientConfig(
+  config: PGVectorConfig,
+  database?: string,
+): ClientConfig {
+  const connectionString = getConnectionString(config);
+  if (connectionString) {
+    return {
+      connectionString,
+      ...(config.ssl !== undefined ? { ssl: config.ssl } : {}),
+    };
+  }
+
+  return {
+    database,
+    user: config.user,
+    password: config.password,
+    host: config.host,
+    port: config.port,
+    ...(config.ssl !== undefined ? { ssl: config.ssl } : {}),
+  };
 }
 
 export class PGVector implements VectorStore {
@@ -172,26 +216,30 @@ export class PGVector implements VectorStore {
   private useDiskann: boolean;
   private useHnsw: boolean;
   private readonly dbName: string;
+  private readonly useDirectConnection: boolean;
   private config: PGVectorConfig;
   private _initPromise?: Promise<void>;
 
   constructor(config: PGVectorConfig) {
+    validateConnectionConfig(config);
     this.collectionName = validateIdentifier(
       config.collectionName || "memories",
       "collectionName",
     );
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
-    this.dbName = validateIdentifier(config.dbname || "vector_store", "dbname");
+    this.useDirectConnection = !!getConnectionString(config);
+    this.dbName = this.useDirectConnection
+      ? ""
+      : validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
-    this.client = new Client({
-      database: "postgres", // Initially connect to default postgres database
-      user: config.user,
-      password: config.password,
-      host: config.host,
-      port: config.port,
-    });
+    this.client = new Client(
+      buildClientConfig(
+        config,
+        this.useDirectConnection ? undefined : "postgres",
+      ),
+    );
     this.initialize().catch(console.error);
   }
 
@@ -210,29 +258,20 @@ export class PGVector implements VectorStore {
     try {
       await this.client.connect();
 
-      // Check if database exists
-      const dbExists = await this.checkDatabaseExists(this.dbName);
-      if (!dbExists) {
-        await this.createDatabase(this.dbName);
+      if (!this.useDirectConnection) {
+        const dbExists = await this.checkDatabaseExists(this.dbName);
+        if (!dbExists) {
+          await this.createDatabase(this.dbName);
+        }
+
+        await this.client.end();
+
+        this.client = new Client(buildClientConfig(this.config, this.dbName));
+        await this.client.connect();
       }
 
-      // Disconnect from postgres database
-      await this.client.end();
-
-      // Connect to the target database
-      this.client = new Client({
-        database: this.dbName,
-        user: this.config.user,
-        password: this.config.password,
-        host: this.config.host,
-        port: this.config.port,
-      });
-      await this.client.connect();
-
-      // Create vector extension
       await this.client.query("CREATE EXTENSION IF NOT EXISTS vector");
 
-      // Create memory_migrations table
       await this.client.query(`
         CREATE TABLE IF NOT EXISTS memory_migrations (
           id SERIAL PRIMARY KEY,
@@ -240,7 +279,6 @@ export class PGVector implements VectorStore {
         )
       `);
 
-      // Check if the collection exists
       const collections = await this.listCols();
       if (!collections.includes(this.collectionName)) {
         await this.createCol(this.config.embeddingModelDims);
