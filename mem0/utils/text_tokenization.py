@@ -93,7 +93,7 @@ def _append_char_ngrams(tokens: list[str], raw: str) -> None:
 
 def tokenize_for_bm25(text: str) -> list[str]:
     """Tokenize text into a BM25-friendly stream without external dependencies."""
-    normalized = text.casefold()
+    normalized = unicodedata.normalize("NFKC", text).casefold()
     tokens: list[str] = []
     word_run: list[str] = []
     char_run: list[str] = []

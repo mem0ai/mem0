@@ -129,7 +129,7 @@ pip install "mem0ai[nlp]"
 python -m spacy download en_core_web_sm
 ```
 
-BM25 keyword preprocessing includes dependency-free multilingual tokenization for non-Latin scripts such as CJK, Thai, Arabic, and Cyrillic. No language-specific spaCy model is required for non-Latin BM25 tokenization. The default spaCy model remains `en_core_web_sm` for English lemmatization and entity extraction.
+BM25 keyword preprocessing includes dependency-free multilingual tokenization for non-Latin scripts such as CJK, Thai, Arabic, and Cyrillic. No language-specific spaCy model is required for non-Latin BM25 tokenization, and non-Latin BM25 preprocessing always uses the built-in tokenizer. The default spaCy model remains `en_core_web_sm` for English lemmatization and entity extraction.
 
 Install/download any non-default spaCy model before setting it, e.g. `python -m spacy download zh_core_web_sm`. To use a different spaCy pipeline for entity extraction or lemmatization, set:
 
@@ -139,7 +139,7 @@ export MEM0_SPACY_ENTITY_MODEL=zh_core_web_sm
 export MEM0_SPACY_LEMMA_MODEL=en_core_web_sm
 ```
 
-`MEM0_SPACY_ENTITY_MODEL` and `MEM0_SPACY_LEMMA_MODEL` override `MEM0_SPACY_MODEL` for their specific pipelines.
+`MEM0_SPACY_ENTITY_MODEL` and `MEM0_SPACY_LEMMA_MODEL` override `MEM0_SPACY_MODEL` for their specific pipelines. `MEM0_SPACY_LEMMA_MODEL` applies to Latin-only spaCy lemmatization.
 
 Existing collections keep the `text_lemmatized` value stored at insert/update time. Re-add, update, or reindex existing memories to refresh BM25 tokens after upgrading. Backends that add BM25 fields or sparse vector slots may require a fresh v3 collection or backend-specific reindexing.
 

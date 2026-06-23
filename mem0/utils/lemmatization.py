@@ -39,6 +39,8 @@ def lemmatize_for_bm25(text: str) -> str:
         lemma = token.lemma_
         if lemma.isalnum():
             tokens.append(lemma)
+        else:
+            tokens.extend(tokenize_for_bm25(token.text))
 
         if token.text.endswith("ing") and token.text != lemma and token.text.isalnum():
             tokens.append(token.text)

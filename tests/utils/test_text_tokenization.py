@@ -39,13 +39,15 @@ def test_extended_cjk_and_hangul_jamo_generate_character_ngrams():
     cjk_extension_b = tokenize_for_bm25("𠀀𠀁")
     cjk_compatibility = tokenize_for_bm25("﨑塚")
     hangul_jamo = tokenize_for_bm25("한")
+    hangul_syllable = tokenize_for_bm25("한")
 
     assert "𠀀" in cjk_extension_b
     assert "𠀀𠀁" in cjk_extension_b
     assert "﨑" in cjk_compatibility
-    assert "﨑塚" in cjk_compatibility
-    assert "ᄒ" in hangul_jamo
-    assert "하" in hangul_jamo
+    assert "塚" in cjk_compatibility
+    assert "﨑塚" in cjk_compatibility
+    assert "한" in hangul_jamo
+    assert set(hangul_jamo) & set(hangul_syllable)
 
 
 def test_spaced_non_latin_scripts_split_into_word_runs():
@@ -67,6 +69,23 @@ def test_mixed_identifiers_preserve_whole_and_parts():
     assert "sku_77" in tokens
     assert "sku" in tokens
     assert "77" in tokens
+
+
+def test_fullwidth_identifiers_normalize_to_ascii_tokens():
+    fullwidth = set(tokenize_for_bm25("员工 ＥＭＰ－１２３ 使用 ｓｋｕ＿７７"))
+    ascii_tokens = set(tokenize_for_bm25("EMP-123 sku_77"))
+
+    assert {"emp-123", "emp", "123", "sku_77", "sku", "77"} <= fullwidth
+    assert fullwidth & ascii_tokens
+
+
+def test_halfwidth_katakana_normalizes_to_character_ngrams():
+    halfwidth = set(tokenize_for_bm25("ｶﾀｶﾅ"))
+    fullwidth = set(tokenize_for_bm25("カタカナ"))
+
+    assert "カ" in halfwidth
+    assert "カタ" in halfwidth
+    assert {"カ", "カタ", "タカ", "カナ"} <= (halfwidth & fullwidth)
 
 
 def test_repeated_cjk_tokens_are_not_deduplicated():

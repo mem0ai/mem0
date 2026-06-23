@@ -161,3 +161,34 @@ class TestMultilingualBm25Fallback:
         assert "sku_77" in tokens
         assert "sku" in tokens
         assert "77" in tokens
+
+    def test_spacy_path_preserves_mixed_identifier_tokens(self, monkeypatch):
+        from mem0.utils import spacy_models
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        class FakeToken:
+            def __init__(self, text, lemma):
+                self.text = text
+                self.lemma_ = lemma
+                self.is_punct = False
+                self.is_stop = False
+
+        def fake_nlp(text):
+            assert text == "employee emp-123 sku_77"
+            return [
+                FakeToken("employee", "employee"),
+                FakeToken("emp-123", "emp-123"),
+                FakeToken("sku_77", "sku_77"),
+            ]
+
+        monkeypatch.setattr(spacy_models, "get_nlp_lemma", lambda: fake_nlp)
+
+        tokens = lemmatize_for_bm25("Employee EMP-123 sku_77").split()
+
+        assert "employee" in tokens
+        assert "emp-123" in tokens
+        assert "emp" in tokens
+        assert "123" in tokens
+        assert "sku_77" in tokens
+        assert "sku" in tokens
+        assert "77" in tokens
