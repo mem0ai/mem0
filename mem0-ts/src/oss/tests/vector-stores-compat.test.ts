@@ -686,6 +686,11 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 // 6. Neptune Analytics — mock NeptuneGraph client, test interface + init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Neptune Analytics – backward compat with mocked client", () => {
+  afterEach(() => {
+    jest.dontMock("@aws-sdk/client-neptune-graph");
+    jest.resetModules();
+  });
+
   function createMockResponse(body: Record<string, any>) {
     return {
       payload: {
@@ -1112,6 +1117,72 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
     await Promise.all([p1, p2, p3]);
     expect(mockClient.send).not.toHaveBeenCalled();
+  });
+
+  it("passes custom HTTPS endpoints to the AWS client when graphIdentifier is provided", () => {
+    jest.resetModules();
+
+    const neptuneGraphClient = jest.fn().mockReturnValue({
+      send: jest.fn(),
+    });
+
+    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
+      ExecuteQueryCommand: class ExecuteQueryCommand {
+        input: any;
+
+        constructor(input: any) {
+          this.input = input;
+        }
+      },
+      NeptuneGraphClient: neptuneGraphClient,
+    }));
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    expect(neptuneGraphClient).toHaveBeenCalledWith({
+      endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+    });
+  });
+
+  it("rejects HTTPS endpoints without an explicit graphIdentifier", () => {
+    jest.resetModules();
+
+    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
+      ExecuteQueryCommand: class ExecuteQueryCommand {
+        input: any;
+
+        constructor(input: any) {
+          this.input = input;
+        }
+      },
+      NeptuneGraphClient: jest.fn().mockReturnValue({
+        send: jest.fn(),
+      }),
+    }));
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    expect(
+      () =>
+        new NeptuneAnalyticsVectorStore({
+          endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+          collectionName: "test",
+          dimension: 3,
+        }),
+    ).toThrow(
+      "Neptune Analytics HTTPS endpoints require graphIdentifier; pass graphIdentifier separately or use neptune-graph://<graph-id>.",
+    );
   });
 
   it("shapes Neptune write requests and normalizes search results", async () => {

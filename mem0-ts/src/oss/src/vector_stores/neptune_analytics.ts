@@ -54,7 +54,8 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     this.userLabelExpr = this.escapeLabel(this.userLabel);
     this.userNodeId = "mem0-user";
     this.dimension = config.dimension || 1536;
-    this.client = config.client || new NeptuneGraphClient({});
+    this.client =
+      config.client || new NeptuneGraphClient(this.buildClientConfig(config));
 
     void this.initialize();
   }
@@ -387,11 +388,21 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   }
 
   private resolveGraphIdentifier(config: NeptuneAnalyticsConfig): string {
-    const rawIdentifier = config.graphIdentifier || config.endpoint;
+    if (config.graphIdentifier) {
+      return config.graphIdentifier;
+    }
+
+    const rawIdentifier = config.endpoint;
 
     if (!rawIdentifier) {
       throw new Error(
         "Neptune Analytics vector store requires graphIdentifier or endpoint.",
+      );
+    }
+
+    if (/^https?:\/\//i.test(rawIdentifier)) {
+      throw new Error(
+        "Neptune Analytics HTTPS endpoints require graphIdentifier; pass graphIdentifier separately or use neptune-graph://<graph-id>.",
       );
     }
 
@@ -400,6 +411,16 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     }
 
     return rawIdentifier;
+  }
+
+  private buildClientConfig(config: NeptuneAnalyticsConfig): {
+    endpoint?: string;
+  } {
+    if (config.endpoint && /^https?:\/\//i.test(config.endpoint)) {
+      return { endpoint: config.endpoint };
+    }
+
+    return {};
   }
 
   private escapeLabel(label: string): string {
