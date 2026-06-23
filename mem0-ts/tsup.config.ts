@@ -4,6 +4,7 @@ import pkg from "./package.json";
 const external = [
   "openai",
   "@anthropic-ai/sdk",
+  "@baiducloud/sdk",
   "groq-sdk",
   "uuid",
   "pg",

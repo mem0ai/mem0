@@ -20,6 +20,7 @@ export * from "./llms/mistral";
 export * from "./llms/langchain";
 export * from "./vector_stores/base";
 export * from "./vector_stores/memory";
+export * from "./vector_stores/baidu";
 export * from "./vector_stores/qdrant";
 export * from "./vector_stores/redis";
 export * from "./vector_stores/supabase";
