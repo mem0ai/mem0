@@ -107,6 +107,37 @@ class TestMilvusDB:
         assert 'metadata["category"] == "work"' in filter_str
         assert ' and ' in filter_str
 
+    def test_create_filter_range_conditions(self, milvus_db):
+        """Test filter creation with range metadata operators."""
+        filters = {
+            "user_id": "alice",
+            "created_at": {
+                "gte": "2026-04-28T00:00:00+00:00",
+                "lt": "2026-04-29T00:00:00+00:00",
+            },
+        }
+
+        filter_str = milvus_db._create_filter(filters)
+
+        assert 'metadata["user_id"] == "alice"' in filter_str
+        assert 'metadata["created_at"] >= "2026-04-28T00:00:00+00:00"' in filter_str
+        assert 'metadata["created_at"] < "2026-04-29T00:00:00+00:00"' in filter_str
+
+    def test_create_filter_escapes_string_values(self, milvus_db):
+        """Test filter creation safely escapes string metadata values."""
+        filters = {"user_id": 'alice" OR metadata["user_id"] == "bob'}
+
+        filter_str = milvus_db._create_filter(filters)
+
+        assert filter_str == '(metadata["user_id"] == "alice\\" OR metadata[\\"user_id\\"] == \\"bob")'
+
+    def test_create_filter_rejects_unsupported_operator(self, milvus_db):
+        """Test unsupported operators fail instead of producing invalid Milvus filters."""
+        filters = {"memory": {"contains": "phone"}}
+
+        with pytest.raises(ValueError, match="Unsupported Milvus metadata filter operator"):
+            milvus_db._create_filter(filters)
+
     def test_search_with_filters(self, milvus_db, mock_milvus_client):
         """Test search with metadata filters (reproduces user's bug scenario)."""
         # Setup mock return value
@@ -329,4 +360,3 @@ class TestMilvusDB:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
