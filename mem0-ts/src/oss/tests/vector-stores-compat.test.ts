@@ -1045,7 +1045,10 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
               ? [
                   {
                     n: toNodeRecord(parameters.userNodeId, {
-                      user_id: storedUserId,
+                      labels: ["MEM0_VECTOR_memory_migrations"],
+                      properties: {
+                        user_id: storedUserId,
+                      },
                     }),
                   },
                 ]
@@ -1280,6 +1283,30 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     const [listed, count] = await store.list({ user_id: "u1" }, 1);
     expect(listed).toHaveLength(1);
     expect(count).toBe(2);
+  });
+
+  it("reads a persisted user id on a fresh store instance", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.setUserId("persisted-user");
+
+    const freshStore = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    expect(await freshStore.getUserId()).toBe("persisted-user");
   });
 
   it("throws when Neptune rejects an update upsert", async () => {

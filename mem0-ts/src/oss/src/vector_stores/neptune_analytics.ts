@@ -836,10 +836,9 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
           clauses.push(`toString(${field}) CONTAINS $${parameterName}`);
           break;
         case "icontains":
-          clauses.push(
-            `toLower(toString(${field})) CONTAINS toLower($${parameterName})`,
+          throw new Error(
+            "Neptune Analytics list filters do not support case-insensitive contains filters.",
           );
-          break;
         case "startsWith":
           clauses.push(`toString(${field}) STARTS WITH $${parameterName}`);
           break;
