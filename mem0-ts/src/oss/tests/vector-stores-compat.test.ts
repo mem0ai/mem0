@@ -700,12 +700,27 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
   }) {
     const nodes = new Map<
       string,
-      { embedding: number[]; properties: Record<string, any> }
+      {
+        embedding: number[];
+        labels: string[];
+        properties: Record<string, any>;
+      }
     >();
     let storedUserId: string | undefined;
 
+    const getPropertyValue = (
+      node: { labels: string[]; properties: Record<string, any> },
+      property: string,
+    ) => {
+      if (property === "~label") {
+        return node.labels;
+      }
+
+      return node.properties[property];
+    };
+
     const matchesFilter = (
-      properties: Record<string, any>,
+      node: { labels: string[]; properties: Record<string, any> },
       filter: any,
     ): boolean => {
       if (!filter) {
@@ -713,34 +728,137 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       }
 
       if (Array.isArray(filter.andAll)) {
-        return filter.andAll.every((entry: any) =>
-          matchesFilter(properties, entry),
+        return filter.andAll.every((entry: any) => matchesFilter(node, entry));
+      }
+
+      if (Array.isArray(filter.orAll)) {
+        return filter.orAll.some((entry: any) => matchesFilter(node, entry));
+      }
+
+      const propertyMatcher = (
+        property: string,
+        predicate: (value: any) => boolean,
+      ) => {
+        const value = getPropertyValue(node, property);
+        if (property === "~label") {
+          return (
+            Array.isArray(value) && value.some((label) => predicate(label))
+          );
+        }
+
+        return predicate(value);
+      };
+
+      if (filter.equals) {
+        return propertyMatcher(
+          filter.equals.property,
+          (value) => value === filter.equals.value,
         );
       }
 
-      if (filter.equals) {
-        if (filter.equals.property === "~label") {
-          return properties.label === filter.equals.value;
-        }
-
-        return properties[filter.equals.property] === filter.equals.value;
+      if (filter.notEquals) {
+        return propertyMatcher(
+          filter.notEquals.property,
+          (value) => value !== filter.notEquals.value,
+        );
       }
 
-      return true;
+      if (filter.greaterThan) {
+        return propertyMatcher(
+          filter.greaterThan.property,
+          (value) =>
+            typeof value === "number" && value > filter.greaterThan.value,
+        );
+      }
+
+      if (filter.greaterThanOrEquals) {
+        return propertyMatcher(
+          filter.greaterThanOrEquals.property,
+          (value) =>
+            typeof value === "number" &&
+            value >= filter.greaterThanOrEquals.value,
+        );
+      }
+
+      if (filter.lessThan) {
+        return propertyMatcher(
+          filter.lessThan.property,
+          (value) => typeof value === "number" && value < filter.lessThan.value,
+        );
+      }
+
+      if (filter.lessThanOrEquals) {
+        return propertyMatcher(
+          filter.lessThanOrEquals.property,
+          (value) =>
+            typeof value === "number" && value <= filter.lessThanOrEquals.value,
+        );
+      }
+
+      if (filter.in) {
+        return propertyMatcher(filter.in.property, (value) =>
+          filter.in.value.includes(value),
+        );
+      }
+
+      if (filter.notIn) {
+        return propertyMatcher(
+          filter.notIn.property,
+          (value) => !filter.notIn.value.includes(value),
+        );
+      }
+
+      if (filter.stringContains) {
+        return propertyMatcher(
+          filter.stringContains.property,
+          (value) =>
+            typeof value === "string" &&
+            value.includes(filter.stringContains.value),
+        );
+      }
+
+      if (filter.startsWith) {
+        return propertyMatcher(
+          filter.startsWith.property,
+          (value) =>
+            typeof value === "string" &&
+            value.startsWith(filter.startsWith.value),
+        );
+      }
+
+      return false;
     };
 
     const toNodeRecord = (
       id: string,
-      properties: Record<string, any>,
+      node: { labels: string[]; properties: Record<string, any> },
     ): Record<string, any> => ({
       "~id": id,
-      "~properties": { ...properties },
+      "~labels": [...node.labels],
+      "~properties": { ...node.properties },
     });
+
+    const matchesListParameters = (
+      properties: Record<string, any>,
+      parameters: Record<string, any>,
+    ) =>
+      Object.entries(parameters)
+        .filter(([key]) => key.startsWith("filter_"))
+        .every(([key, value]) => {
+          const match = key.match(/^filter_(?:eq_)?(.+)_\d+$/);
+          if (!match) {
+            return true;
+          }
+
+          return properties[match[1]] === value;
+        });
 
     return {
       send: jest.fn().mockImplementation(async (command: any) => {
         const queryString = String(command.input.queryString || "");
         const parameters = command.input.parameters || {};
+        const collectionLabelMatch = queryString.match(/MERGE \(n:`([^`]+)`/);
+        const collectionLabel = collectionLabelMatch?.[1] || "MEM0_VECTOR_test";
 
         if (
           queryString.includes("CALL neptune.algo.vectors.upsert") &&
@@ -755,6 +873,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
             nodes.set(row.node_id, {
               embedding: row.embedding,
+              labels: [collectionLabel],
               properties: existing
                 ? { ...existing.properties, ...row.properties }
                 : { ...row.properties },
@@ -779,6 +898,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           if (existing) {
             nodes.set(parameters.vectorId, {
               embedding: parameters.embedding,
+              labels: existing.labels,
               properties: parameters.properties || existing.properties,
             });
           }
@@ -787,14 +907,14 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
         if (queryString.includes("topK.byEmbedding")) {
           const match = [...nodes.entries()].find(([, node]) =>
-            matchesFilter(node.properties, parameters.vertexFilter),
+            matchesFilter(node, parameters.vertexFilter),
           );
 
           return createMockResponse({
             results: match
               ? [
                   {
-                    node: toNodeRecord(match[0], match[1].properties),
+                    node: toNodeRecord(match[0], match[1]),
                     score: 0.25,
                   },
                 ]
@@ -805,8 +925,8 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         if (queryString.includes("pg_schema")) {
           const labels = new Set<string>();
           for (const node of nodes.values()) {
-            if (typeof node.properties.label === "string") {
-              labels.add(node.properties.label);
+            for (const label of node.labels) {
+              labels.add(label);
             }
           }
           if (storedUserId) {
@@ -827,9 +947,20 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           const node = nodes.get(parameters.vectorId);
           return createMockResponse({
             results: node
-              ? [{ n: toNodeRecord(parameters.vectorId, node.properties) }]
+              ? [{ n: toNodeRecord(parameters.vectorId, node) }]
               : [],
           });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("RETURN count(n) AS count")
+        ) {
+          const count = [...nodes.values()].filter((node) =>
+            matchesListParameters(node.properties, parameters),
+          ).length;
+
+          return createMockResponse({ results: [{ count }] });
         }
 
         if (
@@ -839,17 +970,10 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         ) {
           const results = [...nodes.entries()]
             .filter(([, node]) =>
-              Object.entries(parameters)
-                .filter(([key]) => key.startsWith("filter_"))
-                .every(
-                  ([key, value]) =>
-                    node.properties[key.slice("filter_".length)] === value,
-                ),
+              matchesListParameters(node.properties, parameters),
             )
             .slice(0, parameters.limit || 100)
-            .map(([id, node]) => ({
-              n: toNodeRecord(id, node.properties),
-            }));
+            .map(([id, node]) => ({ n: toNodeRecord(id, node) }));
 
           return createMockResponse({ results });
         }
@@ -864,6 +988,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           if (existing) {
             nodes.set(parameters.vectorId, {
               embedding: existing.embedding,
+              labels: existing.labels,
               properties: { ...parameters.properties },
             });
           }
@@ -978,7 +1103,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     await store.insert(
       [[1, 2, 3]],
       ["id-1"],
-      [{ data: "alpha", user_id: "u1" }],
+      [{ data: "alpha", label: "topic-a", priority: 7, user_id: "u1" }],
     );
 
     expect(mockClient.send).toHaveBeenCalled();
@@ -988,16 +1113,20 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       "CALL neptune.algo.vectors.upsert",
     );
     expect(insertCall.input.parameters.rows[0].properties.label).toBe(
-      "MEM0_VECTOR_test",
+      "topic-a",
     );
     expect(insertCall.input.parameters.rows[0].embedding).toEqual([1, 2, 3]);
 
-    const results = await store.search([1, 2, 3], 1, { user_id: "u1" });
+    const results = await store.search([1, 2, 3], 1, {
+      $or: [{ user_id: "u2" }, { priority: { gte: 5 } }],
+      data: { contains: "alp" },
+    });
     expect(results).toHaveLength(1);
     expect(results[0]).toEqual({
       id: "id-1",
       payload: expect.objectContaining({
         data: "alpha",
+        label: "topic-a",
         user_id: "u1",
       }),
       score: 0.8,
@@ -1015,10 +1144,30 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           },
         },
         {
-          equals: {
-            property: "user_id",
-            value: "u1",
-          },
+          andAll: [
+            {
+              orAll: [
+                {
+                  equals: {
+                    property: "user_id",
+                    value: "u2",
+                  },
+                },
+                {
+                  greaterThanOrEquals: {
+                    property: "priority",
+                    value: 5,
+                  },
+                },
+              ],
+            },
+            {
+              stringContains: {
+                property: "data",
+                value: "alp",
+              },
+            },
+          ],
         },
       ],
     });
@@ -1075,6 +1224,34 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
     await store.delete("id-1");
     expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("returns a real total count for list pagination", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 2, 3],
+        [3, 2, 1],
+      ],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", user_id: "u1" },
+        { data: "beta", user_id: "u1" },
+      ],
+    );
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 1);
+    expect(listed).toHaveLength(1);
+    expect(count).toBe(2);
   });
 
   it("throws when Neptune rejects an update upsert", async () => {

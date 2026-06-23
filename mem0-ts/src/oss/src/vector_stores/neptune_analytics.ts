@@ -24,6 +24,13 @@ interface NeptuneExecuteQueryOutput {
 }
 
 type NeptuneQueryRecord = Record<string, any>;
+type NeptuneVertexFilter = Record<string, any>;
+
+interface WhereClauseResult {
+  clause: string;
+  parameters: Record<string, any>;
+  nextIndex: number;
+}
 
 export class NeptuneAnalyticsVectorStore implements VectorStore {
   private readonly client: NeptuneGraphClientLike;
@@ -235,21 +242,33 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const { clause, parameters } = this.buildWhereClause(filters);
-    const results = await this.executeQuery(
-      `
-        MATCH (n:${this.collectionLabelExpr})
-        ${clause}
-        RETURN n
-        LIMIT $limit
-      `,
-      {
-        ...parameters,
-        limit: topK,
-      },
-    );
+    const whereClause = clause ? `WHERE ${clause}` : "";
+    const [results, countResults] = await Promise.all([
+      this.executeQuery(
+        `
+          MATCH (n:${this.collectionLabelExpr})
+          ${whereClause}
+          RETURN n
+          LIMIT $limit
+        `,
+        {
+          ...parameters,
+          limit: topK,
+        },
+      ),
+      this.executeQuery(
+        `
+          MATCH (n:${this.collectionLabelExpr})
+          ${whereClause}
+          RETURN count(n) AS count
+        `,
+        parameters,
+      ),
+    ]);
 
     const items = results.map((record) => this.normalizeNodeResult(record));
-    return [items, items.length];
+    const count = Number(countResults[0]?.count);
+    return [items, Number.isFinite(count) ? count : items.length];
   }
 
   async getUserId(): Promise<string> {
@@ -342,13 +361,12 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   ): Record<string, any> {
     return {
       ...payload,
-      label: this.collectionLabel,
       updated_at: new Date().toISOString(),
     };
   }
 
-  private buildVertexFilter(filters?: SearchFilters): Record<string, any> {
-    const conditions = [
+  private buildVertexFilter(filters?: SearchFilters): NeptuneVertexFilter {
+    const conditions: NeptuneVertexFilter[] = [
       {
         equals: {
           property: "~label",
@@ -357,48 +375,435 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       },
     ];
 
+    const metadataFilter = this.buildMetadataVertexFilter(filters);
+    if (metadataFilter) {
+      conditions.push(metadataFilter);
+    }
+
+    return this.combineVertexFilters("andAll", conditions)!;
+  }
+
+  private buildMetadataVertexFilter(
+    filters?: SearchFilters,
+  ): NeptuneVertexFilter | undefined {
+    const operations: NeptuneVertexFilter[] = [];
+
     for (const [key, value] of Object.entries(filters || {})) {
       if (value === undefined) {
         continue;
       }
 
-      conditions.push({
+      if (key === "$and" || key === "$or") {
+        if (!Array.isArray(value)) {
+          throw new Error(`${key} filter value must be an array.`);
+        }
+
+        const nested = value
+          .map((entry) => this.buildMetadataVertexFilter(entry))
+          .filter((entry): entry is NeptuneVertexFilter => !!entry);
+        const joiner = key === "$and" ? "andAll" : "orAll";
+        const combined = this.combineVertexFilters(joiner, nested);
+        if (combined) {
+          operations.push(combined);
+        }
+        continue;
+      }
+
+      if (key === "$not") {
+        if (!Array.isArray(value)) {
+          throw new Error("$not filter value must be an array.");
+        }
+
+        const nested = value
+          .map((entry) => this.buildMetadataVertexFilter(entry))
+          .filter((entry): entry is NeptuneVertexFilter => !!entry)
+          .map((entry) => this.negateVertexFilter(entry));
+        const combined = this.combineVertexFilters("andAll", nested);
+        if (combined) {
+          operations.push(combined);
+        }
+        continue;
+      }
+
+      operations.push(this.buildFieldVertexFilter(key, value));
+    }
+
+    return this.combineVertexFilters("andAll", operations);
+  }
+
+  private combineVertexFilters(
+    joiner: "andAll" | "orAll",
+    operations: NeptuneVertexFilter[],
+  ): NeptuneVertexFilter | undefined {
+    if (operations.length === 0) {
+      return undefined;
+    }
+
+    if (operations.length === 1) {
+      return operations[0];
+    }
+
+    return {
+      [joiner]: operations,
+    };
+  }
+
+  private buildFieldVertexFilter(key: string, value: any): NeptuneVertexFilter {
+    if (value === "*") {
+      throw new Error(
+        "Neptune Analytics vector search does not support property-existence filters.",
+      );
+    }
+
+    if (Array.isArray(value)) {
+      return {
+        in: {
+          property: key,
+          value,
+        },
+      };
+    }
+
+    if (typeof value !== "object" || value === null) {
+      return {
         equals: {
           property: key,
           value,
         },
-      });
+      };
     }
 
-    if (conditions.length === 1) {
-      return conditions[0];
-    }
+    const operations = Object.entries(value).map(([operator, operand]) =>
+      this.buildSingleVertexFilter(key, operator, operand),
+    );
 
-    return {
-      andAll: conditions,
-    };
+    return this.combineVertexFilters("andAll", operations)!;
   }
 
-  private buildWhereClause(filters?: SearchFilters): {
-    clause: string;
-    parameters: Record<string, any>;
-  } {
+  private buildSingleVertexFilter(
+    key: string,
+    operator: string,
+    operand: any,
+  ): NeptuneVertexFilter {
+    switch (operator) {
+      case "eq":
+        return {
+          equals: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "ne":
+        return {
+          notEquals: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "gt":
+        return {
+          greaterThan: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "gte":
+        return {
+          greaterThanOrEquals: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "lt":
+        return {
+          lessThan: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "lte":
+        return {
+          lessThanOrEquals: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "in":
+        return {
+          in: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "nin":
+        return {
+          notIn: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "contains":
+        return {
+          stringContains: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "startsWith":
+        return {
+          startsWith: {
+            property: key,
+            value: operand,
+          },
+        };
+      case "icontains":
+        throw new Error(
+          "Neptune Analytics vector search does not support case-insensitive contains filters.",
+        );
+      default:
+        throw new Error(
+          `Unsupported Neptune Analytics filter operator: ${operator}`,
+        );
+    }
+  }
+
+  private negateVertexFilter(filter: NeptuneVertexFilter): NeptuneVertexFilter {
+    if (Array.isArray(filter.andAll)) {
+      return this.combineVertexFilters(
+        "orAll",
+        filter.andAll.map((entry: NeptuneVertexFilter) =>
+          this.negateVertexFilter(entry),
+        ),
+      )!;
+    }
+
+    if (Array.isArray(filter.orAll)) {
+      return this.combineVertexFilters(
+        "andAll",
+        filter.orAll.map((entry: NeptuneVertexFilter) =>
+          this.negateVertexFilter(entry),
+        ),
+      )!;
+    }
+
+    if (filter.equals) {
+      return {
+        notEquals: filter.equals,
+      };
+    }
+
+    if (filter.notEquals) {
+      return {
+        equals: filter.notEquals,
+      };
+    }
+
+    if (filter.greaterThan) {
+      return {
+        lessThanOrEquals: filter.greaterThan,
+      };
+    }
+
+    if (filter.greaterThanOrEquals) {
+      return {
+        lessThan: filter.greaterThanOrEquals,
+      };
+    }
+
+    if (filter.lessThan) {
+      return {
+        greaterThanOrEquals: filter.lessThan,
+      };
+    }
+
+    if (filter.lessThanOrEquals) {
+      return {
+        greaterThan: filter.lessThanOrEquals,
+      };
+    }
+
+    if (filter.in) {
+      return {
+        notIn: filter.in,
+      };
+    }
+
+    if (filter.notIn) {
+      return {
+        in: filter.notIn,
+      };
+    }
+
+    throw new Error(
+      "Neptune Analytics cannot negate this filter shape for vector search.",
+    );
+  }
+
+  private buildWhereClause(
+    filters?: SearchFilters,
+    startIndex: number = 1,
+  ): WhereClauseResult {
     const clauses: string[] = [];
     const parameters: Record<string, any> = {};
+    let nextIndex = startIndex;
 
     for (const [key, value] of Object.entries(filters || {})) {
       if (value === undefined) {
         continue;
       }
 
-      const parameterName = `filter_${key.replace(/[^\w]/g, "_")}`;
-      clauses.push(`n.${this.escapeProperty(key)} = $${parameterName}`);
-      parameters[parameterName] = value;
+      if (key === "$and" || key === "$or") {
+        if (!Array.isArray(value)) {
+          throw new Error(`${key} filter value must be an array.`);
+        }
+
+        const nestedClauses: string[] = [];
+        for (const entry of value) {
+          const nested = this.buildWhereClause(entry, nextIndex);
+          nextIndex = nested.nextIndex;
+          Object.assign(parameters, nested.parameters);
+          if (nested.clause) {
+            nestedClauses.push(nested.clause);
+          }
+        }
+
+        if (nestedClauses.length > 0) {
+          const joiner = key === "$and" ? " AND " : " OR ";
+          clauses.push(`(${nestedClauses.join(joiner)})`);
+        }
+        continue;
+      }
+
+      if (key === "$not") {
+        if (!Array.isArray(value)) {
+          throw new Error("$not filter value must be an array.");
+        }
+
+        const nestedClauses: string[] = [];
+        for (const entry of value) {
+          const nested = this.buildWhereClause(entry, nextIndex);
+          nextIndex = nested.nextIndex;
+          Object.assign(parameters, nested.parameters);
+          if (nested.clause) {
+            nestedClauses.push(nested.clause);
+          }
+        }
+
+        if (nestedClauses.length > 0) {
+          clauses.push(`NOT (${nestedClauses.join(" OR ")})`);
+        }
+        continue;
+      }
+
+      const fieldResult = this.buildFieldWhereClauses(key, value, nextIndex);
+      nextIndex = fieldResult.nextIndex;
+      Object.assign(parameters, fieldResult.parameters);
+      clauses.push(...fieldResult.clauses);
     }
 
     return {
-      clause: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
+      clause: clauses.join(" AND "),
       parameters,
+      nextIndex,
+    };
+  }
+
+  private buildFieldWhereClauses(
+    key: string,
+    value: any,
+    startIndex: number,
+  ): {
+    clauses: string[];
+    parameters: Record<string, any>;
+    nextIndex: number;
+  } {
+    const field = `n.${this.escapeProperty(key)}`;
+    const parameters: Record<string, any> = {};
+    const clauses: string[] = [];
+    let nextIndex = startIndex;
+
+    const addParameter = (prefix: string, rawValue: any) => {
+      const parameterName = `${prefix}_${key.replace(/[^\w]/g, "_")}_${nextIndex}`;
+      parameters[parameterName] = rawValue;
+      nextIndex += 1;
+      return parameterName;
+    };
+
+    if (value === "*") {
+      return {
+        clauses: [`${field} IS NOT NULL`],
+        parameters,
+        nextIndex,
+      };
+    }
+
+    if (Array.isArray(value)) {
+      const parameterName = addParameter("filter_in", value);
+      return {
+        clauses: [`${field} IN $${parameterName}`],
+        parameters,
+        nextIndex,
+      };
+    }
+
+    if (typeof value !== "object" || value === null) {
+      const parameterName = addParameter("filter", value);
+      return {
+        clauses: [`${field} = $${parameterName}`],
+        parameters,
+        nextIndex,
+      };
+    }
+
+    for (const [operator, operand] of Object.entries(value)) {
+      const parameterName = addParameter(`filter_${operator}`, operand);
+      switch (operator) {
+        case "eq":
+          clauses.push(`${field} = $${parameterName}`);
+          break;
+        case "ne":
+          clauses.push(`${field} <> $${parameterName}`);
+          break;
+        case "gt":
+          clauses.push(`${field} > $${parameterName}`);
+          break;
+        case "gte":
+          clauses.push(`${field} >= $${parameterName}`);
+          break;
+        case "lt":
+          clauses.push(`${field} < $${parameterName}`);
+          break;
+        case "lte":
+          clauses.push(`${field} <= $${parameterName}`);
+          break;
+        case "in":
+          clauses.push(`${field} IN $${parameterName}`);
+          break;
+        case "nin":
+          clauses.push(`NOT ${field} IN $${parameterName}`);
+          break;
+        case "contains":
+          clauses.push(`toString(${field}) CONTAINS $${parameterName}`);
+          break;
+        case "icontains":
+          clauses.push(
+            `toLower(toString(${field})) CONTAINS toLower($${parameterName})`,
+          );
+          break;
+        case "startsWith":
+          clauses.push(`toString(${field}) STARTS WITH $${parameterName}`);
+          break;
+        default:
+          throw new Error(
+            `Unsupported Neptune Analytics filter operator: ${operator}`,
+          );
+      }
+    }
+
+    return {
+      clauses,
+      parameters,
+      nextIndex,
     };
   }
 
@@ -466,9 +871,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   }
 
   private normalizePayload(payload: Record<string, any>): Record<string, any> {
-    const normalized = { ...payload };
-    delete normalized.label;
-    return normalized;
+    return { ...payload };
   }
 
   private normalizeScore(score: unknown): number | undefined {
