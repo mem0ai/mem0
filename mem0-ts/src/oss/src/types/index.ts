@@ -82,6 +82,7 @@ export interface MemoryItem {
   updatedAt?: string;
   score?: number;
   metadata?: Record<string, any>;
+  attributedTo?: string;
 }
 
 export interface SearchFilters {
