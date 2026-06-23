@@ -414,13 +414,26 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   }
 
   private buildClientConfig(config: NeptuneAnalyticsConfig): {
+    [key: string]: any;
     endpoint?: string;
   } {
-    if (config.endpoint && /^https?:\/\//i.test(config.endpoint)) {
-      return { endpoint: config.endpoint };
+    const {
+      client: _client,
+      collectionName: _collectionName,
+      dimension: _dimension,
+      graphIdentifier: _graphIdentifier,
+      endpoint,
+      ...clientConfig
+    } = config;
+
+    if (endpoint && /^https?:\/\//i.test(endpoint)) {
+      return {
+        ...clientConfig,
+        endpoint,
+      };
     }
 
-    return {};
+    return clientConfig;
   }
 
   private escapeLabel(label: string): string {
@@ -432,7 +445,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
   ): Record<string, any> {
     return {
       ...payload,
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   }
 

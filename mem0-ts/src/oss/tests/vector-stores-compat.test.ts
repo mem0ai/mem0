@@ -1146,10 +1146,16 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
       collectionName: "test",
       dimension: 3,
+      region: "us-east-1",
+      profile: "dev-profile",
+      maxAttempts: 3,
     });
 
     expect(neptuneGraphClient).toHaveBeenCalledWith({
       endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+      maxAttempts: 3,
+      profile: "dev-profile",
+      region: "us-east-1",
     });
   });
 
