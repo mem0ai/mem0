@@ -178,7 +178,7 @@ class TestMilvusDB:
         
         mock_milvus_client.delete.assert_called_once_with(
             collection_name="test_collection",
-            ids=vector_id
+            ids=[vector_id]
         )
 
     def test_get(self, milvus_db, mock_milvus_client):
