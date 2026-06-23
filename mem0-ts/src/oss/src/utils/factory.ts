@@ -1,3 +1,4 @@
+
 import { OpenAIEmbedder } from "../embeddings/openai";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
@@ -22,6 +23,7 @@ import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
+import { TogetherLLM } from "../llms/together";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
@@ -85,6 +87,8 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "together":
+        return new TogetherLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
