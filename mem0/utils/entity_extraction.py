@@ -174,6 +174,23 @@ def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[
     return results
 
 
+def _remove_whole_word_substring_entities(entities: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    """Drop entities whose text is a whole-word substring of another entity.
+
+    Word-boundary anchoring keeps distinct entities that only share a leading
+    substring (e.g. "Sam" survives alongside "Samsung"). Each entity's boundary
+    pattern is compiled once -- O(n) compilations -- instead of recompiling the
+    pattern for every (entity, other) pair, which was O(n^2).
+    """
+    lowered = [text.lower() for _, text in entities]
+    kept: List[Tuple[str, str]] = []
+    for (etype, etext), needle in zip(entities, lowered):
+        pattern = re.compile(rf"\b{re.escape(needle)}\b")
+        if not any(needle != other and pattern.search(other) for other in lowered):
+            kept.append((etype, etext))
+    return kept
+
+
 def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
     """Extract entities from a spaCy Doc object.
 
@@ -353,11 +370,4 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
     deduped = list(best.values())
 
     # Remove entities that are whole-word substrings of longer entities.
-    # Word-boundary anchoring avoids dropping distinct entities that only share a
-    # leading substring (e.g. "Sam" must survive alongside "Samsung").
-    all_lower = [e[1].lower() for e in deduped]
-    return [
-        (t, e)
-        for t, e in deduped
-        if not any(e.lower() != o and re.search(rf"\b{re.escape(e.lower())}\b", o) for o in all_lower)
-    ]
+    return _remove_whole_word_substring_entities(deduped)
