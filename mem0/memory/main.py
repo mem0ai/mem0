@@ -80,6 +80,19 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
 
+# Scope keys used for entity merging and search filtering.
+_ENTITY_SCOPE_KEYS = ("user_id", "agent_id", "run_id")
+
+
+def _extract_entity_scope(payload: dict) -> dict:
+    """Extract scope keys (user_id, agent_id, run_id) from a payload dict.
+
+    Filters to entity-scope keys with truthy values, matching the behavior
+    of ``search_filters`` construction in the upsert paths. Used by the
+    scope gate to compare a stored entity's scope against the caller's scope.
+    """
+    return {k: v for k, v in payload.items() if k in _ENTITY_SCOPE_KEYS and v}
+
 
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
@@ -512,21 +525,31 @@ class Memory(MemoryBase):
                 filters=search_filters,
             )
 
+            merge = False
             if existing and existing[0].score >= 0.95:
-                # Update existing entity's linked_memory_ids
                 match = existing[0]
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    self.entity_store.update(
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
-                # Create new entity
+                # Scope gate: only merge if the stored entity belongs to exactly
+                # the same scope as this request.  Equality check handles all cases:
+                #   same tenant:      {"user_id":"alice"} == {"user_id":"alice"} -> merge
+                #   different tenants: {"user_id":"bob"} != {"user_id":"alice"}  -> new entity
+                #   stored unscoped, caller scoped: {} != {"user_id":"alice"}   -> new entity
+                #   both unscoped (single-tenant):   {} == {}                    -> merge
+                match_scope = _extract_entity_scope(payload)
+                if match_scope == search_filters:
+                    merge = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        self.entity_store.update(
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not merge:
+                # Create new entity (no close match, scope mismatch, or unscoped)
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -1021,25 +1044,46 @@ class Memory(MemoryBase):
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    scope_mismatch_index = {}  # dedup_key -> index into to_insert_payloads
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
 
                         if matches and matches[0].score >= 0.95:
-                            # Update existing entity
                             match = matches[0]
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                self.entity_store.update(
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                            # Scope gate (see _upsert_entity for rationale)
+                            match_scope = _extract_entity_scope(payload)
+                            if match_scope == search_filters:
+                                # Same scope — update existing entity
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    self.entity_store.update(
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                            else:
+                                # Scope mismatch — deduplicated new entity
+                                dedup_key = (entity_text.strip().lower(), tuple(sorted(search_filters.items())))
+                                if dedup_key not in scope_mismatch_index:
+                                    scope_mismatch_index[dedup_key] = len(to_insert_payloads)
+                                    to_insert_vectors.append(valid_vectors[j])
+                                    to_insert_ids.append(str(uuid.uuid4()))
+                                    to_insert_payloads.append({
+                                        "data": entity_text,
+                                        "entity_type": entity_type,
+                                        "linked_memory_ids": sorted(memory_ids),
+                                        **search_filters,
+                                    })
+                                else:
+                                    idx = scope_mismatch_index[dedup_key]
+                                    existing_ids = set(to_insert_payloads[idx]["linked_memory_ids"])
+                                    to_insert_payloads[idx]["linked_memory_ids"] = sorted(existing_ids | memory_ids)
                         else:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
@@ -2059,20 +2103,27 @@ class AsyncMemory(MemoryBase):
                 filters=search_filters,
             )
 
+            merge = False
             if existing and existing[0].score >= 0.95:
                 match = existing[0]
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
-                        self.entity_store.update,
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
+                # Scope gate: only merge if the existing entity belongs to the
+                # same scope (see _upsert_entity for rationale).
+                match_scope = _extract_entity_scope(payload)
+                if match_scope == search_filters:
+                    merge = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        await asyncio.to_thread(
+                            self.entity_store.update,
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not merge:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -2560,6 +2611,7 @@ class AsyncMemory(MemoryBase):
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    scope_mismatch_index = {}  # dedup_key -> index into to_insert_payloads
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -2567,18 +2619,39 @@ class AsyncMemory(MemoryBase):
                         if matches and matches[0].score >= 0.95:
                             match = matches[0]
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+                            # Scope gate (see _upsert_entity for rationale)
+                            match_scope = _extract_entity_scope(payload)
+                            if match_scope == search_filters:
+                                # Same scope — update existing entity
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    await asyncio.to_thread(
+                                        self.entity_store.update,
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+                            else:
+                                # Scope mismatch — deduplicated new entity
+                                dedup_key = (entity_text.strip().lower(), tuple(sorted(search_filters.items())))
+                                if dedup_key not in scope_mismatch_index:
+                                    scope_mismatch_index[dedup_key] = len(to_insert_payloads)
+                                    to_insert_vectors.append(valid_vectors[j])
+                                    to_insert_ids.append(str(uuid.uuid4()))
+                                    to_insert_payloads.append({
+                                        "data": entity_text,
+                                        "entity_type": entity_type,
+                                        "linked_memory_ids": sorted(memory_ids),
+                                        **search_filters,
+                                    })
+                                else:
+                                    idx = scope_mismatch_index[dedup_key]
+                                    existing_ids = set(to_insert_payloads[idx]["linked_memory_ids"])
+                                    to_insert_payloads[idx]["linked_memory_ids"] = sorted(existing_ids | memory_ids)
                         else:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
