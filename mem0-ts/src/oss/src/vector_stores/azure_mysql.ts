@@ -102,6 +102,9 @@ export class AzureMySQLDB implements VectorStore {
       ssl,
       connectionLimit: this.config.maxConn ?? 5,
       waitForConnections: true,
+      ...(this.config.useAzureCredential
+        ? { authPlugins: { mysql_clear_password: () => () => password } }
+        : {}),
     });
 
     await this.pool.execute(`
@@ -116,7 +119,7 @@ export class AzureMySQLDB implements VectorStore {
 
     try {
       await this.pool.execute(
-        `CREATE FULLTEXT INDEX IF NOT EXISTS ft_text_lemmatized ON ${this.col()} (text_lemmatized)`,
+        `CREATE FULLTEXT INDEX ft_text_lemmatized ON ${this.col()} (text_lemmatized)`,
       );
     } catch {
       // Index may already exist or FULLTEXT may be unsupported; continue silently.
