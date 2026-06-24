@@ -1,7 +1,8 @@
 """Tests for MemoryClient entity parameter rejection."""
 
+import asyncio
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -210,6 +211,84 @@ class TestDeleteLinked:
 
         call_args = mock_memory_client.client.delete.call_args
         assert "delete_linked" not in call_args.kwargs.get("params", {})
+
+
+class TestPathSegmentEncoding:
+    """Path params should remain one URL segment even when IDs contain URL syntax."""
+
+    def _setup_response(self):
+        return MagicMock(json=lambda: {"message": "ok"}, raise_for_status=lambda: None)
+
+    def _called_paths(self, mock_method):
+        return [call.args[0] for call in mock_method.call_args_list]
+
+    def test_sync_memory_id_path_segments_are_encoded(self, mock_memory_client):
+        mock_memory_client.client.get.return_value = self._setup_response()
+        mock_memory_client.client.put.return_value = self._setup_response()
+        mock_memory_client.client.delete.return_value = self._setup_response()
+
+        memory_id = "mem/a?b#c"
+
+        mock_memory_client.get(memory_id)
+        mock_memory_client.update(memory_id, text="updated")
+        mock_memory_client.delete(memory_id)
+        mock_memory_client.history(memory_id)
+
+        assert "/v1/memories/mem%2Fa%3Fb%23c/" in self._called_paths(mock_memory_client.client.get)
+        assert mock_memory_client.client.put.call_args.args[0] == "/v1/memories/mem%2Fa%3Fb%23c/"
+        assert mock_memory_client.client.delete.call_args.args[0] == "/v1/memories/mem%2Fa%3Fb%23c/"
+        assert "/v1/memories/mem%2Fa%3Fb%23c/history/" in self._called_paths(mock_memory_client.client.get)
+
+    def test_sync_entity_path_segments_are_encoded(self, mock_memory_client):
+        mock_memory_client.client.delete.return_value = self._setup_response()
+
+        mock_memory_client.delete_users(user_id="org/team?active#frag")
+
+        assert mock_memory_client.client.delete.call_args.args[0] == (
+            "/v2/entities/user/org%2Fteam%3Factive%23frag/"
+        )
+
+    def test_async_memory_id_path_segments_are_encoded(self):
+        asyncio.run(self._assert_async_memory_id_path_segments_are_encoded())
+
+    async def _assert_async_memory_id_path_segments_are_encoded(self):
+        from mem0.client.main import AsyncMemoryClient
+
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        client.async_client.get = AsyncMock(return_value=self._setup_response())
+        client.async_client.put = AsyncMock(return_value=self._setup_response())
+        client.async_client.delete = AsyncMock(return_value=self._setup_response())
+
+        memory_id = "mem/a?b#c"
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get(memory_id)
+            await client.update(memory_id, text="updated")
+            await client.delete(memory_id)
+            await client.history(memory_id)
+
+        assert client.async_client.get.call_args_list[0].args[0] == "/v1/memories/mem%2Fa%3Fb%23c/"
+        assert client.async_client.put.call_args.args[0] == "/v1/memories/mem%2Fa%3Fb%23c/"
+        assert client.async_client.delete.call_args.args[0] == "/v1/memories/mem%2Fa%3Fb%23c/"
+        assert client.async_client.get.call_args_list[1].args[0] == "/v1/memories/mem%2Fa%3Fb%23c/history/"
+
+    def test_async_entity_path_segments_are_encoded(self):
+        asyncio.run(self._assert_async_entity_path_segments_are_encoded())
+
+    async def _assert_async_entity_path_segments_are_encoded(self):
+        from mem0.client.main import AsyncMemoryClient
+
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        client.async_client.delete = AsyncMock(return_value=self._setup_response())
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.delete_users(user_id="org/team?active#frag")
+
+        assert client.async_client.delete.call_args.args[0] == (
+            "/v2/entities/user/org%2Fteam%3Factive%23frag/"
+        )
 
 
 class TestValidateApiKeyHttpError:
