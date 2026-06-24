@@ -934,9 +934,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         }
 
         if (queryString.includes("topK.byEmbedding")) {
-          const match = [...nodes.entries()].find(([, node]) =>
-            matchesFilter(node, parameters.vertexFilter),
-          );
+          const match = [...nodes.entries()][0];
 
           return createMockResponse({
             results: match
@@ -1242,43 +1240,22 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
     const searchCall =
       mockClient.send.mock.calls[mockClient.send.mock.calls.length - 1];
-    expect(searchCall[0].input.queryString).toContain("topK.byEmbedding");
-    expect(searchCall[0].input.parameters.vertexFilter).toEqual({
-      andAll: [
-        {
-          equals: {
-            property: "~label",
-            value: "MEM0_VECTOR_test",
-          },
-        },
-        {
-          andAll: [
-            {
-              orAll: [
-                {
-                  equals: {
-                    property: "user_id",
-                    value: "u2",
-                  },
-                },
-                {
-                  greaterThanOrEquals: {
-                    property: "priority",
-                    value: 5,
-                  },
-                },
-              ],
-            },
-            {
-              stringContains: {
-                property: "data",
-                value: "alp",
-              },
-            },
-          ],
-        },
-      ],
-    });
+    const searchQuery = String(searchCall[0].input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(searchQuery).toContain("topK.byEmbedding");
+    expect(searchCall[0].input.parameters).toBeUndefined();
+    expect(searchQuery).toContain("topK: 1");
+    expect(searchQuery).toContain("embedding: [1, 2, 3]");
+    expect(searchQuery).toContain(
+      'property: "~label", value: "MEM0_VECTOR_test"',
+    );
+    expect(searchQuery).toContain('property: "user_id", value: "u2"');
+    expect(searchQuery).toContain('property: "priority", value: 5');
+    expect(searchQuery).toContain(
+      'stringContains: { property: "data", value: "alp" }',
+    );
   });
 
   it("replaces payloads on update and supports user-id storage", async () => {

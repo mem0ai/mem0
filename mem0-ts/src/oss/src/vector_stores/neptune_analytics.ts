@@ -120,19 +120,16 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     const vertexFilter = this.buildVertexFilter(filters);
     const results = await this.executeQuery(
       `
-        CALL neptune.algo.vectors.topK.byEmbedding({
-          topK: $topK,
-          embedding: $embedding,
-          vertexFilter: $vertexFilter
-        })
+        CALL neptune.algo.vectors.topK.byEmbedding(
+          ${this.serializeAlgorithmInput({
+            topK,
+            embedding: query,
+            vertexFilter,
+          })}
+        )
         YIELD node, score
         RETURN node, score
       `,
-      {
-        topK,
-        embedding: query,
-        vertexFilter,
-      },
     );
 
     return results.map((record) => this.normalizeSearchResult(record));
@@ -892,6 +889,45 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
 
   private escapeProperty(key: string): string {
     return `\`${key.replace(/`/g, "``")}\``;
+  }
+
+  private serializeAlgorithmInput(value: any): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((entry) => this.serializeAlgorithmInput(entry)).join(", ")}]`;
+    }
+
+    if (value === null) {
+      return "null";
+    }
+
+    if (typeof value === "string") {
+      return JSON.stringify(value);
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+
+    if (typeof value === "object") {
+      return `{ ${Object.entries(value)
+        .map(
+          ([key, entry]) =>
+            `${this.serializeAlgorithmKey(key)}: ${this.serializeAlgorithmInput(entry)}`,
+        )
+        .join(", ")} }`;
+    }
+
+    throw new Error(
+      `Unsupported Neptune Analytics algorithm value type: ${typeof value}`,
+    );
+  }
+
+  private serializeAlgorithmKey(key: string): string {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      return key;
+    }
+
+    return JSON.stringify(key);
   }
 
   private assertVectorDimension(vector: number[], context: string): void {
