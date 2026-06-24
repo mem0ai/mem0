@@ -33,9 +33,11 @@ import { AzureOpenAILLM } from "../llms/azure";
 import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
+import { TogetherEmbedder } from "../embeddings/together";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { SarvamLLM } from "../llms/sarvam";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -53,6 +55,8 @@ export class EmbedderFactory {
         return new AzureOpenAIEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "together":
+        return new TogetherEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
@@ -85,6 +89,8 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "sarvam":
+        return new SarvamLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
