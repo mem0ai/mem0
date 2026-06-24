@@ -1869,6 +1869,44 @@ describe("Memory class – backward compat with all providers", () => {
     expect(mockVStore2.initialize).toHaveBeenCalled();
   });
 
+  it("derives a separate Databricks entity table when tableName is explicit", async () => {
+    const primaryStore = createMockVectorStore();
+    const entityStore = createMockVectorStore();
+    mockVectorStoreFactory.create
+      .mockReturnValueOnce(primaryStore)
+      .mockReturnValueOnce(entityStore);
+
+    const mem = new MemoryClass({
+      embedder: { provider: "openai", config: { apiKey: "k" } },
+      vectorStore: {
+        provider: "databricks",
+        config: {
+          workspaceUrl: "https://workspace.databricks.com",
+          httpPath: "/sql/1.0/warehouses/test",
+          accessToken: "dapi-test",
+          collectionName: "memories",
+          tableName: "memory_rows",
+          dimension: 1536,
+        },
+      },
+      llm: { provider: "openai", config: { apiKey: "k" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+    await (mem as any).getEntityStore();
+
+    expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+      2,
+      "databricks",
+      expect.objectContaining({
+        collectionName: "memories_entities",
+        tableName: "memory_rows_entities",
+      }),
+    );
+    expect(entityStore.initialize).toHaveBeenCalled();
+  });
+
   it("propagates init error to public methods", async () => {
     const failingEmbedder = {
       embed: jest.fn().mockRejectedValue(new Error("Embedder unreachable")),

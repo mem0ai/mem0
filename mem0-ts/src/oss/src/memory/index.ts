@@ -7,6 +7,7 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreConfig,
 } from "../types";
 import {
   EmbedderFactory,
@@ -264,7 +265,7 @@ export class Memory {
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
       const entityCollectionName = `${this.collectionName}_entities`;
-      const entityConfig = {
+      const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
@@ -272,6 +273,11 @@ export class Memory {
       if (this.config.vectorStore.provider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
         entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
+      }
+      if (this.config.vectorStore.provider === "databricks") {
+        entityConfig.tableName = entityConfig.tableName
+          ? `${entityConfig.tableName}_entities`
+          : entityCollectionName;
       }
       this._entityStore = VectorStoreFactory.create(
         this.config.vectorStore.provider,
