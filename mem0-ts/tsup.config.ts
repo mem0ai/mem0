@@ -9,6 +9,7 @@ const external = [
   "pg",
   "zod",
   "better-sqlite3",
+  "cassandra-driver",
   "@qdrant/js-client-rest",
   "redis",
   "ollama",
