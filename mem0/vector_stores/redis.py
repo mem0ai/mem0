@@ -244,12 +244,16 @@ class RedisDB(VectorStoreBase):
         self.index.drop_keys(f"{self.schema['index']['prefix']}:{vector_id}")
 
     def update(self, vector_id=None, vector=None, payload=None):
+        created_at_str = payload.get("created_at")
+        created_at_ts = int(datetime.fromisoformat(created_at_str).timestamp()) if created_at_str else 0
+        updated_at_str = payload.get("updated_at")
+        updated_at_ts = int(datetime.fromisoformat(updated_at_str).timestamp()) if updated_at_str else 0
         data = {
             "memory_id": vector_id,
-            "hash": payload["hash"],
-            "memory": payload["data"],
-            "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
-            "updated_at": int(datetime.fromisoformat(payload["updated_at"]).timestamp()),
+            "hash": payload.get("hash", ""),
+            "memory": payload.get("data", ""),
+            "created_at": created_at_ts,
+            "updated_at": updated_at_ts,
         }
 
         # Only update embedding if vector is provided

@@ -153,3 +153,26 @@ def test_insert_entity_payload_without_hash_and_created_at():
     assert data[0]["memory"] == "OpenAI"
     assert data[0]["hash"] == ""
     assert data[0]["created_at"] == 0
+
+
+def test_update_entity_payload_without_hash_and_timestamps():
+    """update() must not crash on entity payloads that lack hash/created_at/updated_at."""
+    db, mock_index = _make_redis_db()
+
+    entity_payload = {
+        "data": "OpenAI",
+        "entity_type": "organization",
+        "linked_memory_ids": ["mem-1"],
+        "user_id": "test_user",
+    }
+
+    db.update(vector_id="entity-1", vector=[0.1, 0.2, 0.3], payload=entity_payload)
+
+    mock_index.load.assert_called_once()
+    call_kwargs = mock_index.load.call_args
+    data_dict = call_kwargs[1]["data"][0] if "data" in call_kwargs[1] else call_kwargs[0][0][0]
+    assert data_dict["memory_id"] == "entity-1"
+    assert data_dict["memory"] == "OpenAI"
+    assert data_dict["hash"] == ""
+    assert data_dict["created_at"] == 0
+    assert data_dict["updated_at"] == 0
