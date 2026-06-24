@@ -694,6 +694,10 @@ describe("Cassandra – backward compat with mocked client", () => {
         string,
         { id: string; vector: number[]; payload: string }
       >();
+      const memoryRows = () =>
+        Array.from(rows.entries())
+          .filter(([key]) => key.startsWith("memories:"))
+          .map(([, row]) => row);
 
       class MockClient {
         connect = jest.fn().mockResolvedValue(undefined);
@@ -746,7 +750,7 @@ describe("Cassandra – backward compat with mocked client", () => {
                 )
               ) {
                 return {
-                  rows: Array.from(rows.values()).map((row) => ({
+                  rows: memoryRows().map((row) => ({
                     ...row,
                   })),
                 };
@@ -756,7 +760,7 @@ describe("Cassandra – backward compat with mocked client", () => {
                 normalized.startsWith("SELECT id, payload FROM mem0.memories")
               ) {
                 return {
-                  rows: Array.from(rows.values()).map((row) => ({
+                  rows: memoryRows().map((row) => ({
                     id: row.id,
                     payload: row.payload,
                   })),
@@ -973,6 +977,152 @@ describe("Cassandra – backward compat with mocked client", () => {
     const [afterDrop, afterDropCount] = await store.list(undefined, 10);
     expect(afterDrop).toEqual([]);
     expect(afterDropCount).toBe(0);
+  });
+
+  it("scans paged search and list results", async () => {
+    const execute = jest
+      .fn()
+      .mockImplementation(
+        async (
+          query: string,
+          _params: any[] = [],
+          options: Record<string, any> = {},
+        ) => {
+          const normalized = query.replace(/\s+/g, " ").trim();
+
+          if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT id, vector, payload FROM mem0.memories",
+            )
+          ) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    vector: [1, 0, 0],
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  vector: [0, 1, 0],
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (normalized.startsWith("SELECT id, payload FROM mem0.memories")) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+            )
+          ) {
+            return { rows: [] };
+          }
+
+          throw new Error(`Unexpected Cassandra query: ${normalized}`);
+        },
+      );
+    const store = new CassandraDB({
+      client: { execute },
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const searchResults = await store.search([1, 0, 0], 5);
+    expect(searchResults).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+        score: 0,
+      },
+    ]);
+
+    const [listed, count] = await store.list(undefined, 10);
+    expect(count).toBe(2);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+      },
+    ]);
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: undefined,
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
   });
 
   it("rejects unsafe identifiers", () => {
