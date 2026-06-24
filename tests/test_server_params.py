@@ -798,7 +798,7 @@ class TestMultimodalContent:
         })
         assert resp.status_code == 200, resp.text
         _, kwargs = mock_memory.add.call_args
-        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        sent_messages = kwargs["messages"]
         assert isinstance(sent_messages[0]["content"], dict)
         assert sent_messages[0]["content"]["type"] == "image_url"
 
@@ -820,7 +820,7 @@ class TestMultimodalContent:
         })
         assert resp.status_code == 200, resp.text
         _, kwargs = mock_memory.add.call_args
-        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        sent_messages = kwargs["messages"]
         assert isinstance(sent_messages[0]["content"], list)
         assert len(sent_messages[0]["content"]) == 2
 
@@ -832,7 +832,7 @@ class TestMultimodalContent:
         })
         assert resp.status_code == 200, resp.text
         _, kwargs = mock_memory.add.call_args
-        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        sent_messages = kwargs["messages"]
         assert sent_messages[0]["content"] == "I like pizza"
 
     def test_mixed_text_and_image_messages_accepted(self, client, mock_memory):
@@ -851,7 +851,82 @@ class TestMultimodalContent:
         })
         assert resp.status_code == 200, resp.text
         _, kwargs = mock_memory.add.call_args
-        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        sent_messages = kwargs["messages"]
         assert sent_messages[0]["content"] == "Here is the receipt"
         assert isinstance(sent_messages[1]["content"], dict)
 
+
+    def test_image_content_rejected_when_vision_disabled(self, client, mock_memory):
+        """Critical guard for #5068 follow-up: an image_url dict with vision NOT
+        configured must return an explicit 422, not silently drop the content
+        and return 200 with empty results."""
+        mock_memory.config.llm.config.get.return_value = False
+        resp = client.post("/memories", json={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/receipt.jpg"},
+                    },
+                }
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 422, resp.text
+        assert "vision" in resp.text.lower()
+        mock_memory.add.assert_not_called()
+
+    def test_list_image_content_rejected_when_vision_disabled(self, client, mock_memory):
+        """A list containing an image part is also rejected when vision is off."""
+        mock_memory.config.llm.config.get.return_value = False
+        resp = client.post("/memories", json={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is this?"},
+                        {"type": "image_url", "image_url": {"url": "https://example.com/a.jpg"}},
+                    ],
+                }
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 422, resp.text
+        mock_memory.add.assert_not_called()
+
+    def test_text_only_list_allowed_when_vision_disabled(self, client, mock_memory):
+        """A list with only text parts carries no image content, so it must
+        still be accepted even when vision is disabled."""
+        mock_memory.config.llm.config.get.return_value = False
+        resp = client.post("/memories", json={
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "I like pizza"}]}
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 200, resp.text
+        mock_memory.add.assert_called_once()
+
+    def test_malformed_text_part_returns_422_not_500(self, client, mock_memory):
+        """A text part missing its 'text' key must be rejected by the request
+        validator with a clean 422, not crash parse_vision_messages into a 500."""
+        resp = client.post("/memories", json={
+            "messages": [
+                {"role": "user", "content": [{"type": "text"}]}
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 422, resp.text
+        mock_memory.add.assert_not_called()
+
+    def test_malformed_image_part_returns_422(self, client, mock_memory):
+        """An image_url part missing image_url.url must be rejected with 422."""
+        resp = client.post("/memories", json={
+            "messages": [
+                {"role": "user", "content": [{"type": "image_url"}]}
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 422, resp.text
+        mock_memory.add.assert_not_called()

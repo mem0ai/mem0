@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from models import RequestLog, User
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from rate_limit import limiter
 from routers import api_keys as api_keys_router
 from routers import auth as auth_router
@@ -182,9 +182,29 @@ class Message(BaseModel):
         description=(
             "Message content. Either a plain string, a single multimodal part "
             "(e.g. {'type': 'image_url', 'image_url': {'url': '...'}}), or a "
-            "list of such parts."
+            "list of such parts. List text parts must include a 'text' key and "
+            "image parts must include 'image_url.url'."
         ),
     )
+
+    @field_validator("content")
+    @classmethod
+    def _validate_multimodal_parts(cls, v):
+        """Validate multimodal list parts up front so malformed payloads return a
+        clear 422 rather than crashing parse_vision_messages() into a generic
+        500 (e.g. a text part missing its 'text' key)."""
+        if isinstance(v, list):
+            for part in v:
+                if not isinstance(part, dict):
+                    raise ValueError("Each content part must be an object.")
+                part_type = part.get("type")
+                if part_type == "text" and "text" not in part:
+                    raise ValueError("Text content parts must include a 'text' key.")
+                if part_type == "image_url":
+                    image_url = part.get("image_url")
+                    if not isinstance(image_url, dict) or not image_url.get("url"):
+                        raise ValueError("Image content parts must include 'image_url.url'.")
+        return v
 
 
 class MemoryCreate(BaseModel):
@@ -372,14 +392,49 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
 
 
 @app.post("/memories", summary="Create memories")
+def _message_has_image_content(message: Dict[str, Any]) -> bool:
+    """True if a message carries multimodal image content (a single image_url
+    part or a list containing one). These shapes are silently dropped by
+    parse_vision_messages() when vision is not configured, so we detect them
+    up front to return an explicit error instead."""
+    content = message.get("content")
+    if isinstance(content, dict):
+        return content.get("type") == "image_url"
+    if isinstance(content, list):
+        return any(
+            isinstance(part, dict) and part.get("type") == "image_url"
+            for part in content
+        )
+    return False
+
+
 def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
         raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
 
+    dumped_messages = [m.model_dump() for m in memory_create.messages]
+
+    # Guard against silent data loss: if any message carries image content but
+    # the configured LLM has no vision enabled, parse_vision_messages() drops it
+    # and Memory.add() stores nothing while still returning 200. Reject explicitly.
+    if any(_message_has_image_content(m) for m in dumped_messages):
+        try:
+            vision_enabled = bool(get_memory_instance().config.llm.config.get("enable_vision"))
+        except Exception:
+            vision_enabled = False
+        if not vision_enabled:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Image content was provided but vision is not enabled. "
+                    "Configure an LLM with enable_vision=True to process image_url content."
+                ),
+            )
+
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
-        response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        response = get_memory_instance().add(messages=dumped_messages, **params)
         if response.get("results"):
             telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)
