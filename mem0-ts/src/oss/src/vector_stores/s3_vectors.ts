@@ -130,34 +130,25 @@ export class S3Vectors implements VectorStore {
     this.assertVectorDimension(query, "Query");
 
     const filter = this.convertFilters(filters);
-    const results: VectorStoreResult[] = [];
-    let nextToken: string | undefined;
+    const response = await this.client.send(
+      new QueryVectorsCommand({
+        vectorBucketName: this.vectorBucketName,
+        indexName: this.collectionName,
+        queryVector: this.toVectorData(query),
+        topK,
+        filter,
+        returnMetadata: true,
+        returnDistance: true,
+      }),
+    );
 
-    do {
-      const response = await this.client.send(
-        new QueryVectorsCommand({
-          vectorBucketName: this.vectorBucketName,
-          indexName: this.collectionName,
-          queryVector: this.toVectorData(query),
-          topK,
-          filter,
-          returnMetadata: true,
-          returnDistance: true,
-          nextToken,
-        }),
-      );
-
-      for (const vector of response.vectors || []) {
-        results.push(this.normalizeQueryVector(vector));
-        if (results.length >= topK) {
-          return results.slice(0, topK);
-        }
-      }
-
-      nextToken = response.nextToken;
-    } while (nextToken);
-
-    return results;
+    const responseDistanceMetric =
+      response.distanceMetric || this.distanceMetric;
+    return (response.vectors || [])
+      .map((vector: QueryOutputVector) =>
+        this.normalizeQueryVector(vector, responseDistanceMetric),
+      )
+      .slice(0, topK);
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
@@ -700,11 +691,14 @@ export class S3Vectors implements VectorStore {
     return {};
   }
 
-  private normalizeQueryVector(vector: QueryOutputVector): VectorStoreResult {
+  private normalizeQueryVector(
+    vector: QueryOutputVector,
+    distanceMetric: DistanceMetric | "cosine" | "euclidean",
+  ): VectorStoreResult {
     return {
       id: String(vector.key),
       payload: this.normalizeMetadata(vector.metadata),
-      score: this.normalizeScore(vector.distance),
+      score: this.normalizeScore(vector.distance, distanceMetric),
     };
   }
 
@@ -721,14 +715,18 @@ export class S3Vectors implements VectorStore {
     return this.normalizeStoredVector(vector);
   }
 
-  private normalizeScore(distance?: number): number | undefined {
+  private normalizeScore(
+    distance?: number,
+    distanceMetric: DistanceMetric | "cosine" | "euclidean" = this
+      .distanceMetric,
+  ): number | undefined {
     if (distance === undefined || distance === null) {
       return undefined;
     }
     if (!Number.isFinite(distance)) {
       return undefined;
     }
-    if (this.distanceMetric === "euclidean") {
+    if (distanceMetric === "euclidean") {
       return 1 / (1 + distance);
     }
     return Math.max(0, Math.min(1, 1 - distance));
