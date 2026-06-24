@@ -681,7 +681,327 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6. Vectorize — mock Cloudflare client, test idempotent init
+// 6. Databricks — mock SQL + REST clients, test interface + idempotent init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Databricks – backward compat with mocked clients", () => {
+  let DatabricksVectorStore: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    jest.doMock("@databricks/sql", () => {
+      let migrationUserId: string | undefined;
+
+      const executeStatement = jest
+        .fn()
+        .mockImplementation(async (sql: string) => {
+          const normalized = sql.replace(/\s+/g, " ").trim();
+
+          if (
+            normalized.startsWith("CREATE SCHEMA IF NOT EXISTS") ||
+            normalized.startsWith("CREATE TABLE IF NOT EXISTS")
+          ) {
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM main.default.memory_migrations LIMIT 1",
+            )
+          ) {
+            return {
+              fetchAll: jest
+                .fn()
+                .mockResolvedValue(
+                  migrationUserId ? [{ user_id: migrationUserId }] : [],
+                ),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith("DELETE FROM main.default.memory_migrations")
+          ) {
+            migrationUserId = undefined;
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "INSERT INTO main.default.memory_migrations (user_id)",
+            )
+          ) {
+            const match = normalized.match(/VALUES \('([^']*)'\)/);
+            migrationUserId = match ? match[1] : undefined;
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          return {
+            fetchAll: jest.fn().mockResolvedValue([]),
+            close: jest.fn().mockResolvedValue(undefined),
+          };
+        });
+
+      const session = {
+        executeStatement,
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const client = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        openSession: jest.fn().mockResolvedValue(session),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+
+      client.connect.mockResolvedValue(client);
+
+      return {
+        DBSQLClient: jest.fn().mockImplementation(() => client),
+        __mockClient: client,
+        __mockSession: session,
+      };
+    });
+
+    jest.doMock("axios", () => {
+      let endpointExists = false;
+      let indexExists = false;
+
+      const httpClient = {
+        get: jest.fn().mockImplementation(async (url: string) => {
+          if (url === "/endpoints/mem0_vector_search") {
+            if (!endpointExists) {
+              const error: any = new Error("missing endpoint");
+              error.response = { status: 404 };
+              throw error;
+            }
+            return { data: { name: "mem0_vector_search" } };
+          }
+
+          if (url === "/indexes/main.default.memories") {
+            if (!indexExists) {
+              const error: any = new Error("missing index");
+              error.response = { status: 404 };
+              throw error;
+            }
+            return { data: { name: "main.default.memories" } };
+          }
+
+          throw new Error(`Unexpected Databricks GET ${url}`);
+        }),
+        post: jest.fn().mockImplementation(async (url: string, body: any) => {
+          if (url === "/endpoints") {
+            endpointExists = true;
+            return { data: { endpoint: body.name } };
+          }
+
+          if (url === "/indexes") {
+            indexExists = true;
+            return { data: { index: body.name } };
+          }
+
+          if (url === "/indexes/main.default.memories/query") {
+            return {
+              data: {
+                result: {
+                  manifest: {
+                    columns: [{ name: "memory_id" }, { name: "payload" }],
+                  },
+                  data_array: [
+                    [
+                      "id-1",
+                      JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                      0.98,
+                    ],
+                    [
+                      "id-2",
+                      JSON.stringify({ user_id: "u2", topic: "beta" }),
+                      0.75,
+                    ],
+                  ],
+                },
+              },
+            };
+          }
+
+          throw new Error(`Unexpected Databricks POST ${url}`);
+        }),
+        delete: jest.fn().mockImplementation(async (url: string) => {
+          if (url === "/indexes/main.default.memories") {
+            indexExists = false;
+            return { data: {} };
+          }
+          throw new Error(`Unexpected Databricks DELETE ${url}`);
+        }),
+      };
+
+      const create = jest.fn().mockReturnValue(httpClient);
+
+      return {
+        __esModule: true,
+        default: { create },
+        create,
+        __mockHttpClient: httpClient,
+      };
+    });
+
+    DatabricksVectorStore =
+      require("../src/vector_stores/databricks").DatabricksVectorStore;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const databricksSql = require("@databricks/sql");
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    const clientInstance = databricksSql.DBSQLClient.mock.results[0].value;
+    const httpClient = axiosModule.__mockHttpClient;
+    expect(clientInstance.connect).toHaveBeenCalledTimes(1);
+    expect(clientInstance.openSession).toHaveBeenCalledTimes(1);
+    expect(httpClient.post).toHaveBeenCalledWith("/endpoints", {
+      name: "mem0_vector_search",
+      endpoint_type: "STANDARD",
+    });
+    expect(httpClient.post).toHaveBeenCalledWith("/indexes", {
+      name: "main.default.memories",
+      endpoint_name: "mem0_vector_search",
+      primary_key: "memory_id",
+      index_type: "DELTA_SYNC",
+      delta_sync_index_spec: {
+        source_table: "main.default.memories",
+        pipeline_type: "TRIGGERED",
+        columns_to_sync: [
+          "memory_id",
+          "payload",
+          "user_id",
+          "agent_id",
+          "run_id",
+        ],
+        embedding_vector_columns: [
+          {
+            name: "embedding",
+            embedding_dimension: 3,
+          },
+        ],
+      },
+    });
+  });
+
+  it("shapes Databricks SQL writes and normalizes search results", async () => {
+    const databricksSql = require("@databricks/sql");
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const session = databricksSql.__mockSession;
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO main.default.memories"),
+    );
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("'id-1'"),
+    );
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("array(1, 0, 0)"),
+    );
+
+    const results = await store.search([1, 0, 0], 5, { user_id: "u1" });
+    const httpClient = axiosModule.__mockHttpClient;
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/indexes/main.default.memories/query",
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("roundtrips migration user ids", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;
@@ -759,7 +1079,7 @@ describe("Vectorize – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 7. LangchainVectorStore — mock Langchain client, verify no-op init
+// 8. LangchainVectorStore — mock Langchain client, verify no-op init
 // ───────────────────────────────────────────────────────────────────────────
 describe("LangchainVectorStore – backward compat", () => {
   it("implements full VectorStore interface", () => {
@@ -866,7 +1186,7 @@ describe("LangchainVectorStore – backward compat", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 8. Memory class — ensure it works with each provider via mocked factories
+// 9. Memory class — ensure it works with each provider via mocked factories
 // ───────────────────────────────────────────────────────────────────────────
 describe("Memory class – backward compat with all providers", () => {
   function createMockEmbedder(dims: number) {
