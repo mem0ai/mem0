@@ -229,7 +229,9 @@ export class PineconeDB implements VectorStore {
       metadata: payloads[i] || {},
     }));
     for (let i = 0; i < records.length; i += this.batchSize) {
-      await this.namespacedIndex().upsert({ records: records.slice(i, i + this.batchSize) });
+      await this.namespacedIndex().upsert({
+        records: records.slice(i, i + this.batchSize),
+      });
     }
   }
 

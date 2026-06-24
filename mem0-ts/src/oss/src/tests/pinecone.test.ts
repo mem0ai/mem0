@@ -251,7 +251,9 @@ describe("insert", () => {
     const db = await initDb();
     await db.insert([[1, 2, 3, 4]], ["id-1"], [{ text: "hello" }]);
     expect(__mocks__.upsert).toHaveBeenCalledWith({
-      records: [{ id: "id-1", values: [1, 2, 3, 4], metadata: { text: "hello" } }],
+      records: [
+        { id: "id-1", values: [1, 2, 3, 4], metadata: { text: "hello" } },
+      ],
     });
   });
 
@@ -341,9 +343,7 @@ describe("search", () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const db = await initDb();
     await db.search([1, 2, 3, 4], 5, { NOT: [{ tag: "x" }] });
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("NOT"),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("NOT"));
     warnSpy.mockRestore();
   });
 
@@ -351,9 +351,7 @@ describe("search", () => {
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const db = await initDb();
     await db.search([1, 2, 3, 4], 5, { tag: { contains: "foo" } });
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("contains"),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("contains"));
     warnSpy.mockRestore();
   });
 
@@ -412,7 +410,9 @@ describe("update", () => {
     const db = await initDb();
     await db.update("vec-1", [1, 2, 3, 4], { text: "updated" });
     expect(__mocks__.upsert).toHaveBeenCalledWith({
-      records: [{ id: "vec-1", values: [1, 2, 3, 4], metadata: { text: "updated" } }],
+      records: [
+        { id: "vec-1", values: [1, 2, 3, 4], metadata: { text: "updated" } },
+      ],
     });
   });
 });
