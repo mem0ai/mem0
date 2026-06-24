@@ -10,22 +10,6 @@ script).
 from __future__ import annotations
 
 import json
-import os
-import sys
-
-import pytest
-
-SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "..", "scripts")
-
-
-@pytest.fixture(autouse=True)
-def _scripts_path():
-    abs_scripts = os.path.abspath(SCRIPTS_DIR)
-    if abs_scripts not in sys.path:
-        sys.path.insert(0, abs_scripts)
-    yield
-    if abs_scripts in sys.path:
-        sys.path.remove(abs_scripts)
 
 
 class _FakeResp:
