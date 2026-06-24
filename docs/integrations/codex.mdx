@@ -62,14 +62,14 @@ Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 The fastest way to connect Codex to Mem0 — no plugin, no marketplace. Add the MCP server with a single command:
 
 ```bash
-codex mcp add mem0 --url https://mcp.mem0.ai/mcp --bearer-token-env-var MEM0_API_KEY
+codex mcp add mem0 --url https://mcp.mem0.ai/mcp/ --bearer-token-env-var MEM0_API_KEY
 ```
 
 Or add it manually to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.mem0]
-url = "https://mcp.mem0.ai/mcp"
+url = "https://mcp.mem0.ai/mcp/"
 bearer_token_env_var = "MEM0_API_KEY"
 ```
 
@@ -125,7 +125,8 @@ When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to 
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
 | **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Pre-compact** | `PreCompact` | Stores a session summary before context compaction |
+| **Stop** | `Stop` | Stores a session summary when the session ends |
+| **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
 
 ## Example Workflow
 
