@@ -1033,8 +1033,8 @@ describe("Databricks – backward compat with mocked clients", () => {
     });
 
     await store.initialize();
-
-    const authParams = axiosModule.__mockAuthPost.mock.calls[0]?.[1];
+    await store.insert([[1, 0, 0]], ["id-1"], [{ user_id: "u1" }]);
+    await store.search([1, 0, 0], 1);
 
     expect(axiosModule.__mockAuthPost).toHaveBeenCalledWith(
       "https://workspace.databricks.com/oidc/v1/token",
@@ -1046,18 +1046,30 @@ describe("Databricks – backward compat with mocked clients", () => {
         },
       }),
     );
-    expect(authParams.get("grant_type")).toBe("client_credentials");
-    expect(authParams.get("scope")).toBe("all-apis");
-    expect(authParams.get("authorization_details")).toBe(
-      JSON.stringify([
-        {
-          type: "unity_catalog_permission",
-          securable_type: "table",
-          securable_object_name: "main.default.memories",
-          operation: "ReadVectorIndex",
-        },
-      ]),
+    const authDetails = axiosModule.__mockAuthPost.mock.calls.map(
+      ([, params]: [string, URLSearchParams]) =>
+        params.get("authorization_details"),
     );
+    const readDetails = JSON.stringify([
+      {
+        type: "unity_catalog_permission",
+        securable_type: "table",
+        securable_object_name: "main.default.memories",
+        operation: "ReadVectorIndex",
+      },
+    ]);
+    const writeDetails = JSON.stringify([
+      {
+        type: "unity_catalog_permission",
+        securable_type: "table",
+        securable_object_name: "main.default.memories",
+        operation: "WriteVectorIndex",
+      },
+    ]);
+
+    expect(authDetails).toContain(null);
+    expect(authDetails).toContain(readDetails);
+    expect(authDetails).toContain(writeDetails);
     expect(databricksSql.__mockClient.connect).toHaveBeenCalledWith(
       expect.objectContaining({
         authType: "databricks-oauth",

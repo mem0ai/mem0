@@ -68,13 +68,16 @@ interface DatabricksVector {
   payload: Record<string, any>;
 }
 
-function buildDatabricksAuthorizationDetails(indexName: string): string {
+function buildDatabricksAuthorizationDetails(
+  indexName: string,
+  operation: "ReadVectorIndex" | "WriteVectorIndex",
+): string {
   return JSON.stringify([
     {
       type: "unity_catalog_permission",
       securable_type: "table",
       securable_object_name: indexName,
-      operation: "ReadVectorIndex",
+      operation,
     },
   ]);
 }
@@ -426,8 +429,10 @@ export class DatabricksVectorStore implements VectorStore {
   private session?: DatabricksSqlSessionLike;
   private _sessionPromise?: Promise<DatabricksSqlSessionLike>;
   private _initPromise?: Promise<void>;
-  private oauthAccessToken?: string;
-  private oauthAccessTokenExpiresAt?: number;
+  private readonly oauthTokens = new Map<
+    string,
+    { accessToken: string; expiresAt: number }
+  >();
 
   constructor(config: DatabricksConfig) {
     const { host, workspaceUrl } = extractHostAndWorkspaceUrl(config);
@@ -814,18 +819,29 @@ export class DatabricksVectorStore implements VectorStore {
     const baseClient = axios.create({ baseURL });
     return {
       get: async (url: string, config?: Record<string, any>) =>
-        baseClient.get(url, await this.withOAuthHeaders(config)),
+        baseClient.get(url, await this.withOAuthHeaders("GET", url, config)),
       post: async (url: string, data?: any, config?: Record<string, any>) =>
-        baseClient.post(url, data, await this.withOAuthHeaders(config)),
+        baseClient.post(
+          url,
+          data,
+          await this.withOAuthHeaders("POST", url, config),
+        ),
       delete: async (url: string, config?: Record<string, any>) =>
-        baseClient.delete(url, await this.withOAuthHeaders(config)),
+        baseClient.delete(
+          url,
+          await this.withOAuthHeaders("DELETE", url, config),
+        ),
     } as DatabricksHttpClientLike as AxiosInstance;
   }
 
   private async withOAuthHeaders(
+    method: "GET" | "POST" | "DELETE",
+    url: string,
     config?: Record<string, any>,
   ): Promise<Record<string, any>> {
-    const token = await this.getOAuthAccessToken();
+    const token = await this.getOAuthAccessToken(
+      this.getOAuthAuthorizationDetails(method, url),
+    );
     return {
       ...(config || {}),
       headers: {
@@ -835,13 +851,42 @@ export class DatabricksVectorStore implements VectorStore {
     };
   }
 
-  private async getOAuthAccessToken(): Promise<string> {
+  private getOAuthAuthorizationDetails(
+    method: "GET" | "POST" | "DELETE",
+    url: string,
+  ): string | undefined {
     if (
-      this.oauthAccessToken &&
-      this.oauthAccessTokenExpiresAt &&
-      Date.now() < this.oauthAccessTokenExpiresAt - 60_000
+      method === "POST" &&
+      (url.endsWith("/query") || url.endsWith("/query-next-page"))
     ) {
-      return this.oauthAccessToken;
+      return buildDatabricksAuthorizationDetails(
+        this.fullIndexName,
+        "ReadVectorIndex",
+      );
+    }
+
+    if (
+      method === "POST" &&
+      (url.endsWith("/sync") ||
+        url.endsWith("/upsert-data") ||
+        url.endsWith("/delete-data"))
+    ) {
+      return buildDatabricksAuthorizationDetails(
+        this.fullIndexName,
+        "WriteVectorIndex",
+      );
+    }
+
+    return undefined;
+  }
+
+  private async getOAuthAccessToken(
+    authorizationDetails?: string,
+  ): Promise<string> {
+    const cacheKey = authorizationDetails || "__management__";
+    const cached = this.oauthTokens.get(cacheKey);
+    if (cached && Date.now() < cached.expiresAt - 60_000) {
+      return cached.accessToken;
     }
 
     if (!this.clientId || !this.clientSecret) {
@@ -850,15 +895,17 @@ export class DatabricksVectorStore implements VectorStore {
       );
     }
 
+    const formData = new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: "all-apis",
+    });
+    if (authorizationDetails) {
+      formData.set("authorization_details", authorizationDetails);
+    }
+
     const response = await axios.post(
       `${this.workspaceUrl}/oidc/v1/token`,
-      new URLSearchParams({
-        grant_type: "client_credentials",
-        scope: "all-apis",
-        authorization_details: buildDatabricksAuthorizationDetails(
-          this.fullIndexName,
-        ),
-      }),
+      formData,
       {
         auth: {
           username: this.clientId,
@@ -878,9 +925,10 @@ export class DatabricksVectorStore implements VectorStore {
     }
 
     const expiresInSeconds = Number(response?.data?.expires_in ?? 3600);
-    this.oauthAccessToken = token;
-    this.oauthAccessTokenExpiresAt =
-      Date.now() + Math.max(1, expiresInSeconds) * 1000;
+    this.oauthTokens.set(cacheKey, {
+      accessToken: token,
+      expiresAt: Date.now() + Math.max(1, expiresInSeconds) * 1000,
+    });
     return token;
   }
 
