@@ -391,7 +391,6 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
         raise upstream_error()
 
 
-@app.post("/memories", summary="Create memories")
 def _message_has_image_content(message: Dict[str, Any]) -> bool:
     """True if a message carries multimodal image content (a single image_url
     part or a list containing one). These shapes are silently dropped by
@@ -408,6 +407,7 @@ def _message_has_image_content(message: Dict[str, Any]) -> bool:
     return False
 
 
+@app.post("/memories", summary="Create memories")
 def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
