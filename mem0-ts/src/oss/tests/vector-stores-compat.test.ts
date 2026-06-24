@@ -859,6 +859,41 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           return properties[match[1]] === value;
         });
 
+    const extractStructuredArgument = (
+      queryString: string,
+      key: string,
+    ): any => {
+      const keyIndex = queryString.indexOf(`${key}:`);
+      if (keyIndex < 0) {
+        return undefined;
+      }
+
+      const objectStart = queryString.indexOf("{", keyIndex);
+      if (objectStart < 0) {
+        return undefined;
+      }
+
+      let depth = 0;
+      for (let index = objectStart; index < queryString.length; index += 1) {
+        const char = queryString[index];
+        if (char === "{") {
+          depth += 1;
+        } else if (char === "}") {
+          depth -= 1;
+          if (depth === 0) {
+            const literal = queryString.slice(objectStart, index + 1);
+            const jsonLiteral = literal.replace(
+              /([{\[,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g,
+              '$1"$2"$3',
+            );
+            return JSON.parse(jsonLiteral);
+          }
+        }
+      }
+
+      return undefined;
+    };
+
     return {
       send: jest.fn().mockImplementation(async (command: any) => {
         const queryString = String(command.input.queryString || "");
@@ -934,7 +969,13 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
         }
 
         if (queryString.includes("topK.byEmbedding")) {
-          const match = [...nodes.entries()][0];
+          const vertexFilter = extractStructuredArgument(
+            queryString,
+            "vertexFilter",
+          );
+          const match = [...nodes.entries()].find(([, node]) =>
+            matchesFilter(node, vertexFilter),
+          );
 
           return createMockResponse({
             results: match
@@ -1256,6 +1297,85 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     expect(searchQuery).toContain(
       'stringContains: { property: "data", value: "alp" }',
     );
+  });
+
+  it("serializes complex list filters into Cypher clauses and parameters", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.list(
+      {
+        $and: [
+          {
+            $or: [{ priority: { gte: 5 } }, { data: { startsWith: "alp" } }],
+          },
+          { $not: [{ archived: true }] },
+          { label: { contains: "topic" } },
+          { tag: ["a", "b"] },
+          { optional: "*" },
+        ],
+      },
+      7,
+    );
+
+    const listCall = mockClient.send.mock.calls.find(
+      ([command]: [any]) =>
+        String(command.input.queryString || "").includes("LIMIT $limit") &&
+        String(command.input.queryString || "").includes("RETURN n"),
+    )?.[0];
+    const countCall = mockClient.send.mock.calls.find(([command]: [any]) =>
+      String(command.input.queryString || "").includes(
+        "RETURN count(n) AS count",
+      ),
+    )?.[0];
+
+    expect(listCall).toBeDefined();
+    expect(countCall).toBeDefined();
+
+    const listQuery = String(listCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    const countQuery = String(countCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+
+    expect(listQuery).toContain("WHERE (");
+    expect(listQuery).toContain("n.`priority` >= $filter_gte_priority_1");
+    expect(listQuery).toContain(
+      "toString(n.`data`) STARTS WITH $filter_startsWith_data_2",
+    );
+    expect(listQuery).toContain("NOT (n.`archived` = $filter_archived_3)");
+    expect(listQuery).toContain(
+      "toString(n.`label`) CONTAINS $filter_contains_label_4",
+    );
+    expect(listQuery).toContain("n.`tag` IN $filter_in_tag_5");
+    expect(listQuery).toContain("n.`optional` IS NOT NULL");
+    expect(countQuery).toContain("RETURN count(n) AS count");
+    expect(listCall.input.parameters).toEqual({
+      filter_gte_priority_1: 5,
+      filter_startsWith_data_2: "alp",
+      filter_archived_3: true,
+      filter_contains_label_4: "topic",
+      filter_in_tag_5: ["a", "b"],
+      limit: 7,
+    });
+    expect(countCall.input.parameters).toEqual({
+      filter_gte_priority_1: 5,
+      filter_startsWith_data_2: "alp",
+      filter_archived_3: true,
+      filter_contains_label_4: "topic",
+      filter_in_tag_5: ["a", "b"],
+    });
   });
 
   it("replaces payloads on update and supports user-id storage", async () => {
