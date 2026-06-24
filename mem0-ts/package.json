@@ -113,6 +113,7 @@
     "@google/genai": "^1.40.0",
     "@langchain/core": "^1.1.47",
     "@mistralai/mistralai": "^1.5.2",
+    "@opensearch-project/opensearch": "^3.5.1",
     "@qdrant/js-client-rest": "^1.18.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
