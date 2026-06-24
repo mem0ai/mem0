@@ -42,7 +42,7 @@ def test_sync_add_temporal_metadata_triggers_notice_after_success(monkeypatch):
         infer=False,
     )
 
-    assert result == {"results": []}
+    assert result == {"results": [], "failed": []}
     memory._add_to_vector_store.assert_called_once()
     temporal_notice.assert_called_once_with(memory, "sync", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_called()
@@ -144,7 +144,7 @@ async def test_async_add_temporal_metadata_triggers_notice_after_success(monkeyp
         infer=False,
     )
 
-    assert result == {"results": []}
+    assert result == {"results": [], "failed": []}
     memory._add_to_vector_store.assert_awaited_once()
     temporal_notice.assert_awaited_once_with(memory, "async", "add", "metadata", "date_like_metadata")
     first_run_notice.assert_not_awaited()
@@ -169,7 +169,7 @@ async def test_async_add_runs_scale_detection_in_thread(monkeypatch):
 
     result = await AsyncMemory.add(memory, "The user likes tea.", user_id="u1", infer=False)
 
-    assert result == {"results": []}
+    assert result == {"results": [], "failed": []}
     assert to_thread_calls == [(scale_detector, (memory, []), {})]
     scale_detector.assert_called_once_with(memory, [])
     scale_notice.assert_awaited_once_with(
