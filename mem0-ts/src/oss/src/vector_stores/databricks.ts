@@ -1283,43 +1283,76 @@ export class DatabricksVectorStore implements VectorStore {
       return value.includes(fieldValue);
     }
 
+    let sawOperator = false;
+
     if ("eq" in value) {
-      return fieldValue === value.eq;
+      sawOperator = true;
+      if (fieldValue !== value.eq) {
+        return false;
+      }
     }
     if ("ne" in value) {
-      return fieldValue !== value.ne;
+      sawOperator = true;
+      if (fieldValue === value.ne) {
+        return false;
+      }
     }
     if ("gt" in value) {
-      return fieldValue > value.gt;
+      sawOperator = true;
+      if (!(fieldValue > value.gt)) {
+        return false;
+      }
     }
     if ("gte" in value) {
-      return fieldValue >= value.gte;
+      sawOperator = true;
+      if (!(fieldValue >= value.gte)) {
+        return false;
+      }
     }
     if ("lt" in value) {
-      return fieldValue < value.lt;
+      sawOperator = true;
+      if (!(fieldValue < value.lt)) {
+        return false;
+      }
     }
     if ("lte" in value) {
-      return fieldValue <= value.lte;
+      sawOperator = true;
+      if (!(fieldValue <= value.lte)) {
+        return false;
+      }
     }
     if ("in" in value) {
-      return Array.isArray(value.in) && value.in.includes(fieldValue);
+      sawOperator = true;
+      if (!Array.isArray(value.in) || !value.in.includes(fieldValue)) {
+        return false;
+      }
     }
     if ("nin" in value) {
-      return !Array.isArray(value.nin) || !value.nin.includes(fieldValue);
+      sawOperator = true;
+      if (Array.isArray(value.nin) && value.nin.includes(fieldValue)) {
+        return false;
+      }
     }
     if ("contains" in value) {
-      return (
-        typeof fieldValue === "string" && fieldValue.includes(value.contains)
-      );
+      sawOperator = true;
+      if (
+        typeof fieldValue !== "string" ||
+        !fieldValue.includes(value.contains)
+      ) {
+        return false;
+      }
     }
     if ("icontains" in value) {
-      return (
-        typeof fieldValue === "string" &&
-        fieldValue.toLowerCase().includes(value.icontains.toLowerCase())
-      );
+      sawOperator = true;
+      if (
+        typeof fieldValue !== "string" ||
+        !fieldValue.toLowerCase().includes(value.icontains.toLowerCase())
+      ) {
+        return false;
+      }
     }
 
-    return fieldValue === value;
+    return sawOperator ? true : fieldValue === value;
   }
 
   private filterVector(

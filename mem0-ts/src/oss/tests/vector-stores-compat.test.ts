@@ -1180,6 +1180,62 @@ describe("Databricks – backward compat with mocked clients", () => {
     ]);
   });
 
+  it("applies multiple local metadata operators on the same field", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            [
+              "id-1",
+              JSON.stringify({ user_id: "u1", importance: 1.0, topic: "high" }),
+              0.99,
+            ],
+            [
+              "id-2",
+              JSON.stringify({
+                user_id: "u1",
+                importance: 0.75,
+                topic: "within-range",
+              }),
+              0.98,
+            ],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, {
+      importance: { gte: 0.5, lte: 0.9 },
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-2",
+        payload: { user_id: "u1", importance: 0.75, topic: "within-range" },
+        score: 0.98,
+      },
+    ]);
+  });
+
   it("paginates when local-only filters need matches beyond the first page", async () => {
     const axiosModule = require("axios");
     axiosModule.__setPagedQueryResponses([
