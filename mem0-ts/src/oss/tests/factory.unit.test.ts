@@ -103,6 +103,11 @@ jest.mock("../src/vector_stores/redis", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "redis", config })),
 }));
+jest.mock("../src/vector_stores/valkey", () => ({
+  ValkeyDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "valkey", config })),
+}));
 jest.mock("../src/vector_stores/supabase", () => ({
   SupabaseDB: jest
     .fn()
@@ -243,6 +248,7 @@ describe("VectorStoreFactory", () => {
   test.each([
     ["qdrant"],
     ["redis"],
+    ["valkey"],
     ["supabase"],
     ["langchain"],
     ["vectorize"],
