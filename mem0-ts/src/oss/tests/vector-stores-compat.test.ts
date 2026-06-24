@@ -699,7 +699,8 @@ describe("Databricks – backward compat with mocked clients", () => {
 
           if (
             normalized.startsWith("CREATE SCHEMA IF NOT EXISTS") ||
-            normalized.startsWith("CREATE TABLE IF NOT EXISTS")
+            normalized.startsWith("CREATE TABLE IF NOT EXISTS") ||
+            normalized.startsWith("ALTER TABLE main.default.memories")
           ) {
             return {
               fetchAll: jest.fn().mockResolvedValue([]),
@@ -807,6 +808,10 @@ describe("Databricks – backward compat with mocked clients", () => {
             return { data: { index: body.name } };
           }
 
+          if (url === "/indexes/main.default.memories/sync") {
+            return { data: { status: "queued" } };
+          }
+
           if (url === "/indexes/main.default.memories/query") {
             return {
               data: {
@@ -902,6 +907,7 @@ describe("Databricks – backward compat with mocked clients", () => {
     await Promise.all([p1, p2, p3]);
 
     const clientInstance = databricksSql.DBSQLClient.mock.results[0].value;
+    const session = databricksSql.__mockSession;
     const httpClient = axiosModule.__mockHttpClient;
     expect(clientInstance.connect).toHaveBeenCalledTimes(1);
     expect(clientInstance.openSession).toHaveBeenCalledTimes(1);
@@ -932,9 +938,16 @@ describe("Databricks – backward compat with mocked clients", () => {
         ],
       },
     });
+    expect(
+      session.executeStatement.mock.calls.some(
+        ([sql]: [string]) =>
+          sql.includes("ALTER TABLE main.default.memories") &&
+          sql.includes("delta.enableChangeDataFeed"),
+      ),
+    ).toBe(true);
   });
 
-  it("shapes Databricks SQL writes and normalizes search results", async () => {
+  it("shapes Databricks SQL writes, syncs triggered indexes, and normalizes search results", async () => {
     const databricksSql = require("@databricks/sql");
     const axiosModule = require("axios");
     const store = new DatabricksVectorStore({
@@ -964,13 +977,21 @@ describe("Databricks – backward compat with mocked clients", () => {
     expect(session.executeStatement).toHaveBeenCalledWith(
       expect.stringContaining("array(1, 0, 0)"),
     );
+    await store.update("id-1", [0, 1, 0], { user_id: "u1", topic: "beta" });
+    await store.delete("id-1");
 
     const results = await store.search([1, 0, 0], 5, { user_id: "u1" });
     const httpClient = axiosModule.__mockHttpClient;
+    expect(
+      httpClient.post.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+      ),
+    ).toHaveLength(3);
     expect(httpClient.post).toHaveBeenCalledWith(
       "/indexes/main.default.memories/query",
       expect.objectContaining({
         columns: ["memory_id", "payload"],
+        filters_json: JSON.stringify({ user_id: "u1" }),
         query_type: "ANN",
         query_vector: [1, 0, 0],
       }),
@@ -982,6 +1003,40 @@ describe("Databricks – backward compat with mocked clients", () => {
         score: 0.98,
       },
     ]);
+  });
+
+  it("omits columns_to_sync for storage-optimized endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+
+    await store.initialize();
+
+    expect(axiosModule.__mockHttpClient.post).toHaveBeenCalledWith("/indexes", {
+      name: "main.default.memories",
+      endpoint_name: "mem0_vector_search",
+      primary_key: "memory_id",
+      index_type: "DELTA_SYNC",
+      delta_sync_index_spec: {
+        source_table: "main.default.memories",
+        pipeline_type: "TRIGGERED",
+        columns_to_sync: undefined,
+        embedding_vector_columns: [
+          {
+            name: "embedding",
+            embedding_dimension: 16,
+          },
+        ],
+      },
+    });
   });
 
   it("roundtrips migration user ids", async () => {

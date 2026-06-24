@@ -127,6 +127,112 @@ function extractRowValue(row: Record<string, any>, keys: string[]): any {
   return undefined;
 }
 
+function isPlainObject(value: any): value is Record<string, any> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeFilterValue(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeFilterValue(entry));
+  }
+  return value;
+}
+
+function mergeDatabricksFilters(
+  target: Record<string, any>,
+  source: Record<string, any>,
+): boolean {
+  for (const [key, value] of Object.entries(source)) {
+    if (
+      key in target &&
+      JSON.stringify(target[key]) !== JSON.stringify(value)
+    ) {
+      return false;
+    }
+    target[key] = value;
+  }
+  return true;
+}
+
+function buildSimpleDatabricksFilter(
+  key: string,
+  value: any,
+): Record<string, any> | null {
+  const safeKey = validateIdentifier(key, "filter key");
+
+  if (!isPlainObject(value)) {
+    return {
+      [safeKey]: normalizeFilterValue(value),
+    };
+  }
+
+  const entries = Object.entries(value);
+  if (entries.length !== 1) {
+    return null;
+  }
+
+  const [operator, operand] = entries[0];
+  switch (operator) {
+    case "eq":
+      return { [safeKey]: normalizeFilterValue(operand) };
+    case "ne":
+      return { [`${safeKey} NOT`]: normalizeFilterValue(operand) };
+    case "gt":
+      return { [`${safeKey} >`]: normalizeFilterValue(operand) };
+    case "gte":
+      return { [`${safeKey} >=`]: normalizeFilterValue(operand) };
+    case "lt":
+      return { [`${safeKey} <`]: normalizeFilterValue(operand) };
+    case "lte":
+      return { [`${safeKey} <=`]: normalizeFilterValue(operand) };
+    case "in":
+      return Array.isArray(operand)
+        ? { [safeKey]: normalizeFilterValue(operand) }
+        : null;
+    case "nin":
+      return Array.isArray(operand) && operand.length === 1
+        ? { [`${safeKey} NOT`]: normalizeFilterValue(operand[0]) }
+        : null;
+    default:
+      return null;
+  }
+}
+
+function buildDatabricksFilters(
+  filters?: SearchFilters,
+): Record<string, any> | undefined {
+  if (!filters || Object.keys(filters).length === 0) {
+    return undefined;
+  }
+
+  const result: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "$and") {
+      if (!Array.isArray(value)) {
+        return undefined;
+      }
+      for (const entry of value) {
+        if (!isPlainObject(entry)) {
+          return undefined;
+        }
+        const nested = buildDatabricksFilters(entry as SearchFilters);
+        if (!nested || !mergeDatabricksFilters(result, nested)) {
+          return undefined;
+        }
+      }
+      continue;
+    }
+
+    const converted = buildSimpleDatabricksFilter(key, value);
+    if (!converted || !mergeDatabricksFilters(result, converted)) {
+      return undefined;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 export class DatabricksVectorStore implements VectorStore {
   private readonly host: string;
   private readonly workspaceUrl: string;
@@ -180,6 +286,15 @@ export class DatabricksVectorStore implements VectorStore {
     this.sqlClient = config.sqlClient || new DBSQLClient();
     this.httpClient = config.httpClient || this.createHttpClient();
 
+    if (
+      this.endpointType === "STORAGE_OPTIMIZED" &&
+      this.pipelineType !== "TRIGGERED"
+    ) {
+      throw new Error(
+        "Databricks storage-optimized endpoints only support TRIGGERED pipelineType.",
+      );
+    }
+
     this.initialize().catch(console.error);
   }
 
@@ -203,7 +318,9 @@ export class DatabricksVectorStore implements VectorStore {
         agent_id STRING,
         run_id STRING
       ) USING DELTA
+      TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true')
     `);
+    await this.ensureChangeDataFeedEnabled();
     await this.executeSql(`
       CREATE TABLE IF NOT EXISTS ${this.catalog}.${this.schema}.memory_migrations (
         user_id STRING
@@ -240,6 +357,7 @@ export class DatabricksVectorStore implements VectorStore {
         (memory_id, embedding, payload, user_id, agent_id, run_id)
       VALUES ${values.join(", ")}
     `);
+    await this.syncIndexIfTriggered();
   }
 
   async search(
@@ -249,11 +367,15 @@ export class DatabricksVectorStore implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
     this.assertVectorDimension(query, "Query");
+    const databricksFilters = buildDatabricksFilters(filters);
 
     const response = await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
       {
         columns: ["memory_id", "payload"],
+        filters_json: databricksFilters
+          ? JSON.stringify(databricksFilters)
+          : undefined,
         num_results: Math.max(topK, DEFAULT_PAGE_SIZE),
         query_type: this.queryType,
         query_vector: query,
@@ -274,11 +396,15 @@ export class DatabricksVectorStore implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
     await this.initialize();
+    const databricksFilters = buildDatabricksFilters(filters);
 
     const response = await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
       {
         columns: ["memory_id", "payload"],
+        filters_json: databricksFilters
+          ? JSON.stringify(databricksFilters)
+          : undefined,
         num_results: Math.max(topK, DEFAULT_PAGE_SIZE),
         query_type: "FULL_TEXT",
         query_text: query,
@@ -332,6 +458,7 @@ export class DatabricksVectorStore implements VectorStore {
           run_id = ${formatSqlValue(sessionValues.run_id)}
       WHERE memory_id = ${formatSqlValue(vectorId)}
     `);
+    await this.syncIndexIfTriggered();
   }
 
   async delete(vectorId: string): Promise<void> {
@@ -341,6 +468,7 @@ export class DatabricksVectorStore implements VectorStore {
       DELETE FROM ${this.fullTableName}
       WHERE memory_id = ${formatSqlValue(vectorId)}
     `);
+    await this.syncIndexIfTriggered();
   }
 
   async deleteCol(): Promise<void> {
@@ -458,13 +586,10 @@ export class DatabricksVectorStore implements VectorStore {
         delta_sync_index_spec: {
           source_table: this.fullTableName,
           pipeline_type: this.pipelineType,
-          columns_to_sync: [
-            "memory_id",
-            "payload",
-            "user_id",
-            "agent_id",
-            "run_id",
-          ],
+          columns_to_sync:
+            this.endpointType === "STANDARD"
+              ? ["memory_id", "payload", "user_id", "agent_id", "run_id"]
+              : undefined,
           embedding_vector_columns: [
             {
               name: "embedding",
@@ -474,6 +599,17 @@ export class DatabricksVectorStore implements VectorStore {
         },
       });
     }
+  }
+
+  private async ensureChangeDataFeedEnabled(): Promise<void> {
+    if (this.endpointType !== "STANDARD") {
+      return;
+    }
+
+    await this.executeSql(`
+      ALTER TABLE ${this.fullTableName}
+      SET TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true')
+    `);
   }
 
   private createHttpClient(): AxiosInstance {
@@ -550,6 +686,16 @@ export class DatabricksVectorStore implements VectorStore {
         await operation.close();
       }
     }
+  }
+
+  private async syncIndexIfTriggered(): Promise<void> {
+    if (this.pipelineType !== "TRIGGERED") {
+      return;
+    }
+
+    await this.httpClient.post(
+      `/indexes/${encodeURIComponent(this.fullIndexName)}/sync`,
+    );
   }
 
   private normalizeQueryResults(
