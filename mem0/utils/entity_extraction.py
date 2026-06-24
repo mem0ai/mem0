@@ -8,17 +8,22 @@ Extracts four types of entities from text:
 - **Noun fallback**: Single nouns from circumstantial compound patterns
 
 Public API:
-    extract_entities(text: str) -> List[Tuple[str, str]]
+    extract_entities(text: str) -> List[Tuple[str, str, Optional[str]]]
+
+Each tuple is (syntactic_type, entity_text, semantic_type) where:
+    syntactic_type: one of PROPER, QUOTED, COMPOUND, NOUN
+    entity_text: the extracted entity string
+    semantic_type: spaCy NER label (PERSON, ORG, GPE, LOC, PRODUCT, …) or None
 
 Internal:
-    _extract_entities_from_doc(doc) -> List[Tuple[str, str]]
+    _extract_entities_from_doc(doc) -> List[Tuple[str, str, Optional[str]]]
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +87,13 @@ _GENERIC_CAPS = {
 # Markdown/formatting markers to skip during extraction
 _FORMATTING_MARKERS = {"*", "-", "+", "\u2022", "\u2013", "\u2014", "#", "##", "###", "**", "__"}
 
+# spaCy NER labels considered semantically meaningful for entity storage.
+# Excludes numeric/temporal labels (DATE, TIME, MONEY, PERCENT, CARDINAL, ORDINAL, QUANTITY).
+_SEMANTIC_LABELS = frozenset({
+    "PERSON", "ORG", "GPE", "LOC", "PRODUCT", "EVENT",
+    "WORK_OF_ART", "LAW", "LANGUAGE", "FAC", "NORP",
+})
+
 
 def _is_sentence_start(tokens: list, idx: int) -> bool:
     """Check if a token is at the start of a sentence or after formatting."""
@@ -120,7 +132,7 @@ def _has_artifacts(txt: str) -> bool:
     )
 
 
-def extract_entities(text: str) -> List[Tuple[str, str]]:
+def extract_entities(text: str) -> List[Tuple[str, str, Optional[str]]]:
     """Extract named entities, quoted text, and noun compounds from text.
 
     This is the public API that accepts a string. It loads the spaCy model
@@ -130,8 +142,9 @@ def extract_entities(text: str) -> List[Tuple[str, str]]:
         text: Input text to extract entities from.
 
     Returns:
-        Deduplicated list of (entity_type, entity_text) tuples.
-        Entity types: PROPER, QUOTED, COMPOUND, NOUN.
+        Deduplicated list of (syntactic_type, entity_text, semantic_type) tuples.
+        syntactic_type: PROPER, QUOTED, COMPOUND, or NOUN.
+        semantic_type: spaCy NER label (PERSON, ORG, GPE, …) when available, else None.
         Returns empty list if spaCy is unavailable.
     """
     from mem0.utils.spacy_models import get_nlp_full
@@ -144,7 +157,7 @@ def extract_entities(text: str) -> List[Tuple[str, str]]:
     return _extract_entities_from_doc(doc)
 
 
-def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[Tuple[str, str]]]:
+def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[Tuple[str, str, Optional[str]]]]:
     """Extract entities from multiple texts using spaCy's nlp.pipe() for batched NER.
 
     Uses spaCy's efficient batch processing pipeline instead of calling
@@ -156,8 +169,8 @@ def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[
 
     Returns:
         List of entity lists, one per input text. Each entity list contains
-        (entity_type, entity_text) tuples. Returns list of empty lists if
-        spaCy is unavailable.
+        (syntactic_type, entity_text, semantic_type) tuples. Returns list of
+        empty lists if spaCy is unavailable.
     """
     if not texts:
         return []
@@ -174,10 +187,11 @@ def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[
     return results
 
 
-def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
+def _extract_entities_from_doc(doc) -> List[Tuple[str, str, Optional[str]]]:
     """Extract entities from a spaCy Doc object.
 
     Ported from platform's shared.core.utils.entity_extraction.extract_entities().
+    Returns 3-tuples of (syntactic_type, entity_text, semantic_type).
     """
     entities: List[Tuple[str, str]] = []
     text = doc.text
@@ -356,8 +370,19 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
     # Word-boundary anchoring avoids dropping distinct entities that only share a
     # leading substring (e.g. "Sam" must survive alongside "Samsung").
     all_lower = [e[1].lower() for e in deduped]
-    return [
+    final = [
         (t, e)
         for t, e in deduped
         if not any(e.lower() != o and re.search(rf"\b{re.escape(e.lower())}\b", o) for o in all_lower)
     ]
+
+    # Build spaCy NER semantic label lookup from doc.ents (e.g. PERSON, ORG, GPE)
+    spacy_ner_map: dict = {}
+    for ent in doc.ents:
+        if ent.label_ in _SEMANTIC_LABELS:
+            spacy_ner_map[ent.text.lower()] = ent.label_
+
+    # `entities`/`cleaned`/`final` above are intentionally 2-tuples (syntactic
+    # type, text); the optional semantic_type is joined here from the NER map so
+    # the public return type is List[Tuple[str, str, Optional[str]]].
+    return [(t, e, spacy_ner_map.get(e.lower())) for t, e in final]

@@ -56,7 +56,7 @@ class TestExtractEntities:
         from mem0.utils.entity_extraction import extract_entities
 
         entities = extract_entities("Google is great. I love working at Google.")
-        google_count = sum(1 for _, t in entities if "Google" in t)
+        google_count = sum(1 for _, t, *_ in entities if "Google" in t)
         assert google_count <= 1, f"Expected dedup, got {entities}"
 
     def test_substring_dedup_respects_word_boundaries(self):
@@ -75,9 +75,28 @@ class TestExtractEntities:
         entities = extract_entities("John Smith lives in New York City")
         for entity in entities:
             assert isinstance(entity, tuple)
-            assert len(entity) == 2
+            assert len(entity) == 3
             assert entity[0] in ("PROPER", "QUOTED", "COMPOUND", "NOUN")
             assert isinstance(entity[1], str)
+            assert entity[2] is None or isinstance(entity[2], str)
+
+    def test_semantic_type_person(self):
+        from mem0.utils.entity_extraction import extract_entities
+
+        entities = extract_entities("My friend Alice works at Google")
+        semantic_types = {e[1]: e[2] for e in entities}
+        # spaCy should label Alice as PERSON and Google as ORG
+        assert any(v == "PERSON" for v in semantic_types.values()), f"Expected PERSON label, got {semantic_types}"
+        assert any(v == "ORG" for v in semantic_types.values()), f"Expected ORG label, got {semantic_types}"
+
+    def test_semantic_type_none_for_compounds(self):
+        from mem0.utils.entity_extraction import extract_entities
+
+        entities = extract_entities("I enjoy machine learning and neural networks")
+        # Compound nouns should have no spaCy NER label
+        for syntactic_type, text, semantic_type in entities:
+            if syntactic_type == "COMPOUND":
+                assert semantic_type is None, f"Compound '{text}' should have no semantic_type"
 
 
 class TestExtractEntitiesBatch:
@@ -107,5 +126,5 @@ class TestExtractEntitiesBatch:
         single = extract_entities(text)
         batch = extract_entities_batch([text])
         assert len(batch) == 1
-        # Both should extract the same entities
-        assert set(t for _, t in single) == set(t for _, t in batch[0])
+        # Both should extract the same entities (text and semantic type)
+        assert set((t, s) for _, t, s in single) == set((t, s) for _, t, s in batch[0])

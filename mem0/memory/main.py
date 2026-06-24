@@ -499,7 +499,7 @@ class Memory(MemoryBase):
             )
         return self._entity_store
 
-    def _upsert_entity(self, entity_text, entity_type, memory_id, filters):
+    def _upsert_entity(self, entity_text, entity_type, memory_id, filters, semantic_type=None):
         """Upsert an entity into the entity store, linking it to a memory."""
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
@@ -517,9 +517,18 @@ class Memory(MemoryBase):
                 match = existing[0]
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
+                changed = False
                 if memory_id not in linked_ids:
                     linked_ids.append(memory_id)
                     payload["linked_memory_ids"] = linked_ids
+                    changed = True
+                # Back-fill semantic_type independently of the link update so a
+                # re-visited memory_id (re-index/retry) can still upgrade a record
+                # that was first written without a label.
+                if semantic_type and payload.get("semantic_type") is None:
+                    payload["semantic_type"] = semantic_type
+                    changed = True
+                if changed:
                     self.entity_store.update(
                         vector_id=match.id,
                         vector=None,
@@ -534,6 +543,8 @@ class Memory(MemoryBase):
                     "linked_memory_ids": [memory_id],
                     **{k: v for k, v in search_filters.items()},
                 }
+                if semantic_type:
+                    entity_payload["semantic_type"] = semantic_type
                 self.entity_store.insert(
                     vectors=[entity_embedding],
                     ids=[entity_id],
@@ -608,13 +619,13 @@ class Memory(MemoryBase):
             if not entities:
                 return
             seen = set()
-            for entity_type, entity_text in entities:
+            for entity_type, entity_text, semantic_type in entities:
                 key = entity_text.strip().lower()
                 if not key or key in seen:
                     continue
                 seen.add(key)
                 try:
-                    self._upsert_entity(entity_text, entity_type, memory_id, filters)
+                    self._upsert_entity(entity_text, entity_type, memory_id, filters, semantic_type=semantic_type)
                 except Exception as e:
                     logger.debug(f"Entity link failed for '{entity_text}': {e}")
         except Exception as e:
@@ -967,15 +978,20 @@ class Memory(MemoryBase):
             all_entities = extract_entities_batch(all_texts)
 
             # 7a: Global dedup — collect unique entities across all memories
-            global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
+            global_entities = {}  # normalized_key -> [entity_type, entity_text, semantic_type, set of memory_ids]
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
+                for entity_type, entity_text, semantic_type in entities:
                     key = entity_text.strip().lower()
                     if key in global_entities:
-                        global_entities[key][2].add(memory_id)
+                        global_entities[key][3].add(memory_id)
+                        # Upgrade semantic_type if not yet set. "First non-None
+                        # wins": when memories disagree, the label of whichever
+                        # record is processed first (in `records` order) is kept.
+                        if semantic_type and global_entities[key][2] is None:
+                            global_entities[key][2] = semantic_type
                     else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
+                        global_entities[key] = [entity_type, entity_text, semantic_type, {memory_id}]
 
             if global_entities:
                 ordered_keys = list(global_entities.keys())
@@ -1022,7 +1038,7 @@ class Memory(MemoryBase):
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
                     for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
+                        entity_type, entity_text, semantic_type, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
 
                         if matches and matches[0].score >= 0.95:
@@ -1032,6 +1048,8 @@ class Memory(MemoryBase):
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
+                            if semantic_type and payload.get("semantic_type") is None:
+                                payload["semantic_type"] = semantic_type
                             try:
                                 self.entity_store.update(
                                     vector_id=match.id,
@@ -1042,14 +1060,17 @@ class Memory(MemoryBase):
                                 logger.debug(f"Entity update failed for '{entity_text}': {e}")
                         else:
                             # New entity — collect for batch insert
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
+                            new_payload = {
                                 "data": entity_text,
                                 "entity_type": entity_type,
                                 "linked_memory_ids": sorted(memory_ids),
                                 **search_filters,
-                            })
+                            }
+                            if semantic_type:
+                                new_payload["semantic_type"] = semantic_type
+                            to_insert_vectors.append(valid_vectors[j])
+                            to_insert_ids.append(str(uuid.uuid4()))
+                            to_insert_payloads.append(new_payload)
 
                     # 7e: Single batch insert for all new entities
                     if to_insert_vectors:
@@ -1602,7 +1623,7 @@ class Memory(MemoryBase):
         # Deduplicate entities (max 8)
         seen = set()
         deduped = []
-        for entity_type, entity_text in query_entities[:8]:
+        for entity_type, entity_text, *_ in query_entities[:8]:
             key = entity_text.strip().lower()
             if key and key not in seen:
                 seen.add(key)
@@ -2045,7 +2066,7 @@ class AsyncMemory(MemoryBase):
             )
         return self._entity_store
 
-    async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
+    async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters, semantic_type=None):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
@@ -2063,9 +2084,18 @@ class AsyncMemory(MemoryBase):
                 match = existing[0]
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
+                changed = False
                 if memory_id not in linked_ids:
                     linked_ids.append(memory_id)
                     payload["linked_memory_ids"] = linked_ids
+                    changed = True
+                # Back-fill semantic_type independently of the link update so a
+                # re-visited memory_id (re-index/retry) can still upgrade a record
+                # that was first written without a label.
+                if semantic_type and payload.get("semantic_type") is None:
+                    payload["semantic_type"] = semantic_type
+                    changed = True
+                if changed:
                     await asyncio.to_thread(
                         self.entity_store.update,
                         vector_id=match.id,
@@ -2080,6 +2110,8 @@ class AsyncMemory(MemoryBase):
                     "linked_memory_ids": [memory_id],
                     **{k: v for k, v in search_filters.items()},
                 }
+                if semantic_type:
+                    entity_payload["semantic_type"] = semantic_type
                 await asyncio.to_thread(
                     self.entity_store.insert,
                     vectors=[entity_embedding],
@@ -2162,13 +2194,13 @@ class AsyncMemory(MemoryBase):
             if not entities:
                 return
             seen = set()
-            for entity_type, entity_text in entities:
+            for entity_type, entity_text, semantic_type in entities:
                 key = entity_text.strip().lower()
                 if not key or key in seen:
                     continue
                 seen.add(key)
                 try:
-                    await self._upsert_entity_async(entity_text, entity_type, memory_id, filters)
+                    await self._upsert_entity_async(entity_text, entity_type, memory_id, filters, semantic_type=semantic_type)
                 except Exception as e:
                     logger.debug(f"Entity link failed for '{entity_text}' (async): {e}")
         except Exception as e:
@@ -2508,15 +2540,20 @@ class AsyncMemory(MemoryBase):
             all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
 
             # 7a: Global dedup
-            global_entities = {}
+            global_entities = {}  # normalized_key -> [entity_type, entity_text, semantic_type, set of memory_ids]
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
+                for entity_type, entity_text, semantic_type in entities:
                     key = entity_text.strip().lower()
                     if key in global_entities:
-                        global_entities[key][2].add(memory_id)
+                        global_entities[key][3].add(memory_id)
+                        # Upgrade semantic_type if not yet set. "First non-None
+                        # wins": when memories disagree, the label of whichever
+                        # record is processed first (in `records` order) is kept.
+                        if semantic_type and global_entities[key][2] is None:
+                            global_entities[key][2] = semantic_type
                     else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
+                        global_entities[key] = [entity_type, entity_text, semantic_type, {memory_id}]
 
             if global_entities:
                 ordered_keys = list(global_entities.keys())
@@ -2561,7 +2598,7 @@ class AsyncMemory(MemoryBase):
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
                     for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
+                        entity_type, entity_text, semantic_type, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
 
                         if matches and matches[0].score >= 0.95:
@@ -2570,6 +2607,8 @@ class AsyncMemory(MemoryBase):
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
+                            if semantic_type and payload.get("semantic_type") is None:
+                                payload["semantic_type"] = semantic_type
                             try:
                                 await asyncio.to_thread(
                                     self.entity_store.update,
@@ -2580,14 +2619,17 @@ class AsyncMemory(MemoryBase):
                             except Exception as e:
                                 logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
                         else:
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
+                            new_payload = {
                                 "data": entity_text,
                                 "entity_type": entity_type,
                                 "linked_memory_ids": sorted(memory_ids),
                                 **search_filters,
-                            })
+                            }
+                            if semantic_type:
+                                new_payload["semantic_type"] = semantic_type
+                            to_insert_vectors.append(valid_vectors[j])
+                            to_insert_ids.append(str(uuid.uuid4()))
+                            to_insert_payloads.append(new_payload)
 
                     # 7e: Batch insert new entities
                     if to_insert_vectors:
@@ -3136,7 +3178,7 @@ class AsyncMemory(MemoryBase):
         """Async version of entity boost computation."""
         seen = set()
         deduped = []
-        for entity_type, entity_text in query_entities[:8]:
+        for entity_type, entity_text, *_ in query_entities[:8]:
             key = entity_text.strip().lower()
             if key and key not in seen:
                 seen.add(key)
