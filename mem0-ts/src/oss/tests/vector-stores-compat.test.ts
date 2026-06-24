@@ -1034,6 +1034,8 @@ describe("Databricks – backward compat with mocked clients", () => {
 
     await store.initialize();
 
+    const authParams = axiosModule.__mockAuthPost.mock.calls[0]?.[1];
+
     expect(axiosModule.__mockAuthPost).toHaveBeenCalledWith(
       "https://workspace.databricks.com/oidc/v1/token",
       expect.any(URLSearchParams),
@@ -1043,6 +1045,18 @@ describe("Databricks – backward compat with mocked clients", () => {
           password: "client-secret",
         },
       }),
+    );
+    expect(authParams.get("grant_type")).toBe("client_credentials");
+    expect(authParams.get("scope")).toBe("all-apis");
+    expect(authParams.get("authorization_details")).toBe(
+      JSON.stringify([
+        {
+          type: "unity_catalog_permission",
+          securable_type: "table",
+          securable_object_name: "main.default.memories",
+          operation: "ReadVectorIndex",
+        },
+      ]),
     );
     expect(databricksSql.__mockClient.connect).toHaveBeenCalledWith(
       expect.objectContaining({

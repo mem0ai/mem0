@@ -67,6 +67,17 @@ interface DatabricksVector {
   payload: Record<string, any>;
 }
 
+function buildDatabricksAuthorizationDetails(indexName: string): string {
+  return JSON.stringify([
+    {
+      type: "unity_catalog_permission",
+      securable_type: "table",
+      securable_object_name: indexName,
+      operation: "ReadVectorIndex",
+    },
+  ]);
+}
+
 function validateIdentifier(
   name: string,
   label: string = "identifier",
@@ -843,6 +854,9 @@ export class DatabricksVectorStore implements VectorStore {
       new URLSearchParams({
         grant_type: "client_credentials",
         scope: "all-apis",
+        authorization_details: buildDatabricksAuthorizationDetails(
+          this.fullIndexName,
+        ),
       }),
       {
         auth: {
