@@ -295,8 +295,9 @@ def _build_filters_and_metadata(
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
        It includes all provided session identifier(s) and any `input_metadata`.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
-       provided session identifier(s), any `input_filters`, and a resolved actor
-       identifier for targeted filtering if specified by any actor-related inputs.
+       provided session identifier(s), any `input_filters`, any promoted `input_metadata`
+       keys (for scope isolation), and a resolved actor identifier for targeted filtering
+       if specified by any actor-related inputs.
 
     Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
     This resolved actor ID is used for querying but is not added to `base_metadata_template`,
@@ -881,6 +882,7 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if v}
+        entity_search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -1094,7 +1096,7 @@ class Memory(MemoryBase):
                         queries=valid_texts,
                         vectors_list=valid_vectors,
                         top_k=1,
-                        filters=search_filters,
+                        filters=entity_search_filters,
                     )
 
                     # 7d: Separate into inserts vs updates
@@ -1128,7 +1130,7 @@ class Memory(MemoryBase):
                                 "data": entity_text,
                                 "entity_type": entity_type,
                                 "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
+                                **entity_search_filters,
                             })
 
                     # 7e: Single batch insert for all new entities
@@ -2503,6 +2505,7 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if v}
+        entity_search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
@@ -2715,7 +2718,7 @@ class AsyncMemory(MemoryBase):
                         queries=valid_texts,
                         vectors_list=valid_vectors,
                         top_k=1,
-                        filters=search_filters,
+                        filters=entity_search_filters,
                     )
 
                     # 7d: Separate into inserts vs updates
@@ -2748,7 +2751,7 @@ class AsyncMemory(MemoryBase):
                                 "data": entity_text,
                                 "entity_type": entity_type,
                                 "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
+                                **entity_search_filters,
                             })
 
                     # 7e: Batch insert new entities

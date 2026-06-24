@@ -1626,3 +1626,53 @@ class TestMetadataScopeFilters:
         assert filters_a != filters_b
         assert filters_a["app_id"] == "app-a"
         assert filters_b["app_id"] == "app-b"
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_entity_store_uses_scope_filters_not_metadata(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Entity-store search/insert must use only scope keys, not metadata like app_id."""
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [0.1] * 1536
+        mock_embedder_factory.return_value = mock_embedder
+
+        mock_llm = MagicMock()
+        mock_llm.generate_response.return_value = '{"facts": [{"text": "prefers dark mode"}]}'
+        mock_llm_factory.return_value = mock_llm
+
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
+
+        mock_vector_store = MagicMock()
+        mock_vector_store.search.return_value = []
+        mock_vector_store.keyword_search.return_value = None
+        mock_vector_factory.return_value = mock_vector_store
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        mock_entity_store = MagicMock()
+        mock_entity_store.search_batch.return_value = []
+        memory._entity_store = mock_entity_store
+
+        memory.add(
+            "prefers dark mode",
+            user_id="u1",
+            metadata={"app_id": "app-a"},
+        )
+
+        if mock_entity_store.search_batch.called:
+            entity_filters = mock_entity_store.search_batch.call_args.kwargs.get("filters", {})
+            assert "app_id" not in entity_filters, (
+                f"Entity-store search should not include metadata keys but got: {entity_filters}"
+            )
+            assert entity_filters.get("user_id") == "u1"
+
+        if mock_entity_store.insert.called:
+            payloads = mock_entity_store.insert.call_args.kwargs.get("payloads", [])
+            for p in payloads:
+                assert "app_id" not in p, (
+                    f"Entity-store insert payload should not include metadata keys but got: {p}"
+                )
