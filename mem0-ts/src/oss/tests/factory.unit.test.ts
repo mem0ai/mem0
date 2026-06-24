@@ -133,6 +133,11 @@ jest.mock("../src/storage/SupabaseHistoryManager", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "supabase-history", config })),
 }));
+jest.mock("../src/storage/SQLiteManager", () => ({
+  SQLiteManager: jest
+    .fn()
+    .mockImplementation((path) => ({ type: "sqlite-history", path })),
+}));
 
 import {
   EmbedderFactory,
@@ -302,12 +307,16 @@ describe("HistoryManagerFactory", () => {
   });
 
   test("does not eagerly load SQLiteManager for non-sqlite providers", async () => {
+    const { SQLiteManager } = jest.requireMock("../src/storage/SQLiteManager") as {
+      SQLiteManager: jest.MockedClass<any>;
+    };
+    SQLiteManager.mockClear();
+
     const config: HistoryStoreConfig = {
       provider: "memory",
       config: {},
     };
-    await expect(
-      HistoryManagerFactory.create("memory", config),
-    ).resolves.toBeDefined();
+    await HistoryManagerFactory.create("memory", config);
+    expect(SQLiteManager).not.toHaveBeenCalled();
   });
 });
