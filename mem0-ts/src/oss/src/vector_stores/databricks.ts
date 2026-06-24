@@ -6,6 +6,7 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 const SAFE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const DEFAULT_PAGE_SIZE = 100;
 const MAX_QUERY_RESULTS = 10_000;
+const MAX_FULL_TEXT_RESULTS = 200;
 const DEFAULT_SYNC_POLL_INTERVAL_MS = 1000;
 const DEFAULT_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
 const DATBRICKS_SERVER_FILTER_KEYS = new Set([
@@ -1070,13 +1071,20 @@ export class DatabricksVectorStore implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     const requiresLocalFilteringPagination =
       this.shouldPaginateForLocalFiltering(filters);
+    const queryResultCap =
+      requestBody.query_type === "FULL_TEXT"
+        ? MAX_FULL_TEXT_RESULTS
+        : MAX_QUERY_RESULTS;
     const response = await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
       {
         ...requestBody,
-        num_results: requiresLocalFilteringPagination
-          ? MAX_QUERY_RESULTS
-          : Math.max(topK, DEFAULT_PAGE_SIZE),
+        num_results: Math.min(
+          requiresLocalFilteringPagination
+            ? queryResultCap
+            : Math.max(topK, DEFAULT_PAGE_SIZE),
+          queryResultCap,
+        ),
       },
     );
 

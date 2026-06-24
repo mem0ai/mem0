@@ -1288,6 +1288,40 @@ describe("Databricks – backward compat with mocked clients", () => {
     ]);
   });
 
+  it("caps full-text local-fallback requests at Databricks' 200-result limit", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.keywordSearch("alpha", 5, { topic: "alpha" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        num_results: 200,
+        query_type: "FULL_TEXT",
+        query_text: "alpha",
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
   it("uses SQL-like filters for storage-optimized endpoints", async () => {
     const axiosModule = require("axios");
     const store = new DatabricksVectorStore({
