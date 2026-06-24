@@ -128,7 +128,58 @@
     "mysql2": "^3.0.0"
   },
   "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@azure/identity": {
+      "optional": true
+    },
+    "@azure/search-documents": {
+      "optional": true
+    },
+    "@cloudflare/workers-types": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "@mistralai/mistralai": {
+      "optional": true
+    },
+    "@qdrant/js-client-rest": {
+      "optional": true
+    },
+    "@supabase/supabase-js": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "cloudflare": {
+      "optional": true
+    },
+    "groq-sdk": {
+      "optional": true
+    },
     "mysql2": {
+      "optional": true
+    },
+    "ollama": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "redis": {
+      "optional": true
+    },
+    "compromise": {
+      "optional": true
+    },
+    "natural": {
       "optional": true
     }
   },

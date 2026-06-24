@@ -110,7 +110,7 @@ export class AzureMySQLDB implements VectorStore {
         vector JSON,
         payload JSON,
         text_lemmatized VARCHAR(1000) GENERATED ALWAYS AS
-          (JSON_UNQUOTE(JSON_EXTRACT(payload, '$.text_lemmatized'))) STORED
+          (CAST(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.text_lemmatized')) AS CHAR(1000))) STORED
       )
     `);
 
@@ -141,8 +141,8 @@ export class AzureMySQLDB implements VectorStore {
       await conn.beginTransaction();
       for (let i = 0; i < vectors.length; i++) {
         await conn.execute(
-          `INSERT INTO ${this.col()} (id, vector, payload) VALUES (?, ?, ?)
-           ON DUPLICATE KEY UPDATE vector = VALUES(vector), payload = VALUES(payload)`,
+          `INSERT INTO ${this.col()} (id, vector, payload) VALUES (?, ?, ?) AS new
+           ON DUPLICATE KEY UPDATE vector = new.vector, payload = new.payload`,
           [ids[i], JSON.stringify(vectors[i]), JSON.stringify(payloads[i])],
         );
       }
@@ -340,7 +340,7 @@ export class AzureMySQLDB implements VectorStore {
       Math.random().toString(36).substring(2, 15) +
       Math.random().toString(36).substring(2, 15);
     await this.pool!.execute(
-      "INSERT INTO memory_migrations (id, user_id) VALUES (1, ?) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)",
+      "INSERT INTO memory_migrations (id, user_id) VALUES (1, ?) AS new ON DUPLICATE KEY UPDATE user_id = new.user_id",
       [randomUserId],
     );
     return randomUserId;
@@ -349,7 +349,7 @@ export class AzureMySQLDB implements VectorStore {
   async setUserId(userId: string): Promise<void> {
     await this.initialize();
     await this.pool!.execute(
-      "INSERT INTO memory_migrations (id, user_id) VALUES (1, ?) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)",
+      "INSERT INTO memory_migrations (id, user_id) VALUES (1, ?) AS new ON DUPLICATE KEY UPDATE user_id = new.user_id",
       [userId],
     );
   }
