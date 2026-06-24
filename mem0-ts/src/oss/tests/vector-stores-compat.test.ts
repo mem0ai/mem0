@@ -731,16 +731,6 @@ describe("Cassandra – backward compat with mocked client", () => {
 
               if (
                 normalized.startsWith(
-                  "SELECT id, vector, payload FROM mem0.memories",
-                )
-              ) {
-                return {
-                  rows: Array.from(rows.values()).map((row) => ({ ...row })),
-                };
-              }
-
-              if (
-                normalized.startsWith(
                   "SELECT id, payload FROM mem0.memories WHERE id = ?",
                 )
               ) {
@@ -751,10 +741,26 @@ describe("Cassandra – backward compat with mocked client", () => {
               }
 
               if (
-                normalized.startsWith("DELETE FROM mem0.memories WHERE id = ?")
+                normalized.startsWith(
+                  "SELECT id, vector, payload FROM mem0.memories",
+                )
               ) {
-                rows.delete(`memories:${params[0]}`);
-                return { rows: [] };
+                return {
+                  rows: Array.from(rows.values()).map((row) => ({
+                    ...row,
+                  })),
+                };
+              }
+
+              if (
+                normalized.startsWith("SELECT id, payload FROM mem0.memories")
+              ) {
+                return {
+                  rows: Array.from(rows.values()).map((row) => ({
+                    id: row.id,
+                    payload: row.payload,
+                  })),
+                };
               }
 
               if (normalized.startsWith("DROP TABLE IF EXISTS mem0.memories")) {
@@ -763,6 +769,13 @@ describe("Cassandra – backward compat with mocked client", () => {
                     rows.delete(key);
                   }
                 }
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith("DELETE FROM mem0.memories WHERE id = ?")
+              ) {
+                rows.delete(`memories:${params[0]}`);
                 return { rows: [] };
               }
 
@@ -907,6 +920,59 @@ describe("Cassandra – backward compat with mocked client", () => {
 
     await store.setUserId("custom-user");
     expect(await store.getUserId()).toBe("custom-user");
+  });
+
+  it("supports get, update, delete, and list", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 0, 0],
+        [0, 1, 0],
+      ],
+      ["id-1", "id-2"],
+      [
+        { user_id: "u1", topic: "alpha" },
+        { user_id: "u2", topic: "beta" },
+      ],
+    );
+
+    expect(await store.get("missing")).toBeNull();
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "alpha" },
+    });
+
+    await store.update("id-1", [0, 0, 1], {
+      user_id: "u1",
+      topic: "gamma",
+    });
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "gamma" },
+    });
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 10);
+    expect(count).toBe(1);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "gamma" },
+      },
+    ]);
+
+    await store.delete("id-2");
+    expect(await store.get("id-2")).toBeNull();
+
+    await store.deleteCol();
+    const [afterDrop, afterDropCount] = await store.list(undefined, 10);
+    expect(afterDrop).toEqual([]);
+    expect(afterDropCount).toBe(0);
   });
 
   it("rejects unsafe identifiers", () => {

@@ -27,7 +27,7 @@ interface CassandraClientLike {
     query: string,
     params?: any[],
     options?: Record<string, any>,
-  ): Promise<{ rows?: any[] }>;
+  ): Promise<{ rows?: any[]; pageState?: string | null }>;
 }
 
 interface CassandraVector {
@@ -37,6 +37,7 @@ interface CassandraVector {
 }
 
 export class CassandraDB implements VectorStore {
+  private static readonly PAGE_SIZE = 500;
   private readonly driver: typeof cassandra;
   private readonly contactPoints?: string[];
   private readonly port: number;
@@ -145,35 +146,40 @@ export class CassandraDB implements VectorStore {
     await this.initialize();
     this.assertVectorDimension(query, "Query");
 
-    const result = await this.client!.execute(`
-      SELECT id, vector, payload
-      FROM ${this.keyspace}.${this.collectionName}
-    `);
-
     const scored: VectorStoreResult[] = [];
-    for (const row of result.rows || []) {
-      const vector = this.normalizeVector(row.vector);
-      const payload = this.parsePayload(row.payload);
-      if (!vector) {
-        continue;
-      }
-      const item: CassandraVector = {
-        id: String(row.id),
-        vector,
-        payload,
-      };
-      if (!this.filterVector(item, filters)) {
-        continue;
-      }
-      scored.push({
-        id: item.id,
-        payload: item.payload,
-        score: this.cosineSimilarity(query, item.vector),
-      });
-    }
+    await this.scanRows(
+      `
+        SELECT id, vector, payload
+        FROM ${this.keyspace}.${this.collectionName}
+      `,
+      async (row) => {
+        const vector = this.normalizeVector(row.vector);
+        const payload = this.parsePayload(row.payload);
+        if (!vector || vector.length !== this.dimension) {
+          return;
+        }
+        const item: CassandraVector = {
+          id: String(row.id),
+          vector,
+          payload,
+        };
+        if (!this.filterVector(item, filters)) {
+          return;
+        }
+        this.pushTopResult(
+          scored,
+          {
+            id: item.id,
+            payload: item.payload,
+            score: this.cosineSimilarity(query, item.vector),
+          },
+          topK,
+        );
+      },
+      Math.max(topK, CassandraDB.PAGE_SIZE),
+    );
 
-    scored.sort((left, right) => (right.score || 0) - (left.score || 0));
-    return scored.slice(0, topK);
+    return scored;
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
@@ -252,28 +258,34 @@ export class CassandraDB implements VectorStore {
   ): Promise<[VectorStoreResult[], number]> {
     await this.initialize();
 
-    const result = await this.client!.execute(`
-      SELECT id, vector, payload
-      FROM ${this.keyspace}.${this.collectionName}
-    `);
-
     const rows: VectorStoreResult[] = [];
-    for (const row of result.rows || []) {
-      const item: CassandraVector = {
-        id: String(row.id),
-        vector: this.normalizeVector(row.vector) || [],
-        payload: this.parsePayload(row.payload),
-      };
-      if (!this.filterVector(item, filters)) {
-        continue;
-      }
-      rows.push({
-        id: item.id,
-        payload: item.payload,
-      });
-    }
+    let total = 0;
+    await this.scanRows(
+      `
+        SELECT id, payload
+        FROM ${this.keyspace}.${this.collectionName}
+      `,
+      async (row) => {
+        const item: CassandraVector = {
+          id: String(row.id),
+          vector: [],
+          payload: this.parsePayload(row.payload),
+        };
+        if (!this.filterVector(item, filters)) {
+          return;
+        }
+        total += 1;
+        if (rows.length < topK) {
+          rows.push({
+            id: item.id,
+            payload: item.payload,
+          });
+        }
+      },
+      CassandraDB.PAGE_SIZE,
+    );
 
-    return [rows.slice(0, topK), rows.length];
+    return [rows, total];
   }
 
   async getUserId(): Promise<string> {
@@ -315,9 +327,7 @@ export class CassandraDB implements VectorStore {
   }
 
   private createClient(): CassandraClientLike {
-    const clientConfig: Record<string, any> = {
-      keyspace: this.keyspace,
-    };
+    const clientConfig: Record<string, any> = {};
 
     if (this.secureConnectBundle) {
       clientConfig.cloud = {
@@ -551,6 +561,38 @@ export class CassandraDB implements VectorStore {
   private assertBatchDimensions(vectors: number[][], label: string): void {
     for (const vector of vectors) {
       this.assertVectorDimension(vector, label);
+    }
+  }
+
+  private async scanRows(
+    query: string,
+    onRow: (row: any) => Promise<void>,
+    fetchSize: number,
+  ): Promise<void> {
+    let pageState: string | undefined;
+
+    do {
+      const result = await this.client!.execute(query, [], {
+        autoPage: false,
+        fetchSize,
+        pageState,
+      });
+      for (const row of result.rows || []) {
+        await onRow(row);
+      }
+      pageState = result.pageState || undefined;
+    } while (pageState);
+  }
+
+  private pushTopResult(
+    results: VectorStoreResult[],
+    candidate: VectorStoreResult,
+    topK: number,
+  ): void {
+    results.push(candidate);
+    results.sort((left, right) => (right.score || 0) - (left.score || 0));
+    if (results.length > topK) {
+      results.length = topK;
     }
   }
 }
