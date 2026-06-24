@@ -115,6 +115,7 @@
     "@mistralai/mistralai": "^1.5.2",
     "@qdrant/js-client-rest": "^1.18.0",
     "@supabase/supabase-js": "^2.49.1",
+    "@turbopuffer/turbopuffer": "^2.0.0",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
     "better-sqlite3": "^12.6.2",
