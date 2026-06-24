@@ -7,6 +7,58 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-06-24" description="v2.0.8">
+
+**New Features:**
+- **Embeddings:** Add native `embed_batch` to five embedders — LM Studio, Together, HuggingFace, Vertex AI, and Google GenAI — for batched embedding requests ([#5609](https://github.com/mem0ai/mem0/pull/5609))
+
+**Bug Fixes:**
+- **Core:** Guard against malformed `image_url` entries in `parse_vision_messages` to prevent crashes ([#5631](https://github.com/mem0ai/mem0/pull/5631))
+- **Core:** Return `attributed_to` from `get()`, `get_all()`, and `search()` ([#5629](https://github.com/mem0ai/mem0/pull/5629))
+- **Core:** Fix `reset()` only dropping the history table and leaving stale messages behind ([#5541](https://github.com/mem0ai/mem0/pull/5541))
+- **Core:** Guard against an entity `embed_batch` count mismatch in the v3 add pipeline ([#5604](https://github.com/mem0ai/mem0/pull/5604))
+- **Core:** Fix an async `delete_all` race condition that corrupted the entity store's `linked_memory_ids` ([#5553](https://github.com/mem0ai/mem0/pull/5553))
+- **LLMs:** Skip the JSON `response_format` for Groq compound models that reject it ([#5513](https://github.com/mem0ai/mem0/pull/5513))
+- **LLMs:** Preserve reasoning fields during base-to-provider config conversion ([#5638](https://github.com/mem0ai/mem0/pull/5638))
+- **LLMs:** Pass the configured `anthropic_base_url` to the Anthropic client ([#5626](https://github.com/mem0ai/mem0/pull/5626))
+- **LLMs:** Stop the Azure provider from mutating and corrupting caller messages during content rewrite ([#5731](https://github.com/mem0ai/mem0/pull/5731))
+- **LLMs & Embeddings:** Repair HTTP proxy support for `httpx>=0.28` and preserve `proxies` in `LlmFactory` ([#5447](https://github.com/mem0ai/mem0/pull/5447))
+- **Embeddings:** Forward `embedding_dims` to Titan V2 in the AWS Bedrock embedder ([#5671](https://github.com/mem0ai/mem0/pull/5671))
+- **Rerankers:** Log reranking failures instead of swallowing them silently ([#5717](https://github.com/mem0ai/mem0/pull/5717))
+- **Rerankers:** Clamp out-of-range LLM scores instead of mis-parsing them ([#5635](https://github.com/mem0ai/mem0/pull/5635))
+- **Rerankers:** Export all five rerankers from the package root ([#5636](https://github.com/mem0ai/mem0/pull/5636))
+- **Vector Stores:** Point the FastEmbed-missing warning at `mem0ai[extras]` ([#5622](https://github.com/mem0ai/mem0/pull/5622))
+- **Vector Stores:** Preserve empty Azure AI Search update values ([#5524](https://github.com/mem0ai/mem0/pull/5524))
+- **Vector Stores:** Add an `auto_refresh` option for OpenSearch Serverless compatibility ([#3893](https://github.com/mem0ai/mem0/pull/3893))
+- **Vector Stores:** Wrap a scalar `vector_id` in a list for Chroma `delete()` ([#5703](https://github.com/mem0ai/mem0/pull/5703))
+- **Vector Stores:** Wrap Chroma `update()` ids, embeddings, and metadatas in lists ([#5757](https://github.com/mem0ai/mem0/pull/5757))
+- **Vector Stores:** Wrap a scalar `vector_id` in a list for Milvus `delete()` ([#5704](https://github.com/mem0ai/mem0/pull/5704))
+- **Vector Stores:** Map all comparison operators in the Pinecone `_create_filter()` ([#5707](https://github.com/mem0ai/mem0/pull/5707))
+- **Vector Stores:** Return `None` instead of `{}` from Chroma `_generate_where_clause` for empty filters ([#5713](https://github.com/mem0ai/mem0/pull/5713))
+- **Vector Stores:** Return `[[]]` from the OpenSearch `list()` error path to honor the `list()` contract ([#5727](https://github.com/mem0ai/mem0/pull/5727))
+- **Vector Stores:** Return `[[]]` from the Pinecone `list()` error path instead of a dict ([#5706](https://github.com/mem0ai/mem0/pull/5706))
+- **Vector Stores:** Return `[[]]` for an uninitialized FAISS index to honor the `list()` contract ([#5725](https://github.com/mem0ai/mem0/pull/5725))
+- **Vector Stores:** Wrap the MongoDB `list()` return in an outer list to match the interface contract ([#5729](https://github.com/mem0ai/mem0/pull/5729))
+- **Vector Stores:** Deep-copy Redis `DEFAULT_FIELDS` so instances keep distinct dims ([#5633](https://github.com/mem0ai/mem0/pull/5633))
+- **Vector Stores:** Pass the required `vectors` arg in Vertex AI `list()` and similarity search ([#5627](https://github.com/mem0ai/mem0/pull/5627))
+- **Vector Stores:** Return `None` from Redis `get()` for missing IDs ([#5625](https://github.com/mem0ai/mem0/pull/5625))
+- **Vector Stores:** Drop a stray `print` in Weaviate `list_cols` ([#5637](https://github.com/mem0ai/mem0/pull/5637))
+- **Graph:** Keep distinct entities that share a substring prefix ([#5630](https://github.com/mem0ai/mem0/pull/5630))
+- **Client:** Check the HTTP status before parsing the ping response in `_validate_api_key` ([#5639](https://github.com/mem0ai/mem0/pull/5639))
+- **Server:** Fetch filtered dashboard memories beyond the default page ([#5753](https://github.com/mem0ai/mem0/pull/5753))
+- **Server:** Return 404/400 instead of 502 for not-found and invalid input ([#5634](https://github.com/mem0ai/mem0/pull/5634))
+- **Server:** Return 404 instead of 500 for a malformed API key id on revoke ([#5640](https://github.com/mem0ai/mem0/pull/5640))
+- **Server:** Use `127.0.0.1` in the dashboard healthcheck to avoid IPv6 localhost resolution ([#5612](https://github.com/mem0ai/mem0/pull/5612))
+
+**Improvements:**
+- **Vector Stores:** Batch BM25 sparse encoding in Qdrant insert ([#5592](https://github.com/mem0ai/mem0/pull/5592))
+
+**Security:**
+- **Vector Stores:** Sanitize Milvus and Baidu filter values to prevent expression injection ([#5746](https://github.com/mem0ai/mem0/pull/5746))
+- **Vector Stores:** Reject dict filter values in MongoDB to prevent NoSQL operator injection ([#5748](https://github.com/mem0ai/mem0/pull/5748))
+
+</Update>
+
 <Update label="2026-06-17" description="v2.0.7">
 
 **New Features:**
@@ -1010,6 +1062,24 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-06-24" description="v3.0.10">
+
+**Bug Fixes:**
+- **Memory (OSS):** Guard against malformed `image_url` entries in `parseVisionMessages` to prevent crashes ([#5631](https://github.com/mem0ai/mem0/pull/5631))
+- **Memory (OSS):** Return `attributedTo` from `get()`, `search()`, and `getAll()` ([#5675](https://github.com/mem0ai/mem0/pull/5675))
+- **Memory (OSS):** Preserve message roles in the extraction input so assistant facts aren't attributed to the user ([#5643](https://github.com/mem0ai/mem0/pull/5643))
+- **Memory (OSS):** Reject empty or blank messages in `Memory.add()` to prevent hallucinated memories ([#5545](https://github.com/mem0ai/mem0/pull/5545))
+- **Memory (OSS):** Check `message.role` instead of `content` when detecting system messages ([#3921](https://github.com/mem0ai/mem0/pull/3921))
+- **LLMs:** Honor the configured `baseURL` in `AnthropicLLM` ([#5740](https://github.com/mem0ai/mem0/pull/5740))
+- **Client:** Preserve `customCategories` names through key conversion ([#5741](https://github.com/mem0ai/mem0/pull/5741))
+- **Client:** Prevent hallucinated memories on an empty messages payload ([#5613](https://github.com/mem0ai/mem0/pull/5613))
+- **Client:** Preserve user metadata keys across the case-conversion round-trip ([#5515](https://github.com/mem0ai/mem0/pull/5515))
+
+**Security:**
+- **Dependencies:** Upgrade `form-data` to `>=4.0.6` across pnpm workspaces to remediate CVE-2026-12143 ([#5618](https://github.com/mem0ai/mem0/pull/5618))
+
+</Update>
 
 <Update label="2026-06-17" description="v3.0.9">
 
