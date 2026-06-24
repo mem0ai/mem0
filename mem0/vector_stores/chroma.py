@@ -169,7 +169,7 @@ class ChromaDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.collection.delete(ids=vector_id)
+        self.collection.delete(ids=[vector_id])
 
     def update(
         self,
