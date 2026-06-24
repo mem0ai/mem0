@@ -19,6 +19,7 @@ import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
 import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
+import { ValkeyDB } from "../vector_stores/valkey";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
@@ -100,6 +101,8 @@ export class VectorStoreFactory {
         return new Qdrant(config as any);
       case "redis":
         return new RedisDB(config as any);
+      case "valkey":
+        return new ValkeyDB(config as any);
       case "supabase":
         return new SupabaseDB(config as any);
       case "langchain":
