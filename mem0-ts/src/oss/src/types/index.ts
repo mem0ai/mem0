@@ -27,6 +27,16 @@ export interface VectorStoreConfig {
   dbPath?: string;
   client?: any;
   instance?: any;
+  // Vertex AI Vector Search specific
+  projectId?: string;
+  projectNumber?: string;
+  region?: string;
+  endpointId?: string;
+  indexId?: string;
+  deploymentIndexId?: string;
+  credentialsPath?: string;
+  serviceAccountJson?: Record<string, any>;
+  vectorSearchApiEndpoint?: string;
   [key: string]: any;
 }
 

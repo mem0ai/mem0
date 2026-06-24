@@ -8,8 +8,8 @@ description: "Use Google Cloud Vertex AI Vector Search as a managed vector store
 
 To use Google Cloud Vertex AI Vector Search with `mem0`, you need to configure the `vector_store` in your `mem0` config:
 
-
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -20,7 +20,7 @@ config = {
         "provider": "vertex_ai_vector_search",
         "config": {
             "endpoint_id": "YOUR_ENDPOINT_ID",            # Required: Vector Search endpoint ID
-            "index_id": "YOUR_INDEX_ID",                  # Required: Vector Search index ID 
+            "index_id": "YOUR_INDEX_ID",                  # Required: Vector Search index ID
             "deployment_index_id": "YOUR_DEPLOYMENT_INDEX_ID",  # Required: Deployment-specific ID
             "project_id": "YOUR_PROJECT_ID",              # Required: Google Cloud project ID
             "project_number": "YOUR_PROJECT_NUMBER",      # Required: Google Cloud project number
@@ -33,6 +33,32 @@ config = {
 m = Memory.from_config(config)
 m.add("Your text here", user_id="user", metadata={"category": "example"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'vertex_ai_vector_search',
+    config: {
+      projectId: 'YOUR_PROJECT_ID',              // Required: Google Cloud project ID
+      projectNumber: 'YOUR_PROJECT_NUMBER',      // Required: Google Cloud project number
+      region: 'us-central1',                     // Required: Google Cloud region
+      endpointId: 'YOUR_ENDPOINT_ID',            // Required: Vector Search endpoint ID
+      indexId: 'YOUR_INDEX_ID',                  // Required: Vector Search index ID
+      deploymentIndexId: 'YOUR_DEPLOYMENT_INDEX_ID',  // Required: Deployment-specific ID
+      collectionName: 'memories',                // Optional: Collection name (defaults to indexId)
+      credentialsPath: 'path/to/credentials.json', // Optional: Path to service account credentials
+      serviceAccountJson: { /* ... */ },          // Optional: Service account credentials as object
+      vectorSearchApiEndpoint: 'us-central1-aiplatform.googleapis.com', // Required for get operations
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("Your text here", { userId: "user", metadata: { category: "example" } });
+```
+</CodeGroup>
 
 
 ### Required Parameters
