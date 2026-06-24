@@ -56,7 +56,11 @@ class MemoryConfig(BaseModel):
         default=None,
     )
     spacy_model: str = Field(
-        description="spaCy model name for entity extraction and BM25 lemmatization",
+        description=(
+            "spaCy model name for entity extraction and BM25 lemmatization. "
+            "The model must be installed before use: `python -m spacy download <model_name>`. "
+            "If not installed, Mem0 will attempt to download it automatically on first use."
+        ),
         default="en_core_web_sm",
     )
 

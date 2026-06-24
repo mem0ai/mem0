@@ -2303,7 +2303,7 @@ class AsyncMemory(MemoryBase):
     async def _link_entities_for_memory(self, memory_id, text, filters):
         """Async variant of `Memory._link_entities_for_memory`."""
         try:
-            entities = await asyncio.to_thread(extract_entities, text, self.config.spacy_model)
+            entities = await asyncio.to_thread(lambda: extract_entities(text, spacy_model=self.config.spacy_model))
             if not entities:
                 return
             seen = set()
@@ -2656,7 +2656,7 @@ class AsyncMemory(MemoryBase):
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
-            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts, 32, self.config.spacy_model)
+            all_entities = await asyncio.to_thread(lambda: extract_entities_batch(all_texts, 32, spacy_model=self.config.spacy_model))
 
             # 7a: Global dedup
             global_entities = {}
@@ -3205,8 +3205,8 @@ class AsyncMemory(MemoryBase):
             threshold = 0.1
 
         # Step 1: Preprocess query (CPU-bound)
-        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query, self.config.spacy_model)
-        query_entities = await asyncio.to_thread(extract_entities, query, self.config.spacy_model)
+        query_lemmatized = await asyncio.to_thread(lambda: lemmatize_for_bm25(query, spacy_model=self.config.spacy_model))
+        query_entities = await asyncio.to_thread(lambda: extract_entities(query, spacy_model=self.config.spacy_model))
 
         # Step 2: Embed query
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
