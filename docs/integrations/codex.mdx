@@ -49,13 +49,23 @@ Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 
    Or, in the app: restart Codex, open the Plugin Directory, browse the **Mem0 Plugins** marketplace, and install **Mem0**.
 
+<Note>
+  Step 1 is required for the app UI. Mem0 isn't in OpenAI's curated directory yet, so **without `codex plugin marketplace add`, Mem0 won't appear in the Codex app's Plugin Directory** — searching for it returns nothing. Adding the marketplace surfaces it (under **Created by you**) and makes it installable.
+</Note>
+
 <Info>
   Do not combine with Option B. The plugin manifest auto-registers the `mem0` MCP server, so adding both will create a duplicate registration.
 </Info>
 
 ### Option B — Direct MCP
 
-The fastest way to connect Codex to Mem0 — no plugin, no marketplace. Add to `~/.codex/config.toml`:
+The fastest way to connect Codex to Mem0 — no plugin, no marketplace. Add the MCP server with a single command:
+
+```bash
+codex mcp add mem0 --url https://mcp.mem0.ai/mcp --bearer-token-env-var MEM0_API_KEY
+```
+
+Or add it manually to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.mem0]
@@ -65,17 +75,14 @@ bearer_token_env_var = "MEM0_API_KEY"
 
 Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then restart Codex.
 
-<Info>
-  Codex's `codex mcp add` CLI only supports stdio MCP servers. Because Mem0's MCP is HTTP/streamable, you configure it by editing `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
-</Info>
-
 This gives you the MCP tools but not the lifecycle hooks or SDK skill.
 
 ### Managing the Plugin
 
 ```bash
 codex plugin marketplace upgrade               # pull latest plugin versions
-codex plugin marketplace remove mem0-plugins   # unregister the marketplace
+codex plugin remove mem0@mem0-plugins          # uninstall the plugin (keeps the marketplace)
+codex plugin marketplace remove mem0-plugins   # unregister the marketplace entirely
 ```
 
 To update, run `codex plugin marketplace upgrade` to pull the latest from the Mem0 repo.
