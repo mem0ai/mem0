@@ -156,6 +156,10 @@ class OpenSearchDB(VectorStoreBase):
             }
             for i, (vec, id_) in enumerate(zip(vectors, ids))
         ]
+        if not actions:
+            # Nothing to insert: skip the bulk + refresh round-trips entirely,
+            # matching the original per-document loop (which made zero calls).
+            return []
         try:
             # One bulk request instead of an index() call per document
             # (mirrors elasticsearch.py).

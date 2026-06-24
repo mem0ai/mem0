@@ -242,6 +242,14 @@ class TestOpenSearchDB(unittest.TestCase):
         # auto_refresh=False by default → no refresh regardless of batch size.
         self.client_mock.indices.refresh.assert_not_called()
 
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_insert_empty_vectors_makes_no_network_calls(self, mock_bulk):
+        """Empty input must not issue a bulk request or a refresh (no round-trips)."""
+        results = self.os_db.insert(vectors=[], payloads=[], ids=[])
+        self.assertEqual(results, [])
+        mock_bulk.assert_not_called()
+        self.client_mock.indices.refresh.assert_not_called()
+
     def test_get(self):
         mock_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1", "payload": {"key1": "value1"}}}]}}
         self.client_mock.search.return_value = mock_response
@@ -342,7 +350,8 @@ class TestOpenSearchDB(unittest.TestCase):
         self.os_db.delete_col()
         self.client_mock.indices.delete.assert_called_once_with(index="test_collection")
 
-    def test_insert_rejects_null_vectors(self):
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_insert_rejects_null_vectors(self, mock_bulk):
         """Vectors that are None should raise ValueError before hitting OpenSearch."""
         vectors = [None]
         payloads = [{"key": "value"}]
@@ -352,9 +361,10 @@ class TestOpenSearchDB(unittest.TestCase):
             self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
         self.assertIn("null", str(ctx.exception).lower())
-        self.client_mock.index.assert_not_called()
+        mock_bulk.assert_not_called()
 
-    def test_insert_rejects_empty_vectors(self):
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_insert_rejects_empty_vectors(self, mock_bulk):
         """Empty vector lists should raise ValueError."""
         vectors = [[]]
         payloads = [{"key": "value"}]
@@ -364,9 +374,10 @@ class TestOpenSearchDB(unittest.TestCase):
             self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
 
         self.assertIn("empty", str(ctx.exception).lower())
-        self.client_mock.index.assert_not_called()
+        mock_bulk.assert_not_called()
 
-    def test_insert_rejects_dimension_mismatch(self):
+    @patch("mem0.vector_stores.opensearch.bulk")
+    def test_insert_rejects_dimension_mismatch(self, mock_bulk):
         """Vectors with wrong dimensions should raise ValueError with a clear message."""
         vectors = [[0.1] * 768]
         payloads = [{"key": "value"}]
@@ -378,7 +389,7 @@ class TestOpenSearchDB(unittest.TestCase):
         error_msg = str(ctx.exception)
         self.assertIn("768", error_msg)
         self.assertIn("1536", error_msg)
-        self.client_mock.index.assert_not_called()
+        mock_bulk.assert_not_called()
 
     def test_update_rejects_empty_vector(self):
         """Update with an empty vector should raise ValueError."""
