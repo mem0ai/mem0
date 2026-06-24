@@ -18,6 +18,12 @@ from mcp.server.fastmcp import FastMCP
 import mcp.types as types
 from mcp.shared.exceptions import McpError
 
+from mem0 import MemoryClient, Memory
+from mem0.llms.base import LLMBase
+from mem0.utils.factory import LlmFactory, EmbedderFactory
+from mem0.embeddings.mock import MockEmbeddings
+from mem0.memory.main import lemmatize_for_bm25
+
 # ── §3.5 Error mapping ────────────────────────────────────────────────────────
 _AMP_TO_JSONRPC = {
     "invalid_request": -32602,
@@ -194,12 +200,9 @@ def _get_mem0():
 
     api_key = os.environ.get("MEM0_API_KEY")
     if api_key:
-        from mem0 import MemoryClient
         _mem0_client = MemoryClient(api_key=api_key)
     else:
         # Mock LLM and Embedder to avoid external OpenAI calls in local mode
-        from mem0.llms.base import LLMBase
-        from mem0.utils.factory import LlmFactory, EmbedderFactory
 
         class MockLLM(LLMBase):
             def generate_response(self, messages, tools=None, tool_choice="auto", **kwargs):
@@ -231,12 +234,10 @@ def _get_mem0():
         original_embedder_create = EmbedderFactory.create
         def custom_embedder_create(provider_name, config, vector_config=None):
             if provider_name == "openai":
-                from mem0.embeddings.mock import MockEmbeddings
                 return MockEmbeddings()
             return original_embedder_create(provider_name, config, vector_config)
         EmbedderFactory.create = custom_embedder_create
 
-        from mem0 import Memory
         os.makedirs(_storage_path, exist_ok=True)
         config = {
             "llm": {
@@ -264,7 +265,6 @@ def _get_mem0():
 
         # Monkeypatch Memory._update_memory to support metadata deletion and replace mode.
         def custom_update_memory(self, memory_id, data, existing_embeddings, metadata=None):
-            import logging
             logger = logging.getLogger("mem0")
             logger.info(f"Updating memory with {data=}")
 
@@ -296,7 +296,6 @@ def _get_mem0():
 
             new_metadata["data"] = data
             new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-            from mem0.memory.main import lemmatize_for_bm25
             new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
             new_metadata["created_at"] = existing_memory.payload.get("created_at")
             new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
