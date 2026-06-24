@@ -43,13 +43,8 @@ export class WeaviateDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
-    const {
-      client,
-      clusterUrl,
-      apiKey,
-      additionalHeaders,
-      collectionName,
-    } = this._config;
+    const { client, clusterUrl, apiKey, additionalHeaders, collectionName } =
+      this._config;
 
     if (client) {
       this._client = client;
