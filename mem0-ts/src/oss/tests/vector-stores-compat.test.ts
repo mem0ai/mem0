@@ -1469,6 +1469,103 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     expect(await store.get("id-1")).toBeNull();
   });
 
+  it("supports payload-only and vector-only Neptune updates", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1", stale: "remove-me" }],
+    );
+
+    await store.update("id-1", [], { data: "payload-only", user_id: "u1" });
+    expect((await store.get("id-1"))!.payload).toEqual(
+      expect.objectContaining({
+        data: "payload-only",
+        user_id: "u1",
+      }),
+    );
+
+    await store.update("id-1", [3, 2, 1], {});
+    expect((await store.get("id-1"))!.payload).toEqual(
+      expect.objectContaining({
+        data: "payload-only",
+        user_id: "u1",
+      }),
+    );
+
+    const updateCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      );
+    expect(
+      updateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("SET n = $properties"),
+      ),
+    ).toBe(true);
+    expect(
+      updateCalls.some(
+        (command: any) =>
+          String(command.input.queryString || "").includes(
+            "CALL neptune.algo.vectors.upsert",
+          ) && !("properties" in (command.input.parameters || {})),
+      ),
+    ).toBe(true);
+  });
+
+  it("deletes the full Neptune collection with deleteCol()", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 2, 3],
+        [3, 2, 1],
+      ],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", user_id: "u1" },
+        { data: "beta", user_id: "u1" },
+      ],
+    );
+
+    await store.deleteCol();
+
+    const [listed, count] = await store.list({ user_id: "u1" });
+    expect(listed).toEqual([]);
+    expect(count).toBe(0);
+
+    const deleteColCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test`)",
+        ),
+      );
+    expect(deleteColCall).toBeDefined();
+    expect(deleteColCall.input.queryString).toContain("DETACH DELETE n");
+  });
+
   it("returns a real total count for list pagination", async () => {
     const {
       NeptuneAnalyticsVectorStore,
@@ -1586,6 +1683,48 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     ).rejects.toThrow("Neptune upsert rejected");
 
     expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("throws for unsupported Neptune search and list filter shapes", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(store.search([1, 2, 3], 1, { optional: "*" })).rejects.toThrow(
+      "Neptune Analytics vector search does not support property-existence filters.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { icontains: "alp" } }),
+    ).rejects.toThrow(
+      "Neptune Analytics vector search does not support case-insensitive contains filters.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { regex: "alp" } }),
+    ).rejects.toThrow("Unsupported Neptune Analytics filter operator: regex");
+    await expect(
+      store.search([1, 2, 3], 1, {
+        $not: [{ data: { contains: "alp" } }],
+      }),
+    ).rejects.toThrow(
+      "Neptune Analytics cannot negate this filter shape for vector search.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { eq: () => "alp" } }),
+    ).rejects.toThrow(
+      "Unsupported Neptune Analytics algorithm value type: function",
+    );
+    await expect(store.list({ data: { icontains: "alp" } })).rejects.toThrow(
+      "Neptune Analytics list filters do not support case-insensitive contains filters.",
+    );
+    await expect(store.list({ data: { regex: "alp" } })).rejects.toThrow(
+      "Unsupported Neptune Analytics filter operator: regex",
+    );
   });
 });
 
