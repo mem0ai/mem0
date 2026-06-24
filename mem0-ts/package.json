@@ -181,6 +181,12 @@
     },
     "natural": {
       "optional": true
+    },
+    "@types/jest": {
+      "optional": true
+    },
+    "@types/pg": {
+      "optional": true
     }
   },
   "engines": {
