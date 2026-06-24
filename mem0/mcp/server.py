@@ -126,6 +126,12 @@ def _normalize_scope(
                 "invalid_request",
                 f"scope contains unknown keys: {sorted(unknown)}",
             )
+        for k, v in scope.items():
+            if isinstance(v, (dict, list)):
+                raise AmpToolError(
+                    "invalid_request",
+                    f"scope key '{k}' contains nested structure which is not allowed",
+                )
         normalized = {k: v for k, v in scope.items() if v is not None and v != ""}
         if agent_id:
             existing = normalized.get("agent_id")
