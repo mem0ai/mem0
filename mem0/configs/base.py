@@ -59,7 +59,10 @@ class MemoryConfig(BaseModel):
         description=(
             "spaCy model name for entity extraction and BM25 lemmatization. "
             "The model must be installed before use: `python -m spacy download <model_name>`. "
-            "If not installed, Mem0 will attempt to download it automatically on first use."
+            "If not installed, Mem0 will attempt to download it automatically on first use. "
+            "Supports Latin-script languages (e.g. German, French, Spanish) with appropriate models. "
+            "CJK, Arabic, and Thai tokenization quality depends on the chosen model; BM25 "
+            "lemmatization uses English-centric morphology and is best suited for Latin scripts."
         ),
         default="en_core_web_sm",
     )
