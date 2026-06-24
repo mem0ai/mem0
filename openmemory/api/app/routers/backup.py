@@ -23,6 +23,11 @@ from uuid import uuid4
 
 router = APIRouter(prefix="/api/v1/backup", tags=["backup"])
 
+MAX_BACKUP_UPLOAD_BYTES = 100 * 1024 * 1024
+MAX_BACKUP_MEMBER_BYTES = 100 * 1024 * 1024
+MAX_BACKUP_MEMBER_COUNT = 16
+MAX_BACKUP_COMPRESSION_RATIO = 100
+
 class ExportRequest(BaseModel):
     user_id: str
     app_id: Optional[UUID] = None
@@ -48,6 +53,32 @@ def _parse_iso(dt: Optional[str]) -> Optional[datetime]:
             return datetime.fromisoformat(dt.replace("Z", "+00:00"))
         except Exception:
             return None
+
+def _validate_backup_member(info: zipfile.ZipInfo) -> None:
+    if info.file_size > MAX_BACKUP_MEMBER_BYTES:
+        raise HTTPException(status_code=413, detail=f"{info.filename} is too large.")
+
+    if info.compress_size == 0:
+        if info.file_size > 0:
+            raise HTTPException(status_code=400, detail=f"{info.filename} has an invalid compressed size.")
+        return
+
+    compression_ratio = info.file_size / info.compress_size
+    if compression_ratio > MAX_BACKUP_COMPRESSION_RATIO:
+        raise HTTPException(status_code=400, detail=f"{info.filename} has a suspicious compression ratio.")
+
+def _validate_backup_zip(zf: zipfile.ZipFile) -> None:
+    file_infos = [info for info in zf.infolist() if not info.is_dir()]
+    if len(file_infos) > MAX_BACKUP_MEMBER_COUNT:
+        raise HTTPException(status_code=400, detail="Backup zip contains too many files.")
+
+    for info in file_infos:
+        _validate_backup_member(info)
+
+def _read_backup_member(zf: zipfile.ZipFile, member: str) -> bytes:
+    info = zf.getinfo(member)
+    _validate_backup_member(info)
+    return zf.read(member)
 
 def _export_sqlite(db: Session, req: ExportRequest) -> Dict[str, Any]: 
     user = db.query(User).filter(User.user_id == req.user_id).first()
@@ -279,9 +310,13 @@ async def import_backup(
     if not user: 
         raise HTTPException(status_code=404, detail="User not found")
 
-    content = await file.read()
+    content = await file.read(MAX_BACKUP_UPLOAD_BYTES + 1)
+    if len(content) > MAX_BACKUP_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Backup zip is too large.")
+
     try:
         with zipfile.ZipFile(io.BytesIO(content), "r") as zf:
+            _validate_backup_zip(zf)
             names = zf.namelist()
 
             def find_member(filename: str) -> Optional[str]:
@@ -299,8 +334,10 @@ async def import_backup(
 
             memories_member = find_member("memories.jsonl.gz")
 
-            sqlite_data = json.loads(zf.read(sqlite_member))
-            memories_blob = zf.read(memories_member) if memories_member else None
+            sqlite_data = json.loads(_read_backup_member(zf, sqlite_member))
+            memories_blob = _read_backup_member(zf, memories_member) if memories_member else None
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid zip file")
 
@@ -493,7 +530,6 @@ async def import_backup(
 
 
  
-
 
 
 
