@@ -126,6 +126,8 @@ Use the Neon `DATABASE_URL` directly with `connectionString`. Set `ssl` if your 
 | `embeddingModelDims` | Embedding model dimensions for table creation. | Required       |
 | `hnsw`               | Enables HNSW indexing.                         | `false`        |
 
+**TLS note:** `ssl: true` is sufficient for most Neon connections since Neon uses valid certificates. Use `ssl: { rejectUnauthorized: false }` only when connecting through Neon's connection pooler on certain edge runtimes (e.g. Cloudflare Workers) that require it, or when your environment does not trust the Neon CA chain.
+
 </Tab>
 </Tabs>
 

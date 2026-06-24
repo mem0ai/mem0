@@ -177,9 +177,10 @@ function validateConnectionConfig(config: PGVectorConfig): void {
     return;
   }
 
-  const missingFields = ["user", "password", "host", "port"].filter(
-    (field) => config[field as keyof PGVectorConfig] === undefined,
-  );
+  const missingFields = ["user", "password", "host", "port"].filter((field) => {
+    const v = config[field as keyof PGVectorConfig];
+    return v === undefined || v === null || v === "";
+  });
 
   if (missingFields.length > 0) {
     throw new Error(
@@ -215,7 +216,7 @@ export class PGVector implements VectorStore {
   private collectionName: string;
   private useDiskann: boolean;
   private useHnsw: boolean;
-  private readonly dbName: string;
+  private readonly dbName: string | undefined;
   private readonly useDirectConnection: boolean;
   private config: PGVectorConfig;
   private _initPromise?: Promise<void>;
@@ -230,7 +231,7 @@ export class PGVector implements VectorStore {
     this.useHnsw = config.hnsw || false;
     this.useDirectConnection = !!getConnectionString(config);
     this.dbName = this.useDirectConnection
-      ? ""
+      ? undefined
       : validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
