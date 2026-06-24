@@ -216,7 +216,7 @@ export class PGVector implements VectorStore {
   private collectionName: string;
   private useDiskann: boolean;
   private useHnsw: boolean;
-  private readonly dbName: string | undefined;
+  private readonly dbName: string;
   private readonly useDirectConnection: boolean;
   private config: PGVectorConfig;
   private _initPromise?: Promise<void>;
@@ -231,7 +231,7 @@ export class PGVector implements VectorStore {
     this.useHnsw = config.hnsw || false;
     this.useDirectConnection = !!getConnectionString(config);
     this.dbName = this.useDirectConnection
-      ? undefined
+      ? ""
       : validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
