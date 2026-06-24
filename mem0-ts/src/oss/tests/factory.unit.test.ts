@@ -35,6 +35,11 @@ jest.mock("../src/embeddings/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
 }));
+jest.mock("../src/embeddings/together", () => ({
+  TogetherEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "together-embedder", config })),
+}));
 
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest
@@ -91,6 +96,11 @@ jest.mock("../src/llms/deepseek", () => ({
   DeepSeekLLM: jest
     .fn()
     .mockImplementation((config) => ({ type: "deepseek-llm", config })),
+}));
+jest.mock("../src/llms/sarvam", () => ({
+  SarvamLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "sarvam-llm", config })),
 }));
 
 jest.mock("../src/vector_stores/qdrant", () => ({
@@ -165,6 +175,7 @@ describe("EmbedderFactory", () => {
     ["azure_openai"],
     ["langchain"],
     ["lmstudio"],
+    ["together"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
       EmbedderFactory.create(provider, dummyEmbedConfig),
@@ -206,6 +217,7 @@ describe("LLMFactory", () => {
     ["langchain"],
     ["lmstudio"],
     ["deepseek"],
+    ["sarvam"],
   ])("creates LLM for provider '%s'", (provider) => {
     expect(() => LLMFactory.create(provider, dummyLLMConfig)).not.toThrow();
   });
