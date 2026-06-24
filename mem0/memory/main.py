@@ -1762,7 +1762,7 @@ class Memory(MemoryBase):
         for memory in memories:
             try:
                 self._delete_memory(memory.id, skip_entity_cleanup=True)
-            except BaseException as e:
+            except Exception as e:
                 errors.append(e)
                 logger.warning("Delete error: %s", e)
 
