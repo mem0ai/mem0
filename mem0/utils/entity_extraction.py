@@ -1,11 +1,17 @@
 """
-Entity extraction from text using spaCy NLP.
+Entity extraction from text using spaCy NLP (English) and jieba (CJK).
 
 Extracts four types of entities from text:
 - **Proper nouns**: Capitalized multi-word sequences (person names, places, brands)
 - **Quoted text**: Text in single or double quotes (titles, specific terms)
 - **Noun compounds**: Multi-word noun phrases with specific modifiers (e.g., "machine learning")
 - **Noun fallback**: Single nouns from circumstantial compound patterns
+
+CJK text (Chinese/Japanese/Korean) uses jieba POS tagging for entity extraction:
+- nr (人名) → person names
+- ns (地名) → place names  
+- nt (机构) → organization names
+- nz (其他专名) → other proper nouns
 
 Public API:
     extract_entities(text: str) -> List[Tuple[str, str]]
@@ -21,6 +27,72 @@ import re
 from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")
+
+
+def _has_cjk(text: str) -> bool:
+    """Check if text contains CJK characters."""
+    return bool(_CJK_RE.search(text))
+
+
+def _extract_cjk_entities(text: str) -> List[Tuple[str, str]]:
+    """Extract named entities from CJK text using jieba POS tagging.
+    
+    Uses jieba's part-of-speech tagging:
+    - nr: person names
+    - ns: place names
+    - nt: organization names
+    - nz: other proper nouns
+    """
+    import jieba.posseg as pseg
+
+    words = pseg.cut(text)
+    entities = []
+    current_entity = []
+    current_type = None
+
+    for word, flag in words:
+        if flag in ("nr", "ns", "nt", "nz"):
+            if flag == current_type:
+                current_entity.append(word)
+            else:
+                if current_entity and len("".join(current_entity)) > 1:
+                    entity_type = {
+                        "nr": "PERSON", "ns": "PLACE",
+                        "nt": "ORG", "nz": "PROPER"
+                    }.get(current_type, "PROPER")
+                    entities.append((entity_type, "".join(current_entity)))
+                current_entity = [word]
+                current_type = flag
+        else:
+            if current_entity and len("".join(current_entity)) > 1:
+                entity_type = {
+                    "nr": "PERSON", "ns": "PLACE",
+                    "nt": "ORG", "nz": "PROPER"
+                }.get(current_type, "PROPER")
+                entities.append((entity_type, "".join(current_entity)))
+            current_entity = []
+            current_type = None
+
+    # Flush remaining
+    if current_entity and len("".join(current_entity)) > 1:
+        entity_type = {
+            "nr": "PERSON", "ns": "PLACE",
+            "nt": "ORG", "nz": "PROPER"
+        }.get(current_type, "PROPER")
+        entities.append((entity_type, "".join(current_entity)))
+
+    # Deduplicate
+    seen = set()
+    deduped = []
+    for etype, etext in entities:
+        k = etext.lower().strip()
+        if k not in seen and len(k) > 1:
+            seen.add(k)
+            deduped.append((etype, etext))
+
+    return deduped
 
 # Words that are too generic to be useful as entity heads
 _GENERIC_HEADS = {
@@ -123,17 +195,26 @@ def _has_artifacts(txt: str) -> bool:
 def extract_entities(text: str) -> List[Tuple[str, str]]:
     """Extract named entities, quoted text, and noun compounds from text.
 
-    This is the public API that accepts a string. It loads the spaCy model
-    internally and delegates to _extract_entities_from_doc().
+    CJK text uses jieba POS tagging; other text uses spaCy NLP.
+    This is the public API that accepts a string.
 
     Args:
         text: Input text to extract entities from.
 
     Returns:
         Deduplicated list of (entity_type, entity_text) tuples.
-        Entity types: PROPER, QUOTED, COMPOUND, NOUN.
-        Returns empty list if spaCy is unavailable.
+        Entity types: PROPER, QUOTED, COMPOUND, NOUN, PERSON, PLACE, ORG.
+        Returns empty list if NLP is unavailable.
     """
+    if _has_cjk(text):
+        entities = _extract_cjk_entities(text)
+        # Also extract quoted text for CJK
+        for m in re.finditer(r'"[^"]+"', text):
+            inner = m.group(0)[1:-1].strip()
+            if len(inner) > 1:
+                entities.append(("QUOTED", inner))
+        return entities
+
     from mem0.utils.spacy_models import get_nlp_full
 
     nlp = get_nlp_full()
