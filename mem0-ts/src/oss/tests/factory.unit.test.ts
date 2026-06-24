@@ -274,6 +274,19 @@ describe("VectorStoreFactory", () => {
     ).not.toThrow();
   });
 
+  test("passes Neptune endpoint URI config through the factory", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune-analytics", config) as any;
+
+    expect(store.type).toBe("neptune-analytics");
+    expect(store.config).toEqual(config);
+  });
+
   test("throws for unsupported provider", () => {
     expect(() =>
       VectorStoreFactory.create("nonexistent", dummyVSConfig),

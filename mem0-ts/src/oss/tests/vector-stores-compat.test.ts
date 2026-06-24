@@ -1230,6 +1230,44 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     );
   });
 
+  it("derives graphIdentifier from a neptune-graph endpoint URI", async () => {
+    jest.resetModules();
+
+    const send = jest
+      .fn()
+      .mockResolvedValue(createMockResponse({ results: [] }));
+    const neptuneGraphClient = jest.fn().mockReturnValue({ send });
+
+    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
+      ExecuteQueryCommand: class ExecuteQueryCommand {
+        input: any;
+
+        constructor(input: any) {
+          this.input = input;
+        }
+      },
+      NeptuneGraphClient: neptuneGraphClient,
+    }));
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      endpoint: "neptune-graph://g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+      region: "us-east-1",
+    });
+
+    await store.search([1, 2, 3], 1);
+
+    expect(neptuneGraphClient).toHaveBeenCalledWith({
+      region: "us-east-1",
+    });
+    expect(send).toHaveBeenCalled();
+    expect(send.mock.calls[0][0].input.graphIdentifier).toBe("g-1234567890");
+  });
+
   it("shapes Neptune write requests and normalizes search results", async () => {
     const {
       NeptuneAnalyticsVectorStore,
