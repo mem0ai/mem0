@@ -81,6 +81,14 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+def _vector_store_list_rows(listed):
+    if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
+        return listed[0]
+    if isinstance(listed, (list, tuple)):
+        return listed
+    return []
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -499,22 +507,49 @@ class Memory(MemoryBase):
             )
         return self._entity_store
 
+    @staticmethod
+    def _normalize_entity_text(value: str) -> str:
+        return " ".join(value.strip().lower().split())
+
+    def _existing_entities_by_text(self, filters):
+        """Return existing entity rows keyed by normalized payload data."""
+        try:
+            listed = self.entity_store.list(filters=filters, top_k=10000)
+        except Exception as e:
+            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
+            return {}
+
+        rows_by_text = {}
+        for row in _vector_store_list_rows(listed):
+            payload = getattr(row, "payload", None) or {}
+            text = payload.get("data")
+            if not isinstance(text, str):
+                continue
+            normalized = self._normalize_entity_text(text)
+            if normalized and normalized not in rows_by_text:
+                rows_by_text[normalized] = row
+        return rows_by_text
+
     def _upsert_entity(self, entity_text, entity_type, memory_id, filters):
         """Upsert an entity into the entity store, linking it to a memory."""
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
 
-            existing = self.entity_store.search(
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=1,
-                filters=search_filters,
-            )
+            existing = []
+            if exact_match is None:
+                existing = self.entity_store.search(
+                    query=entity_text,
+                    vectors=entity_embedding,
+                    top_k=1,
+                    filters=search_filters,
+                )
 
-            if existing and existing[0].score >= 0.95:
+            semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
+            match = exact_match or semantic_match
+            if match:
                 # Update existing entity's linked_memory_ids
-                match = existing[0]
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
@@ -609,7 +644,7 @@ class Memory(MemoryBase):
                 return
             seen = set()
             for entity_type, entity_text in entities:
-                key = entity_text.strip().lower()
+                key = self._normalize_entity_text(entity_text)
                 if not key or key in seen:
                     continue
                 seen.add(key)
@@ -971,7 +1006,7 @@ class Memory(MemoryBase):
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
+                    key = self._normalize_entity_text(entity_text)
                     if key in global_entities:
                         global_entities[key][2].add(memory_id)
                     else:
@@ -1009,6 +1044,7 @@ class Memory(MemoryBase):
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
+                    exact_matches = self._existing_entities_by_text(search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -1024,10 +1060,12 @@ class Memory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
+                        exact_match = exact_matches.get(key)
 
-                        if matches and matches[0].score >= 0.95:
+                        semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
+                        match = exact_match or semantic_match
+                        if match:
                             # Update existing entity
-                            match = matches[0]
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
@@ -1603,7 +1641,7 @@ class Memory(MemoryBase):
         seen = set()
         deduped = []
         for entity_type, entity_text in query_entities[:8]:
-            key = entity_text.strip().lower()
+            key = self._normalize_entity_text(entity_text)
             if key and key not in seen:
                 seen.add(key)
                 deduped.append((entity_type, entity_text))
@@ -2045,22 +2083,51 @@ class AsyncMemory(MemoryBase):
             )
         return self._entity_store
 
+    @staticmethod
+    def _normalize_entity_text(value: str) -> str:
+        return " ".join(value.strip().lower().split())
+
+    def _existing_entities_by_text(self, filters):
+        """Return existing entity rows keyed by normalized payload data."""
+        try:
+            listed = self.entity_store.list(filters=filters, top_k=10000)
+        except Exception as e:
+            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
+            return {}
+
+        rows_by_text = {}
+        for row in _vector_store_list_rows(listed):
+            payload = getattr(row, "payload", None) or {}
+            text = payload.get("data")
+            if not isinstance(text, str):
+                continue
+            normalized = self._normalize_entity_text(text)
+            if normalized and normalized not in rows_by_text:
+                rows_by_text[normalized] = row
+        return rows_by_text
+
     async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            exact_match = (
+                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+            ).get(self._normalize_entity_text(entity_text))
 
-            existing = await asyncio.to_thread(
-                self.entity_store.search,
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=1,
-                filters=search_filters,
-            )
+            existing = []
+            if exact_match is None:
+                existing = await asyncio.to_thread(
+                    self.entity_store.search,
+                    query=entity_text,
+                    vectors=entity_embedding,
+                    top_k=1,
+                    filters=search_filters,
+                )
 
-            if existing and existing[0].score >= 0.95:
-                match = existing[0]
+            semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
+            match = exact_match or semantic_match
+            if match:
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
@@ -2163,7 +2230,7 @@ class AsyncMemory(MemoryBase):
                 return
             seen = set()
             for entity_type, entity_text in entities:
-                key = entity_text.strip().lower()
+                key = self._normalize_entity_text(entity_text)
                 if not key or key in seen:
                     continue
                 seen.add(key)
@@ -2512,7 +2579,7 @@ class AsyncMemory(MemoryBase):
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
+                    key = self._normalize_entity_text(entity_text)
                     if key in global_entities:
                         global_entities[key][2].add(memory_id)
                     else:
@@ -2547,6 +2614,7 @@ class AsyncMemory(MemoryBase):
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
+                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -2563,9 +2631,11 @@ class AsyncMemory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
+                        exact_match = exact_matches.get(key)
 
-                        if matches and matches[0].score >= 0.95:
-                            match = matches[0]
+                        semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
+                        match = exact_match or semantic_match
+                        if match:
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
@@ -3137,7 +3207,7 @@ class AsyncMemory(MemoryBase):
         seen = set()
         deduped = []
         for entity_type, entity_text in query_entities[:8]:
-            key = entity_text.strip().lower()
+            key = self._normalize_entity_text(entity_text)
             if key and key not in seen:
                 seen.add(key)
                 deduped.append((entity_type, entity_text))
