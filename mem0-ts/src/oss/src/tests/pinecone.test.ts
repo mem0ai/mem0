@@ -250,9 +250,9 @@ describe("insert", () => {
   it("upserts records with correct shape", async () => {
     const db = await initDb();
     await db.insert([[1, 2, 3, 4]], ["id-1"], [{ text: "hello" }]);
-    expect(__mocks__.upsert).toHaveBeenCalledWith([
-      { id: "id-1", values: [1, 2, 3, 4], metadata: { text: "hello" } },
-    ]);
+    expect(__mocks__.upsert).toHaveBeenCalledWith({
+      records: [{ id: "id-1", values: [1, 2, 3, 4], metadata: { text: "hello" } }],
+    });
   });
 
   it("splits 150 records into two batches with batchSize=100", async () => {
@@ -262,8 +262,8 @@ describe("insert", () => {
     const payloads = Array.from({ length: 150 }, () => ({}));
     await db.insert(vectors, ids, payloads);
     expect(__mocks__.upsert).toHaveBeenCalledTimes(2);
-    expect(__mocks__.upsert.mock.calls[0][0]).toHaveLength(100);
-    expect(__mocks__.upsert.mock.calls[1][0]).toHaveLength(50);
+    expect(__mocks__.upsert.mock.calls[0][0].records).toHaveLength(100);
+    expect(__mocks__.upsert.mock.calls[1][0].records).toHaveLength(50);
   });
 });
 
@@ -337,6 +337,33 @@ describe("search", () => {
     expect(call.filter).toBeUndefined();
   });
 
+  it("warns and skips NOT operator (unsupported by Pinecone)", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const db = await initDb();
+    await db.search([1, 2, 3, 4], 5, { NOT: [{ tag: "x" }] });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("NOT"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("warns and skips contains operator", async () => {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const db = await initDb();
+    await db.search([1, 2, 3, 4], 5, { tag: { contains: "foo" } });
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("contains"),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it("throws on unsupported filter operator", async () => {
+    const db = await initDb();
+    await expect(
+      db.search([1, 2, 3, 4], 5, { tag: { regex: "^foo" } } as any),
+    ).rejects.toThrow();
+  });
+
   it("maps response matches to VectorStoreResult shape", async () => {
     __mocks__.query.mockResolvedValue({
       matches: [
@@ -384,9 +411,9 @@ describe("update", () => {
   it("upserts a single record", async () => {
     const db = await initDb();
     await db.update("vec-1", [1, 2, 3, 4], { text: "updated" });
-    expect(__mocks__.upsert).toHaveBeenCalledWith([
-      { id: "vec-1", values: [1, 2, 3, 4], metadata: { text: "updated" } },
-    ]);
+    expect(__mocks__.upsert).toHaveBeenCalledWith({
+      records: [{ id: "vec-1", values: [1, 2, 3, 4], metadata: { text: "updated" } }],
+    });
   });
 });
 
@@ -394,7 +421,7 @@ describe("delete", () => {
   it("calls deleteOne with the vectorId", async () => {
     const db = await initDb();
     await db.delete("vec-1");
-    expect(__mocks__.deleteOne).toHaveBeenCalledWith("vec-1");
+    expect(__mocks__.deleteOne).toHaveBeenCalledWith({ id: "vec-1" });
   });
 });
 
@@ -465,12 +492,14 @@ describe("getUserId", () => {
     expect(typeof uid).toBe("string");
     expect(uid.length).toBeGreaterThan(0);
     expect(__mocks__.upsert).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "mem0-user-id",
-          metadata: { user_id: uid },
-        }),
-      ]),
+      expect.objectContaining({
+        records: expect.arrayContaining([
+          expect.objectContaining({
+            id: "mem0-user-id",
+            metadata: { user_id: uid },
+          }),
+        ]),
+      }),
     );
     expect(__mocks__.namespace).toHaveBeenCalledWith("__mem0_migrations__");
   });
@@ -480,13 +509,15 @@ describe("setUserId", () => {
   it("upserts with correct id, zero vector, and metadata", async () => {
     const db = await initDb({ embeddingModelDims: 4 });
     await db.setUserId("u-456");
-    expect(__mocks__.upsert).toHaveBeenCalledWith([
-      {
-        id: "mem0-user-id",
-        values: [0, 0, 0, 0],
-        metadata: { user_id: "u-456" },
-      },
-    ]);
+    expect(__mocks__.upsert).toHaveBeenCalledWith({
+      records: [
+        {
+          id: "mem0-user-id",
+          values: [0, 0, 0, 0],
+          metadata: { user_id: "u-456" },
+        },
+      ],
+    });
     expect(__mocks__.namespace).toHaveBeenCalledWith("__mem0_migrations__");
   });
 });

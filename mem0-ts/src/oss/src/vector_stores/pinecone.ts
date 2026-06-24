@@ -152,9 +152,9 @@ export class PineconeDB implements VectorStore {
         continue;
       }
       if (key === "NOT" || key === "$not") {
-        result["$and"] = (value as SearchFilters[]).map((sub) => ({
-          $nor: [this.createFilter(sub) || {}],
-        }));
+        console.warn(
+          "Filter operator 'NOT' is not supported by Pinecone metadata filters; skipping.",
+        );
         continue;
       }
 
@@ -229,7 +229,7 @@ export class PineconeDB implements VectorStore {
       metadata: payloads[i] || {},
     }));
     for (let i = 0; i < records.length; i += this.batchSize) {
-      await this.namespacedIndex().upsert(records.slice(i, i + this.batchSize));
+      await this.namespacedIndex().upsert({ records: records.slice(i, i + this.batchSize) });
     }
   }
 
@@ -264,7 +264,7 @@ export class PineconeDB implements VectorStore {
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     await this.initialize();
-    const response = await this.namespacedIndex().fetch([vectorId]);
+    const response = await this.namespacedIndex().fetch({ ids: [vectorId] });
     const record = (response.records || {})[vectorId];
     if (!record) return null;
     return {
@@ -279,17 +279,20 @@ export class PineconeDB implements VectorStore {
     payload: Record<string, any>,
   ): Promise<void> {
     await this.initialize();
-    await this.namespacedIndex().upsert([
-      { id: vectorId, values: vector, metadata: payload },
-    ]);
+    await this.namespacedIndex().upsert({
+      records: [{ id: vectorId, values: vector, metadata: payload }],
+    });
   }
 
   async delete(vectorId: string): Promise<void> {
     await this.initialize();
-    await this.namespacedIndex().deleteOne(vectorId);
+    await this.namespacedIndex().deleteOne({ id: vectorId });
   }
 
   async deleteCol(): Promise<void> {
+    if (this._initPromise) {
+      await this._initPromise.catch(() => {});
+    }
     await this.client.deleteIndex(this.collectionName);
     this._index = undefined;
     this._initPromise = undefined;
@@ -324,9 +327,9 @@ export class PineconeDB implements VectorStore {
   async getUserId(): Promise<string> {
     await this.initialize();
     try {
-      const response = await this.migrationsIndex().fetch([
-        MIGRATIONS_RECORD_ID,
-      ]);
+      const response = await this.migrationsIndex().fetch({
+        ids: [MIGRATIONS_RECORD_ID],
+      });
       const record = (response.records || {})[MIGRATIONS_RECORD_ID];
       if (record?.metadata?.user_id) {
         return record.metadata.user_id as string;
@@ -337,24 +340,28 @@ export class PineconeDB implements VectorStore {
     const randomUserId =
       Math.random().toString(36).substring(2, 15) +
       Math.random().toString(36).substring(2, 15);
-    await this.migrationsIndex().upsert([
-      {
-        id: MIGRATIONS_RECORD_ID,
-        values: new Array(this.dimension).fill(0),
-        metadata: { user_id: randomUserId },
-      },
-    ]);
+    await this.migrationsIndex().upsert({
+      records: [
+        {
+          id: MIGRATIONS_RECORD_ID,
+          values: new Array(this.dimension).fill(0),
+          metadata: { user_id: randomUserId },
+        },
+      ],
+    });
     return randomUserId;
   }
 
   async setUserId(userId: string): Promise<void> {
     await this.initialize();
-    await this.migrationsIndex().upsert([
-      {
-        id: MIGRATIONS_RECORD_ID,
-        values: new Array(this.dimension).fill(0),
-        metadata: { user_id: userId },
-      },
-    ]);
+    await this.migrationsIndex().upsert({
+      records: [
+        {
+          id: MIGRATIONS_RECORD_ID,
+          values: new Array(this.dimension).fill(0),
+          metadata: { user_id: userId },
+        },
+      ],
+    });
   }
 }
