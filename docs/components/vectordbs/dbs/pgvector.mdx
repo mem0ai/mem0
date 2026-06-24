@@ -46,10 +46,7 @@ const config = {
     config: {
       collectionName: "memories",
       embeddingModelDims: 1536,
-      connectionString: "postgresql://test:123@ep-example.us-east-1.aws.neon.tech/neondb?sslmode=require",
-      ssl: {
-        rejectUnauthorized: false,
-      },
+      connectionString: "postgresql://test:123@localhost:5432/vector_store",
       diskann: false, // Optional, requires pgvectorscale extension
       hnsw: false, // Optional, for HNSW indexing
     },
