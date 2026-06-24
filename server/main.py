@@ -125,6 +125,7 @@ vector_store_config: Dict[str, Any] = {
 
 if VECTOR_STORE_CONFIG:
     try:
+        # Note: Any keys in VECTOR_STORE_CONFIG (including 'collection_name') will override defaults
         vector_store_config.update(json.loads(VECTOR_STORE_CONFIG))
     except json.JSONDecodeError as e:
         logging.error(f"Failed to parse VECTOR_STORE_CONFIG (invalid JSON): {e}")

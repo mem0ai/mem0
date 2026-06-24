@@ -79,6 +79,20 @@ def initialize_state(default_config: Dict[str, Any]) -> None:
         _current_config = deepcopy(default_config)
         overrides = _load_overrides()
         if overrides:
+            for component in ["vector_store", "llm", "embedder"]:
+                comp_override = overrides.get(component)
+                if not isinstance(comp_override, dict):
+                    continue
+                new_provider = comp_override.get("provider")
+
+                current_comp = _current_config.get(component)
+                if not isinstance(current_comp, dict):
+                    continue
+                current_provider = current_comp.get("provider")
+
+                if new_provider and current_provider and new_provider != current_provider:
+                    _current_config[component]["config"] = {}
+
             _current_config = _merge_config(_current_config, overrides)
         _memory_instance = Memory.from_config(_current_config)
 
@@ -88,7 +102,7 @@ def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     with _state_lock:
         overrides = _load_overrides()
 
-        # Work on copies to avoid mutating live state before _merge_config
+        # Work on copies to prevent partial mutation during _merge_config (note: state swap is not fully atomic if from_config raises)
         base_config = deepcopy(_current_config)
         base_overrides = deepcopy(overrides)
 
