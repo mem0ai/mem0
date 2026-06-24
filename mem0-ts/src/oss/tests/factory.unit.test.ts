@@ -307,7 +307,9 @@ describe("HistoryManagerFactory", () => {
   });
 
   test("does not eagerly load SQLiteManager for non-sqlite providers", async () => {
-    const { SQLiteManager } = jest.requireMock("../src/storage/SQLiteManager") as {
+    const { SQLiteManager } = jest.requireMock(
+      "../src/storage/SQLiteManager",
+    ) as {
       SQLiteManager: jest.MockedClass<any>;
     };
     SQLiteManager.mockClear();
