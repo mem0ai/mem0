@@ -967,11 +967,11 @@ class Memory(MemoryBase):
             all_entities = extract_entities_batch(all_texts)
 
             # 7a: Global dedup — collect unique entities across all memories
-            global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
+            global_entities = {}  # (entity_type, text) -> (entity_type, entity_text, set of memory_ids)
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
+                    key = (entity_type.strip().lower(), entity_text.strip().lower())
                     if key in global_entities:
                         global_entities[key][2].add(memory_id)
                     else:
@@ -2512,7 +2512,7 @@ class AsyncMemory(MemoryBase):
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
+                    key = (entity_type.strip().lower(), entity_text.strip().lower())
                     if key in global_entities:
                         global_entities[key][2].add(memory_id)
                     else:
