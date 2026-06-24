@@ -773,7 +773,9 @@ describe("Databricks – backward compat with mocked clients", () => {
 
     jest.doMock("axios", () => {
       let endpointExists = false;
+      let endpointPendingReadyResponses = 0;
       let indexExists = false;
+      let indexPendingReadyResponses = 0;
       let syncPendingReadyResponses = 0;
       let pagedQueryResponses: any[] = [];
 
@@ -797,7 +799,21 @@ describe("Databricks – backward compat with mocked clients", () => {
               error.response = { status: 404 };
               throw error;
             }
-            return { data: { name: "mem0_vector_search" } };
+            if (endpointPendingReadyResponses > 0) {
+              endpointPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "mem0_vector_search",
+                  endpoint_status: { state: "PROVISIONING" },
+                },
+              };
+            }
+            return {
+              data: {
+                name: "mem0_vector_search",
+                endpoint_status: { state: "ONLINE" },
+              },
+            };
           }
 
           if (url === "/indexes/main.default.memories") {
@@ -805,6 +821,15 @@ describe("Databricks – backward compat with mocked clients", () => {
               const error: any = new Error("missing index");
               error.response = { status: 404 };
               throw error;
+            }
+            if (indexPendingReadyResponses > 0) {
+              indexPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
             }
             if (syncPendingReadyResponses > 0) {
               syncPendingReadyResponses -= 1;
@@ -828,11 +853,13 @@ describe("Databricks – backward compat with mocked clients", () => {
         post: jest.fn().mockImplementation(async (url: string, body: any) => {
           if (url === "/endpoints") {
             endpointExists = true;
+            endpointPendingReadyResponses = 1;
             return { data: { endpoint: body.name } };
           }
 
           if (url === "/indexes") {
             indexExists = true;
+            indexPendingReadyResponses = 1;
             return { data: { index: body.name } };
           }
 
@@ -944,6 +971,16 @@ describe("Databricks – backward compat with mocked clients", () => {
     const httpClient = axiosModule.__mockHttpClient;
     expect(clientInstance.connect).toHaveBeenCalledTimes(1);
     expect(clientInstance.openSession).toHaveBeenCalledTimes(1);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/endpoints/mem0_vector_search",
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories",
+      ).length,
+    ).toBeGreaterThan(1);
     expect(httpClient.post).toHaveBeenCalledWith("/endpoints", {
       name: "mem0_vector_search",
       endpoint_type: "STANDARD",

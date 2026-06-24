@@ -493,7 +493,9 @@ export class DatabricksVectorStore implements VectorStore {
     `);
 
     await this.ensureEndpointExists();
+    await this.waitForEndpointReadiness();
     await this.ensureIndexExists();
+    await this.waitForIndexReadiness();
   }
 
   async insert(
@@ -929,10 +931,42 @@ export class DatabricksVectorStore implements VectorStore {
     await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/sync`,
     );
-    await this.waitForTriggeredSyncReadiness();
+    await this.waitForIndexReadiness();
   }
 
-  private async waitForTriggeredSyncReadiness(): Promise<void> {
+  private async waitForEndpointReadiness(): Promise<void> {
+    const deadline = Date.now() + this.syncTimeoutMs;
+
+    while (Date.now() <= deadline) {
+      const response = await this.httpClient.get(
+        `/endpoints/${encodeURIComponent(this.endpointName)}`,
+      );
+      const state =
+        response?.data?.endpoint_status?.state ?? response?.data?.state;
+
+      if (state === "ONLINE") {
+        return;
+      }
+
+      if (typeof state !== "string") {
+        throw new Error(
+          "Databricks endpoint status did not report a state during initialization.",
+        );
+      }
+
+      if (this.syncPollIntervalMs > 0) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.syncPollIntervalMs),
+        );
+      }
+    }
+
+    throw new Error(
+      `Timed out waiting for Databricks endpoint ${this.endpointName} to become ready.`,
+    );
+  }
+
+  private async waitForIndexReadiness(): Promise<void> {
     const deadline = Date.now() + this.syncTimeoutMs;
 
     while (Date.now() <= deadline) {
