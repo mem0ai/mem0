@@ -23,6 +23,7 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 const MIGRATION_INDEX_NAME = "memory_migrations";
 const MIGRATION_VECTOR_KEY = "mem0-user";
 const DEFAULT_PAGE_SIZE = 500;
+const ALWAYS_FALSE_FILTER_KEY = "$alwaysFalse";
 
 type S3Filter = Record<string, any>;
 
@@ -130,6 +131,9 @@ export class S3Vectors implements VectorStore {
     this.assertVectorDimension(query, "Query");
 
     const filter = this.convertFilters(filters);
+    if (filter && this.isAlwaysFalseFilter(filter)) {
+      return [];
+    }
     const response = await this.client.send(
       new QueryVectorsCommand({
         vectorBucketName: this.vectorBucketName,
@@ -430,7 +434,8 @@ export class S3Vectors implements VectorStore {
     if (!filters || Object.keys(filters).length === 0) {
       return undefined;
     }
-    return this.convertFilterNode(filters);
+    const normalized = this.convertFilterNode(filters);
+    return this.isNoOpFilter(normalized) ? undefined : normalized;
   }
 
   private convertFilterNode(node: Record<string, any>): S3Filter {
@@ -441,9 +446,37 @@ export class S3Vectors implements VectorStore {
         if (!Array.isArray(value) || value.length === 0) {
           throw new Error(`${key} filter requires a non-empty list`);
         }
-        clauses.push({
-          [key]: value.map((entry) => this.convertFilterNode(entry)),
-        });
+        const normalizedEntries = value.map((entry) =>
+          this.convertFilterNode(entry),
+        );
+        const entries = normalizedEntries.filter(
+          (entry) => !this.isNoOpFilter(entry),
+        );
+        if (key === "$and") {
+          if (entries.some((entry) => this.isAlwaysFalseFilter(entry))) {
+            return { [ALWAYS_FALSE_FILTER_KEY]: true };
+          }
+          if (entries.length === 0) {
+            continue;
+          }
+        } else {
+          if (normalizedEntries.some((entry) => this.isNoOpFilter(entry))) {
+            continue;
+          }
+          const viableEntries = entries.filter(
+            (entry) => !this.isAlwaysFalseFilter(entry),
+          );
+          if (viableEntries.length === 0) {
+            return { [ALWAYS_FALSE_FILTER_KEY]: true };
+          }
+          clauses.push(
+            viableEntries.length === 1
+              ? viableEntries[0]
+              : { [key]: viableEntries },
+          );
+          continue;
+        }
+        clauses.push(entries.length === 1 ? entries[0] : { [key]: entries });
         continue;
       }
 
@@ -452,18 +485,45 @@ export class S3Vectors implements VectorStore {
           throw new Error("$not filter requires a non-empty list");
         }
 
-        const negated = value.map((entry) =>
-          this.negateFilter(this.convertFilterNode(entry)),
+        const normalizedEntries = value.map((entry) =>
+          this.convertFilterNode(entry),
         );
-        clauses.push(negated.length === 1 ? negated[0] : { $and: negated });
+        if (normalizedEntries.some((entry) => this.isNoOpFilter(entry))) {
+          return { [ALWAYS_FALSE_FILTER_KEY]: true };
+        }
+        const negated = normalizedEntries.filter(
+          (entry) => !this.isAlwaysFalseFilter(entry),
+        );
+        if (negated.length === 0) {
+          continue;
+        }
+        const negatedFilters = negated.map((entry) => this.negateFilter(entry));
+        clauses.push(
+          negatedFilters.length === 1
+            ? negatedFilters[0]
+            : { $and: negatedFilters },
+        );
         continue;
       }
 
-      clauses.push(this.convertFieldFilter(key, value));
+      const fieldFilter = this.convertFieldFilter(key, value);
+      if (this.isAlwaysFalseFilter(fieldFilter)) {
+        return fieldFilter;
+      }
+      if (this.isNoOpFilter(fieldFilter)) {
+        continue;
+      }
+      clauses.push(fieldFilter);
     }
 
+    if (clauses.some((entry) => this.isAlwaysFalseFilter(entry))) {
+      return { [ALWAYS_FALSE_FILTER_KEY]: true };
+    }
     if (clauses.length === 1) {
       return clauses[0];
+    }
+    if (clauses.length === 0) {
+      return {};
     }
 
     return { $and: clauses };
@@ -475,6 +535,9 @@ export class S3Vectors implements VectorStore {
     }
 
     if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return { [ALWAYS_FALSE_FILTER_KEY]: true };
+      }
       return { [key]: { $in: value } };
     }
 
@@ -505,9 +568,15 @@ export class S3Vectors implements VectorStore {
           operators.$lte = operand;
           break;
         case "in":
+          if (!Array.isArray(operand) || operand.length === 0) {
+            return { [ALWAYS_FALSE_FILTER_KEY]: true };
+          }
           operators.$in = operand;
           break;
         case "nin":
+          if (!Array.isArray(operand) || operand.length === 0) {
+            break;
+          }
           operators.$nin = operand;
           break;
         case "contains":
@@ -523,6 +592,9 @@ export class S3Vectors implements VectorStore {
       }
     }
 
+    if (Object.keys(operators).length === 0) {
+      return {};
+    }
     return { [key]: operators };
   }
 
@@ -596,6 +668,9 @@ export class S3Vectors implements VectorStore {
     metadata: Record<string, any>,
     filter: S3Filter,
   ): boolean {
+    if (this.isAlwaysFalseFilter(filter)) {
+      return false;
+    }
     if (Array.isArray(filter.$and)) {
       return filter.$and.every((entry: S3Filter) =>
         this.matchesFilter(metadata, entry),
@@ -752,5 +827,13 @@ export class S3Vectors implements VectorStore {
 
   private isConflict(error: any): boolean {
     return error?.name === "ConflictException";
+  }
+
+  private isAlwaysFalseFilter(filter: S3Filter): boolean {
+    return filter[ALWAYS_FALSE_FILTER_KEY] === true;
+  }
+
+  private isNoOpFilter(filter: S3Filter): boolean {
+    return Object.keys(filter).length === 0;
   }
 }
