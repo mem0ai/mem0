@@ -41,7 +41,7 @@ importers:
         specifier: ^4.20250504.0
         version: 4.20260611.1
       '@databricks/sql':
-        specifier: 1.16.0
+        specifier: ^1.16.0
         version: 1.16.0
       '@google/genai':
         specifier: ^1.40.0
