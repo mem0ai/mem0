@@ -41,7 +41,13 @@ Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
    codex plugin marketplace add mem0ai/mem0
    ```
 
-2. Restart Codex, open the Plugin Directory, browse the **Mem0 Plugins** marketplace, and install **Mem0**.
+2. Install the plugin:
+
+   ```bash
+   codex plugin add mem0@mem0-plugins
+   ```
+
+   Or, in the app: restart Codex, open the Plugin Directory, browse the **Mem0 Plugins** marketplace, and install **Mem0**.
 
 <Info>
   Do not combine with Option B. The plugin manifest auto-registers the `mem0` MCP server, so adding both will create a duplicate registration.
