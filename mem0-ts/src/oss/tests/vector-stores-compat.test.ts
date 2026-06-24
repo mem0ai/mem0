@@ -866,7 +866,220 @@ describe("LangchainVectorStore – backward compat", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 8. Memory class — ensure it works with each provider via mocked factories
+// 8. AzureMySQL — mock mysql2 pool, test interface + idempotent init + CRUD
+// ───────────────────────────────────────────────────────────────────────────
+describe("AzureMySQL – backward compat with mocked client", () => {
+  let AzureMySQLDB: any;
+  let mockPool: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    const rows = new Map<string, { id: string; vector: string; payload: string }>();
+    let userId: string | null = null;
+
+    mockPool = {
+      execute: jest.fn().mockImplementation(async (sql: string, params?: any[]) => {
+        const q = sql.trim().toUpperCase();
+
+        if (q.startsWith("CREATE TABLE") || q.startsWith("CREATE FULLTEXT") || q.startsWith("DROP TABLE")) {
+          return [{ affectedRows: 0 }, []];
+        }
+
+        // INSERT into main table (ON DUPLICATE KEY)
+        if (q.startsWith("INSERT INTO `") && q.includes("ON DUPLICATE KEY")) {
+          const [id, vector, payload] = params!;
+          rows.set(id, { id, vector, payload });
+          return [{ affectedRows: 1 }, []];
+        }
+
+        // INSERT into memory_migrations
+        if (q.startsWith("INSERT INTO MEMORY_MIGRATIONS")) {
+          userId = params![0];
+          return [{ affectedRows: 1 }, []];
+        }
+
+        // SELECT id, payload FROM table WHERE id = ? (single-row get by PK)
+        if (q.startsWith("SELECT ID, PAYLOAD FROM") && q.includes("WHERE ID = ?")) {
+          const row = rows.get(params![0]);
+          return [row ? [row] : [], []];
+        }
+
+        // SELECT id, vector, payload FROM table (search with optional filters)
+        if (q.startsWith("SELECT ID, VECTOR, PAYLOAD FROM")) {
+          return [[...rows.values()], []];
+        }
+
+        // SELECT id, payload FROM table (list with LIMIT)
+        if (q.startsWith("SELECT ID, PAYLOAD FROM")) {
+          return [[...rows.values()].slice(0, params![params!.length - 1]), []];
+        }
+
+        // SELECT COUNT(*)
+        if (q.startsWith("SELECT COUNT(*)")) {
+          return [[{ cnt: rows.size }], []];
+        }
+
+        // UPDATE
+        if (q.startsWith("UPDATE `")) {
+          const [vector, payload, id] = params!;
+          if (rows.has(id)) {
+            rows.set(id, { id, vector, payload });
+          }
+          return [{ affectedRows: 1 }, []];
+        }
+
+        // DELETE
+        if (q.startsWith("DELETE FROM `")) {
+          rows.delete(params![0]);
+          return [{ affectedRows: 1 }, []];
+        }
+
+        // SELECT user_id FROM memory_migrations
+        if (q.startsWith("SELECT USER_ID FROM MEMORY_MIGRATIONS")) {
+          return [userId ? [{ user_id: userId }] : [], []];
+        }
+
+        return [[], []];
+      }),
+      getConnection: jest.fn().mockImplementation(async () => ({
+        beginTransaction: jest.fn().mockResolvedValue(undefined),
+        execute: jest.fn().mockImplementation(async (sql: string, params?: any[]) => {
+          return mockPool.execute(sql, params);
+        }),
+        commit: jest.fn().mockResolvedValue(undefined),
+        rollback: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn(),
+      })),
+      end: jest.fn().mockResolvedValue(undefined),
+    };
+
+    jest.doMock("mysql2/promise", () => ({
+      createPool: jest.fn().mockReturnValue(mockPool),
+    }));
+
+    AzureMySQLDB = require("../src/vector_stores/azure_mysql").AzureMySQLDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.keywordSearch).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent", async () => {
+    const mysql2 = require("mysql2/promise");
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    // createPool called only once despite 3 initialize() calls
+    expect(mysql2.createPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("full CRUD cycle", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    const vec1 = [1, 0, 0, 0];
+    const vec2 = [0, 1, 0, 0];
+
+    // Insert
+    await store.insert([vec1, vec2], ["id-1", "id-2"], [
+      { data: "alpha" },
+      { data: "beta" },
+    ]);
+
+    // Get
+    const item = await store.get("id-1");
+    expect(item).not.toBeNull();
+    expect(item!.id).toBe("id-1");
+
+    // Search — vec1 should rank first
+    const results = await store.search(vec1, 2);
+    expect(results.length).toBeGreaterThan(0);
+
+    // Update
+    await store.update("id-1", [0, 0, 1, 0], { data: "updated" });
+
+    // List
+    const [listed, count] = await store.list();
+    expect(listed.length).toBeGreaterThan(0);
+    expect(count).toBeGreaterThan(0);
+
+    // Delete
+    await store.delete("id-2");
+
+    // DeleteCol
+    await store.deleteCol();
+  });
+
+  it("getUserId and setUserId roundtrip", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    await store.setUserId("custom-user");
+    const retrieved = await store.getUserId();
+    expect(retrieved).toBe("custom-user");
+  });
+
+  it("rejects invalid collectionName at construction", () => {
+    expect(
+      () =>
+        new AzureMySQLDB({
+          host: "localhost",
+          user: "test",
+          database: "testdb",
+          collectionName: "drop--table",
+          embeddingModelDims: 4,
+        }),
+    ).toThrow("Invalid collectionName");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 9. Memory class — ensure it works with each provider via mocked factories
 // ───────────────────────────────────────────────────────────────────────────
 describe("Memory class – backward compat with all providers", () => {
   function createMockEmbedder(dims: number) {
