@@ -5,6 +5,12 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 const SAFE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const DEFAULT_PAGE_SIZE = 100;
+const DATBRICKS_SERVER_FILTER_KEYS = new Set([
+  "memory_id",
+  "user_id",
+  "agent_id",
+  "run_id",
+]);
 
 interface DatabricksConfig extends VectorStoreConfig {
   workspaceUrl?: string;
@@ -138,6 +144,10 @@ function normalizeFilterValue(value: any): any {
   return value;
 }
 
+function isDatabricksServerFilterKey(key: string): boolean {
+  return DATBRICKS_SERVER_FILTER_KEYS.has(key);
+}
+
 function mergeDatabricksFilters(
   target: Record<string, any>,
   source: Record<string, any>,
@@ -158,6 +168,10 @@ function buildSimpleDatabricksFilter(
   key: string,
   value: any,
 ): Record<string, any> | null {
+  if (!isDatabricksServerFilterKey(key)) {
+    return null;
+  }
+
   const safeKey = validateIdentifier(key, "filter key");
 
   if (!isPlainObject(value)) {
@@ -231,6 +245,136 @@ function buildDatabricksFilters(
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function buildStandardDatabricksFiltersFromClauses(
+  clauses: Array<[string, any]>,
+): Record<string, any> | undefined {
+  const result: Record<string, any> = {};
+
+  for (const [key, value] of clauses) {
+    const translated = buildSimpleDatabricksFilter(key, value);
+    if (!translated) {
+      continue;
+    }
+    if (!mergeDatabricksFilters(result, translated)) {
+      return undefined;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function buildStorageOptimizedDatabricksFilterClause(
+  key: string,
+  value: any,
+): string | null {
+  if (!isDatabricksServerFilterKey(key)) {
+    return null;
+  }
+
+  const safeKey = validateIdentifier(key, "filter key");
+
+  if (!isPlainObject(value)) {
+    return `${safeKey} = ${formatSqlValue(normalizeFilterValue(value))}`;
+  }
+
+  const entries = Object.entries(value);
+  if (entries.length !== 1) {
+    return null;
+  }
+
+  const [operator, operand] = entries[0];
+  switch (operator) {
+    case "eq":
+      return `${safeKey} = ${formatSqlValue(normalizeFilterValue(operand))}`;
+    case "ne":
+      return `${safeKey} != ${formatSqlValue(normalizeFilterValue(operand))}`;
+    case "gt":
+      return `${safeKey} > ${formatSqlValue(normalizeFilterValue(operand))}`;
+    case "gte":
+      return `${safeKey} >= ${formatSqlValue(normalizeFilterValue(operand))}`;
+    case "lt":
+      return `${safeKey} < ${formatSqlValue(normalizeFilterValue(operand))}`;
+    case "lte":
+      return `${safeKey} <= ${formatSqlValue(normalizeFilterValue(operand))}`;
+    case "in":
+      return Array.isArray(operand) && operand.length > 0
+        ? `${safeKey} IN (${operand
+            .map((entry) => formatSqlValue(normalizeFilterValue(entry)))
+            .join(", ")})`
+        : null;
+    case "nin":
+      return Array.isArray(operand) && operand.length > 0
+        ? `${safeKey} NOT IN (${operand
+            .map((entry) => formatSqlValue(normalizeFilterValue(entry)))
+            .join(", ")})`
+        : null;
+    default:
+      return null;
+  }
+}
+
+function collectConjunctiveDatabricksFilters(
+  filters?: SearchFilters,
+): Array<[string, any]> {
+  if (!filters || Object.keys(filters).length === 0) {
+    return [];
+  }
+
+  const clauses: Array<[string, any]> = [];
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "$and") {
+      if (!Array.isArray(value)) {
+        continue;
+      }
+      for (const entry of value) {
+        if (!isPlainObject(entry)) {
+          continue;
+        }
+        clauses.push(...collectConjunctiveDatabricksFilters(entry));
+      }
+      continue;
+    }
+
+    if (key === "$or" || key === "$not") {
+      continue;
+    }
+
+    clauses.push([key, value]);
+  }
+
+  return clauses;
+}
+
+function buildDatabricksServerFilters(
+  endpointType: "STANDARD" | "STORAGE_OPTIMIZED",
+  filters?: SearchFilters,
+): { filters?: string; filters_json?: string } {
+  const clauses = collectConjunctiveDatabricksFilters(filters);
+
+  if (clauses.length === 0) {
+    return {};
+  }
+
+  if (endpointType === "STORAGE_OPTIMIZED") {
+    const translatedClauses = clauses
+      .map(([key, value]) =>
+        buildStorageOptimizedDatabricksFilterClause(key, value),
+      )
+      .filter((clause): clause is string => Boolean(clause));
+
+    return translatedClauses.length > 0
+      ? { filters: translatedClauses.join(" AND ") }
+      : {};
+  }
+
+  const translatedFilters = buildStandardDatabricksFiltersFromClauses(clauses);
+
+  return translatedFilters
+    ? { filters_json: JSON.stringify(translatedFilters) }
+    : {};
 }
 
 export class DatabricksVectorStore implements VectorStore {
@@ -367,18 +511,26 @@ export class DatabricksVectorStore implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
     this.assertVectorDimension(query, "Query");
-    const databricksFilters = buildDatabricksFilters(filters);
+
+    if (this.queryType === "HYBRID") {
+      throw new Error(
+        "Databricks HYBRID search requires query_text, but search() only receives query vectors.",
+      );
+    }
+
+    const requestFilters = buildDatabricksServerFilters(
+      this.endpointType,
+      filters,
+    );
 
     const response = await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
       {
         columns: ["memory_id", "payload"],
-        filters_json: databricksFilters
-          ? JSON.stringify(databricksFilters)
-          : undefined,
         num_results: Math.max(topK, DEFAULT_PAGE_SIZE),
         query_type: this.queryType,
         query_vector: query,
+        ...requestFilters,
       },
     );
 
@@ -396,18 +548,19 @@ export class DatabricksVectorStore implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
     await this.initialize();
-    const databricksFilters = buildDatabricksFilters(filters);
+    const requestFilters = buildDatabricksServerFilters(
+      this.endpointType,
+      filters,
+    );
 
     const response = await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
       {
         columns: ["memory_id", "payload"],
-        filters_json: databricksFilters
-          ? JSON.stringify(databricksFilters)
-          : undefined,
         num_results: Math.max(topK, DEFAULT_PAGE_SIZE),
         query_type: "FULL_TEXT",
         query_text: query,
+        ...requestFilters,
       },
     );
 

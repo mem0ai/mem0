@@ -980,7 +980,10 @@ describe("Databricks – backward compat with mocked clients", () => {
     await store.update("id-1", [0, 1, 0], { user_id: "u1", topic: "beta" });
     await store.delete("id-1");
 
-    const results = await store.search([1, 0, 0], 5, { user_id: "u1" });
+    const results = await store.search([1, 0, 0], 5, {
+      user_id: "u1",
+      topic: "alpha",
+    });
     const httpClient = axiosModule.__mockHttpClient;
     expect(
       httpClient.post.mock.calls.filter(
@@ -1003,6 +1006,108 @@ describe("Databricks – backward compat with mocked clients", () => {
         score: 0.98,
       },
     ]);
+  });
+
+  it("keeps metadata-only filters local for standard endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const results = await store.search([1, 0, 0], 5, { topic: "alpha" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("uses SQL-like filters for storage-optimized endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+
+    const results = await store.search([1, 0, 0], 5, {
+      user_id: "u1",
+      topic: "alpha",
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        filters: "user_id = 'u1'",
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("falls back to local filtering for logical operators", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const orResults = await store.search([1, 0, 0], 5, {
+      $or: [{ user_id: "u1" }, { topic: "beta" }],
+    });
+    const notResults = await store.search([1, 0, 0], 5, {
+      $not: [{ user_id: "u2" }],
+    });
+    const queryCalls = axiosModule.__mockHttpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCalls).toHaveLength(2);
+    expect(queryCalls[0][1]).not.toHaveProperty("filters_json");
+    expect(queryCalls[1][1]).not.toHaveProperty("filters_json");
+    expect(orResults.map((result: any) => result.id)).toEqual(["id-1", "id-2"]);
+    expect(notResults.map((result: any) => result.id)).toEqual(["id-1"]);
   });
 
   it("omits columns_to_sync for storage-optimized endpoints", async () => {
@@ -1037,6 +1142,29 @@ describe("Databricks – backward compat with mocked clients", () => {
         ],
       },
     });
+  });
+
+  it("rejects HYBRID vector search without query text", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      queryType: "HYBRID",
+    });
+
+    await expect(store.search([1, 0, 0], 5)).rejects.toThrow(
+      "Databricks HYBRID search requires query_text",
+    );
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.find(
+        ([url]: [string]) => url === "/indexes/main.default.memories/query",
+      ),
+    ).toBeUndefined();
   });
 
   it("roundtrips migration user ids", async () => {
