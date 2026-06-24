@@ -1869,7 +1869,7 @@ describe("Memory class – backward compat with all providers", () => {
     expect(mockVStore2.initialize).toHaveBeenCalled();
   });
 
-  it("derives a separate Databricks entity table when tableName is explicit", async () => {
+  it("derives a separate Databricks entity table when provider casing differs", async () => {
     const primaryStore = createMockVectorStore();
     const entityStore = createMockVectorStore();
     mockVectorStoreFactory.create
@@ -1879,7 +1879,7 @@ describe("Memory class – backward compat with all providers", () => {
     const mem = new MemoryClass({
       embedder: { provider: "openai", config: { apiKey: "k" } },
       vectorStore: {
-        provider: "databricks",
+        provider: "Databricks",
         config: {
           workspaceUrl: "https://workspace.databricks.com",
           httpPath: "/sql/1.0/warehouses/test",
