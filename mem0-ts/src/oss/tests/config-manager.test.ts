@@ -155,6 +155,35 @@ describe("ConfigManager", () => {
       expect(config.llm.config.baseURL).toBe("https://api.openai.com/v1");
     });
 
+    it("normalizes vllm_base_url to baseURL for vLLM", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "vllm",
+          config: {
+            model: "Qwen/Qwen2.5-32B-Instruct",
+            vllm_base_url: "http://localhost:8000/v1",
+          },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBe("http://localhost:8000/v1");
+    });
+
+    it("does not inject the OpenAI baseURL default for vLLM", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "vllm",
+          config: { model: "Qwen/Qwen2.5-32B-Instruct" },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBeUndefined();
+    });
+
     it("should preserve url in embedder config (existing behavior)", () => {
       const config = ConfigManager.mergeConfig({
         embedder: {
