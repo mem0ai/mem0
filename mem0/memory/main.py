@@ -17,8 +17,8 @@ from pydantic import ValidationError
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
-    ADDITIVE_EXTRACTION_PROMPT,
     AGENT_CONTEXT_SUFFIX,
+    MEMORY_MANAGEMENT_PROMPT,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
@@ -821,7 +821,7 @@ class Memory(MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        system_prompt = MEMORY_MANAGEMENT_PROMPT
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -866,7 +866,51 @@ class Memory(MemoryBase):
             self.db.save_messages(messages, session_scope)
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
+        # Phase 3: Apply UPDATE/DELETE/NONE actions and embed ADD texts.
+        returned_actions = []
+        add_memories = []
+        update_embeddings = {}
+        for mem in extracted_memories:
+            event = str(mem.get("event", "ADD")).upper()
+            text = mem.get("text", "")
+
+            if event == "ADD":
+                if text:
+                    add_memories.append(mem)
+                continue
+
+            memory_id = uuid_mapping.get(str(mem.get("id")))
+            if not memory_id:
+                logger.warning("%s skipped: LLM returned unknown id %r", event, mem.get("id"))
+                continue
+
+            if event == "UPDATE":
+                if not text:
+                    continue
+                update_embeddings[text] = self.embedding_model.embed(text, "update")
+                self._update_memory(
+                    memory_id=memory_id,
+                    data=text,
+                    existing_embeddings=update_embeddings,
+                    metadata=deepcopy(metadata),
+                )
+                returned_actions.append(
+                    {
+                        "id": memory_id,
+                        "memory": text,
+                        "event": "UPDATE",
+                        "previous_memory": mem.get("old_memory"),
+                    }
+                )
+            elif event == "DELETE":
+                self._delete_memory(memory_id=memory_id)
+                returned_actions.append({"id": memory_id, "memory": text, "event": "DELETE"})
+            elif event == "NONE":
+                logger.info("NOOP for memory %s", memory_id)
+
+        extracted_memories = add_memories
+
+        # Phase 4: Batch embed all extracted ADD memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
@@ -918,7 +962,7 @@ class Memory(MemoryBase):
 
         if not records:
             self.db.save_messages(messages, session_scope)
-            return []
+            return returned_actions
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -1067,7 +1111,7 @@ class Memory(MemoryBase):
         # Phase 8: Save messages + return
         self.db.save_messages(messages, session_scope)
 
-        returned_memories = [
+        returned_memories = returned_actions + [
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
         ]
@@ -2362,7 +2406,7 @@ class AsyncMemory(MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        system_prompt = MEMORY_MANAGEMENT_PROMPT
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -2407,7 +2451,51 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
+        # Phase 3: Apply UPDATE/DELETE/NONE actions and embed ADD texts.
+        returned_actions = []
+        add_memories = []
+        update_embeddings = {}
+        for mem in extracted_memories:
+            event = str(mem.get("event", "ADD")).upper()
+            text = mem.get("text", "")
+
+            if event == "ADD":
+                if text:
+                    add_memories.append(mem)
+                continue
+
+            memory_id = uuid_mapping.get(str(mem.get("id")))
+            if not memory_id:
+                logger.warning("%s skipped: LLM returned unknown id %r (async)", event, mem.get("id"))
+                continue
+
+            if event == "UPDATE":
+                if not text:
+                    continue
+                update_embeddings[text] = await asyncio.to_thread(self.embedding_model.embed, text, "update")
+                await self._update_memory(
+                    memory_id=memory_id,
+                    data=text,
+                    existing_embeddings=update_embeddings,
+                    metadata=deepcopy(metadata),
+                )
+                returned_actions.append(
+                    {
+                        "id": memory_id,
+                        "memory": text,
+                        "event": "UPDATE",
+                        "previous_memory": mem.get("old_memory"),
+                    }
+                )
+            elif event == "DELETE":
+                await self._delete_memory(memory_id=memory_id)
+                returned_actions.append({"id": memory_id, "memory": text, "event": "DELETE"})
+            elif event == "NONE":
+                logger.info("NOOP for memory %s (async)", memory_id)
+
+        extracted_memories = add_memories
+
+        # Phase 4: Batch embed all extracted ADD memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
@@ -2457,7 +2545,7 @@ class AsyncMemory(MemoryBase):
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            return []
+            return returned_actions
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -2606,7 +2694,7 @@ class AsyncMemory(MemoryBase):
         # Phase 8: Save messages + return
         await asyncio.to_thread(self.db.save_messages, messages, session_scope)
 
-        returned_memories = [
+        returned_memories = returned_actions + [
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
         ]

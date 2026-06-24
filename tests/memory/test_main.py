@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -115,6 +115,120 @@ class TestPromptOverridesCustomInstructions:
 
         user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
         assert "config-level instructions" in user_prompt
+
+
+class TestMemoryManagementActions:
+    @pytest.fixture
+    def mock_memory(self):
+        mock_embedder = MagicMock()
+        mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
+        mock_vector_store = MagicMock()
+        mock_vector_store.return_value.search.return_value = []
+        mock_llm = MagicMock()
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+
+        patches = [
+            patch("mem0.utils.factory.EmbedderFactory.create", mock_embedder),
+            patch(
+                "mem0.utils.factory.VectorStoreFactory.create",
+                side_effect=[mock_vector_store.return_value, MagicMock()],
+            ),
+            patch("mem0.utils.factory.LlmFactory.create", mock_llm),
+            patch("mem0.memory.storage.SQLiteManager", MagicMock()),
+        ]
+        for active_patch in patches:
+            active_patch.start()
+
+        try:
+            memory = Memory()
+            memory.custom_instructions = None
+            memory.db.get_last_messages = MagicMock(return_value=[])
+            memory.db.save_messages = MagicMock()
+            yield memory
+        finally:
+            for active_patch in reversed(patches):
+                active_patch.stop()
+
+    def test_memory_management_update_event_updates_existing_memory(self, mock_memory):
+        existing_memory = SimpleNamespace(
+            id="existing-memory-id",
+            payload={"data": "User supports Beşiktaş"},
+        )
+        mock_memory.vector_store.search.return_value = [existing_memory]
+        mock_memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_memory.llm.generate_response.return_value = """
+        {
+          "memory": [
+            {
+              "id": "0",
+              "text": "User supports Fenerbahçe",
+              "event": "UPDATE",
+              "old_memory": "User supports Beşiktaş"
+            }
+          ]
+        }
+        """
+        mock_memory._update_memory = Mock()
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Artık Beşiktaş'ı tutmuyorum, Fenerbahçeliyim."}],
+            metadata={"user_id": "test-user"},
+            filters={"user_id": "test-user"},
+            infer=True,
+        )
+
+        mock_memory._update_memory.assert_called_once_with(
+            memory_id="existing-memory-id",
+            data="User supports Fenerbahçe",
+            existing_embeddings={"User supports Fenerbahçe": [0.1, 0.2, 0.3]},
+            metadata={"user_id": "test-user"},
+        )
+        mock_memory.vector_store.insert.assert_not_called()
+        assert result == [
+            {
+                "id": "existing-memory-id",
+                "memory": "User supports Fenerbahçe",
+                "event": "UPDATE",
+                "previous_memory": "User supports Beşiktaş",
+            }
+        ]
+
+    def test_memory_management_delete_event_deletes_existing_memory(self, mock_memory):
+        existing_memory = SimpleNamespace(
+            id="existing-memory-id",
+            payload={"data": "User supports Beşiktaş"},
+        )
+        mock_memory.vector_store.search.return_value = [existing_memory]
+        mock_memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_memory.llm.generate_response.return_value = """
+        {
+          "memory": [
+            {
+              "id": "0",
+              "text": "User supports Beşiktaş",
+              "event": "DELETE"
+            }
+          ]
+        }
+        """
+        mock_memory._delete_memory = Mock()
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Artık Beşiktaş'ı tutmuyorum."}],
+            metadata={"user_id": "test-user"},
+            filters={"user_id": "test-user"},
+            infer=True,
+        )
+
+        mock_memory._delete_memory.assert_called_once_with(memory_id="existing-memory-id")
+        mock_memory.vector_store.insert.assert_not_called()
+        assert result == [
+            {
+                "id": "existing-memory-id",
+                "memory": "User supports Beşiktaş",
+                "event": "DELETE",
+            }
+        ]
 
 
 class TestAsyncUpdate:

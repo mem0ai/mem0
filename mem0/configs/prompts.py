@@ -465,6 +465,63 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
 # Ported from platform/backend/shared/core/config/prompts.py
 # ---------------------------------------------------------------------------
 
+MEMORY_MANAGEMENT_PROMPT = """
+You are a memory manager. Compare New Messages with Existing Memories and return
+the operations required to leave the memory store in a consistent final state.
+
+Allowed events:
+- ADD: a genuinely new durable fact. The id may be omitted.
+- UPDATE: replace an existing fact. Use the exact Existing Memory id.
+- DELETE: remove an existing fact. Use the exact Existing Memory id.
+- NONE: the existing fact already represents the new information.
+
+Rules:
+- Do not leave contradictory or superseded memories in the store.
+- Existing Memories are authoritative current state. When a New Message changes
+  that state, you must modify the matching Existing Memory instead of creating
+  a second memory.
+- Preference changes such as "no longer likes X; likes Y", "now prefers Y",
+  "changed from X to Y", or "stopped X" must UPDATE the existing memory about
+  that preference, not ADD a second contradictory memory.
+- For UPDATE and DELETE, never invent an id. Use an id from Existing Memories.
+- Extract facts only from New Messages. Existing Memories are comparison context.
+
+Examples:
+
+Existing Memories:
+[{"id":"0","text":"User likes hiking"}]
+New Messages:
+User no longer likes hiking, he likes tennis.
+Output:
+{"memory":[{"id":"0","text":"User likes tennis","event":"UPDATE","old_memory":"User likes hiking"}]}
+
+Existing Memories:
+[{"id":"0","text":"User supports Beşiktaş"}]
+New Messages:
+Artık Beşiktaş'ı tutmuyorum, artık Fenerbahçeliyim.
+Output:
+{"memory":[{"id":"0","text":"User supports Fenerbahçe","event":"UPDATE","old_memory":"User supports Beşiktaş"}]}
+
+Existing Memories:
+[{"id":"0","text":"User likes hiking"}]
+New Messages:
+User likes tennis.
+Output:
+{"memory":[{"id":null,"text":"User likes tennis","event":"ADD"}]}
+
+Return JSON only:
+{
+  "memory": [
+    {
+      "id": "<existing id for UPDATE/DELETE/NONE>",
+      "text": "<final memory text>",
+      "event": "ADD|UPDATE|DELETE|NONE",
+      "old_memory": "<previous text for UPDATE>"
+    }
+  ]
+}
+"""
+
 ADDITIVE_EXTRACTION_PROMPT = """
 
 # ROLE
@@ -1025,10 +1082,10 @@ def generate_additive_extraction_prompt(
     custom_instructions=None,
     use_input_language=False,
 ):
-    """Build the user prompt for additive (ADD-only) extraction with linking.
+    """Build the user prompt for memory management extraction.
 
-    Pairs with ADDITIVE_EXTRACTION_PROMPT system prompt.
-    The LLM will produce only ADD operations, with optional linked_memory_ids.
+    The LLM compares new messages with existing memories and produces
+    ADD, UPDATE, DELETE, or NONE operations.
     """
     current_date, observation_date = _resolve_dates(current_date, timestamp)
 
@@ -1057,6 +1114,17 @@ def generate_additive_extraction_prompt(
             "7. For Japanese: explicitly resolve omitted subjects using conversation context.\n"
             "8. For CJK languages: maintain appropriate formality level from the source text."
         )
+
+    sections.append(
+        "## Memory Management Requirement\n"
+        "Compare New Messages with Existing Memories and return only the operations needed to make the final memory store consistent.\n"
+        "- If New Messages contradict, replace, negate, or supersede an Existing Memory, do not add a duplicate. Use UPDATE or DELETE with the exact Existing Memory id.\n"
+        "- For phrases like \"no longer likes X, likes Y\", \"artık X değil Y\", \"now prefers Y\", or \"stopped X\", update the existing preference to the new preference when they refer to the same preference category.\n"
+        "- Concrete rule: Existing Memories [{\"id\":\"0\",\"text\":\"User likes hiking\"}] + New Messages \"User no longer likes hiking, he likes tennis.\" must return {\"memory\":[{\"id\":\"0\",\"text\":\"User likes tennis\",\"event\":\"UPDATE\",\"old_memory\":\"User likes hiking\"}]}.\n"
+        "- Use ADD only when the fact is genuinely new and does not replace any Existing Memory.\n"
+        "- Use NONE when an Existing Memory already captures the fact.\n"
+        "- Return JSON only in this shape: {\"memory\":[{\"id\":\"<existing id for UPDATE/DELETE/NONE; omit or null for ADD>\",\"text\":\"<memory text>\",\"event\":\"ADD|UPDATE|DELETE|NONE\",\"old_memory\":\"<required for UPDATE>\"}]}."
+    )
 
     sections.append("# Output:")
     return "\n\n".join(sections)
