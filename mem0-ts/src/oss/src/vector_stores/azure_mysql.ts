@@ -103,7 +103,12 @@ export class AzureMySQLDB implements VectorStore {
       connectionLimit: this.config.maxConn ?? 5,
       waitForConnections: true,
       ...(this.config.useAzureCredential
-        ? { authPlugins: { mysql_clear_password: () => () => password } }
+        ? {
+            authPlugins: {
+              mysql_clear_password: () => () =>
+                Buffer.from(`${password ?? ""}\0`),
+            },
+          }
         : {}),
     });
 
@@ -113,7 +118,7 @@ export class AzureMySQLDB implements VectorStore {
         vector JSON,
         payload JSON,
         text_lemmatized VARCHAR(1000) GENERATED ALWAYS AS
-          (CAST(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.text_lemmatized')) AS CHAR(1000))) STORED
+          (CAST(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.textLemmatized')) AS CHAR(1000))) STORED
       )
     `);
 
