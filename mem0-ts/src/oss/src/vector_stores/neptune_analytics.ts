@@ -87,19 +87,26 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
 
     const insertQuery = `
       UNWIND $rows AS row
-      OPTIONAL MATCH (existing:${this.collectionLabelExpr} {\`~id\`: row.node_id})
       MERGE (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
-      WITH n, row, existing IS NULL AS created
       CALL neptune.algo.vectors.upsert(n, row.embedding)
       YIELD success
-      FOREACH (_ IN CASE WHEN success THEN [1] ELSE [] END | SET n += row.properties)
-      FOREACH (_ IN CASE WHEN success OR NOT created THEN [] ELSE [1] END | DETACH DELETE n)
       RETURN success
     `;
 
     try {
       const results = await this.executeQuery(insertQuery, { rows });
       this.assertSuccessfulResults(results, "Insert");
+      await this.executeQuery(
+        `
+          UNWIND $rows AS row
+          MATCH (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
+          SET n += row.properties
+          RETURN n
+        `,
+        {
+          rows,
+        },
+      );
     } catch (error) {
       await this.cleanupFailedInsert(ids.filter((id) => !existingIds.has(id)));
       throw error;
@@ -171,19 +178,28 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       const results = await this.executeQuery(
         `
           MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
-          WITH n, $embedding AS embedding, $properties AS properties
+          WITH n, $embedding AS embedding
           CALL neptune.algo.vectors.upsert(n, embedding)
           YIELD success
-          FOREACH (_ IN CASE WHEN success THEN [1] ELSE [] END | SET n = properties)
           RETURN success
         `,
         {
           vectorId,
           embedding: vector,
-          properties,
         },
       );
       this.assertSuccessfulResults(results, "Update");
+      await this.executeQuery(
+        `
+          MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
+          SET n = $properties
+          RETURN n
+        `,
+        {
+          vectorId,
+          properties,
+        },
+      );
       return;
     }
 
