@@ -775,6 +775,19 @@ describe("Databricks – backward compat with mocked clients", () => {
       let endpointExists = false;
       let indexExists = false;
       let syncPendingReadyResponses = 0;
+      let pagedQueryResponses: any[] = [];
+
+      const defaultQueryResponse = {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.98],
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.75],
+          ],
+        },
+      };
 
       const httpClient = {
         get: jest.fn().mockImplementation(async (url: string) => {
@@ -830,25 +843,17 @@ describe("Databricks – backward compat with mocked clients", () => {
 
           if (url === "/indexes/main.default.memories/query") {
             return {
-              data: {
-                result: {
-                  manifest: {
-                    columns: [{ name: "memory_id" }, { name: "payload" }],
-                  },
-                  data_array: [
-                    [
-                      "id-1",
-                      JSON.stringify({ user_id: "u1", topic: "alpha" }),
-                      0.98,
-                    ],
-                    [
-                      "id-2",
-                      JSON.stringify({ user_id: "u2", topic: "beta" }),
-                      0.75,
-                    ],
-                  ],
-                },
-              },
+              data:
+                pagedQueryResponses.shift() ??
+                JSON.parse(JSON.stringify(defaultQueryResponse)),
+            };
+          }
+
+          if (url === "/indexes/main.default.memories/query-next-page") {
+            return {
+              data:
+                pagedQueryResponses.shift() ??
+                JSON.parse(JSON.stringify(defaultQueryResponse)),
             };
           }
 
@@ -864,12 +869,22 @@ describe("Databricks – backward compat with mocked clients", () => {
       };
 
       const create = jest.fn().mockReturnValue(httpClient);
+      const authPost = jest.fn().mockResolvedValue({
+        data: { access_token: "oauth-token", expires_in: 3600 },
+      });
 
       return {
         __esModule: true,
-        default: { create },
+        default: { create, post: authPost },
         create,
+        post: authPost,
         __mockHttpClient: httpClient,
+        __setPagedQueryResponses: (responses: any[]) => {
+          pagedQueryResponses = responses.map((response) =>
+            JSON.parse(JSON.stringify(response)),
+          );
+        },
+        __mockAuthPost: authPost,
       };
     });
 
@@ -965,6 +980,42 @@ describe("Databricks – backward compat with mocked clients", () => {
     ).toBe(true);
   });
 
+  it("supports service-principal credentials for REST and SQL setup", async () => {
+    const axiosModule = require("axios");
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+
+    expect(axiosModule.__mockAuthPost).toHaveBeenCalledWith(
+      "https://workspace.databricks.com/oidc/v1/token",
+      expect.any(URLSearchParams),
+      expect.objectContaining({
+        auth: {
+          username: "client-id",
+          password: "client-secret",
+        },
+      }),
+    );
+    expect(databricksSql.__mockClient.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authType: "databricks-oauth",
+        oauthClientId: "client-id",
+        oauthClientSecret: "client-secret",
+      }),
+    );
+  });
+
   it("shapes Databricks SQL writes, syncs triggered indexes, and normalizes search results", async () => {
     const databricksSql = require("@databricks/sql");
     const axiosModule = require("axios");
@@ -1057,6 +1108,59 @@ describe("Databricks – backward compat with mocked clients", () => {
       }),
     );
     expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("paginates when local-only filters need matches beyond the first page", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.99],
+          ],
+          next_page_token: "page-2",
+        },
+      },
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.98],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 1, { topic: "alpha" });
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.some(
+        ([url]: [string]) =>
+          url === "/indexes/main.default.memories/query-next-page",
+      ),
+    ).toBe(true);
     expect(results).toEqual([
       {
         id: "id-1",

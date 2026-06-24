@@ -5,6 +5,7 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 const SAFE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const DEFAULT_PAGE_SIZE = 100;
+const MAX_QUERY_RESULTS = 10_000;
 const DEFAULT_SYNC_POLL_INTERVAL_MS = 1000;
 const DEFAULT_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
 const DATBRICKS_SERVER_FILTER_KEYS = new Set([
@@ -406,6 +407,8 @@ export class DatabricksVectorStore implements VectorStore {
   private session?: DatabricksSqlSessionLike;
   private _sessionPromise?: Promise<DatabricksSqlSessionLike>;
   private _initPromise?: Promise<void>;
+  private oauthAccessToken?: string;
+  private oauthAccessTokenExpiresAt?: number;
 
   constructor(config: DatabricksConfig) {
     const { host, workspaceUrl } = extractHostAndWorkspaceUrl(config);
@@ -541,20 +544,13 @@ export class DatabricksVectorStore implements VectorStore {
       filters,
     );
 
-    const response = await this.httpClient.post(
-      `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
+    return this.queryIndex(
       {
         columns: ["memory_id", "payload"],
-        num_results: Math.max(topK, DEFAULT_PAGE_SIZE),
         query_type: this.queryType,
         query_vector: query,
         ...requestFilters,
       },
-    );
-
-    return this.normalizeQueryResults(
-      response.data,
-      ["memory_id", "payload"],
       filters,
       topK,
     );
@@ -571,20 +567,13 @@ export class DatabricksVectorStore implements VectorStore {
       filters,
     );
 
-    const response = await this.httpClient.post(
-      `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
+    return this.queryIndex(
       {
         columns: ["memory_id", "payload"],
-        num_results: Math.max(topK, DEFAULT_PAGE_SIZE),
         query_type: "FULL_TEXT",
         query_text: query,
         ...requestFilters,
       },
-    );
-
-    return this.normalizeQueryResults(
-      response.data,
-      ["memory_id", "payload"],
       filters,
       topK,
     );
@@ -784,18 +773,91 @@ export class DatabricksVectorStore implements VectorStore {
   }
 
   private createHttpClient(): AxiosInstance {
-    if (!this.accessToken) {
+    const baseURL = `${this.workspaceUrl}/api/2.0/vector-search`;
+
+    if (this.accessToken) {
+      return axios.create({
+        baseURL,
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+      });
+    }
+
+    if (!this.clientId || !this.clientSecret) {
       throw new Error(
-        "Databricks vector store requires accessToken when httpClient is not provided.",
+        "Databricks vector store requires accessToken or clientId/clientSecret when httpClient is not provided.",
       );
     }
 
-    return axios.create({
-      baseURL: `${this.workspaceUrl}/api/2.0/vector-search`,
+    const baseClient = axios.create({ baseURL });
+    return {
+      get: async (url: string, config?: Record<string, any>) =>
+        baseClient.get(url, await this.withOAuthHeaders(config)),
+      post: async (url: string, data?: any, config?: Record<string, any>) =>
+        baseClient.post(url, data, await this.withOAuthHeaders(config)),
+      delete: async (url: string, config?: Record<string, any>) =>
+        baseClient.delete(url, await this.withOAuthHeaders(config)),
+    } as DatabricksHttpClientLike as AxiosInstance;
+  }
+
+  private async withOAuthHeaders(
+    config?: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    const token = await this.getOAuthAccessToken();
+    return {
+      ...(config || {}),
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        ...(config?.headers || {}),
+        Authorization: `Bearer ${token}`,
       },
-    });
+    };
+  }
+
+  private async getOAuthAccessToken(): Promise<string> {
+    if (
+      this.oauthAccessToken &&
+      this.oauthAccessTokenExpiresAt &&
+      Date.now() < this.oauthAccessTokenExpiresAt - 60_000
+    ) {
+      return this.oauthAccessToken;
+    }
+
+    if (!this.clientId || !this.clientSecret) {
+      throw new Error(
+        "Databricks vector store requires clientId/clientSecret for OAuth token refresh.",
+      );
+    }
+
+    const response = await axios.post(
+      `${this.workspaceUrl}/oidc/v1/token`,
+      new URLSearchParams({
+        grant_type: "client_credentials",
+        scope: "all-apis",
+      }),
+      {
+        auth: {
+          username: this.clientId,
+          password: this.clientSecret,
+        },
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    const token = response?.data?.access_token;
+    if (typeof token !== "string" || token.length === 0) {
+      throw new Error(
+        "Databricks OAuth token response did not include access_token.",
+      );
+    }
+
+    const expiresInSeconds = Number(response?.data?.expires_in ?? 3600);
+    this.oauthAccessToken = token;
+    this.oauthAccessTokenExpiresAt =
+      Date.now() + Math.max(1, expiresInSeconds) * 1000;
+    return token;
   }
 
   private async getSession(): Promise<DatabricksSqlSessionLike> {
@@ -901,11 +963,101 @@ export class DatabricksVectorStore implements VectorStore {
     );
   }
 
+  private shouldPaginateForLocalFiltering(filters?: SearchFilters): boolean {
+    if (!filters || Object.keys(filters).length === 0) {
+      return false;
+    }
+
+    for (const [key, value] of Object.entries(filters)) {
+      if (key === "$and") {
+        if (!Array.isArray(value)) {
+          return true;
+        }
+        if (
+          value.some(
+            (entry) =>
+              !isPlainObject(entry) ||
+              this.shouldPaginateForLocalFiltering(entry as SearchFilters),
+          )
+        ) {
+          return true;
+        }
+        continue;
+      }
+
+      if (key === "$or" || key === "$not") {
+        return true;
+      }
+
+      const translated =
+        this.endpointType === "STORAGE_OPTIMIZED"
+          ? buildStorageOptimizedDatabricksFilterClause(key, value)
+          : buildSimpleDatabricksFilter(key, value);
+
+      if (!translated) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private extractNextPageToken(responseData: any): string | undefined {
+    const token =
+      responseData?.next_page_token ?? responseData?.result?.next_page_token;
+    return typeof token === "string" && token.length > 0 ? token : undefined;
+  }
+
+  private async queryIndex(
+    requestBody: Record<string, any>,
+    filters: SearchFilters | undefined,
+    topK: number,
+  ): Promise<VectorStoreResult[]> {
+    const requiresPagination = this.shouldPaginateForLocalFiltering(filters);
+    const response = await this.httpClient.post(
+      `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
+      {
+        ...requestBody,
+        num_results: requiresPagination
+          ? MAX_QUERY_RESULTS
+          : Math.max(topK, DEFAULT_PAGE_SIZE),
+      },
+    );
+
+    const results = this.normalizeQueryResults(
+      response.data,
+      ["memory_id", "payload"],
+      filters,
+    );
+    if (!requiresPagination || results.length >= topK) {
+      return results.slice(0, topK);
+    }
+
+    let nextPageToken = this.extractNextPageToken(response.data);
+    while (nextPageToken && results.length < topK) {
+      const nextPage = await this.httpClient.post(
+        `/indexes/${encodeURIComponent(this.fullIndexName)}/query-next-page`,
+        {
+          page_token: nextPageToken,
+        },
+      );
+      results.push(
+        ...this.normalizeQueryResults(
+          nextPage.data,
+          ["memory_id", "payload"],
+          filters,
+        ),
+      );
+      nextPageToken = this.extractNextPageToken(nextPage.data);
+    }
+
+    return results.slice(0, topK);
+  }
+
   private normalizeQueryResults(
     responseData: any,
     fallbackColumns: string[],
     filters: SearchFilters | undefined,
-    topK: number,
   ): VectorStoreResult[] {
     const resultData = responseData?.result || responseData;
     const dataArray = Array.isArray(resultData?.data_array)
@@ -942,7 +1094,7 @@ export class DatabricksVectorStore implements VectorStore {
       });
     }
 
-    return results.slice(0, topK);
+    return results;
   }
 
   private rowToObject(row: any, columns: string[]): Record<string, any> {
