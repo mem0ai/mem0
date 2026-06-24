@@ -1248,6 +1248,36 @@ describe("Databricks – backward compat with mocked clients", () => {
     ]);
   });
 
+  it("translates storage-optimized array shorthand filters into IN clauses", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+    const query = new Array(16).fill(0);
+    query[0] = 1;
+
+    await store.search(query, 5, {
+      user_id: ["u1", "u2"],
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        filters: "user_id IN ('u1', 'u2')",
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+  });
+
   it("falls back to local filtering for logical operators", async () => {
     const axiosModule = require("axios");
     const store = new DatabricksVectorStore({

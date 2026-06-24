@@ -281,6 +281,13 @@ function buildStorageOptimizedDatabricksFilterClause(
   const safeKey = validateIdentifier(key, "filter key");
 
   if (!isPlainObject(value)) {
+    if (Array.isArray(value)) {
+      return value.length > 0
+        ? `${safeKey} IN (${value
+            .map((entry) => formatSqlValue(normalizeFilterValue(entry)))
+            .join(", ")})`
+        : null;
+    }
     return `${safeKey} = ${formatSqlValue(normalizeFilterValue(value))}`;
   }
 
