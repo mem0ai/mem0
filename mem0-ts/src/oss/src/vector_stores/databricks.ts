@@ -5,6 +5,8 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 const SAFE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const DEFAULT_PAGE_SIZE = 100;
+const DEFAULT_SYNC_POLL_INTERVAL_MS = 1000;
+const DEFAULT_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
 const DATBRICKS_SERVER_FILTER_KEYS = new Set([
   "memory_id",
   "user_id",
@@ -27,6 +29,8 @@ interface DatabricksConfig extends VectorStoreConfig {
   schema?: string;
   tableName?: string;
   embeddingModelDims?: number;
+  syncPollIntervalMs?: number;
+  syncTimeoutMs?: number;
   sqlClient?: DatabricksSqlClientLike;
   httpClient?: DatabricksHttpClientLike;
 }
@@ -395,6 +399,8 @@ export class DatabricksVectorStore implements VectorStore {
   private readonly indexName: string;
   private readonly fullTableName: string;
   private readonly fullIndexName: string;
+  private readonly syncPollIntervalMs: number;
+  private readonly syncTimeoutMs: number;
   private readonly sqlClient: DatabricksSqlClientLike;
   private readonly httpClient: DatabricksHttpClientLike;
   private session?: DatabricksSqlSessionLike;
@@ -427,6 +433,9 @@ export class DatabricksVectorStore implements VectorStore {
     );
     this.fullTableName = `${this.catalog}.${this.schema}.${this.tableName}`;
     this.fullIndexName = `${this.catalog}.${this.schema}.${this.indexName}`;
+    this.syncPollIntervalMs =
+      config.syncPollIntervalMs ?? DEFAULT_SYNC_POLL_INTERVAL_MS;
+    this.syncTimeoutMs = config.syncTimeoutMs ?? DEFAULT_SYNC_TIMEOUT_MS;
     this.sqlClient = config.sqlClient || new DBSQLClient();
     this.httpClient = config.httpClient || this.createHttpClient();
 
@@ -436,6 +445,15 @@ export class DatabricksVectorStore implements VectorStore {
     ) {
       throw new Error(
         "Databricks storage-optimized endpoints only support TRIGGERED pipelineType.",
+      );
+    }
+
+    if (
+      this.endpointType === "STORAGE_OPTIMIZED" &&
+      this.dimension % 16 !== 0
+    ) {
+      throw new Error(
+        "Databricks storage-optimized endpoints require dimensions divisible by 16.",
       );
     }
 
@@ -849,6 +867,38 @@ export class DatabricksVectorStore implements VectorStore {
     await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/sync`,
     );
+    await this.waitForTriggeredSyncReadiness();
+  }
+
+  private async waitForTriggeredSyncReadiness(): Promise<void> {
+    const deadline = Date.now() + this.syncTimeoutMs;
+
+    while (Date.now() <= deadline) {
+      const response = await this.httpClient.get(
+        `/indexes/${encodeURIComponent(this.fullIndexName)}`,
+      );
+      const ready = response?.data?.status?.ready;
+
+      if (ready === true) {
+        return;
+      }
+
+      if (ready !== false) {
+        throw new Error(
+          "Databricks index status did not report a readiness flag after sync.",
+        );
+      }
+
+      if (this.syncPollIntervalMs > 0) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.syncPollIntervalMs),
+        );
+      }
+    }
+
+    throw new Error(
+      `Timed out waiting for Databricks index ${this.fullIndexName} to become ready after sync.`,
+    );
   }
 
   private normalizeQueryResults(
@@ -952,61 +1002,60 @@ export class DatabricksVectorStore implements VectorStore {
   }
 
   private matchFieldCondition(
-    payload: Record<string, any>,
+    vector: DatabricksVector,
     key: string,
     value: any,
   ): boolean {
-    const payloadValue = payload[key];
+    const fieldValue = key === "memory_id" ? vector.id : vector.payload[key];
 
     if (typeof value !== "object" || value === null) {
       if (value === "*") {
         return true;
       }
-      return payloadValue === value;
+      return fieldValue === value;
     }
 
     if (Array.isArray(value)) {
-      return value.includes(payloadValue);
+      return value.includes(fieldValue);
     }
 
     if ("eq" in value) {
-      return payloadValue === value.eq;
+      return fieldValue === value.eq;
     }
     if ("ne" in value) {
-      return payloadValue !== value.ne;
+      return fieldValue !== value.ne;
     }
     if ("gt" in value) {
-      return payloadValue > value.gt;
+      return fieldValue > value.gt;
     }
     if ("gte" in value) {
-      return payloadValue >= value.gte;
+      return fieldValue >= value.gte;
     }
     if ("lt" in value) {
-      return payloadValue < value.lt;
+      return fieldValue < value.lt;
     }
     if ("lte" in value) {
-      return payloadValue <= value.lte;
+      return fieldValue <= value.lte;
     }
     if ("in" in value) {
-      return Array.isArray(value.in) && value.in.includes(payloadValue);
+      return Array.isArray(value.in) && value.in.includes(fieldValue);
     }
     if ("nin" in value) {
-      return !Array.isArray(value.nin) || !value.nin.includes(payloadValue);
+      return !Array.isArray(value.nin) || !value.nin.includes(fieldValue);
     }
     if ("contains" in value) {
       return (
-        typeof payloadValue === "string" &&
-        payloadValue.includes(value.contains)
+        typeof fieldValue === "string" && fieldValue.includes(value.contains)
       );
     }
     if ("icontains" in value) {
       return (
-        typeof payloadValue === "string" &&
-        payloadValue.toLowerCase().includes(value.icontains.toLowerCase())
+        typeof fieldValue === "string" &&
+        fieldValue.toLowerCase().includes(value.icontains.toLowerCase())
       );
     }
 
-    return payloadValue === value;
+    return fieldValue === value;
   }
 
   private filterVector(
@@ -1070,7 +1119,7 @@ export class DatabricksVectorStore implements VectorStore {
         ) {
           return false;
         }
-      } else if (!this.matchFieldCondition(vector.payload, key, value)) {
+      } else if (!this.matchFieldCondition(vector, key, value)) {
         return false;
       }
     }

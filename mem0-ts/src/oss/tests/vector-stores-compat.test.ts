@@ -774,6 +774,7 @@ describe("Databricks – backward compat with mocked clients", () => {
     jest.doMock("axios", () => {
       let endpointExists = false;
       let indexExists = false;
+      let syncPendingReadyResponses = 0;
 
       const httpClient = {
         get: jest.fn().mockImplementation(async (url: string) => {
@@ -792,7 +793,21 @@ describe("Databricks – backward compat with mocked clients", () => {
               error.response = { status: 404 };
               throw error;
             }
-            return { data: { name: "main.default.memories" } };
+            if (syncPendingReadyResponses > 0) {
+              syncPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
+            }
+            return {
+              data: {
+                name: "main.default.memories",
+                status: { ready: true },
+              },
+            };
           }
 
           throw new Error(`Unexpected Databricks GET ${url}`);
@@ -809,6 +824,7 @@ describe("Databricks – backward compat with mocked clients", () => {
           }
 
           if (url === "/indexes/main.default.memories/sync") {
+            syncPendingReadyResponses = 1;
             return { data: { status: "queued" } };
           }
 
@@ -875,6 +891,7 @@ describe("Databricks – backward compat with mocked clients", () => {
       schema: "default",
       collectionName: "memories",
       dimension: 3,
+      syncPollIntervalMs: 0,
     });
     expect(typeof store.insert).toBe("function");
     expect(typeof store.search).toBe("function");
@@ -899,6 +916,7 @@ describe("Databricks – backward compat with mocked clients", () => {
       schema: "default",
       collectionName: "memories",
       dimension: 3,
+      syncPollIntervalMs: 0,
     });
 
     const p1 = store.initialize();
@@ -990,6 +1008,11 @@ describe("Databricks – backward compat with mocked clients", () => {
         ([url]: [string]) => url === "/indexes/main.default.memories/sync",
       ),
     ).toHaveLength(3);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories",
+      ).length,
+    ).toBeGreaterThan(4);
     expect(httpClient.post).toHaveBeenCalledWith(
       "/indexes/main.default.memories/query",
       expect.objectContaining({
@@ -1018,6 +1041,7 @@ describe("Databricks – backward compat with mocked clients", () => {
       schema: "default",
       collectionName: "memories",
       dimension: 3,
+      syncPollIntervalMs: 0,
     });
 
     const results = await store.search([1, 0, 0], 5, { topic: "alpha" });
@@ -1051,11 +1075,13 @@ describe("Databricks – backward compat with mocked clients", () => {
       catalog: "main",
       schema: "default",
       collectionName: "memories",
-      dimension: 3,
+      dimension: 16,
       endpointType: "STORAGE_OPTIMIZED",
     });
+    const query = new Array(16).fill(0);
+    query[0] = 1;
 
-    const results = await store.search([1, 0, 0], 5, {
+    const results = await store.search(query, 5, {
       user_id: "u1",
       topic: "alpha",
     });
@@ -1068,7 +1094,7 @@ describe("Databricks – backward compat with mocked clients", () => {
         columns: ["memory_id", "payload"],
         filters: "user_id = 'u1'",
         query_type: "ANN",
-        query_vector: [1, 0, 0],
+        query_vector: query,
       }),
     );
     expect(queryCall?.[1]).not.toHaveProperty("filters_json");
@@ -1091,6 +1117,7 @@ describe("Databricks – backward compat with mocked clients", () => {
       schema: "default",
       collectionName: "memories",
       dimension: 3,
+      syncPollIntervalMs: 0,
     });
 
     const orResults = await store.search([1, 0, 0], 5, {
@@ -1108,6 +1135,38 @@ describe("Databricks – backward compat with mocked clients", () => {
     expect(queryCalls[1][1]).not.toHaveProperty("filters_json");
     expect(orResults.map((result: any) => result.id)).toEqual(["id-1", "id-2"]);
     expect(notResults.map((result: any) => result.id)).toEqual(["id-1"]);
+  });
+
+  it("keeps memory_id filters aligned between Databricks and local fallback", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, { memory_id: "id-1" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        filters_json: JSON.stringify({ memory_id: "id-1" }),
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
   });
 
   it("omits columns_to_sync for storage-optimized endpoints", async () => {
@@ -1144,6 +1203,22 @@ describe("Databricks – backward compat with mocked clients", () => {
     });
   });
 
+  it("rejects invalid storage-optimized embedding dimensions", () => {
+    expect(
+      () =>
+        new DatabricksVectorStore({
+          workspaceUrl: "https://workspace.databricks.com",
+          httpPath: "/sql/1.0/warehouses/test",
+          accessToken: "dapi-test",
+          catalog: "main",
+          schema: "default",
+          collectionName: "memories",
+          dimension: 3,
+          endpointType: "STORAGE_OPTIMIZED",
+        }),
+    ).toThrow("require dimensions divisible by 16");
+  });
+
   it("rejects HYBRID vector search without query text", async () => {
     const axiosModule = require("axios");
     const store = new DatabricksVectorStore({
@@ -1155,6 +1230,7 @@ describe("Databricks – backward compat with mocked clients", () => {
       collectionName: "memories",
       dimension: 3,
       queryType: "HYBRID",
+      syncPollIntervalMs: 0,
     });
 
     await expect(store.search([1, 0, 0], 5)).rejects.toThrow(
