@@ -84,6 +84,10 @@ const ENTITY_PARAMS = [
   "runId",
 ];
 
+// Batch size for deleteAll pagination. Larger than most vector store default
+// page limits (~100) to minimize roundtrips while bounded to avoid memory pressure.
+const DELETE_ALL_BATCH_SIZE = 1000;
+
 /**
  * Validates that no top-level entity parameters are passed in config.
  * @throws Error if entity params are found at top level
@@ -1553,18 +1557,38 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters);
-    for (const memory of memories) {
-      await this.deleteMemory(memory.id);
+    const [memories] = await this.vectorStore.list(
+      filters,
+      DELETE_ALL_BATCH_SIZE,
+    );
+    let deletedCount = 0;
+    let currentMemories = memories;
+
+    while (currentMemories.length > 0) {
+      const results = await Promise.allSettled(
+        currentMemories.map((memory) => this.deleteMemory(memory.id)),
+      );
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      // Zero-progress guard: if every delete in a batch failed, re-listing
+      // would return the same set and loop forever. Break instead.
+      if (succeeded === 0) {
+        break;
+      }
+      deletedCount += succeeded;
+      const [nextMemories] = await this.vectorStore.list(
+        filters,
+        DELETE_ALL_BATCH_SIZE,
+      );
+      currentMemories = nextMemories;
     }
 
     const result = { message: "Memories deleted successfully!" };
-    if (memories.length > 0) {
+    if (deletedCount > 0) {
       await this._displayDecayUsageNotice({
         triggerFunction: "delete_all",
         triggerSource: "delete_all",
         triggerReason: "bulk_delete",
-        deletedCount: memories.length,
+        deletedCount,
       });
     } else {
       await this._displayFirstRunNotice("delete_all");

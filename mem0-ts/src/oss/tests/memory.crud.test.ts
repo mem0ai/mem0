@@ -272,6 +272,34 @@ describe("Memory - deleteAll()", () => {
       "At least one filter is required to delete all memories",
     );
   });
+
+  test("drains multiple pages until vector store returns empty", async () => {
+    const mem = createMemory();
+    const vs = (mem as any).vectorStore;
+    const mockItem = (id: string) => ({
+      id,
+      payload: {
+        memory: "x",
+        hash: "h",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    });
+    jest
+      .spyOn(vs, "list")
+      .mockResolvedValueOnce([[mockItem("a1"), mockItem("a2")], 2])
+      .mockResolvedValueOnce([[mockItem("b1")], 1])
+      .mockResolvedValue([[], 0]);
+    const deleteSpy = jest
+      .spyOn(mem as any, "deleteMemory")
+      .mockResolvedValue({ message: "Memory deleted successfully!" });
+
+    const result = await mem.deleteAll({ userId: "u1" });
+
+    expect(result.message).toBe("Memories deleted successfully!");
+    expect(deleteSpy).toHaveBeenCalledTimes(3);
+    expect(vs.list).toHaveBeenCalledTimes(3);
+  });
 });
 
 // ─── getAll() ────────────────────────────────────────────
