@@ -84,6 +84,7 @@ function parseSkillFile(content: string): ParsedSkill {
   };
 }
 
+/** @internal — exported for testing only */
 export function normalizeModuleUrlToPath(moduleUrl: string): string {
   const normalizedUrl = moduleUrl.startsWith("file:")
     ? moduleUrl
