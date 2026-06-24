@@ -667,7 +667,7 @@ export class S3Vectors implements VectorStore {
         return operand.includes(metadataValue);
       case "$nin":
         if (!Array.isArray(operand) || operand.length === 0) {
-          return false;
+          return true;
         }
         if (Array.isArray(metadataValue)) {
           return metadataValue.every((entry) => !operand.includes(entry));
@@ -727,6 +727,9 @@ export class S3Vectors implements VectorStore {
     }
     if (!Number.isFinite(distance)) {
       return undefined;
+    }
+    if (this.distanceMetric === "euclidean") {
+      return 1 / (1 + distance);
     }
     return Math.max(0, Math.min(1, 1 - distance));
   }

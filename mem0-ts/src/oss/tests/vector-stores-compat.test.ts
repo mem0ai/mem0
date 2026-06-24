@@ -684,10 +684,14 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 // 6. S3 Vectors — mock AWS client, test interface + init
 // ───────────────────────────────────────────────────────────────────────────
 describe("S3 Vectors – backward compat with mocked client", () => {
+<<<<<<< HEAD
   function createMockS3VectorsClient(options?: {
     queryDistance?: number;
     queryDistanceMetric?: "cosine" | "euclidean";
   }) {
+=======
+  function createMockS3VectorsClient(options?: { queryDistance?: number }) {
+>>>>>>> e3c11da2 (fix(vector-stores): preserve s3 distance semantics)
     const buckets = new Set<string>();
     const indexes = new Map<
       string,
@@ -987,7 +991,6 @@ describe("S3 Vectors – backward compat with mocked client", () => {
     });
     expect(queryInput.filter).toBeUndefined();
   });
-
   it("applies client-side list filters, including empty $nin operands", async () => {
     const { S3Vectors } = require("../src/vector_stores/s3_vectors");
     const mockClient = createMockS3VectorsClient();
