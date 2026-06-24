@@ -59,6 +59,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.49.1
         version: 2.108.1
+      '@turbopuffer/turbopuffer':
+        specifier: ^2.0.0
+        version: 2.5.0
       '@types/jest':
         specifier: 29.5.14
         version: 29.5.14
@@ -1212,6 +1215,9 @@ packages:
 
   '@tsconfig/node16@1.0.4':
     resolution: {integrity: sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==}
+
+  '@turbopuffer/turbopuffer@2.5.0':
+    resolution: {integrity: sha512-sUPvlynIaQNNtzeFgAttytZjGl430ttRMbXJq38vDPc+M7v/lo+K1M9/SpFimKMiyQsJXQiqSuhM85xdofr2fw==}
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -2628,6 +2634,9 @@ packages:
 
   packet-reader@1.0.0:
     resolution: {integrity: sha512-HAKu/fG3HpHFO0AA8WE8q2g+gBJaZ9MG7fcKk+IJPLTGAD6Psw4443l+9DGRbOIh3/aXr7Phy0TjilYivJo5XQ==}
+
+  pako@2.2.0:
+    resolution: {integrity: sha512-zJq6RP/5q+TO2OpFV3FHzlPnFjmkb7Nc99a5SNjJE+uu/PkpChs+NIZSSzbBoD+6kjiISXjfYdwj1ZRQ81dz/w==}
 
   parse-json@5.2.0:
     resolution: {integrity: sha512-ayCKvm/phCGxOkYRSCM82iDwct8/EonSEgCSxWxD7ve6jHggsFl4fZVQBPRNgQoKiuV/odhFrGzQXZwbifC8Rg==}
@@ -4778,6 +4787,11 @@ snapshots:
 
   '@tsconfig/node16@1.0.4': {}
 
+  '@turbopuffer/turbopuffer@2.5.0':
+    dependencies:
+      pako: 2.2.0
+      undici: 7.28.0
+
   '@types/babel__core@7.20.5':
     dependencies:
       '@babel/parser': 7.29.7
@@ -6404,6 +6418,8 @@ snapshots:
   package-json-from-dist@1.0.1: {}
 
   packet-reader@1.0.0: {}
+
+  pako@2.2.0: {}
 
   parse-json@5.2.0:
     dependencies:
