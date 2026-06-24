@@ -1068,12 +1068,13 @@ export class DatabricksVectorStore implements VectorStore {
     filters: SearchFilters | undefined,
     topK: number,
   ): Promise<VectorStoreResult[]> {
-    const requiresPagination = this.shouldPaginateForLocalFiltering(filters);
+    const requiresLocalFilteringPagination =
+      this.shouldPaginateForLocalFiltering(filters);
     const response = await this.httpClient.post(
       `/indexes/${encodeURIComponent(this.fullIndexName)}/query`,
       {
         ...requestBody,
-        num_results: requiresPagination
+        num_results: requiresLocalFilteringPagination
           ? MAX_QUERY_RESULTS
           : Math.max(topK, DEFAULT_PAGE_SIZE),
       },
@@ -1084,7 +1085,7 @@ export class DatabricksVectorStore implements VectorStore {
       ["memory_id", "payload"],
       filters,
     );
-    if (!requiresPagination || results.length >= topK) {
+    if (results.length >= topK) {
       return results.slice(0, topK);
     }
 
