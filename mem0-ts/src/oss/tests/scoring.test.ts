@@ -1,6 +1,63 @@
 /// <reference types="jest" />
 
-import { scoreAndRank } from "../src/utils/scoring";
+import {
+  addEntityBoostCandidates,
+  buildHybridCandidateMap,
+  scoreAndRank,
+} from "../src/utils/scoring";
+
+describe("buildHybridCandidateMap", () => {
+  it("merges keyword-only hits with semantic score zero", () => {
+    const semantic = [{ id: "sem-1", score: 0.9, payload: { data: "semantic" } }];
+    const keyword = [
+      { id: "sem-1", score: 8.0, payload: { data: "semantic" } },
+      { id: "kw-only", score: 12.0, payload: { data: "exact match" } },
+    ];
+
+    const candidates = buildHybridCandidateMap(semantic, keyword);
+
+    expect(Array.from(candidates.keys()).sort()).toEqual(["kw-only", "sem-1"]);
+    expect(candidates.get("sem-1")).toEqual({
+      id: "sem-1",
+      score: 0.9,
+      payload: { data: "semantic" },
+    });
+    expect(candidates.get("kw-only")).toEqual({
+      id: "kw-only",
+      score: 0,
+      payload: { data: "exact match" },
+    });
+  });
+});
+
+describe("addEntityBoostCandidates", () => {
+  it("fetches missing entity-linked memories into the candidate map", async () => {
+    const candidates = new Map([
+      ["sem-1", { id: "sem-1", score: 0.8, payload: { data: "x" } }],
+    ]);
+    const vectorStore = {
+      get: jest.fn(async (id: string) =>
+        id === "entity-only"
+          ? { payload: { data: "entity linked", user_id: "u1" } }
+          : null,
+      ),
+    };
+
+    await addEntityBoostCandidates(
+      candidates,
+      { "entity-only": 0.4 },
+      0.1,
+      vectorStore,
+    );
+
+    expect(vectorStore.get).toHaveBeenCalledWith("entity-only");
+    expect(candidates.get("entity-only")).toEqual({
+      id: "entity-only",
+      score: 0,
+      payload: { data: "entity linked", user_id: "u1" },
+    });
+  });
+});
 
 describe("scoreAndRank", () => {
   const results = [
@@ -45,5 +102,12 @@ describe("scoreAndRank", () => {
     expect(details.rawScore).toBe(0.8);
     expect(details.maxPossibleScore).toBe(1.0);
     expect(details.finalScore).toBe(0.8);
+  });
+
+  it("allows BM25 to rescue candidates below semantic threshold", () => {
+    const lowSemantic = [{ id: "a", score: 0.05, payload: { data: "mem a" } }];
+    const scored = scoreAndRank(lowSemantic, { a: 0.95 }, {}, 0.1, 10);
+    expect(scored).toHaveLength(1);
+    expect(scored[0].id).toBe("a");
   });
 });

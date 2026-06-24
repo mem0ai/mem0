@@ -70,6 +70,8 @@ import {
   normalizeBm25,
   ENTITY_BOOST_WEIGHT,
   ScoredResult,
+  buildHybridCandidateMap,
+  addEntityBoostCandidates,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { getOrCreateMem0UserId } from "../../../client/config";
@@ -1412,12 +1414,17 @@ export class Memory {
       }
     }
 
-    // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults.map((mem) => ({
-      id: String(mem.id),
-      score: mem.score ?? 0,
-      payload: mem.payload || {},
-    }));
+    // Step 7: Build hybrid candidate pool (semantic ∪ keyword ∪ entity-rescued)
+    const candidatesById = buildHybridCandidateMap(semanticResults, keywordResults);
+    if (Object.keys(entityBoosts).length > 0) {
+      await addEntityBoostCandidates(
+        candidatesById,
+        entityBoosts,
+        threshold ?? 0.1,
+        this.vectorStore,
+      );
+    }
+    const candidates = Array.from(candidatesById.values());
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
