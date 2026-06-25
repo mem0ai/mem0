@@ -79,7 +79,7 @@ new_project = client.project.create(
 
 ### Update Project Settings
 
-Modify project configuration including custom instructions, categories, and language preferences:
+Modify project configuration including custom instructions, categories, language preferences, retrieval criteria, and memory decay:
 
 ```python
 # Update project with custom categories
@@ -98,6 +98,17 @@ client.project.update(
 # Use the input language for memory storage and retrieval
 client.project.update(multilingual=True)
 
+# Set retrieval criteria to control which memories are surfaced in search
+client.project.update(
+    retrieval_criteria=[
+        {"role": "user", "content": "Only retrieve memories relevant to the current topic"},
+        {"role": "assistant", "content": "Prioritize recent and frequently accessed memories"}
+    ]
+)
+
+# Enable Memory Decay (boosts recently-accessed memories at search time)
+client.project.update(decay=True)
+
 # Update multiple settings at once
 client.project.update(
     custom_instructions="...",
@@ -108,6 +119,21 @@ client.project.update(
     multilingual=True
 )
 ```
+
+#### Set Retrieval Criteria
+
+`retrieval_criteria` is a per-project list of dictionaries (`List[Dict]`) that shapes how memories are ranked and filtered during search. Each dictionary specifies a criterion that the retrieval engine applies when deciding which memories to surface. Use this to focus retrieval on topic-relevant or role-specific memories:
+
+```python
+client.project.update(
+    retrieval_criteria=[
+        {"role": "user", "content": "Only retrieve memories directly relevant to the user's current query"},
+        {"role": "assistant", "content": "Prefer memories that have been accessed recently"}
+    ]
+)
+```
+
+Pass an empty list to clear all criteria and restore default retrieval behaviour.
 
 #### Toggle Memory Decay
 
