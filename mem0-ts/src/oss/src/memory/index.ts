@@ -818,7 +818,10 @@ export class Memory {
       parsedMessages,
       DEFAULT_EMBED_TOKEN_LIMIT,
     );
-    if (embedQuery !== parsedMessages && embedQuery.length < parsedMessages.length) {
+    if (
+      embedQuery !== parsedMessages &&
+      embedQuery.length < parsedMessages.length
+    ) {
       console.warn(
         `Conversation text exceeds embedding token limit (~${DEFAULT_EMBED_TOKEN_LIMIT} tokens); ` +
           "truncating Phase 1 retrieval query. Fact extraction still uses the full conversation.",
