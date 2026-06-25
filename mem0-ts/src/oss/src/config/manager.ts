@@ -3,16 +3,17 @@ import { DEFAULT_MEMORY_CONFIG } from "./defaults";
 
 export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
+    const embedderProvider =
+      userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider;
     const mergedConfig = {
       version: userConfig.version || DEFAULT_MEMORY_CONFIG.version,
       embedder: {
-        provider:
-          userConfig.embedder?.provider ||
-          DEFAULT_MEMORY_CONFIG.embedder.provider,
+        provider: embedderProvider,
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
           const userConf = userConfig.embedder?.config;
-          let finalModel: string | any = defaultConf.model;
+          let finalModel: string | any =
+            embedderProvider === "fastembed" ? undefined : defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
