@@ -1290,6 +1290,7 @@ class Memory(MemoryBase):
         rerank: bool = False,
         explain: bool = False,
         reference_date: Optional[Any] = None,
+        decay: bool = False,
         **kwargs,
     ):
         """
@@ -1393,7 +1394,7 @@ class Memory(MemoryBase):
         )
 
         search_start = time.perf_counter()
-        original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain, decay=decay)
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
@@ -1525,7 +1526,7 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
+    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, decay: bool = False):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1581,6 +1582,7 @@ class Memory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            decay=decay,
         )
 
         # Step 9: Format results
@@ -2861,6 +2863,7 @@ class AsyncMemory(MemoryBase):
         rerank: bool = False,
         explain: bool = False,
         reference_date: Optional[Any] = None,
+        decay: bool = False,
         **kwargs,
     ):
         """
@@ -2968,7 +2971,7 @@ class AsyncMemory(MemoryBase):
         )
 
         search_start = time.perf_counter()
-        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, explain=explain, decay=decay)
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
@@ -3103,7 +3106,7 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
+    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, decay: bool = False):
         if threshold is None:
             threshold = 0.1
 
@@ -3158,6 +3161,7 @@ class AsyncMemory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            decay=decay,
         )
 
         # Step 9: Format results

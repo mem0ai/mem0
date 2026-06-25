@@ -10,6 +10,7 @@ Provides:
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -54,6 +55,37 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
     return 1.0 / (1.0 + math.exp(-steepness * (raw_score - midpoint)))
 
 
+def calculate_decay_multiplier(updated_at_str: Optional[str]) -> float:
+    """Calculate the decay multiplier for a memory based on its last updated time.
+    
+    Args:
+        updated_at_str: ISO format timestamp string
+        
+    Returns:
+        Scaling factor in range [0.3, 1.5]
+    """
+    if not updated_at_str:
+        return 1.0
+        
+    try:
+        updated_at = datetime.fromisoformat(updated_at_str.replace("Z", "+00:00"))
+    except ValueError:
+        return 1.0
+
+    now = datetime.now(timezone.utc)
+    age_in_days = (now - updated_at).total_seconds() / 86400.0
+    
+    if age_in_days < 0:
+        age_in_days = 0.0
+
+    # Exponential decay mapping age to [0.3, 1.5]
+    # base = 0.3, max = 1.5, amplitude = 1.2
+    # at day 0: 0.3 + 1.2 = 1.5
+    # at day 7: 0.3 + 1.2 * exp(-0.15 * 7) ~ 0.72
+    multiplier = 0.3 + 1.2 * math.exp(-0.15 * age_in_days)
+    return max(0.3, min(1.5, multiplier))
+
+
 ENTITY_BOOST_WEIGHT = 0.5
 
 
@@ -64,6 +96,7 @@ def score_and_rank(
     threshold: float,
     top_k: int,
     explain: bool = False,
+    decay: bool = False,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
@@ -123,17 +156,47 @@ def score_and_rank(
             "score": combined,
             "payload": result.get("payload"),
         }
-        if explain:
-            scored_result["score_details"] = {
-                "semantic_score": semantic_score,
-                "bm25_score": bm25_score,
-                "entity_boost": entity_boost,
-                "raw_score": raw_combined,
-                "max_possible_score": max_possible,
-                "final_score": combined,
-                "threshold": threshold,
-            }
+
+        if decay:
+            payload = result.get("payload") or {}
+            # Fallback to created_at if updated_at is missing
+            updated_at = payload.get("updated_at") or payload.get("created_at")
+            decay_multiplier = calculate_decay_multiplier(updated_at)
+            
+            # Apply multiplier
+            scored_result["score"] = combined * decay_multiplier
+            
+            if explain:
+                scored_result["score_details"] = {
+                    "semantic_score": semantic_score,
+                    "bm25_score": bm25_score,
+                    "entity_boost": entity_boost,
+                    "raw_score": raw_combined,
+                    "max_possible_score": max_possible,
+                    "combined_score": combined,
+                    "decay_multiplier": decay_multiplier,
+                    "final_score": min(scored_result["score"], 1.0),
+                    "threshold": threshold,
+                }
+        else:
+            if explain:
+                scored_result["score_details"] = {
+                    "semantic_score": semantic_score,
+                    "bm25_score": bm25_score,
+                    "entity_boost": entity_boost,
+                    "raw_score": raw_combined,
+                    "max_possible_score": max_possible,
+                    "final_score": combined,
+                    "threshold": threshold,
+                }
+
         scored.append(scored_result)
 
     scored.sort(key=lambda x: x["score"], reverse=True)
-    return scored[:top_k]
+    scored = scored[:top_k]
+    
+    # Clamp final scores to [0, 1]
+    for s in scored:
+        s["score"] = min(s["score"], 1.0)
+        
+    return scored
