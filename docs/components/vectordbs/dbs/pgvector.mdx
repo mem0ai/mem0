@@ -79,8 +79,8 @@ Here are the parameters available for configuring pgvector:
 | `password` | Password to connect to the database | `None` |
 | `host` | The host where the Postgres server is running | `None` |
 | `port` | The port where the Postgres server is running | `None` |
-| `diskann` | Whether to use diskann for vector similarity search (requires pgvectorscale) | `True` |
-| `hnsw` | Whether to use hnsw for vector similarity search | `False` |
+| `diskann` | Whether to use diskann for vector similarity search (requires pgvectorscale) | `False` |
+| `hnsw` | Whether to use hnsw for vector similarity search | `True` |
 | `sslmode` | SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable') | `None` |
 | `connection_string` | PostgreSQL connection string (overrides individual connection parameters) | `None` |
 | `connection_pool` | psycopg2 connection pool object (overrides connection string and individual parameters) | `None` |
