@@ -286,6 +286,24 @@ class TestEntityIdValidation:
         with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
             memory_instance.add("test message", user_id="user 123")
 
+    def test_delete_all_rejects_whitespace_only_user_id(self, memory_instance):
+        """delete_all should reject whitespace-only user_id."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.delete_all(user_id="   ")
+
+    def test_delete_all_rejects_internal_whitespace_user_id(self, memory_instance):
+        """delete_all should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.delete_all(user_id="user 123")
+
+    def test_delete_all_trims_user_id_before_list(self, memory_instance):
+        """delete_all should trim leading/trailing whitespace on entity IDs."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.delete_all(user_id="  alice  ")
+
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+
 
 class TestSearchParamValidation:
     """Tests for search parameter validation (threshold and top_k)."""
