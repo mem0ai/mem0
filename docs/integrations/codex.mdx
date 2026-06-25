@@ -123,7 +123,7 @@ When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to 
 |------|-------|-------------|
 | **Session start** | `SessionStart` | Loads prior memories and displays status banner |
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
-| **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
+| **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
 | **Stop** | `Stop` | Stores a session summary when the session ends |
 | **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
