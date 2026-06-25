@@ -1147,10 +1147,6 @@
     {
       "source": "/openmemory/integrations",
       "destination": "/introduction"
-    },
-    {
-      "source": "/migration/api-changes",
-      "destination": "/migration/platform-v2-to-v3"
     }
   ]
 }
