@@ -219,6 +219,97 @@ class TestAsyncAddToVectorStoreErrors:
         assert mock_async_memory.llm.generate_response.call_count == 1
 
 
+class TestLongConversationPhase1Embed:
+    """Regression tests for issue #5148."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = (
+            '{"memory": [{"text": "user is planning a trip to Japan"}]}'
+        )
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _make_long_messages(num_turns: int = 400):
+        filler = (
+            "I've been thinking through a bunch of unrelated topics today including "
+            "Japan travel plans, my current side project in Rust, dinner ideas, "
+            "and a tricky bug at work involving Kafka consumer rebalancing."
+        )
+        messages = []
+        for i in range(num_turns):
+            messages.append({"role": "user", "content": f"Turn {i} (user): {filler}"})
+            messages.append({"role": "assistant", "content": f"Turn {i} (assistant): {filler}"})
+        return messages
+
+    def test_long_conversation_does_not_crash_phase1_embed(self, mock_memory, caplog):
+        embed_calls = []
+
+        def _record_embed(text, mode):
+            embed_calls.append((text, mode))
+            if mode == "search" and len(text) > 8192 * 5:
+                raise RuntimeError("Embedding input exceeds model token limit")
+            return [0.1, 0.2, 0.3]
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(side_effect=_record_embed)
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        mock_memory.vector_store = Mock()
+        mock_memory.vector_store.search = Mock(return_value=[])
+        mock_memory.vector_store.insert = Mock()
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=self._make_long_messages(),
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        search_embed_calls = [c for c in embed_calls if c[1] == "search"]
+        assert len(search_embed_calls) == 1
+        assert len(search_embed_calls[0][0]) <= 8192 * 5
+        assert any(item.get("memory") == "user is planning a trip to Japan" for item in result)
+        assert any("embedding token limit" in record.message.lower() for record in caplog.records)
+
+    def test_short_conversation_is_not_truncated(self, mock_memory, caplog):
+        embed_calls = []
+
+        def _record_embed(text, mode):
+            embed_calls.append((text, mode))
+            return [0.1, 0.2, 0.3]
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(side_effect=_record_embed)
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        mock_memory.vector_store = Mock()
+        mock_memory.vector_store.search = Mock(return_value=[])
+        mock_memory.vector_store.insert = Mock()
+
+        with caplog.at_level(logging.WARNING):
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "Hello, I love sushi."}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        search_embed_calls = [c for c in embed_calls if c[1] == "search"]
+        assert "Hello, I love sushi." in search_embed_calls[0][0]
+        assert not any("embedding token limit" in record.message.lower() for record in caplog.records)
+
+
 def _build_memory_instance(mocker, memory_cls):
     _setup_mocks(mocker)
     mocker.patch("mem0.memory.main.SQLiteManager", mocker.MagicMock())

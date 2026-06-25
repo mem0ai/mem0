@@ -51,11 +51,13 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message_async,
 )
 from mem0.memory.utils import (
+    DEFAULT_EMBED_TOKEN_LIMIT,
     extract_json,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
     remove_code_blocks,
+    truncate_text_to_token_limit,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
@@ -839,9 +841,16 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        embed_query = truncate_text_to_token_limit(parsed_messages, DEFAULT_EMBED_TOKEN_LIMIT)
+        if embed_query is not parsed_messages and len(embed_query) < len(parsed_messages):
+            logger.warning(
+                "Conversation text exceeds embedding token limit (~%d tokens); "
+                "truncating Phase 1 retrieval query. Fact extraction still uses the full conversation.",
+                DEFAULT_EMBED_TOKEN_LIMIT,
+            )
+        query_embedding = self.embedding_model.embed(embed_query, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=embed_query,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -2415,10 +2424,17 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        embed_query = truncate_text_to_token_limit(parsed_messages, DEFAULT_EMBED_TOKEN_LIMIT)
+        if embed_query is not parsed_messages and len(embed_query) < len(parsed_messages):
+            logger.warning(
+                "Conversation text exceeds embedding token limit (~%d tokens); "
+                "truncating Phase 1 retrieval query. Fact extraction still uses the full conversation.",
+                DEFAULT_EMBED_TOKEN_LIMIT,
+            )
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, embed_query, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=embed_query,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
