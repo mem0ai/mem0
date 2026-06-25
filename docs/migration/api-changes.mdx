@@ -71,12 +71,14 @@ def add(
 def add(
     self,
     messages,
+    *,
     user_id: str = None,
     agent_id: str = None,
     run_id: str = None,
     metadata: dict = None,
-    filters: dict = None,
-    infer: bool = True          # ✅ NEW: Control memory inference
+    infer: bool = True,         # ✅ NEW: Control memory inference
+    memory_type: str = None,    # ✅ NEW: e.g. "procedural_memory"
+    prompt: str = None          # ✅ NEW: Custom extraction prompt
 ) -> dict:  # Always returns dict with "results" key
     ...
 ```
@@ -90,10 +92,12 @@ def add(
 | `agent_id` | ✅ | ✅ | Unchanged |
 | `run_id` | ✅ | ✅ | Unchanged |
 | `metadata` | ✅ | ✅ | Unchanged |
-| `filters` | ✅ | ✅ | Unchanged |
+| `filters` | ✅ | ❌ | **REMOVED** — `add()` does not accept `filters` |
 | `output_format` | ✅ | ❌ | **REMOVED** |
 | `version` | ✅ | ❌ | **REMOVED** |
 | `infer` | ❌ | ✅ | **NEW** |
+| `memory_type` | ❌ | ✅ | **NEW** |
+| `prompt` | ❌ | ✅ | **NEW** |
 
 #### Response Format Changes
 
@@ -158,15 +162,18 @@ def search(
 def search(
     self,
     query: str,
-    user_id: str = None,
-    agent_id: str = None,
-    run_id: str = None,
-    limit: int = 100,
-    filters: dict = None,       # ✅ ENHANCED: Advanced operators
-    rerank: bool = True         # ✅ NEW: Reranking support
+    *,
+    top_k: int = 20,            # ✅ Renamed from limit
+    filters: dict = None,       # ✅ ENHANCED: Advanced operators; must include user_id/agent_id/run_id
+    threshold: float = 0.1,     # ✅ NEW: Minimum score cutoff
+    rerank: bool = False        # ✅ NEW: Reranking support (default False)
 ) -> dict:  # Always returns dict with "results" key
     ...
 ```
+
+<Warning>
+  `user_id`, `agent_id`, and `run_id` are **not** top-level parameters in v1. They must be passed inside `filters`. Example: `m.search("query", filters={"user_id": "alice"})`.
+</Warning>
 
 #### Enhanced Filtering
 
@@ -289,30 +296,11 @@ m.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")     # NEW — fu
 
 ## Platform Client (MemoryClient) Changes
 
-### async_mode Default Changed
+### async_mode Removed
 
-#### v0.x
-```python
-from mem0 import MemoryClient
-
-client = MemoryClient(api_key="your-key")
-
-# async_mode had to be explicitly set or had different default
-result = client.add("content", user_id="alice", async_mode=True)
-```
-
-#### v1.0.0
-```python
-from mem0 import MemoryClient
-
-client = MemoryClient(api_key="your-key")
-
-# async_mode defaults to True now (better performance)
-result = client.add("content", user_id="alice")  # Uses async_mode=True by default
-
-# Can still override if needed
-result = client.add("content", user_id="alice", async_mode=False)
-```
+<Note>
+  `async_mode` was removed in v3. Remove any `async_mode=` argument from your `MemoryClient` calls.
+</Note>
 
 ## Configuration Changes
 
@@ -324,7 +312,6 @@ config = {
     "vector_store": {...},
     "llm": {...},
     "embedder": {...},
-    "graph_store": {...},
     "version": "v1.0",              # ❌ v1.0 no longer supported
     "history_db_path": "...",
     "custom_instructions": "..."
@@ -337,17 +324,20 @@ config = {
     "vector_store": {...},
     "llm": {...},
     "embedder": {...},
-    "graph_store": {...},
     "reranker": {                   # ✅ NEW: Reranker support
         "provider": "cohere",
         "config": {...}
     },
     "version": "v1.1",              # ✅ v1.1+ only
     "history_db_path": "...",
-    "custom_instructions": "...",
-    "custom_update_memory_prompt": "..."  # ✅ NEW: Custom update prompt
+    "custom_instructions": "..."    # ✅ Use this for custom extraction instructions
 }
 ```
+
+<Note>
+  `graph_store` is no longer a top-level `MemoryConfig` field. Graph support is configured separately.
+  `custom_update_memory_prompt` has been removed — use `custom_instructions` instead.
+</Note>
 
 ### New Configuration Options
 
