@@ -64,7 +64,7 @@ Add the Mem0 MCP server directly with a single command:
 npx mcp-add \
   --name mem0-mcp \
   --type http \
-  --url "https://mcp.mem0.ai/mcp" \
+  --url "https://mcp.mem0.ai/mcp/" \
   --clients "claude code"
 ```
 
@@ -142,7 +142,8 @@ When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecyc
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message; skips short prompts |
 | **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Pre-compact** | `PreCompact` | Stores a session summary before context compaction |
+| **Stop** | `Stop` | Stores a session summary when the session ends |
+| **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
 
 ## Example Workflow
 

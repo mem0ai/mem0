@@ -298,9 +298,9 @@ class AzureAISearch(VectorStoreBase):
             payload (Dict, optional): Updated payload.
         """
         document = {"id": vector_id}
-        if vector:
+        if vector is not None:
             document["vector"] = vector
-        if payload:
+        if payload is not None:
             json_payload = json.dumps(payload)
             document["payload"] = json_payload
             for field in ["user_id", "run_id", "agent_id"]:

@@ -314,4 +314,27 @@ describe("Memory Input Validation", () => {
       expect(result.results).toBeDefined();
     });
   });
+
+  describe("deleteAll() entity ID validation", () => {
+    it("should throw error when userId is whitespace-only", async () => {
+      await expect(memory.deleteAll({ userId: "   " })).rejects.toThrow(
+        "Invalid userId",
+      );
+    });
+
+    it("should throw error when userId contains internal whitespace", async () => {
+      await expect(memory.deleteAll({ userId: "user 123" })).rejects.toThrow(
+        "Invalid userId: cannot contain whitespace",
+      );
+    });
+
+    it("should trim userId before listing memories", async () => {
+      const listSpy = jest.spyOn(memory["vectorStore"], "list");
+      listSpy.mockResolvedValue([[], null]);
+
+      await memory.deleteAll({ userId: "  alice  " });
+
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "alice" });
+    });
+  });
 });

@@ -1025,3 +1025,19 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         types = {type(c.range) for c in result.must}
         self.assertIn(DatetimeRange, types)
         self.assertIn(Range, types)
+
+    def test_missing_fastembed_warns_with_extras_install_hint(self):
+        """When fastembed is missing, the BM25 warning must point at the mem0 optional group
+        that actually provides it (`mem0ai[extras]`), not the bare `fastembed` package -
+        fastembed is declared under [extras], so that is the discoverable install path."""
+        self.qdrant._bm25_encoder = None
+        # Setting the module to None in sys.modules makes `from fastembed import ...` raise ImportError.
+        with patch.dict("sys.modules", {"fastembed": None}):
+            with self.assertLogs("mem0.vector_stores.qdrant", level="WARNING") as cm:
+                result = self.qdrant._get_bm25_encoder()
+        self.assertIsNone(result)  # encoder unavailable -> None
+        self.assertIs(self.qdrant._bm25_encoder, False)  # sentinel: tried and failed, do not retry
+        joined = "\n".join(cm.output)
+        self.assertIn("mem0ai[extras]", joined)  # points at the right install
+        self.assertNotIn("pip install fastembed", joined)  # not the bare package
+        self.assertNotIn("\u2014", joined)  # no em-dash
