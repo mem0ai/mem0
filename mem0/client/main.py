@@ -697,7 +697,9 @@ class MemoryClient:
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
-            "get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead."
+            "get_project() method is going to be deprecated in version v1.0 "
+            "of the package. Please use the client.project.get() method "
+            "instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
@@ -1371,7 +1373,10 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/history/", params=params)
+        response = await self.async_client.get(
+            f"/v1/memories/{_encode_path_segment(memory_id)}/history/",
+            params=params,
+        )
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1599,7 +1604,9 @@ class AsyncMemoryClient:
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
-            "get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead."
+            "get_project() method is going to be deprecated in version v1.0 "
+            "of the package. Please use the client.project.get() method "
+            "instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")

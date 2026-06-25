@@ -103,6 +103,22 @@ describe("MemoryClient - get()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(client.get("nonexistent")).rejects.toThrow("Memory not found");
   });
+
+  test("URL-encodes memory ID path segments", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem%2Fa%3Fb%23c/", {
+      status: 200,
+      body: createMockMemory({ id: "mem/a?b#c" }),
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.get("mem/a?b#c");
+
+    expect(
+      findFetchCall(mock, "/v1/memories/mem%2Fa%3Fb%23c/"),
+    ).toBeDefined();
+  });
 });
 
 // ─── update() ────────────────────────────────────────────
@@ -183,6 +199,22 @@ describe("MemoryClient - update()", () => {
       "At least one of text, metadata, or timestamp must be provided",
     );
   });
+
+  test("URL-encodes memory ID path segments", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem%2Fa%3Fb%23c/", {
+      status: 200,
+      body: createMockMemory({ id: "mem/a?b#c" }),
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.update("mem/a?b#c", { text: "Updated text" });
+
+    expect(
+      findFetchCall(mock, "/v1/memories/mem%2Fa%3Fb%23c/", "PUT"),
+    ).toBeDefined();
+  });
 });
 
 // ─── delete() ────────────────────────────────────────────
@@ -217,6 +249,26 @@ describe("MemoryClient - delete()", () => {
     await client.delete("mem_123", { deleteLinked: true });
 
     const call = findFetchCall(mock, "/v1/memories/mem_123/", "DELETE");
+    expect(call).toBeDefined();
+    expect(call![0]).toContain("delete_linked=true");
+  });
+
+  test("URL-encodes memory ID path segments before adding query params", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem%2Fa%3Fb%23c/", {
+      status: 200,
+      body: { message: "Memory deleted successfully" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.delete("mem/a?b#c", { deleteLinked: true });
+
+    const call = findFetchCall(
+      mock,
+      "/v1/memories/mem%2Fa%3Fb%23c/",
+      "DELETE",
+    );
     expect(call).toBeDefined();
     expect(call![0]).toContain("delete_linked=true");
   });
@@ -295,5 +347,22 @@ describe("MemoryClient - history()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result: MemoryHistory[] = await client.history("mem_123");
     expect(result).toEqual([]);
+  });
+
+  test("URL-encodes memory ID path segments", async () => {
+    const historyEntries = [createMockMemoryHistory({ memory_id: "mem/a?b#c" })];
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem%2Fa%3Fb%23c/history/", {
+      status: 200,
+      body: historyEntries,
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.history("mem/a?b#c");
+
+    expect(
+      findFetchCall(mock, "/v1/memories/mem%2Fa%3Fb%23c/history/"),
+    ).toBeDefined();
   });
 });

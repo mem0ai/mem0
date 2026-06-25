@@ -201,7 +201,11 @@ class PlatformBackend(Backend):
         )
 
     def get(self, memory_id: str) -> dict:
-        return self._request("GET", f"/v1/memories/{_encode_path_segment(memory_id)}/", params={"source": "CLI"})
+        return self._request(
+            "GET",
+            f"/v1/memories/{_encode_path_segment(memory_id)}/",
+            params={"source": "CLI"},
+        )
 
     def list_memories(
         self,
@@ -255,7 +259,11 @@ class PlatformBackend(Backend):
         if metadata:
             payload["metadata"] = metadata
         payload["source"] = "CLI"
-        return self._request("PUT", f"/v1/memories/{_encode_path_segment(memory_id)}/", json=payload)
+        return self._request(
+            "PUT",
+            f"/v1/memories/{_encode_path_segment(memory_id)}/",
+            json=payload,
+        )
 
     def delete(
         self,
@@ -280,7 +288,9 @@ class PlatformBackend(Backend):
             return self._request("DELETE", "/v1/memories/", params=params)
         elif memory_id:
             return self._request(
-                "DELETE", f"/v1/memories/{_encode_path_segment(memory_id)}/", params={"source": "CLI"}
+                "DELETE",
+                f"/v1/memories/{_encode_path_segment(memory_id)}/",
+                params={"source": "CLI"},
             )
         else:
             raise ValueError("Either memory_id or --all is required")
