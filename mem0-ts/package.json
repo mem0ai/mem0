@@ -119,6 +119,7 @@
     "@types/pg": "8.11.0",
     "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
+    "fastembed": "^2.1.0",
     "groq-sdk": "0.3.0",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
