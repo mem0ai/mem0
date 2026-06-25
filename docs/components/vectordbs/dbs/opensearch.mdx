@@ -67,6 +67,8 @@ config = {
 | `embedding_model_dims` | int | 1536 | Dimension of embedding vectors |
 | `use_ssl` | bool | False | Enable SSL/TLS connection |
 | `verify_certs` | bool | False | Verify SSL certificates |
+| `pool_maxsize` | int | 20 | Maximum number of connections in the client pool |
+| `timeout` | int | None | Per-request client timeout in seconds. Defaults to opensearch-py's built-in default (10s) when unset. Raise it for AWS OpenSearch Serverless, whose cold-start can exceed 10s. |
 | `auto_refresh` | bool | False | Automatically refresh index after insert. OpenSearch refreshes every ~1 second by default, so this is rarely needed. |
 
 <Note>
