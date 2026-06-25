@@ -273,7 +273,8 @@
                               "components/embedders/models/lmstudio",
                               "components/embedders/models/together",
                               "components/embedders/models/langchain",
-                              "components/embedders/models/aws_bedrock"
+                              "components/embedders/models/aws_bedrock",
+                              "components/embedders/models/fastembed"
                             ]
                           }
                         ]
@@ -533,6 +534,8 @@
                       "api-reference/organization/get-org",
                       "api-reference/organization/get-org-members",
                       "api-reference/organization/add-org-member",
+                      "api-reference/organization/update-org-member",
+                      "api-reference/organization/remove-org-member",
                       "api-reference/organization/delete-org"
                     ]
                   },
@@ -545,6 +548,9 @@
                       "api-reference/project/get-project",
                       "api-reference/project/get-project-members",
                       "api-reference/project/add-project-member",
+                      "api-reference/project/update-project",
+                      "api-reference/project/update-project-member",
+                      "api-reference/project/remove-project-member",
                       "api-reference/project/delete-project"
                     ]
                   },
