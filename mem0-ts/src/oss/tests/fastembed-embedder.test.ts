@@ -43,7 +43,7 @@ describe("FastEmbedEmbedder (unit)", () => {
     });
   });
 
-  it("embed() returns first vector from the first async batch", async () => {
+  it("embed() initializes lazily, normalizes newlines, and returns the first vector", async () => {
     mockEmbed.mockReturnValue(
       createEmbeddingGenerator([[mockEmbedding], mockVectorBatch]),
     );
@@ -51,7 +51,9 @@ describe("FastEmbedEmbedder (unit)", () => {
       model: "fast-bge-small-en-v1.5",
     });
 
-    const result = await embedder.embed("Example text");
+    expect(mockInit).not.toHaveBeenCalled();
+
+    const result = await embedder.embed("Example\ntext");
 
     expect(mockInit).toHaveBeenCalledTimes(1);
     expect(mockInit).toHaveBeenCalledWith({
@@ -62,12 +64,14 @@ describe("FastEmbedEmbedder (unit)", () => {
     expect(result).toEqual(mockEmbedding);
   });
 
-  it("embedBatch() consumes all async embedding batches", async () => {
-    mockEmbed.mockReturnValue(
+  it("embedBatch() consumes all async embedding batches and reuses the initialized model", async () => {
+    mockEmbed.mockReturnValueOnce(createEmbeddingGenerator([[mockEmbedding]]));
+    mockEmbed.mockReturnValueOnce(
       createEmbeddingGenerator([[mockEmbedding], mockVectorBatch]),
     );
     const embedder = new FastEmbedEmbedder({});
 
+    await embedder.embed("warmup");
     const result = await embedder.embedBatch([
       "first text",
       "second text",
@@ -79,9 +83,16 @@ describe("FastEmbedEmbedder (unit)", () => {
       "second text",
       "third text",
     ]);
-    expect(mockInit).toHaveBeenCalledWith({
-      model: "fast-bge-small-en-v1.5",
-    });
+    expect(mockInit).toHaveBeenCalledTimes(1);
     expect(result).toEqual([mockEmbedding, ...mockVectorBatch]);
+  });
+
+  it("embed() throws when FastEmbed yields no embeddings", async () => {
+    mockEmbed.mockReturnValue(createEmbeddingGenerator([]));
+    const embedder = new FastEmbedEmbedder({});
+
+    await expect(embedder.embed("missing")).rejects.toThrow(
+      "FastEmbed embed() returned no embeddings",
+    );
   });
 });
