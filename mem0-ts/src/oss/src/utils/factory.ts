@@ -1,4 +1,3 @@
-
 import { OpenAIEmbedder } from "../embeddings/openai";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
