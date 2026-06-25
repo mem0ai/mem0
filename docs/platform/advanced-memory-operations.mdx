@@ -140,7 +140,7 @@ await memory.update(
 <Step title="Search with metadata filters">
 ```typescript
 const matches = await memory.search("Any food alerts?", {
-  filters: { userId: "traveler-42", "metadata.trip": "japan-2025" },
+  filters: { user_id: "traveler-42", "metadata.trip": "japan-2025" },
   rerank: true,
 });
 ```
