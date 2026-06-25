@@ -378,6 +378,29 @@ def _entity_collection_name(provider: str, collection_name: str) -> str:
     return f"{collection_name}{separator}entities"
 
 
+def _parse_additive_extraction_response(response: str) -> list[dict]:
+    """Parse additive extraction JSON response into extracted memory items."""
+    response = remove_code_blocks(response)
+    if not response or not response.strip():
+        return []
+
+    try:
+        return json.loads(response, strict=False).get("memory", [])
+    except json.JSONDecodeError:
+        extracted_json = extract_json(response)
+        return json.loads(extracted_json, strict=False).get("memory", [])
+
+
+def _map_existing_memories(existing_results):
+    """Map recalled memories to prompt payloads and anti-hallucination ID aliases."""
+    existing_memories = []
+    uuid_mapping = {}
+    for idx, mem in enumerate(existing_results):
+        uuid_mapping[str(idx)] = mem.id
+        existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
+    return existing_memories, uuid_mapping
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -685,6 +708,67 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    def _generate_additive_extraction_memories(
+        self,
+        *,
+        parsed_messages,
+        last_messages,
+        custom_instructions,
+        existing_memories=None,
+        recently_extracted_memories=None,
+        is_agent_scoped=False,
+    ):
+        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        if is_agent_scoped:
+            system_prompt += AGENT_CONTEXT_SUFFIX
+
+        user_prompt = generate_additive_extraction_prompt(
+            existing_memories=existing_memories,
+            recently_extracted_memories=recently_extracted_memories,
+            new_messages=parsed_messages,
+            last_k_messages=last_messages,
+            custom_instructions=custom_instructions,
+        )
+
+        response = self.llm.generate_response(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
+        return _parse_additive_extraction_response(response)
+
+    def _recall_existing_memories_for_candidates(self, candidate_memories, search_filters, top_k=5):
+        """Recall relevant memories using extracted memory candidates as search queries."""
+        recalled_results = []
+        seen_ids = set()
+
+        for mem in candidate_memories:
+            text = mem.get("text")
+            if not text:
+                continue
+
+            try:
+                query_embedding = self.embedding_model.embed(text, "search")
+                matches = self.vector_store.search(
+                    query=text,
+                    vectors=query_embedding,
+                    top_k=top_k,
+                    filters=search_filters,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to recall existing memories for candidate: {e}")
+                continue
+
+            for match in matches:
+                if match.id in seen_ids:
+                    continue
+                seen_ids.add(match.id)
+                recalled_results.append(match)
+
+        return recalled_results
+
     def add(
         self,
         messages,
@@ -837,64 +921,56 @@ class Memory(MemoryBase):
         last_messages = self.db.get_last_messages(session_scope, limit=10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Existing memory retrieval
+        # Phase 1: Initial extraction from recent context only
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
-        existing_results = self.vector_store.search(
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
-        )
-
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
-
-        # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
-        if is_agent_scoped:
-            system_prompt += AGENT_CONTEXT_SUFFIX
-
         custom_instr = prompt or self.custom_instructions
 
-        user_prompt = generate_additive_extraction_prompt(
-            existing_memories=existing_memories,
-            new_messages=parsed_messages,
-            last_k_messages=last_messages,
-            custom_instructions=custom_instr,
-        )
-
         try:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
+            initial_memories = self._generate_additive_extraction_memories(
+                parsed_messages=parsed_messages,
+                last_messages=last_messages,
+                custom_instructions=custom_instr,
+                is_agent_scoped=is_agent_scoped,
             )
         except Exception as e:
             logger.error(f"LLM extraction failed: {e}")
             return []
 
-        # Parse response
-        try:
-            response = remove_code_blocks(response)
-            if not response or not response.strip():
-                extracted_memories = []
-            else:
-                try:
-                    extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
-        except Exception as e:
-            logger.error(f"Error parsing extraction response: {e}")
-            extracted_memories = []
+        if not initial_memories:
+            self.db.save_messages(messages, session_scope)
+            return []
+
+        # Phase 2: Recall existing memories from extracted candidate memories
+        existing_results = self._recall_existing_memories_for_candidates(
+            initial_memories,
+            search_filters=search_filters,
+            top_k=5,
+        )
+
+        # Phase 3: Final extraction with recalled memory context
+        existing_memories, uuid_mapping = _map_existing_memories(existing_results)
+        extracted_memories = initial_memories
+        if existing_memories:
+            try:
+                extracted_memories = self._generate_additive_extraction_memories(
+                    parsed_messages=parsed_messages,
+                    last_messages=last_messages,
+                    custom_instructions=custom_instr,
+                    existing_memories=existing_memories,
+                    recently_extracted_memories=initial_memories,
+                    is_agent_scoped=is_agent_scoped,
+                )
+            except Exception as e:
+                logger.error(f"LLM reconciliation failed: {e}")
+                extracted_memories = initial_memories
+
+        if uuid_mapping:
+            for mem in extracted_memories:
+                linked_ids = mem.get("linked_memory_ids")
+                if not isinstance(linked_ids, list):
+                    continue
+                mem["linked_memory_ids"] = [uuid_mapping.get(str(linked_id), linked_id) for linked_id in linked_ids]
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2275,6 +2351,69 @@ class AsyncMemory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    async def _generate_additive_extraction_memories_async(
+        self,
+        *,
+        parsed_messages,
+        last_messages,
+        custom_instructions,
+        existing_memories=None,
+        recently_extracted_memories=None,
+        is_agent_scoped=False,
+    ):
+        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        if is_agent_scoped:
+            system_prompt += AGENT_CONTEXT_SUFFIX
+
+        user_prompt = generate_additive_extraction_prompt(
+            existing_memories=existing_memories,
+            recently_extracted_memories=recently_extracted_memories,
+            new_messages=parsed_messages,
+            last_k_messages=last_messages,
+            custom_instructions=custom_instructions,
+        )
+
+        response = await asyncio.to_thread(
+            self.llm.generate_response,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
+        return _parse_additive_extraction_response(response)
+
+    async def _recall_existing_memories_for_candidates_async(self, candidate_memories, search_filters, top_k=5):
+        """Async counterpart for candidate-memory-driven recall."""
+        recalled_results = []
+        seen_ids = set()
+
+        for mem in candidate_memories:
+            text = mem.get("text")
+            if not text:
+                continue
+
+            try:
+                query_embedding = await asyncio.to_thread(self.embedding_model.embed, text, "search")
+                matches = await asyncio.to_thread(
+                    self.vector_store.search,
+                    query=text,
+                    vectors=query_embedding,
+                    top_k=top_k,
+                    filters=search_filters,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to recall existing memories for candidate (async): {e}")
+                continue
+
+            for match in matches:
+                if match.id in seen_ids:
+                    continue
+                seen_ids.add(match.id)
+                recalled_results.append(match)
+
+        return recalled_results
+
     async def add(
         self,
         messages,
@@ -2413,66 +2552,56 @@ class AsyncMemory(MemoryBase):
         last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Existing memory retrieval
+        # Phase 1: Initial extraction from recent context only
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
-        existing_results = await asyncio.to_thread(
-            self.vector_store.search,
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
-        )
-
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
-
-        # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
-        if is_agent_scoped:
-            system_prompt += AGENT_CONTEXT_SUFFIX
-
         custom_instr = prompt or self.custom_instructions
 
-        user_prompt = generate_additive_extraction_prompt(
-            existing_memories=existing_memories,
-            new_messages=parsed_messages,
-            last_k_messages=last_messages,
-            custom_instructions=custom_instr,
-        )
-
         try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
+            initial_memories = await self._generate_additive_extraction_memories_async(
+                parsed_messages=parsed_messages,
+                last_messages=last_messages,
+                custom_instructions=custom_instr,
+                is_agent_scoped=is_agent_scoped,
             )
         except Exception as e:
             logger.error(f"LLM extraction failed (async): {e}")
             return []
 
-        # Parse response
-        try:
-            response = remove_code_blocks(response)
-            if not response or not response.strip():
-                extracted_memories = []
-            else:
-                try:
-                    extracted_memories = json.loads(response, strict=False).get("memory", [])
-                except json.JSONDecodeError:
-                    extracted_json = extract_json(response)
-                    extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
-        except Exception as e:
-            logger.error(f"Error parsing extraction response (async): {e}")
-            extracted_memories = []
+        if not initial_memories:
+            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            return []
+
+        # Phase 2: Recall existing memories from extracted candidate memories
+        existing_results = await self._recall_existing_memories_for_candidates_async(
+            initial_memories,
+            search_filters=search_filters,
+            top_k=5,
+        )
+
+        # Phase 3: Final extraction with recalled memory context
+        existing_memories, uuid_mapping = _map_existing_memories(existing_results)
+        extracted_memories = initial_memories
+        if existing_memories:
+            try:
+                extracted_memories = await self._generate_additive_extraction_memories_async(
+                    parsed_messages=parsed_messages,
+                    last_messages=last_messages,
+                    custom_instructions=custom_instr,
+                    existing_memories=existing_memories,
+                    recently_extracted_memories=initial_memories,
+                    is_agent_scoped=is_agent_scoped,
+                )
+            except Exception as e:
+                logger.error(f"LLM reconciliation failed (async): {e}")
+                extracted_memories = initial_memories
+
+        if uuid_mapping:
+            for mem in extracted_memories:
+                linked_ids = mem.get("linked_memory_ids")
+                if not isinstance(linked_ids, list):
+                    continue
+                mem["linked_memory_ids"] = [uuid_mapping.get(str(linked_id), linked_id) for linked_id in linked_ids]
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)

@@ -116,6 +116,36 @@ class TestPromptOverridesCustomInstructions:
         user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
         assert "config-level instructions" in user_prompt
 
+    def test_recalls_using_extracted_memory_instead_of_full_context(self, mock_memory):
+        mock_memory.llm.generate_response.side_effect = [
+            '{"memory": [{"text": "User likes pour-over coffee"}]}',
+            '{"memory": [{"text": "User likes pour-over coffee", "linked_memory_ids": ["0"]}]}',
+        ]
+        recalled = MagicMock()
+        recalled.id = "mem-123"
+        recalled.payload = {"data": "User prefers light roast beans"}
+        mock_memory.vector_store.search.return_value = [recalled]
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory.vector_store.insert = Mock()
+        mock_memory.db.batch_add_history = Mock()
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "我最近更喜欢手冲咖啡"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert mock_memory.vector_store.search.call_count == 1
+        search_kwargs = mock_memory.vector_store.search.call_args.kwargs
+        assert search_kwargs["query"] == "User likes pour-over coffee"
+        assert search_kwargs["top_k"] == 5
+        assert mock_memory.llm.generate_response.call_count == 2
+        second_prompt = mock_memory.llm.generate_response.call_args_list[1].kwargs["messages"][1]["content"]
+        assert "User prefers light roast beans" in second_prompt
+        assert result[0]["memory"] == "User likes pour-over coffee"
+
 
 class TestAsyncUpdate:
     @pytest.fixture
@@ -217,6 +247,37 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_recalls_using_extracted_memory_instead_of_full_context(self, mock_async_memory):
+        mock_async_memory.llm.generate_response.side_effect = [
+            '{"memory": [{"text": "User likes pour-over coffee"}]}',
+            '{"memory": [{"text": "User likes pour-over coffee", "linked_memory_ids": ["0"]}]}',
+        ]
+        recalled = MagicMock()
+        recalled.id = "mem-123"
+        recalled.payload = {"data": "User prefers light roast beans"}
+        mock_async_memory.vector_store.search.return_value = [recalled]
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.vector_store.insert = Mock()
+        mock_async_memory.db.batch_add_history = Mock()
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "我最近更喜欢手冲咖啡"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert mock_async_memory.vector_store.search.call_count == 1
+        search_kwargs = mock_async_memory.vector_store.search.call_args.kwargs
+        assert search_kwargs["query"] == "User likes pour-over coffee"
+        assert search_kwargs["top_k"] == 5
+        assert mock_async_memory.llm.generate_response.call_count == 2
+        second_prompt = mock_async_memory.llm.generate_response.call_args_list[1].kwargs["messages"][1]["content"]
+        assert "User prefers light roast beans" in second_prompt
+        assert result[0]["memory"] == "User likes pour-over coffee"
 
 
 def _build_memory_instance(mocker, memory_cls):
