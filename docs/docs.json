@@ -631,6 +631,10 @@
   },
   "redirects": [
     {
+      "source": "/components/rerankers/models/llm",
+      "destination": "/components/rerankers/models/llm_reranker"
+    },
+    {
       "source": "/migration/breaking-changes",
       "destination": "/"
     },
