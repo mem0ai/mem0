@@ -289,8 +289,7 @@ print([m["memory"] for m in constraints["results"]])
 ```python
 constraints = memory.search(
     query="injury concerns",
-    user_id="max",
-    filters={"memory_bucket": {"in": ["constraints"]}},
+    filters={"user_id": "max", "memory_bucket": {"in": ["constraints"]}},
     threshold=0.0  # optional: widen recall for short phrases
 )
 print([m["memory"] for m in constraints["results"]])
@@ -736,8 +735,7 @@ mem0_client.add(messages, user_id="max", run_id="nyc-2025")
 # Retrieve only Boston memories
 boston_memories = mem0_client.search(
     "training plan",
-    user_id="max",
-    run_id="boston-2025"
+    filters={"user_id": "max", "run_id": "boston-2025"}
 )
 ```
   </Tab>
@@ -749,8 +747,7 @@ memory.add(messages, user_id="max", run_id="nyc-2025")
 # Retrieve only Boston memories
 boston_memories = memory.search(
     "training plan",
-    user_id="max",
-    run_id="boston-2025",
+    filters={"user_id": "max", "run_id": "boston-2025"},
 )
 ```
   </Tab>
@@ -846,8 +843,7 @@ Prioritize recent training over old data:
 ```python
 recent = mem0_client.search(
     "training progress",
-    user_id="max",
-    filters={"created_at": {"gte": "2025-10-01"}}
+    filters={"user_id": "max", "created_at": {"gte": "2025-10-01"}}
 )
 ```
   </Tab>
@@ -866,8 +862,7 @@ memory.add(
 cutoff = int(datetime(2025, 10, 1).timestamp())
 recent = memory.search(
     "training progress",
-    user_id="max",
-    filters={"logged_epoch": {"gte": cutoff}},
+    filters={"user_id": "max", "logged_epoch": {"gte": cutoff}},
 )
 ```
   </Tab>
@@ -889,8 +884,7 @@ mem0_client.add(
 # Later, find all speed workouts
 speed_sessions = mem0_client.search(
     "speed work",
-    user_id="max",
-    filters={"metadata": {"workout_type": "speed"}}
+    filters={"user_id": "max", "metadata": {"workout_type": "speed"}}
 )
 ```
   </Tab>
@@ -905,8 +899,7 @@ memory.add(
 # Later, find all speed workouts
 speed_sessions = memory.search(
     "speed work",
-    user_id="max",
-    filters={"workout_type": "speed"},
+    filters={"user_id": "max", "workout_type": "speed"},
 )
 ```
   </Tab>

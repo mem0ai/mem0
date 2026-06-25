@@ -212,7 +212,7 @@ needs_update = client.get_all(
 for memory in needs_update['results']:
     client.update(
         memory_id=memory['id'],
-        data=memory['memory']  # Re-process with current category definitions
+        text=memory['memory']  # Re-process with current category definitions
     )
 
 ```
