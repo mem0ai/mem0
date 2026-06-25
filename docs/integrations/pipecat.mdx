@@ -121,7 +121,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # LLM for response generation
     llm = OpenAILLMService(
         api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o-mini",
+        model="gpt-5-mini",
         system_prompt="You are a helpful assistant that remembers past conversations."
     )
     
