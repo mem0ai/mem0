@@ -181,6 +181,8 @@ def test_delete_all(memory_instance):
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    for call in memory_instance._delete_memory.call_args_list:
+        assert call.kwargs.get("skip_entity_cleanup") is True
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 

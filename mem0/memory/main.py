@@ -632,6 +632,27 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
 
+    def _bulk_clear_entity_store(self, filters):
+        """Delete all entity records matching the given scope filters.
+
+        Used by delete_all to avoid the race condition that occurs when
+        sequential _delete_memory calls each try to read-modify-write
+        the same entity rows' linked_memory_ids lists.
+        """
+        if self._entity_store is None:
+            return
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        try:
+            listed = self.entity_store.list(filters=search_filters, top_k=10000)
+            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            for row in rows or []:
+                try:
+                    self.entity_store.delete(vector_id=row.id)
+                except Exception as e:
+                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
+        except Exception as e:
+            logger.warning(f"Bulk entity store cleanup failed: {e}")
+
     def _link_entities_for_memory(self, memory_id, text, filters):
         """Extract entities from `text` and link them to `memory_id` in the
         entity store, scoped to `filters`. Simpler single-memory variant of
@@ -1781,12 +1802,23 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
         memories = self.vector_store.list(filters=filters)[0]
+        errors = []
         for memory in memories:
-            self._delete_memory(memory.id)
+            try:
+                self._delete_memory(memory.id, skip_entity_cleanup=True)
+            except Exception as e:
+                errors.append(e)
+                logger.warning("Delete error: %s", e)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        if self._entity_store is not None:
+            self._bulk_clear_entity_store(filters)
+
+        if errors:
+            logger.warning("Failed to delete %d out of %d memories", len(errors), len(memories))
+
+        deleted_count = len(memories) - len(errors)
+        logger.info(f"Deleted {deleted_count} memories")
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
         if decay_usage_notice:
@@ -1941,7 +1973,7 @@ class Memory(MemoryBase):
 
         return memory_id
 
-    def _delete_memory(self, memory_id, existing_memory=None):
+    def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = self.vector_store.get(vector_id=memory_id)
@@ -1967,7 +1999,8 @@ class Memory(MemoryBase):
 
         # Entity-store cleanup: strip this memory's id from any entity records
         # that linked to it. Non-fatal — the helper swallows errors.
-        self._remove_memory_from_entity_store(memory_id, session_filters)
+        if not skip_entity_cleanup:
+            self._remove_memory_from_entity_store(memory_id, session_filters)
 
         return memory_id
 
