@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from mem0.exceptions import ValidationError as Mem0ValidationError
+
 pytest.importorskip("fastapi", reason="fastapi not installed")
 
 from fastapi.testclient import TestClient
@@ -616,6 +618,31 @@ class TestGetMemories:
         # 3. Verify the core logic: the param was mapped to the filters dict!
         _, kwargs = mock_memory.get_all.call_args
         assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert "top_k" not in kwargs
+
+    def test_get_memories_entity_filters_forward_top_k(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1000")
+
+        assert response.status_code == 200
+
+        _, kwargs = mock_memory.get_all.call_args
+        assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert kwargs["top_k"] == 1000
+
+    def test_get_memories_admin_top_k_zero_not_defaulted(self, client, mock_memory):
+        mock_memory.vector_store.list.return_value = []
+
+        response = client.get("/memories?top_k=0")
+
+        assert response.status_code == 200
+        _, kwargs = mock_memory.vector_store.list.call_args
+        assert kwargs["top_k"] == 0
+
+    def test_get_memories_rejects_top_k_above_limit(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1001")
+
+        assert response.status_code == 422
+        mock_memory.get_all.assert_not_called()
 
 
 # ===========================================================================
@@ -701,3 +728,44 @@ class TestSearchValidationErrors:
         )
         resp = client.post("/search", json={"query": "food"})
         assert resp.status_code == 400
+
+
+# ===========================================================================
+# add / update / delete: map core errors to 4xx instead of 502
+# ===========================================================================
+
+class TestWriteHandlerErrorMapping:
+    """ValueError("... not found") -> 404, other ValueError / Mem0ValidationError
+    -> 400. A real outage still surfaces as 502 via upstream_error()."""
+
+    def test_update_not_found_returns_404(self, client, mock_memory):
+        mock_memory.update.side_effect = ValueError("Memory with id mem-1 not found")
+        resp = client.put("/memories/mem-1", json={"text": "new"})
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"]
+
+    def test_delete_not_found_returns_404(self, client, mock_memory):
+        mock_memory.delete.side_effect = ValueError("Memory with id mem-1 not found")
+        resp = client.delete("/memories/mem-1")
+        assert resp.status_code == 404
+
+    def test_update_other_value_error_returns_400(self, client, mock_memory):
+        mock_memory.update.side_effect = ValueError("data must be a non-empty string")
+        resp = client.put("/memories/mem-1", json={"text": "new"})
+        assert resp.status_code == 400
+
+    def test_add_validation_error_returns_400(self, client, mock_memory):
+        mock_memory.add.side_effect = Mem0ValidationError(
+            message="messages must be str, dict, or list[dict]", error_code="VALIDATION_003"
+        )
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "hi"}], "user_id": "u1",
+        })
+        assert resp.status_code == 400
+
+    def test_add_real_outage_still_returns_502(self, client, mock_memory):
+        mock_memory.add.side_effect = RuntimeError("vector store unreachable")
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "hi"}], "user_id": "u1",
+        })
+        assert resp.status_code == 502

@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from typing import Dict, Optional
 
@@ -47,6 +48,8 @@ class OutputData(BaseModel):
 
 
 class BaiduDB(VectorStoreBase):
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
     def __init__(
         self,
         endpoint: str,
@@ -404,8 +407,16 @@ class BaiduDB(VectorStoreBase):
         """
         conditions = []
         for key, value in filters.items():
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
             if isinstance(value, str):
-                conditions.append(f'metadata["{key}"] = "{value}"')
-            else:
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                conditions.append(f'metadata["{key}"] = "{escaped}"')
+            elif isinstance(value, (int, float, bool)):
                 conditions.append(f'metadata["{key}"] = {value}')
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
         return " AND ".join(conditions)

@@ -122,7 +122,7 @@ def test_delete_vector(chromadb_instance):
 
     chromadb_instance.delete(vector_id=vector_id)
 
-    chromadb_instance.collection.delete.assert_called_once_with(ids=vector_id)
+    chromadb_instance.collection.delete.assert_called_once_with(ids=[vector_id])
 
 
 def test_update_vector(chromadb_instance):
@@ -133,7 +133,31 @@ def test_update_vector(chromadb_instance):
     chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
 
     chromadb_instance.collection.update.assert_called_once_with(
-        ids=vector_id, embeddings=new_vector, metadatas=new_payload
+        ids=[vector_id], embeddings=[new_vector], metadatas=[new_payload]
+    )
+
+
+def test_update_vector_metadata_only(chromadb_instance):
+    # Metadata-only update (vector=None) must not wrap None in a list.
+    vector_id = "id1"
+    new_payload = {"name": "updated_vector"}
+
+    chromadb_instance.update(vector_id=vector_id, vector=None, payload=new_payload)
+
+    chromadb_instance.collection.update.assert_called_once_with(
+        ids=[vector_id], embeddings=None, metadatas=[new_payload]
+    )
+
+
+def test_update_vector_embedding_only(chromadb_instance):
+    # Vector-only update (payload=None) must not wrap None in a list.
+    vector_id = "id1"
+    new_vector = [0.7, 0.8, 0.9]
+
+    chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=None)
+
+    chromadb_instance.collection.update.assert_called_once_with(
+        ids=[vector_id], embeddings=[new_vector], metadatas=None
     )
 
 
@@ -244,12 +268,18 @@ def test_generate_where_clause_single_filter():
 
 
 def test_generate_where_clause_no_filters():
-    """Test _generate_where_clause with no filters."""
+    """Test _generate_where_clause with no filters returns None."""
     result = ChromaDB._generate_where_clause(None)
-    assert result == {}
+    assert result is None
 
     result = ChromaDB._generate_where_clause({})
-    assert result == {}
+    assert result is None
+
+
+def test_generate_where_clause_all_wildcards_returns_none():
+    """All-wildcard filters must return None, not {}, to avoid ChromaDB ValueError."""
+    result = ChromaDB._generate_where_clause({"user_id": "*"})
+    assert result is None
 
 
 def test_generate_where_clause_non_string_values():

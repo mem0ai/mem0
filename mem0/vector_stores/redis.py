@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from datetime import datetime, timezone
@@ -65,7 +66,7 @@ class RedisDB(VectorStoreBase):
             "prefix": f"mem0:{collection_name}",
         }
 
-        fields = DEFAULT_FIELDS.copy()
+        fields = copy.deepcopy(DEFAULT_FIELDS)
         fields[-1]["attrs"]["dims"] = embedding_model_dims
 
         self.schema = {"index": index_schema, "fields": fields}
@@ -98,8 +99,9 @@ class RedisDB(VectorStoreBase):
             "prefix": f"mem0:{collection_name}",
         }
 
-        # Copy the default fields and update the vector field with the specified dimensions
-        fields = DEFAULT_FIELDS.copy()
+        # Deep-copy the default fields so mutating the nested vector attrs never
+        # leaks into the module global or other instances.
+        fields = copy.deepcopy(DEFAULT_FIELDS)
         fields[-1]["attrs"]["dims"] = embedding_dims
         fields[-1]["attrs"]["distance_metric"] = distance_metric
 
@@ -122,11 +124,13 @@ class RedisDB(VectorStoreBase):
         data = []
         for vector, payload, id in zip(vectors, payloads, ids):
             # Start with required fields
+            created_at_str = payload.get("created_at")
+            created_at_ts = int(datetime.fromisoformat(created_at_str).timestamp()) if created_at_str else 0
             entry = {
                 "memory_id": id,
-                "hash": payload["hash"],
-                "memory": payload["data"],
-                "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
+                "hash": payload.get("hash", ""),
+                "memory": payload.get("data", ""),
+                "created_at": created_at_ts,
                 "embedding": np.array(vector, dtype=np.float32).tobytes(),
             }
 
@@ -242,12 +246,16 @@ class RedisDB(VectorStoreBase):
         self.index.drop_keys(f"{self.schema['index']['prefix']}:{vector_id}")
 
     def update(self, vector_id=None, vector=None, payload=None):
+        created_at_str = payload.get("created_at")
+        created_at_ts = int(datetime.fromisoformat(created_at_str).timestamp()) if created_at_str else 0
+        updated_at_str = payload.get("updated_at")
+        updated_at_ts = int(datetime.fromisoformat(updated_at_str).timestamp()) if updated_at_str else 0
         data = {
             "memory_id": vector_id,
-            "hash": payload["hash"],
-            "memory": payload["data"],
-            "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
-            "updated_at": int(datetime.fromisoformat(payload["updated_at"]).timestamp()),
+            "hash": payload.get("hash", ""),
+            "memory": payload.get("data", ""),
+            "created_at": created_at_ts,
+            "updated_at": updated_at_ts,
         }
 
         # Only update embedding if vector is provided
