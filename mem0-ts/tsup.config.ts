@@ -3,6 +3,7 @@ import pkg from "./package.json";
 
 const external = [
   "openai",
+  "@aws-sdk/client-bedrock-runtime",
   "@anthropic-ai/sdk",
   "groq-sdk",
   "uuid",

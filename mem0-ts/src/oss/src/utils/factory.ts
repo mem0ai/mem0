@@ -1,4 +1,5 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
+import { AWSBedrockEmbedder } from "../embeddings/aws_bedrock";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
 import { OpenAILLM } from "../llms/openai";
@@ -42,6 +43,8 @@ export class EmbedderFactory {
     switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAIEmbedder(config);
+      case "aws_bedrock":
+        return new AWSBedrockEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
       case "lmstudio":

@@ -1,34 +1,36 @@
 ---
 title: AWS Bedrock
-description: "Configure AWS Bedrock as an embedding provider in Mem0 with IAM credentials and boto3 authentication."
+description: "Configure AWS Bedrock as an embedding provider in Mem0 with IAM credentials for Python or TypeScript."
 ---
 
-To use AWS Bedrock embedding models, you need to have the appropriate AWS credentials and permissions. The embeddings implementation relies on the `boto3` library.
+To use AWS Bedrock embedding models, you need the appropriate AWS credentials, permissions, and model access. The SDK uses the standard AWS credential provider chain when explicit credentials are not supplied.
 
 ### Setup
+
 - Ensure you have model access from the [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess)
-- Authenticate the boto3 client using a method described in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+- Configure credentials using a method described in the [AWS documentation](https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html)
 - Set up environment variables for authentication:
-  ```bash
-  export AWS_REGION=us-east-1
-  export AWS_ACCESS_KEY_ID=your-access-key
-  export AWS_SECRET_ACCESS_KEY=your-secret-key
-  ```
 
-### Usage
+```bash
+export AWS_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+```
 
-<CodeGroup>
-```python Python
+For TypeScript, install the optional Bedrock Runtime client:
+
+```bash
+pnpm add @aws-sdk/client-bedrock-runtime
+```
+
+### Python usage
+
+```python
 import os
 from mem0 import Memory
 
-# For LLM if needed
 os.environ["OPENAI_API_KEY"] = "your-openai-api-key"
-
-# AWS credentials
 os.environ["AWS_REGION"] = "us-west-2"
-os.environ["AWS_ACCESS_KEY_ID"] = "your-access-key"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "your-secret-key"
 
 config = {
     "embedder": {
@@ -40,24 +42,38 @@ config = {
 }
 
 m = Memory.from_config(config)
-messages = [
-    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
-    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
-]
-m.add(messages, user_id="alice")
+m.add("I prefer science fiction movies.", user_id="alice")
 ```
-</CodeGroup>
+
+### TypeScript usage
+
+```typescript
+import { AWSBedrockEmbedder } from "mem0ai/oss";
+
+const embedder = new AWSBedrockEmbedder({
+  model: "amazon.titan-embed-text-v2:0",
+  awsRegion: "us-west-2",
+  embeddingDims: 512,
+});
+
+const embedding = await embedder.embed("Mem0 stores long-term agent memory.");
+```
 
 ### Config
 
-Here are the parameters available for configuring AWS Bedrock embedder:
+#### Python
 
-<Tabs>
-<Tab title="Python">
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `model` | The name of the embedding model to use | `amazon.titan-embed-text-v1` |
-</Tab>
-</Tabs>
+| Parameter | Description                            | Default Value                |
+| --------- | -------------------------------------- | ---------------------------- |
+| `model`   | The name of the embedding model to use | `amazon.titan-embed-text-v1` |
+
+#### TypeScript
+
+| Parameter            | Description                                               | Default Value                |
+| -------------------- | --------------------------------------------------------- | ---------------------------- |
+| `model`              | Titan or Cohere embedding model ID                        | `amazon.titan-embed-text-v1` |
+| `awsRegion`          | AWS region for Bedrock Runtime                            | `AWS_REGION` or `us-west-2`  |
+| `embeddingDims`      | Output dimensions for Titan Text Embeddings V2            | Model default                |
+| `awsAccessKeyId`     | Explicit access key; omit to use the AWS credential chain | AWS credential chain         |
+| `awsSecretAccessKey` | Explicit secret key; required with `awsAccessKeyId`       | AWS credential chain         |
+| `awsSessionToken`    | Optional session token for temporary credentials          | None                         |
