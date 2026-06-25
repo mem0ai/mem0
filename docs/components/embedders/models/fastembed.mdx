@@ -1,0 +1,46 @@
+---
+title: FastEmbed
+description: "Configure FastEmbed as an embedding provider in Mem0 for fast, local embedding generation using the ONNX runtime."
+---
+
+[FastEmbed](https://github.com/qdrant/fastembed) is a lightweight, fast embedding library that runs models in the ONNX runtime — no PyTorch dependency and no external API calls, so embeddings are generated locally.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "fastembed",
+        "config": {
+            "model": "thenlper/gte-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+<Note>
+FastEmbed downloads the selected model on first use and caches it locally. The embedding dimension is determined automatically from the model, so `embedding_dims` does not need to be set. See the [FastEmbed supported models list](https://qdrant.github.io/fastembed/examples/Supported_Models/) for available model names.
+</Note>
+
+### Config
+
+Here are the parameters available for configuring the FastEmbed embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the FastEmbed model to use | `thenlper/gte-large` |
+| `embedding_dims` | Dimensions of the embedding model | Inferred from the model |
