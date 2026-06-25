@@ -40,12 +40,15 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20250504.0
         version: 4.20260611.1
+      '@elastic/elasticsearch':
+        specifier: ^9.0.0
+        version: 9.4.2
       '@google/genai':
         specifier: ^1.40.0
         version: 1.52.0
       '@langchain/core':
         specifier: ^1.1.47
-        version: 1.1.48(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
+        version: 1.1.48(@opentelemetry/api@1.9.1)(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
       '@mistralai/mistralai':
         specifier: ^1.5.2
         version: 1.15.1
@@ -78,7 +81,7 @@ importers:
         version: 0.3.0
       natural:
         specifier: ^8.0.1
-        version: 8.1.1
+        version: 8.1.1(@opentelemetry/api@1.9.1)
       ollama:
         specifier: ^0.5.14
         version: 0.5.18
@@ -377,6 +380,19 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
+  '@elastic/elasticsearch@9.4.2':
+    resolution: {integrity: sha512-H9myMlLUeotkZhZ4ppinoMGDFxmW3lY8/s+4TIk1vFHyCvWU1Ej4T7azX5buCzemyFApgN0ywnEuvOtpel2VZg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      apache-arrow: 18.x - 21.x
+    peerDependenciesMeta:
+      apache-arrow:
+        optional: true
+
+  '@elastic/transport@9.3.7':
+    resolution: {integrity: sha512-L38Ax21uF2OPUmCRWycZ/dZdMYf7gMrtClcxvVrqJVFmn8ET2M++GYmFGJpLqOHS1beATxOXLWe7y2ijSQz/ng==}
+    engines: {node: '>=20'}
+
   '@esbuild/aix-ppc64@0.28.1':
     resolution: {integrity: sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ==}
     engines: {node: '>=18'}
@@ -660,6 +676,20 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
+
+  '@opentelemetry/core@2.8.0':
+    resolution: {integrity: sha512-hd1Lfh8p545nNz+jq1Ejfz+Mn1hyLuxYn1YzTfFNrxr8urEWMNQLPf1Th8kjOH+HxwawCrtgBp8JpBUR4ZSgww==}
+    engines: {node: ^18.19.0 || >=20.6.0}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.0.0 <1.10.0'
+
+  '@opentelemetry/semantic-conventions@1.41.1':
+    resolution: {integrity: sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA==}
+    engines: {node: '>=14'}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -1684,6 +1714,10 @@ packages:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
 
+  hpagent@1.2.0:
+    resolution: {integrity: sha512-A91dYTeIB6NoXG+PxTQpCCDDnfHsW9kc06Lvpu1TEe9gnd6ZFeiBoRO9JvzEv6xK7EX97/dUE8g/vBMTqTS3CA==}
+    engines: {node: '>=14'}
+
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
@@ -2619,6 +2653,9 @@ packages:
     resolution: {integrity: sha512-b3rppTKm9T+PsVCBEOUR46GWI7fdOs00VKZ1+9c1EWDaDMvjQc6tUwuFyIprgGgTcWoVHSKrU8H31ZHA2e0RHA==}
     engines: {node: '>=10'}
 
+  secure-json-parse@4.1.0:
+    resolution: {integrity: sha512-l4KnYfEyqYJxDwlNVyRfO2E4NTHfMKAWdUuA8J0yve2Dz/E/PdBepY03RvyJpssIpRFwJoCD55wA+mEDs6ByWA==}
+
   semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
@@ -2928,6 +2965,10 @@ packages:
   undici@6.26.0:
     resolution: {integrity: sha512-4yqz8a3n5HmGTlsbADNtr/dJlhkh/55Rq798G6ibiULcXbDtaLpTl1pvdqcbFfeoj3iSi52lePFM7h9H21cw/A==}
     engines: {node: '>=18.17'}
+
+  undici@7.28.0:
+    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
+    engines: {node: '>=20.18.1'}
 
   update-browserslist-db@1.2.3:
     resolution: {integrity: sha512-Js0m9cx+qOgDxo0eMiFGEueWztz+d4+M3rGlmKPT+T4IS/jP4ylw3Nwpu6cpTTP8R1MAC1kF4VbdLt3ARf209w==}
@@ -3383,6 +3424,26 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
+  '@elastic/elasticsearch@9.4.2':
+    dependencies:
+      '@elastic/transport': 9.3.7
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@elastic/transport@9.3.7':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/core': 2.8.0(@opentelemetry/api@1.9.1)
+      debug: 4.4.3(supports-color@5.5.0)
+      hpagent: 1.2.0
+      ms: 2.1.3
+      secure-json-parse: 4.1.0
+      tslib: 2.8.1
+      undici: 7.28.0
+    transitivePeerDependencies:
+      - supports-color
+
   '@esbuild/aix-ppc64@0.28.1':
     optional: true
 
@@ -3677,12 +3738,12 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@1.1.48(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)':
+  '@langchain/core@1.1.48(@opentelemetry/api@1.9.1)(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.6.3(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
+      langsmith: 0.6.3(@opentelemetry/api@1.9.1)(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 3.25.76
@@ -3717,6 +3778,15 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@opentelemetry/api@1.9.1': {}
+
+  '@opentelemetry/core@2.8.0(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/semantic-conventions': 1.41.1
+
+  '@opentelemetry/semantic-conventions@1.41.1': {}
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -3755,9 +3825,9 @@ snapshots:
     dependencies:
       '@redis/client': 1.6.1
 
-  '@redis/bloom@5.12.1(@redis/client@5.12.1)':
+  '@redis/bloom@5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@redis/client': 5.12.1
+      '@redis/client': 5.12.1(@opentelemetry/api@1.9.1)
 
   '@redis/client@1.6.1':
     dependencies:
@@ -3765,9 +3835,11 @@ snapshots:
       generic-pool: 3.9.0
       yallist: 4.0.0
 
-  '@redis/client@5.12.1':
+  '@redis/client@5.12.1(@opentelemetry/api@1.9.1)':
     dependencies:
       cluster-key-slot: 1.1.2
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
 
   '@redis/graph@1.1.1(@redis/client@1.6.1)':
     dependencies:
@@ -3777,25 +3849,25 @@ snapshots:
     dependencies:
       '@redis/client': 1.6.1
 
-  '@redis/json@5.12.1(@redis/client@5.12.1)':
+  '@redis/json@5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@redis/client': 5.12.1
+      '@redis/client': 5.12.1(@opentelemetry/api@1.9.1)
 
   '@redis/search@1.2.0(@redis/client@1.6.1)':
     dependencies:
       '@redis/client': 1.6.1
 
-  '@redis/search@5.12.1(@redis/client@5.12.1)':
+  '@redis/search@5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@redis/client': 5.12.1
+      '@redis/client': 5.12.1(@opentelemetry/api@1.9.1)
 
   '@redis/time-series@1.1.0(@redis/client@1.6.1)':
     dependencies:
       '@redis/client': 1.6.1
 
-  '@redis/time-series@5.12.1(@redis/client@5.12.1)':
+  '@redis/time-series@5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))':
     dependencies:
-      '@redis/client': 5.12.1
+      '@redis/client': 5.12.1(@opentelemetry/api@1.9.1)
 
   '@rollup/rollup-android-arm-eabi@4.61.1':
     optional: true
@@ -4716,6 +4788,8 @@ snapshots:
     dependencies:
       lru-cache: 10.4.3
 
+  hpagent@1.2.0: {}
+
   html-escaper@2.0.2: {}
 
   http-proxy-agent@7.0.2:
@@ -5215,10 +5289,11 @@ snapshots:
 
   kolorist@1.8.0: {}
 
-  langsmith@0.6.3(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0):
+  langsmith@0.6.3(@opentelemetry/api@1.9.1)(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
+      '@opentelemetry/api': 1.9.1
       openai: 4.104.0(ws@8.21.0)(zod@3.25.76)
       ws: 8.21.0
 
@@ -5376,7 +5451,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  natural@8.1.1:
+  natural@8.1.1(@opentelemetry/api@1.9.1):
     dependencies:
       afinn-165: 2.0.2
       afinn-165-financialmarketnews: 3.0.0
@@ -5385,7 +5460,7 @@ snapshots:
       memjs: 1.3.2
       mongoose: 9.7.0
       pg: 8.21.0
-      redis: 5.12.1
+      redis: 5.12.1(@opentelemetry/api@1.9.1)
       safe-stable-stringify: 2.5.0
       stopwords-iso: 1.1.0
       sylvester: 0.0.21
@@ -5755,13 +5830,13 @@ snapshots:
       '@redis/search': 1.2.0(@redis/client@1.6.1)
       '@redis/time-series': 1.1.0(@redis/client@1.6.1)
 
-  redis@5.12.1:
+  redis@5.12.1(@opentelemetry/api@1.9.1):
     dependencies:
-      '@redis/bloom': 5.12.1(@redis/client@5.12.1)
-      '@redis/client': 5.12.1
-      '@redis/json': 5.12.1(@redis/client@5.12.1)
-      '@redis/search': 5.12.1(@redis/client@5.12.1)
-      '@redis/time-series': 5.12.1(@redis/client@5.12.1)
+      '@redis/bloom': 5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))
+      '@redis/client': 5.12.1(@opentelemetry/api@1.9.1)
+      '@redis/json': 5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))
+      '@redis/search': 5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))
+      '@redis/time-series': 5.12.1(@redis/client@5.12.1(@opentelemetry/api@1.9.1))
     transitivePeerDependencies:
       - '@node-rs/xxhash'
       - '@opentelemetry/api'
@@ -5831,6 +5906,8 @@ snapshots:
   safe-buffer@5.2.1: {}
 
   safe-stable-stringify@2.5.0: {}
+
+  secure-json-parse@4.1.0: {}
 
   semver@6.3.1: {}
 
@@ -6114,6 +6191,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici@6.26.0: {}
+
+  undici@7.28.0: {}
 
   update-browserslist-db@1.2.3(browserslist@4.28.2):
     dependencies:
