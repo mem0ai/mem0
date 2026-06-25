@@ -10,8 +10,8 @@ export class LiteLLM extends OpenAILLM {
       baseURL:
         config.baseURL ||
         process.env.LITELLM_API_BASE ||
-        "http://0.0.0.0:4000",
-      model: config.model || "gpt-4o-mini",
+        "http://localhost:4000",
+      model: config.model || "gpt-5-mini",
     });
   }
 
