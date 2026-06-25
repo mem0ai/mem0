@@ -121,6 +121,57 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
+def test_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path):
+    """Regression: Memory.reset() must clear the messages table, not just history."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = Memory(config)
+
+    memory.db.save_messages([{"role": "user", "content": "hello", "name": None}], "sess1")
+    memory.db.add_history(memory_id="m1", old_memory=None, new_memory="x", event="ADD")
+
+    memory.reset()
+
+    msg_count = memory.db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    hist_count = memory.db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+    assert msg_count == 0, "messages table must be empty after Memory.reset()"
+    assert hist_count == 0, "history table must be empty after Memory.reset()"
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+async def test_async_memory_reset_clears_messages_table(mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path):
+    """Regression: AsyncMemory.reset() must clear the messages table, not just history."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = AsyncMemory(config)
+
+    memory.db.save_messages([{"role": "user", "content": "hi", "name": None}], "s1")
+    memory.db.add_history(memory_id="m1", old_memory=None, new_memory="x", event="ADD")
+
+    await memory.reset()
+
+    msg_count = memory.db.connection.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    hist_count = memory.db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
+    assert msg_count == 0, "messages must be empty after AsyncMemory.reset()"
+    assert hist_count == 0, "history must be empty after AsyncMemory.reset()"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
 def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that search operations handle memory objects with missing 'data' key gracefully."""
@@ -292,6 +343,91 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
     assert result[1]["memory"] == "Memory 2"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    attributed_to is written to the payload on add (and the extraction prompt marks it
+    required), so get/get_all/search must return it instead of dropping it. It must be a
+    top-level field, not buried inside metadata.
+    """
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+    memory.embedding_model = mock_embedder
+
+    payload = {"data": "User likes Python", "attributed_to": "user", "user_id": "u1"}
+
+    # get
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", payload)
+    got = memory.get("mem_1")
+    assert got["attributed_to"] == "user"
+    assert "attributed_to" not in (got.get("metadata") or {})
+
+    # get_all
+    mock_vector_store.list.return_value = [MockVectorMemory("mem_1", payload)]
+    listed = memory._get_all_from_vector_store({"user_id": "u1"}, 100)
+    assert listed[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (listed[0].get("metadata") or {})
+
+    # search
+    mock_vector_store.search.return_value = [MockVectorMemory("mem_1", payload, score=0.9)]
+    mock_vector_store.keyword_search.return_value = []
+    searched = memory._search_vector_store("python", {"user_id": "u1"}, 10)
+    assert searched[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (searched[0].get("metadata") or {})
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """AsyncMemory get/get_all/search must surface attributed_to, same as the sync path."""
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    memory = AsyncMemory(MemoryConfig())
+    memory.embedding_model = mock_embedder
+
+    payload = {"data": "User likes Python", "attributed_to": "user", "user_id": "u1"}
+
+    # get
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", payload)
+    got = await memory.get("mem_1")
+    assert got["attributed_to"] == "user"
+    assert "attributed_to" not in (got.get("metadata") or {})
+
+    # get_all
+    mock_vector_store.list.return_value = [MockVectorMemory("mem_1", payload)]
+    listed = await memory._get_all_from_vector_store({"user_id": "u1"}, 100)
+    assert listed[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (listed[0].get("metadata") or {})
+
+    # search
+    mock_vector_store.search.return_value = [MockVectorMemory("mem_1", payload, score=0.9)]
+    mock_vector_store.keyword_search.return_value = []
+    searched = await memory._search_vector_store("python", {"user_id": "u1"}, 10)
+    assert searched[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (searched[0].get("metadata") or {})
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -481,6 +617,59 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
 
     with pytest.raises(ValueError, match="Memory with id non-existent-id not found"):
         await memory._update_memory("non-existent-id", "new data", {"new data": [0.1, 0.2]})
+
+    mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """A backing-store failure while fetching the memory during update must
+    surface as the original error, not be masked as a 'provide a valid
+    memory_id' ValueError. The REST layer relies on this so an outage maps to
+    5xx instead of a misleading 4xx."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mock_vector_store.get.side_effect = ConnectionError("vector store unreachable")
+
+    with pytest.raises(ConnectionError, match="vector store unreachable"):
+        memory._update_memory("mem-1", "new data", {"new data": [0.1, 0.2]})
+
+    mock_vector_store.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_update_propagates_vector_store_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Async twin: a backing-store failure during update re-raises the original
+    error instead of masking it as a ValueError."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mock_vector_store.get.side_effect = ConnectionError("vector store unreachable")
+
+    with pytest.raises(ConnectionError, match="vector store unreachable"):
+        await memory._update_memory("mem-1", "new data", {"new data": [0.1, 0.2]})
 
     mock_vector_store.update.assert_not_called()
 

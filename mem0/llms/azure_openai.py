@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 from typing import Dict, List, Optional, Union
@@ -69,6 +70,26 @@ class AzureOpenAILLM(LLMBase):
             default_headers=default_headers,
         )
 
+    @staticmethod
+    def _rewrite_assistant_keyword(messages):
+        """
+        Return a copy of ``messages`` with the word "assistant" replaced by "ai"
+        in the last message's textual content.
+
+        Azure's content management policy can flag the literal word "assistant",
+        which makes ``add`` fail (see issue #2636). The rewrite targets that
+        trigger without mutating the caller's messages and without assuming the
+        content is a string, so multimodal (list) content passes through untouched.
+        """
+        if not messages:
+            return messages
+
+        messages = copy.deepcopy(messages)
+        last_content = messages[-1].get("content")
+        if isinstance(last_content, str):
+            messages[-1]["content"] = last_content.replace("assistant", "ai")
+        return messages
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -121,14 +142,14 @@ class AzureOpenAILLM(LLMBase):
             str: The generated response.
         """
 
-        user_prompt = messages[-1]["content"]
-
-        user_prompt = user_prompt.replace("assistant", "ai")
-
-        messages[-1]["content"] = user_prompt
+        # Azure's "Indirect Attacks" content filter can flag the literal word
+        # "assistant" in the prompt, so it is rewritten to "ai" before the request.
+        # Work on a copy so the caller's messages are left untouched and string-only
+        # content is handled without breaking multimodal (list) content.
+        messages = self._rewrite_assistant_keyword(messages)
 
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         # Add model and messages
         params.update({
             "model": self.config.model,

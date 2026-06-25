@@ -16,9 +16,10 @@ from errors import (
     upstream_error,
     upstream_error_handler,
 )
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from mem0.exceptions import ValidationError as Mem0ValidationError
 from models import RequestLog, User
 from pydantic import BaseModel, Field
 from rate_limit import limiter
@@ -206,6 +207,14 @@ class GenerateInstructionsRequest(BaseModel):
     use_case: str = Field(..., description="Description of what the user will use Mem0 for.")
 
 
+def _client_error(exc: Exception) -> HTTPException:
+    """Map core validation / not-found errors to 4xx so clients can tell a bad
+    request from an upstream outage. 'not found' is a 404, everything else a 400."""
+    detail = str(exc)
+    status_code = 404 if isinstance(exc, ValueError) and "not found" in detail.lower() else 400
+    return HTTPException(status_code=status_code, detail=detail)
+
+
 def _redact_config(value: Any, key: str | None = None) -> Any:
     if isinstance(value, dict):
         return {item_key: _redact_config(item_value, item_key) for item_key, item_value in value.items()}
@@ -363,6 +372,8 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
         if response.get("results"):
             telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -398,6 +409,7 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    top_k: Optional[int] = Query(None, ge=0, le=ALL_MEMORIES_LIMIT),
     _auth=Depends(verify_auth),
 ):
     """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
@@ -406,11 +418,14 @@ def get_all_memories(
             auth_type = getattr(request.state, "auth_type", "none")
             if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
                 raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
-            return _list_all_memories()
+            return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        return get_memory_instance().get_all(filters=filters)
+        params = {"filters": filters}
+        if top_k is not None:
+            params["top_k"] = top_k
+        return get_memory_instance().get_all(**params)
     except HTTPException:
         raise
     except Exception:
@@ -466,6 +481,8 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         return get_memory_instance().update(
             memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata
         )
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -485,6 +502,8 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 

@@ -14,7 +14,13 @@ export class AnthropicLLM implements LLM {
     if (!apiKey) {
       throw new Error("Anthropic API key is required");
     }
-    this.client = new Anthropic({ apiKey });
+    // Forward baseURL to the client when set so proxy/gateway users are
+    // honored (parity with the OpenAI provider and the Python fix in #5626).
+    const clientArgs: { apiKey: string; baseURL?: string } = { apiKey };
+    if (config.baseURL) {
+      clientArgs.baseURL = config.baseURL;
+    }
+    this.client = new Anthropic(clientArgs);
     this.model = config.model || "claude-sonnet-4-6";
     // Defaults mirror the Python provider's AnthropicConfig
     // (max_tokens=2000, temperature=0.1, top_p omitted).

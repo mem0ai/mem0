@@ -2,6 +2,18 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.11 — Session-summary metadata fix + rerank auto-injected context by default
+
+> Versions: Claude Code / Cursor / Codex `0.2.11`; Antigravity `0.1.3`. All four editors share `scripts/`, so the fix below applies to every editor.
+
+### Fixed
+
+- **`files_touched` was double-JSON-encoded in session summaries (`scripts/capture_session_summary.py`):** the Stop-hook summary set `metadata["files_touched"] = json.dumps(files[:20])` — a pre-serialized JSON string — and then serialized the whole request body again with `json.dumps(body)`. The stored memory therefore carried an escaped string blob (`"[\"mem0/memory/main.py\", \"src/client/index.ts\"]"`) instead of a real array, so file paths surfaced as backslash- and slash-heavy escaped text when those memories were returned by `search_memories`/`get_memories` and shown in Claude Code, Cursor, Codex, and Antigravity. The fix stores the list directly (`metadata["files_touched"] = files[:20]`) so the body is encoded exactly once. New `tests/test_capture_session_summary.py` asserts the posted body contains a JSON array and no escaped-string artifact.
+
+### Changed
+
+- **Auto-injected memory context is now reranked by default (`scripts/_search.py`, `scripts/file_context.py`, `scripts/on_bash_output.sh`, `scripts/on_user_prompt.sh`):** the REST search endpoint does not rerank when `rerank` is omitted, so hook-injected context (file-context, bash-error lookup, session-resume prefetch) was ordered by raw vector similarity and the single most relevant memory could fall outside the injected `top_k` window. A new `should_rerank()` helper turns reranking on for every auto-injection path; the extra ~150–200 ms stays within the hook's curl budget. Opt out with `MEM0_RERANK=0` (also accepts `false`/`no`/`off`). (#5690)
+
 ## 0.2.10 — Accurate per-editor telemetry attribution
 
 ### Fixed

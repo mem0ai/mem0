@@ -296,6 +296,44 @@ export class Memory {
     return filters;
   }
 
+  private _normalizeEntityText(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  private async _existingEntitiesByText(
+    entityStore: VectorStore,
+    filters: Record<string, any>,
+  ): Promise<Map<string, { id: string; payload: Record<string, any> }>> {
+    const rowsByText = new Map<
+      string,
+      { id: string; payload: Record<string, any> }
+    >();
+    let rows: Array<{ id: string; payload: Record<string, any> }> = [];
+    try {
+      const listed = await entityStore.list(filters, 10000);
+      rows = (
+        Array.isArray(listed) && Array.isArray(listed[0])
+          ? listed[0]
+          : (listed as any)
+      ) as Array<{ id: string; payload: Record<string, any> }>;
+    } catch (e) {
+      console.debug(
+        `Exact entity lookup failed, falling back to semantic dedup: ${e}`,
+      );
+      return rowsByText;
+    }
+
+    for (const row of rows) {
+      const text = row.payload?.data;
+      if (typeof text !== "string") continue;
+      const key = this._normalizeEntityText(text);
+      if (key && !rowsByText.has(key)) {
+        rowsByText.set(key, row);
+      }
+    }
+    return rowsByText;
+  }
+
   /**
    * Remove `memoryId` from every entity record scoped to `filters`.
    * If an entity's `linkedMemoryIds` becomes empty after removal, the
@@ -393,6 +431,10 @@ export class Memory {
       if (entities.length === 0) return;
 
       const entityStore = await this.getEntityStore();
+      const exactMatches = await this._existingEntitiesByText(
+        entityStore,
+        filters,
+      );
 
       for (const entity of entities) {
         try {
@@ -409,12 +451,21 @@ export class Memory {
             score?: number;
             payload: Record<string, any>;
           }> = [];
-          try {
-            matches = await entityStore.search(entityVec, 1, filters);
-          } catch {}
+          const exactMatch = exactMatches.get(
+            this._normalizeEntityText(entity.text),
+          );
+          if (!exactMatch) {
+            try {
+              matches = await entityStore.search(entityVec, 1, filters);
+            } catch {}
+          }
 
-          if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
-            const match = matches[0];
+          const semanticMatch =
+            matches.length > 0 && (matches[0].score ?? 0) >= 0.95
+              ? matches[0]
+              : undefined;
+          const match = exactMatch ?? semanticMatch;
+          if (match) {
             const payload = match.payload || {};
             const linked = new Set<string>(
               Array.isArray(payload.linkedMemoryIds)
@@ -717,7 +768,7 @@ export class Memory {
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
       for (const message of messages) {
-        if (message.content === "system") {
+        if (message.role === "system") {
           continue;
         }
         const memoryId = await this.createMemory(
@@ -1062,6 +1113,10 @@ export class Memory {
 
         if (valid.length > 0) {
           const entityStore = await this.getEntityStore();
+          const exactMatches = await this._existingEntitiesByText(
+            entityStore,
+            filters,
+          );
 
           // 7c: Search for existing entities one by one (no batch search)
           const toInsertVectors: number[][] = [];
@@ -1077,13 +1132,20 @@ export class Memory {
               score?: number;
               payload: Record<string, any>;
             }> = [];
-            try {
-              matches = await entityStore.search(entityVec, 1, filters);
-            } catch {}
+            const exactMatch = exactMatches.get(key);
+            if (!exactMatch) {
+              try {
+                matches = await entityStore.search(entityVec, 1, filters);
+              } catch {}
+            }
 
-            if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+            const semanticMatch =
+              matches.length > 0 && (matches[0].score ?? 0) >= 0.95
+                ? matches[0]
+                : undefined;
+            const match = exactMatch ?? semanticMatch;
+            if (match) {
               // Update existing entity
-              const match = matches[0];
               const payload = match.payload || {};
               const linked = new Set<string>(payload.linkedMemoryIds ?? []);
               for (const mid of memoryIds) linked.add(mid);
@@ -1189,7 +1251,13 @@ export class Memory {
       }
     }
 
-    const result = { ...memoryItem, ...filters };
+    const result = {
+      ...memoryItem,
+      ...filters,
+      ...(memory.payload.attributedTo && {
+        attributedTo: memory.payload.attributedTo,
+      }),
+    };
     await this._displayFirstRunNotice("get");
     return result;
   }
@@ -1453,6 +1521,7 @@ export class Memory {
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
+          ...(payload.attributedTo && { attributedTo: payload.attributedTo }),
           ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
       });
@@ -1532,7 +1601,9 @@ export class Memory {
       has_agent_id: !!config.agentId,
       has_run_id: !!config.runId,
     });
-    const { userId, agentId, runId } = config;
+    const userId = validateAndTrimEntityId(config.userId, "userId");
+    const agentId = validateAndTrimEntityId(config.agentId, "agentId");
+    const runId = validateAndTrimEntityId(config.runId, "runId");
 
     // Convert camelCase entity params to snake_case for filters (matches storage and search/getAll)
     const filters: SearchFilters = {};
@@ -1687,6 +1758,9 @@ export class Memory {
       ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
       ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
       ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
+      ...(mem.payload.attributedTo && {
+        attributedTo: mem.payload.attributedTo,
+      }),
     }));
 
     const result = { results };
