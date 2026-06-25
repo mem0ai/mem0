@@ -457,7 +457,6 @@ class Memory(MemoryBase):
             telemetry_config_dict['collection_name'] = "mem0migrations"
 
             # Set path for file-based vector stores
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
