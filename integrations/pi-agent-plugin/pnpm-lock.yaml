@@ -8,6 +8,7 @@ overrides:
   form-data@<4.0.6: '>=4.0.6'
   uuid@<11.1.1: '>=11.1.1'
   esbuild: '>=0.28.1'
+  undici@<6.27.0: '>=6.27.0'
 
 importers:
 
@@ -2350,10 +2351,6 @@ packages:
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
-  undici@6.26.0:
-    resolution: {integrity: sha512-4yqz8a3n5HmGTlsbADNtr/dJlhkh/55Rq798G6ibiULcXbDtaLpTl1pvdqcbFfeoj3iSi52lePFM7h9H21cw/A==}
-    engines: {node: '>=18.17'}
-
   undici@8.3.0:
     resolution: {integrity: sha512-TkUDgb6tl7KOGZ+7e8E3d2FYgUQgF6z5YypqjWmixVQSQERFcVrVg0ySADm2LVLRh5ljAaHTCR5Fmz3Q34rB7Q==}
     engines: {node: '>=22.19.0'}
@@ -3201,7 +3198,7 @@ snapshots:
     dependencies:
       '@qdrant/openapi-typescript-fetch': 1.2.6
       typescript: 6.0.3
-      undici: 6.26.0
+      undici: 8.3.0
 
   '@qdrant/openapi-typescript-fetch@1.2.6': {}
 
@@ -4892,8 +4889,6 @@ snapshots:
   undici-types@5.26.5: {}
 
   undici-types@7.24.6: {}
-
-  undici@6.26.0: {}
 
   undici@8.3.0: {}
 
