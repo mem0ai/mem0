@@ -1,0 +1,68 @@
+---
+title: TwelveLabs
+description: "Configure TwelveLabs Marengo as a multimodal embedding provider in Mem0, with optional Pegasus video summarization."
+---
+
+[TwelveLabs](https://twelvelabs.io) provides video-native foundation models. The
+**Marengo** model embeds text, image, audio and video into a single
+512-dimensional latent space, so a text memory describing a video shares the
+same space as embeddings generated directly from the video. The **Pegasus**
+model can summarize a video into text you can store as a memory.
+
+To use TwelveLabs, set the `TWELVELABS_API_KEY` environment variable. You can grab a free API key at [twelvelabs.io](https://twelvelabs.io) — there's a generous free tier.
+
+### Usage
+
+<Note> The `embedding_model_dims` parameter for `vector_store` should be set to `512` for the TwelveLabs embedder. </Note>
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["TWELVELABS_API_KEY"] = "your_api_key"
+os.environ["OPENAI_API_KEY"] = "your_api_key"  # For the LLM
+
+config = {
+    "embedder": {
+        "provider": "twelvelabs",
+        "config": {
+            "model": "marengo3.0"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+### Multimodal memory with Pegasus
+
+Use Pegasus to summarize a video into memory text, then store it. Because the
+summary is embedded with Marengo, it lives in the same multimodal latent space
+as the video it describes.
+
+```python
+from mem0.embeddings.twelvelabs import TwelveLabsEmbedding
+from mem0.configs.embeddings.base import BaseEmbedderConfig
+
+embedder = TwelveLabsEmbedding(BaseEmbedderConfig())
+summary = embedder.summarize_video("https://example.com/my-video.mp4")
+
+m.add(summary, user_id="john", metadata={"source": "video"})
+```
+
+### Config
+
+Here are the parameters available for configuring the TwelveLabs embedder:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The Marengo embedding model to use | `marengo3.0` |
+| `embedding_dims` | Dimensions of the embedding model | `512` |
+| `api_key` | The TwelveLabs API key | `None` |
