@@ -285,6 +285,20 @@ describe("ConfigManager", () => {
       expect(cfg.embedder.provider).toBe("fastembed");
       expect(cfg.embedder.config.model).toBeUndefined();
     });
+
+    it("treats FastEmbed provider casing the same way as the factory", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "FastEmbed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("FastEmbed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
   });
 
   describe("mergeConfig - LM Studio LLM config", () => {

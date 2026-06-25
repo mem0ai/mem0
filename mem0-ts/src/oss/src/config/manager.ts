@@ -5,6 +5,7 @@ export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
     const embedderProvider =
       userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider;
+    const embedderProviderKey = embedderProvider.toLowerCase();
     const mergedConfig = {
       version: userConfig.version || DEFAULT_MEMORY_CONFIG.version,
       embedder: {
@@ -13,7 +14,7 @@ export class ConfigManager {
           const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
           const userConf = userConfig.embedder?.config;
           let finalModel: string | any =
-            embedderProvider === "fastembed" ? undefined : defaultConf.model;
+            embedderProviderKey === "fastembed" ? undefined : defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
