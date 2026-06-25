@@ -19,15 +19,12 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.setup import get_user_id, is_aliased, is_oss_used, mark_aliased, read_anon_ids
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("default", category=DeprecationWarning)
-
-# Setup user config
-setup_config()
 
 # Entity parameters that must be passed via filters, not top-level
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
@@ -45,6 +42,10 @@ def _validate_and_trim_search_query(query: str) -> str:
 def _maybe_alias_anon_to_email(user_email):
     """Fire $identify per prior anon ID so PostHog merges them into email.
 
+    The OSS user_id is only a stitch candidate when telemetry.oss_used_at
+    proves OSS Memory actually ran here; bare user_id values were historically
+    minted at import time by platform-only clients and must not be stitched.
+    The CLI anon id keeps presence-based stitching (only the CLIs write it).
     Idempotent via telemetry.aliased_pairs: only writes markers when
     telemetry is actually enabled, so disabling/re-enabling MEM0_TELEMETRY still works.
     Best-effort: never raises.
@@ -55,8 +56,9 @@ def _maybe_alias_anon_to_email(user_email):
         return
     try:
         anon_ids = read_anon_ids()
+        oss_id = anon_ids.get("oss") if is_oss_used() else None
         seen = set()
-        for anon_id in (anon_ids.get("oss"), anon_ids.get("cli")):
+        for anon_id in (oss_id, anon_ids.get("cli")):
             if not anon_id or anon_id == user_email or anon_id in seen:
                 continue
             seen.add(anon_id)

@@ -85,6 +85,7 @@ class UnifiedTelemetry implements TelemetryClient {
       properties: {
         $anon_distinct_id: anonId,
         client_source: "typescript",
+        client_version: version,
         $lib: "posthog-node",
       },
     };

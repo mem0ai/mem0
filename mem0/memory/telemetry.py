@@ -129,7 +129,11 @@ class AnonymousTelemetry:
             self.posthog.capture(
                 distinct_id=email,
                 event="$identify",
-                properties={"$anon_distinct_id": anon_id, "client_source": "python"},
+                properties={
+                    "$anon_distinct_id": anon_id,
+                    "client_source": "python",
+                    "client_version": mem0.__version__,
+                },
             )
             return True
         except Exception as e:

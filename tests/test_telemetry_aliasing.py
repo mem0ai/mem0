@@ -164,11 +164,68 @@ class TestMarkAliased:
         assert not setup_module.is_aliased("oss-uuid", "other@example.com")
 
 
+# ─── oss_used marker ─────────────────────────────────────────────────────────
+
+
+class TestOssUsedMarker:
+    def test_mark_writes_marker_preserving_fields(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        _write_config(
+            tmp_mem0_dir,
+            {
+                "user_id": "oss-uuid",
+                "telemetry": {"anonymous_id": "cli-anon", "aliased_pairs": ["pair-marker"]},
+            },
+        )
+        setup_module.mark_oss_used()
+        config = json.loads((tmp_mem0_dir / "config.json").read_text())
+        assert config["user_id"] == "oss-uuid"
+        assert config["telemetry"]["anonymous_id"] == "cli-anon"
+        assert config["telemetry"]["aliased_pairs"] == ["pair-marker"]
+        assert config["telemetry"]["oss_used_at"]
+        assert setup_module.is_oss_used()
+
+    def test_mark_is_idempotent(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        setup_module.mark_oss_used()
+        first = json.loads((tmp_mem0_dir / "config.json").read_text())["telemetry"]["oss_used_at"]
+        setup_module.mark_oss_used()
+        second = json.loads((tmp_mem0_dir / "config.json").read_text())["telemetry"]["oss_used_at"]
+        assert first == second
+
+    def test_is_oss_used_false_when_no_config(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        assert not setup_module.is_oss_used()
+
+    def test_is_oss_used_false_without_marker(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        _write_config(tmp_mem0_dir, {"user_id": "oss-uuid", "telemetry": {"anonymous_id": "cli-anon"}})
+        assert not setup_module.is_oss_used()
+
+    def test_is_oss_used_false_on_malformed_json(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        (tmp_mem0_dir / "config.json").write_text("{not json")
+        assert not setup_module.is_oss_used()
+
+    def test_mark_does_not_raise_when_config_path_unwritable(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        (tmp_mem0_dir / "config.json").mkdir()  # open() on a directory fails
+        setup_module.mark_oss_used()  # must not raise
+        assert not setup_module.is_oss_used()
+
+
 # ─── capture_identify ────────────────────────────────────────────────────────
 
 
 class TestCaptureIdentify:
     def test_fires_identify_with_anon_distinct_id(self):
+        import mem0
         import mem0.memory.telemetry as telemetry_module
 
         with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
@@ -181,6 +238,7 @@ class TestCaptureIdentify:
                 assert kwargs["distinct_id"] == "user@example.com"
                 assert kwargs["event"] == "$identify"
                 assert kwargs["properties"]["$anon_distinct_id"] == "anon-123"
+                assert kwargs["properties"]["client_version"] == mem0.__version__
 
     def test_skips_when_anon_equals_email(self):
         import mem0.memory.telemetry as telemetry_module
@@ -230,8 +288,7 @@ class TestCaptureIdentify:
 
 class TestMaybeAliasAnonToEmail:
     """Test the alias helper in isolation by mocking out the config readers
-    and the telemetry client, since module-level setup_config() side effects
-    make end-to-end fixturing awkward."""
+    and the telemetry client, so no real ~/.mem0/config.json is touched."""
 
     def test_fires_identify_for_oss_uuid(self):
         from mem0.client import main as client_main
@@ -242,6 +299,7 @@ class TestMaybeAliasAnonToEmail:
                 "read_anon_ids",
                 return_value={"oss": "oss-uuid", "cli": None, "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_oss_used", return_value=True),
             patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased") as mark,
             patch.object(client_main, "client_telemetry") as telemetry,
@@ -252,6 +310,7 @@ class TestMaybeAliasAnonToEmail:
             mark.assert_called_once_with("oss-uuid", "user@example.com")
 
     def test_fires_identify_for_cli_anon(self):
+        """The CLI anon id is presence-based: it stitches even without the oss_used marker."""
         from mem0.client import main as client_main
 
         with (
@@ -260,6 +319,7 @@ class TestMaybeAliasAnonToEmail:
                 "read_anon_ids",
                 return_value={"oss": None, "cli": "cli-anon-xyz", "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_oss_used", return_value=False),
             patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased"),
             patch.object(client_main, "client_telemetry") as telemetry,
@@ -277,6 +337,7 @@ class TestMaybeAliasAnonToEmail:
                 "read_anon_ids",
                 return_value={"oss": "oss-uuid", "cli": "cli-anon", "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_oss_used", return_value=True),
             patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased"),
             patch.object(client_main, "client_telemetry") as telemetry,
@@ -288,6 +349,26 @@ class TestMaybeAliasAnonToEmail:
             assert ("oss-uuid", "user@example.com") in calls
             assert ("cli-anon", "user@example.com") in calls
 
+    def test_oss_id_requires_oss_used_marker(self):
+        """Without proof of real OSS usage, the oss user_id must never be
+        stitched (it may have been minted by an old platform-only client)."""
+        from mem0.client import main as client_main
+
+        with (
+            patch.object(
+                client_main,
+                "read_anon_ids",
+                return_value={"oss": "oss-uuid", "cli": "cli-anon", "aliased_pairs": []},
+            ),
+            patch.object(client_main, "is_oss_used", return_value=False),
+            patch.object(client_main, "is_aliased", return_value=False),
+            patch.object(client_main, "mark_aliased"),
+            patch.object(client_main, "client_telemetry") as telemetry,
+        ):
+            telemetry.capture_identify.return_value = True
+            client_main._maybe_alias_anon_to_email("user@example.com")
+            telemetry.capture_identify.assert_called_once_with("cli-anon", "user@example.com")
+
     def test_skips_when_pair_already_aliased(self):
         from mem0.client import main as client_main
 
@@ -297,6 +378,7 @@ class TestMaybeAliasAnonToEmail:
                 "read_anon_ids",
                 return_value={"oss": "oss-uuid", "cli": None, "aliased_pairs": ["pair-marker"]},
             ),
+            patch.object(client_main, "is_oss_used", return_value=True),
             patch.object(client_main, "is_aliased", return_value=True),
             patch.object(client_main, "mark_aliased") as mark,
             patch.object(client_main, "client_telemetry") as telemetry,
@@ -342,6 +424,7 @@ class TestMaybeAliasAnonToEmail:
                 "read_anon_ids",
                 return_value={"oss": "oss-uuid", "cli": None, "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_oss_used", return_value=True),
             patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased") as mark,
             patch.object(client_main, "client_telemetry", mock_telemetry),
@@ -359,6 +442,7 @@ class TestMaybeAliasAnonToEmail:
                 "read_anon_ids",
                 return_value={"oss": "user@example.com", "cli": None, "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_oss_used", return_value=True),
             patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased"),
             patch.object(client_main, "client_telemetry") as telemetry,
@@ -386,8 +470,12 @@ class TestEndToEndIdempotency:
     calls fire $identify exactly once thanks to the persisted pair marker."""
 
     def test_second_call_is_noop_after_pair_marker_persisted(self, tmp_mem0_dir):
-        # Pre-populate config with an OSS user_id only.
-        _write_config(tmp_mem0_dir, {"user_id": "oss-uuid"})
+        # Pre-populate config with an OSS user_id plus the oss_used_at marker
+        # (without the marker the oss id is no longer a stitch candidate).
+        _write_config(
+            tmp_mem0_dir,
+            {"user_id": "oss-uuid", "telemetry": {"oss_used_at": "2026-01-01T00:00:00+00:00"}},
+        )
         # Reload setup so it uses the tempdir, then reload client.main so it
         # picks up the freshly-loaded read_anon_ids/mark_aliased bindings.
         import mem0.memory.setup as setup_module
@@ -409,3 +497,112 @@ class TestEndToEndIdempotency:
 
         config = json.loads((tmp_mem0_dir / "config.json").read_text())
         assert len(config["telemetry"]["aliased_pairs"]) == 1
+
+    def test_oss_then_platform_stitches_exactly_once(self, tmp_mem0_dir):
+        """Genuine OSS usage (setup_config + mark_oss_used, as Memory.__init__
+        does) followed by platform inits stitches the minted id exactly once."""
+        import mem0.memory.setup as setup_module
+
+        setup_module.setup_config()
+        setup_module.mark_oss_used()
+        oss_id = json.loads((tmp_mem0_dir / "config.json").read_text())["user_id"]
+
+        from mem0.client import main as client_main
+
+        importlib.reload(client_main)
+
+        with patch.object(client_main, "client_telemetry") as telemetry:
+            telemetry.capture_identify.return_value = True
+            client_main._maybe_alias_anon_to_email("user@example.com")
+            telemetry.capture_identify.assert_called_once_with(oss_id, "user@example.com")
+            client_main._maybe_alias_anon_to_email("user@example.com")
+            assert telemetry.capture_identify.call_count == 1
+
+        config = json.loads((tmp_mem0_dir / "config.json").read_text())
+        assert len(config["telemetry"]["aliased_pairs"]) == 1
+        assert config["telemetry"]["oss_used_at"]
+
+
+# ─── Platform-only init must not mint or stitch ──────────────────────────────
+
+
+class TestPlatformOnlyDoesNotMint:
+    """Regression for the bug where importing the client minted an anon id at
+    import time and then stitched it on MemoryClient init, merging an
+    event-less anon person into every platform user."""
+
+    def test_no_config_created_and_no_identify(self, tmp_mem0_dir):
+        from mem0.client import main as client_main
+
+        # Re-execute the client module: it must not create config.json.
+        importlib.reload(client_main)
+        assert not (tmp_mem0_dir / "config.json").exists()
+
+        with patch.object(client_main, "client_telemetry") as telemetry:
+            telemetry.capture_identify.return_value = True
+            client_main._maybe_alias_anon_to_email("user@example.com")
+            telemetry.capture_identify.assert_not_called()
+
+        assert not (tmp_mem0_dir / "config.json").exists()
+
+
+# ─── Lazy minting from OSS Memory init ───────────────────────────────────────
+
+
+class TestLazyOssMinting:
+    """OSS Memory/AsyncMemory init mints the anon id and records genuine OSS
+    usage; nothing happens at import time or with telemetry disabled."""
+
+    def test_memory_init_mints_and_marks(self, tmp_path):
+        import mem0.memory.main as memory_main
+
+        with (
+            patch.object(memory_main, "EmbedderFactory"),
+            patch.object(memory_main, "VectorStoreFactory"),
+            patch.object(memory_main, "LlmFactory"),
+            patch.object(memory_main, "SQLiteManager"),
+            patch.object(memory_main, "capture_event"),
+            patch.object(memory_main, "mem0_dir", str(tmp_path)),
+            patch.object(memory_main, "setup_config") as setup,
+            patch.object(memory_main, "mark_oss_used") as mark,
+            patch.object(memory_main, "MEM0_TELEMETRY", True),
+        ):
+            memory_main.Memory()
+            setup.assert_called_once()
+            mark.assert_called_once()
+
+    def test_memory_init_skips_minting_when_telemetry_disabled(self, tmp_path):
+        import mem0.memory.main as memory_main
+
+        with (
+            patch.object(memory_main, "EmbedderFactory"),
+            patch.object(memory_main, "VectorStoreFactory"),
+            patch.object(memory_main, "LlmFactory"),
+            patch.object(memory_main, "SQLiteManager"),
+            patch.object(memory_main, "capture_event"),
+            patch.object(memory_main, "mem0_dir", str(tmp_path)),
+            patch.object(memory_main, "setup_config") as setup,
+            patch.object(memory_main, "mark_oss_used") as mark,
+            patch.object(memory_main, "MEM0_TELEMETRY", False),
+        ):
+            memory_main.Memory()
+            setup.assert_not_called()
+            mark.assert_not_called()
+
+    def test_async_memory_init_mints_and_marks(self, tmp_path):
+        import mem0.memory.main as memory_main
+
+        with (
+            patch.object(memory_main, "EmbedderFactory"),
+            patch.object(memory_main, "VectorStoreFactory"),
+            patch.object(memory_main, "LlmFactory"),
+            patch.object(memory_main, "SQLiteManager"),
+            patch.object(memory_main, "capture_event"),
+            patch.object(memory_main, "mem0_dir", str(tmp_path)),
+            patch.object(memory_main, "setup_config") as setup,
+            patch.object(memory_main, "mark_oss_used") as mark,
+            patch.object(memory_main, "MEM0_TELEMETRY", True),
+        ):
+            memory_main.AsyncMemory()
+            setup.assert_called_once()
+            mark.assert_called_once()
