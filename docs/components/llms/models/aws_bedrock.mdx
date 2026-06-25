@@ -39,6 +39,36 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+### Client timeouts and retries (optional)
+
+By default Mem0 uses botocore's 60-second read timeout, which can be too short for
+large memory-extraction calls and cause `Read timeout on endpoint URL` errors. Configure
+the boto3 client via three optional keys:
+
+```python
+config = {
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+            # Convenience scalars (seconds):
+            "read_timeout": 1000,
+            "connect_timeout": 60,
+            # Escape hatch for retries / connection pooling / any botocore Config kwarg:
+            "boto_client_config": {
+                "retries": {"mode": "adaptive", "max_attempts": 5},
+                "max_pool_connections": 20,
+            },
+        }
+    }
+}
+```
+
+- All three keys are **opt-in**; when unset, behavior is unchanged (botocore defaults).
+- `boto_client_config` accepts a `botocore.config.Config` object or a dict of its kwargs.
+- When both a scalar and `boto_client_config` set the same key, the **scalar wins**.
+- **Out of scope:** adaptive throttling/`ThrottlingException` retries are available only through `boto_client_config["retries"]`; an expired STS token mid-call is not handled by these settings.
+
 ### Config
 
 All available parameters for the `aws_bedrock` config are present in [Master List of All Params in Config](../config).
