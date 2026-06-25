@@ -57,7 +57,7 @@ class CustomerSupportAIAgent:
         """
         # Start a streaming chat completion request to the AI
         stream = self.client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             stream=True,
             messages=[
                 {"role": "system", "content": "You are a customer support AI agent."},
