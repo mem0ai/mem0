@@ -1082,10 +1082,10 @@ def generate_additive_extraction_prompt(
     custom_instructions=None,
     use_input_language=False,
 ):
-    """Build the user prompt for memory management extraction.
+    """Build the user prompt for memory extraction.
 
-    The LLM compares new messages with existing memories and produces
-    ADD, UPDATE, DELETE, or NONE operations.
+    The system prompt defines whether extraction is ADD-only or memory
+    management with ADD, UPDATE, DELETE, and NONE operations.
     """
     current_date, observation_date = _resolve_dates(current_date, timestamp)
 
@@ -1114,17 +1114,6 @@ def generate_additive_extraction_prompt(
             "7. For Japanese: explicitly resolve omitted subjects using conversation context.\n"
             "8. For CJK languages: maintain appropriate formality level from the source text."
         )
-
-    sections.append(
-        "## Memory Management Requirement\n"
-        "Compare New Messages with Existing Memories and return only the operations needed to make the final memory store consistent.\n"
-        "- If New Messages contradict, replace, negate, or supersede an Existing Memory, do not add a duplicate. Use UPDATE or DELETE with the exact Existing Memory id.\n"
-        "- For phrases like \"no longer likes X, likes Y\", \"artık X değil Y\", \"now prefers Y\", or \"stopped X\", update the existing preference to the new preference when they refer to the same preference category.\n"
-        "- Concrete rule: Existing Memories [{\"id\":\"0\",\"text\":\"User likes hiking\"}] + New Messages \"User no longer likes hiking, he likes tennis.\" must return {\"memory\":[{\"id\":\"0\",\"text\":\"User likes tennis\",\"event\":\"UPDATE\",\"old_memory\":\"User likes hiking\"}]}.\n"
-        "- Use ADD only when the fact is genuinely new and does not replace any Existing Memory.\n"
-        "- Use NONE when an Existing Memory already captures the fact.\n"
-        "- Return JSON only in this shape: {\"memory\":[{\"id\":\"<existing id for UPDATE/DELETE/NONE; omit or null for ADD>\",\"text\":\"<memory text>\",\"event\":\"ADD|UPDATE|DELETE|NONE\",\"old_memory\":\"<required for UPDATE>\"}]}."
-    )
 
     sections.append("# Output:")
     return "\n\n".join(sections)

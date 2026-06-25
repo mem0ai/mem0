@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
+    ADDITIVE_EXTRACTION_PROMPT,
     AGENT_CONTEXT_SUFFIX,
     MEMORY_MANAGEMENT_PROMPT,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
@@ -821,7 +822,8 @@ class Memory(MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        system_prompt = MEMORY_MANAGEMENT_PROMPT
+        enable_memory_management = getattr(self.config, "enable_memory_management", False) is True
+        system_prompt = MEMORY_MANAGEMENT_PROMPT if enable_memory_management else ADDITIVE_EXTRACTION_PROMPT
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -869,9 +871,8 @@ class Memory(MemoryBase):
         # Phase 3: Apply UPDATE/DELETE/NONE actions and embed ADD texts.
         returned_actions = []
         add_memories = []
-        update_embeddings = {}
         for mem in extracted_memories:
-            event = str(mem.get("event", "ADD")).upper()
+            event = str(mem.get("event", "ADD")).upper() if enable_memory_management else "ADD"
             text = mem.get("text", "")
 
             if event == "ADD":
@@ -887,13 +888,17 @@ class Memory(MemoryBase):
             if event == "UPDATE":
                 if not text:
                     continue
-                update_embeddings[text] = self.embedding_model.embed(text, "update")
-                self._update_memory(
-                    memory_id=memory_id,
-                    data=text,
-                    existing_embeddings=update_embeddings,
-                    metadata=deepcopy(metadata),
-                )
+                update_embeddings = {text: self.embedding_model.embed(text, "update")}
+                try:
+                    self._update_memory(
+                        memory_id=memory_id,
+                        data=text,
+                        existing_embeddings=update_embeddings,
+                        metadata=deepcopy(metadata),
+                    )
+                except Exception as e:
+                    logger.warning("UPDATE failed for memory %s: %s", memory_id, e)
+                    continue
                 returned_actions.append(
                     {
                         "id": memory_id,
@@ -903,7 +908,11 @@ class Memory(MemoryBase):
                     }
                 )
             elif event == "DELETE":
-                self._delete_memory(memory_id=memory_id)
+                try:
+                    self._delete_memory(memory_id=memory_id)
+                except Exception as e:
+                    logger.warning("DELETE failed for memory %s: %s", memory_id, e)
+                    continue
                 returned_actions.append({"id": memory_id, "memory": text, "event": "DELETE"})
             elif event == "NONE":
                 logger.info("NOOP for memory %s", memory_id)
@@ -2406,7 +2415,8 @@ class AsyncMemory(MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        system_prompt = MEMORY_MANAGEMENT_PROMPT
+        enable_memory_management = getattr(self.config, "enable_memory_management", False) is True
+        system_prompt = MEMORY_MANAGEMENT_PROMPT if enable_memory_management else ADDITIVE_EXTRACTION_PROMPT
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -2454,9 +2464,8 @@ class AsyncMemory(MemoryBase):
         # Phase 3: Apply UPDATE/DELETE/NONE actions and embed ADD texts.
         returned_actions = []
         add_memories = []
-        update_embeddings = {}
         for mem in extracted_memories:
-            event = str(mem.get("event", "ADD")).upper()
+            event = str(mem.get("event", "ADD")).upper() if enable_memory_management else "ADD"
             text = mem.get("text", "")
 
             if event == "ADD":
@@ -2472,13 +2481,17 @@ class AsyncMemory(MemoryBase):
             if event == "UPDATE":
                 if not text:
                     continue
-                update_embeddings[text] = await asyncio.to_thread(self.embedding_model.embed, text, "update")
-                await self._update_memory(
-                    memory_id=memory_id,
-                    data=text,
-                    existing_embeddings=update_embeddings,
-                    metadata=deepcopy(metadata),
-                )
+                update_embeddings = {text: await asyncio.to_thread(self.embedding_model.embed, text, "update")}
+                try:
+                    await self._update_memory(
+                        memory_id=memory_id,
+                        data=text,
+                        existing_embeddings=update_embeddings,
+                        metadata=deepcopy(metadata),
+                    )
+                except Exception as e:
+                    logger.warning("UPDATE failed for memory %s (async): %s", memory_id, e)
+                    continue
                 returned_actions.append(
                     {
                         "id": memory_id,
@@ -2488,7 +2501,11 @@ class AsyncMemory(MemoryBase):
                     }
                 )
             elif event == "DELETE":
-                await self._delete_memory(memory_id=memory_id)
+                try:
+                    await self._delete_memory(memory_id=memory_id)
+                except Exception as e:
+                    logger.warning("DELETE failed for memory %s (async): %s", memory_id, e)
+                    continue
                 returned_actions.append({"id": memory_id, "memory": text, "event": "DELETE"})
             elif event == "NONE":
                 logger.info("NOOP for memory %s (async)", memory_id)
