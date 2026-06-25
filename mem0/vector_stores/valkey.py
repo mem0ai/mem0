@@ -172,7 +172,7 @@ class ValkeyDB(VectorStoreBase):
             "HASH",
             "PREFIX",
             "1",
-            prefix + ":",
+            prefix.rstrip(":") + ":",
             "SCHEMA",
             "memory_id",
             "TAG",
