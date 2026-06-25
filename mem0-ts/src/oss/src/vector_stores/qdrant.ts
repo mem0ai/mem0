@@ -3,7 +3,12 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import * as fs from "fs";
 
-// Server-side BM25 sparse vector (requires Qdrant >= 1.15.2).
+
+// BM25 keyword search via Qdrant's built-in server-side inference (requires
+// Qdrant >= 1.15.2). The Python adapter encodes BM25 client-side with fastembed;
+// this server-side path avoids that dependency, but IDF weights, and therefore the 
+// scores, may differ between the two implementations.
+
 const BM25_VECTOR_NAME = "bm25";
 const BM25_MODEL = "Qdrant/bm25";
 
@@ -70,6 +75,7 @@ export class Qdrant implements VectorStore {
 
   constructor(config: QdrantConfig) {
     if (config.client) {
+      // Pre-configured client - to be treated as remote (mirrors Python is_local=False).
       this.client = config.client;
     } else {
       const params: Record<string, any> = {};
@@ -288,6 +294,8 @@ export class Qdrant implements VectorStore {
       };
     });
 
+    // `as any` here and below: the JS client types predate server-side
+    // sparse_vectors, so the named-vector + BM25-inference shapes are not typed.
     await this.client.upsert(this.collectionName, {
       points: points as any,
     });
@@ -593,8 +601,9 @@ export class Qdrant implements VectorStore {
           field_name: field,
           field_schema: "keyword",
         });
-      } catch (_) {
-        // Index may already exist, or the server may reject it — non-fatal.
+      } catch (err) {
+        // Non-fatal: index likely already exists, or the server rejected it.
+        console.debug(`Qdrant: skipped payload index for '${field}':`, err);
       }
     }
   }

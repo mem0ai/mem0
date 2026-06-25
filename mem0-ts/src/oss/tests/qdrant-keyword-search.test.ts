@@ -438,3 +438,26 @@ describe("Qdrant BM25 keyword search — query construction & filters", () => {
     expect(client.query.mock.calls[0][1].filter).toBeUndefined();
   });
 });
+
+describe("Qdrant BM25 keyword search — semantic (dense) path", () => {
+  it("search() still targets the unnamed dense slot after BM25 init", async () => {
+    const client = buildMockClient({
+      search: jest
+        .fn()
+        .mockResolvedValue([
+          { id: "mem-1", score: 0.9, payload: { data: "x" } },
+        ]),
+    });
+    const store = makeStore(client);
+    await store.initialize();
+
+    const res = await store.search([0.1, 0.2, 0.3], 5);
+
+    // Plain number[] (not a named vector) keeps hitting the default dense slot.
+    expect(client.search).toHaveBeenCalledWith(
+      "test_memories",
+      expect.objectContaining({ vector: [0.1, 0.2, 0.3] }),
+    );
+    expect(res[0].id).toBe("mem-1");
+  });
+});
