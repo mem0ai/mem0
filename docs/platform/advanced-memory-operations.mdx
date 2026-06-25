@@ -9,7 +9,6 @@ description: "Run richer add/search/update/delete flows on the managed platform 
   **Prerequisites**
   - Platform workspace with API key
   - Python 3.10+ and Node.js 18+
-  - Async memories enabled in your dashboard (Settings → Memory Options)
 </Info>
 
 <Tip>
@@ -21,9 +20,9 @@ description: "Run richer add/search/update/delete flows on the managed platform 
 <Tabs>
   <Tab title="Python">
 <Steps>
-<Step title="Install the SDK with async extras">
+<Step title="Install the SDK">
 ```bash
-pip install "mem0ai[async]"
+pip install mem0ai
 ```
 </Step>
 <Step title="Export your API key">
@@ -55,9 +54,9 @@ export MEM0_API_KEY="sk-platform-..."
 </Step>
 <Step title="Instantiate the client">
 ```typescript
-import { Memory } from "mem0ai";
+import MemoryClient from 'mem0ai';
 
-const memory = new Memory({ apiKey: process.env.MEM0_API_KEY!, async: true });
+const memory = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
 ```
 </Step>
 </Steps>
@@ -121,10 +120,8 @@ const result = await memory.add(conversation, {
 ```python
 matches = await memory.search(
     "Any food alerts?",
-    user_id="traveler-42",
-    filters={"metadata.trip": "japan-2025"},
+    filters={"user_id": "traveler-42", "metadata.trip": "japan-2025"},
     rerank=True,
-    include_vectors=False,
 )
 ```
 </Step>
@@ -132,7 +129,7 @@ matches = await memory.search(
 ```python
 await memory.update(
     memory_id=matches["results"][0]["id"],
-    content="Morgan avoids shellfish and prefers boutique hotels in central Tokyo.",
+    text="Morgan avoids shellfish and prefers boutique hotels in central Tokyo.",
 )
 ```
 </Step>
@@ -143,17 +140,15 @@ await memory.update(
 <Step title="Search with metadata filters">
 ```typescript
 const matches = await memory.search("Any food alerts?", {
-  userId: "traveler-42",
-  filters: { "metadata.trip": "japan-2025" },
+  filters: { userId: "traveler-42", "metadata.trip": "japan-2025" },
   rerank: true,
-  includeVectors: false,
 });
 ```
 </Step>
 <Step title="Apply an update">
 ```typescript
 await memory.update(matches.results[0].id, {
-  content: "Morgan avoids shellfish and prefers boutique hotels in central Tokyo.",
+  text: "Morgan avoids shellfish and prefers boutique hotels in central Tokyo.",
 });
 ```
 </Step>

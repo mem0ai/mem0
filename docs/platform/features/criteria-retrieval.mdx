@@ -182,7 +182,7 @@ If no criteria are defined for a project, search behaves normally based on seman
 This lets you prioritize memories that align with your agent's goals and not just those that look similar to the query.
 
 <Note>
-Criteria retrieval is automatically enabled when criteria are defined in your project. Use `use_criteria=False` in search to temporarily disable it for a specific query.
+Criteria retrieval is automatically enabled when criteria are defined in your project. Use `use_criteria=False` in search to temporarily disable it for a specific query. `use_criteria` is a server-side parameter passed through to the Platform API — it is not a typed option in the SDK's `SearchMemoryOptions` interface, but the server accepts and processes it when included in the request body.
 </Note>
 
 
