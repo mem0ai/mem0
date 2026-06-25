@@ -268,7 +268,7 @@ m.add("I'm vegetarian", user_id="alice")
 # Search with LLM reranking
 results = m.search(
     "What foods should I avoid?",
-    user_id="alice",
+    filters={"user_id": "alice"},
     rerank=True
 )
 

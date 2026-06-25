@@ -61,11 +61,13 @@ All rerankers share these common configuration parameters:
 
 ### LLM Reranker
 
-| Parameter      | Description                 | Type   | Default  |
-| -------------- | --------------------------- | ------ | -------- |
-| `llm.provider` | LLM provider for reranking  | `str`  | Required |
-| `llm.config`   | LLM configuration object    | `dict` | Required |
-| `top_n`        | Number of results to return | `int`  | `None`   |
+| Parameter   | Description                                                                                  | Type   | Default        |
+| ----------- | -------------------------------------------------------------------------------------------- | ------ | -------------- |
+| `provider`  | LLM provider (`openai`, `anthropic`, etc.)                                                   | `str`  | `"openai"`     |
+| `model`     | LLM model to use for scoring                                                                 | `str`  | `"gpt-4o-mini"` |
+| `api_key`   | API key for LLM provider                                                                     | `str`  | `None`         |
+| `top_k`     | Number of results to return after reranking                                                  | `int`  | `None`         |
+| `llm`       | Optional nested LLM config (`{"provider": ..., "config": {...}}`) for provider-specific fields (e.g. `ollama_base_url`) | `dict` | `None`         |
 
 ## Environment Variables
 

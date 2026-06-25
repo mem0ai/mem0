@@ -27,6 +27,10 @@ Provide only a single numerical score between 0.0 and 1.0. Do not include any ex
 
 ## Custom Prompt Configuration
 
+<Warning>
+  The `scoring_prompt` field is **deprecated** and will be removed in a future version. Setting it still works but emits a `DeprecationWarning` at runtime. The field currently sets the system prompt used by the LLM; custom prompts may be exposed through a different API in a future release.
+</Warning>
+
 You can provide a custom prompt template using the `scoring_prompt` parameter:
 
 ```python
