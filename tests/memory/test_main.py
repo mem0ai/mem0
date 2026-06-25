@@ -173,6 +173,11 @@ class TestTruncationRecovery:
         # worker thread, so concurrent retries on one llm must not corrupt it. The lock in
         # retry_extraction_with_more_tokens serializes the raise/restore. Without the lock
         # this trips: some retry sees a doubly-raised budget, or the config never restores.
+        # This drives the sync function directly from 8 threads on one shared llm, which is
+        # exactly what concurrent async to_thread(retry_extraction_with_more_tokens) calls do,
+        # so it is the canonical serialization test for both the sync and async paths (the
+        # async _add_to_vector_store tests use a MagicMock llm and so assert recovery, not
+        # serialization).
         import threading
         import time
 
@@ -274,6 +279,97 @@ class TestTruncationRecovery:
 
         llm = _FakeLLM()
         assert retry_extraction_with_more_tokens(llm, "sys", "usr") == [{"id": "0", "text": "Real fact"}]
+
+    def test_retry_lock_is_per_llm_instance(self):
+        # The retry lock is cached on each llm: concurrent retries on ONE llm serialize
+        # (the corruption guard), while retries on DIFFERENT llms never block each other.
+        # A non-caching getattr(llm, "_retry_lock", threading.Lock()) - a fresh lock every
+        # call - serializes nothing and fails the first assert; a single process-wide lock
+        # over-serializes and fails the second.
+        from mem0.memory.utils import _retry_lock_for
+
+        class _FakeLLM:
+            pass
+
+        a, b = _FakeLLM(), _FakeLLM()
+        assert _retry_lock_for(a) is _retry_lock_for(a)  # same llm -> one cached lock, reused
+        assert _retry_lock_for(a) is not _retry_lock_for(b)  # different llms -> isolated locks
+
+
+@pytest.mark.asyncio
+class TestAsyncTruncationRecovery:
+    """Async counterpart of TestTruncationRecovery. The async path drives recovery
+    through AsyncMemory._add_to_vector_store, which dispatches the token-raise retry via
+    asyncio.to_thread(retry_extraction_with_more_tokens, ...). That wiring - the flag
+    check, argument forwarding, and result assignment on a worker thread - is exercised by
+    zero sync tests, so a regression there would be silent."""
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
+        return memory
+
+    async def test_async_salvages_complete_memories_by_default_no_retry(self, mock_async_memory, caplog):
+        # Default: opt-in retry OFF. The async Layer-1 salvage still recovers the 2 complete ones.
+        mock_async_memory.config.recover_truncated_extractions = False
+        mock_async_memory.llm.generate_response.return_value = TRUNCATED_EXTRACTION
+
+        with caplog.at_level(logging.INFO):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+
+        assert mock_async_memory.llm.generate_response.call_count == 1  # no retry
+        texts = [m["memory"] for m in result]
+        assert "User likes hiking in the Laurel Highlands" in texts
+        assert "User was promoted to Senior Engineer" in texts
+        # the cut-off memory is dropped, not stored as a partial fact
+        assert not any("dog nam" in t for t in texts)
+        assert any("Salvaged" in r.message for r in caplog.records)
+
+    async def test_async_opt_in_retry_recovers_cut_off_remainder(self, mock_async_memory):
+        mock_async_memory.config.recover_truncated_extractions = True
+        mock_async_memory.llm.config.max_tokens = 1000
+
+        # Record the max_tokens in effect at each call - including the retry call, which runs
+        # on a worker thread - to prove the retry raised it via the shared config rather than
+        # via a kwarg most providers reject (the original bug), through the async dispatch.
+        responses = iter([TRUNCATED_EXTRACTION, COMPLETE_EXTRACTION])
+        observed_max_tokens = []
+
+        def fake_generate_response(*args, **kwargs):
+            observed_max_tokens.append(mock_async_memory.llm.config.max_tokens)
+            return next(responses)
+
+        mock_async_memory.llm.generate_response.side_effect = fake_generate_response
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        assert mock_async_memory.llm.generate_response.call_count == 2  # extraction + token-raise retry
+        # The retry raised max_tokens 4x via the shared config (see _RETRY_TOKEN_MULTIPLIER) on a
+        # worker thread, and must NOT pass max_tokens as a kwarg; both fail against the old code.
+        assert observed_max_tokens[1] == 4000
+        assert "max_tokens" not in mock_async_memory.llm.generate_response.call_args_list[1].kwargs
+        assert mock_async_memory.llm.config.max_tokens == 1000  # restored after the retry
+        texts = [m["memory"] for m in result]
+        assert "User has a dog named Max" in texts  # the previously cut-off fact
+        assert len(result) == 3
 
 
 class TestPromptOverridesCustomInstructions:

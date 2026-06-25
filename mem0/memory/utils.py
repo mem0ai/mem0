@@ -206,12 +206,39 @@ def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
 #: inside common provider output limits.
 _RETRY_TOKEN_MULTIPLIER = 4
 _RETRY_TOKEN_CAP = 8192
-# Serializes the raise/restore of the shared llm.config.max_tokens below. The async
-# add() path runs this retry in a worker thread on a single shared llm, so without
-# this lock two concurrent retries could interleave and leave config.max_tokens
-# permanently corrupted. The retry is a rare truncation-only fallback, so serializing
-# it is cheap.
+# Serializes the raise/restore of a shared llm.config.max_tokens below. The async add()
+# path runs this retry in a worker thread on a single shared llm, so without a lock two
+# concurrent retries could interleave and leave config.max_tokens permanently corrupted.
+# The lock is per-llm-instance (created once and cached on the llm) so retries on
+# different llm instances never serialize against each other; _RETRY_LOCK_INIT guards the
+# lazy creation, and _RETRY_TOKEN_LOCK is a process-wide fallback for an llm that cannot
+# hold the cached attribute. The retry is a rare truncation-only fallback.
+_RETRY_LOCK_INIT = threading.Lock()
 _RETRY_TOKEN_LOCK = threading.Lock()
+
+
+def _retry_lock_for(llm):
+    """Return the per-instance lock that serializes ``llm``'s own token-raise retries.
+
+    Created once and cached on the llm as ``_retry_lock`` (double-checked under
+    ``_RETRY_LOCK_INIT`` so concurrent first-time callers share one lock rather than each
+    minting their own). Isolates each llm instance. The shared-``_RETRY_TOKEN_LOCK`` fallback
+    is purely defensive: every shipped provider instance carries a ``__dict__`` and caches the
+    lock, so the fallback only triggers for an exotic attribute-less llm, where it still keeps
+    the no-corruption guarantee (at the cost of over-serializing).
+    """
+    lock = getattr(llm, "_retry_lock", None)
+    if lock is not None:
+        return lock
+    with _RETRY_LOCK_INIT:
+        lock = getattr(llm, "_retry_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            try:
+                llm._retry_lock = lock
+            except Exception:
+                return _RETRY_TOKEN_LOCK
+        return lock
 
 
 def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[Dict[str, Any]]:
@@ -240,14 +267,14 @@ def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[D
     # call and restore it. Providers that snapshot or bake in max_tokens (LangChain,
     # Bedrock) or drop it (the OpenAI structured-output provider, reasoning models such as
     # gpt-5/o1/o3) ignore the raise, and the caller falls back to the already-salvaged
-    # memories. The raise/restore runs under a process-wide lock with the base re-read
-    # inside it, so concurrent retries on a shared llm cannot corrupt the config; the lock
-    # is held across the one retry call and over-serializes across llm instances, which is
-    # acceptable for this rare truncation-only fallback. (Concurrent non-retry calls on the
-    # same llm take no lock and can observe the raised value during the retry window - a
-    # transient output-budget bump on those calls, not corruption; always restored.)
+    # memories. The raise/restore runs under this llm's own lock with the base re-read
+    # inside it, so concurrent retries on a shared llm cannot corrupt the config, while
+    # retries on different llm instances never serialize against each other. The lock is
+    # held across the one retry call. (Concurrent non-retry calls on the same llm take no
+    # lock and can observe the raised value during the retry window - a transient
+    # output-budget bump on those calls, not corruption; always restored.)
     try:
-        with _RETRY_TOKEN_LOCK:
+        with _retry_lock_for(llm):
             base = llm.config.max_tokens
             try:
                 llm.config.max_tokens = min(base * _RETRY_TOKEN_MULTIPLIER, _RETRY_TOKEN_CAP)
