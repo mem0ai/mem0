@@ -23,8 +23,8 @@ The `filters` object supports complex logical operations (AND, OR, NOT) and comp
 | Parameter | V1/V2 | V3 |
 | --- | --- | --- |
 | `top_k` | Supported (default 10) | Supported (1-1000, default 10) |
-| `threshold` | No default | Default `0.1` (pass `0.0` to disable) |
-| `rerank` | Default `true` | Default `false` (pass `true` to enable) |
+| `threshold` | V1: not supported / V2: default `0.3` | Default `0.1` (pass `0.0` to disable) |
+| `rerank` | Default `false` | Default `false` (pass `true` to enable) |
 
 <CodeGroup>
 ```python Platform API Example

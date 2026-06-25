@@ -14,7 +14,7 @@ Organizations and projects are **optional** features. You can use Mem0 without t
 
 ## Key Capabilities
 
-- **Multi-org/project Support**: Specify organization and project when initializing the Mem0 client to attribute API usage appropriately
+- **Multi-org/project Support**: Organization and project are resolved automatically from your API key via `/v1/ping/` — no org or project params are accepted by `MemoryClient.__init__`. Use a project-specific API key to target a particular project.
 - **Member Management**: Control access to data through organization and project membership
 - **Access Control**: Only members can access memories and data within their organization/project scope
 - **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration
