@@ -19,6 +19,9 @@ export class FastEmbedEmbedder implements Embedder {
     if (!this.embeddingModel) {
       this.embeddingModel = FlagEmbedding.init({
         model: this.modelName,
+      }).catch((error) => {
+        this.embeddingModel = undefined;
+        throw error;
       });
     }
 

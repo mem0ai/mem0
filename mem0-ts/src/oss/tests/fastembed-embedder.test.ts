@@ -95,4 +95,22 @@ describe("FastEmbedEmbedder (unit)", () => {
       "FastEmbed embed() returned no embeddings",
     );
   });
+
+  it("embed() retries initialization after a transient init failure", async () => {
+    mockInit.mockRejectedValueOnce(new Error("transient init failure"));
+    mockInit.mockResolvedValueOnce({
+      embed: mockEmbed,
+    });
+    mockEmbed.mockReturnValue(createEmbeddingGenerator([[mockEmbedding]]));
+    const embedder = new FastEmbedEmbedder({});
+
+    await expect(embedder.embed("first attempt")).rejects.toThrow(
+      "transient init failure",
+    );
+
+    const result = await embedder.embed("second attempt");
+
+    expect(mockInit).toHaveBeenCalledTimes(2);
+    expect(result).toEqual(mockEmbedding);
+  });
 });
