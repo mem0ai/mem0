@@ -55,6 +55,10 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    spacy_model: str = Field(
+        description="spaCy model name for entity extraction and BM25 lemmatization",
+        default="en_core_web_sm",
+    )
 
 
 class AzureConfig(BaseModel):

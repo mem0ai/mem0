@@ -667,7 +667,7 @@ class Memory(MemoryBase):
         existing `_upsert_entity` helper. Non-fatal on any failure.
         """
         try:
-            entities = extract_entities(text)
+            entities = extract_entities(text, spacy_model=self.config.spacy_model)
             if not entities:
                 return
             seen = set()
@@ -970,7 +970,7 @@ class Memory(MemoryBase):
                 continue
             seen_hashes.add(mem_hash)
 
-            text_lemmatized = lemmatize_for_bm25(text)
+            text_lemmatized = lemmatize_for_bm25(text, spacy_model=self.config.spacy_model)
 
             memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
@@ -1033,7 +1033,7 @@ class Memory(MemoryBase):
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
-            all_entities = extract_entities_batch(all_texts)
+            all_entities = extract_entities_batch(all_texts, spacy_model=self.config.spacy_model)
 
             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
@@ -1578,8 +1578,8 @@ class Memory(MemoryBase):
             threshold = 0.1
 
         # Step 1: Preprocess query
-        query_lemmatized = lemmatize_for_bm25(query)
-        query_entities = extract_entities(query)
+        query_lemmatized = lemmatize_for_bm25(query, spacy_model=self.config.spacy_model)
+        query_entities = extract_entities(query, spacy_model=self.config.spacy_model)
 
         # Step 2: Embed query
         embeddings = self.embedding_model.embed(query, "search")
@@ -1891,7 +1891,7 @@ class Memory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, spacy_model=self.config.spacy_model)
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1975,7 +1975,7 @@ class Memory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, spacy_model=self.config.spacy_model)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -2303,7 +2303,7 @@ class AsyncMemory(MemoryBase):
     async def _link_entities_for_memory(self, memory_id, text, filters):
         """Async variant of `Memory._link_entities_for_memory`."""
         try:
-            entities = await asyncio.to_thread(extract_entities, text)
+            entities = await asyncio.to_thread(extract_entities, text, self.config.spacy_model)
             if not entities:
                 return
             seen = set()
@@ -2591,7 +2591,7 @@ class AsyncMemory(MemoryBase):
                 continue
             seen_hashes.add(mem_hash)
 
-            text_lemmatized = lemmatize_for_bm25(text)
+            text_lemmatized = lemmatize_for_bm25(text, spacy_model=self.config.spacy_model)
 
             memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
@@ -2656,7 +2656,7 @@ class AsyncMemory(MemoryBase):
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
-            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
+            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts, 32, self.config.spacy_model)
 
             # 7a: Global dedup
             global_entities = {}
@@ -3205,8 +3205,8 @@ class AsyncMemory(MemoryBase):
             threshold = 0.1
 
         # Step 1: Preprocess query (CPU-bound)
-        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
-        query_entities = await asyncio.to_thread(extract_entities, query)
+        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query, self.config.spacy_model)
+        query_entities = await asyncio.to_thread(extract_entities, query, self.config.spacy_model)
 
         # Step 2: Embed query
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
@@ -3523,7 +3523,7 @@ class AsyncMemory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, spacy_model=self.config.spacy_model)
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -3625,7 +3625,7 @@ class AsyncMemory(MemoryBase):
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data, spacy_model=self.config.spacy_model)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 

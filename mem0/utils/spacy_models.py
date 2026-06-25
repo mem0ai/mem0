@@ -11,15 +11,15 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-_nlp_full = None
-_nlp_lemma = None
-_load_failed_full = False
-_load_failed_lemma = False
+_nlp_full_cache = {}
+_nlp_lemma_cache = {}
+_load_failed_full = set()
+_load_failed_lemma = set()
 _lock = threading.Lock()
 
 
-def _ensure_model_available():
-    """Download en_core_web_sm if spaCy is installed but model is missing."""
+def _ensure_model_available(model_name: str = "en_core_web_sm"):
+    """Download spaCy model if installed but missing."""
     try:
         import spacy
     except ImportError:
@@ -27,65 +27,81 @@ def _ensure_model_available():
             "spaCy is not installed. Install it with: pip install mem0ai[nlp]"
         )
 
-    if not spacy.util.is_package("en_core_web_sm"):
-        logger.info("Downloading spaCy model en_core_web_sm...")
+    if not spacy.util.is_package(model_name):
+        logger.info(f"Downloading spaCy model {model_name}...")
         try:
             from spacy.cli import download
 
-            download("en_core_web_sm")
-            logger.info("spaCy model en_core_web_sm downloaded successfully")
+            download(model_name)
+            logger.info(f"spaCy model {model_name} downloaded successfully")
         except Exception as e:
             raise RuntimeError(
-                f"Failed to download spaCy model en_core_web_sm: {e}. "
-                "Please install manually: python -m spacy download en_core_web_sm"
+                f"Failed to download spaCy model {model_name}: {e}. "
+                f"Please install manually: python -m spacy download {model_name}"
             ) from e
 
 
-def get_nlp_full():
-    """Return spaCy model with all pipelines (NER, tagger, etc.) for entity extraction."""
-    global _nlp_full, _load_failed_full
-    if _load_failed_full:
+def get_nlp_full(model_name: str = "en_core_web_sm"):
+    """Return spaCy model with all pipelines (NER, tagger, etc.) for entity extraction.
+
+    Args:
+        model_name: spaCy model to load (default: "en_core_web_sm")
+
+    Returns:
+        spaCy Language model or None if loading fails.
+    """
+    global _nlp_full_cache, _load_failed_full
+    if model_name in _load_failed_full:
         return None
-    if _nlp_full is not None:
-        return _nlp_full
+    if model_name in _nlp_full_cache:
+        return _nlp_full_cache[model_name]
     with _lock:
-        if _nlp_full is not None:
-            return _nlp_full
-        if _load_failed_full:
+        if model_name in _nlp_full_cache:
+            return _nlp_full_cache[model_name]
+        if model_name in _load_failed_full:
             return None
         try:
-            _ensure_model_available()
+            _ensure_model_available(model_name)
             import spacy
 
-            _nlp_full = spacy.load("en_core_web_sm")
-            logger.info("spaCy full model loaded")
+            nlp = spacy.load(model_name)
+            _nlp_full_cache[model_name] = nlp
+            logger.info(f"spaCy full model '{model_name}' loaded")
         except Exception as e:
-            logger.warning(f"Failed to load spaCy full model: {e}")
-            _load_failed_full = True
+            logger.warning(f"Failed to load spaCy full model '{model_name}': {e}")
+            _load_failed_full.add(model_name)
             return None
-    return _nlp_full
+    return _nlp_full_cache.get(model_name)
 
 
-def get_nlp_lemma():
-    """Return spaCy model with only lemmatizer for BM25 text processing."""
-    global _nlp_lemma, _load_failed_lemma
-    if _load_failed_lemma:
+def get_nlp_lemma(model_name: str = "en_core_web_sm"):
+    """Return spaCy model with only lemmatizer for BM25 text processing.
+
+    Args:
+        model_name: spaCy model to load (default: "en_core_web_sm")
+
+    Returns:
+        spaCy Language model or None if loading fails.
+    """
+    global _nlp_lemma_cache, _load_failed_lemma
+    if model_name in _load_failed_lemma:
         return None
-    if _nlp_lemma is not None:
-        return _nlp_lemma
+    if model_name in _nlp_lemma_cache:
+        return _nlp_lemma_cache[model_name]
     with _lock:
-        if _nlp_lemma is not None:
-            return _nlp_lemma
-        if _load_failed_lemma:
+        if model_name in _nlp_lemma_cache:
+            return _nlp_lemma_cache[model_name]
+        if model_name in _load_failed_lemma:
             return None
         try:
-            _ensure_model_available()
+            _ensure_model_available(model_name)
             import spacy
 
-            _nlp_lemma = spacy.load("en_core_web_sm", disable=["ner", "parser"])
-            logger.info("spaCy lemma model loaded")
+            nlp = spacy.load(model_name, disable=["ner", "parser"])
+            _nlp_lemma_cache[model_name] = nlp
+            logger.info(f"spaCy lemma model '{model_name}' loaded")
         except Exception as e:
-            logger.warning(f"Failed to load spaCy lemma model: {e}")
-            _load_failed_lemma = True
+            logger.warning(f"Failed to load spaCy lemma model '{model_name}': {e}")
+            _load_failed_lemma.add(model_name)
             return None
-    return _nlp_lemma
+    return _nlp_lemma_cache.get(model_name)
