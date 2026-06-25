@@ -287,3 +287,37 @@ class TestSalvageTruncatedMemories:
         memories, was_truncated = salvage_memory_objects(text)
         assert len(memories) == 1
         assert was_truncated is True
+
+    def test_recovers_single_quoted_python_repr_dict(self):
+        # Some models emit a Python-repr dict ({'memory': [...]}) instead of JSON.
+        # json.loads / extract_json both fail on it upstream, so it lands here. The
+        # double-quoted-only peeler would match nothing and SILENTLY drop every
+        # fact - the adjacent silent-drop this function exists to prevent.
+        text = "{'memory': [{'id': '0', 'text': \"User's dog is named Biscuit\"}, {'id': '1', 'text': 'Lives in Pittsburgh'}]}"
+        memories, was_truncated = salvage_memory_objects(text)
+        assert was_truncated is False  # array closed cleanly
+        assert [m["id"] for m in memories] == ["0", "1"]
+        assert memories[0]["text"] == "User's dog is named Biscuit"  # apostrophe inside survives
+
+    def test_single_quoted_but_truncated_is_not_dropped_silently(self, caplog):
+        # Single-quoted AND cut off mid-stream: literal_eval cannot recover (no
+        # closing ']'), so nothing is salvaged - but it must be logged, not dropped
+        # silently. Asserts the loud-warning floor for the unrecoverable case.
+        import logging
+
+        text = "{'memory': [{'id': '0', 'text': 'Lives in Pitt"
+        with caplog.at_level(logging.WARNING):
+            memories, _ = salvage_memory_objects(text)
+        assert memories == []
+        assert any("not dropping silently" in r.message for r in caplog.records)
+
+    def test_bracket_inside_string_does_not_break_recovery(self):
+        # An UNBALANCED ']' inside a memory's text must not be mistaken for the
+        # array close. The text holds a lone ']' with no matching '[', so a naive
+        # non-quote-aware scanner would stop at it and mis-slice; only the
+        # quote-aware matcher walks past it and recovers the object.
+        text = "{'memory': [{'id': '0', 'text': 'rated 9] stars'}]}"
+        memories, was_truncated = salvage_memory_objects(text)
+        assert was_truncated is False
+        assert len(memories) == 1
+        assert memories[0]["text"] == "rated 9] stars"

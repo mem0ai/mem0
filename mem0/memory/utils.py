@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import json
 import logging
@@ -171,11 +172,14 @@ def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
         # This runs inside the parse-failure except handler; a provider that
         # returned a non-string must degrade to "nothing salvaged", not raise.
         return [], False
-    match = re.search(r'"memory"\s*:\s*\[', text)
+    # Tolerate either quote style on the key: some models emit a Python-repr
+    # dict ({'memory': [...]}) that fails json.loads upstream and lands here.
+    match = re.search(r"""['"]memory['"]\s*:\s*\[""", text)
     if not match:
         return [], False
 
     decoder = json.JSONDecoder()
+    bracket_idx = match.end() - 1  # the '[' that opens the memory array
     idx = match.end()
     n = len(text)
     memories: List[Dict[str, Any]] = []
@@ -195,7 +199,68 @@ def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
         if isinstance(obj, dict):
             memories.append(obj)
         idx = end
+
+    if memories:
+        return memories, truncated
+
+    # The JSON peeler recovered nothing from a response that DID match the
+    # memory key. The usual cause is non-JSON dict syntax (single quotes,
+    # Python repr) that json.raw_decode cannot read. Try a safe literal-eval of
+    # the complete array before giving up - and if even that fails, log loudly
+    # rather than re-create the silent drop this function exists to kill.
+    # (An apostrophe inside a single-quoted value - "it's" - desyncs the
+    # bracket scanner; that degrades to literal_eval failing and the warning
+    # below, never a crash or a silent drop.)
+    close_idx = _find_matching_bracket(text, bracket_idx)
+    if close_idx != -1:
+        try:
+            parsed = ast.literal_eval(text[bracket_idx : close_idx + 1])
+        except Exception:
+            # literal_eval on untrusted model output can raise more than
+            # ValueError/SyntaxError (RecursionError, MemoryError, ...). This
+            # runs inside the parse-failure except handler, whose contract is to
+            # degrade to "nothing salvaged", never to raise out of it - so catch
+            # broadly and fall through to the warning.
+            parsed = None
+        if isinstance(parsed, list):
+            # Parsed cleanly (array closed); return whatever dicts it held - an
+            # empty/dictless array is a legitimately empty extraction, not a drop.
+            return [o for o in parsed if isinstance(o, dict)], False
+    logger.warning(
+        "Extraction response matched a 'memory' array but no complete object could be "
+        "salvaged (non-JSON dict syntax or truncated mid-first-object); not dropping silently."
+    )
     return memories, truncated
+
+
+def _find_matching_bracket(text: str, open_idx: int) -> int:
+    """Index of the ``]`` matching the ``[`` at ``open_idx``, or -1 if unclosed.
+
+    Quote-aware (handles ``'`` and ``"`` strings with backslash escapes) so a
+    bracket inside a string value cannot throw off the depth count.
+    """
+    depth = 0
+    quote = None
+    i = open_idx
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if quote is not None:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
 
 
 #: A truncated extraction is retried once at this multiple of the configured
