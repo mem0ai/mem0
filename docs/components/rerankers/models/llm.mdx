@@ -40,7 +40,7 @@ config = {
         }
     },
     "reranker": {
-        "provider": "llm_reranker",
+        "provider": "llm",
         "config": {
             "model": "gpt-4o-mini",
             "provider": "openai",
@@ -90,7 +90,7 @@ config = {
     "vector_store": {"provider": "chroma"},
     "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
     "reranker": {
-        "provider": "llm_reranker",
+        "provider": "llm",
         "config": {
             "model": "gpt-4o-mini",
             "provider": "openai",
@@ -150,7 +150,7 @@ Score from 0.0 to 1.0. Provide only the numerical score."""
 
 config = {
     "reranker": {
-        "provider": "llm_reranker",
+        "provider": "llm",
         "config": {
             "model": "gpt-4o-mini",
             "provider": "openai",
@@ -169,7 +169,7 @@ Use different LLM providers for reranking:
 # Using Anthropic Claude
 anthropic_config = {
     "reranker": {
-        "provider": "llm_reranker",
+        "provider": "llm",
         "config": {
             "model": "claude-3-haiku-20240307",
             "provider": "anthropic",
@@ -181,7 +181,7 @@ anthropic_config = {
 # Using local Ollama model
 ollama_config = {
     "reranker": {
-        "provider": "llm_reranker",
+        "provider": "llm",
         "config": {
             "model": "llama2:7b",
             "provider": "ollama",
