@@ -22,6 +22,7 @@ const external = [
   "@langchain/core",
   "compromise",
   "natural",
+  "fastembed",
 ];
 
 const define = {

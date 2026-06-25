@@ -124,7 +124,13 @@
     "pg": "8.11.3",
     "redis": "^4.6.13",
     "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "natural": "^8.0.1",
+    "fastembed": "^2.1.0"
+  },
+  "peerDependenciesMeta": {
+    "fastembed": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18"
