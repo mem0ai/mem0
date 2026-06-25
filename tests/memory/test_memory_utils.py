@@ -1,7 +1,18 @@
-import pytest
+import datetime as _dt
 from unittest.mock import Mock
 
+import pytest
+
+import mem0.configs.prompts as prompts_mod
+from mem0.configs.prompts import (
+    AGENT_MEMORY_EXTRACTION_PROMPT,
+    CURRENT_DATE_PLACEHOLDER,
+    FACT_RETRIEVAL_PROMPT,
+    USER_MEMORY_EXTRACTION_PROMPT,
+)
 from mem0.memory.utils import (
+    get_fact_retrieval_messages,
+    get_fact_retrieval_messages_legacy,
     parse_messages,
     parse_vision_messages,
     remove_spaces_from_entities,
@@ -168,3 +179,52 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class _FrozenDateTime:
+    """Stand-in for datetime whose now() returns a settable fixed value."""
+
+    fixed = _dt.datetime(2020, 1, 1)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.fixed
+
+
+class TestCurrentDateInjection:
+    """The extraction prompts must use the real date at call time, not a date
+    frozen when the module was imported (long-running processes would otherwise
+    report a stale date on every extraction after their start day)."""
+
+    def test_prompts_carry_placeholder_not_a_baked_date(self):
+        # The module-level prompts must hold the placeholder, so the date is
+        # injected later rather than evaluated once at import.
+        for prompt in (FACT_RETRIEVAL_PROMPT, USER_MEMORY_EXTRACTION_PROMPT, AGENT_MEMORY_EXTRACTION_PROMPT):
+            assert CURRENT_DATE_PLACEHOLDER in prompt
+
+    def test_date_injected_at_call_time(self, monkeypatch):
+        monkeypatch.setattr(prompts_mod, "datetime", _FrozenDateTime)
+        _FrozenDateTime.fixed = _dt.datetime(2020, 1, 1)
+        system, _ = get_fact_retrieval_messages("hello")
+        assert "Today's date is 2020-01-01." in system
+        # The placeholder must be fully resolved, never leaked to the model.
+        assert CURRENT_DATE_PLACEHOLDER not in system
+
+    def test_date_refreshes_across_days(self, monkeypatch):
+        # The heart of the bug: the same process must not keep returning the date
+        # from the day it was started.
+        monkeypatch.setattr(prompts_mod, "datetime", _FrozenDateTime)
+        _FrozenDateTime.fixed = _dt.datetime(2020, 1, 1)
+        day1, _ = get_fact_retrieval_messages("hello")
+        _FrozenDateTime.fixed = _dt.datetime(2020, 6, 15)
+        day2, _ = get_fact_retrieval_messages("hello")
+        assert "Today's date is 2020-01-01." in day1
+        assert "Today's date is 2020-06-15." in day2
+
+    def test_agent_and_legacy_paths_also_inject(self, monkeypatch):
+        monkeypatch.setattr(prompts_mod, "datetime", _FrozenDateTime)
+        _FrozenDateTime.fixed = _dt.datetime(2022, 12, 25)
+        agent_system, _ = get_fact_retrieval_messages("hi", is_agent_memory=True)
+        legacy_system, _ = get_fact_retrieval_messages_legacy("hi")
+        assert "Today's date is 2022-12-25." in agent_system
+        assert "Today's date is 2022-12-25." in legacy_system
