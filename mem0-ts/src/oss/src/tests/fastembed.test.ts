@@ -57,6 +57,19 @@ describe("FastEmbedEmbedder", () => {
     });
   });
 
+  it("applies the default model when model is explicitly undefined (config-merge path)", async () => {
+    // ConfigManager.mergeConfig() passes `model: undefined` for fastembed so
+    // the provider's own default wins instead of OpenAI's default model.
+    initMock.mockResolvedValue(fakeEmbedding({ hi: [0.4] }));
+    const embedder = new FastEmbedEmbedder({ model: undefined });
+
+    await embedder.embed("hi");
+
+    expect(initMock.mock.calls[0][0]).toMatchObject({
+      model: "fast-bge-small-en-v1.5",
+    });
+  });
+
   it("uses the configured model and passes through modelProperties", async () => {
     initMock.mockResolvedValue(fakeEmbedding({ hi: [1, 2] }));
     const embedder = new FastEmbedEmbedder({
@@ -131,5 +144,22 @@ describe("FastEmbedEmbedder", () => {
     await expect(embedder.embed("x")).rejects.toThrow(
       /Failed to initialize FastEmbed model 'not-a-real-model'/,
     );
+  });
+
+  it("retries initialization after a transient init failure", async () => {
+    initMock.mockRejectedValueOnce(new Error("transient init failure"));
+    initMock.mockResolvedValueOnce(fakeEmbedding({ second: [0.9] }));
+    const embedder = new FastEmbedEmbedder({});
+
+    // First call fails (rejected init promise must not be cached).
+    await expect(embedder.embed("first")).rejects.toThrow(
+      /Failed to initialize FastEmbed model/,
+    );
+
+    // Second call should re-attempt init and succeed.
+    const result = await embedder.embed("second");
+
+    expect(initMock).toHaveBeenCalledTimes(2);
+    expect(result).toEqual([0.9]);
   });
 });

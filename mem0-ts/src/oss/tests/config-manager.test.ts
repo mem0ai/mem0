@@ -361,6 +361,47 @@ describe("ConfigManager", () => {
       expect(cfg.vectorStore.config.port).toBe(6333);
     });
   });
+
+  describe("mergeConfig - FastEmbed defaults", () => {
+    const baseLlm = { provider: "openai", config: { apiKey: "k" } };
+
+    it("does not inject the OpenAI default embedder model into fastembed", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: { provider: "fastembed", config: {} },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("fastembed");
+      // Must stay undefined so FastEmbedEmbedder applies its own default
+      // model instead of OpenAI's text-embedding-3-small.
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+
+    it("treats FastEmbed provider casing the same as the factory", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: { provider: "FastEmbed", config: {} },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("FastEmbed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+
+    it("still honors an explicitly provided fastembed model", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "fastembed",
+          config: { model: "fast-bge-base-en-v1.5" },
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.config.model).toBe("fast-bge-base-en-v1.5");
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -489,6 +530,24 @@ describe("Memory – LM Studio end-to-end flow", () => {
     expect(mockEmbedder.embed).toHaveBeenCalledWith("dimension probe");
     const vsCall = mockVectorStoreFactory.create.mock.calls[0];
     expect(vsCall[1].dimension).toBe(768);
+  });
+
+  it("preserves the FastEmbed default model through the Memory config path", async () => {
+    const mem = new MemoryClass({
+      embedder: { provider: "fastembed", config: {} },
+      vectorStore: { provider: "memory", config: { collectionName: "test" } },
+      llm: { provider: "openai", config: { apiKey: "test-key" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+
+    // The OpenAI default model must NOT leak into the fastembed config;
+    // FastEmbedEmbedder is responsible for applying its own default.
+    expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
+      "fastembed",
+      expect.objectContaining({ model: undefined }),
+    );
   });
 
   it("handles snake_case OpenClaw config through full Memory stack", async () => {

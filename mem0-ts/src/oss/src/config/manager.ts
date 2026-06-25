@@ -3,16 +3,24 @@ import { DEFAULT_MEMORY_CONFIG } from "./defaults";
 
 export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
+    const embedderProvider =
+      userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider;
+    // Providers that ship their own default model and reject the generic
+    // OpenAI default (e.g. FastEmbed only accepts its enum model names).
+    const embedderProviderUsesOwnDefault =
+      embedderProvider.toLowerCase() === "fastembed";
     const mergedConfig = {
       version: userConfig.version || DEFAULT_MEMORY_CONFIG.version,
       embedder: {
-        provider:
-          userConfig.embedder?.provider ||
-          DEFAULT_MEMORY_CONFIG.embedder.provider,
+        provider: embedderProvider,
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
           const userConf = userConfig.embedder?.config;
-          let finalModel: string | any = defaultConf.model;
+          // Leave the model undefined for providers that resolve their own
+          // default, so the embedder default wins instead of OpenAI's.
+          let finalModel: string | any = embedderProviderUsesOwnDefault
+            ? undefined
+            : defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;

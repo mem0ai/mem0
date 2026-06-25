@@ -64,6 +64,9 @@ export class FastEmbedEmbedder implements Embedder {
 
   private async getEmbedding(): Promise<FastEmbedFlagEmbedding> {
     if (!this.embeddingPromise) {
+      // Clear the cached promise on failure so a transient init error
+      // (e.g. a flaky one-time model download) can be retried on the next
+      // call instead of being permanently cached as a rejection.
       this.embeddingPromise = (async () => {
         let mod: FastEmbedModule;
         try {
@@ -95,7 +98,10 @@ export class FastEmbedEmbedder implements Embedder {
               `Original error: ${error instanceof Error ? error.message : String(error)}`,
           );
         }
-      })();
+      })().catch((error) => {
+        this.embeddingPromise = null;
+        throw error;
+      });
     }
     return this.embeddingPromise;
   }
