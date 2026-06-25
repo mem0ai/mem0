@@ -37,7 +37,7 @@ class TestSpacyModelConfig:
         mock_nlp = MagicMock()
         mock_spacy.load.return_value = mock_nlp
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.spacy_models import get_nlp_full, _nlp_full_cache, _load_failed_full
 
             # Clear caches
@@ -60,7 +60,7 @@ class TestSpacyModelConfig:
         mock_nlp = MagicMock()
         mock_spacy.load.return_value = mock_nlp
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.spacy_models import get_nlp_lemma, _nlp_lemma_cache, _load_failed_lemma
 
             # Clear caches
@@ -84,7 +84,7 @@ class TestSpacyModelConfig:
         mock_nlp2 = MagicMock()
         mock_spacy.load.side_effect = [mock_nlp1, mock_nlp2]
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.spacy_models import get_nlp_full, _nlp_full_cache, _load_failed_full
 
             # Clear caches
@@ -114,7 +114,7 @@ class TestSpacyModelConfig:
         mock_nlp.return_value = mock_doc
         mock_spacy.load.return_value = mock_nlp
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.entity_extraction import extract_entities
             from mem0.utils import spacy_models
 
@@ -145,7 +145,7 @@ class TestSpacyModelConfig:
         mock_nlp.return_value = mock_doc
         mock_spacy.load.return_value = mock_nlp
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.lemmatization import lemmatize_for_bm25
             from mem0.utils import spacy_models
 
@@ -166,7 +166,7 @@ class TestSpacyModelConfig:
         mock_spacy = MagicMock()
         mock_spacy.util.is_package.return_value = True
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.spacy_models import _ensure_model_available
 
             # Should not raise for existing model
@@ -191,7 +191,7 @@ class TestSpacyModelConfig:
         mock_nlp.pipe = MagicMock(return_value=[mock_doc])
         mock_spacy.load.return_value = mock_nlp
 
-        with patch.dict(sys.modules, {'spacy': mock_spacy}):
+        with patch.dict(sys.modules, {"spacy": mock_spacy}):
             from mem0.utils.entity_extraction import extract_entities_batch
             from mem0.utils import spacy_models
 

@@ -23,9 +23,7 @@ def _ensure_model_available(model_name: str = "en_core_web_sm"):
     try:
         import spacy
     except ImportError:
-        raise ImportError(
-            "spaCy is not installed. Install it with: pip install mem0ai[nlp]"
-        )
+        raise ImportError("spaCy is not installed. Install it with: pip install mem0ai[nlp]")
 
     if not spacy.util.is_package(model_name):
         logger.info(f"Downloading spaCy model {model_name}...")
