@@ -114,6 +114,27 @@ describe("FastEmbedEmbedder", () => {
     expect(initMock).toHaveBeenCalledTimes(1);
   });
 
+  it("normalizes Float32Array output to a plain number[]", async () => {
+    initMock.mockResolvedValue({
+      embed: async function* () {
+        yield [new Float32Array([0.1, 0.2, 0.3])];
+      },
+      passageEmbed: async function* () {},
+      listSupportedModels: () => [],
+    });
+    const embedder = new FastEmbedEmbedder({});
+
+    const result = await embedder.embed("x");
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).not.toBeInstanceOf(Float32Array);
+    expect(result).toEqual([
+      expect.closeTo(0.1),
+      expect.closeTo(0.2),
+      expect.closeTo(0.3),
+    ]);
+  });
+
   it("embeds a batch of texts in order", async () => {
     initMock.mockResolvedValue(
       fakeEmbedding({ one: [1, 1], two: [2, 2], three: [3, 3] }),

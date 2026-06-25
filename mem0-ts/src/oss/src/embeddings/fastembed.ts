@@ -116,7 +116,9 @@ export class FastEmbedEmbedder implements Embedder {
         `FastEmbed returned no embedding for model '${this.model}'`,
       );
     }
-    return batch[0];
+    // FastEmbed yields Float32Array values; normalize to a plain number[]
+    // to satisfy the Embedder contract and downstream vector-store handling.
+    return Array.from(batch[0]);
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
@@ -129,7 +131,10 @@ export class FastEmbedEmbedder implements Embedder {
     const embedding = await this.getEmbedding();
     const results: number[][] = [];
     for await (const batch of embedding.embed(normalized)) {
-      results.push(...batch);
+      // Normalize each Float32Array to a plain number[].
+      for (const vector of batch) {
+        results.push(Array.from(vector));
+      }
     }
     if (results.length !== normalized.length) {
       throw new Error(
