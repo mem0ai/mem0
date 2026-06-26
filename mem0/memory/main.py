@@ -666,7 +666,7 @@ class Memory(MemoryBase):
         Used by delete_all to avoid the per-memory read-modify-write cycle that
         _remove_memory_from_entity_store performs for each deleted memory.
         """
-        if self._entity_store is None:
+        if getattr(self, "_entity_store", None) is None:
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
@@ -1871,6 +1871,9 @@ class Memory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         memories = self.vector_store.list(filters=filters)[0]
         errors = []
+        # Best-effort: continue past individual failures so entity cleanup always
+        # runs. Mirrors the async path's asyncio.gather(return_exceptions=True)
+        # behavior — callers should not rely on exception propagation here.
         for memory in memories:
             try:
                 self._delete_memory(memory.id, existing_memory=memory, skip_entity_cleanup=True)

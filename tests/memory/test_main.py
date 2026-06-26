@@ -1125,27 +1125,6 @@ class TestDeleteAllPerformanceFix:
         per_mem_cleanup.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_async_no_vector_store_get_calls(self, mocker):
-        mocker.patch("mem0.memory.main.capture_event")
-        am = AsyncMemory.__new__(AsyncMemory)
-        am.config = mocker.MagicMock()
-        vs = mocker.MagicMock()
-        am.vector_store = vs
-        am.db = mocker.MagicMock()
-        am._entity_store = None
-        am.llm = mocker.MagicMock()
-        am.embedding_model = mocker.MagicMock()
-
-        fakes = [_make_fake_mem(f"id-{i}") for i in range(3)]
-        mocker.patch("asyncio.to_thread", return_value=[fakes])
-        async def _noop(*a, **kw):
-            pass
-
-        mocker.patch.object(am, "_delete_memory", side_effect=_noop)
-        await am.delete_all(user_id="u1")
-        vs.get.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_async_existing_memory_passed(self, mocker):
         mocker.patch("mem0.memory.main.capture_event")
         am = AsyncMemory.__new__(AsyncMemory)

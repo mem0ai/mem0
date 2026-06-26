@@ -984,20 +984,22 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 
     mock_vector_store.list.return_value = ([mem1, mem2, mem3],)
 
-    def _get_side_effect(vector_id):
+    # Simulate a store failure at the delete stage (get is never called because
+    # existing_memory is forwarded from list(), so failure now surfaces at delete).
+    call_count = {"n": 0}
+
+    def _delete_side_effect(vector_id):
+        call_count["n"] += 1
         if vector_id == "mem-2":
             raise RuntimeError("simulated store failure")
-        return {
-            "mem-1": mem1,
-            "mem-3": mem3,
-        }.get(vector_id)
 
-    mock_vector_store.get.side_effect = _get_side_effect
+    mock_vector_store.delete.side_effect = _delete_side_effect
 
     result = await memory.delete_all(user_id="test-user")
 
     assert result == {"message": "Memories deleted successfully!"}
-    assert mock_vector_store.delete.call_count == 2
+    # All 3 deletes are attempted (fault isolation); one raises but the batch continues.
+    assert mock_vector_store.delete.call_count == 3
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
