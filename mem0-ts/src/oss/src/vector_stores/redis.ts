@@ -337,7 +337,9 @@ export class RedisDB implements VectorStore {
       const id = ids[idx];
 
       // Create entry with required fields
-      const createdAt = payload.created_at ? new Date(payload.created_at).getTime() : 0;
+      const createdAt = payload.created_at
+        ? new Date(payload.created_at).getTime()
+        : 0;
       const entry: Record<string, any> = {
         memory_id: id,
         hash: payload.hash ?? "",
@@ -562,8 +564,12 @@ export class RedisDB implements VectorStore {
     payload: Record<string, any>,
   ): Promise<void> {
     const snakePayload = toSnakeCase(payload);
-    const createdAt = snakePayload.created_at ? new Date(snakePayload.created_at).getTime() : 0;
-    const updatedAt = snakePayload.updated_at ? new Date(snakePayload.updated_at).getTime() : 0;
+    const createdAt = snakePayload.created_at
+      ? new Date(snakePayload.created_at).getTime()
+      : 0;
+    const updatedAt = snakePayload.updated_at
+      ? new Date(snakePayload.updated_at).getTime()
+      : 0;
     const entry: Record<string, any> = {
       memory_id: vectorId,
       hash: snakePayload.hash ?? "",

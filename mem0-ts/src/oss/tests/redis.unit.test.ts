@@ -1,12 +1,3 @@
-/// <reference types="jest" />
-/**
- * Unit tests for Redis vector store insert/update with entity payloads.
- *
- * Entity payloads from _linkEntitiesForMemory lack hash, created_at,
- * and updated_at. Direct property access produces undefined/NaN values.
- * These tests verify the nullish coalescing guards.
- */
-
 import { RedisDB } from "../src/vector_stores/redis";
 
 jest.mock("redis", () => ({
@@ -90,6 +81,28 @@ describe("RedisDB – entity payload handling", () => {
     expect(entry.hash).toBe("");
     expect(entry.created_at).toBe(0);
     expect(entry.updated_at).toBe(0);
+    expect(Number.isNaN(entry.created_at)).toBe(false);
+    expect(Number.isNaN(entry.updated_at)).toBe(false);
+  });
+
+  test("update with normal payload preserves timestamps", async () => {
+    const normalPayload = {
+      data: "likes coffee",
+      hash: "abc123",
+      createdAt: "2026-06-25T10:00:00.000Z",
+      updatedAt: "2026-06-25T12:00:00.000Z",
+      userId: "test_user",
+    };
+
+    await store.update("mem-1", [0.1, 0.2, 0.3, 0.4], normalPayload);
+
+    const call = mockClient.hSet.mock.calls[0];
+    const entry = call[1];
+
+    expect(entry.hash).toBe("abc123");
+    expect(entry.memory).toBe("likes coffee");
+    expect(entry.created_at).toBeGreaterThan(0);
+    expect(entry.updated_at).toBeGreaterThan(0);
     expect(Number.isNaN(entry.created_at)).toBe(false);
     expect(Number.isNaN(entry.updated_at)).toBe(false);
   });
