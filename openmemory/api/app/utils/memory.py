@@ -29,6 +29,7 @@ Example configuration that will be automatically adjusted:
 
 import hashlib
 import json
+import logging
 import os
 import socket
 
@@ -39,6 +40,7 @@ from mem0 import Memory
 
 _memory_client = None
 _config_hash = None
+logger = logging.getLogger(__name__)
 
 
 def _get_config_hash(config_dict):
@@ -55,7 +57,7 @@ def _get_docker_host_url():
     # Check for custom environment variable first
     custom_host = os.environ.get('OLLAMA_HOST')
     if custom_host:
-        print(f"Using custom Ollama host from OLLAMA_HOST: {custom_host}")
+        logger.info("Using custom Ollama host from OLLAMA_HOST: %s", custom_host)
         return custom_host.replace('http://', '').replace('https://', '').split(':')[0]
     
     # Check if we're running inside Docker
@@ -63,7 +65,7 @@ def _get_docker_host_url():
         # Not in Docker, return localhost as-is
         return "localhost"
     
-    print("Detected Docker environment, adjusting host URL for Ollama...")
+    logger.info("Detected Docker environment, adjusting host URL for Ollama...")
     
     # Try different host resolution strategies
     host_candidates = []
@@ -72,7 +74,7 @@ def _get_docker_host_url():
     try:
         socket.gethostbyname('host.docker.internal')
         host_candidates.append('host.docker.internal')
-        print("Found host.docker.internal")
+        logger.info("Found host.docker.internal")
     except socket.gaierror:
         pass
     
@@ -85,7 +87,7 @@ def _get_docker_host_url():
                     gateway_hex = fields[2]
                     gateway_ip = socket.inet_ntoa(bytes.fromhex(gateway_hex)[::-1])
                     host_candidates.append(gateway_ip)
-                    print(f"Found Docker gateway: {gateway_ip}")
+                    logger.info("Found Docker gateway: %s", gateway_ip)
                     break
     except (FileNotFoundError, IndexError, ValueError):
         pass
@@ -93,7 +95,7 @@ def _get_docker_host_url():
     # 3. Fallback to common Docker bridge IP
     if not host_candidates:
         host_candidates.append('172.17.0.1')
-        print("Using fallback Docker bridge IP: 172.17.0.1")
+        logger.info("Using fallback Docker bridge IP: 172.17.0.1")
     
     # Return the first available candidate
     return host_candidates[0]
@@ -121,7 +123,7 @@ def _fix_ollama_urls(config_section):
             if docker_host != "localhost":
                 new_url = url.replace("localhost", docker_host).replace("127.0.0.1", docker_host)
                 ollama_config["ollama_base_url"] = new_url
-                print(f"Adjusted Ollama URL from {url} to {new_url}")
+                logger.info("Adjusted Ollama URL from %s to %s", url, new_url)
     
     return config_section
 
@@ -325,7 +327,7 @@ def get_default_memory_config():
             "port": 6333,
         })
     
-    print(f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}")
+    logger.info("Auto-detected vector store: %s with config: %s", vector_store_provider, vector_store_config)
 
     # Detect LLM provider from environment variables
     llm_provider = os.environ.get('LLM_PROVIDER', 'openai').lower()
@@ -341,7 +343,7 @@ def get_default_memory_config():
         base_url=llm_base_url,
         ollama_base_url=ollama_base_url,
     )
-    print(f"Auto-detected LLM provider: {llm_provider}")
+    logger.info("Auto-detected LLM provider: %s", llm_provider)
 
     # Detect embedder provider from environment variables
     embedder_provider = os.environ.get('EMBEDDER_PROVIDER', llm_provider if llm_provider == 'ollama' else 'openai').lower()
@@ -357,7 +359,7 @@ def get_default_memory_config():
         ollama_base_url=ollama_base_url,
         llm_base_url=llm_base_url,
     )
-    print(f"Auto-detected embedder provider: {embedder_provider}")
+    logger.info("Auto-detected embedder provider: %s", embedder_provider)
 
     return {
         "vector_store": {
@@ -389,9 +391,9 @@ def _parse_environment_variables(config_dict):
                 env_value = os.environ.get(env_var)
                 if env_value:
                     parsed_config[key] = env_value
-                    print(f"Loaded {env_var} from environment for {key}")
+                    logger.info("Loaded %s from environment for %s", env_var, key)
                 else:
-                    print(f"Warning: Environment variable {env_var} not found, keeping original value")
+                    logger.warning("Environment variable %s not found, keeping original value", env_var)
                     parsed_config[key] = value
             elif isinstance(value, dict):
                 parsed_config[key] = _parse_environment_variables(value)
@@ -450,13 +452,13 @@ def get_memory_client(custom_instructions: str = None):
                     if "vector_store" in mem0_config and mem0_config["vector_store"] is not None:
                         config["vector_store"] = mem0_config["vector_store"]
             else:
-                print("No configuration found in database, using defaults")
+                logger.info("No configuration found in database, using defaults")
                     
             db.close()
                             
         except Exception as e:
-            print(f"Warning: Error loading configuration from database: {e}")
-            print("Using default configuration")
+            logger.warning("Error loading configuration from database: %s", e)
+            logger.warning("Using default configuration")
             # Continue with default configuration if database config can't be loaded
 
         # Use custom_instructions parameter first, then fall back to database value
@@ -472,7 +474,7 @@ def get_memory_client(custom_instructions: str = None):
 
         # ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
-        print("Parsing environment variables in final config...")
+        logger.info("Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
 
         # Check if config has changed by comparing hashes
@@ -480,14 +482,14 @@ def get_memory_client(custom_instructions: str = None):
         
         # Only reinitialize if config changed or client doesn't exist
         if _memory_client is None or _config_hash != current_config_hash:
-            print(f"Initializing memory client with config hash: {current_config_hash}")
+            logger.info("Initializing memory client with config hash: %s", current_config_hash)
             try:
                 _memory_client = Memory.from_config(config_dict=config)
                 _config_hash = current_config_hash
-                print("Memory client initialized successfully")
+                logger.info("Memory client initialized successfully")
             except Exception as init_error:
-                print(f"Warning: Failed to initialize memory client: {init_error}")
-                print("Server will continue running with limited memory functionality")
+                logger.warning("Failed to initialize memory client: %s", init_error)
+                logger.warning("Server will continue running with limited memory functionality")
                 _memory_client = None
                 _config_hash = None
                 return None
@@ -495,8 +497,8 @@ def get_memory_client(custom_instructions: str = None):
         return _memory_client
         
     except Exception as e:
-        print(f"Warning: Exception occurred while initializing memory client: {e}")
-        print("Server will continue running with limited memory functionality")
+        logger.warning("Exception occurred while initializing memory client: %s", e)
+        logger.warning("Server will continue running with limited memory functionality")
         return None
 
 

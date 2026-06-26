@@ -35,28 +35,29 @@ const Stats = () => {
           <p className="text-zinc-400">Total Apps Connected</p>
           <div className="flex flex-col items-start gap-1 mt-2">
             <div className="flex -space-x-2">
-              {apps.map((app) => (
-                <div
-                  key={app.id}
-                  className={`h-8 w-8 rounded-full bg-primary flex items-center justify-center text-xs`}
-                >
-                  <div>
-                    <div className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
-                      <Image
-                        src={
-                          constants[app.name as keyof typeof constants]
-                            ?.iconImage || ""
-                        }
-                        alt={
-                          constants[app.name as keyof typeof constants]?.name
-                        }
-                        width={32}
-                        height={32}
-                      />
+              {apps.map((app) => {
+                const appSource =
+                  constants[app.name as keyof typeof constants] ??
+                  constants.default;
+
+                return (
+                  <div
+                    key={app.id}
+                    className={`h-8 w-8 rounded-full bg-primary flex items-center justify-center text-xs`}
+                  >
+                    <div>
+                      <div className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+                        <Image
+                          src={appSource.iconImage}
+                          alt={appSource.name}
+                          width={32}
+                          height={32}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <h3 className="text-lg font-bold text-white">{totalApps} Apps</h3>
           </div>

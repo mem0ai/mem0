@@ -42,6 +42,11 @@ load_dotenv()
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
 
+
+def _mcp_json_response(data, *, indent=None) -> str:
+    return json.dumps(data, ensure_ascii=False, indent=indent)
+
+
 # Don't initialize memory client at import time - do it lazily when needed
 def get_memory_client_safe():
     """Get memory client with error handling. Returns None if client cannot be initialized."""
@@ -138,7 +143,7 @@ async def add_memories(text: str, infer: bool = True) -> str:
 
                 db.commit()
 
-            return json.dumps(response)
+            return _mcp_json_response(response)
         finally:
             db.close()
     except Exception as e:
@@ -179,7 +184,7 @@ async def search_memory(query: str) -> str:
             hits = memory_client.vector_store.search(
                 query=query, 
                 vectors=embeddings, 
-                limit=10, 
+                top_k=10, 
                 filters=filters,
             )
 
@@ -216,7 +221,7 @@ async def search_memory(query: str) -> str:
                     db.add(access_log)
             db.commit()
 
-            return json.dumps({"results": results}, indent=2)
+            return _mcp_json_response({"results": results}, indent=2)
         finally:
             db.close()
     except Exception as e:
@@ -245,7 +250,7 @@ async def list_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get all memories
-            memories = memory_client.get_all(user_id=uid)
+            memories = memory_client.get_all(filters={"user_id": uid})
             filtered_memories = []
 
             # Filter memories based on permissions
@@ -285,7 +290,7 @@ async def list_memories() -> str:
                         db.add(access_log)
                         filtered_memories.append(memory)
                 db.commit()
-            return json.dumps(filtered_memories, indent=2)
+            return _mcp_json_response(filtered_memories, indent=2)
         finally:
             db.close()
     except Exception as e:

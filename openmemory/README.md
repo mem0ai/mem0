@@ -140,6 +140,49 @@ npx @openmemory/install local http://localhost:8765/mcp/<client-name>/sse/<user-
 
 Replace `<client-name>` with the desired client name and `<user-id>` with the value specified in your environment variables.
 
+### Codex stdio MCP setup
+
+OpenMemory also provides a stdio MCP entrypoint for local clients that launch MCP servers as child processes, such as Codex.
+
+Example Codex configuration:
+
+```toml
+[mcp_servers.mem0]
+command = "/path/to/mem0/.venv-openmemory/bin/python"
+args = ["/path/to/mem0/openmemory/api/mcp_stdio.py"]
+
+[mcp_servers.mem0.env]
+OPENMEMORY_USER_ID = "<user-id>"
+OPENMEMORY_CLIENT_NAME = "codex"
+```
+
+On Windows, use the virtual environment Python executable and script path for your checkout:
+
+```toml
+[mcp_servers.mem0]
+command = "C:\\path\\to\\mem0\\.venv-openmemory\\Scripts\\python.exe"
+args = ["C:\\path\\to\\mem0\\openmemory\\api\\mcp_stdio.py"]
+
+[mcp_servers.mem0.env]
+OPENMEMORY_USER_ID = "<user-id>"
+OPENMEMORY_CLIENT_NAME = "codex"
+```
+
+When `mcp_stdio.py` starts, it ensures the local API is listening on `127.0.0.1:8765` and the UI is listening on `127.0.0.1:3000`. Startup uses local lock files so multiple stdio MCP processes reuse the same API and UI instead of launching duplicate OpenMemory instances. The API and UI keep running after an individual MCP process exits, so the dashboard remains available in the browser.
+
+Autostart can be configured with these environment variables:
+
+| Variable | Description | Default |
+|---|---|---|
+| `OPENMEMORY_AUTOSTART_API` | Set to `false` to disable automatic API startup. | `true` |
+| `OPENMEMORY_AUTOSTART_UI` | Set to `false` to disable automatic UI startup. | `true` |
+| `OPENMEMORY_API_HOST` | API host used by the stdio launcher. | `127.0.0.1` |
+| `OPENMEMORY_API_PORT` | API port used by the stdio launcher. | `8765` |
+| `OPENMEMORY_UI_HOST` | UI host used by the stdio launcher. | `127.0.0.1` |
+| `OPENMEMORY_UI_PORT` | UI port used by the stdio launcher. | `3000` |
+
+Logs for autostarted services are written under `api/.openmemory-runtime/`.
+
 
 ## Project Structure
 

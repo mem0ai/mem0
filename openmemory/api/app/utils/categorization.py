@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List
 
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
@@ -8,7 +9,14 @@ from pydantic import BaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 load_dotenv()
-openai_client = OpenAI()
+_base_url = os.getenv("OPENAI_BASE_URL") or os.getenv("LLM_BASE_URL")
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY"),
+    base_url=_base_url or None,
+)
+categorization_model = os.getenv("OPENMEMORY_CATEGORIZATION_MODEL", "gpt-4o-mini")
+categorization_disabled = os.getenv("OPENMEMORY_DISABLE_CATEGORIZATION", "").lower() in {"1", "true", "yes", "on"}
+logger = logging.getLogger(__name__)
 
 
 class MemoryCategories(BaseModel):
@@ -17,6 +25,9 @@ class MemoryCategories(BaseModel):
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
 def get_categories_for_memory(memory: str) -> List[str]:
+    if categorization_disabled:
+        return []
+
     try:
         messages = [
             {"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT},
@@ -25,7 +36,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
 
         # Let OpenAI handle the pydantic parsing directly
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model=categorization_model,
             messages=messages,
             response_format=MemoryCategories,
             temperature=0
@@ -35,9 +46,9 @@ def get_categories_for_memory(memory: str) -> List[str]:
         return [cat.strip().lower() for cat in parsed.categories]
 
     except Exception as e:
-        logging.error(f"[ERROR] Failed to get categories: {e}")
+        logger.warning("Failed to categorize memory; continuing without categories: %s", e)
         try:
-            logging.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
+            logger.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
         except Exception as debug_e:
-            logging.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
-        raise
+            logger.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
+        return []

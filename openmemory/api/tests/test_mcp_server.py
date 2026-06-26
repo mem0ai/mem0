@@ -14,7 +14,8 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from app.mcp_server import client_name_var, mcp, mcp_router, user_id_var
+from app import mcp_server as mcp_server_module
+from app.mcp_server import add_memories, client_name_var, mcp, mcp_router, user_id_var
 
 # MCP Streamable HTTP requires the Accept header to include application/json.
 # Including text/event-stream as well satisfies GET (SSE) requests.
@@ -374,6 +375,71 @@ class TestStreamableHTTPResponses:
             headers={**MCP_HEADERS, "Content-Type": "text/plain"},
         )
         assert resp.status_code in (400, 415)
+
+
+# ---------------------------------------------------------------------------
+# Tool return serialization
+# ---------------------------------------------------------------------------
+
+class TestMCPToolSerialization:
+    """Verify tool JSON text remains readable for non-ASCII memory content."""
+
+    @pytest.mark.asyncio
+    async def test_add_memories_keeps_unicode_readable(self, monkeypatch):
+        class DummyMemoryClient:
+            def add(self, *args, **kwargs):
+                return {
+                    "results": [
+                        {
+                            "id": "11111111-1111-1111-1111-111111111111",
+                            "memory": "用户喜欢中文输出",
+                            "event": "ADD",
+                        }
+                    ]
+                }
+
+        class DummyQuery:
+            def filter(self, *args, **kwargs):
+                return self
+
+            def first(self):
+                return None
+
+        class DummySession:
+            def query(self, *args, **kwargs):
+                return DummyQuery()
+
+            def add(self, *args, **kwargs):
+                pass
+
+            def commit(self):
+                pass
+
+            def close(self):
+                pass
+
+        class DummyUser:
+            id = "22222222-2222-2222-2222-222222222222"
+
+        class DummyApp:
+            id = "33333333-3333-3333-3333-333333333333"
+            name = "codex"
+            is_active = True
+
+        monkeypatch.setattr(mcp_server_module, "get_memory_client_safe", lambda: DummyMemoryClient())
+        monkeypatch.setattr(mcp_server_module, "SessionLocal", lambda: DummySession())
+        monkeypatch.setattr(mcp_server_module, "get_user_and_app", lambda *args, **kwargs: (DummyUser(), DummyApp()))
+
+        user_token = user_id_var.set("Breaky")
+        client_token = client_name_var.set("codex")
+        try:
+            result = await add_memories("用户喜欢中文输出", infer=False)
+        finally:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+
+        assert "用户喜欢中文输出" in result
+        assert "\\u7528" not in result
 
 
 # ---------------------------------------------------------------------------
