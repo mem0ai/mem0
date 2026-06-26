@@ -11,6 +11,7 @@ import numpy as np
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
+from mem0.utils.aws import build_boto_client_config
 
 
 class AWSBedrockEmbedding(EmbeddingBase):
@@ -43,13 +44,21 @@ class AWSBedrockEmbedding(EmbeddingBase):
         # AWS region is always set in config - see BaseEmbedderConfig
         aws_region = self.config.aws_region or "us-west-2"
 
-        self.client = boto3.client(
-            "bedrock-runtime",
-            region_name=aws_region,
-            aws_access_key_id=aws_access_key if aws_access_key else None,
-            aws_secret_access_key=aws_secret_key if aws_secret_key else None,
-            aws_session_token=aws_session_token if aws_session_token else None,
+        boto_config = build_boto_client_config(
+            self.config.boto_client_config,
+            self.config.read_timeout,
+            self.config.connect_timeout,
         )
+        client_kwargs = {
+            "region_name": aws_region,
+            "aws_access_key_id": aws_access_key if aws_access_key else None,
+            "aws_secret_access_key": aws_secret_key if aws_secret_key else None,
+            "aws_session_token": aws_session_token if aws_session_token else None,
+        }
+        if boto_config is not None:
+            client_kwargs["config"] = boto_config
+
+        self.client = boto3.client("bedrock-runtime", **client_kwargs)
 
     def _normalize_vector(self, embeddings):
         """Normalize the embedding to a unit vector."""

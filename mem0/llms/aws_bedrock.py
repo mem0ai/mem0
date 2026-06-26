@@ -13,6 +13,7 @@ from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
+from mem0.utils.aws import build_boto_client_config
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +79,17 @@ class AWSBedrockLLM(LLMBase):
         """Initialize AWS Bedrock client with proper credentials."""
         try:
             aws_config = self.config.get_aws_config()
+            boto_config = build_boto_client_config(
+                self.config.boto_client_config,
+                self.config.read_timeout,
+                self.config.connect_timeout,
+            )
+            client_kwargs = {**aws_config}
+            if boto_config is not None:
+                client_kwargs["config"] = boto_config
 
             # Create Bedrock runtime client
-            self.client = boto3.client("bedrock-runtime", **aws_config)
+            self.client = boto3.client("bedrock-runtime", **client_kwargs)
 
             # Test connection
             self._test_connection()
@@ -104,7 +113,16 @@ class AWSBedrockLLM(LLMBase):
         """Test connection to AWS Bedrock service."""
         try:
             # List available models to test connection
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            aws_config = self.config.get_aws_config()
+            boto_config = build_boto_client_config(
+                self.config.boto_client_config,
+                self.config.read_timeout,
+                self.config.connect_timeout,
+            )
+            client_kwargs = {**aws_config}
+            if boto_config is not None:
+                client_kwargs["config"] = boto_config
+            bedrock_client = boto3.client("bedrock", **client_kwargs)
             response = bedrock_client.list_foundation_models()
             self.available_models = [model["modelId"] for model in response["modelSummaries"]]
 
@@ -648,7 +666,16 @@ class AWSBedrockLLM(LLMBase):
     def list_available_models(self) -> List[Dict[str, Any]]:
         """List all available models in the current region."""
         try:
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            aws_config = self.config.get_aws_config()
+            boto_config = build_boto_client_config(
+                self.config.boto_client_config,
+                self.config.read_timeout,
+                self.config.connect_timeout,
+            )
+            client_kwargs = {**aws_config}
+            if boto_config is not None:
+                client_kwargs["config"] = boto_config
+            bedrock_client = boto3.client("bedrock", **client_kwargs)
             response = bedrock_client.list_foundation_models()
 
             models = []
