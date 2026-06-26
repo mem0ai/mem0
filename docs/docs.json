@@ -572,9 +572,6 @@
     }
   },
   "navbar": {
-    "links": [
-      { "label": "Start building", "href": "https://docs.mem0.ai/platform/quickstart" }
-    ],
     "primary": {
       "type": "button",
       "label": "Your Dashboard",
