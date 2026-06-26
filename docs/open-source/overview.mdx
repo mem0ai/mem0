@@ -18,17 +18,17 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
   Two ways to run Mem0 OSS: as a **library** inside your app (Python or Node), or as a **self-hosted server** with a dashboard, per-user API keys, and a request audit log.
 </Info>
 
-## Choose your path
+## Get started
 
 <CardGroup cols={3}>
-  <Card title="Self-hosted setup" icon="rocket-launch" href="/open-source/setup">
-    Run `make bootstrap` to launch the server + dashboard, create an admin, and issue your first API key.
-  </Card>
   <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
-    Bootstrap CLI and verify add/search loop.
+    Install the SDK and verify the add/search loop in a few lines.
   </Card>
   <Card title="Node.js Quickstart" icon="node" href="/open-source/node-quickstart">
-    Install TypeScript SDK and run starter script.
+    Install the TypeScript SDK and run the starter script.
+  </Card>
+  <Card title="Self-hosted server" icon="rocket-launch" href="/open-source/setup">
+    Run `make bootstrap` to launch the server, dashboard, and your first API key.
   </Card>
 </CardGroup>
 
@@ -79,24 +79,8 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
   - LLM: OpenAI `gpt-4.1-nano-2025-04-14` (override with `MEM0_DEFAULT_LLM_MODEL`)
   - Embeddings: OpenAI `text-embedding-3-small` (override with `MEM0_DEFAULT_EMBEDDER_MODEL`)
   - Vector store: Postgres + pgvector
-  - Bundled providers: `openai`, `anthropic`, `gemini` — switch from the Configuration page
+  - Bundled providers: `openai`, `anthropic`, `gemini` (switch from the Configuration page)
 
   See <Link href="/open-source/setup#supported-providers">Self-Hosted Setup</Link> for the full provider list and how to extend it.
 </Note>
 
-## Keep going
-
-<CardGroup cols={2}>
-  <Card
-    title="Review Platform vs OSS"
-    description="Confirm whether managed infrastructure or self-hosting better suits your workload."
-    icon="arrows-left-right"
-    href="/platform/platform-vs-oss"
-  />
-  <Card
-    title="Run the Python Quickstart"
-    description="Clone the repo, install dependencies, and persist your first local memory."
-    icon="terminal"
-    href="/open-source/python-quickstart"
-  />
-</CardGroup>
