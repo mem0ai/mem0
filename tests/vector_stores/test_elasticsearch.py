@@ -209,12 +209,33 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(body["knn"]["query_vector"], vectors)
         self.assertEqual(body["knn"]["k"], 5)
         self.assertEqual(body["knn"]["num_candidates"], 10)
+        # `size` must be set or ES caps the response at its default of 10 hits.
+        self.assertEqual(body["size"], 5)
 
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
+
+    def test_search_sets_size_to_top_k(self):
+        """Regression for #5909: KNN search must set `size=top_k` or Elasticsearch caps
+        the response at its default of 10 hits regardless of `knn.k`.
+
+        Memory._search_vector_store over-fetches a scoring pool of `max(limit * 4, 60)`
+        candidates for hybrid re-ranking, so even a default search(top_k=20) reaches this
+        layer with top_k=80. Without `size`, that pool is silently truncated to 10.
+        """
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+        # internal_limit in Memory._search_vector_store for a default search(top_k=20)
+        over_fetch = max(20 * 4, 60)
+        self.es_db.search(query="", vectors=[[0.1] * 1536], top_k=over_fetch)
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], over_fetch)
+        self.assertEqual(body["knn"]["k"], over_fetch)
+        self.assertGreater(body["size"], 10)
 
     def test_custom_search_query(self):
         # Mock custom search query
