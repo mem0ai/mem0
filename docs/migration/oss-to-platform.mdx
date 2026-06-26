@@ -224,6 +224,10 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     client.update(memory_id="mem_123", text="Updated content")
     ```
     </CodeGroup>
+
+    <Note>
+      The parameter name differs between SDKs: OSS `Memory.update()` takes `data=`, while the Platform `MemoryClient.update()` (Python and JS/TS) takes `text=`. When migrating, rename this keyword argument.
+    </Note>
   </Accordion>
 </AccordionGroup>
 
