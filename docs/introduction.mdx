@@ -4,7 +4,7 @@ description: "Mem0 is a universal, self-improving memory layer for LLM applicati
 mode: "custom"
 ---
 
-{/* debug: welcome-layout-v7-centered */}
+{/* debug: welcome-layout-v8-action-cta */}
 
 <div className="px-6 pt-12 pb-2 lg:pt-16 max-w-3xl mx-auto text-center space-y-4">
   <h1 className="text-3xl lg:text-5xl font-bold text-gray-900 dark:text-zinc-50 tracking-tight">
@@ -24,74 +24,92 @@ mode: "custom"
   <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
     <a
       href="/platform/quickstart"
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Store your first memory
+        Add memory
       </h3>
-      <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Save and recall user facts, preferences, and context in a few lines of code.
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
+        Store and recall user facts, preferences, and context in a few lines of code.
       </p>
+      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
+        Start the quickstart →
+      </span>
     </a>
 
     <a
       href="/integrations"
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-primary/30 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Connect your agent framework
+        Integrate
       </h3>
-      <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
         Plug Mem0 into LangChain, LangGraph, CrewAI, Vercel AI SDK, and 20+ more.
       </p>
+      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
+        Browse integrations →
+      </span>
     </a>
 
     <a
       href="/integrations/claude-code"
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Equip your coding agent
+        Equip coding agents
       </h3>
-      <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Add persistent memory to Claude Code, Cursor, Codex, and OpenClaw.
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
+        Add memory to Claude Code, Cursor, Codex, and OpenClaw.
       </p>
+      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
+        Set it up →
+      </span>
     </a>
 
     <a
       href="/api-reference"
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Call the REST API
+        Use the API
       </h3>
-      <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Hit every endpoint with copy-paste request and response examples.
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
+        Hit every REST endpoint with copy-paste request and response examples.
       </p>
+      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
+        Open the reference →
+      </span>
     </a>
 
     <a
       href="/platform/overview"
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Ship on the Platform
+        Go to production
       </h3>
-      <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Get production memory in minutes. We run the infrastructure, free to start.
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
+        Get managed memory in minutes. We run the infrastructure, free to start.
       </p>
+      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
+        Explore the Platform →
+      </span>
     </a>
 
     <a
       href="/open-source/overview"
-      className="group flex h-full flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Self-host with Docker
+        Self-host
       </h3>
-      <p className="text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Run the full open-source stack yourself with Python, TS, and your own vector DB.
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
+        Run the full open-source stack with Python, TS, and your own vector DB.
       </p>
+      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
+        Get the OSS stack →
+      </span>
     </a>
   </div>
 </section>
