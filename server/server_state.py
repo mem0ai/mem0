@@ -65,6 +65,14 @@ def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     merged = deepcopy(base)
 
     for key, value in updates.items():
+        if (
+            isinstance(value, dict)
+            and isinstance(merged.get(key), dict)
+            and "provider" in value
+            and value.get("provider") != merged[key].get("provider")
+        ):
+            merged[key] = deepcopy(value)
+            continue
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             merged[key] = _merge_config(merged[key], value)
         else:
