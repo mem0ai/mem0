@@ -4,164 +4,103 @@ description: "Mem0 is a universal, self-improving memory layer for LLM applicati
 mode: "custom"
 ---
 
-{/* debug: welcome-layout-v4-utility-first */}
+{/* debug: welcome-layout-v5-choose-your-path */}
 
-<div className="px-4 pt-8 pb-4 lg:pt-10 max-w-4xl mx-auto text-center space-y-3">
+<div className="px-4 pt-8 pb-2 lg:pt-12 max-w-4xl mx-auto text-center space-y-3">
   <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-zinc-50 tracking-tight mb-2">
     Give your AI agents memory
   </h1>
 
   <p className="max-w-2xl mx-auto text-base text-gray-600 dark:text-zinc-400 leading-relaxed">
-    Mem0 is a self-improving memory layer. Your agents remember users, preferences and context across every session — added in a few lines.
+    Mem0 is a self-improving memory layer. Your agents remember users, preferences, and context across every session — in a few lines of code.
   </p>
 
-  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+  <div className="flex items-center justify-center pt-1">
     <a
       href="/platform/quickstart"
       className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:opacity-90 transition-opacity"
     >
       Add your first memory →
     </a>
-    <a
-      href="/platform/platform-vs-oss"
-      className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-zinc-400 hover:text-primary dark:hover:text-primary transition-colors"
-    >
-      Compare managed vs self-hosted →
-    </a>
   </div>
 </div>
 
-<section className="px-4 pt-4 pb-2 max-w-6xl mx-auto">
-  <div className="grid gap-4 sm:grid-cols-2">
-    <a
-      href="/platform/quickstart"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border-2 border-primary/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-primary text-sm">★</span>
-        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-          Use the managed Platform
-        </h3>
-      </div>
-      <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Production memory in minutes. Get an API key, call add(), we run the infra. Free to start.
-      </p>
-    </a>
-
-    <a
-      href="/open-source/python-quickstart"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
-    >
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Self-host the open source
-      </h3>
-      <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Full control of your data &amp; stack. Python &amp; TS, Docker, your vector DB.
-      </p>
-    </a>
-  </div>
-</section>
-
-<section className="px-4 pt-6 pb-2 max-w-6xl mx-auto">
+<section className="px-4 pt-6 pb-10 max-w-6xl mx-auto">
   <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-zinc-500 mb-4">
-    What do you want to do?
+    Choose your path
   </h2>
+
   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     <a
-      href="/core-concepts/memory-operations/add"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      href="/platform/quickstart"
+      className="group flex flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
         Add memory to your app
       </h3>
       <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Store facts, prefs, context. 4 lines.
-      </p>
-    </a>
-
-    <a
-      href="/core-concepts/memory-operations/search"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
-    >
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Search &amp; recall memories
-      </h3>
-      <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Semantic recall scoped per user.
+        Store user facts, preferences, and context in a few lines.
       </p>
     </a>
 
     <a
       href="/integrations"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex flex-col gap-2 rounded-2xl border-2 border-primary/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Add memory to your agent framework
+        Add memory to your agents
       </h3>
       <p className="text-sm text-gray-600 dark:text-zinc-400">
-        LangChain, LangGraph, CrewAI, Vercel AI, +20 more.
+        LangChain, LangGraph, CrewAI, Vercel AI SDK, and +20 more.
       </p>
     </a>
 
     <a
       href="/integrations/claude-code"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Give your coding agent memory
+        Add memory to coding agents
       </h3>
       <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Claude Code, Cursor, Codex, OpenClaw.
+        Claude Code, Cursor, Codex, and OpenClaw.
       </p>
     </a>
 
     <a
-      href="/open-source/setup"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      href="/api-reference"
+      className="group flex flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Self-host with Docker
+        Explore the API
       </h3>
       <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Run the full stack locally; your LLM &amp; vector DB.
+        Every REST endpoint with copy-paste examples.
       </p>
     </a>
 
     <a
-      href="/platform/features/graph-memory"
-      className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      href="/platform/overview"
+      className="group flex flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Use graph memory
+        Try the managed Platform
       </h3>
       <p className="text-sm text-gray-600 dark:text-zinc-400">
-        Relationship-aware recall with Neo4j.
+        Production memory in minutes — we run the infra. Free to start.
       </p>
     </a>
-  </div>
-</section>
 
-<section className="px-4 pt-4 pb-6 max-w-6xl mx-auto">
-  <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500 dark:text-zinc-500">
-    <a href="/platform/agent-signup" className="hover:text-primary dark:hover:text-primary transition-colors">
-      For AI agents: mint a key in 5s →
-    </a>
-    <a href="/platform/mem0-mcp" className="hover:text-primary dark:hover:text-primary transition-colors">
-      Connect via MCP →
-    </a>
-  </div>
-</section>
-
-<section className="px-4 pt-2 pb-8 max-w-6xl mx-auto border-t border-gray-100 dark:border-zinc-800/40 mt-4">
-  <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-400 dark:text-zinc-600 pt-4">
-    <a href="/changelog/highlights" className="hover:text-primary dark:hover:text-primary transition-colors">
-      What's new →
-    </a>
-    <a href="/platform/faqs" className="hover:text-primary dark:hover:text-primary transition-colors">
-      FAQ
-    </a>
-    <a href="/contributing/development" className="hover:text-primary dark:hover:text-primary transition-colors">
-      Contributing
+    <a
+      href="/open-source/overview"
+      className="group flex flex-col gap-2 rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 px-5 py-4 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+    >
+      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+        Self-host open source
+      </h3>
+      <p className="text-sm text-gray-600 dark:text-zinc-400">
+        Run the full stack yourself — Python &amp; TS, Docker, your vector DB.
+      </p>
     </a>
   </div>
 </section>

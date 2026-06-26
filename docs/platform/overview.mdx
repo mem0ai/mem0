@@ -6,86 +6,51 @@ icon: "cloud"
 
 # Mem0 Platform Overview
 
-<a href="/changelog/highlights" className="text-sm text-primary hover:underline">What's new →</a>
+Mem0 is the memory engine that keeps conversations contextual, so users never repeat themselves and your agents respond with continuity. The **Platform** delivers that as a fully managed service — we scale, secure, and enrich memories so you ship without running any infrastructure.
 
-Mem0 is the memory engine that keeps conversations contextual so users never repeat themselves and your agents respond with continuity. Mem0 Platform delivers that experience as a fully managed service—scaling, securing, and enriching memories without any infrastructure work on your side.
+## Why teams pick the Platform
 
-## Why it matters
-
-- **Personalized replies**: Memories persist across users and agents, cutting prompt bloat and repeat questions.
-- **Hosted stack**: Mem0 runs the vector store and rerankers—no provisioning, tuning, or maintenance.
-- **Enterprise controls**: Audit logs and workspace governance ship by default for production readiness.
+- **Personalized replies** — memories persist across users and agents, cutting prompt bloat and repeat questions.
+- **Zero infrastructure** — Mem0 runs the vector store and rerankers; no provisioning, tuning, or maintenance.
+- **Enterprise-ready** — audit logs and workspace governance ship by default.
 
 <AccordionGroup>
   <Accordion title="What you get with Mem0 Platform" icon="sparkles">
 
     | Feature | Why it helps |
     | --- | --- |
-    | Fast setup | Add a few lines of code and you’re production-ready—no vector database or LLM configuration required. |
+    | Fast setup | Add a few lines of code and you're production-ready—no vector database or LLM configuration required. |
     | Production scale | Automatic scaling, high availability, and managed infrastructure so you focus on product work. |
-    | Advanced features | webhooks, multimodal support, and custom categories are ready to enable. |
+    | Advanced features | Webhooks, multimodal support, and custom categories are ready to enable. |
     | Enterprise ready | Audit logs, workspace governance, and dedicated support keep security and governance covered. |
   </Accordion>
 </AccordionGroup>
 
-<Info>
-  Start with the <Link href="/platform/quickstart">Platform quickstart</Link> to provision your workspace, then pick the journey below that matches your next milestone.
-</Info>
-
 ## Choose your path
 
 <CardGroup cols={3}>
-  <Card title="Launch Your Workspace" icon="rocket" href="/platform/quickstart">
-    Create project and ship first memory.
+  <Card title="Run the quickstart" icon="rocket" href="/platform/quickstart">
+    Get an API key and save your first memory.
   </Card>
-  <Card title="Connect Any AI Client" icon="puzzle-piece" href="/platform/mem0-mcp">
-    Use MCP for universal AI integration.
+  <Card title="Understand memory types" icon="brain" href="/core-concepts/memory-types">
+    How user, agent, run, and session memory differ.
   </Card>
-  <Card title="Understand Memory Types" icon="brain" href="/core-concepts/memory-types">
-    User, agent, and session memory behavior.
+  <Card title="Add, search & update" icon="layer-group" href="/core-concepts/memory-operations/add">
+    The core memory operations, end to end.
   </Card>
-</CardGroup>
-
-<CardGroup cols={3}>
-  <Card title="Master Core Operations" icon="circle-check" href="/core-concepts/memory-operations/add">
-    Add, search, update, and delete workflows.
+  <Card title="Connect via MCP" icon="plug" href="/platform/mem0-mcp">
+    Use Mem0 from Claude, Cursor, and any MCP client.
   </Card>
-  <Card title="Explore Platform Features" icon="sparkles" href="/platform/features/platform-overview">
-    async clients and rerankers.
+  <Card title="Add to your framework" icon="puzzle-piece" href="/integrations">
+    LangChain, CrewAI, LangGraph, and Vercel AI SDK.
   </Card>
-  <Card title="Configure Advanced Operations" icon="bolt" href="/platform/advanced-memory-operations">
-    Metadata filters and per-request toggles.
+  <Card title="Platform vs Open Source" icon="scale-balanced" href="/platform/platform-vs-oss">
+    Managed vs self-hosted, side by side.
   </Card>
 </CardGroup>
 
-<CardGroup cols={2}>
-  <Card title="Connect Integrations" icon="plug" href="/integrations">
-    LangChain, CrewAI, Vercel AI SDK.
-  </Card>
-  <Card title="Monitor in the Dashboard" icon="presentation" href="https://app.mem0.ai/login?utm_source=oss&utm_medium=platform-overview">
-    Track activity and manage workspaces.
-  </Card>
-</CardGroup>
+## Next step
 
-<Tip>
-  Evaluating self-hosting instead? Jump to the <Link href="/platform/platform-vs-oss">Platform vs OSS comparison</Link> to see trade-offs before you commit.
-</Tip>
-
-## Keep going
-
-{/* DEBUG: verify CTA targets */}
-
-<CardGroup cols={2}>
-  <Card
-    title="Compare with Open Source"
-    description="Review feature parity, migration paths, and when to stay managed."
-    icon="arrows-left-right"
-    href="/platform/platform-vs-oss"
-  />
-  <Card
-    title="Run the Quickstart"
-    description="Provision your workspace, install the SDK, and persist your first memory."
-    icon="rocket"
-    href="/platform/quickstart"
-  />
-</CardGroup>
+<Card title="Run the Platform quickstart →" icon="rocket" href="/platform/quickstart">
+  Provision your workspace, install the SDK, and persist your first memory in a few minutes.
+</Card>

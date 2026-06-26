@@ -545,6 +545,21 @@
                     ]
                   }
                 ]
+              },
+              {
+                "tab": "Release Notes",
+                "groups": [
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -558,8 +573,7 @@
   },
   "navbar": {
     "links": [
-      { "label": "Start building", "href": "https://docs.mem0.ai/platform/quickstart" },
-      { "label": "Changelog", "href": "https://docs.mem0.ai/changelog/highlights" }
+      { "label": "Start building", "href": "https://docs.mem0.ai/platform/quickstart" }
     ],
     "primary": {
       "type": "button",
