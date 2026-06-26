@@ -263,3 +263,45 @@ class TestValidateApiKeyHttpError:
 
         assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestUpdateDataAlias:
+    """MemoryClient.update() should remap ``data`` to ``text`` for OSS↔Platform compat."""
+
+    def _setup_update(self, client):
+        client.client.put.return_value = MagicMock(
+            json=lambda: {"message": "Memory updated successfully!"},
+            raise_for_status=lambda: None,
+        )
+
+    def test_data_kwarg_is_remapped_to_text(self, mock_memory_client):
+        """`data=` is silently promoted to `text=` in the PUT payload."""
+        self._setup_update(mock_memory_client)
+
+        mock_memory_client.update("mem_123", data="OSS content")
+
+        call_args = mock_memory_client.client.put.call_args
+        body = call_args.kwargs.get("json", {})
+        assert body.get("text") == "OSS content"
+        assert "data" not in body
+
+    def test_text_kwarg_is_passed_through(self, mock_memory_client):
+        """`text=` works unchanged (no regression)."""
+        self._setup_update(mock_memory_client)
+
+        mock_memory_client.update("mem_123", text="Platform content")
+
+        call_args = mock_memory_client.client.put.call_args
+        body = call_args.kwargs.get("json", {})
+        assert body.get("text") == "Platform content"
+
+    def test_data_does_not_override_explicit_text(self, mock_memory_client):
+        """When both ``text`` and ``data`` are given, ``text`` wins (setdefault semantics)."""
+        self._setup_update(mock_memory_client)
+
+        mock_memory_client.update("mem_123", text="explicit text", data="oss data")
+
+        call_args = mock_memory_client.client.put.call_args
+        body = call_args.kwargs.get("json", {})
+        assert body.get("text") == "explicit text"
+        assert "data" not in body

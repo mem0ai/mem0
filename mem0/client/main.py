@@ -19,7 +19,13 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.setup import (
+    get_user_id,
+    is_aliased,
+    mark_aliased,
+    read_anon_ids,
+    setup_config,
+)
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
@@ -346,6 +352,8 @@ class MemoryClient:
             options: Typed options (UpdateMemoryOptions) with text, metadata,
                      and/or timestamp fields.
             **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                      ``data`` is also accepted as an alias for ``text`` to ease
+                      migration from the OSS SDK (OSS uses ``data``; Platform uses ``text``).
 
         Returns:
             Dict[str, Any]: The response from the server.
@@ -356,8 +364,12 @@ class MemoryClient:
         Example:
             >>> client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> client.update("mem_123", text="Updated text")
+            >>> client.update("mem_123", data="Updated text")  # alias for text
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        if "data" in payload:
+            data_value = payload.pop("data")
+            payload.setdefault("text", data_value)  # `data` is an alias for `text` (OSS SDK uses `data`)
         payload = {k: v for k, v in payload.items() if v is not None}
 
         if not payload:
@@ -1262,6 +1274,8 @@ class AsyncMemoryClient:
             options: Typed options (UpdateMemoryOptions) with text, metadata,
                      and/or timestamp fields.
             **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                      ``data`` is also accepted as an alias for ``text`` to ease
+                      migration from the OSS SDK (OSS uses ``data``; Platform uses ``text``).
 
         Returns:
             Dict[str, Any]: The response from the server.
@@ -1272,8 +1286,12 @@ class AsyncMemoryClient:
         Example:
             >>> await client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> await client.update("mem_123", text="Updated text")
+            >>> await client.update("mem_123", data="Updated text")  # alias for text
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        if "data" in payload:
+            data_value = payload.pop("data")
+            payload.setdefault("text", data_value)  # `data` is an alias for `text` (OSS SDK uses `data`)
         payload = {k: v for k, v in payload.items() if v is not None}
 
         if not payload:

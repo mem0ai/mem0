@@ -279,16 +279,21 @@ export default class MemoryClient {
     memoryId: string,
     {
       text,
+      data,
       metadata,
       timestamp,
     }: {
       text?: string;
+      /** Alias for {@link text} — the OSS SDK uses `data`; Platform uses `text`. */
+      data?: string;
       metadata?: Record<string, any>;
       timestamp?: number | string;
     },
   ): Promise<Array<Memory>> {
+    // Resolve `data` as an alias for `text` (OSS↔Platform migration compatibility).
+    const resolvedText = text ?? data;
     if (
-      text === undefined &&
+      resolvedText === undefined &&
       metadata === undefined &&
       timestamp === undefined
     ) {
@@ -299,7 +304,7 @@ export default class MemoryClient {
 
     if (this.telemetryId === "") await this.ping();
     const payload: Record<string, any> = {};
-    if (text !== undefined) payload.text = text;
+    if (resolvedText !== undefined) payload.text = resolvedText;
     if (metadata !== undefined) payload.metadata = metadata;
     if (timestamp !== undefined) payload.timestamp = timestamp;
 
