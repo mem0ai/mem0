@@ -10,7 +10,7 @@ export class HuggingFaceEmbedder implements Embedder {
 
   constructor(config: EmbeddingConfig) {
     this.client = new HfInference(config.apiKey);
-    this.model = config.model || "sentence-transformers/all-MiniLM-L6-v2";
+    this.model = config.model || "multi-qa-MiniLM-L6-cos-v1";
   }
 
   async embed(text: string): Promise<number[]> {
@@ -25,7 +25,10 @@ export class HuggingFaceEmbedder implements Embedder {
     if (texts.length === 0) {
       return [];
     }
-    const embeddings = await Promise.all(texts.map((text) => this.embed(text)));
+    const embeddings: number[][] = [];
+    for (const text of texts) {
+      embeddings.push(await this.embed(text));
+    }
     return embeddings;
   }
 
@@ -36,7 +39,19 @@ export class HuggingFaceEmbedder implements Embedder {
       );
     }
     if (Array.isArray(output[0])) {
-      return (output as number[][])[0];
+      const tensor2d = output as number[][];
+      const numRows = tensor2d.length;
+      const numCols = tensor2d[0].length;
+      const pooled = new Array(numCols).fill(0);
+      for (let i = 0; i < numRows; i++) {
+        for (let j = 0; j < numCols; j++) {
+          pooled[j] += tensor2d[i][j];
+        }
+      }
+      for (let j = 0; j < numCols; j++) {
+        pooled[j] /= numRows;
+      }
+      return pooled;
     }
     if (typeof output[0] === "number") {
       return output as number[];

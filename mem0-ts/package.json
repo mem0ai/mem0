@@ -100,7 +100,6 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "@huggingface/inference": "^4.13.20",
     "axios": "^1.16.0",
     "openai": "^4.93.0",
     "uuid": "^11.1.1",
@@ -108,6 +107,7 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
+    "@huggingface/inference": "^4.13.20",
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",

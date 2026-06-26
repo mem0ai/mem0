@@ -29,7 +29,7 @@ describe("HuggingFaceEmbedder (unit)", () => {
       expect(result).toEqual(mockEmbedding);
       expect(mockFeatureExtraction).toHaveBeenCalledTimes(1);
       expect(mockFeatureExtraction).toHaveBeenCalledWith({
-        model: "sentence-transformers/all-MiniLM-L6-v2",
+        model: "multi-qa-MiniLM-L6-cos-v1",
         inputs: "hello world",
       });
     });
@@ -42,7 +42,7 @@ describe("HuggingFaceEmbedder (unit)", () => {
       await embedder.embed("test");
 
       const callArgs = mockFeatureExtraction.mock.calls[0][0];
-      expect(callArgs.model).toBe("sentence-transformers/all-MiniLM-L6-v2");
+      expect(callArgs.model).toBe("multi-qa-MiniLM-L6-cos-v1");
     });
 
     it("uses custom model when configured", async () => {
@@ -57,15 +57,20 @@ describe("HuggingFaceEmbedder (unit)", () => {
       expect(callArgs.model).toBe("BAAI/bge-small-en-v1.5");
     });
 
-    it("handles nested array response from featureExtraction", async () => {
-      mockFeatureExtraction.mockResolvedValue([[0.1, 0.2, 0.3]]);
+    it("handles nested array response from featureExtraction via mean pooling", async () => {
+      mockFeatureExtraction.mockResolvedValue([
+        [0.1, 0.2, 0.3],
+        [0.5, 0.6, 0.7],
+      ]);
 
       const embedder = new HuggingFaceEmbedder({
         apiKey: "hf-test-key",
       });
 
       const result = await embedder.embed("hello");
-      expect(result).toEqual([0.1, 0.2, 0.3]);
+      expect(result[0]).toBeCloseTo(0.3);
+      expect(result[1]).toBeCloseTo(0.4);
+      expect(result[2]).toBeCloseTo(0.5);
     });
 
     it("throws on unexpected scalar response", async () => {
@@ -115,15 +120,15 @@ describe("HuggingFaceEmbedder (unit)", () => {
 
       expect(mockFeatureExtraction).toHaveBeenCalledTimes(3);
       expect(mockFeatureExtraction).toHaveBeenCalledWith({
-        model: "sentence-transformers/all-MiniLM-L6-v2",
+        model: "multi-qa-MiniLM-L6-cos-v1",
         inputs: "text1",
       });
       expect(mockFeatureExtraction).toHaveBeenCalledWith({
-        model: "sentence-transformers/all-MiniLM-L6-v2",
+        model: "multi-qa-MiniLM-L6-cos-v1",
         inputs: "text2",
       });
       expect(mockFeatureExtraction).toHaveBeenCalledWith({
-        model: "sentence-transformers/all-MiniLM-L6-v2",
+        model: "multi-qa-MiniLM-L6-cos-v1",
         inputs: "text3",
       });
     });
