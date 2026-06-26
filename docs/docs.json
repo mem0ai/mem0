@@ -21,7 +21,7 @@
             "icon": "book-open",
             "tabs": [
               {
-                "tab": "Welcome",
+                "tab": "Get Started",
                 "groups": [
                   {
                     "group": "Start Here",
@@ -40,12 +40,12 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
-                      "platform/agent-signup",
-                      "vibecoding",
+                      "platform/platform-vs-oss",
+                      "platform/quickstart",
                       "platform/mem0-mcp",
                       "platform/cli",
-                      "platform/platform-vs-oss",
-                      "platform/quickstart"
+                      "platform/agent-signup",
+                      "vibecoding"
                     ]
                   },
                   {
@@ -123,29 +123,7 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/platform-v2-to-v3",
-                      "migration/oss-to-platform",
-                      "migration/api-changes"
-                    ]
-                  },
-                  {
-                    "group": "Contribute",
-                    "icon": "clipboard-list",
-                    "pages": [
-                      "platform/contribute"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "OpenClaw",
-                "groups": [
-                  {
-                    "group": "Agent Harness",
-                    "icon": "robot",
-                    "pages": [
-                      "integrations/openclaw",
-                      "integrations/hermes",
-                      "integrations/pi-agent"
+                      "migration/oss-to-platform"
                     ]
                   }
                 ]
@@ -158,10 +136,10 @@
                     "icon": "rocket",
                     "pages": [
                       "open-source/overview",
-                      "open-source/setup",
-                      "vibecoding",
                       "open-source/python-quickstart",
-                      "open-source/node-quickstart"
+                      "open-source/node-quickstart",
+                      "open-source/setup",
+                      "vibecoding"
                     ]
                   },
                   {
@@ -307,7 +285,8 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/oss-v2-to-v3",
-                      "migration/server-pgvector-upgrade"
+                      "migration/server-pgvector-upgrade",
+                      "migration/api-changes"
                     ]
                   },
                   {
@@ -315,77 +294,8 @@
                     "icon": "users",
                     "pages": [
                       "contributing/development",
-                      "contributing/documentation"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "Cookbooks",
-                "groups": [
-                  {
-                    "group": "Getting Started",
-                    "icon": "lightbulb",
-                    "pages": [
-                      "cookbooks/overview"
-                    ]
-                  },
-                  {
-                    "group": "Essentials",
-                    "icon": "flag",
-                    "pages": [
-                      "cookbooks/essentials/building-ai-companion",
-                      "cookbooks/essentials/entity-partitioning-playbook",
-                      "cookbooks/essentials/controlling-memory-ingestion",
-                      "cookbooks/essentials/tagging-and-organizing-memories",
-                      "cookbooks/essentials/exporting-memories"
-                    ]
-                  },
-                  {
-                    "group": "Companion Playbooks",
-                    "icon": "users",
-                    "pages": [
-                      "cookbooks/companions/quickstart-demo",
-                      "cookbooks/companions/nodejs-companion",
-                      "cookbooks/companions/ai-tutor",
-                      "cookbooks/companions/travel-assistant",
-                      "cookbooks/companions/youtube-research",
-                      "cookbooks/companions/voice-companion-openai",
-                      "cookbooks/companions/local-companion-ollama"
-                    ]
-                  },
-                  {
-                    "group": "Ops & Automations",
-                    "icon": "briefcase",
-                    "pages": [
-                      "cookbooks/operations/support-inbox",
-                      "cookbooks/operations/email-automation",
-                      "cookbooks/operations/content-writing",
-                      "cookbooks/operations/deep-research",
-                      "cookbooks/operations/team-task-agent"
-                    ]
-                  },
-                  {
-                    "group": "Integrations & Platforms",
-                    "icon": "plug",
-                    "pages": [
-                      "cookbooks/integrations/agents-sdk-tool",
-                      "cookbooks/integrations/openai-tool-calls",
-                      "cookbooks/integrations/mastra-agent",
-                      "cookbooks/integrations/healthcare-google-adk",
-                      "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/tavily-search"
-                    ]
-                  },
-                  {
-                    "group": "Frameworks & Multimodal",
-                    "icon": "layers",
-                    "pages": [
-                      "cookbooks/frameworks/llamaindex-react",
-                      "cookbooks/frameworks/llamaindex-multiagent",
-                      "cookbooks/frameworks/multimodal-retrieval",
-                      "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
+                      "contributing/documentation",
+                      "platform/contribute"
                     ]
                   }
                 ]
@@ -469,6 +379,76 @@
                       "integrations/openclaw",
                       "integrations/hermes",
                       "integrations/pi-agent"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Cookbooks",
+                "groups": [
+                  {
+                    "group": "Getting Started",
+                    "icon": "lightbulb",
+                    "pages": [
+                      "cookbooks/overview"
+                    ]
+                  },
+                  {
+                    "group": "Essentials",
+                    "icon": "flag",
+                    "pages": [
+                      "cookbooks/essentials/building-ai-companion",
+                      "cookbooks/essentials/entity-partitioning-playbook",
+                      "cookbooks/essentials/controlling-memory-ingestion",
+                      "cookbooks/essentials/tagging-and-organizing-memories",
+                      "cookbooks/essentials/exporting-memories"
+                    ]
+                  },
+                  {
+                    "group": "Companion Playbooks",
+                    "icon": "users",
+                    "pages": [
+                      "cookbooks/companions/quickstart-demo",
+                      "cookbooks/companions/nodejs-companion",
+                      "cookbooks/companions/ai-tutor",
+                      "cookbooks/companions/travel-assistant",
+                      "cookbooks/companions/youtube-research",
+                      "cookbooks/companions/voice-companion-openai",
+                      "cookbooks/companions/local-companion-ollama"
+                    ]
+                  },
+                  {
+                    "group": "Ops & Automations",
+                    "icon": "briefcase",
+                    "pages": [
+                      "cookbooks/operations/support-inbox",
+                      "cookbooks/operations/email-automation",
+                      "cookbooks/operations/content-writing",
+                      "cookbooks/operations/deep-research",
+                      "cookbooks/operations/team-task-agent"
+                    ]
+                  },
+                  {
+                    "group": "Integrations & Platforms",
+                    "icon": "plug",
+                    "pages": [
+                      "cookbooks/integrations/agents-sdk-tool",
+                      "cookbooks/integrations/openai-tool-calls",
+                      "cookbooks/integrations/mastra-agent",
+                      "cookbooks/integrations/healthcare-google-adk",
+                      "cookbooks/integrations/aws-bedrock",
+                      "cookbooks/integrations/tavily-search"
+                    ]
+                  },
+                  {
+                    "group": "Frameworks & Multimodal",
+                    "icon": "layers",
+                    "pages": [
+                      "cookbooks/frameworks/llamaindex-react",
+                      "cookbooks/frameworks/llamaindex-multiagent",
+                      "cookbooks/frameworks/multimodal-retrieval",
+                      "cookbooks/frameworks/eliza-os-character",
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
                     ]
                   }
                 ]
@@ -565,21 +545,6 @@
                     ]
                   }
                 ]
-              },
-              {
-                "tab": "Release Notes",
-                "groups": [
-                  {
-                    "group": "Release Notes",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog/highlights",
-                      "changelog/sdk",
-                      "changelog/platform",
-                      "changelog/openclaw"
-                    ]
-                  }
-                ]
               }
             ]
           }
@@ -592,6 +557,10 @@
     }
   },
   "navbar": {
+    "links": [
+      { "label": "Start building", "href": "https://docs.mem0.ai/platform/quickstart" },
+      { "label": "Changelog", "href": "https://docs.mem0.ai/changelog/highlights" }
+    ],
     "primary": {
       "type": "button",
       "label": "Your Dashboard",
@@ -1157,6 +1126,78 @@
     {
       "source": "/openmemory/integrations",
       "destination": "/introduction"
+    },
+    {
+      "source": "/self-hosting",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/self-hosting/:slug",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/self-hosted",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/self-hosted/:slug",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/getting-started",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/getting-started/:slug",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/deployment",
+      "destination": "/open-source/setup"
+    },
+    {
+      "source": "/deployment/:slug",
+      "destination": "/open-source/setup"
+    },
+    {
+      "source": "/configuration",
+      "destination": "/open-source/configuration"
+    },
+    {
+      "source": "/oss",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/oss/:slug",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/concepts/:slug",
+      "destination": "/core-concepts/:slug"
+    },
+    {
+      "source": "/pricing",
+      "destination": "/platform/overview"
+    },
+    {
+      "source": "/get-started/installation",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/api-reference/add-memory",
+      "destination": "/api-reference/memory/add-memories"
+    },
+    {
+      "source": "/components/graph_memory/overview",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/platform/features/mcp-quickstart",
+      "destination": "/platform/mem0-mcp"
+    },
+    {
+      "source": "/open-source/features/supported-vector-dbs",
+      "destination": "/components/vectordbs/overview"
     }
   ]
 }
