@@ -1232,7 +1232,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Delete memories by filter. At least one filter is required \u2014 previously omitting all filters silently deleted everything; now it returns a validation error.",
+				"description": "Delete memories by filter. At least one filter is required — previously omitting all filters silently deleted everything; now it returns a validation error.",
 				"operationId": "memories_delete_all",
 				"parameters": [
 					{
@@ -1315,15 +1315,15 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe \u2014 all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe — all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe \u2014 all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe — all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
-						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe \u2014 all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe — all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
@@ -1740,7 +1740,7 @@
 					"memories"
 				],
 				"summary": "Get all memories (V3, paginated)",
-				"description": "List memories scoped by filters, paginated. Entity IDs **must** be passed inside the `filters` object \u2014 top-level `user_id` / `agent_id` / `run_id` are rejected with 400. `filters` supports the same operator set as V2 search (`AND`, `OR`, `NOT`, `in`, `gte`, `lte`, etc.). Response is a paginated envelope; pass `page` and `page_size` as query parameters to step through results.",
+				"description": "List memories scoped by filters, paginated. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. `filters` supports the same operator set as V2 search (`AND`, `OR`, `NOT`, `in`, `gte`, `lte`, etc.). Response is a paginated envelope; pass `page` and `page_size` as query parameters to step through results.",
 				"operationId": "memories_list_v3",
 				"parameters": [
 					{
@@ -1891,10 +1891,10 @@
 						}
 					},
 					"400": {
-						"description": "Validation error \u2014 e.g. empty `filters` or no positively-scoped entity ID."
+						"description": "Validation error — e.g. empty `filters` or no positively-scoped entity ID."
 					},
 					"401": {
-						"description": "Unauthorized \u2014 missing or invalid API key."
+						"description": "Unauthorized — missing or invalid API key."
 					}
 				},
 				"security": [
@@ -1996,7 +1996,7 @@
 									},
 									{
 										"role": "assistant",
-										"content": "Got it \u2014 I'll update your location."
+										"content": "Got it — I'll update your location."
 									}
 								],
 								"user_id": "alice"
@@ -2038,10 +2038,10 @@
 						}
 					},
 					"400": {
-						"description": "Validation error \u2014 e.g. missing `messages` or no entity ID supplied."
+						"description": "Validation error — e.g. missing `messages` or no entity ID supplied."
 					},
 					"401": {
-						"description": "Unauthorized \u2014 missing or invalid API key."
+						"description": "Unauthorized — missing or invalid API key."
 					}
 				},
 				"security": [
@@ -2052,15 +2052,15 @@
 				"x-codeSamples": [
 					{
 						"lang": "cURL",
-						"source": "curl -X POST https://api.mem0.ai/v3/memories/add/ \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"messages\": [\n      {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n      {\"role\": \"assistant\", \"content\": \"Got it \u2014 I\\u0027ll update your location.\"}\n    ],\n    \"user_id\": \"alice\"\n  }'"
+						"source": "curl -X POST https://api.mem0.ai/v3/memories/add/ \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"messages\": [\n      {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n      {\"role\": \"assistant\", \"content\": \"Got it — I\\u0027ll update your location.\"}\n    ],\n    \"user_id\": \"alice\"\n  }'"
 					},
 					{
 						"lang": "Python",
-						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nresult = client.add(\n    messages=[\n        {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n        {\"role\": \"assistant\", \"content\": \"Got it \u2014 I'll update your location.\"}\n    ],\n    user_id=\"alice\",\n)\nprint(result)"
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nresult = client.add(\n    messages=[\n        {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n        {\"role\": \"assistant\", \"content\": \"Got it — I'll update your location.\"}\n    ],\n    user_id=\"alice\",\n)\nprint(result)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst result = await client.add(\n  [\n    { role: \"user\", content: \"I just moved to San Francisco from New York.\" },\n    { role: \"assistant\", content: \"Got it \u2014 I'll update your location.\" },\n  ],\n  { userId: \"alice\" }\n);\nconsole.log(result);"
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst result = await client.add(\n  [\n    { role: \"user\", content: \"I just moved to San Francisco from New York.\" },\n    { role: \"assistant\", content: \"Got it — I'll update your location.\" },\n  ],\n  { userId: \"alice\" }\n);\nconsole.log(result);"
 					}
 				]
 			}
@@ -2071,7 +2071,7 @@
 					"memories"
 				],
 				"summary": "Search memories (V3)",
-				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval and can also apply temporal reasoning for time-aware queries. Entity IDs **must** be passed inside the `filters` object \u2014 top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
+				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval and can also apply temporal reasoning for time-aware queries. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
 				"operationId": "memories_search_v3",
 				"requestBody": {
 					"required": true,
@@ -2220,10 +2220,10 @@
 						}
 					},
 					"400": {
-						"description": "Validation error \u2014 e.g. empty `query`, missing `filters`, or no positively-scoped entity ID."
+						"description": "Validation error — e.g. empty `query`, missing `filters`, or no positively-scoped entity ID."
 					},
 					"401": {
-						"description": "Unauthorized \u2014 missing or invalid API key."
+						"description": "Unauthorized — missing or invalid API key."
 					}
 				},
 				"security": [
