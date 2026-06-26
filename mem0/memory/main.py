@@ -51,8 +51,8 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message_async,
 )
 from mem0.memory.utils import (
-    normalize_extracted_memories,
     extract_json,
+    normalize_extracted_memories,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,

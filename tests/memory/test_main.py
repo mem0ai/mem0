@@ -100,7 +100,14 @@ class TestAddToVectorStoreErrors:
         result = mock_memory._add_to_vector_store(
             messages=[{"role": "user", "content": "test"}], metadata={}, filters={"user_id": "u1"}, infer=True
         )
+        # Both inputs (plain string + key-as-fact dict) must survive normalization
+        # and be persisted as ADD records — not silently dropped. isinstance(list)
+        # alone would pass even on a total drop, so pin the count and the texts.
         assert isinstance(result, list)
+        assert len(result) == 2
+        recovered = {r["memory"] for r in result}
+        assert recovered == {"User likes coffee", "User is tired"}
+        assert all(r["event"] == "ADD" for r in result)
 
 
 class TestPromptOverridesCustomInstructions:
@@ -267,6 +274,37 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_malformed_memory_shapes_do_not_crash_extraction(self, mock_async_memory, mocker):
+        """Async mirror of the sync guard: a plain-string item and a key-as-fact
+        dict in the LLM 'memory' array must not crash AsyncMemory._add_to_vector_store
+        and must be recovered into text-bearing ADD records (not silently dropped).
+
+        Covers the normalize_extracted_memories call at main.py ~2564 so a future
+        regression on the async path is no longer invisible. Guards #5176.
+        """
+        import json as _json
+
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+        mock_async_memory.llm.generate_response.return_value = _json.dumps(
+            {"memory": ["User likes coffee", {"User is tired": "noise"}]}
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_async_memory.embedding_model = MagicMock()
+        mock_async_memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+        mock_async_memory.vector_store = MagicMock()
+        mock_async_memory.vector_store.search.return_value = []
+
+        # Must not raise; both malformed shapes recovered into text-bearing records.
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={"user_id": "u1"}, infer=True
+        )
+        assert isinstance(result, list)
+        assert len(result) == 2
+        recovered = {r["memory"] for r in result}
+        assert recovered == {"User likes coffee", "User is tired"}
+        assert all(r["event"] == "ADD" for r in result)
 
 
 def _build_memory_instance(mocker, memory_cls):
