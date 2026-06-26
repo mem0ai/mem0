@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from mem0.exceptions import LLMError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -93,10 +94,13 @@ class TestAddToVectorStoreErrors:
         mock_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
         mocker.patch("mem0.memory.main.capture_event")
 
-        with pytest.raises(_ProviderError):
+        with pytest.raises(LLMError) as exc_info:
             mock_memory._add_to_vector_store(
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
+        # The documented LLMError contract is honoured, and the original
+        # provider exception is preserved as the cause for debugging.
+        assert isinstance(exc_info.value.__cause__, _ProviderError)
 
 
 class TestPromptOverridesCustomInstructions:
@@ -263,6 +267,29 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_llm_extraction_exception_is_reraised(self, mock_async_memory, mocker):
+        """Async counterpart of the sync re-raise guard.
+
+        A provider error during fact extraction must propagate as ``LLMError``
+        (with the original exception preserved as the cause), not be swallowed
+        into ``return []``. Without the fix a future revert of the async
+        ``raise`` back to ``return []`` would pass the suite silently.
+        """
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+
+        class _ProviderError(Exception):
+            pass
+
+        mock_async_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(LLMError) as exc_info:
+            await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+        assert isinstance(exc_info.value.__cause__, _ProviderError)
 
 
 def _build_memory_instance(mocker, memory_cls):
