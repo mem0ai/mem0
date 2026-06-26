@@ -1147,6 +1147,10 @@
     {
       "source": "/openmemory/integrations",
       "destination": "/introduction"
+    },
+    {
+      "source": "/components/rerankers/models/llm",
+      "destination": "/components/rerankers/models/llm_reranker"
     }
   ]
 }
