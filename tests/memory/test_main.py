@@ -79,6 +79,29 @@ class TestAddToVectorStoreErrors:
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
 
+    def test_created_at_metadata_anchors_extraction_prompt_date(self, mocker, mock_memory):
+        """When created_at is supplied via metadata, the extraction prompt's
+        current_date must be anchored to it (not wall-clock now()).
+
+        Guards #5087: prompt/metadata timestamp mismatch for backfilled memories.
+        Without the fix, current_date is None (-> defaults to today).
+        """
+        spy = mocker.patch(
+            "mem0.memory.main.generate_additive_extraction_prompt", return_value="PROMPT"
+        )
+        mock_memory.llm.generate_response.return_value = "{}"  # no memories -> early return ok
+        mocker.patch("mem0.memory.main.capture_event")
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}],
+            metadata={"created_at": "2021-06-15T12:00:00+00:00"},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert spy.call_count == 1
+        assert spy.call_args.kwargs.get("current_date") == "2021-06-15"
+
 
 class TestPromptOverridesCustomInstructions:
     @pytest.fixture

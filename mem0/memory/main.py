@@ -896,11 +896,25 @@ class Memory(MemoryBase):
 
         custom_instr = prompt or self.custom_instructions
 
+        # When created_at is supplied via metadata (e.g. backfilled/imported
+        # memories), anchor the extraction prompt's "current date" to it so the
+        # LLM's temporal reasoning matches the timestamp ultimately stored in
+        # the memory metadata, instead of drifting to wall-clock now().
+        extraction_current_date = None
+        if metadata and metadata.get("created_at"):
+            try:
+                extraction_current_date = (
+                    datetime.fromisoformat(metadata["created_at"]).astimezone(timezone.utc).date().isoformat()
+                )
+            except (ValueError, TypeError):
+                extraction_current_date = None
+
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            current_date=extraction_current_date,
         )
 
         try:
@@ -2519,11 +2533,25 @@ class AsyncMemory(MemoryBase):
 
         custom_instr = prompt or self.custom_instructions
 
+        # When created_at is supplied via metadata (e.g. backfilled/imported
+        # memories), anchor the extraction prompt's "current date" to it so the
+        # LLM's temporal reasoning matches the timestamp ultimately stored in
+        # the memory metadata, instead of drifting to wall-clock now().
+        extraction_current_date = None
+        if metadata and metadata.get("created_at"):
+            try:
+                extraction_current_date = (
+                    datetime.fromisoformat(metadata["created_at"]).astimezone(timezone.utc).date().isoformat()
+                )
+            except (ValueError, TypeError):
+                extraction_current_date = None
+
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            current_date=extraction_current_date,
         )
 
         try:
