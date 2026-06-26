@@ -1,0 +1,86 @@
+---
+title: "FastEmbed"
+description: "Configure FastEmbed as an embedding provider in Mem0 to generate embeddings locally and offline using ONNX models."
+---
+
+[FastEmbed](https://github.com/qdrant/fastembed) is a lightweight, fast library for generating embeddings locally with ONNX models — no external API or network calls required at inference time (models are downloaded once and cached).
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "fastembed",
+        "config": {
+            "model": "thenlper/gte-large"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'fastembed',
+    config: {
+      model: 'fast-bge-small-en-v1.5', // any model from FastEmbed's supported list
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "john" });
+```
+</CodeGroup>
+
+<Note>
+  FastEmbed is an optional dependency. Install it before using this provider:
+  Python — `pip install fastembed`; TypeScript — `npm install fastembed` (or `pnpm add fastembed`).
+</Note>
+
+<Note>
+  The Python and TypeScript ports of FastEmbed support **different model sets**. The Python package accepts HuggingFace model names (default `thenlper/gte-large`), while the TypeScript [`fastembed`](https://github.com/Anush008/fastembed-js) package supports a fixed set of models exposed via its `EmbeddingModel` enum — for example `fast-bge-small-en-v1.5` (default, 384 dims), `fast-bge-base-en-v1.5` (768 dims), `fast-multilingual-e5-large` (1024 dims), and `fast-all-MiniLM-L6-v2` (384 dims). Make sure your vector store dimension matches the chosen model.
+</Note>
+
+### Config
+
+Here are the parameters available for configuring the FastEmbed embedder:
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The HuggingFace model name to use | `thenlper/gte-large` |
+| `embedding_dims` | Dimensions of the embedding model | Derived from the model |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | A FastEmbed-supported model name | `fast-bge-small-en-v1.5` |
+| `embeddingDims` | Dimensions of the embedding model | Derived from the model |
+| `modelProperties` | Extra init options passed to FastEmbed (e.g. `maxLength`, `cacheDir`, `showDownloadProgress`) | `undefined` |
+</Tab>
+</Tabs>
