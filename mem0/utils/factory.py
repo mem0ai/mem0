@@ -177,6 +177,7 @@ class EmbedderFactory:
 
 class VectorStoreFactory:
     provider_to_class = {
+        "aerospike": "mem0.vector_stores.aerospike.AerospikeDB",
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",

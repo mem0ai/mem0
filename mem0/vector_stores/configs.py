@@ -11,6 +11,7 @@ class VectorStoreConfig(BaseModel):
     config: Optional[Dict] = Field(description="Configuration for the specific vector store", default=None)
 
     _provider_configs: Dict[str, str] = {
+        "aerospike": "AerospikeConfig",
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
