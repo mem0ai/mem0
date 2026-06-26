@@ -65,6 +65,24 @@ def test_add(memory_instance):
     )
 
 
+def test_add_stores_expiration_date(memory_instance):
+    memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
+
+    memory_instance.add(
+        messages=[{"role": "user", "content": "Test message"}],
+        user_id="test_user",
+        expiration_date="2999-01-01",
+    )
+
+    memory_instance._add_to_vector_store.assert_called_once_with(
+        [{"role": "user", "content": "Test message"}],
+        {"user_id": "test_user", "expiration_date": "2999-01-01"},
+        {"user_id": "test_user"},
+        True,
+        prompt=None,
+    )
+
+
 def test_get(memory_instance):
     mock_memory = Mock(
         id="test_id",
@@ -117,6 +135,39 @@ def test_search(memory_instance):
     )
 
 
+def test_search_hides_expired_memories_by_default(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}, score=0.9),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user", "expiration_date": "2999-01-01"}, score=0.8),
+    ]
+    memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+         patch("mem0.memory.main.extract_entities", return_value=[]):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"})
+
+    assert [memory["memory"] for memory in result["results"]] == ["Active memory"]
+    assert result["results"][0]["expiration_date"] == "2999-01-01"
+
+
+def test_search_can_show_expired_memories(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}, score=0.9),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user"}, score=0.8),
+    ]
+    memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+         patch("mem0.memory.main.extract_entities", return_value=[]):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"}, show_expired=True)
+
+    assert [memory["memory"] for memory in result["results"]] == ["Expired memory", "Active memory"]
+
+
 def test_update(memory_instance):
     memory_instance.embedding_model = Mock()
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
@@ -161,6 +212,42 @@ def test_update_with_empty_metadata(memory_instance):
     )
 
 
+@pytest.mark.parametrize(
+    ("expiration_date", "expected_expiration_date"),
+    [
+        ("2999-01-01", "2999-01-01"),
+        (None, None),
+    ],
+)
+def test_update_can_change_expiration_date_without_changing_text(
+    memory_instance, expiration_date, expected_expiration_date
+):
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.vector_store.get = Mock(
+        return_value=Mock(
+            payload={
+                "data": "Existing memory",
+                "user_id": "test_user",
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "expiration_date": "2026-12-31",
+            }
+        )
+    )
+    memory_instance.vector_store.update = Mock()
+    memory_instance.db.add_history = Mock()
+    memory_instance._remove_memory_from_entity_store = Mock()
+    memory_instance._link_entities_for_memory = Mock()
+
+    result = memory_instance.update("test_id", expiration_date=expiration_date)
+
+    assert result["message"] == "Memory updated successfully!"
+    payload = memory_instance.vector_store.update.call_args.kwargs["payload"]
+    assert payload["data"] == "Existing memory"
+    assert payload["expiration_date"] == expected_expiration_date
+    memory_instance._remove_memory_from_entity_store.assert_not_called()
+    memory_instance._link_entities_for_memory.assert_not_called()
+
+
 def test_delete(memory_instance):
     memory_instance._delete_memory = Mock()
 
@@ -200,7 +287,30 @@ def test_get_all(memory_instance):
     assert result["results"][0]["memory"] == "Memory 1"
     assert result["results"][0]["user_id"] == "test_user"
 
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=20)
+
+def test_get_all_hides_expired_memories_by_default(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user", "expiration_date": "2999-01-01"}),
+    ]
+    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+
+    result = memory_instance.get_all(filters={"user_id": "test_user"})
+
+    assert [memory["memory"] for memory in result["results"]] == ["Active memory"]
+    assert result["results"][0]["expiration_date"] == "2999-01-01"
+
+
+def test_get_all_can_show_expired_memories(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user"}),
+    ]
+    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+
+    result = memory_instance.get_all(filters={"user_id": "test_user"}, show_expired=True)
+
+    assert [memory["memory"] for memory in result["results"]] == ["Expired memory", "Active memory"]
 
 
 def test_no_telemetry_vector_store_when_disabled():
