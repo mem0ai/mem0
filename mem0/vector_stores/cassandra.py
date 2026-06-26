@@ -4,7 +4,6 @@ import re
 import uuid
 from typing import Any, Dict, List, Optional
 
-import numpy as np
 from pydantic import BaseModel
 
 try:
@@ -21,6 +20,12 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 
 _SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+
+DISTANCE_METRIC_MAP = {
+    "cosine": "COSINE",
+    "euclidean": "EUCLIDEAN",
+    "dot_product": "DOT_PRODUCT",
+}
 
 
 def _validate_identifier(name: str, label: str = "identifier") -> str:
@@ -52,21 +57,6 @@ class CassandraDB(VectorStoreBase):
         protocol_version: int = 4,
         load_balancing_policy: Optional[Any] = None,
     ):
-        """
-        Initialize the Apache Cassandra vector store.
-
-        Args:
-            contact_points (List[str]): List of contact point addresses (e.g., ['127.0.0.1'])
-            port (int): Cassandra port (default: 9042)
-            username (str, optional): Database username
-            password (str, optional): Database password
-            keyspace (str): Keyspace name (default: "mem0")
-            collection_name (str): Table name (default: "memories")
-            embedding_model_dims (int): Dimension of the embedding vector (default: 1536)
-            secure_connect_bundle (str, optional): Path to secure connect bundle for Astra DB
-            protocol_version (int): CQL protocol version (default: 4)
-            load_balancing_policy (Any, optional): Custom load balancing policy
-        """
         self.contact_points = contact_points
         self.port = port
         self.username = username
@@ -78,19 +68,15 @@ class CassandraDB(VectorStoreBase):
         self.protocol_version = protocol_version
         self.load_balancing_policy = load_balancing_policy
 
-        # Initialize connection
         self.cluster = None
         self.session = None
         self._setup_connection()
-        
-        # Create keyspace and table if they don't exist
+
         self._create_keyspace()
         self._create_table()
 
     def _setup_connection(self):
-        """Setup Cassandra cluster connection."""
         try:
-            # Setup authentication
             auth_provider = None
             if self.username and self.password:
                 auth_provider = PlainTextAuthProvider(
@@ -98,7 +84,6 @@ class CassandraDB(VectorStoreBase):
                     password=self.password
                 )
 
-            # Connect to Astra DB using secure connect bundle
             if self.secure_connect_bundle:
                 self.cluster = Cluster(
                     cloud={'secure_connect_bundle': self.secure_connect_bundle},
@@ -106,16 +91,15 @@ class CassandraDB(VectorStoreBase):
                     protocol_version=self.protocol_version
                 )
             else:
-                # Connect to standard Cassandra cluster
                 cluster_kwargs = {
                     'contact_points': self.contact_points,
                     'port': self.port,
                     'protocol_version': self.protocol_version
                 }
-                
+
                 if auth_provider:
                     cluster_kwargs['auth_provider'] = auth_provider
-                
+
                 if self.load_balancing_policy:
                     cluster_kwargs['load_balancing_policy'] = self.load_balancing_policy
 
@@ -128,9 +112,7 @@ class CassandraDB(VectorStoreBase):
             raise
 
     def _create_keyspace(self):
-        """Create keyspace if it doesn't exist."""
         try:
-            # Use SimpleStrategy for single datacenter, NetworkTopologyStrategy for production
             query = f"""
                 CREATE KEYSPACE IF NOT EXISTS {self.keyspace}
                 WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': 1}}
@@ -143,43 +125,52 @@ class CassandraDB(VectorStoreBase):
             raise
 
     def _create_table(self):
-        """Create table with vector column if it doesn't exist."""
         try:
-            # Create table with vector stored as list<float> and payload as text (JSON)
             query = f"""
                 CREATE TABLE IF NOT EXISTS {self.keyspace}.{self.collection_name} (
                     id text PRIMARY KEY,
-                    vector list<float>,
+                    vector VECTOR<FLOAT, {self.embedding_model_dims}>,
                     payload text
                 )
             """
             self.session.execute(query)
-            logger.info(f"Table '{self.collection_name}' is ready")
+
+            index_name = f"{self.collection_name}_vector_idx"
+            index_query = f"""
+                CREATE CUSTOM INDEX IF NOT EXISTS {index_name}
+                ON {self.keyspace}.{self.collection_name} (vector)
+                USING 'StorageAttachedIndex'
+                WITH OPTIONS = {{'similarity_function': 'COSINE'}}
+            """
+            self.session.execute(index_query)
+            logger.info(f"Table '{self.collection_name}' with SAI vector index is ready")
         except Exception as e:
             logger.error(f"Failed to create table: {e}")
             raise
 
     def create_col(self, name: str = None, vector_size: int = None, distance: str = "cosine"):
-        """
-        Create a new collection (table in Cassandra).
-
-        Args:
-            name (str, optional): Collection name (uses self.collection_name if not provided)
-            vector_size (int, optional): Vector dimension (uses self.embedding_model_dims if not provided)
-            distance (str): Distance metric (cosine, euclidean, dot_product)
-        """
         table_name = _validate_identifier(name, "table_name") if name else self.collection_name
         dims = vector_size or self.embedding_model_dims
+        similarity_function = DISTANCE_METRIC_MAP.get(distance, "COSINE")
 
         try:
             query = f"""
                 CREATE TABLE IF NOT EXISTS {self.keyspace}.{table_name} (
                     id text PRIMARY KEY,
-                    vector list<float>,
+                    vector VECTOR<FLOAT, {dims}>,
                     payload text
                 )
             """
             self.session.execute(query)
+
+            index_name = f"{table_name}_vector_idx"
+            index_query = f"""
+                CREATE CUSTOM INDEX IF NOT EXISTS {index_name}
+                ON {self.keyspace}.{table_name} (vector)
+                USING 'StorageAttachedIndex'
+                WITH OPTIONS = {{'similarity_function': '{similarity_function}'}}
+            """
+            self.session.execute(index_query)
             logger.info(f"Created collection '{table_name}' with vector dimension {dims}")
         except Exception as e:
             logger.error(f"Failed to create collection: {e}")
@@ -191,14 +182,6 @@ class CassandraDB(VectorStoreBase):
         payloads: Optional[List[Dict]] = None,
         ids: Optional[List[str]] = None
     ):
-        """
-        Insert vectors into the collection.
-
-        Args:
-            vectors (List[List[float]]): List of vectors to insert
-            payloads (List[Dict], optional): List of payloads corresponding to vectors
-            ids (List[str], optional): List of IDs corresponding to vectors
-        """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
 
         if payloads is None:
@@ -229,72 +212,40 @@ class CassandraDB(VectorStoreBase):
         top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
-        """
-        Search for similar vectors using cosine similarity.
-
-        Args:
-            query (str): Query string (not used in vector search)
-            vectors (List[float]): Query vector
-            top_k (int): Number of results to return
-            filters (Dict, optional): Filters to apply to the search
-
-        Returns:
-            List[OutputData]: Search results
-        """
         try:
-            # Fetch all vectors (in production, you'd want pagination or filtering)
             query_cql = f"""
-                SELECT id, vector, payload
+                SELECT id, payload, similarity_cosine(vector, ?) AS score
                 FROM {self.keyspace}.{self.collection_name}
+                ORDER BY vector ANN OF ?
+                LIMIT ?
             """
-            rows = self.session.execute(query_cql)
+            prepared = self.session.prepare(query_cql)
+            rows = self.session.execute(prepared, (vectors, vectors, top_k))
 
-            # Calculate cosine similarity in Python
-            query_vec = np.array(vectors)
-            scored_results = []
-
+            results = []
             for row in rows:
-                if not row.vector:
-                    continue
+                payload = json.loads(row.payload) if row.payload else {}
 
-                vec = np.array(row.vector)
-
-                similarity = float(np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec)))
-
-                # Apply filters if provided
                 if filters:
-                    try:
-                        payload = json.loads(row.payload) if row.payload else {}
-                        match = all(payload.get(k) == v for k, v in filters.items())
-                        if not match:
-                            continue
-                    except json.JSONDecodeError:
+                    match = all(payload.get(k) == v for k, v in filters.items())
+                    if not match:
                         continue
 
-                scored_results.append((row.id, similarity, row.payload))
-
-            scored_results.sort(key=lambda x: x[1], reverse=True)
-            scored_results = scored_results[:top_k]
-
-            return [
-                OutputData(
-                    id=r[0],
-                    score=float(r[1]),
-                    payload=json.loads(r[2]) if r[2] else {}
+                score = row.score if row.score is not None else 0.0
+                results.append(
+                    OutputData(
+                        id=row.id,
+                        score=float(score),
+                        payload=payload
+                    )
                 )
-                for r in scored_results
-            ]
+
+            return results
         except Exception as e:
             logger.error(f"Search failed: {e}")
             raise
 
     def delete(self, vector_id: str):
-        """
-        Delete a vector by ID.
-
-        Args:
-            vector_id (str): ID of the vector to delete
-        """
         try:
             query = f"""
                 DELETE FROM {self.keyspace}.{self.collection_name}
@@ -313,14 +264,6 @@ class CassandraDB(VectorStoreBase):
         vector: Optional[List[float]] = None,
         payload: Optional[Dict] = None,
     ):
-        """
-        Update a vector and its payload.
-
-        Args:
-            vector_id (str): ID of the vector to update
-            vector (List[float], optional): Updated vector
-            payload (Dict, optional): Updated payload
-        """
         try:
             if vector is not None:
                 query = f"""
@@ -346,15 +289,6 @@ class CassandraDB(VectorStoreBase):
             raise
 
     def get(self, vector_id: str) -> Optional[OutputData]:
-        """
-        Retrieve a vector by ID.
-
-        Args:
-            vector_id (str): ID of the vector to retrieve
-
-        Returns:
-            OutputData: Retrieved vector or None if not found
-        """
         try:
             query = f"""
                 SELECT id, vector, payload
@@ -377,12 +311,6 @@ class CassandraDB(VectorStoreBase):
             return None
 
     def list_cols(self) -> List[str]:
-        """
-        List all collections (tables in the keyspace).
-
-        Returns:
-            List[str]: List of collection names
-        """
         try:
             prepared = self.session.prepare(
                 "SELECT table_name FROM system_schema.tables WHERE keyspace_name = ?"
@@ -394,7 +322,6 @@ class CassandraDB(VectorStoreBase):
             return []
 
     def delete_col(self):
-        """Delete the collection (table)."""
         try:
             query = f"""
                 DROP TABLE IF EXISTS {self.keyspace}.{self.collection_name}
@@ -406,14 +333,7 @@ class CassandraDB(VectorStoreBase):
             raise
 
     def col_info(self) -> Dict[str, Any]:
-        """
-        Get information about the collection.
-
-        Returns:
-            Dict[str, Any]: Collection information
-        """
         try:
-            # Get row count (approximate)
             query = f"""
                 SELECT COUNT(*) as count
                 FROM {self.keyspace}.{self.collection_name}
@@ -436,16 +356,6 @@ class CassandraDB(VectorStoreBase):
         filters: Optional[Dict] = None,
         top_k: int = 100
     ) -> List[List[OutputData]]:
-        """
-        List all vectors in the collection.
-
-        Args:
-            filters (Dict, optional): Filters to apply
-            top_k (int): Number of vectors to return
-
-        Returns:
-            List[List[OutputData]]: List of vectors
-        """
         try:
             query = f"""
                 SELECT id, vector, payload
@@ -456,7 +366,6 @@ class CassandraDB(VectorStoreBase):
 
             results = []
             for row in rows:
-                # Apply filters if provided
                 if filters:
                     try:
                         payload = json.loads(row.payload) if row.payload else {}
@@ -480,7 +389,6 @@ class CassandraDB(VectorStoreBase):
             return [[]]
 
     def reset(self):
-        """Reset the collection by truncating it."""
         try:
             logger.warning(f"Resetting collection {self.collection_name}...")
             query = f"""
@@ -493,11 +401,9 @@ class CassandraDB(VectorStoreBase):
             raise
 
     def __del__(self):
-        """Close the cluster connection when the object is deleted."""
         try:
             if self.cluster:
                 self.cluster.shutdown()
                 logger.info("Cassandra cluster connection closed")
         except Exception:
             pass
-
