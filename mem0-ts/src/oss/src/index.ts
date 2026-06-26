@@ -3,6 +3,7 @@ export * from "./memory/memory.types";
 export * from "./types";
 export * from "./embeddings/base";
 export * from "./embeddings/openai";
+export * from "./embeddings/aws_bedrock";
 export * from "./embeddings/ollama";
 export * from "./embeddings/lmstudio";
 export * from "./embeddings/google";

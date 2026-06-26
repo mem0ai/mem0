@@ -10,6 +10,11 @@ jest.mock("../src/embeddings/openai", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "openai-embedder", config })),
 }));
+jest.mock("../src/embeddings/aws_bedrock", () => ({
+  AWSBedrockEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "aws-bedrock-embedder", config })),
+}));
 jest.mock("../src/embeddings/ollama", () => ({
   OllamaEmbedder: jest
     .fn()
@@ -169,6 +174,7 @@ const dummyVSConfig: VectorStoreConfig = {
 describe("EmbedderFactory", () => {
   test.each([
     ["openai"],
+    ["aws_bedrock"],
     ["ollama"],
     ["google"],
     ["gemini"],

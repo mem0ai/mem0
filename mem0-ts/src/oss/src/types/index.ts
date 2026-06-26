@@ -18,6 +18,10 @@ export interface EmbeddingConfig {
   baseURL?: string;
   url?: string;
   embeddingDims?: number;
+  awsRegion?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsSessionToken?: string;
   modelProperties?: Record<string, any>;
 }
 
@@ -113,6 +117,10 @@ export const MemoryConfigSchema = z.object({
       baseURL: z.string().optional(),
       embeddingDims: z.number().optional(),
       url: z.string().optional(),
+      awsRegion: z.string().optional(),
+      awsAccessKeyId: z.string().optional(),
+      awsSecretAccessKey: z.string().optional(),
+      awsSessionToken: z.string().optional(),
     }),
   }),
   vectorStore: z.object({
