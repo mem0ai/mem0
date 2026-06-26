@@ -58,6 +58,7 @@ class TogetherLLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using TogetherAI.
@@ -67,6 +68,8 @@ class TogetherLLM(LLMBase):
             response_format (str or object, optional): Format of the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional provider-specific parameters forwarded to the Together
+                client (matches the ``LLMBase.generate_response`` contract).
 
         Returns:
             str: The generated response.
@@ -78,6 +81,7 @@ class TogetherLLM(LLMBase):
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
+        params.update(kwargs)
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic

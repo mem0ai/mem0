@@ -1,0 +1,154 @@
+---
+title: "Neon"
+description: "Use Neon as a vector store in Mem0, powered by PostgreSQL and pgvector."
+---
+
+Use [Neon](https://neon.com/) as a vector store in Mem0, powered by PostgreSQL and the
+[pgvector extension](https://neon.com/docs/extensions/pgvector).
+
+Neon is a serverless Postgres platform. Since Mem0 supports Postgres through the
+`pgvector` provider, Neon can be used with a standard Postgres connection string.
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+
+from dotenv import load_dotenv
+from mem0 import Memory
+
+load_dotenv()
+
+config = {
+"vector_store": {
+"provider": "pgvector",
+"config": {
+"connection_string": os.environ["DATABASE_URL"],
+"collection_name": "memories",
+"embedding_model_dims": 1536,
+"hnsw": True,
+},
+},
+}
+
+m = Memory.from_config(config)
+messages = [
+{"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+{"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+{"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+{"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+
+results = m.search(
+"What movies should I recommend?",
+filters={"user_id": "alice"},
+)
+
+print(results)
+
+````
+
+```typescript TypeScript
+import "dotenv/config";
+import { Memory } from "mem0ai/oss";
+
+const m = new Memory({
+  vectorStore: {
+    provider: "pgvector",
+    config: {
+      connectionString: process.env.DATABASE_URL!,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      collectionName: "memories",
+      dimension: 1536,
+      embeddingModelDims: 1536,
+      hnsw: true,
+    },
+  },
+});
+
+const messages = [
+  { role: "user" as const, content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant" as const, content: "How about thriller movies? They can be quite engaging." },
+  { role: "user" as const, content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant" as const, content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+
+await m.add(messages, {
+  userId: "alice",
+  metadata: { category: "movies" },
+});
+
+const results = await m.search("What movies should I recommend?", {
+  filters: { user_id: "alice" },
+});
+
+console.log(results);
+````
+
+</CodeGroup>
+
+## SQL Migration
+
+You don't need to run any SQL migrations. Mem0 creates the collection table when it initializes the `pgvector` store.
+
+## Environment
+
+```env
+OPENAI_API_KEY=sk-xx...
+DATABASE_URL=postgresql://user:password@ep-example.us-east-2.aws.neon.tech/neondb?sslmode=require
+```
+
+## Config
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connection_string` | Neon Postgres connection string. | Required |
+| `collection_name` | Name for the vector collection. | `mem0` |
+| `embedding_model_dims` | Embedding model dimensions. | `1536` |
+| `hnsw` | Enables HNSW indexing. | `False` |
+| `sslmode` | PostgreSQL SSL mode. Use `require` for Neon. | Driver default |
+</Tab>
+<Tab title="TypeScript">
+Use the Neon `DATABASE_URL` directly with `connectionString`. Set `ssl` if your runtime needs an explicit TLS config object.
+
+| Parameter            | Description                                    | Default        |
+| -------------------- | ---------------------------------------------- | -------------- |
+| `connectionString`   | Neon Postgres connection string.               | Required       |
+| `ssl`                | Optional TLS settings passed directly to `pg`. | Driver default |
+| `collectionName`     | Name for the vector collection.                | `memories`     |
+| `dimension`          | Vector dimension for Mem0 config.              | Auto-detected  |
+| `embeddingModelDims` | Embedding model dimensions for table creation. | Required       |
+| `hnsw`               | Enables HNSW indexing.                         | `false`        |
+
+**TLS note:** `ssl: true` is sufficient for most Neon connections since Neon uses valid certificates. Use `ssl: { rejectUnauthorized: false }` only when connecting through Neon's connection pooler on certain edge runtimes (e.g. Cloudflare Workers) that require it, or when your environment does not trust the Neon CA chain.
+
+</Tab>
+</Tabs>
+
+### Indexing
+
+The `pgvector` provider can create an HNSW index for faster vector search.
+
+- Set `hnsw` to `true` to enable a Hierarchical Navigable Small World index.
+- Leave `hnsw` as `false` if you want to create or manage indexes yourself.
+
+### Similarity Search
+
+The `pgvector` provider uses cosine similarity for vector search. Make sure your
+embedding dimensions match the configured `embedding_model_dims` value.
+
+### Best Practices
+
+1. **Index Selection**:
+   - Use `hnsw` for faster search performance when memory usage is not a constraint
+   - Manage indexes manually if you need a different pgvector index strategy
+
+2. **Connection String**:
+   - Always use environment variables or even better, a secret manager for sensitive information in the connection string
+   - Format: `postgresql://user:password@host:port/database`

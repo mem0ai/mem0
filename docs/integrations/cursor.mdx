@@ -47,7 +47,7 @@ The fastest way to get started. Click the link below to install the Mem0 MCP ser
 npx mcp-add \
   --name mem0-mcp \
   --type http \
-  --url "https://mcp.mem0.ai/mcp" \
+  --url "https://mcp.mem0.ai/mcp/" \
   --clients "cursor"
 ```
 
@@ -110,7 +110,8 @@ When installed via the Cursor Marketplace, Mem0 hooks into Cursor's lifecycle:
 | **User prompt** | `beforeSubmitPrompt` | Searches relevant memories before each message; skips short prompts |
 | **Pre-tool (2 handlers)** | `preToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
 | **Post-tool (2 handlers)** | `postToolUse` | Tracks stats, scans bash errors for related memories |
-| **Pre-compact** | `preCompact` | Stores a session summary before context compaction |
+| **Stop** | `stop` | Stores a session summary when the session ends |
+| **Pre-compact** | `preCompact` | Stores a summary before the context is compacted |
 
 ## Example Workflow
 

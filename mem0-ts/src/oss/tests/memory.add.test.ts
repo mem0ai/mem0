@@ -126,6 +126,22 @@ describe("Memory - add()", () => {
     expect(result.results.length).toBeGreaterThan(0);
   });
 
+  test("preserves message roles in the extraction prompt (## New Messages)", async () => {
+    // The OpenAI LLM mock echoes the `## New Messages` section of the prompt back
+    // as the extracted text, so the stored memory reveals what the LLM received.
+    // Roles must survive into that section, otherwise the prompt's role-aware
+    // logic and required `attributed_to` output have no speaker to attribute to
+    // and assistant statements get stored as user facts.
+    const messages = [
+      { role: "user", content: "I want to sleep earlier." },
+      { role: "assistant", content: "Aim for 00:30 sleep / 08:30 wake." },
+    ];
+    const result: SearchResult = await memory.add(messages, { userId });
+    const seen = result.results.map((r) => r.memory).join("\n");
+    expect(seen).toContain("user: I want to sleep earlier.");
+    expect(seen).toContain("assistant: Aim for 00:30 sleep / 08:30 wake.");
+  });
+
   test("works with agentId instead of userId", async () => {
     const result: SearchResult = await memory.add("test", {
       agentId: "agent_1",

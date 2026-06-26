@@ -28,7 +28,7 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 
 ```bash
 # Install the plugin (MCP server, hooks, scripts)
-npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+npx degit mem0ai/mem0/integrations/mem0-plugin ~/.gemini/config/plugins/mem0
 ```
 
 This installs the MCP server, lifecycle hooks, and shared scripts.
@@ -65,6 +65,7 @@ The plugin uses the same shell scripts as Claude Code, Cursor, and Codex — hoo
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
 | **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tools |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
+| **Stop** | `Stop` | Stores a session summary when the session ends |
 
 ## Troubleshooting
 

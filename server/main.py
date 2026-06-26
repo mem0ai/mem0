@@ -5,7 +5,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import telemetry
-from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
 from db import SessionLocal
 from dotenv import load_dotenv
 from errors import (
@@ -16,9 +16,10 @@ from errors import (
     upstream_error,
     upstream_error_handler,
 )
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from mem0.exceptions import ValidationError as Mem0ValidationError
 from models import RequestLog, User
 from pydantic import BaseModel, Field
 from rate_limit import limiter
@@ -181,14 +182,16 @@ class MemoryCreate(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    expiration_date: Optional[str] = Field(None, description="Expiration date in YYYY-MM-DD format.")
     infer: Optional[bool] = Field(None, description="Whether to extract facts from messages. Defaults to True.")
     memory_type: Optional[str] = Field(None, description="Type of memory to store (e.g. 'core').")
     prompt: Optional[str] = Field(None, description="Custom prompt to use for fact extraction.")
 
 
 class MemoryUpdate(BaseModel):
-    text: str = Field(..., description="New content to update the memory with.")
+    text: Optional[str] = Field(None, description="New content to update the memory with.")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata to update.")
+    expiration_date: Optional[str] = Field(None, description="Expiration date in YYYY-MM-DD format, or null to clear.")
 
 
 class SearchRequest(BaseModel):
@@ -199,10 +202,20 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
+    explain: Optional[bool] = Field(None, description="Include score details for each search result.")
+    show_expired: Optional[bool] = Field(None, description="Include expired memories.")
 
 
 class GenerateInstructionsRequest(BaseModel):
     use_case: str = Field(..., description="Description of what the user will use Mem0 for.")
+
+
+def _client_error(exc: Exception) -> HTTPException:
+    """Map core validation / not-found errors to 4xx so clients can tell a bad
+    request from an upstream outage. 'not found' is a 404, everything else a 400."""
+    detail = str(exc)
+    status_code = 404 if isinstance(exc, ValueError) and "not found" in detail.lower() else 400
+    return HTTPException(status_code=status_code, detail=detail)
 
 
 def _redact_config(value: Any, key: str | None = None) -> Any:
@@ -316,8 +329,8 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
-    """Set memory configuration."""
+def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
+    """Set memory configuration. Requires admin role."""
     _validate_bundled_providers(config)
     update_config(config)
     return {"message": "Configuration set successfully"}
@@ -359,13 +372,17 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
         response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        if response.get("results"):
+            telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
 
 ALL_MEMORIES_LIMIT = 1000
-_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at"}
+_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at", "expiration_date"}
 
 
 def _serialize_memory(row: Any) -> Dict[str, Any]:
@@ -377,6 +394,7 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
         "agent_id": payload.get("agent_id"),
         "run_id": payload.get("run_id"),
         "hash": payload.get("hash"),
+        "expiration_date": payload.get("expiration_date"),
         "metadata": {k: v for k, v in payload.items() if k not in _RESERVED_PAYLOAD_KEYS},
         "created_at": payload.get("created_at"),
         "updated_at": payload.get("updated_at"),
@@ -391,19 +409,32 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
 
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
+    request: Request,
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    top_k: Optional[int] = Query(None, ge=0, le=ALL_MEMORIES_LIMIT),
+    show_expired: bool = Query(False),
     _auth=Depends(verify_auth),
 ):
-    """Retrieve stored memories. Lists all memories when no identifier is provided."""
+    """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
     try:
         if not any([user_id, run_id, agent_id]):
-            return _list_all_memories()
+            auth_type = getattr(request.state, "auth_type", "none")
+            if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
+                raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
+            # Admin all-memory listing is intentionally raw; scoped get_all below applies expiry visibility.
+            return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        return get_memory_instance().get_all(filters=filters)
+        params = {"filters": filters}
+        if top_k is not None:
+            params["top_k"] = top_k
+        params["show_expired"] = show_expired
+        return get_memory_instance().get_all(**params)
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
@@ -439,7 +470,15 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
             params["top_k"] = search_req.top_k
         if search_req.threshold is not None:
             params["threshold"] = search_req.threshold
+        if search_req.explain is not None:
+            params["explain"] = search_req.explain
+        if search_req.show_expired is not None:
+            params["show_expired"] = search_req.show_expired
         return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
@@ -448,9 +487,17 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
 def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(verify_auth)):
     """Update an existing memory."""
     try:
-        return get_memory_instance().update(
-            memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata
-        )
+        fields_set = getattr(updated_memory, "model_fields_set", getattr(updated_memory, "__fields_set__", set()))
+        params = {"memory_id": memory_id}
+        if "text" in fields_set:
+            params["data"] = updated_memory.text
+        if "metadata" in fields_set:
+            params["metadata"] = updated_memory.metadata
+        if "expiration_date" in fields_set:
+            params["expiration_date"] = updated_memory.expiration_date
+        return get_memory_instance().update(**params)
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -470,6 +517,8 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -479,9 +528,9 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
-    _auth=Depends(verify_auth),
+    _auth=Depends(require_admin),
 ):
-    """Delete all memories for a given identifier."""
+    """Delete all memories for a given identifier. Requires admin role."""
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
@@ -495,8 +544,8 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory(_auth=Depends(verify_auth)):
-    """Completely reset stored memories."""
+def reset_memory(_auth=Depends(require_admin)):
+    """Completely reset stored memories. Requires admin role."""
     try:
         get_memory_instance().reset()
         return {"message": "All memories reset"}

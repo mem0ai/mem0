@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any, Dict, List, Union
 
@@ -5,6 +6,8 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
 from mem0.reranker.base import BaseReranker
 from mem0.utils.factory import LlmFactory
+
+logger = logging.getLogger(__name__)
 
 
 class LLMReranker(BaseReranker):
@@ -90,14 +93,14 @@ class LLMReranker(BaseReranker):
 
     def _extract_score(self, response_text: str) -> float:
         """Extract numerical score from LLM response."""
-        # Look for decimal numbers between 0.0 and 1.0
-        pattern = r'\b([01](?:\.\d+)?)\b'
-        matches = re.findall(pattern, response_text)
-        
+        # Prefer a decimal, fall back to an integer, then clamp: out-of-range outputs
+        # like "2.0"/"5" become 1.0 instead of being mis-parsed into a stray 0/1 digit.
+        matches = re.findall(r'-?\d+\.\d+', response_text) or re.findall(r'-?\d+', response_text)
+
         if matches:
             score = float(matches[0])
             return min(max(score, 0.0), 1.0)  # Clamp between 0.0 and 1.0
-        
+
         # Fallback: return 0.5 if no valid score found
         return 0.5
     
@@ -151,8 +154,9 @@ class LLMReranker(BaseReranker):
                 scored_doc['rerank_score'] = score
                 scored_docs.append(scored_doc)
 
-            except Exception:
+            except Exception as e:
                 # Fallback: assign neutral score if scoring fails
+                logger.warning("LLM reranking failed for a document, assigning neutral score: %s", e)
                 scored_doc = doc.copy()
                 scored_doc['rerank_score'] = 0.5
                 scored_docs.append(scored_doc)

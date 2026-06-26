@@ -39,7 +39,7 @@
     "@radix-ui/react-tooltip": "^1.1.6",
     "@reduxjs/toolkit": "^2.7.0",
     "autoprefixer": "^10.4.20",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -79,6 +79,15 @@
     "onlyBuiltDependencies": [
       "@parcel/watcher",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
+      "immutable@>=5.0.0 <5.1.5": "^5.1.5",
+      "picomatch@<2.3.2": "^2.3.2",
+      "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
+      "glob@>=10.2.0 <10.5.0": "^10.5.0",
+      "postcss@<8.5.10": ">=8.5.10",
+      "yaml@>=2.0.0 <2.8.3": ">=2.8.3"
+    }
   }
 }

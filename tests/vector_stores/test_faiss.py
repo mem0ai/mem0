@@ -173,6 +173,32 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
                 assert results[0].payload == {"name": "vector1", "category": "A"}
 
 
+def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_index):
+    query_vector = [0.1, 0.2, 0.3]
+
+    # Four stored vectors: the two nearest fail the filter, the next two pass it.
+    faiss_instance.docstore = {
+        "id1": {"name": "v1", "category": "B"},
+        "id2": {"name": "v2", "category": "B"},
+        "id3": {"name": "v3", "category": "A"},
+        "id4": {"name": "v4", "category": "A"},
+    }
+    faiss_instance.index_to_id = {0: "id1", 1: "id2", 2: "id3", 3: "id4"}
+
+    # top_k=2 with filters -> fetch_k = 4; the index returns all four candidates.
+    search_scores = np.array([[0.9, 0.8, 0.7, 0.6]])
+    search_indices = np.array([[0, 1, 2, 3]])
+    mock_faiss_index.search.return_value = (search_scores, search_indices)
+
+    results = faiss_instance.search(
+        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
+    )
+
+    # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
+    assert len(results) == 2
+    assert [r.id for r in results] == ["id3", "id4"]
+
+
 def test_delete(faiss_instance, mock_faiss_index):
     # Setup the docstore and index_to_id mapping
     faiss_instance.docstore = {"id1": {"name": "vector1"}, "id2": {"name": "vector2"}}
@@ -257,6 +283,20 @@ def test_list(faiss_instance):
     assert len(results[0]) == 2
     for result in results[0]:
         assert result.payload["category"] == "A"
+
+
+def test_list_uninitialized_index_returns_nested_list(faiss_instance):
+    # Regression for the List[List[OutputData]] contract: callers (e.g.
+    # Memory.delete_all) do `vector_store.list(filters=...)[0]`, so an
+    # uninitialized index must return [[]] (one level deep) and NOT a bare
+    # [], which would make result[0] raise IndexError on an empty store.
+    faiss_instance.index = None
+
+    results = faiss_instance.list()
+
+    assert results == [[]]
+    # The contract callers rely on: result[0] is the (empty) memory list.
+    assert results[0] == []
 
 
 def test_col_info(faiss_instance, mock_faiss_index):
