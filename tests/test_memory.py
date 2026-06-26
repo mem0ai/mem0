@@ -1529,3 +1529,47 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_does_not_require_langchain_when_llm_none(mock_llm_factory, mock_emb, mock_vs):
+    """Regression: async procedural memory with the default ``llm=None`` must not require
+    the optional ``langchain-core`` package.
+
+    ``convert_to_messages`` comes from langchain-core, which is an optional ``extras``
+    dependency and is only needed when a custom LangChain ``llm`` is supplied. The sync
+    path (``Memory._create_procedural_memory``) has no langchain dependency, so the async
+    path must behave the same on a default ``pip install mem0ai``. Previously the import
+    ran unconditionally at function entry, so this call raised ``ImportError`` and stored
+    nothing whenever langchain-core was not installed.
+    """
+    import sys
+
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+    memory.llm = MagicMock()
+    memory.llm.generate_response.return_value = "Step 1: open the file. Step 2: save it."
+
+    messages = [{"role": "user", "content": "How do I save a file?"}]
+    metadata = {"user_id": "test_user"}
+
+    # Simulate langchain-core not being installed (it lives in the optional `extras` group):
+    # setting the module entries to None makes any `import langchain_core...` raise ImportError.
+    blocked = {"langchain_core": None, "langchain_core.messages": None, "langchain_core.messages.utils": None}
+    with patch.dict(sys.modules, blocked):
+        await memory._create_procedural_memory(messages, metadata=metadata, llm=None)
+
+    # The procedural memory is still generated via the built-in llm and persisted.
+    memory.llm.generate_response.assert_called_once()
+    memory.vector_store.insert.assert_called_once()
