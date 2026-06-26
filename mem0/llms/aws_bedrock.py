@@ -103,7 +103,7 @@ class AWSBedrockLLM(LLMBase):
                 raise ValueError(f"AWS Bedrock error: {e}")
 
     @staticmethod
-    def _build_client(service_name, aws_config):
+    def _build_client(service_name: str, aws_config: Dict[str, Any]) -> Any:
         """Build a boto3 client, routing `profile_name` through Session().
 
         boto3.client() rejects `profile_name`; only boto3.Session() accepts it.

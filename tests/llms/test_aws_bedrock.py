@@ -493,6 +493,8 @@ class TestProfileNameRouting:
             # Session built with the profile; client created from the session.
             mock_b3.Session.assert_any_call(profile_name="my-sso-profile")
             session.client.assert_any_call("bedrock-runtime", region_name=config.aws_region)
+            # _test_connection reaches the `bedrock` service through the same Session.
+            session.client.assert_any_call("bedrock", region_name=config.aws_region)
             # profile_name must NOT be forwarded as a client kwarg (boto3 rejects it).
             for call in session.client.call_args_list:
                 assert "profile_name" not in call.kwargs
