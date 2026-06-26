@@ -59,6 +59,7 @@ class AWSBedrockLLM(LLMBase):
                 top_p=config.top_p,
                 top_k=config.top_k,
                 enable_vision=getattr(config, "enable_vision", False),
+                bedrock_provider=getattr(config, "bedrock_provider", None),
             )
 
         super().__init__(config)
@@ -69,7 +70,10 @@ class AWSBedrockLLM(LLMBase):
 
         # Get model configuration
         self.model_config = self.config.get_model_config()
-        self.provider = extract_provider(self.config.model)
+        self.provider = (
+            getattr(self.config, "bedrock_provider", None)
+            or extract_provider(self.config.model)
+        )
 
         # Initialize provider-specific settings
         self._initialize_provider_settings()
