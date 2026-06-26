@@ -124,7 +124,8 @@
     "pg": "8.11.3",
     "redis": "^4.6.13",
     "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "natural": "^8.0.1",
+    "@aws-sdk/client-bedrock-runtime": "^3.0.0"
   },
   "engines": {
     "node": ">=18"
@@ -157,6 +158,11 @@
       "glob@>=10.2.0 <10.5.0": "^10.5.0",
       "@modelcontextprotocol/sdk": "^1.25.4",
       "esbuild": ">=0.28.1"
+    }
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-bedrock-runtime": {
+      "optional": true
     }
   }
 }
