@@ -1,20 +1,25 @@
 name: Publish server Docker image 🐳 to Docker Hub
 
+# Dispatched by release.yml (Release Router) when a release tagged server-v* is
+# published. Can also be dispatched manually to re-publish a tag.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Explicit tag to publish (e.g. v0.1.114). Leave blank to use the latest release.'
-        required: false
+        description: 'Release tag to build and publish (e.g. server-v0.1.114)'
+        required: true
         type: string
+      prerelease:
+        description: 'Whether this is a pre-release'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-and-push:
     # Skip on forks unless someone has copied secrets in — avoids confusing failures
     # for downstream users who fork the repo.
-    if: github.repository == 'mem0ai/mem0' && startsWith(github.event.release.tag_name, 'v') || github.event_name == 'workflow_dispatch'
+    if: github.repository == 'mem0ai/mem0' && (startsWith(inputs.tag, 'server-v') || startsWith(inputs.tag, 'v'))
     name: Build + push mem0-api-server
     runs-on: ubuntu-latest
     permissions:
@@ -22,6 +27,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Parse tag
+        id: parse_tag
+        run: |
+          TAG="${{ inputs.tag }}"
+          # Strip 'server-' prefix if present
+          CLEAN_TAG="${TAG#server-}"
+          echo "clean_tag=$CLEAN_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU (for arm64 cross-build)
         uses: docker/setup-qemu-action@v3
@@ -43,14 +58,14 @@ jobs:
           # On release/v*: produce vX.Y.Z, vX.Y, vX, latest tags.
           # On manual dispatch: use the input tag verbatim.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+            type=semver,pattern={{version}},value=${{ steps.parse_tag.outputs.clean_tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.parse_tag.outputs.clean_tag }}
+            type=semver,pattern={{major}},value=${{ steps.parse_tag.outputs.clean_tag }}
+            type=raw,value=latest,enable=${{ inputs.prerelease == false }}
+            type=raw,value=${{ steps.parse_tag.outputs.clean_tag }}
 
       - name: Build + push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./server
           file: ./server/Dockerfile
@@ -61,3 +76,4 @@ jobs:
           # GitHub-hosted layer cache — speeds up subsequent builds, no extra setup.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+

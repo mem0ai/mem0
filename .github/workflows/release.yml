@@ -45,6 +45,7 @@ jobs:
             openclaw-v*)  workflow="openclaw-cd.yml" ;;
             opencode-v*)  workflow="opencode-plugin-cd.yml" ;;
             pi-agent-v*)  workflow="pi-agent-plugin-cd.yml" ;;
+            server-v*)    workflow="server-docker-cd.yml" ;;
             v*)           workflow="cd.yml" ;;
             *)
               echo "::error::Release tag '$TAG' does not match any known package prefix — nothing will be published. See the tag prefix table in AGENTS.md."

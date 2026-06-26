@@ -149,6 +149,7 @@ Published to Docker Hub at [`mem0/mem0-api-server`](https://hub.docker.com/r/mem
 | `mem0/mem0-api-server:latest` | Tracks the most recent release. Convenient for local dev; **not recommended for production** because the underlying digest moves silently. |
 
 For Kubernetes deployments that mount config via a ConfigMap, pair this with `MEM0_CONFIG_PATH` (see [server_state.py](./server_state.py)) so config changes don't require an image rebuild.
+
 ## Migrating from `ankane/pgvector` to `pgvector/pgvector`
 
 The `ankane/pgvector` Docker image is archived and no longer maintained. This release
