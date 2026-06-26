@@ -1529,3 +1529,67 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+# ─── AsyncMemory.reset() VectorStoreFactory.reset() parity tests ──────────────
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_reset_uses_factory_reset_when_available(
+    mock_sqlite, mock_llm, mock_emb, MockVSFactory
+):
+    """AsyncMemory.reset() must call VectorStoreFactory.reset() when the vector
+    store exposes a reset() method, not fall back to the slower delete_col() path."""
+    mock_emb.return_value = MagicMock()
+    mock_llm.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    mock_vs = MagicMock(spec=["reset", "insert", "search", "delete", "list", "get"])
+    MockVSFactory.create.return_value = mock_vs
+    MockVSFactory.reset.return_value = mock_vs
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = mock_vs
+
+    create_calls_before = MockVSFactory.create.call_count
+    await memory.reset()
+
+    MockVSFactory.reset.assert_called_once_with(mock_vs)
+    assert MockVSFactory.create.call_count == create_calls_before, (
+        "VectorStoreFactory.create() must not be called when reset() path is taken"
+    )
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_reset_falls_back_to_delete_col_when_no_reset(
+    mock_sqlite, mock_llm, mock_emb, MockVSFactory
+):
+    """AsyncMemory.reset() must fall back to delete_col() + VectorStoreFactory.create()
+    when the vector store does not expose a reset() method."""
+    mock_emb.return_value = MagicMock()
+    mock_llm.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    mock_vs = MagicMock(spec=["delete_col", "insert", "search", "delete", "list", "get"])
+    MockVSFactory.create.return_value = mock_vs
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = mock_vs
+
+    await memory.reset()
+
+    mock_vs.delete_col.assert_called_once()
+    MockVSFactory.reset.assert_not_called()
