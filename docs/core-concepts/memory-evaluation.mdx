@@ -141,173 +141,28 @@ All benchmarks run on the same production-representative model stack. Scores car
 
 ## Running Evaluations
 
-The full evaluation framework is [open-sourced](https://github.com/mem0ai/memory-benchmarks) so anyone can reproduce the numbers independently. It supports both Mem0 Cloud and self-hosted OSS backends.
-
-### Setup
-
-<Tabs>
-  <Tab title="Mem0 Cloud">
-    ```bash
-    git clone https://github.com/mem0ai/memory-benchmarks.git
-    cd memory-benchmarks
-    pip install -r requirements.txt
-
-    # Set your API keys
-    export MEM0_API_KEY=m0-your-key
-    export OPENAI_API_KEY=sk-your-key
-    ```
-  </Tab>
-  <Tab title="Mem0 OSS (Docker)">
-    ```bash
-    git clone https://github.com/mem0ai/memory-benchmarks.git
-    cd memory-benchmarks
-    pip install -r requirements.txt
-
-    # Copy and configure environment
-    cp .env.example .env
-    # Edit .env to add OPENAI_API_KEY
-
-    # Start local Mem0 server + Qdrant
-    docker compose up -d
-    # Mem0 server: http://localhost:8888
-    # Qdrant:      http://localhost:6333
-    ```
-  </Tab>
-</Tabs>
-
-### Running a Benchmark
-
-Each benchmark is a Python module with its own runner ([source code](https://github.com/mem0ai/memory-benchmarks/tree/main/benchmarks)). All share common CLI options:
-
-| Option | Default | Description |
-|---|---|---|
-| `--project-name` | (required) | Run identifier for tracking results |
-| `--backend` | `oss` | `oss` (self-hosted) or `cloud` (Mem0 Platform) |
-| `--mem0-api-key` | — | Mem0 API key (required for `cloud` backend) |
-| `--mem0-host` | `http://localhost:8888` | Mem0 server URL (for `oss` backend) |
-| `--top-k` | `200` | Number of memories to retrieve per query |
-| `--top-k-cutoffs` | `10,20,50,200` | Evaluate accuracy at multiple retrieval depths (BEAM default: `100`) |
-| `--answerer-model` | *(varies)* | LLM for generating answers from retrieved memories |
-| `--judge-model` | *(varies)* | LLM for judging answer correctness |
-| `--provider` | `openai` | LLM provider: `openai`, `anthropic`, `azure` |
-| `--judge-provider` | (same as `--provider`) | Override provider for the judge model |
-| `--max-workers` | `10` | Parallel workers for evaluation |
-| `--predict-only` | — | Stop after search, skip answer + judge phases |
-| `--evaluate-only` | — | Skip ingest + search, evaluate existing results |
-| `--resume` | — | Resume from checkpoint (BEAM and LongMemEval; on by default for LongMemEval) |
-
-<CodeGroup>
-```bash LoCoMo
-# ~300 questions across 10 conversations (fastest benchmark)
-python -m benchmarks.locomo.run \
-  --project-name my-eval \
-  --backend cloud \
-  --mem0-api-key $MEM0_API_KEY \
-  --top-k 200
-
-# Self-hosted
-python -m benchmarks.locomo.run \
-  --project-name my-eval \
-  --top-k 200
-```
-
-```bash LongMemEval
-# 500 questions across 6 categories
-python -m benchmarks.longmemeval.run \
-  --project-name my-eval \
-  --backend cloud \
-  --mem0-api-key $MEM0_API_KEY \
-  --all-questions \
-  --top-k 200
-
-# Self-hosted
-python -m benchmarks.longmemeval.run \
-  --project-name my-eval \
-  --all-questions \
-  --top-k 200
-```
-
-```bash BEAM
-# 1M token scale (100 conversations)
-python -m benchmarks.beam.run \
-  --project-name my-eval \
-  --backend cloud \
-  --mem0-api-key $MEM0_API_KEY \
-  --chat-sizes 1M \
-  --conversations 0-99 \
-  --top-k 200
-
-# 10M token scale
-python -m benchmarks.beam.run \
-  --project-name my-eval \
-  --backend cloud \
-  --mem0-api-key $MEM0_API_KEY \
-  --chat-sizes 10M \
-  --conversations 0-99 \
-  --top-k 200
-```
-</CodeGroup>
-
-### Custom Model Configuration
-
-To run evaluations with custom models (Azure OpenAI, Ollama, etc.), copy one of the provided configs:
+The full evaluation framework is open-source in the [memory-benchmarks repository](https://github.com/mem0ai/memory-benchmarks), so you can reproduce every number here. It supports both Mem0 Cloud and self-hosted OSS backends.
 
 ```bash
-# Available configs: openai.yaml, azure-openai.yaml, ollama.yaml
-cp configs/azure-openai.yaml mem0-config.yaml
-# Edit mem0-config.yaml with your model details
-
-# Uncomment the volume mount in docker-compose.yml, then restart:
-docker compose down && docker compose up -d
+git clone https://github.com/mem0ai/memory-benchmarks.git
+cd memory-benchmarks
+pip install -r requirements.txt
 ```
 
-### Viewing Results
-
-Results are saved to `results/[benchmark]/` and can be explored through the built-in web UI:
+Run any benchmark against Mem0 Cloud (set `MEM0_API_KEY`) or a self-hosted server (add `--backend oss`):
 
 ```bash
-npm install
-npm run dev -- -p 3001
-# Open http://localhost:3001
+# LoCoMo (~300 questions, fastest)
+python -m benchmarks.locomo.run --project-name my-eval --backend cloud --mem0-api-key $MEM0_API_KEY
+
+# LongMemEval (500 questions)
+python -m benchmarks.longmemeval.run --project-name my-eval --backend cloud --mem0-api-key $MEM0_API_KEY --all-questions
+
+# BEAM (1M / 10M token scale)
+python -m benchmarks.beam.run --project-name my-eval --backend cloud --mem0-api-key $MEM0_API_KEY --chat-sizes 1M
 ```
 
-The UI lets you browse per-question results, inspect retrieval details, and compare multiple runs.
-
-### Result Format
-
-Each evaluated question produces a structured result:
-
-```json
-{
-  "id": "locomo_q_001",
-  "group": "temporal",
-  "question": "When did the user first mention moving?",
-  "ground_truth": "During the March 3rd conversation",
-  "retrieval": {
-    "search_query": "when did user mention moving",
-    "search_results": ["..."],
-    "search_latency_ms": 123.4,
-    "total_results": 42
-  },
-  "generation": {
-    "generated_answer": "The user first mentioned moving on March 3rd",
-    "model": "<answerer-model>",
-    "prompt_tokens": 500,
-    "completion_tokens": 100
-  },
-  "judgment": {
-    "judgment": "CORRECT",
-    "score": 0.85,
-    "reason": "Answer correctly identifies the date",
-    "model": "<judge-model>"
-  },
-  "cutoff_results": {
-    "top_10": { "score": 0.75, "judgment": "CORRECT" },
-    "top_50": { "score": 0.85, "judgment": "CORRECT" },
-    "top_200": { "score": 0.90, "judgment": "CORRECT" }
-  }
-}
-```
+For the full CLI options, self-hosted Docker setup, custom model configs, and the results UI, see the [repository README](https://github.com/mem0ai/memory-benchmarks).
 
 ## Interpreting Results
 
