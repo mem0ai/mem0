@@ -1534,11 +1534,12 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch('mem0.memory.main.SQLiteManager')
 @patch('mem0.memory.main.MEM0_TELEMETRY', True)
 @patch('mem0.memory.main._safe_deepcopy_config')
+@patch('mem0.memory.main.os.makedirs')
 def test_memory_init_does_not_call_safe_deepcopy_config_for_telemetry(
-    mock_safe_deepcopy, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    mock_makedirs, mock_safe_deepcopy, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
 ):
     """Regression #5871: Memory.__init__ should not call _safe_deepcopy_config in the telemetry block.
 
