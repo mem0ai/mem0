@@ -100,7 +100,7 @@
                         ]
                       },
                       {
-                        "group": "Integration Features",
+                        "group": "Integrations",
                         "icon": "plug",
                         "pages": [
                           "platform/features/webhooks",
