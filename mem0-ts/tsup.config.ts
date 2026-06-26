@@ -15,6 +15,7 @@ const external = [
   "@google/genai",
   "@mistralai/mistralai",
   "@supabase/supabase-js",
+  "@zilliz/milvus2-sdk-node",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",

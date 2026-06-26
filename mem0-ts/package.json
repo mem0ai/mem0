@@ -124,7 +124,8 @@
     "pg": "8.11.3",
     "redis": "^4.6.13",
     "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "natural": "^8.0.1",
+    "@zilliz/milvus2-sdk-node": "^2.4.0 || ^3.0.0"
   },
   "engines": {
     "node": ">=18"
@@ -158,6 +159,11 @@
       "@modelcontextprotocol/sdk": "^1.25.4",
       "esbuild": ">=0.28.1",
       "undici@<6.27.0": ">=6.27.0 <8.0.0"
+    }
+  },
+  "peerDependenciesMeta": {
+    "@zilliz/milvus2-sdk-node": {
+      "optional": true
     }
   }
 }
