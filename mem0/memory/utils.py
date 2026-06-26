@@ -93,6 +93,12 @@ def normalize_facts(raw_facts):
     Smaller LLMs (e.g. llama3.1:8b) sometimes return facts as objects
     like {"fact": "..."} or {"text": "..."} instead of plain strings.
     This mirrors the TypeScript FactRetrievalSchema validation.
+
+    NOTE: This is the FACT_RETRIEVAL-path normalizer, retained for external
+    callers and the legacy two-phase extraction flow. The current single-pass
+    additive pipeline in ``main.py`` uses ``normalize_extracted_memories``
+    (below) instead, which operates on dict-shaped ``memory`` items rather
+    than plain fact strings. Kept here so both shapes stay covered.
     """
     if not raw_facts:
         return []
@@ -146,6 +152,10 @@ def normalize_extracted_memories(raw_memories):
                 if isinstance(key, str) and key.strip():
                     text = key.strip()
                 elif isinstance(value, str) and value.strip():
+                    # Dead branch under json.loads (object keys are always
+                    # str, so the `if` above fires) — only reachable if a
+                    # caller hand-builds a dict with a non-str / empty key.
+                    # Retained defensively for that non-JSON path.
                     text = value.strip()
             if text:
                 out = dict(item)
