@@ -1,0 +1,86 @@
+---
+title: "How Mem0 Works"
+description: "How Mem0 turns raw conversations into durable memories and recalls the right ones at query time."
+icon: "diagram-project"
+---
+
+Mem0 is a memory **layer**, not a bigger context window. Instead of replaying every past message into the prompt, Mem0 distills conversations into compact facts, stores them, and recalls only the few that matter for the current query (typically under 7,000 tokens per call).
+
+<Frame caption="Memory extraction: conversations are distilled into ADD-only facts and written to the SQL, vector, and entity stores.">
+  <img src="/images/memory-extraction.png" alt="Mem0 memory extraction pipeline: store new memories after the response, context lookup to find related memories, extract memories (ADD only) from input and context, deduplicate and embed, entity linking, written to a SQL database (facts and metadata), vector database (embeddings and similarity), and entity store (entities and relationships)." />
+</Frame>
+
+## The mental model
+
+| Without a memory layer | With Mem0 |
+|---|---|
+| Replay the full history into every prompt | Recall only the facts that matter |
+| Cost and latency grow with the conversation | Token-efficient, near-constant retrieval |
+| The model re-reads everything, every time | Memories persist across sessions |
+
+## Messages vs memories
+
+You hand Mem0 raw conversation; Mem0 stores distilled understanding, not a transcript.
+
+| You send | Mem0 stores |
+|---|---|
+| Full messages and conversations | Compact, deduplicated facts |
+| Everything, verbatim | Only what is worth remembering |
+| Unstructured text | Embedded memories with linked entities |
+
+A long thread becomes a handful of durable facts, which is why recall stays cheap and fast.
+
+## Two phases: extraction and retrieval
+
+Mem0 runs across two phases, connected by a graph layer.
+
+### 1. Extraction (writing memory)
+
+When new messages arrive, Mem0 processes them asynchronously, after your agent has already responded:
+
+1. **Context lookup.** Find related existing memories so new facts do not duplicate old ones.
+2. **Extract memories (ADD-only).** A single LLM pass extracts facts from the new messages plus that context. Each fact is added, never overwritten.
+3. **Deduplicate and embed.** Redundant facts are removed, then the new memories are vectorized.
+4. **Entity linking.** Entities (people, places, concepts) are identified and linked across memories.
+
+Mem0 is **ADD-only**: new facts are stored alongside old ones, never overwritten. When information changes, both the old and new facts survive, which preserves temporal context.
+
+### 2. Retrieval (reading memory)
+
+When a query arrives, Mem0 scores candidates across three signals in parallel, then fuses them into one ranked set:
+
+| Signal | What it does | Best for |
+|---|---|---|
+| **Semantic** | Vector similarity over embeddings | Conceptual questions |
+| **Keyword** | BM25 term matching with lemmatization | Exact and factual lookups |
+| **Entity** | Boosts memories linked to the query's entities | "What do we know about Alice?" |
+
+The fused score outperforms any single signal across query types.
+
+<Note>
+  This full three-signal fusion reflects Mem0's v3 / managed-Platform algorithm. Open-source retrieval is semantic search plus an optional reranker and graph store, so exact behavior and scores differ.
+</Note>
+
+## Where memories live
+
+Mem0 spreads each memory across three stores, each tuned for a different job:
+
+| Store | Holds | Purpose |
+|---|---|---|
+| **SQL database** | Facts and metadata | The source of truth for each memory |
+| **Vector database** | Embeddings | Semantic similarity search |
+| **Entity store** | Entities and relationships | Cross-memory and entity-based reasoning |
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Memory types" icon="brain" href="/core-concepts/memory-types">
+    How user, agent, run, and session memory differ.
+  </Card>
+  <Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
+    Add, search, update, and delete memories.
+  </Card>
+  <Card title="See the benchmarks" icon="chart-line" href="/core-concepts/memory-evaluation">
+    How Mem0 is evaluated and why it scales.
+  </Card>
+</CardGroup>

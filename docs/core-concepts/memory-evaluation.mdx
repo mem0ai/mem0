@@ -15,50 +15,9 @@ Evaluating a memory system at scale comes down to three parameters: **accuracy**
 
 Some benchmarks today — particularly smaller ones like LoCoMo and LongMemEval — can be materially improved by aggressive retrieval strategies, larger context windows, or frontier models. That does not necessarily mean the underlying memory system has gotten better. We evaluate under constraints that reflect how memory systems actually run in production: limited context windows and practical token budgets.
 
-## Architecture Overview
+## How the architecture drives these results
 
-Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), with a graph memory layer (entity linking) connecting them.
-
-### Memory Extraction (Distillation)
-
-When new conversations arrive, the extraction pipeline processes them through five stages:
-
-1. **Store New Memories** — Conversation enters the pipeline asynchronously (after the agent responds)
-2. **Context Lookup** — Find related existing memories to avoid duplicates
-3. **Distill Memories** — Single-pass LLM extraction produces ADD-only facts from input + context
-4. **Deduplicate + Embed** — Hash-based deduplication, then vectorize new memories
-5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
-
-Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
-
-| Store | Contents | Purpose |
-|---|---|---|
-| **Vector Database** | Memory text, embeddings, metadata (timestamps, hash, categories, attributed_to) | Primary fact storage + semantic retrieval |
-| **Graph / Entity Store** | Entities + embeddings + linked memory IDs | Graph connections across memories + entity-based retrieval boost |
-| **SQL Database** | History log (ADD events) + rolling message window | Audit trail + extraction dedup context |
-
-<Info>
-The key architectural decision is **ADD-only extraction**. New facts are stored alongside old ones — nothing is overwritten or deleted. When information changes, both the old and new facts survive. This preserves temporal context and eliminates information loss from premature consolidation.
-</Info>
-
-### Multi-Signal Retrieval
-
-When a query arrives, the retrieval pipeline scores candidates across three signals in parallel:
-
-1. **Semantic Search** — Vector similarity scoring against memory embeddings
-2. **Keyword Search** — Normalized term matching via BM25 with verb-form lemmatization
-3. **Entity Search** — Entity matching boosts memories linked to query entities
-
-Results are fused via rank scoring into a final top-K set. Different query types lean on different signals:
-
-| Query Type | Primary Signal | Example |
-|---|---|---|
-| Conceptual | Semantic | "What does the user think about remote work?" |
-| Factual/exact | BM25 keyword | "What meetings did I attend last week?" |
-| Entity-centric | Entity matching | "What do we know about Alice?" |
-| Temporal | Semantic + keyword | "When did the user first mention the project?" |
-
-The combined score outperformed every individual signal across every category tested.
+Mem0's accuracy and token efficiency come from two design choices: **ADD-only extraction** that distills conversations into facts without overwriting history (preserving temporal context), and **multi-signal retrieval** (semantic, keyword, and entity) that surfaces only what matters per query. That is what keeps retrieval averaging under ~7,000 tokens while staying accurate. For the full pipeline, see [How Mem0 Works](/core-concepts/how-it-works).
 
 ## Benchmarks
 

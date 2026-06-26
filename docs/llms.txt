@@ -184,6 +184,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ## Core Concepts
 
+- [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/graph/history stores, and multi-signal retrieval.
 - [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when explaining working, factual, episodic, and semantic memory distinctions.
 - [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add) [Both]: Use when explaining how `add()` extracts facts, resolves conflicts, and writes to both stores.
 - [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search) [Both]: Use when explaining how queries are processed and ranked.

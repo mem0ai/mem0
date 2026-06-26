@@ -14,6 +14,22 @@ Mem0 is the memory engine that keeps conversations contextual, so users never re
 - **Zero infrastructure.** Mem0 runs the vector store and rerankers, so there is nothing to provision, tune, or maintain.
 - **Enterprise-ready.** Audit logs and workspace governance ship by default.
 
+## How it works
+
+<Steps>
+  <Step title="Add">
+    Send Mem0 your messages and conversations.
+  </Step>
+  <Step title="Extract and store">
+    Mem0 distills them into facts and links entities across memories.
+  </Step>
+  <Step title="Recall">
+    At query time, Mem0 returns only the most relevant memories.
+  </Step>
+</Steps>
+
+For the full pipeline, see [How Mem0 works](/core-concepts/how-it-works).
+
 <AccordionGroup>
   <Accordion title="What you get with Mem0 Platform" icon="sparkles">
 
@@ -29,6 +45,9 @@ Mem0 is the memory engine that keeps conversations contextual, so users never re
 ## Explore the Platform
 
 <CardGroup cols={2}>
+  <Card title="How Mem0 works" icon="diagram-project" href="/core-concepts/how-it-works">
+    The extraction and retrieval pipeline, end to end.
+  </Card>
   <Card title="Run the quickstart" icon="rocket" href="/platform/quickstart">
     Get an API key and save your first memory.
   </Card>
@@ -37,8 +56,5 @@ Mem0 is the memory engine that keeps conversations contextual, so users never re
   </Card>
   <Card title="Add, search, and update" icon="layer-group" href="/core-concepts/memory-operations/add">
     The core memory operations, end to end.
-  </Card>
-  <Card title="Build with cookbooks" icon="book-open" href="/cookbooks/overview">
-    Real-world builds: companions, agents, and automations.
   </Card>
 </CardGroup>

@@ -8,6 +8,9 @@
     "light": "#8F74E0",
     "dark": "#8F74E0"
   },
+  "fonts": {
+    "family": "Space Grotesk"
+  },
   "favicon": "/logo/favicon.png",
   "logo": {
     "light": "/logo/light.svg",
@@ -52,6 +55,7 @@
                     "group": "Core Concepts",
                     "icon": "brain",
                     "pages": [
+                      "core-concepts/how-it-works",
                       "core-concepts/memory-types",
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
