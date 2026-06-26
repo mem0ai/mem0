@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Optional
 
 from pydantic import BaseModel
@@ -11,7 +12,14 @@ try:
 except ImportError:
     raise ImportError("The 'pymilvus' library is required. Please install it using 'pip install pymilvus'.")
 
-from pymilvus import CollectionSchema, DataType, FieldSchema, Function, FunctionType, MilvusClient
+from pymilvus import (
+    CollectionSchema,
+    DataType,
+    FieldSchema,
+    Function,
+    FunctionType,
+    MilvusClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +144,8 @@ class MilvusDB(VectorStoreBase):
         data = [_build_record(idx, embedding, metadata) for idx, embedding, metadata in zip(ids, vectors, payloads)]
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
     def _create_filter(self, filters: dict):
         """Prepare filters for efficient query.
 
@@ -147,10 +157,18 @@ class MilvusDB(VectorStoreBase):
         """
         operands = []
         for key, value in filters.items():
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
             if isinstance(value, str):
-                operands.append(f'(metadata["{key}"] == "{value}")')
-            else:
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                operands.append(f'(metadata["{key}"] == "{escaped}")')
+            elif isinstance(value, (int, float, bool)):
                 operands.append(f'(metadata["{key}"] == {value})')
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
 
         return " and ".join(operands)
 
@@ -167,11 +185,14 @@ class MilvusDB(VectorStoreBase):
         memory = []
 
         for value in data:
-            uid, score, metadata = (
-                value.get("id"),
-                value.get("distance"),
-                value.get("entity", {}).get("metadata"),
-            )
+            uid = value.get("id")
+            raw_distance = value.get("distance")
+            metadata = value.get("entity", {}).get("metadata")
+
+            if raw_distance is not None and self.metric_type in (MetricType.L2, "L2"):
+                score = 1.0 / (1.0 + raw_distance)
+            else:
+                score = raw_distance
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
@@ -252,7 +273,7 @@ class MilvusDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.client.delete(collection_name=self.collection_name, ids=vector_id)
+        self.client.delete(collection_name=self.collection_name, ids=[vector_id])
 
     def update(self, vector_id=None, vector=None, payload=None):
         """
@@ -280,7 +301,7 @@ class MilvusDB(VectorStoreBase):
         schema = {"id": vector_id, "vectors": vector, "metadata": payload, "text": text}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
-    def get(self, vector_id):
+    def get(self, vector_id) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -288,9 +309,11 @@ class MilvusDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.client.get(collection_name=self.collection_name, ids=vector_id)
+        if not result:
+            return None
         output = OutputData(
             id=result[0].get("id", None),
             score=None,

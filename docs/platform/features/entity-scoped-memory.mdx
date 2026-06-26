@@ -5,6 +5,10 @@ description: Scope conversations by user, agent, app, and session so memories la
 
 Mem0's Platform API lets you separate memories for different users, agents, and apps. By tagging each write and query with the right identifiers, you can prevent data from mixing between them, maintain clear audit trails, and control data retention.
 
+<Note>
+**Entity IDs vs. graph entities.** This page covers the `user_id` / `agent_id` / `app_id` / `run_id` identifiers used to *scope* memories. These are different from the **graph entities** (the people, places, and concepts surfaced in [Graph Memory](/platform/features/graph-memory)).
+</Note>
+
 <Tip icon="layers">
 Want the long-form tutorial? The <Link href="/cookbooks/essentials/entity-partitioning-playbook">Partition Memories by Entity</Link> cookbook walks through multi-agent storage, debugging, and cleanup step by step.
 </Tip>

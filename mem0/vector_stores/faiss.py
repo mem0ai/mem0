@@ -279,7 +279,11 @@ class FAISS(VectorStoreBase):
 
             payload_copy = payload.copy()
 
-            score = float(scores[i])
+            raw_score = float(scores[i])
+            if self.distance_strategy.lower() == "euclidean":
+                score = 1.0 / (1.0 + raw_score)
+            else:
+                score = raw_score
             entry = OutputData(
                 id=vector_id,
                 score=score,
@@ -386,7 +390,7 @@ class FAISS(VectorStoreBase):
         fetch_k = top_k * 2 if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
-        results = self._parse_output(scores[0], indices[0], top_k)
+        results = self._parse_output(scores[0], indices[0], fetch_k)
 
         if filters:
             filtered_results = []
@@ -599,7 +603,7 @@ class FAISS(VectorStoreBase):
             List[OutputData]: List of vectors.
         """
         if self.index is None:
-            return []
+            return [[]]
 
         results = []
         count = 0
