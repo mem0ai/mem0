@@ -25,6 +25,7 @@ class EmbedderConfig(BaseModel):
             "langchain",
             "aws_bedrock",
             "fastembed",
+            "voyageai",
         ]:
             return v
         else:

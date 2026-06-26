@@ -1,0 +1,49 @@
+---
+title: "Voyage AI"
+description: "Configure Voyage AI as an embedding provider in Mem0 using models like voyage-3 for vector generation."
+---
+
+To use VoyageAI embedding models, set the `VOYAGEAI_API_KEY` environment variable. You can obtain the Voyage AI API key from the [Voyage AI platform](https://dashboard.voyageai.com/organization/api-keys).
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["VOYAGEAI_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "voyageai",
+        "config": {
+            "model": "voyage-3"
+            "memory_add_embedding_type": "document",
+            "memory_update_embedding_type": "document",
+            "memory_search_embedding_type": "query"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+
+```
+
+### Config
+
+Here are the parameters available for configuring the Voyage AI embedder:
+
+| Parameter                      | Description                                               | Default Value |
+| ------------------------------ | --------------------------------------------------------- | ------------- |
+| `model`                        | The name of the Voyage AI embedding model to use          | `voyage-3`    |
+| `embedding_dims`               | Dimensions of the embedding model                         | `None`        |
+| `memory_add_embedding_type`    | The type of embedding to use for the add memory action    | `document`    |
+| `memory_update_embedding_type` | The type of embedding to use for the update memory action | `document`    |
+| `memory_search_embedding_type` | The type of embedding to use for the search memory action | `query`       |
