@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -196,7 +197,9 @@ class PlatformBackend(Backend):
         )
 
     def get(self, memory_id: str) -> dict:
-        return self._request("GET", f"/v1/memories/{memory_id}/", params={"source": "CLI"})
+        return self._request(
+            "GET", f"/v1/memories/{quote(memory_id, safe='')}/", params={"source": "CLI"}
+        )
 
     def list_memories(
         self,
@@ -250,7 +253,7 @@ class PlatformBackend(Backend):
         if metadata:
             payload["metadata"] = metadata
         payload["source"] = "CLI"
-        return self._request("PUT", f"/v1/memories/{memory_id}/", json=payload)
+        return self._request("PUT", f"/v1/memories/{quote(memory_id, safe='')}/", json=payload)
 
     def delete(
         self,
@@ -274,7 +277,9 @@ class PlatformBackend(Backend):
                 params["run_id"] = run_id
             return self._request("DELETE", "/v1/memories/", params=params)
         elif memory_id:
-            return self._request("DELETE", f"/v1/memories/{memory_id}/", params={"source": "CLI"})
+            return self._request(
+                "DELETE", f"/v1/memories/{quote(memory_id, safe='')}/", params={"source": "CLI"}
+            )
         else:
             raise ValueError("Either memory_id or --all is required")
 
@@ -300,7 +305,9 @@ class PlatformBackend(Backend):
         result: dict = {}
         for entity_type, entity_id in entities.items():
             result = self._request(
-                "DELETE", f"/v2/entities/{entity_type}/{entity_id}/", params={"source": "CLI"}
+                "DELETE",
+                f"/v2/entities/{entity_type}/{quote(entity_id, safe='')}/",
+                params={"source": "CLI"},
             )
         return result
 
@@ -346,7 +353,7 @@ class PlatformBackend(Backend):
         return result if isinstance(result, list) else result.get("results", [])
 
     def get_event(self, event_id: str) -> dict:
-        return self._request("GET", f"/v1/event/{event_id}/")
+        return self._request("GET", f"/v1/event/{quote(event_id, safe='')}/")
 
 
 class AuthError(Exception):

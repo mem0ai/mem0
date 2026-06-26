@@ -1,7 +1,7 @@
 """Tests for MemoryClient entity parameter rejection."""
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -16,12 +16,13 @@ def mock_memory_client():
         mock_http_client = MagicMock()
         mock_http_client.get.return_value = MagicMock(
             json=lambda: {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"},
-            raise_for_status=lambda: None
+            raise_for_status=lambda: None,
         )
         mock_httpx.return_value = mock_http_client
 
         with patch("mem0.client.main.capture_client_event"):
             from mem0.client.main import MemoryClient
+
             client = MemoryClient(api_key="test-api-key")
             yield client
 
@@ -154,13 +155,11 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_and_filters(self, mock_memory_client):
         """search() should pass AND filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
         mock_memory_client.search(
-            "test query",
-            filters={"AND": [{"user_id": "u1"}, {"created_at": {"gte": "2024-01-01"}}]}
+            "test query", filters={"AND": [{"user_id": "u1"}, {"created_at": {"gte": "2024-01-01"}}]}
         )
 
         # Verify the POST was called with filters intact
@@ -171,14 +170,10 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_or_filters(self, mock_memory_client):
         """search() should pass OR filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
-        mock_memory_client.search(
-            "test query",
-            filters={"OR": [{"user_id": "u1"}, {"agent_id": "a1"}]}
-        )
+        mock_memory_client.search("test query", filters={"OR": [{"user_id": "u1"}, {"agent_id": "a1"}]})
 
         call_args = mock_memory_client.client.post.call_args
         payload = call_args.kwargs.get("json", call_args.args[1] if len(call_args.args) > 1 else {})
@@ -187,13 +182,11 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_not_filters(self, mock_memory_client):
         """search() should pass NOT filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
         mock_memory_client.search(
-            "test query",
-            filters={"AND": [{"user_id": "u1"}, {"NOT": {"categories": {"in": ["spam"]}}}]}
+            "test query", filters={"AND": [{"user_id": "u1"}, {"NOT": {"categories": {"in": ["spam"]}}}]}
         )
 
         call_args = mock_memory_client.client.post.call_args
@@ -203,15 +196,14 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_complex_nested_filters(self, mock_memory_client):
         """search() should pass complex nested AND/OR/NOT filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
         complex_filter = {
             "AND": [
                 {"user_id": "u1"},
                 {"created_at": {"gte": "2024-01-01"}},
-                {"NOT": {"OR": [{"categories": {"in": ["spam"]}}, {"categories": {"in": ["test"]}}]}}
+                {"NOT": {"OR": [{"categories": {"in": ["spam"]}}, {"categories": {"in": ["test"]}}]}},
             ]
         }
         mock_memory_client.search("test query", filters=complex_filter)
@@ -310,3 +302,162 @@ class TestValidateApiKeyHttpError:
 
         assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+@pytest.fixture
+def mock_async_memory_client():
+    """Create a mock AsyncMemoryClient for testing."""
+    with patch("mem0.client.main.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(
+            json=lambda: {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"},
+            raise_for_status=lambda: None,
+        )
+        with patch("mem0.client.main.capture_client_event"):
+            from mem0.client.main import AsyncMemoryClient
+
+            client = AsyncMemoryClient(api_key="test-api-key")
+            yield client
+
+
+class TestUrlEncoding:
+    """Tests that dynamic URL path segments are correctly encoded in SDK requests."""
+
+    def test_get_encodes_memory_id(self, mock_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "mem/123?active#frag"}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.get = MagicMock(return_value=mock_response)
+
+        mock_memory_client.get("mem/123?active#frag")
+
+        mock_memory_client.client.get.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/",
+            params={},
+        )
+
+    def test_update_encodes_memory_id(self, mock_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "mem/123?active#frag"}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.put = MagicMock(return_value=mock_response)
+
+        mock_memory_client.update("mem/123?active#frag", text="updated")
+
+        mock_memory_client.client.put.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/",
+            json={"text": "updated"},
+            params={},
+        )
+
+    def test_delete_encodes_memory_id(self, mock_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"message": "Deleted"}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.delete = MagicMock(return_value=mock_response)
+
+        mock_memory_client.delete("mem/123?active#frag")
+
+        mock_memory_client.client.delete.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/",
+            params={},
+        )
+
+    def test_history_encodes_memory_id(self, mock_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = []
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.get = MagicMock(return_value=mock_response)
+
+        mock_memory_client.history("mem/123?active#frag")
+
+        mock_memory_client.client.get.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/history/",
+            params={},
+        )
+
+    def test_delete_users_encodes_entity_name(self, mock_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"message": "Deleted"}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.delete = MagicMock(return_value=mock_response)
+
+        mock_memory_client.delete_users(user_id="user/123?active#frag")
+
+        mock_memory_client.client.delete.assert_called_once_with(
+            "/v2/entities/user/user%2F123%3Factive%23frag/",
+            params={},
+        )
+
+
+@pytest.mark.asyncio
+class TestAsyncUrlEncoding:
+    """Tests that dynamic URL path segments are correctly encoded in Async SDK requests."""
+
+    async def test_get_encodes_memory_id(self, mock_async_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "mem/123?active#frag"}
+        mock_response.raise_for_status.return_value = None
+        mock_async_memory_client.async_client.get = AsyncMock(return_value=mock_response)
+
+        await mock_async_memory_client.get("mem/123?active#frag")
+
+        mock_async_memory_client.async_client.get.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/",
+            params={},
+        )
+
+    async def test_update_encodes_memory_id(self, mock_async_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "mem/123?active#frag"}
+        mock_response.raise_for_status.return_value = None
+        mock_async_memory_client.async_client.put = AsyncMock(return_value=mock_response)
+
+        await mock_async_memory_client.update("mem/123?active#frag", text="updated")
+
+        mock_async_memory_client.async_client.put.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/",
+            json={"text": "updated"},
+            params={},
+        )
+
+    async def test_delete_encodes_memory_id(self, mock_async_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"message": "Deleted"}
+        mock_response.raise_for_status.return_value = None
+        mock_async_memory_client.async_client.delete = AsyncMock(return_value=mock_response)
+
+        await mock_async_memory_client.delete("mem/123?active#frag")
+
+        mock_async_memory_client.async_client.delete.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/",
+            params={},
+        )
+
+    async def test_history_encodes_memory_id(self, mock_async_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = []
+        mock_response.raise_for_status.return_value = None
+        mock_async_memory_client.async_client.get = AsyncMock(return_value=mock_response)
+
+        await mock_async_memory_client.history("mem/123?active#frag")
+
+        mock_async_memory_client.async_client.get.assert_called_once_with(
+            "/v1/memories/mem%2F123%3Factive%23frag/history/",
+            params={},
+        )
+
+    async def test_delete_users_encodes_entity_name(self, mock_async_memory_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"message": "Deleted"}
+        mock_response.raise_for_status.return_value = None
+        mock_async_memory_client.async_client.delete = AsyncMock(return_value=mock_response)
+
+        # Mock the users() call inside delete_users()
+        mock_async_memory_client.users = AsyncMock(return_value={"results": []})
+
+        await mock_async_memory_client.delete_users(user_id="user/123?active#frag")
+
+        mock_async_memory_client.async_client.delete.assert_called_once_with(
+            "/v2/entities/user/user%2F123%3Factive%23frag/",
+            params={},
+        )

@@ -3,6 +3,7 @@ import logging
 import os
 import warnings
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import httpx
 import requests
@@ -229,7 +230,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = self.client.get(f"/v1/memories/{memory_id}/", params=params)
+        response = self.client.get(f"/v1/memories/{quote(memory_id, safe='')}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         return response.json()
@@ -363,11 +364,13 @@ class MemoryClient:
         payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
-        response = self.client.put(f"/v1/memories/{memory_id}/", json=payload, params=params)
+        response = self.client.put(f"/v1/memories/{quote(memory_id, safe='')}/", json=payload, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -395,7 +398,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params({"delete_linked": delete_linked or None})
-        response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
+        response = self.client.delete(f"/v1/memories/{quote(memory_id, safe='')}/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "sync"}
@@ -452,7 +455,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = self.client.get(f"/v1/memories/{memory_id}/history/", params=params)
+        response = self.client.get(f"/v1/memories/{quote(memory_id, safe='')}/history/", params=params)
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return response.json()
@@ -513,7 +516,9 @@ class MemoryClient:
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = self.client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = self.client.delete(
+                f"/v2/entities/{entity['type']}/{quote(entity['name'], safe='')}/", params=params
+            )
             response.raise_for_status()
 
         capture_client_event(
@@ -1147,7 +1152,7 @@ class AsyncMemoryClient:
     @api_error_handler
     async def get(self, memory_id: str) -> Dict[str, Any]:
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/", params=params)
+        response = await self.async_client.get(f"/v1/memories/{quote(memory_id, safe='')}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1281,11 +1286,15 @@ class AsyncMemoryClient:
         payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()
-        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json=payload, params=params)
+        response = await self.async_client.put(
+            f"/v1/memories/{quote(memory_id, safe='')}/", json=payload, params=params
+        )
         response.raise_for_status()
         return response.json()
 
@@ -1313,7 +1322,7 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params({"delete_linked": delete_linked or None})
-        response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
+        response = await self.async_client.delete(f"/v1/memories/{quote(memory_id, safe='')}/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "async"}
@@ -1365,7 +1374,7 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
+        response = await self.async_client.get(f"/v1/memories/{quote(memory_id, safe='')}/history/", params=params)
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1426,7 +1435,9 @@ class AsyncMemoryClient:
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = await self.async_client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = await self.async_client.delete(
+                f"/v2/entities/{entity['type']}/{quote(entity['name'], safe='')}/", params=params
+            )
             response.raise_for_status()
 
         capture_client_event(
