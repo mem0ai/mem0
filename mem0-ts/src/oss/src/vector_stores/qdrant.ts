@@ -3,10 +3,9 @@ import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import * as fs from "fs";
 
-
 // BM25 keyword search via Qdrant's built-in server-side inference (requires
 // Qdrant >= 1.15.2). The Python adapter encodes BM25 client-side with fastembed;
-// this server-side path avoids that dependency, but IDF weights, and therefore the 
+// this server-side path avoids that dependency, but IDF weights, and therefore the
 // scores, may differ between the two implementations.
 
 const BM25_VECTOR_NAME = "bm25";
