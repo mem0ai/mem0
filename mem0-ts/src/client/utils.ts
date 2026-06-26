@@ -29,6 +29,11 @@ const OPAQUE_VALUE_KEYS = new Set([
   "metadata",
   "structuredDataSchema",
   "structured_data_schema",
+  // Custom-category names are user-controlled keys (`[{ "<name>": "<desc>" }]`).
+  // Listed in both casings so they round-trip verbatim in both directions
+  // (see issue #5738; same class as `metadata`/`structuredDataSchema`).
+  "customCategories",
+  "custom_categories",
 ]);
 
 /**

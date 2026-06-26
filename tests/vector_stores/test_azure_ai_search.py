@@ -511,6 +511,30 @@ def test_insert_with_http_error(azure_ai_search_instance):
     assert "Azure service error" in str(exc_info.value)
 
 
+def test_update_allows_empty_payload(azure_ai_search_instance):
+    """Test updating with an empty payload explicitly clears stored payload data."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+
+    instance.update("doc1", payload={})
+
+    mock_search_client.merge_or_upload_documents.assert_called_once_with(
+        documents=[{"id": "doc1", "payload": "{}", "user_id": None, "run_id": None, "agent_id": None}]
+    )
+
+
+def test_update_allows_empty_vector(azure_ai_search_instance):
+    """Test updating with an empty vector still sends the vector field to Azure."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+
+    instance.update("doc1", vector=[])
+
+    mock_search_client.merge_or_upload_documents.assert_called_once_with(documents=[{"id": "doc1", "vector": []}])
+
+
 # --- Tests for search method ---
 
 

@@ -4,10 +4,12 @@
 import { describe, it, expect } from "vitest";
 import {
   safePath,
+  normalizeModuleUrlToPath,
   loadSkill,
   loadTriagePrompt,
   loadCompactTriagePrompt,
 } from "./skill-loader.ts";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // ---------------------------------------------------------------------------
 // safePath — path containment
@@ -72,6 +74,31 @@ describe("loadSkill path traversal", () => {
     expect(result).not.toBeNull();
     expect(result?.prompt).toBeTruthy();
   });
+});
+
+describe("normalizeModuleUrlToPath", () => {
+  it("normalizes raw Windows paths before fileURLToPath conversion", () => {
+    const rawWindowsMetaUrl = "C:\\Users\\example\\openclaw\\index.ts";
+    const result = normalizeModuleUrlToPath(rawWindowsMetaUrl);
+    // Assert the decoded property directly rather than reconstructing via the function body
+    expect(typeof result).toBe("string");
+    expect(result).not.toContain("%5C");
+  });
+
+  it("leaves already-correct file URLs unchanged", () => {
+    const fileMetaUrl = "file:///C:/Users/example/openclaw/index.ts";
+    const expected = fileURLToPath(fileMetaUrl);
+
+    expect(normalizeModuleUrlToPath(fileMetaUrl)).toBe(expected);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "passes POSIX absolute paths through unchanged",
+    () => {
+      const posixPath = "/home/user/openclaw/index.ts";
+      expect(normalizeModuleUrlToPath(posixPath)).toBe(posixPath);
+    },
+  );
 });
 
 describe("loadCompactTriagePrompt", () => {
