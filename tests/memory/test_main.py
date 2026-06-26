@@ -102,6 +102,29 @@ class TestAddToVectorStoreErrors:
         # provider exception is preserved as the cause for debugging.
         assert isinstance(exc_info.value.__cause__, _ProviderError)
 
+    def test_malformed_memory_shapes_do_not_crash_extraction(self, mocker, mock_memory):
+        """A plain-string item in the LLM 'memory' array must not crash the pipeline.
+
+        Without normalization, downstream ``m.get("text")`` raises AttributeError
+        on a str. Guards #5176: real reasoning models emit string / key-as-fact items.
+        """
+        import json as _json
+
+        mock_memory.llm.generate_response.return_value = _json.dumps(
+            {"memory": ["User likes coffee", {"User is tired": "noise"}]}
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_memory.embedding_model = MagicMock()
+        mock_memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+        mock_memory.vector_store = MagicMock()
+        mock_memory.vector_store.search.return_value = []
+
+        # Must not raise; both malformed shapes recovered into text-bearing records.
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={"user_id": "u1"}, infer=True
+        )
+        assert isinstance(result, list)
+
 
 class TestPromptOverridesCustomInstructions:
     @pytest.fixture

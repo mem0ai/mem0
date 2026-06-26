@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from mem0.memory.utils import (
+    normalize_extracted_memories,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -192,3 +193,33 @@ class TestProcessTelemetryFilters:
 class TestRemoveCodeBlocks:
     def test_none_content_returns_empty_string(self):
         assert remove_code_blocks(None) == ""
+
+
+class TestNormalizeExtractedMemories:
+    def test_passthrough_wellformed_text_dict_preserves_keys(self):
+        items = [{"text": "User likes coffee", "attributed_to": "user", "linked_memory_ids": ["a"]}]
+        out = normalize_extracted_memories(items)
+        assert out == [{"text": "User likes coffee", "attributed_to": "user", "linked_memory_ids": ["a"]}]
+
+    def test_plain_string_is_wrapped(self):
+        # Without normalization, downstream m.get("text") raises AttributeError on a str.
+        out = normalize_extracted_memories(["User likes coffee"])
+        assert out == [{"text": "User likes coffee"}]
+
+    def test_fact_key_dict_is_mapped_to_text(self):
+        out = normalize_extracted_memories([{"fact": "User likes coffee"}])
+        assert out == [{"fact": "User likes coffee", "text": "User likes coffee"}]
+
+    def test_key_as_fact_single_key_dict(self):
+        # grok-style reasoning models emit {factText: <value>}; the key IS the fact.
+        out = normalize_extracted_memories([{"User likes coffee": "noise"}])
+        assert out == [{"User likes coffee": "noise", "text": "User likes coffee"}]
+
+    def test_empty_and_unrecognized_shapes_are_dropped(self):
+        out = normalize_extracted_memories(["", {}, {"a": 1, "b": 2}, 42, None])
+        assert out == []
+
+    def test_mixed_batch(self):
+        items = ["plain", {"text": "kept"}, {"User is tired": "x"}]
+        out = normalize_extracted_memories(items)
+        assert [m["text"] for m in out] == ["plain", "kept", "User is tired"]
