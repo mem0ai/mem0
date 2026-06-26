@@ -119,9 +119,9 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     const store = makeStore(client);
     await store.initialize();
-    expect(
-      client.calls.some((c) => c.method === "createCollection"),
-    ).toBe(false);
+    expect(client.calls.some((c) => c.method === "createCollection")).toBe(
+      false,
+    );
   });
 
   it("inserts records mapping payloads into the metadata field", async () => {
@@ -135,7 +135,10 @@ describe("Milvus vector store (TS OSS SDK)", () => {
         [0.4, 0.5, 0.6],
       ],
       ["a", "b"],
-      [{ data: "first", user_id: "u1" }, { data: "second", user_id: "u1" }],
+      [
+        { data: "first", user_id: "u1" },
+        { data: "second", user_id: "u1" },
+      ],
     );
 
     const insertCall = client.calls.find((c) => c.method === "insert")!;
@@ -205,9 +208,7 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     const store = makeStore(client);
     await store.initialize();
     await store.list({ data: 'a"b' });
-    const queryCall = client.calls
-      .filter((c) => c.method === "query")
-      .pop()!;
+    const queryCall = client.calls.filter((c) => c.method === "query").pop()!;
     expect(queryCall.args.filter).toBe('(metadata["data"] == "a\\"b")');
   });
 
