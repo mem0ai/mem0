@@ -4,7 +4,7 @@ description: "Mem0 is a universal, self-improving memory layer for LLM applicati
 mode: "custom"
 ---
 
-{/* debug: welcome-layout-v9-icons-cta */}
+{/* debug: welcome-layout-v10-pathicons */}
 
 <div className="px-6 pt-12 pb-2 lg:pt-16 max-w-3xl mx-auto text-center space-y-4">
   <h1 className="text-3xl lg:text-5xl font-bold text-gray-900 dark:text-zinc-50 tracking-tight">
@@ -12,7 +12,7 @@ mode: "custom"
   </h1>
 
   <p className="text-base lg:text-lg text-gray-600 dark:text-zinc-400 leading-relaxed">
-    Mem0 is a self-improving memory layer. Your agents remember users, preferences, and context across every session, in just a few lines of code.
+    Mem0 remembers users, preferences, and context across every session, so your agents stay personal and never start from scratch. Add it in a few lines of code.
   </p>
 
   <div className="flex items-center justify-center pt-2">
@@ -56,9 +56,10 @@ mode: "custom"
       className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <polygon points="12 2 2 7 12 12 22 7 12 2" />
-        <polyline points="2 17 12 22 22 17" />
-        <polyline points="2 12 12 17 22 12" />
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
       </svg>
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
         Add memory to your agent
@@ -76,8 +77,9 @@ mode: "custom"
       className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <polyline points="4 17 10 11 4 5" />
-        <line x1="12" y1="19" x2="20" y2="19" />
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m6 9 3 3-3 3" />
+        <path d="M13 15h4" />
       </svg>
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
         Add memory to coding agents
@@ -95,8 +97,8 @@ mode: "custom"
       className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <polyline points="16 18 22 12 16 6" />
-        <polyline points="8 6 2 12 8 18" />
+        <path d="m16 18 6-6-6-6" />
+        <path d="m8 6-6 6 6 6" />
       </svg>
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
         Use the API
@@ -132,10 +134,10 @@ mode: "custom"
       className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-        <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-        <line x1="6" y1="6" x2="6.01" y2="6" />
-        <line x1="6" y1="18" x2="6.01" y2="18" />
+        <rect x="2" y="2" width="20" height="8" rx="2" />
+        <rect x="2" y="14" width="20" height="8" rx="2" />
+        <circle cx="6" cy="6" r="1" />
+        <circle cx="6" cy="18" r="1" />
       </svg>
       <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
         Use the open-source stack
