@@ -38,6 +38,7 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { VertexAIEmbedder } from "../embeddings/vertexai";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -55,6 +56,8 @@ export class EmbedderFactory {
         return new AzureOpenAIEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "vertexai":
+        return new VertexAIEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }

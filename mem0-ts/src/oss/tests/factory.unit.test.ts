@@ -35,6 +35,11 @@ jest.mock("../src/embeddings/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
 }));
+jest.mock("../src/embeddings/vertexai", () => ({
+  VertexAIEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vertexai-embedder", config })),
+}));
 
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest
@@ -175,6 +180,7 @@ describe("EmbedderFactory", () => {
     ["azure_openai"],
     ["langchain"],
     ["lmstudio"],
+    ["vertexai"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
       EmbedderFactory.create(provider, dummyEmbedConfig),
