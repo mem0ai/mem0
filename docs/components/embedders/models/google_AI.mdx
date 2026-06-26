@@ -75,7 +75,7 @@ Here are the parameters available for configuring Gemini embedder:
 | Parameter         | Description                                   | Default Value              |
 | ----------------- | --------------------------------------------- | -------------------------- |
 | `model`           | The name of the embedding model to use        | `gemini-embedding-001`     |
-| `embeddingDims`   | Dimensions of the embedding model             | `None`                     |
+| `embeddingDims`   | Dimensions of the embedding model. When not set, uses the model's native output dimensionality (3072 for `gemini-embedding-001`; MRL truncation to 768, 1536, or 3072 is supported) | `None`                     |
 | `apiKey`          | Google API key                                | `None`                     |
 </Tab>
 </Tabs>
