@@ -97,7 +97,8 @@
     "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
     "tsup": "^8.3.0",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "iovalkey": "^0.3.3"
   },
   "dependencies": {
     "axios": "^1.16.0",
@@ -123,6 +124,7 @@
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
+    "iovalkey": "^0.3.3",
     "compromise": "^14.0.0",
     "natural": "^8.0.1"
   },

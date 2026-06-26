@@ -23,6 +23,7 @@ export * from "./vector_stores/base";
 export * from "./vector_stores/memory";
 export * from "./vector_stores/qdrant";
 export * from "./vector_stores/redis";
+export * from "./vector_stores/valkey";
 export * from "./vector_stores/supabase";
 export * from "./vector_stores/langchain";
 export * from "./vector_stores/vectorize";

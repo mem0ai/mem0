@@ -11,6 +11,7 @@ const external = [
   "better-sqlite3",
   "@qdrant/js-client-rest",
   "redis",
+  "iovalkey",
   "ollama",
   "@google/genai",
   "@mistralai/mistralai",

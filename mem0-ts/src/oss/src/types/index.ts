@@ -21,6 +21,8 @@ export interface EmbeddingConfig {
   modelProperties?: Record<string, any>;
 }
 
+export type { ValkeyConfig } from "./valkey";
+
 export interface VectorStoreConfig {
   collectionName?: string;
   dimension?: number;

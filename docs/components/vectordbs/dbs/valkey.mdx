@@ -14,7 +14,8 @@ pip install mem0ai[vector_stores]
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 config = {
     "vector_store": {
         "provider": "valkey",
@@ -37,8 +38,36 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'valkey',
+    config: {
+      collectionName: 'test',
+      valkeyUrl: 'valkey://localhost:6379',
+      embeddingModelDims: 1536,
+      indexType: 'flat',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+  { role: 'user', content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: 'assistant', content: 'How about thriller movies? They can be quite engaging.' },
+  { role: 'user', content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: 'assistant', content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } });
+```
+</CodeGroup>
+
 ## Parameters
 
+<Tabs>
+<Tab title="Python">
 Here are the parameters available for configuring Valkey:
 
 | Parameter | Description | Default Value |
@@ -52,6 +81,20 @@ Here are the parameters available for configuring Valkey:
 | `hnsw_ef_runtime` | Size of dynamic candidate list for search | `10` |
 | `cluster_mode` | Enable cluster mode for Valkey cluster (CME) deployments | `false` |
 | `distance_metric` | Distance metric for vector similarity | `cosine` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | The name of the collection to store the vectors | `mem0` |
+| `valkeyUrl` | Connection URL for the Valkey server | `valkey://localhost:6379` |
+| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `indexType` | Vector index algorithm (`hnsw` or `flat`) | `hnsw` |
+| `hnswM` | Number of bi-directional links for HNSW | `16` |
+| `hnswEfConstruction` | Size of dynamic candidate list for HNSW | `200` |
+| `hnswEfRuntime` | Size of dynamic candidate list for search | `10` |
+| `clusterMode` | Enable cluster mode for Valkey cluster (CME) deployments | `false` |
+</Tab>
+</Tabs>
 
 ## Cluster Mode
 
