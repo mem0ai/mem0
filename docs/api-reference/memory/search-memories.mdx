@@ -8,6 +8,10 @@ Relevance-ranked hybrid search across stored memories. V3 uses multi-signal retr
 
 Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object — top-level entity IDs are rejected with 400. At least one entity ID is required.
 
+Expired memories are hidden by default. Pass `show_expired: true` to include memories whose `expiration_date` has passed.
+
+Python uses `show_expired`; TypeScript uses `showExpired`.
+
 The `filters` object supports complex logical operations (AND, OR, NOT) and comparison operators:
 - `in`: Matches any of the values specified
 - `gte`: Greater than or equal to
@@ -30,6 +34,7 @@ The `filters` object supports complex logical operations (AND, OR, NOT) and comp
 ```python Platform API Example
 related_memories = client.search(
     query="What are Alice's hobbies?",
+    show_expired=False,
     filters={
         "OR": [
             {
@@ -54,6 +59,7 @@ related_memories = client.search(
         "category": "hobbies"
       },
       "score": 0.82,
+      "expiration_date": null,
       "created_at": "2024-07-26T10:29:36.630547-07:00",
       "updated_at": null,
       "categories": ["hobbies"]

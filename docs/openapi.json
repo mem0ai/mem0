@@ -1779,6 +1779,11 @@
 										"type": "object",
 										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`).",
 										"additionalProperties": true
+									},
+									"show_expired": {
+										"type": "boolean",
+										"default": false,
+										"description": "When true, include memories whose `expiration_date` has passed. Expired memories are hidden by default."
 									}
 								}
 							},
@@ -1977,6 +1982,12 @@
 										"additionalProperties": true,
 										"description": "User-supplied metadata to attach to each extracted memory."
 									},
+									"expiration_date": {
+										"type": "string",
+										"format": "date",
+										"nullable": true,
+										"description": "Optional expiration date in YYYY-MM-DD format. After this date, memories are hidden from search and get-all unless `show_expired` is true."
+									},
 									"custom_instructions": {
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
@@ -2093,6 +2104,11 @@
 										"type": "object",
 										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`). Supports `AND`, `OR`, `NOT`, and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `contains`, `icontains`, `ne`).",
 										"additionalProperties": true
+									},
+									"show_expired": {
+										"type": "boolean",
+										"default": false,
+										"description": "When true, include memories whose `expiration_date` has passed. Expired memories are hidden by default."
 									},
 									"top_k": {
 										"type": "integer",
@@ -2432,6 +2448,12 @@
 									"metadata": {
 										"type": "object",
 										"description": "Additional metadata associated with the memory"
+									},
+									"expiration_date": {
+										"type": "string",
+										"format": "date",
+										"nullable": true,
+										"description": "Expiration date in YYYY-MM-DD format, or null to clear the expiration date."
 									}
 								}
 							}

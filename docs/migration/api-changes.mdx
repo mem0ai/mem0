@@ -62,7 +62,8 @@ def add(
     filters: dict = None,
     output_format: str = None,  # ❌ REMOVED
     version: str = None         # ❌ REMOVED
-) -> Union[List[dict], dict]
+) -> Union[List[dict], dict]:
+    ...
 ```
 
 #### v1.0.0  Signature
@@ -76,7 +77,8 @@ def add(
     metadata: dict = None,
     filters: dict = None,
     infer: bool = True          # ✅ NEW: Control memory inference
-) -> dict  # Always returns dict with "results" key
+) -> dict:  # Always returns dict with "results" key
+    ...
 ```
 
 #### Changes Summary
@@ -147,7 +149,8 @@ def search(
     filters: dict = None,       # Basic key-value only
     output_format: str = None,  # ❌ REMOVED
     version: str = None         # ❌ REMOVED
-) -> Union[List[dict], dict]
+) -> Union[List[dict], dict]:
+    ...
 ```
 
 #### v1.0.0  Signature
@@ -161,7 +164,8 @@ def search(
     limit: int = 100,
     filters: dict = None,       # ✅ ENHANCED: Advanced operators
     rerank: bool = True         # ✅ NEW: Reranking support
-) -> dict  # Always returns dict with "results" key
+) -> dict:  # Always returns dict with "results" key
+    ...
 ```
 
 #### Enhanced Filtering
@@ -216,7 +220,8 @@ def get_all(
     filters: dict = None,
     output_format: str = None,  # ❌ REMOVED
     version: str = None         # ❌ REMOVED
-) -> Union[List[dict], dict]
+) -> Union[List[dict], dict]:
+    ...
 ```
 
 #### v1.0.0  Signature
@@ -227,7 +232,8 @@ def get_all(
     agent_id: str = None,
     run_id: str = None,
     filters: dict = None        # ✅ ENHANCED: Advanced operators
-) -> dict  # Always returns dict with "results" key
+) -> dict:  # Always returns dict with "results" key
+    ...
 ```
 
 ### update() Method
@@ -239,7 +245,8 @@ def update(
     self,
     memory_id: str,
     data: str
-) -> dict
+) -> dict:
+    ...
 ```
 
 ### delete() Method
@@ -250,7 +257,8 @@ def update(
 def delete(
     self,
     memory_id: str
-) -> dict
+) -> dict:
+    ...
 ```
 
 ### delete_all() Method
@@ -344,7 +352,7 @@ config = {
 ### New Configuration Options
 
 #### Reranker Configuration
-```python
+```text
 # Cohere reranker
 "reranker": {
     "provider": "cohere",
