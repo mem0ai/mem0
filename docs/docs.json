@@ -61,12 +61,12 @@
                     ]
                   },
                   {
-                    "group": "Platform Features",
+                    "group": "Features",
                     "icon": "star",
                     "pages": [
                       "platform/features/platform-overview",
                       {
-                        "group": "Essential Features",
+                        "group": "Essentials",
                         "icon": "circle-check",
                         "pages": [
                           "platform/features/v2-memory-filters",
@@ -79,7 +79,7 @@
                         ]
                       },
                       {
-                        "group": "Advanced Features",
+                        "group": "Advanced",
                         "icon": "bolt",
                         "pages": [
                           "platform/features/advanced-retrieval",
@@ -112,14 +112,14 @@
                     ]
                   },
                   {
-                    "group": "Support & Troubleshooting",
+                    "group": "Support",
                     "icon": "life-buoy",
                     "pages": [
                       "platform/faqs"
                     ]
                   },
                   {
-                    "group": "Migration Guide",
+                    "group": "Migration",
                     "icon": "arrow-right",
                     "pages": [
                       "migration/platform-v2-to-v3",
@@ -143,7 +143,7 @@
                     ]
                   },
                   {
-                    "group": "Self-Hosting Features",
+                    "group": "Features",
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
@@ -476,7 +476,7 @@
                     ]
                   },
                   {
-                    "group": "Memory APIs",
+                    "group": "Memory Management",
                     "icon": "sparkles",
                     "pages": [
                       "api-reference/memory/create-memory-export",
@@ -490,7 +490,7 @@
                     ]
                   },
                   {
-                    "group": "Events APIs",
+                    "group": "Events",
                     "icon": "clock",
                     "pages": [
                       "api-reference/events/get-events",
@@ -498,7 +498,7 @@
                     ]
                   },
                   {
-                    "group": "Entities APIs",
+                    "group": "Entities",
                     "icon": "users",
                     "pages": [
                       "api-reference/entities/get-users",
@@ -506,7 +506,7 @@
                     ]
                   },
                   {
-                    "group": "Organizations APIs",
+                    "group": "Organizations",
                     "icon": "building",
                     "pages": [
                       "api-reference/organization/create-org",
@@ -520,7 +520,7 @@
                     ]
                   },
                   {
-                    "group": "Project APIs",
+                    "group": "Projects",
                     "icon": "folder",
                     "pages": [
                       "api-reference/project/create-project",
@@ -535,7 +535,7 @@
                     ]
                   },
                   {
-                    "group": "Webhook APIs",
+                    "group": "Webhooks",
                     "icon": "webhook",
                     "pages": [
                       "api-reference/webhook/create-webhook",
