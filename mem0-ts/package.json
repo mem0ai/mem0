@@ -100,6 +100,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
+    "@huggingface/inference": "^4.13.20",
     "axios": "^1.16.0",
     "openai": "^4.93.0",
     "uuid": "^11.1.1",
@@ -119,12 +120,12 @@
     "@types/pg": "8.11.0",
     "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
+    "compromise": "^14.0.0",
     "groq-sdk": "0.3.0",
+    "natural": "^8.0.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
-    "redis": "^4.6.13",
-    "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "redis": "^4.6.13"
   },
   "engines": {
     "node": ">=18"
