@@ -5,9 +5,14 @@ import time
 from typing import Any, Dict, List, Optional
 
 import telemetry
+from dotenv import load_dotenv
+
+# Load environment variables BEFORE importing `auth`, which reads JWT_SECRET,
+# ADMIN_API_KEY and AUTH_DISABLED from the environment at import time.
+load_dotenv()
+
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
 from db import SessionLocal
-from dotenv import load_dotenv
 from errors import (
     UpstreamError,
     install_request_id_logging,
@@ -39,7 +44,6 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
-load_dotenv()
 
 install_request_id_logging()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - [%(request_id)s] %(message)s")
