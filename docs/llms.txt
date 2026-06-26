@@ -367,6 +367,8 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 - [Get Organization](https://docs.mem0.ai/api-reference/organization/get-org) [Platform]: Use when fetching one org.
 - [Get Organization Members](https://docs.mem0.ai/api-reference/organization/get-org-members) [Platform]: Use when listing org members.
 - [Add Organization Member](https://docs.mem0.ai/api-reference/organization/add-org-member) [Platform]: Use when inviting a member to an org.
+- [Update Organization Member](https://docs.mem0.ai/api-reference/organization/update-org-member) [Platform]: Use when updating an org member's role.
+- [Remove Organization Member](https://docs.mem0.ai/api-reference/organization/remove-org-member) [Platform]: Use when removing a member from an organization.
 - [Delete Organization](https://docs.mem0.ai/api-reference/organization/delete-org) [Platform]: Use when removing an org.
 
 ### Projects
@@ -375,6 +377,9 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 - [Get Project](https://docs.mem0.ai/api-reference/project/get-project) [Platform]: Use when fetching one project.
 - [Get Project Members](https://docs.mem0.ai/api-reference/project/get-project-members) [Platform]: Use when listing project members.
 - [Add Project Member](https://docs.mem0.ai/api-reference/project/add-project-member) [Platform]: Use when inviting a member to a project.
+- [Update Project](https://docs.mem0.ai/api-reference/project/update-project) [Platform]: Use when updating project settings.
+- [Update Project Member](https://docs.mem0.ai/api-reference/project/update-project-member) [Platform]: Use when updating a project member's role.
+- [Remove Project Member](https://docs.mem0.ai/api-reference/project/remove-project-member) [Platform]: Use when removing a member from a project.
 - [Delete Project](https://docs.mem0.ai/api-reference/project/delete-project) [Platform]: Use when removing a project.
 
 ### Webhooks
@@ -460,6 +465,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LM Studio Embeddings](https://docs.mem0.ai/components/embedders/models/lmstudio) [OSS]: Use when embeddings run through LM Studio.
 - [Together Embeddings](https://docs.mem0.ai/components/embedders/models/together) [OSS]: Use when embeddings run on Together.
 - [LangChain Embeddings](https://docs.mem0.ai/components/embedders/models/langchain) [OSS]: Use when embeddings are wrapped behind a LangChain adapter.
+- [FastEmbed](https://docs.mem0.ai/components/embedders/models/fastembed) [OSS]: Use when embeddings run locally via FastEmbed (ONNX).
 
 ### Vector Databases [OSS]
 - [Vector Database Overview](https://docs.mem0.ai/components/vectordbs/overview) [OSS]: Use when choosing a vector store.
@@ -498,7 +504,5 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Custom Reranker Prompts](https://docs.mem0.ai/components/rerankers/custom-prompts) [OSS]: Use when rewriting reranker prompts.
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
 - [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
-- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
-- [LLM Reranker (prompt)](https://docs.mem0.ai/components/rerankers/models/llm) [OSS]: Use when the reranker is a prompted LLM (config guide).
-- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
+- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.
