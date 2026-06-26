@@ -101,8 +101,8 @@ client.project.update(multilingual=True)
 # Set retrieval criteria to control which memories are surfaced in search
 client.project.update(
     retrieval_criteria=[
-        {"role": "user", "content": "Only retrieve memories relevant to the current topic"},
-        {"role": "assistant", "content": "Prioritize recent and frequently accessed memories"}
+        {"name": "relevance", "description": "How directly relevant this memory is to the current topic or user query", "weight": 3},
+        {"name": "access_frequency", "description": "How often this memory has been accessed or surfaced recently", "weight": 1}
     ]
 )
 
@@ -122,13 +122,26 @@ client.project.update(
 
 #### Set Retrieval Criteria
 
-`retrieval_criteria` is a per-project list of dictionaries (`List[Dict]`) that shapes how memories are ranked and filtered during search. Each dictionary specifies a criterion that the retrieval engine applies when deciding which memories to surface. Use this to focus retrieval on topic-relevant or role-specific memories:
+`retrieval_criteria` is a per-project list of dictionaries (`List[Dict]`) that shapes how memories are ranked and filtered during search. Each dictionary has three fields: `name` (identifier), `description` (interpreted by the LLM to score each memory), and `weight` (relative influence on the final score). Use this to focus retrieval on intent-aligned or signal-specific memories:
 
 ```python
 client.project.update(
     retrieval_criteria=[
-        {"role": "user", "content": "Only retrieve memories directly relevant to the user's current query"},
-        {"role": "assistant", "content": "Prefer memories that have been accessed recently"}
+        {
+            "name": "joy",
+            "description": "Measure the intensity of positive emotions such as happiness, excitement, or amusement expressed in the memory. A higher score reflects greater joy.",
+            "weight": 3
+        },
+        {
+            "name": "curiosity",
+            "description": "Assess the extent to which the memory reflects inquisitiveness or interest in exploring new information. A higher score reflects stronger curiosity.",
+            "weight": 2
+        },
+        {
+            "name": "access_frequency",
+            "description": "How often this memory has been accessed or surfaced recently.",
+            "weight": 1
+        }
     ]
 )
 ```
