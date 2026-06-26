@@ -79,6 +79,25 @@ class TestAddToVectorStoreErrors:
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
 
+    def test_llm_extraction_exception_is_reraised(self, mocker, mock_memory):
+        """A provider error during fact extraction must propagate, not be swallowed.
+
+        Regression guard for the silent ``return []`` that made it impossible for
+        callers to tell "LLM unavailable" (429/5xx/timeout) from "no facts found".
+        Without the fix this raises AssertionError because the call returns [].
+        """
+
+        class _ProviderError(Exception):
+            pass
+
+        mock_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(_ProviderError):
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+
 
 class TestPromptOverridesCustomInstructions:
     @pytest.fixture

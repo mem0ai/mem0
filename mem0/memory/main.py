@@ -912,8 +912,12 @@ class Memory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+            # Re-raise so callers can implement provider fallback / retry.
+            # The original silent ``return []`` made upstream callers unable to
+            # distinguish "LLM unavailable" (429/5xx/timeout) from "LLM
+            # extracted no facts" -- both surfaced as an empty list.
             logger.error(f"LLM extraction failed: {e}")
-            return []
+            raise
 
         # Parse response
         try:
@@ -2536,8 +2540,10 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+            # Re-raise so callers can implement provider fallback / retry
+            # (see sync counterpart for rationale).
             logger.error(f"LLM extraction failed (async): {e}")
-            return []
+            raise
 
         # Parse response
         try:
