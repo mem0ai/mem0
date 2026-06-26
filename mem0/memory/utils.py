@@ -112,6 +112,52 @@ def normalize_facts(raw_facts):
     return normalized
 
 
+def normalize_extracted_memories(raw_memories):
+    """Normalize LLM-extracted ``memory`` items to a list of dicts with a ``text`` key.
+
+    The additive-extraction prompt asks the LLM for objects like
+    ``{"text": "...", "attributed_to": "...", "linked_memory_ids": [...]}``,
+    but real LLMs (especially reasoning models on OpenAI-compatible APIs such
+    as grok) sometimes emit malformed shapes:
+
+    - plain string:                ``"User likes coffee"``
+    - well-formed dict:            ``{"text": "..."}`` (passed through)
+    - ``{"fact": "..."}``:         older / TS-style key
+    - single-key key-as-fact dict: ``{"User likes coffee": "<value>"}``
+      (the fact text is the dict key)
+
+    Downstream code does ``m.get("text", "")``, which raises AttributeError on
+    a plain string and silently drops the key-as-fact shape. Normalizing here
+    preserves any other keys (attributed_to, linked_memory_ids) on well-formed
+    dicts while recovering text from the malformed shapes.
+    """
+    if not raw_memories:
+        return []
+    normalized = []
+    for item in raw_memories:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                normalized.append({"text": text})
+        elif isinstance(item, dict):
+            text = item.get("text") or item.get("fact")
+            if text is None and len(item) == 1:
+                key, value = next(iter(item.items()))
+                if isinstance(key, str) and key.strip():
+                    text = key.strip()
+                elif isinstance(value, str) and value.strip():
+                    text = value.strip()
+            if text:
+                out = dict(item)
+                out["text"] = text
+                normalized.append(out)
+            else:
+                logger.warning("Unexpected memory shape from LLM, skipping: %s", item)
+        else:
+            logger.warning("Unexpected memory shape from LLM, skipping: %s", item)
+    return normalized
+
+
 def remove_code_blocks(content: str) -> str:
     """
     Removes enclosing code block markers ```[language] and ``` from a given string.
