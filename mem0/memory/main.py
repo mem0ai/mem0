@@ -697,6 +697,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        llm=None,
     ):
         """
         Create a new memory.
@@ -720,6 +721,9 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            llm (optional): A LangChain ``BaseChatModel`` instance to use when creating
+                procedural memories instead of the default ``self.llm``. Only has effect when
+                ``memory_type="procedural_memory"`` and ``agent_id`` is set. Defaults to None.
 
 
         Returns:
@@ -768,7 +772,7 @@ class Memory(MemoryBase):
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
-            results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+            results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt, llm=llm)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -1842,13 +1846,15 @@ class Memory(MemoryBase):
         )
         return memory_id
 
-    def _create_procedural_memory(self, messages, metadata=None, prompt=None):
+    def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
         """
         Create a procedural memory
 
         Args:
             messages (list): List of messages to create a procedural memory from.
             metadata (dict): Metadata to create a procedural memory from.
+            llm (optional): A LangChain ``BaseChatModel`` instance. When provided, used instead of
+                ``self.llm`` to generate the procedural memory. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
         logger.info("Creating procedural memory")
@@ -1862,9 +1868,23 @@ class Memory(MemoryBase):
             },
         ]
 
+        if llm is not None:
+            try:
+                from langchain_core.messages.utils import convert_to_messages  # type: ignore
+            except Exception:
+                logger.error(
+                    "Import error while loading langchain-core. Please install 'langchain-core' to use a custom LLM for procedural memory."
+                )
+                raise
+
         try:
-            procedural_memory = self.llm.generate_response(messages=parsed_messages)
-            procedural_memory = remove_code_blocks(procedural_memory)
+            if llm is not None:
+                parsed_messages = convert_to_messages(parsed_messages)
+                response = llm.invoke(input=parsed_messages)
+                procedural_memory = remove_code_blocks(response.content)
+            else:
+                procedural_memory = self.llm.generate_response(messages=parsed_messages)
+                procedural_memory = remove_code_blocks(procedural_memory)
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise

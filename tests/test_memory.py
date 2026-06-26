@@ -1529,3 +1529,43 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_procedural_memory_langchain_strips_code_blocks(mock_llm_factory, mock_emb, mock_vs):
+    """Sync LangChain path must call remove_code_blocks(), matching async parity (#5710)."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = '```json\n{"key": "value"}\n```'
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    mock_lc_utils = MagicMock()
+    mock_lc_utils.convert_to_messages = MagicMock(side_effect=lambda msgs: msgs)
+    with patch.dict(
+        "sys.modules",
+        {
+            "langchain_core": MagicMock(),
+            "langchain_core.messages": MagicMock(),
+            "langchain_core.messages.utils": mock_lc_utils,
+        },
+    ):
+        memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
+
+    insert_call = memory.vector_store.insert.call_args
+    stored_data = insert_call[1]["payloads"][0]["data"]
+    assert "```" not in stored_data

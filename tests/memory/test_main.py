@@ -988,3 +988,108 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestSyncAddLlmParam:
+    """Memory.add() was missing the llm parameter that AsyncMemory.add() already had.
+
+    These tests verify the parameter exists, is forwarded correctly to
+    _create_procedural_memory(), and that the default (None) preserves the
+    existing self.llm path.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    def test_add_signature_accepts_llm_kwarg(self, mock_memory):
+        import inspect
+
+        params = inspect.signature(mock_memory.add).parameters
+        assert "llm" in params, "Memory.add() must accept an llm keyword argument"
+
+    def test_add_forwards_llm_to_create_procedural_memory(self, mock_memory, mocker):
+        fake_result = {"results": [{"id": "mem-1", "memory": "do this", "event": "ADD"}]}
+        create_pm = mocker.patch.object(mock_memory, "_create_procedural_memory", return_value=fake_result)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+
+        custom_llm = MagicMock()
+        mock_memory.add(
+            [{"role": "user", "content": "test"}],
+            agent_id="agent-1",
+            memory_type="procedural_memory",
+            llm=custom_llm,
+        )
+
+        _, kwargs = create_pm.call_args
+        assert kwargs.get("llm") is custom_llm, "llm kwarg must be forwarded to _create_procedural_memory"
+
+    def test_add_llm_defaults_to_none(self, mock_memory, mocker):
+        fake_result = {"results": [{"id": "mem-1", "memory": "do this", "event": "ADD"}]}
+        create_pm = mocker.patch.object(mock_memory, "_create_procedural_memory", return_value=fake_result)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+
+        mock_memory.add(
+            [{"role": "user", "content": "test"}],
+            agent_id="agent-1",
+            memory_type="procedural_memory",
+        )
+
+        _, kwargs = create_pm.call_args
+        assert kwargs.get("llm") is None, "llm must default to None so existing callers are unaffected"
+
+    def test_create_procedural_memory_uses_custom_llm_invoke(self, mock_memory, mocker):
+        """When llm is provided, _create_procedural_memory calls llm.invoke, not self.llm.generate_response."""
+        mock_convert = MagicMock(return_value=[MagicMock()])
+        mock_lc_module = MagicMock()
+        mock_lc_module.convert_to_messages = mock_convert
+        mocker.patch.dict(
+            "sys.modules",
+            {
+                "langchain_core": MagicMock(),
+                "langchain_core.messages": MagicMock(),
+                "langchain_core.messages.utils": mock_lc_module,
+            },
+        )
+
+        custom_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = "step 1: do A\nstep 2: do B"
+        custom_llm.invoke.return_value = mock_response
+
+        mock_memory.embedding_model = MagicMock()
+        mock_memory.embedding_model.embed.return_value = [0.1] * 10
+        mock_memory._create_memory = MagicMock(return_value="mem-99")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        result = mock_memory._create_procedural_memory(
+            [{"role": "user", "content": "test"}],
+            metadata={"agent_id": "agent-1"},
+            llm=custom_llm,
+        )
+
+        custom_llm.invoke.assert_called_once()
+        mock_memory.llm.generate_response.assert_not_called()
+        assert result["results"][0]["memory"] == "step 1: do A\nstep 2: do B"
+
+    def test_create_procedural_memory_uses_self_llm_when_no_custom_llm(self, mock_memory, mocker):
+        """When llm=None (default), _create_procedural_memory uses self.llm.generate_response."""
+        mock_memory.llm.generate_response.return_value = "default llm output"
+        mock_memory.embedding_model = MagicMock()
+        mock_memory.embedding_model.embed.return_value = [0.1] * 10
+        mock_memory._create_memory = MagicMock(return_value="mem-88")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        result = mock_memory._create_procedural_memory(
+            [{"role": "user", "content": "test"}],
+            metadata={"agent_id": "agent-1"},
+        )
+
+        mock_memory.llm.generate_response.assert_called_once()
+        assert result["results"][0]["memory"] == "default llm output"
