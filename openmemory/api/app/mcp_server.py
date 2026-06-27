@@ -101,6 +101,7 @@ async def add_memories(text: str, infer: bool = True) -> str:
                     memory = db.query(Memory).filter(Memory.id == memory_id).first()
 
                     if result['event'] == 'ADD':
+                        was_existing = memory is not None
                         if not memory:
                             memory = Memory(
                                 id=memory_id,
@@ -118,7 +119,7 @@ async def add_memories(text: str, infer: bool = True) -> str:
                         history = MemoryStatusHistory(
                             memory_id=memory_id,
                             changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
+                            old_state=MemoryState.deleted if was_existing else None,
                             new_state=MemoryState.active
                         )
                         db.add(history)
