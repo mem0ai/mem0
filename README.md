@@ -18,6 +18,9 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/mem0ai/mem0">
+    <img src="https://img.shields.io/github/stars/mem0ai/mem0?style=flat-square&logo=github&label=Star%20Mem0&color=FFD700" alt="GitHub stars">
+  </a>
   <a href="https://mem0.dev/DiG">
     <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Mem0 Discord">
   </a>
@@ -237,6 +240,10 @@ if __name__ == "__main__":
 ```
 
 For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quickstart) and [API Reference](https://docs.mem0.ai/api-reference).
+
+<p align="center">
+  <em>⭐️ If Mem0 made your agent smarter, <a href="https://github.com/mem0ai/mem0">give it a star</a> — it helps more developers find open-source memory.</em>
+</p>
 
 ## 🔗 Integrations & Demos
 
