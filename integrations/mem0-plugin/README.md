@@ -281,6 +281,8 @@ Once installed, the following tools are available:
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 
+⭐️ _Find this plugin useful? [Star Mem0 on GitHub](https://github.com/mem0ai/mem0) — it helps more developers discover open-source memory._
+
 ## License
 
 Apache-2.0

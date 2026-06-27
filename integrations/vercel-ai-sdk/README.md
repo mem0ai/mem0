@@ -232,3 +232,5 @@ We also have support for `agent_id`, `app_id`, and `run_id`. Refer [Docs](https:
 - Memory features depend on proper user identification via `user_id`
 - Supports both streaming and non-streaming responses
 - Compatible with all Vercel AI SDK features and patterns
+
+⭐️ _Find this plugin useful? [Star Mem0 on GitHub](https://github.com/mem0ai/mem0) — it helps more developers discover open-source memory._

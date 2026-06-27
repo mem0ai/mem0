@@ -142,6 +142,8 @@ pnpm run test         # Run tests
 pnpm run build        # Build (ESM + declarations)
 ```
 
+⭐️ _Find this plugin useful? [Star Mem0 on GitHub](https://github.com/mem0ai/mem0) — it helps more developers discover open-source memory._
+
 ## License
 
 [Apache-2.0](LICENSE)
