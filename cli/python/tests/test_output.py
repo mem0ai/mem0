@@ -88,6 +88,46 @@ class TestSingleMemory:
         assert '"memory"' in output
 
 
+NULL_MEMORIES = [
+    {"id": None, "memory": None, "score": None, "created_at": None, "categories": None},
+    {},  # every key missing
+]
+
+
+class TestNullFieldRobustness:
+    """Formatters must not crash when the backend returns explicit JSON nulls.
+
+    A record like ``{"id": null, "memory": null}`` makes ``dict.get(key, default)``
+    return ``None`` (the key exists, so the default is never used), so slicing/len
+    on the result raises ``TypeError``. ``format_add_result`` already guards with
+    ``or ""``; the list/single formatters must do the same.
+    """
+
+    def test_format_memories_text_handles_null_fields(self):
+        console, buf = _make_console()
+        # Must not raise (regression: None[:8] -> TypeError).
+        format_memories_text(console, NULL_MEMORIES)
+        assert "Found 2 memories" in buf.getvalue()
+
+    def test_format_memories_table_handles_null_fields(self):
+        console, buf = _make_console()
+        # Must not raise (regression: len(None) -> TypeError).
+        format_memories_table(console, NULL_MEMORIES)
+        assert "ID" in buf.getvalue()
+
+    def test_format_memories_text_falls_back_to_text_key(self):
+        console, buf = _make_console()
+        # memory is null but a "text" key is present -> should use it.
+        format_memories_text(console, [{"id": "x", "memory": None, "text": "from text key"}])
+        assert "from text key" in buf.getvalue()
+
+    def test_format_single_memory_handles_null_fields(self):
+        console, buf = _make_console()
+        # Must not render the literal string "None" for a null memory body.
+        format_single_memory(console, {"id": None, "memory": None}, "text")
+        assert "None" not in buf.getvalue()
+
+
 class TestAddResult:
     def test_format_add_result_text(self):
         console, buf = _make_console()
