@@ -95,7 +95,7 @@ messages = [
 memory.add(messages, user_id="bob")
 
 # Search with reranking
-results = memory.search("What is the user's profession?", filters={"user_id": "bob"})
+results = memory.search("What is the user's profession?", filters={"user_id": "bob"}, rerank=True)
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")

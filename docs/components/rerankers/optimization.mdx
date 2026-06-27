@@ -146,7 +146,7 @@ def measure_reranker_performance(config, queries, user_id):
     latencies = []
     for query in queries:
         start_time = time.time()
-        results = memory.search(query, filters={"user_id": user_id})
+        results = memory.search(query, filters={"user_id": user_id}, rerank=True)
         latency = time.time() - start_time
         latencies.append(latency)
 
@@ -218,7 +218,7 @@ async def parallel_search(config, queries, user_id):
 
     # Process multiple queries concurrently
     tasks = [
-        memory.search(query, filters={"user_id": user_id})
+        memory.search(query, filters={"user_id": user_id}, rerank=True)
         for query in queries
     ]
 
