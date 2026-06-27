@@ -1,5 +1,3 @@
-/// <reference types="jest" />
-
 jest.mock("pg", () => {
   const Client = jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue(undefined),

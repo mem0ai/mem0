@@ -43,7 +43,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 memory_client = MemoryClient()
 agent = ConversableAgent(
     "chatbot",
-    llm_config={"config_list": [{"model": "gpt-4", "api_key": OPENAI_API_KEY}]},
+    llm_config={"config_list": [{"model": "gpt-5-mini", "api_key": OPENAI_API_KEY}]},
     code_execution_config=False,
     human_input_mode="NEVER",
 )
@@ -99,7 +99,7 @@ For more complex scenarios, you can create multiple agents:
 manager = ConversableAgent(
     "manager",
     system_message="You are a manager who helps in resolving complex customer issues.",
-    llm_config={"config_list": [{"model": "gpt-4", "api_key": OPENAI_API_KEY}]},
+    llm_config={"config_list": [{"model": "gpt-5-mini", "api_key": OPENAI_API_KEY}]},
     human_input_mode="NEVER"
 )
 

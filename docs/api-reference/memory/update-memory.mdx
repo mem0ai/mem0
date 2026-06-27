@@ -1,5 +1,14 @@
 ---
 title: 'Update Memory'
-description: "Update the content or metadata of a single memory by its unique ID using the PUT endpoint."
+description: "Update the content, metadata, timestamp, or expiration date of a single memory by its unique ID using the PUT endpoint."
 openapi: put /v1/memories/{memory_id}/
 ---
+
+Use this endpoint to update mutable memory fields. To make a memory expire, set `expiration_date` to a `YYYY-MM-DD` date. To make it permanent again, send `expiration_date: null`.
+
+```python
+client.update("mem_123", expiration_date="2030-01-31")
+client.update("mem_123", expiration_date=None)
+```
+
+TypeScript uses `expirationDate`.

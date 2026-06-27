@@ -18,7 +18,7 @@ icon: "bolt"
 </Warning>
 
 <Note>
-  Working in TypeScript? The Node SDK still uses synchronous calls—use `Memory` there and rely on Python’s `AsyncMemory` when you need awaited operations.
+  Working in TypeScript? The OSS `Memory` class in the Node SDK (`mem0ai/oss`) is also fully async — every method returns a `Promise` and must be `await`ed. Python’s `AsyncMemory` serves the same purpose within Python async frameworks like FastAPI. Both runtimes support awaited memory operations; choose the SDK that matches your language.
 </Note>
 
 ## Feature anatomy
