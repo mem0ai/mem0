@@ -19,13 +19,7 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import (
-    get_user_id,
-    is_aliased,
-    mark_aliased,
-    read_anon_ids,
-    setup_config,
-)
+from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
