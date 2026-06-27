@@ -18,7 +18,9 @@ os.environ["UPSTASH_VECTOR_REST_TOKEN"] = "..."
 config = {
     "vector_store": {
         "provider": "upstash_vector",
-        "enable_embeddings": True,
+        "config": {
+            "enable_embeddings": True,
+        }
     }
 }
 
