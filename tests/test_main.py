@@ -65,6 +65,24 @@ def test_add(memory_instance):
     )
 
 
+def test_add_stores_expiration_date(memory_instance):
+    memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
+
+    memory_instance.add(
+        messages=[{"role": "user", "content": "Test message"}],
+        user_id="test_user",
+        expiration_date="2999-01-01",
+    )
+
+    memory_instance._add_to_vector_store.assert_called_once_with(
+        [{"role": "user", "content": "Test message"}],
+        {"user_id": "test_user", "expiration_date": "2999-01-01"},
+        {"user_id": "test_user"},
+        True,
+        prompt=None,
+    )
+
+
 def test_get(memory_instance):
     mock_memory = Mock(
         id="test_id",
@@ -117,6 +135,39 @@ def test_search(memory_instance):
     )
 
 
+def test_search_hides_expired_memories_by_default(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}, score=0.9),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user", "expiration_date": "2999-01-01"}, score=0.8),
+    ]
+    memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+         patch("mem0.memory.main.extract_entities", return_value=[]):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"})
+
+    assert [memory["memory"] for memory in result["results"]] == ["Active memory"]
+    assert result["results"][0]["expiration_date"] == "2999-01-01"
+
+
+def test_search_can_show_expired_memories(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}, score=0.9),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user"}, score=0.8),
+    ]
+    memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+         patch("mem0.memory.main.extract_entities", return_value=[]):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"}, show_expired=True)
+
+    assert [memory["memory"] for memory in result["results"]] == ["Expired memory", "Active memory"]
+
+
 def test_update(memory_instance):
     memory_instance.embedding_model = Mock()
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
@@ -161,40 +212,40 @@ def test_update_with_empty_metadata(memory_instance):
     )
 
 
-def test_update_text_alias(memory_instance):
-    """text= is accepted as an alias for data= in Memory.update."""
-    memory_instance.embedding_model = Mock()
+@pytest.mark.parametrize(
+    ("expiration_date", "expected_expiration_date"),
+    [
+        ("2999-01-01", "2999-01-01"),
+        (None, None),
+    ],
+)
+def test_update_can_change_expiration_date_without_changing_text(
+    memory_instance, expiration_date, expected_expiration_date
+):
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-
-    memory_instance._update_memory = Mock()
-
-    result = memory_instance.update("test_id", text="New memory via text alias")
-
-    memory_instance._update_memory.assert_called_once_with(
-        "test_id", "New memory via text alias", {"New memory via text alias": [0.1, 0.2, 0.3]}, None
+    memory_instance.vector_store.get = Mock(
+        return_value=Mock(
+            payload={
+                "data": "Existing memory",
+                "user_id": "test_user",
+                "created_at": "2026-01-01T00:00:00+00:00",
+                "expiration_date": "2026-12-31",
+            }
+        )
     )
+    memory_instance.vector_store.update = Mock()
+    memory_instance.db.add_history = Mock()
+    memory_instance._remove_memory_from_entity_store = Mock()
+    memory_instance._link_entities_for_memory = Mock()
+
+    result = memory_instance.update("test_id", expiration_date=expiration_date)
+
     assert result["message"] == "Memory updated successfully!"
-
-
-def test_update_data_text_conflict_raises(memory_instance):
-    """Passing both data= and text= with different values must raise ValueError."""
-    with pytest.raises(ValueError, match="aliases"):
-        memory_instance.update("test_id", data="content A", text="content B")
-
-
-def test_update_data_text_same_value_ok(memory_instance):
-    """Passing data= and text= with the same value is allowed (idempotent alias)."""
-    memory_instance.embedding_model = Mock()
-    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-
-    memory_instance._update_memory = Mock()
-
-    result = memory_instance.update("test_id", data="Same content", text="Same content")
-
-    memory_instance._update_memory.assert_called_once_with(
-        "test_id", "Same content", {"Same content": [0.1, 0.2, 0.3]}, None
-    )
-    assert result["message"] == "Memory updated successfully!"
+    payload = memory_instance.vector_store.update.call_args.kwargs["payload"]
+    assert payload["data"] == "Existing memory"
+    assert payload["expiration_date"] == expected_expiration_date
+    memory_instance._remove_memory_from_entity_store.assert_not_called()
+    memory_instance._link_entities_for_memory.assert_not_called()
 
 
 def test_delete(memory_instance):
@@ -236,7 +287,30 @@ def test_get_all(memory_instance):
     assert result["results"][0]["memory"] == "Memory 1"
     assert result["results"][0]["user_id"] == "test_user"
 
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=20)
+
+def test_get_all_hides_expired_memories_by_default(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user", "expiration_date": "2999-01-01"}),
+    ]
+    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+
+    result = memory_instance.get_all(filters={"user_id": "test_user"})
+
+    assert [memory["memory"] for memory in result["results"]] == ["Active memory"]
+    assert result["results"][0]["expiration_date"] == "2999-01-01"
+
+
+def test_get_all_can_show_expired_memories(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Expired memory", "user_id": "test_user", "expiration_date": "2000-01-01"}),
+        Mock(id="2", payload={"data": "Active memory", "user_id": "test_user"}),
+    ]
+    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+
+    result = memory_instance.get_all(filters={"user_id": "test_user"}, show_expired=True)
+
+    assert [memory["memory"] for memory in result["results"]] == ["Expired memory", "Active memory"]
 
 
 def test_no_telemetry_vector_store_when_disabled():
@@ -321,6 +395,24 @@ class TestEntityIdValidation:
         """add should reject user_id with internal whitespace."""
         with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
             memory_instance.add("test message", user_id="user 123")
+
+    def test_delete_all_rejects_whitespace_only_user_id(self, memory_instance):
+        """delete_all should reject whitespace-only user_id."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.delete_all(user_id="   ")
+
+    def test_delete_all_rejects_internal_whitespace_user_id(self, memory_instance):
+        """delete_all should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.delete_all(user_id="user 123")
+
+    def test_delete_all_trims_user_id_before_list(self, memory_instance):
+        """delete_all should trim leading/trailing whitespace on entity IDs."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.delete_all(user_id="  alice  ")
+
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
 
 
 class TestSearchParamValidation:

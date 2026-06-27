@@ -123,8 +123,7 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/platform-v2-to-v3",
-                      "migration/oss-to-platform",
-                      "migration/api-changes"
+                      "migration/oss-to-platform"
                     ]
                   },
                   {
@@ -273,7 +272,8 @@
                               "components/embedders/models/lmstudio",
                               "components/embedders/models/together",
                               "components/embedders/models/langchain",
-                              "components/embedders/models/aws_bedrock"
+                              "components/embedders/models/aws_bedrock",
+                              "components/embedders/models/fastembed"
                             ]
                           }
                         ]
@@ -533,6 +533,8 @@
                       "api-reference/organization/get-org",
                       "api-reference/organization/get-org-members",
                       "api-reference/organization/add-org-member",
+                      "api-reference/organization/update-org-member",
+                      "api-reference/organization/remove-org-member",
                       "api-reference/organization/delete-org"
                     ]
                   },
@@ -545,6 +547,9 @@
                       "api-reference/project/get-project",
                       "api-reference/project/get-project-members",
                       "api-reference/project/add-project-member",
+                      "api-reference/project/update-project",
+                      "api-reference/project/update-project-member",
+                      "api-reference/project/remove-project-member",
                       "api-reference/project/delete-project"
                     ]
                   },
@@ -625,12 +630,20 @@
   },
   "redirects": [
     {
+      "source": "/components/rerankers/models/llm",
+      "destination": "/components/rerankers/models/llm_reranker"
+    },
+    {
       "source": "/migration/breaking-changes",
       "destination": "/"
     },
     {
       "source": "/migration/v0-to-v1",
       "destination": "/"
+    },
+    {
+      "source": "/migration/api-changes",
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/platform/features/expiration-date",

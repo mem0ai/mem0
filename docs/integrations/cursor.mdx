@@ -108,7 +108,7 @@ When installed via the Cursor Marketplace, Mem0 hooks into Cursor's lifecycle:
 |------|-------|-------------|
 | **Session start** | `sessionStart` | Loads prior memories and displays status banner |
 | **User prompt** | `beforeSubmitPrompt` | Searches relevant memories before each message; skips short prompts |
-| **Pre-tool (2 handlers)** | `preToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
+| **Pre-tool (3 handlers)** | `preToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
 | **Post-tool (2 handlers)** | `postToolUse` | Tracks stats, scans bash errors for related memories |
 | **Stop** | `stop` | Stores a session summary when the session ends |
 | **Pre-compact** | `preCompact` | Stores a summary before the context is compacted |

@@ -279,34 +279,33 @@ export default class MemoryClient {
     memoryId: string,
     {
       text,
-      data,
       metadata,
       timestamp,
+      expirationDate,
     }: {
       text?: string;
-      /** Alias for {@link text} — the OSS SDK uses `data`; Platform uses `text`. */
-      data?: string;
       metadata?: Record<string, any>;
       timestamp?: number | string;
+      expirationDate?: string | null;
     },
   ): Promise<Array<Memory>> {
-    // Resolve `data` as an alias for `text` (OSS↔Platform migration compatibility).
-    const resolvedText = text ?? data;
     if (
-      resolvedText === undefined &&
+      text === undefined &&
       metadata === undefined &&
-      timestamp === undefined
+      timestamp === undefined &&
+      expirationDate === undefined
     ) {
       throw new Error(
-        "At least one of text, metadata, or timestamp must be provided for update.",
+        "At least one of text, metadata, timestamp, or expirationDate must be provided for update.",
       );
     }
 
     if (this.telemetryId === "") await this.ping();
     const payload: Record<string, any> = {};
-    if (resolvedText !== undefined) payload.text = resolvedText;
+    if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
     if (timestamp !== undefined) payload.timestamp = timestamp;
+    if (expirationDate !== undefined) payload.expiration_date = expirationDate;
 
     const payloadKeys = Object.keys(payload);
     this._captureEvent("update", [payloadKeys]);

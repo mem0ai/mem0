@@ -168,24 +168,31 @@ class TestAsyncUpdate:
         )
 
     @pytest.mark.asyncio
-    async def test_async_update_text_alias(self, mock_async_memory, mocker):
-        """text= is accepted as an alias for data= in AsyncMemory.update."""
-        mock_async_memory.embedding_model = Mock()
+    async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-        mock_async_memory._update_memory = mocker.AsyncMock()
-
-        result = await mock_async_memory.update("test_id", text="New memory via text alias")
-
-        mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "New memory via text alias", {"New memory via text alias": [0.1, 0.2, 0.3]}, None
+        mock_async_memory.vector_store.get = Mock(
+            return_value=Mock(
+                payload={
+                    "data": "Existing memory",
+                    "user_id": "test_user",
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "expiration_date": "2026-12-31",
+                }
+            )
         )
-        assert result["message"] == "Memory updated successfully!"
+        mock_async_memory.vector_store.update = Mock()
+        mock_async_memory.db.add_history = Mock()
+        mock_async_memory._remove_memory_from_entity_store = mocker.AsyncMock()
+        mock_async_memory._link_entities_for_memory = mocker.AsyncMock()
 
-    @pytest.mark.asyncio
-    async def test_async_update_data_text_conflict_raises(self, mock_async_memory):
-        """Passing both data= and text= with different values must raise ValueError."""
-        with pytest.raises(ValueError, match="aliases"):
-            await mock_async_memory.update("test_id", data="content A", text="content B")
+        result = await mock_async_memory.update("test_id", expiration_date="2999-01-01")
+
+        assert result["message"] == "Memory updated successfully!"
+        payload = mock_async_memory.vector_store.update.call_args.kwargs["payload"]
+        assert payload["data"] == "Existing memory"
+        assert payload["expiration_date"] == "2999-01-01"
+        mock_async_memory._remove_memory_from_entity_store.assert_not_called()
+        mock_async_memory._link_entities_for_memory.assert_not_called()
 
 
 @pytest.mark.asyncio
