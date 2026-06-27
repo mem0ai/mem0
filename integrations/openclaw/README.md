@@ -379,8 +379,6 @@ In platform mode, conversation content is sent to `api.mem0.ai` for processing. 
 | `~/.mem0/history.db` | Memory edit history (open-source mode only) |
 | `<pluginStateDir>/dream-state.json` | Memory consolidation state |
 
-⭐️ _Find this plugin useful? [Star Mem0 on GitHub](https://github.com/mem0ai/mem0) — it helps more developers discover open-source memory._
-
 ## License
 
 [Apache 2.0](LICENSE)
