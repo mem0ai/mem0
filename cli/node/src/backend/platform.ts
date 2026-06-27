@@ -17,6 +17,10 @@ import {
 	type SearchOptions,
 } from "./base.js";
 
+function encodePathSegment(value: unknown): string {
+	return encodeURIComponent(String(value));
+}
+
 export class PlatformBackend implements Backend {
 	private baseUrl: string;
 	private headers: Record<string, string>;
@@ -218,9 +222,13 @@ export class PlatformBackend implements Backend {
 	}
 
 	async get(memoryId: string): Promise<Record<string, unknown>> {
-		return (await this._request("GET", `/v1/memories/${memoryId}/`, {
-			params: { source: "CLI" },
-		})) as Record<string, unknown>;
+		return (await this._request(
+			"GET",
+			`/v1/memories/${encodePathSegment(memoryId)}/`,
+			{
+				params: { source: "CLI" },
+			},
+		)) as Record<string, unknown>;
 	}
 
 	async listMemories(
@@ -277,9 +285,13 @@ export class PlatformBackend implements Backend {
 		if (content) payload.text = content;
 		if (metadata) payload.metadata = metadata;
 		payload.source = "CLI";
-		return (await this._request("PUT", `/v1/memories/${memoryId}/`, {
-			json: payload,
-		})) as Record<string, unknown>;
+		return (await this._request(
+			"PUT",
+			`/v1/memories/${encodePathSegment(memoryId)}/`,
+			{
+				json: payload,
+			},
+		)) as Record<string, unknown>;
 	}
 
 	async delete(
@@ -297,9 +309,13 @@ export class PlatformBackend implements Backend {
 			})) as Record<string, unknown>;
 		}
 		if (memoryId) {
-			return (await this._request("DELETE", `/v1/memories/${memoryId}/`, {
-				params: { source: "CLI" },
-			})) as Record<string, unknown>;
+			return (await this._request(
+				"DELETE",
+				`/v1/memories/${encodePathSegment(memoryId)}/`,
+				{
+					params: { source: "CLI" },
+				},
+			)) as Record<string, unknown>;
 		}
 		throw new Error("Either memoryId or --all is required");
 	}
@@ -321,7 +337,7 @@ export class PlatformBackend implements Backend {
 		for (const [entityType, entityId] of entities) {
 			result = (await this._request(
 				"DELETE",
-				`/v2/entities/${entityType}/${entityId}/`,
+				`/v2/entities/${encodePathSegment(entityType)}/${encodePathSegment(entityId)}/`,
 				{ params: { source: "CLI" } },
 			)) as Record<string, unknown>;
 		}
@@ -384,9 +400,9 @@ export class PlatformBackend implements Backend {
 	}
 
 	async getEvent(eventId: string): Promise<Record<string, unknown>> {
-		return (await this._request("GET", `/v1/event/${eventId}/`)) as Record<
-			string,
-			unknown
-		>;
+		return (await this._request(
+			"GET",
+			`/v1/event/${encodePathSegment(eventId)}/`,
+		)) as Record<string, unknown>;
 	}
 }
