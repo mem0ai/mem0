@@ -19,6 +19,7 @@ from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
     AGENT_CONTEXT_SUFFIX,
+    MEMORY_MERGE_PROMPT,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
@@ -1878,6 +1879,168 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "history")
         return history
 
+    def compact(self, *, filters, similarity_threshold=0.85):
+        """
+        Compact memories by merging semantically similar ones.
+
+        Clusters memories by embedding similarity and asks the LLM to consolidate
+        each cluster into a single, richer memory. Procedural memories are excluded.
+
+        Args:
+            filters (dict): Must contain at least one of: user_id, agent_id, run_id.
+            similarity_threshold (float): Minimum similarity score to cluster memories.
+                Defaults to 0.85.
+
+        Returns:
+            dict: Report with keys: merged_clusters, memories_deleted, memories_created.
+
+        Note:
+            Deleted originals are recoverable from the history table (is_deleted=1).
+            Memories are only clustered within the same agent_id/run_id scope.
+        """
+        search_filters = {}
+        if isinstance(filters, dict):
+            for key in ("user_id", "agent_id", "run_id"):
+                if filters.get(key):
+                    search_filters[key] = filters[key]
+
+        if not search_filters:
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
+
+        all_memories_result = self.vector_store.list(filters=search_filters, top_k=10000)
+        if isinstance(all_memories_result, (list, tuple)) and all_memories_result and isinstance(all_memories_result[0], list):
+            all_memories = all_memories_result[0]
+        else:
+            all_memories = all_memories_result if all_memories_result else []
+
+        all_memories = [
+            m for m in all_memories
+            if m.payload.get("memory_type") != MemoryType.PROCEDURAL.value
+        ]
+
+        if not all_memories:
+            return {"merged_clusters": 0, "memories_deleted": 0, "memories_created": 0}
+
+        # Cluster by similarity
+        clustered_ids = set()
+        clusters = []
+        for mem in all_memories:
+            if mem.id in clustered_ids:
+                continue
+            text = mem.payload.get("data", "")
+            if not text:
+                continue
+            try:
+                vec = self.embedding_model.embed(text, "search")
+                similar = self.vector_store.search(
+                    query=text, vectors=vec, top_k=20, filters=search_filters,
+                )
+            except Exception as e:
+                logger.warning(f"Embedding/search failed during compaction for memory {mem.id}: {e}")
+                continue
+
+            mem_scope = (mem.payload.get("agent_id", ""), mem.payload.get("run_id", ""))
+            cluster = [mem]
+            for s in similar:
+                if (
+                    s.id != mem.id
+                    and s.id not in clustered_ids
+                    and s.score is not None
+                    and s.score >= similarity_threshold
+                    and s.payload.get("memory_type") != MemoryType.PROCEDURAL.value
+                    and (s.payload.get("agent_id", ""), s.payload.get("run_id", "")) == mem_scope
+                ):
+                    cluster.append(s)
+
+            if len(cluster) >= 2:
+                clusters.append(cluster)
+                for c in cluster:
+                    clustered_ids.add(c.id)
+
+        if not clusters:
+            return {"merged_clusters": 0, "memories_deleted": 0, "memories_created": 0}
+
+        # Merge each cluster
+        core_keys = {"data", "hash", "updated_at", "id", "text_lemmatized", "user_id"}
+        total_deleted = 0
+        total_created = 0
+        merged_clusters = 0
+        for cluster in clusters:
+            memory_lines = []
+            for i, mem in enumerate(cluster):
+                mem_created = mem.payload.get("created_at", "unknown")
+                memory_lines.append(f"{i + 1}. [{mem_created}] {mem.payload.get('data', '')}")
+            prompt_text = MEMORY_MERGE_PROMPT.format(memories="\n".join(memory_lines))
+
+            try:
+                merged_text = self.llm.generate_response(
+                    messages=[{"role": "user", "content": prompt_text}],
+                )
+            except Exception as e:
+                logger.warning(f"LLM merge failed for cluster of {len(cluster)} memories: {e}")
+                continue
+
+            if isinstance(merged_text, str):
+                merged_text = remove_code_blocks(merged_text)
+            if not merged_text or not isinstance(merged_text, str) or not merged_text.strip():
+                logger.warning("LLM returned empty merge result, skipping cluster")
+                continue
+
+            merged_text = merged_text.strip()
+
+            # Build merged metadata from cluster members
+            sorted_cluster = sorted(cluster, key=lambda m: m.payload.get("created_at", ""))
+            merged_metadata = deepcopy(search_filters)
+
+            created_dates = [m.payload.get("created_at") for m in cluster if m.payload.get("created_at")]
+            if created_dates:
+                merged_metadata["created_at"] = min(created_dates)
+
+            has_permanent = any(m.payload.get("expiration_date") is None for m in cluster)
+            if not has_permanent:
+                exp_dates = [m.payload.get("expiration_date") for m in cluster if m.payload.get("expiration_date")]
+                if exp_dates:
+                    merged_metadata["expiration_date"] = max(exp_dates)
+
+            for mem in sorted_cluster:
+                for key, value in mem.payload.items():
+                    if key not in core_keys and key not in ("created_at", "expiration_date") and value is not None:
+                        merged_metadata[key] = value
+
+            merged_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+            # Create merged memory — guarded so a failure doesn't abort remaining clusters
+            try:
+                merged_embeddings = {merged_text: self.embedding_model.embed(merged_text, "add")}
+                new_id = self._create_memory(merged_text, merged_embeddings, metadata=merged_metadata)
+                self._link_entities_for_memory(new_id, merged_text, search_filters)
+                total_created += 1
+                merged_clusters += 1
+            except Exception as e:
+                logger.warning(f"Failed to create merged memory for cluster of {len(cluster)}: {e}")
+                continue
+
+            # Delete old cluster members
+            for mem in cluster:
+                try:
+                    self._delete_memory(mem.id, existing_memory=mem)
+                    total_deleted += 1
+                except ValueError:
+                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to delete memory {mem.id} during compaction: {e}")
+
+        capture_event(
+            "mem0.compact",
+            self,
+            {"merged_clusters": merged_clusters, "deleted": total_deleted, "created": total_created, "sync_type": "sync"},
+        )
+
+        return {"merged_clusters": merged_clusters, "memories_deleted": total_deleted, "memories_created": total_created}
+
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
@@ -1890,7 +2053,8 @@ class Memory(MemoryBase):
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-        new_metadata["updated_at"] = new_metadata["created_at"]
+        if "updated_at" not in new_metadata:
+            new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
         self.vector_store.insert(
@@ -3509,6 +3673,166 @@ class AsyncMemory(MemoryBase):
         await display_first_run_notice_async(self, "async", "history")
         return history
 
+    async def compact(self, *, filters, similarity_threshold=0.85):
+        """
+        Compact memories by merging semantically similar ones (async version).
+
+        Clusters memories by embedding similarity and asks the LLM to consolidate
+        each cluster into a single, richer memory. Procedural memories are excluded.
+
+        Args:
+            filters (dict): Must contain at least one of: user_id, agent_id, run_id.
+            similarity_threshold (float): Minimum similarity score to cluster memories.
+                Defaults to 0.85.
+
+        Returns:
+            dict: Report with keys: merged_clusters, memories_deleted, memories_created.
+        """
+        search_filters = {}
+        if isinstance(filters, dict):
+            for key in ("user_id", "agent_id", "run_id"):
+                if filters.get(key):
+                    search_filters[key] = filters[key]
+
+        if not search_filters:
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
+
+        all_memories_result = await asyncio.to_thread(
+            self.vector_store.list, filters=search_filters, top_k=10000
+        )
+        if isinstance(all_memories_result, (list, tuple)) and all_memories_result and isinstance(all_memories_result[0], list):
+            all_memories = all_memories_result[0]
+        else:
+            all_memories = all_memories_result if all_memories_result else []
+
+        all_memories = [
+            m for m in all_memories
+            if m.payload.get("memory_type") != MemoryType.PROCEDURAL.value
+        ]
+
+        if not all_memories:
+            return {"merged_clusters": 0, "memories_deleted": 0, "memories_created": 0}
+
+        # Cluster by similarity
+        clustered_ids = set()
+        clusters = []
+        for mem in all_memories:
+            if mem.id in clustered_ids:
+                continue
+            text = mem.payload.get("data", "")
+            if not text:
+                continue
+            try:
+                vec = await asyncio.to_thread(self.embedding_model.embed, text, "search")
+                similar = await asyncio.to_thread(
+                    self.vector_store.search, query=text, vectors=vec, top_k=20, filters=search_filters,
+                )
+            except Exception as e:
+                logger.warning(f"Embedding/search failed during compaction for memory {mem.id}: {e}")
+                continue
+
+            mem_scope = (mem.payload.get("agent_id", ""), mem.payload.get("run_id", ""))
+            cluster = [mem]
+            for s in similar:
+                if (
+                    s.id != mem.id
+                    and s.id not in clustered_ids
+                    and s.score is not None
+                    and s.score >= similarity_threshold
+                    and s.payload.get("memory_type") != MemoryType.PROCEDURAL.value
+                    and (s.payload.get("agent_id", ""), s.payload.get("run_id", "")) == mem_scope
+                ):
+                    cluster.append(s)
+
+            if len(cluster) >= 2:
+                clusters.append(cluster)
+                for c in cluster:
+                    clustered_ids.add(c.id)
+
+        if not clusters:
+            return {"merged_clusters": 0, "memories_deleted": 0, "memories_created": 0}
+
+        # Merge each cluster
+        core_keys = {"data", "hash", "updated_at", "id", "text_lemmatized", "user_id"}
+        total_deleted = 0
+        total_created = 0
+        merged_clusters = 0
+        for cluster in clusters:
+            memory_lines = []
+            for i, mem in enumerate(cluster):
+                mem_created = mem.payload.get("created_at", "unknown")
+                memory_lines.append(f"{i + 1}. [{mem_created}] {mem.payload.get('data', '')}")
+            prompt_text = MEMORY_MERGE_PROMPT.format(memories="\n".join(memory_lines))
+
+            try:
+                merged_text = await asyncio.to_thread(
+                    self.llm.generate_response, messages=[{"role": "user", "content": prompt_text}],
+                )
+            except Exception as e:
+                logger.warning(f"LLM merge failed for cluster of {len(cluster)} memories: {e}")
+                continue
+
+            if isinstance(merged_text, str):
+                merged_text = remove_code_blocks(merged_text)
+            if not merged_text or not isinstance(merged_text, str) or not merged_text.strip():
+                logger.warning("LLM returned empty merge result, skipping cluster")
+                continue
+
+            merged_text = merged_text.strip()
+
+            # Build merged metadata from cluster members
+            sorted_cluster = sorted(cluster, key=lambda m: m.payload.get("created_at", ""))
+            merged_metadata = deepcopy(search_filters)
+
+            created_dates = [m.payload.get("created_at") for m in cluster if m.payload.get("created_at")]
+            if created_dates:
+                merged_metadata["created_at"] = min(created_dates)
+
+            has_permanent = any(m.payload.get("expiration_date") is None for m in cluster)
+            if not has_permanent:
+                exp_dates = [m.payload.get("expiration_date") for m in cluster if m.payload.get("expiration_date")]
+                if exp_dates:
+                    merged_metadata["expiration_date"] = max(exp_dates)
+
+            for mem in sorted_cluster:
+                for key, value in mem.payload.items():
+                    if key not in core_keys and key not in ("created_at", "expiration_date") and value is not None:
+                        merged_metadata[key] = value
+
+            merged_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+            # Create merged memory — guarded so a failure doesn't abort remaining clusters
+            try:
+                merged_embeddings = {merged_text: await asyncio.to_thread(self.embedding_model.embed, merged_text, "add")}
+                new_id = await self._create_memory(merged_text, merged_embeddings, metadata=merged_metadata)
+                await self._link_entities_for_memory(new_id, merged_text, search_filters)
+                total_created += 1
+                merged_clusters += 1
+            except Exception as e:
+                logger.warning(f"Failed to create merged memory for cluster of {len(cluster)}: {e}")
+                continue
+
+            # Delete old cluster members
+            for mem in cluster:
+                try:
+                    await self._delete_memory(mem.id, existing_memory=mem)
+                    total_deleted += 1
+                except ValueError:
+                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to delete memory {mem.id} during compaction: {e}")
+
+        capture_event(
+            "mem0.compact",
+            self,
+            {"merged_clusters": merged_clusters, "deleted": total_deleted, "created": total_created, "sync_type": "async"},
+        )
+
+        return {"merged_clusters": merged_clusters, "memories_deleted": total_deleted, "memories_created": total_created}
+
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
@@ -3522,7 +3846,8 @@ class AsyncMemory(MemoryBase):
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-        new_metadata["updated_at"] = new_metadata["created_at"]
+        if "updated_at" not in new_metadata:
+            new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
         await asyncio.to_thread(
