@@ -311,7 +311,7 @@ export default class MemoryClient {
     this._captureEvent("update", [payloadKeys]);
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/`,
+      `${this.host}/v1/memories/${encodeURIComponent(memoryId)}/`,
       {
         method: "PUT",
         headers: this.headers,
@@ -325,7 +325,7 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("get", []);
     return this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/`,
+      `${this.host}/v1/memories/${encodeURIComponent(memoryId)}/`,
       {
         headers: this.headers,
       },
@@ -397,7 +397,7 @@ export default class MemoryClient {
     // @ts-ignore
     const query = new URLSearchParams(snakeOptions).toString();
     return this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/${query ? `?${query}` : ""}`,
+      `${this.host}/v1/memories/${encodeURIComponent(memoryId)}/${query ? `?${query}` : ""}`,
       {
         method: "DELETE",
         headers: this.headers,
@@ -428,7 +428,7 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("history", []);
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/history/`,
+      `${this.host}/v1/memories/${encodeURIComponent(memoryId)}/history/`,
       {
         headers: this.headers,
       },
@@ -466,7 +466,7 @@ export default class MemoryClient {
       data.entity_type = "user";
     }
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/entities/${data.entity_type}/${data.entity_id}/`,
+      `${this.host}/v1/entities/${encodeURIComponent(data.entity_type)}/${encodeURIComponent(String(data.entity_id))}/`,
       {
         method: "DELETE",
         headers: this.headers,
@@ -510,7 +510,9 @@ export default class MemoryClient {
 
     for (const entity of to_delete) {
       try {
-        await this.client.delete(`/v2/entities/${entity.type}/${entity.name}/`);
+        await this.client.delete(
+          `/v2/entities/${encodeURIComponent(entity.type)}/${encodeURIComponent(entity.name)}/`,
+        );
       } catch (error: any) {
         throw new APIError(
           `Failed to delete ${entity.type} ${entity.name}: ${error.message}`,
@@ -654,7 +656,7 @@ export default class MemoryClient {
     if (webhook.url != null) body.url = webhook.url;
     if (webhook.eventTypes != null) body.event_types = webhook.eventTypes;
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/api/v1/webhooks/${webhook.webhookId}/`,
+      `${this.host}/api/v1/webhooks/${encodeURIComponent(webhook.webhookId)}/`,
       {
         method: "PUT",
         headers: this.headers,
@@ -671,7 +673,7 @@ export default class MemoryClient {
     this._captureEvent("delete_webhook", []);
     const webhook_id = data.webhookId || data;
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/api/v1/webhooks/${webhook_id}/`,
+      `${this.host}/api/v1/webhooks/${encodeURIComponent(String(webhook_id))}/`,
       {
         method: "DELETE",
         headers: this.headers,
