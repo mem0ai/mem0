@@ -63,7 +63,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -228,7 +230,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -531,6 +535,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -661,7 +666,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -684,7 +690,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -1093,11 +1100,13 @@ async def test_async_add_includes_usage_from_threaded_llm_path(mocker):
 
         def generate_response(self, messages, response_format=None, **kwargs):
             if self._capture.get():
-                self._usage.set({
-                    "prompt_tokens": 5,
-                    "completion_tokens": 3,
-                    "total_tokens": 8,
-                })
+                self._usage.set(
+                    {
+                        "prompt_tokens": 5,
+                        "completion_tokens": 3,
+                        "total_tokens": 8,
+                    }
+                )
             return '{"memory": [{"text": "Likes pizza"}]}'
 
     memory = _build_memory_instance(mocker, AsyncMemory)
