@@ -29,6 +29,7 @@ class AddMemoryOptions(BaseModel):
     )
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
     timestamp: Optional[int] = Field(default=None, description="Unix timestamp for the memory")
+    expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format")
     structured_data_schema: Optional[Dict[str, Any]] = Field(
         default=None, description="Schema for structured data extraction"
     )
@@ -50,6 +51,7 @@ class SearchMemoryOptions(BaseModel):
     threshold: Optional[float] = Field(default=None, description="Minimum similarity score threshold")
     fields: Optional[List[str]] = Field(default=None, description="Fields to include in the response")
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
+    show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
 
 
 class GetAllMemoryOptions(BaseModel):
@@ -71,6 +73,7 @@ class GetAllMemoryOptions(BaseModel):
         default=None, description="Filter memories created on or before this date (ISO 8601)"
     )
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
+    show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
 
 
 class DeleteAllMemoryOptions(BaseModel):
@@ -91,6 +94,7 @@ class UpdateMemoryOptions(BaseModel):
     text: Optional[str] = Field(default=None, description="New text content for the memory")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Updated metadata")
     timestamp: Optional[Union[int, float, str]] = Field(default=None, description="Updated timestamp")
+    expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format, or None to clear")
 
 
 class ProjectUpdateOptions(BaseModel):
