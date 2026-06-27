@@ -1529,3 +1529,37 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_add_invalid_memory_type_raises_validation_error(mock_llm_factory, mock_emb, mock_vs):
+    """Sync Memory.add() raises the structured Mem0ValidationError for an invalid memory_type."""
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    with pytest.raises(Mem0ValidationError) as exc_info:
+        memory.add([{"role": "user", "content": "hi"}], user_id="u1", memory_type="not_a_real_type")
+    assert exc_info.value.error_code == "VALIDATION_002"
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_add_invalid_memory_type_raises_validation_error(mock_llm_factory, mock_emb, mock_vs):
+    """Regression #5911 family: AsyncMemory.add() must raise the SAME structured
+    Mem0ValidationError as the sync path for an invalid memory_type (previously a bare ValueError)."""
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(Mem0ValidationError) as exc_info:
+        await memory.add([{"role": "user", "content": "hi"}], user_id="u1", memory_type="not_a_real_type")
+    assert exc_info.value.error_code == "VALIDATION_002"
