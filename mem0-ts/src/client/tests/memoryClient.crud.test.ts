@@ -59,6 +59,21 @@ describe("MemoryClient - add()", () => {
     expect(getFetchBody(call!).user_id).toBe("user_1");
   });
 
+  test("serializes expirationDate as expiration_date", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/add/", { status: 200, body: [createMockMemory()] });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.add([{ role: "user", content: "test" }], {
+      userId: "u1",
+      expirationDate: "2030-01-31",
+    });
+
+    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
+    expect(getFetchBody(call!).expiration_date).toBe("2030-01-31");
+  });
+
   test("throws an error when given an empty messages array", async () => {
     setupMockFetch();
 
@@ -176,11 +191,26 @@ describe("MemoryClient - update()", () => {
     expect(body.timestamp).toBe(1710600000);
   });
 
+  test("sends expirationDate as expiration_date, including null", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem_123/", {
+      status: 200,
+      body: createMockMemory(),
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.update("mem_123", { expirationDate: null });
+
+    const call = findFetchCall(mock, "/v1/memories/mem_123/", "PUT");
+    expect(getFetchBody(call!).expiration_date).toBeNull();
+  });
+
   test("throws when no fields provided", async () => {
     setupMockFetch();
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(client.update("mem_123", {})).rejects.toThrow(
-      "At least one of text, metadata, or timestamp must be provided",
+      "At least one of text, metadata, timestamp, or expirationDate must be provided",
     );
   });
 });
