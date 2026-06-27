@@ -1,12 +1,13 @@
-from typing import Optional, Literal
+from typing import Literal, Optional
 
-from mem0.embeddings.base import EmbeddingBase
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.base import EmbeddingBase
 
 try:
     from fastembed import TextEmbedding
 except ImportError:
     raise ImportError("FastEmbed is not installed.  Please install it using `pip install fastembed`")
+
 
 class FastEmbedEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
@@ -30,3 +31,22 @@ class FastEmbedEmbedding(EmbeddingBase):
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
         return embeddings[0]
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single FastEmbed call.
+
+        FastEmbed's embed() natively accepts a list of strings and
+        returns embeddings via its ONNX runtime, avoiding the sequential
+        per-text overhead of the base class fallback.
+
+        Args:
+            texts: List of text strings to embed.
+            memory_action: The action context ("add", "search", "update").
+
+        Returns:
+            List of embedding vectors (list of floats), one per input text.
+        """
+        if not texts:
+            return []
+        texts = [text.replace("\n", " ") for text in texts]
+        return list(self.dense_model.embed(texts))

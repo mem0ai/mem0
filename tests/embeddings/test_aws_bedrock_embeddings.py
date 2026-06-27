@@ -105,3 +105,61 @@ def test_titan_v1_ignores_embedding_dims(mock_boto3_client):
         body = _captured_request_body(mock_boto3_client, config)
 
     assert "dimensions" not in body
+
+
+def test_embed_batch_cohere_single_api_call(mock_boto3_client):
+    """Cohere models should embed all texts in a single invoke_model call."""
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        runtime = mock_boto3_client.return_value
+        response_stream = Mock()
+        response_stream.read.return_value = json.dumps({"embeddings": [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]}).encode()
+        runtime.invoke_model.return_value = {"body": response_stream}
+
+        config = BaseEmbedderConfig(model="cohere.embed-english-v3")
+        embedder = AWSBedrockEmbedding(config)
+
+        texts = ["first", "second", "third"]
+        embeddings = embedder.embed_batch(texts)
+
+    assert embeddings == [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+    runtime.invoke_model.assert_called_once()
+    call_body = json.loads(runtime.invoke_model.call_args[1]["body"])
+    assert call_body["texts"] == texts
+    assert call_body["input_type"] == "search_document"
+
+
+def test_embed_batch_titan_sequential_calls(mock_boto3_client):
+    """Titan models should call invoke_model once per text (no native batch)."""
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        runtime = mock_boto3_client.return_value
+
+        def make_response(embedding):
+            stream = Mock()
+            stream.read.return_value = json.dumps({"embedding": embedding}).encode()
+            return {"body": stream}
+
+        runtime.invoke_model.side_effect = [
+            make_response([0.1, 0.2]),
+            make_response([0.3, 0.4]),
+        ]
+
+        config = BaseEmbedderConfig(model="amazon.titan-embed-text-v1")
+        embedder = AWSBedrockEmbedding(config)
+
+        embeddings = embedder.embed_batch(["first", "second"])
+
+    assert embeddings == [[0.1, 0.2], [0.3, 0.4]]
+    assert runtime.invoke_model.call_count == 2
+
+
+def test_embed_batch_empty_list(mock_boto3_client):
+    """embed_batch() with an empty list should return [] without any API call."""
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        runtime = mock_boto3_client.return_value
+        config = BaseEmbedderConfig(model="amazon.titan-embed-text-v1")
+        embedder = AWSBedrockEmbedding(config)
+
+        result = embedder.embed_batch([])
+
+    assert result == []
+    runtime.invoke_model.assert_not_called()
