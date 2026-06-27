@@ -161,42 +161,6 @@ def test_update_with_empty_metadata(memory_instance):
     )
 
 
-def test_update_text_alias(memory_instance):
-    """text= is accepted as an alias for data= in Memory.update."""
-    memory_instance.embedding_model = Mock()
-    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-
-    memory_instance._update_memory = Mock()
-
-    result = memory_instance.update("test_id", text="New memory via text alias")
-
-    memory_instance._update_memory.assert_called_once_with(
-        "test_id", "New memory via text alias", {"New memory via text alias": [0.1, 0.2, 0.3]}, None
-    )
-    assert result["message"] == "Memory updated successfully!"
-
-
-def test_update_data_text_conflict_raises(memory_instance):
-    """Passing both data= and text= with different values must raise ValueError."""
-    with pytest.raises(ValueError, match="aliases"):
-        memory_instance.update("test_id", data="content A", text="content B")
-
-
-def test_update_data_text_same_value_ok(memory_instance):
-    """Passing data= and text= with the same value is allowed (idempotent alias)."""
-    memory_instance.embedding_model = Mock()
-    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-
-    memory_instance._update_memory = Mock()
-
-    result = memory_instance.update("test_id", data="Same content", text="Same content")
-
-    memory_instance._update_memory.assert_called_once_with(
-        "test_id", "Same content", {"Same content": [0.1, 0.2, 0.3]}, None
-    )
-    assert result["message"] == "Memory updated successfully!"
-
-
 def test_delete(memory_instance):
     memory_instance._delete_memory = Mock()
 

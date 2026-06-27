@@ -167,26 +167,6 @@ class TestAsyncUpdate:
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
         )
 
-    @pytest.mark.asyncio
-    async def test_async_update_text_alias(self, mock_async_memory, mocker):
-        """text= is accepted as an alias for data= in AsyncMemory.update."""
-        mock_async_memory.embedding_model = Mock()
-        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-        mock_async_memory._update_memory = mocker.AsyncMock()
-
-        result = await mock_async_memory.update("test_id", text="New memory via text alias")
-
-        mock_async_memory._update_memory.assert_called_once_with(
-            "test_id", "New memory via text alias", {"New memory via text alias": [0.1, 0.2, 0.3]}, None
-        )
-        assert result["message"] == "Memory updated successfully!"
-
-    @pytest.mark.asyncio
-    async def test_async_update_data_text_conflict_raises(self, mock_async_memory):
-        """Passing both data= and text= with different values must raise ValueError."""
-        with pytest.raises(ValueError, match="aliases"):
-            await mock_async_memory.update("test_id", data="content A", text="content B")
-
 
 @pytest.mark.asyncio
 class TestAsyncAddToVectorStoreErrors:
