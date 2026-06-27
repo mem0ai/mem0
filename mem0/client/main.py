@@ -344,24 +344,26 @@ class MemoryClient:
         Args:
             memory_id: The ID of the memory to update.
             options: Typed options (UpdateMemoryOptions) with text, metadata,
-                     and/or timestamp fields.
-            **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                     timestamp, and/or expiration_date fields.
+            **kwargs: Alternatively pass text, metadata, timestamp, or
+                      expiration_date as keyword args.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
         Raises:
-            ValueError: If none of text, metadata, or timestamp are provided.
+            ValueError: If none of text, metadata, timestamp, or expiration_date are provided.
 
         Example:
             >>> client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> client.update("mem_123", text="Updated text")
+            >>> client.update("mem_123", expiration_date=None)
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
-        payload = {k: v for k, v in payload.items() if v is not None}
+        payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
@@ -1260,24 +1262,26 @@ class AsyncMemoryClient:
         Args:
             memory_id: The ID of the memory to update.
             options: Typed options (UpdateMemoryOptions) with text, metadata,
-                     and/or timestamp fields.
-            **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                     timestamp, and/or expiration_date fields.
+            **kwargs: Alternatively pass text, metadata, timestamp, or
+                      expiration_date as keyword args.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
         Raises:
-            ValueError: If none of text, metadata, or timestamp are provided.
+            ValueError: If none of text, metadata, timestamp, or expiration_date are provided.
 
         Example:
             >>> await client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> await client.update("mem_123", text="Updated text")
+            >>> await client.update("mem_123", expiration_date=None)
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
-        payload = {k: v for k, v in payload.items() if v is not None}
+        payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()

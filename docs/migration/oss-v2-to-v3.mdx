@@ -62,7 +62,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 |---|---|---|---|
 | Constructor | `MemoryClient(api_key, org_id, project_id)` | `MemoryClient(api_key)` | Remove `org_id`, `project_id` from constructor |
 | Method options | `client.add(messages, **kwargs)` | `client.add(messages, options=AddMemoryOptions(...))` | Use typed option classes (or `**kwargs` still works) |
-| Removed params | `api_version`, `output_format`, `async_mode`, `filter_memories`, `expiration_date`, `keyword_search`, `force_add_only`, `batch_size`, `immutable`, `includes`, `excludes`, `enable_graph`, `org_name`, `project_name` | — | Remove from all calls |
+| Removed params | `api_version`, `output_format`, `async_mode`, `filter_memories`, `keyword_search`, `force_add_only`, `batch_size`, `immutable`, `includes`, `excludes`, `enable_graph`, `org_name`, `project_name` | — | Remove from all calls |
 
 ### TypeScript Client SDK
 
@@ -70,7 +70,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 |---|---|---|---|
 | Constructor | `new MemoryClient({ apiKey, organizationId, projectId })` | `new MemoryClient({ apiKey })` | Remove `organizationId`, `projectId`, `organizationName`, `projectName` |
 | All params | snake_case: `user_id`, `agent_id`, `top_k` | camelCase: `userId`, `agentId`, `topK` | Rename all params to camelCase |
-| Removed params | `api_version`, `output_format`, `async_mode`, `enable_graph`, `org_id`, `project_id`, `org_name`, `project_name`, `filter_memories`, `batch_size`, `force_add_only`, `immutable`, `expiration_date`, `includes`, `excludes`, `keyword_search` | — | Remove from all calls |
+| Removed params | `api_version`, `output_format`, `async_mode`, `enable_graph`, `org_id`, `project_id`, `org_name`, `project_name`, `filter_memories`, `batch_size`, `force_add_only`, `immutable`, `includes`, `excludes`, `keyword_search` | — | Remove from all calls |
 | Output format enum | `OutputFormat.V1`, `OutputFormat.V1_1` | Removed | v1.1 is now always used |
 | API version enum | `API_VERSION.V1`, `API_VERSION.V2` | Removed | Handled internally |
 
@@ -423,7 +423,7 @@ These parameters have been removed across all SDKs. Remove them from your code:
 
 **All methods:** `api_version`, `output_format`, `async_mode`, `org_name`, `project_name`, `org_id`, `project_id`
 
-**add():** `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+**add():** `enable_graph`, `immutable`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
 
 **search():** `enable_graph`
 
@@ -437,7 +437,7 @@ These parameters have been removed across all SDKs. Remove them from your code:
 
 **All methods:** `OutputFormat` enum, `API_VERSION` enum
 
-**add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `expiration_date` / `expirationDate`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
+**add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
 
 **search():** `enable_graph` / `enableGraph`
 
