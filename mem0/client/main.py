@@ -352,6 +352,8 @@ class MemoryClient:
             options: Typed options (UpdateMemoryOptions) with text, metadata,
                      and/or timestamp fields.
             **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                      ``data`` is also accepted as an alias for ``text`` to ease
+                      migration from the OSS SDK (OSS uses ``data``; Platform uses ``text``).
 
         Returns:
             Dict[str, Any]: The response from the server.
@@ -362,8 +364,12 @@ class MemoryClient:
         Example:
             >>> client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> client.update("mem_123", text="Updated text")
+            >>> client.update("mem_123", data="Updated text")  # alias for text
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        if "data" in payload:
+            data_value = payload.pop("data")
+            payload.setdefault("text", data_value)  # `data` is an alias for `text` (OSS SDK uses `data`)
         payload = {k: v for k, v in payload.items() if v is not None}
 
         if not payload:
@@ -1268,6 +1274,8 @@ class AsyncMemoryClient:
             options: Typed options (UpdateMemoryOptions) with text, metadata,
                      and/or timestamp fields.
             **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
+                      ``data`` is also accepted as an alias for ``text`` to ease
+                      migration from the OSS SDK (OSS uses ``data``; Platform uses ``text``).
 
         Returns:
             Dict[str, Any]: The response from the server.
@@ -1278,8 +1286,12 @@ class AsyncMemoryClient:
         Example:
             >>> await client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
             >>> await client.update("mem_123", text="Updated text")
+            >>> await client.update("mem_123", data="Updated text")  # alias for text
         """
         payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        if "data" in payload:
+            data_value = payload.pop("data")
+            payload.setdefault("text", data_value)  # `data` is an alias for `text` (OSS SDK uses `data`)
         payload = {k: v for k, v in payload.items() if v is not None}
 
         if not payload:

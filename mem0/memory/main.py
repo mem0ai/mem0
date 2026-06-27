@@ -1708,13 +1708,16 @@ class Memory(MemoryBase):
 
         return memory_boosts
 
-    def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
+    def update(self, memory_id, data=None, metadata: Optional[Dict[str, Any]] = None, *, text=None):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+                        ``text`` is accepted as an alias for ``data`` to ease
+                        migration between the OSS and Platform SDKs (Platform
+                        uses ``text``; OSS uses ``data``).
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
 
         Returns:
@@ -1723,7 +1726,16 @@ class Memory(MemoryBase):
         Example:
             >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
+            {'message': 'Memory updated successfully!'}
         """
+        if text is not None:
+            if data is not None and data != text:
+                raise ValueError(
+                    "Pass only one of `data` or `text` — they are aliases for the memory content."
+                )
+            data = text
+
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
@@ -3276,13 +3288,16 @@ class AsyncMemory(MemoryBase):
 
         return memory_boosts
 
-    async def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
+    async def update(self, memory_id, data=None, metadata: Optional[Dict[str, Any]] = None, *, text=None):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+                        ``text`` is accepted as an alias for ``data`` to ease
+                        migration between the OSS and Platform SDKs (Platform
+                        uses ``text``; OSS uses ``data``).
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
 
         Returns:
@@ -3291,7 +3306,16 @@ class AsyncMemory(MemoryBase):
         Example:
             >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> await m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
+            {'message': 'Memory updated successfully!'}
         """
+        if text is not None:
+            if data is not None and data != text:
+                raise ValueError(
+                    "Pass only one of `data` or `text` — they are aliases for the memory content."
+                )
+            data = text
+
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
         embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
