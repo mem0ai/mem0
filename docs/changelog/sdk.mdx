@@ -7,6 +7,21 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-06-27" description="v2.0.10">
+
+**New Features:**
+- **Client:** Expose `expiration_date` on `MemoryClient.update()` and `AsyncMemoryClient.update()` — callers can now set or clear a memory's expiration date; `None` is preserved and forwarded to the API ([#5874](https://github.com/mem0ai/mem0/pull/5874))
+
+**Bug Fixes:**
+- **Memory (OSS):** Apply `remove_code_blocks()` to the LangChain path in async `_create_procedural_memory` so code fences are stripped consistently ([#5711](https://github.com/mem0ai/mem0/pull/5711))
+- **Rerankers:** Score HuggingFace cross-encoder results with per-document sigmoid instead of set-relative min-max, preventing a single low-score document from collapsing all relevance scores to zero ([#5715](https://github.com/mem0ai/mem0/pull/5715))
+- **Core:** Validate and trim entity IDs (`user_id`, `agent_id`, `run_id`) in `delete_all()` for both sync and async `Memory` ([#5735](https://github.com/mem0ai/mem0/pull/5735))
+- **Vector Stores:** Use `.get()` for `hash` and `created_at` in the Redis `insert()` and `update()` paths so entity payloads that omit those fields no longer raise `KeyError` ([#5709](https://github.com/mem0ai/mem0/pull/5709))
+- **Memory:** Fix scale-threshold notices not firing for Redis and search-engine backends by resolving `col_info()` signature differences and adding `num_docs` to the count-extraction lookup ([#5687](https://github.com/mem0ai/mem0/pull/5687))
+- **Vector Stores:** Escape special characters in Valkey FT.SEARCH tag filter values to prevent wildcard and operator injection through tenant-isolation filters ([#5750](https://github.com/mem0ai/mem0/pull/5750))
+
+</Update>
+
 <Update label="2026-06-24" description="v2.0.9">
 
 **Bug Fixes:**
@@ -1069,6 +1084,23 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-06-27" description="v3.0.12">
+
+**New Features:**
+- **Client:** Add `expirationDate` to `AddMemoryOptions`, `update()`, and the `Memory` interface; add `showExpired` to `SearchMemoryOptions` and `GetAllMemoryOptions` ([#5874](https://github.com/mem0ai/mem0/pull/5874))
+- **LLMs:** Add `MiniMaxLLM` provider backed by the OpenAI-compatible MiniMax API (`api.minimax.io/v1`, default model `MiniMax-M2.7`) ([#5858](https://github.com/mem0ai/mem0/pull/5858))
+- **LLMs:** Add `LiteLLM` provider for routing requests through a local or hosted LiteLLM proxy ([#5830](https://github.com/mem0ai/mem0/pull/5830))
+- **Vector Stores:** Add `connectionString` and `ssl` options to the PGVector config, allowing connection via URI instead of individual host/user/password/port fields ([#5789](https://github.com/mem0ai/mem0/pull/5789))
+
+**Bug Fixes:**
+- **Memory (OSS):** Validate and trim entity IDs (`userId`, `agentId`, `runId`) in `deleteAll()` via `validateAndTrimEntityId` ([#5735](https://github.com/mem0ai/mem0/pull/5735))
+- **Vector Stores:** Use nullish coalescing for `hash` and timestamps in the Redis `insert()` and `update()` paths so entity payloads that omit those fields no longer crash ([#5860](https://github.com/mem0ai/mem0/pull/5860))
+
+**Security:**
+- **Dependencies:** Bump `undici` to `>=6.27.0` via pnpm override to remediate CVE-2026-12151 ([#5861](https://github.com/mem0ai/mem0/pull/5861))
+
+</Update>
 
 <Update label="2026-06-24" description="v3.0.11">
 
