@@ -155,6 +155,69 @@ function validateSearchParams(threshold?: number, topK?: number): void {
   }
 }
 
+type ExtractedMemory = {
+  id?: string;
+  text: string;
+  attributed_to?: "user" | "assistant";
+  linked_memory_ids?: string[];
+};
+
+function normalizeExtractedMemories(rawMemories: unknown): ExtractedMemory[] {
+  if (!Array.isArray(rawMemories)) {
+    return [];
+  }
+
+  const normalized: ExtractedMemory[] = [];
+  for (const item of rawMemories) {
+    let text: string | undefined;
+    let id: string | undefined;
+    let attributedTo: "user" | "assistant" | undefined;
+    let linkedMemoryIds: string[] | undefined;
+
+    if (typeof item === "string") {
+      text = item;
+    } else if (item && typeof item === "object" && !Array.isArray(item)) {
+      const record = item as Record<string, unknown>;
+      const textValue = record.text ?? record.fact ?? record.memory;
+      if (typeof textValue === "string") {
+        text = textValue;
+      } else {
+        const keys = Object.keys(record);
+        if (keys.length === 1) {
+          text = keys[0];
+        }
+      }
+
+      if (typeof record.id === "string") {
+        id = record.id;
+      }
+      if (
+        record.attributed_to === "user" ||
+        record.attributed_to === "assistant"
+      ) {
+        attributedTo = record.attributed_to;
+      }
+      if (Array.isArray(record.linked_memory_ids)) {
+        linkedMemoryIds = record.linked_memory_ids.filter(
+          (memoryId): memoryId is string => typeof memoryId === "string",
+        );
+      }
+    }
+
+    const trimmedText = text?.trim();
+    if (!trimmedText) continue;
+
+    normalized.push({
+      ...(id ? { id } : {}),
+      text: trimmedText,
+      ...(attributedTo ? { attributed_to: attributedTo } : {}),
+      ...(linkedMemoryIds ? { linked_memory_ids: linkedMemoryIds } : {}),
+    });
+  }
+
+  return normalized;
+}
+
 export class Memory {
   private config: MemoryConfig;
   private customInstructions: string | undefined;
@@ -858,12 +921,7 @@ export class Memory {
     }
 
     // Parse response
-    let extractedMemories: Array<{
-      id?: string;
-      text?: string;
-      attributed_to?: string;
-      linked_memory_ids?: string[];
-    }> = [];
+    let extractedMemories: ExtractedMemory[] = [];
     try {
       const cleanResponse = extractJson(response);
       if (cleanResponse && cleanResponse.trim()) {
@@ -871,10 +929,12 @@ export class Memory {
           const parsed = AdditiveExtractionSchema.parse(
             JSON.parse(cleanResponse),
           );
-          extractedMemories = parsed.memory;
+          extractedMemories = normalizeExtractedMemories(parsed.memory);
         } catch {
           const fallbackJson = extractJson(cleanResponse);
-          extractedMemories = JSON.parse(fallbackJson)?.memory ?? [];
+          extractedMemories = normalizeExtractedMemories(
+            JSON.parse(fallbackJson)?.memory,
+          );
         }
       }
     } catch (e) {

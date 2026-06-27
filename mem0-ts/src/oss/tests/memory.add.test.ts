@@ -8,6 +8,8 @@ import type { MemoryConfig, MemoryItem, SearchResult } from "../src/types";
 
 jest.setTimeout(15000);
 
+let mockExtractionResponse: string | undefined;
+
 // Mock Google modules to prevent @google/genai crash in CI
 jest.mock("../src/embeddings/google", () => ({
   GoogleEmbedder: jest.fn(),
@@ -22,6 +24,9 @@ jest.mock("../src/llms/openai", () => ({
       .fn()
       .mockImplementation(
         (messages: Array<{ role: string; content: string }>) => {
+          if (mockExtractionResponse) {
+            return mockExtractionResponse;
+          }
           // V3 pipeline: single LLM call with additive extraction prompt.
           const userMsg = messages.find((m) => m.role === "user");
           const content = userMsg?.content ?? "";
@@ -92,6 +97,10 @@ describe("Memory - add()", () => {
 
   afterAll(async () => {
     await memory.reset();
+  });
+
+  afterEach(() => {
+    mockExtractionResponse = undefined;
   });
 
   test("returns SearchResult with results array for string input", async () => {
@@ -190,5 +199,37 @@ describe("Memory - add()", () => {
     expect(result.results[0].metadata).toEqual(
       expect.objectContaining({ event: "ADD" }),
     );
+  });
+
+  test("normalizes loose additive extraction memory shapes", async () => {
+    mockExtractionResponse = JSON.stringify({
+      memory: [
+        "User likes coffee",
+        { fact: "User uses TypeScript" },
+        { memory: "User prefers concise examples" },
+        {
+          text: "User works on retrieval systems",
+          attributed_to: "user",
+          linked_memory_ids: ["existing-memory"],
+        },
+        { "User reads technical design docs": true },
+        "",
+        { text: "" },
+      ],
+    });
+
+    const result: SearchResult = await memory.add("loose extraction", {
+      userId,
+    });
+
+    expect(result.results.map((item) => item.memory)).toEqual([
+      "User likes coffee",
+      "User uses TypeScript",
+      "User prefers concise examples",
+      "User works on retrieval systems",
+      "User reads technical design docs",
+    ]);
+    const stored = await memory.get(result.results[3].id);
+    expect(stored?.attributedTo).toBe("user");
   });
 });
