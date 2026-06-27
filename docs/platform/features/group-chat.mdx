@@ -111,32 +111,37 @@ print(all_memories)
 ```
 
 ```json Output
-[
-    {
-        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-        "memory": "suggests considering Angular because it has great enterprise support",
-        "user_id": "charlie",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00"
-    },
-    {
-        "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
-        "memory": "prefers Vue.js for our use case",
-        "user_id": "bob",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:08.675301-07:00",
-        "updated_at": "2025-06-21T05:51:09.319269-07:00",
-    },
-    {
-        "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
-        "memory": "prefers using React for the frontend",
-        "user_id": "alice",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:05.943223-07:00",
-        "updated_at": "2025-06-21T05:51:06.982539-07:00",
-    }
-]
+{
+    "count": 3,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+            "memory": "suggests considering Angular because it has great enterprise support",
+            "user_id": "charlie",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:11.007223-07:00",
+            "updated_at": "2025-06-21T05:51:11.626562-07:00"
+        },
+        {
+            "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
+            "memory": "prefers Vue.js for our use case",
+            "user_id": "bob",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:08.675301-07:00",
+            "updated_at": "2025-06-21T05:51:09.319269-07:00"
+        },
+        {
+            "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
+            "memory": "prefers using React for the frontend",
+            "user_id": "alice",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:05.943223-07:00",
+            "updated_at": "2025-06-21T05:51:06.982539-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>
@@ -161,17 +166,21 @@ print(charlie_memories)
 ```
 
 ```json Output
-[
-    {
-        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-        "memory": "suggests considering Angular because it has great enterprise support",
-        "user_id": "charlie",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00",
-
-    }
-]
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+            "memory": "suggests considering Angular because it has great enterprise support",
+            "user_id": "charlie",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:11.007223-07:00",
+            "updated_at": "2025-06-21T05:51:11.626562-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>
@@ -199,16 +208,18 @@ print(search_response)
 ```
 
 ```json Output
-[
-    {
-        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-        "memory": "suggests considering Angular because it has great enterprise support",
-        "user_id": "charlie",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00",
-    }
-]
+{
+    "results": [
+        {
+            "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+            "memory": "suggests considering Angular because it has great enterprise support",
+            "user_id": "charlie",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:11.007223-07:00",
+            "updated_at": "2025-06-21T05:51:11.626562-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>
