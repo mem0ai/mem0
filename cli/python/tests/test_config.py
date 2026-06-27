@@ -143,6 +143,20 @@ class TestNestedAccess:
         config = Mem0Config()
         assert set_nested_value(config, "nonexistent.key", "val") is False
 
+    def test_set_invalid_int_returns_false_without_raising(self):
+        # `version` is an int field. A non-numeric value must be reported as a
+        # failed set (return False), not crash with an uncaught ValueError.
+        config = Mem0Config()
+        original = config.version
+        assert set_nested_value(config, "version", "not-a-number") is False
+        # The bad value must not have been applied.
+        assert config.version == original
+
+    def test_set_valid_int_is_coerced(self):
+        config = Mem0Config()
+        assert set_nested_value(config, "version", "2")
+        assert config.version == 2
+
     def test_get_defaults_user_id(self):
         config = Mem0Config()
         config.defaults.user_id = "alice"

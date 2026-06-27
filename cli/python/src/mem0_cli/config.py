@@ -231,11 +231,15 @@ def set_nested_value(config: Mem0Config, dotted_key: str, value: str) -> bool:
         return False
 
     current = getattr(obj, final_key)
-    # Type coercion
+    # Type coercion. A non-numeric value for an int field is a failed set, not a
+    # crash: honor the documented bool return instead of raising ValueError.
     if isinstance(current, bool):
         value = value.lower() in ("true", "1", "yes")  # type: ignore[assignment]
     elif isinstance(current, int):
-        value = int(value)  # type: ignore[assignment]
+        try:
+            value = int(value)  # type: ignore[assignment]
+        except ValueError:
+            return False
 
     setattr(obj, final_key, value)
     return True
