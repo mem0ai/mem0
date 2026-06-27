@@ -1418,7 +1418,30 @@ def _get_provider_memory_count(memory_instance) -> Optional[int]:
     try:
         col_info = getattr(vector_store, "col_info", None)
         if callable(col_info):
-            return _extract_count(col_info())
+            collection_name = getattr(vector_store, "collection_name", None)
+            if collection_name is None:
+                schema = getattr(vector_store, "schema", None)
+                if isinstance(schema, dict):
+                    index = schema.get("index")
+                    if isinstance(index, dict):
+                        collection_name = index.get("name")
+            if collection_name is not None:
+                try:
+                    info = col_info(collection_name)
+                except TypeError:
+                    info = col_info()
+            else:
+                info = col_info()
+            value = _extract_count(info)
+            if value is not None:
+                return value
+
+            client = getattr(vector_store, "client", None)
+            client_count = (
+                getattr(client, "count", None) if client is not None and collection_name is not None else None
+            )
+            if callable(client_count):
+                return _extract_count(client_count(index=collection_name))
     except Exception:
         return None
 
@@ -1430,7 +1453,7 @@ def _extract_count(info: Any) -> Optional[int]:
         return None
 
     if isinstance(info, dict):
-        for key in ("count", "points_count", "vectors_count", "indexed_vectors_count"):
+        for key in ("count", "points_count", "vectors_count", "indexed_vectors_count", "num_docs"):
             value = _coerce_nonnegative_int(info.get(key), None)
             if value is not None:
                 return value
@@ -1445,7 +1468,7 @@ def _extract_count(info: Any) -> Optional[int]:
         except Exception:
             return None
 
-    for attr in ("count", "points_count", "vectors_count", "indexed_vectors_count"):
+    for attr in ("count", "points_count", "vectors_count", "indexed_vectors_count", "num_docs"):
         value = _coerce_nonnegative_int(getattr(info, attr, None), None)
         if value is not None:
             return value

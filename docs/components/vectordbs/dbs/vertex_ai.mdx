@@ -24,7 +24,7 @@ config = {
             "deployment_index_id": "YOUR_DEPLOYMENT_INDEX_ID",  # Required: Deployment-specific ID
             "project_id": "YOUR_PROJECT_ID",              # Required: Google Cloud project ID
             "project_number": "YOUR_PROJECT_NUMBER",      # Required: Google Cloud project number
-            "region": "YOUR_REGION",                      # Optional: Defaults to GOOGLE_CLOUD_REGION
+            "region": "YOUR_REGION",                      # Required: Google Cloud region
             "credentials_path": "path/to/credentials.json", # Optional: Defaults to GOOGLE_APPLICATION_CREDENTIALS
             "vector_search_api_endpoint": "YOUR_API_ENDPOINT" # Required for get operations
         }
@@ -45,5 +45,6 @@ m.add("Your text here", user_id="user", metadata={"category": "example"})
 | `project_id` | Google Cloud project ID | Yes |
 | `project_number` | Google Cloud project number | Yes |
 | `vector_search_api_endpoint` | Vector search API endpoint | Yes (for get operations) |
-| `region` | Google Cloud region | No (defaults to GOOGLE_CLOUD_REGION) |
+| `region` | Google Cloud region | Yes |
 | `credentials_path` | Path to service account credentials | No (defaults to GOOGLE_APPLICATION_CREDENTIALS) |
+| `service_account_json` | Service account credentials as a dictionary (alternative to `credentials_path`) | `None` |

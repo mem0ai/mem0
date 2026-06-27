@@ -6,6 +6,10 @@ openapi: post /v3/memories/
 
 List memories scoped by filters with paginated results. Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object — top-level entity IDs are rejected with 400.
 
+Expired memories are hidden by default. Pass `show_expired: true` to include memories whose `expiration_date` has passed.
+
+Python uses `show_expired`; TypeScript uses `showExpired`.
+
 The `filters` object supports complex logical operations (AND, OR, NOT) and comparison operators:
 
 - `in`: Matches any of the values specified
@@ -32,6 +36,7 @@ memories = client.get_all(
             }
         ]
     },
+    show_expired=False,
     page=1,
     page_size=50
 )
@@ -46,12 +51,14 @@ memories = client.get_all(
         {
             "id": "f4cbdb08-7062-4f3e-8eb2-9f5c80dfe64c",
             "memory": "Alex is planning a trip to San Francisco from July 1st to July 10th",
+            "expiration_date": null,
             "created_at": "2024-07-01T12:00:00Z",
             "updated_at": "2024-07-01T12:00:00Z"
         },
         {
             "id": "a2b8c3d4-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
             "memory": "Alex prefers vegetarian restaurants",
+            "expiration_date": null,
             "created_at": "2024-07-05T15:30:00Z",
             "updated_at": "2024-07-05T15:30:00Z"
         }
