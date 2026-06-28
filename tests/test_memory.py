@@ -1000,6 +1000,146 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     assert mock_vector_store.delete.call_count == 2
 
 
+def _make_list_page(n, prefix):
+    """Helper: build a list of N MagicMock memories with ids like '<prefix>-0'."""
+    page = []
+    for i in range(n):
+        m = MagicMock()
+        m.id = f"{prefix}-{i}"
+        m.payload = {"data": f"{prefix}-{i}", "created_at": "2024-01-01T00:00:00+00:00"}
+        page.append(m)
+    return page
+
+
+def _paginated_list_factory(pages):
+    """Return a `list` side_effect that pops pages sequentially, then [].
+
+    Simulates a vector store that caps each `list` call at a fixed page
+    size (so callers must loop). Each call returns a `(rows,)` tuple to
+    match the production `[0]` indexing convention.
+    """
+    queue = list(pages)
+
+    def _side_effect(*args, **kwargs):
+        if not queue:
+            return ([],)
+        return (queue.pop(0),)
+
+    return _side_effect
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_sync_delete_all_paginates_through_all_memories(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, monkeypatch
+):
+    """Regression for issue #4869: when the vector store caps `list` at a
+    default page size, a single call only returns the first page and older
+    matching memories are left behind. `delete_all` must iterate.
+    """
+    from mem0.memory import main as memory_main
+    # Force a small page so we can exercise multiple iterations cheaply.
+    monkeypatch.setattr(memory_main, "_DELETE_ALL_PAGE_SIZE", 2)
+
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    # Three pages: [m0, m1], [m2, m3], [m4] — last page is short, loop ends.
+    mock_vector_store.list.side_effect = _paginated_list_factory([
+        _make_list_page(2, "mem"),
+        _make_list_page(2, "mem"),
+        _make_list_page(1, "mem"),
+    ])
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+    # Stub `_delete_memory` so we don't have to fake the full vector_store.get
+    # + history path. The bug is about how many memories `delete_all` pulls
+    # out of the vector store, not what `_delete_memory` does internally.
+    memory._delete_memory = MagicMock()
+
+    result = memory.delete_all(user_id="bug-002-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    # 3 pages (last one short → loop terminates without an empty call).
+    # A single-call implementation would only see page 1 and stop at 1 call.
+    assert mock_vector_store.list.call_count == 3
+    # Each memory from every page should have been deleted exactly once.
+    assert memory._delete_memory.call_count == 5
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_sync_delete_all_stops_when_first_page_empty(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """When the store returns an empty first page, `delete_all` should not
+    loop and should not delete anything."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    mock_vector_store.list.return_value = ([],)
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+    memory._delete_memory = MagicMock()
+
+    result = memory.delete_all(user_id="no-memories-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.list.call_count == 1
+    assert memory._delete_memory.call_count == 0
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_delete_all_paginates_through_all_memories(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, monkeypatch
+):
+    """Async regression for issue #4869."""
+    from mem0.memory import main as memory_main
+    monkeypatch.setattr(memory_main, "_DELETE_ALL_PAGE_SIZE", 2)
+
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    mock_vector_store.list.side_effect = _paginated_list_factory([
+        _make_list_page(2, "mem"),
+        _make_list_page(2, "mem"),
+        _make_list_page(1, "mem"),
+    ])
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    async def _noop(*a, **kw):
+        return None
+    memory._delete_memory = MagicMock(side_effect=_noop)
+
+    result = await memory.delete_all(user_id="bug-002-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.list.call_count == 3
+    assert memory._delete_memory.call_count == 5
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
