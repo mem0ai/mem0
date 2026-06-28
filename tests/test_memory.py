@@ -1529,3 +1529,85 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_procedural_memory_accepts_llm_kwarg_and_strips_code_blocks(
+    mock_llm_factory, mock_emb, mock_vs
+):
+    """Regression #5911: sync Memory.add()/Memory._create_procedural_memory must
+    accept the same `llm` kwarg as the async path and route through llm.invoke()."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import Memory
+
+    config = MemoryConfig()
+    memory = Memory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = '```json\n{"key": "value"}\n```'
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
+
+    mock_langchain_llm.invoke.assert_called_once()
+    insert_call = memory.vector_store.insert.call_args
+    stored_data = insert_call[1]["payloads"][0]["data"]
+    assert "```" not in stored_data
+
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_memory_add_forwards_llm_to_procedural_memory(
+    mock_llm_factory, mock_emb, mock_vs
+):
+    """Regression #5911: Memory.add() must forward `llm` to _create_procedural_memory."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import Memory
+
+    config = MemoryConfig()
+    memory = Memory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = "procedural summary"
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    forwarded = {"called": False}
+    original_create = memory._create_procedural_memory
+
+    def spy(*args, **kwargs):
+        forwarded["called"] = True
+        forwarded["llm"] = kwargs.get("llm")
+        return original_create(*args, **kwargs)
+
+    memory._create_procedural_memory = spy
+
+    memory.add(
+        [{"role": "user", "content": "Always verify inputs before processing."}],
+        agent_id="agent-1",
+        memory_type="procedural_memory",
+        llm=mock_langchain_llm,
+    )
+
+    assert forwarded["called"] is True
+    assert forwarded["llm"] is mock_langchain_llm
+    mock_langchain_llm.invoke.assert_called_once()
