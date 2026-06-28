@@ -827,7 +827,7 @@ class Databricks(VectorStoreBase):
             return [memory_results]
         except Exception as e:
             logger.error(f"Failed to list memories: {e}")
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the vector search index and underlying source table.
