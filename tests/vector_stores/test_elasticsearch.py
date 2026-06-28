@@ -209,12 +209,47 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(body["knn"]["query_vector"], vectors)
         self.assertEqual(body["knn"]["k"], 5)
         self.assertEqual(body["knn"]["num_candidates"], 10)
+        # Elasticsearch caps the response at the default `size` of 10
+        # regardless of `knn.k`, so `size` must mirror `top_k`.
+        self.assertEqual(body["size"], 5)
 
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
+
+    def test_search_sets_size_above_default_cap(self):
+        # Regression for #5909: Memory.search passes an internal top_k of
+        # up to `max(limit * 4, 60)` to support hybrid re-ranking. Without
+        # `size` on the KNN body, Elasticsearch caps the response at 10
+        # hits regardless of `knn.k`, silently truncating recall.
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+        self.es_db.search(query="", vectors=[[0.1] * 1536], top_k=60)
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 60)
+        self.assertEqual(body["knn"]["k"], 60)
+        self.assertEqual(body["knn"]["num_candidates"], 120)
+
+    def test_search_with_filters_keeps_size(self):
+        # Filters must not displace the `size` field added for #5909.
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+        self.es_db.search(
+            query="",
+            vectors=[[0.1] * 1536],
+            top_k=25,
+            filters={"user_id": "u1"},
+        )
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 25)
+        self.assertEqual(
+            body["knn"]["filter"],
+            {"bool": {"must": [{"term": {"metadata.user_id": "u1"}}]}},
+        )
 
     def test_custom_search_query(self):
         # Mock custom search query

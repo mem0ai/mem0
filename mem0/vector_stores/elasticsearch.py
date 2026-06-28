@@ -148,8 +148,11 @@ class ElasticsearchDB(VectorStoreBase):
         if self.custom_search_query:
             search_query = self.custom_search_query(vectors, top_k, filters)
         else:
+            # Elasticsearch caps the response at the default `size` of 10
+            # regardless of `knn.k`. Set `size` so top_k > 10 is honoured.
             search_query = {
-                "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2}
+                "size": top_k,
+                "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2},
             }
             if filters:
                 filter_conditions = []
