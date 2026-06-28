@@ -1529,3 +1529,75 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_procedural_memory_langchain_strips_code_blocks(mock_llm_factory, mock_emb, mock_vs):
+    """Regression #5911: sync Memory.add/_create_procedural_memory must accept
+    a LangChain ``llm`` and call ``remove_code_blocks`` on its response —
+    mirroring AsyncMemory.add (which gained the ``llm`` parameter in #5710)."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import Memory
+
+    config = MemoryConfig()
+    memory = Memory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = '```json\n{"key": "value"}\n```'
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
+
+    mock_langchain_llm.invoke.assert_called_once()
+    insert_call = memory.vector_store.insert.call_args
+    stored_data = insert_call[1]["payloads"][0]["data"]
+    assert "```" not in stored_data
+
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_add_accepts_llm_kwarg_for_procedural_memory(mock_llm_factory, mock_emb, mock_vs):
+    """Regression #5911: Memory.add() must accept the ``llm`` kwarg without
+    raising TypeError. Previously only AsyncMemory.add accepted it."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import Memory
+
+    config = MemoryConfig()
+    memory = Memory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = "Always verify inputs."
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    # Must not raise TypeError: Memory.add() got an unexpected keyword argument 'llm'
+    result = memory.add(
+        [{"role": "user", "content": "verify inputs"}],
+        agent_id="agent-1",
+        memory_type="procedural_memory",
+        llm=mock_langchain_llm,
+    )
+
+    mock_langchain_llm.invoke.assert_called_once()
+    assert result["results"][0]["event"] == "ADD"
+    assert result["results"][0]["memory"] == "Always verify inputs."
+
