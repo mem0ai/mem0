@@ -334,3 +334,64 @@ class TestV2EntitiesDeleteAlias:
         resp = client.delete("/entities/user/user-1")
         assert resp.status_code == 200
         assert mock_memory.delete_all.called
+
+
+# ===========================================================================
+# Authorization: Token <key> scheme (SDK compatibility)
+# ===========================================================================
+
+
+@pytest.fixture
+def auth_client(_mock_memory):
+    """TestClient with auth enabled and a known ADMIN_API_KEY."""
+    # main.py imports bare 'auth', not 'server.auth', so reload the bare module
+    import auth as auth_mod
+    import server.main as server_main
+
+    env = {
+        "ADMIN_API_KEY": "test-admin-key-for-token-auth",
+        "AUTH_DISABLED": "false",
+        "JWT_SECRET": "test-jwt-secret-for-token-auth-tests",
+    }
+    with patch.dict(os.environ, env):
+        importlib.reload(auth_mod)
+        importlib.reload(server_main)
+
+    from db import get_db
+
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = None
+    mock_db.execute.return_value.scalars.return_value.all.return_value = []
+    server_main.app.dependency_overrides[get_db] = lambda: mock_db
+    with patch.object(server_main, "SessionLocal", return_value=mock_db):
+        yield TestClient(server_main.app)
+    server_main.app.dependency_overrides.clear()
+
+
+class TestTokenAuthScheme:
+    """Verify that 'Authorization: Token <key>' is accepted, matching SDK behavior."""
+
+    def test_token_scheme_with_admin_key_returns_200(self, auth_client):
+        resp = auth_client.get("/v1/ping/", headers={"Authorization": "Token test-admin-key-for-token-auth"})
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
+    def test_token_scheme_with_wrong_key_returns_401(self, auth_client):
+        resp = auth_client.get("/v1/ping/", headers={"Authorization": "Token wrong-key"})
+        assert resp.status_code == 401
+
+    def test_no_auth_returns_401_when_auth_enabled(self, auth_client):
+        resp = auth_client.get("/v1/ping/")
+        assert resp.status_code == 401
+
+    def test_x_api_key_still_works_with_auth_enabled(self, auth_client):
+        resp = auth_client.get("/v1/ping/", headers={"X-API-Key": "test-admin-key-for-token-auth"})
+        assert resp.status_code == 200
+
+    def test_token_scheme_on_versioned_alias(self, auth_client, _mock_memory):
+        resp = auth_client.post(
+            "/v3/memories/search/",
+            json={"query": "food", "user_id": "u1"},
+            headers={"Authorization": "Token test-admin-key-for-token-auth"},
+        )
+        assert resp.status_code == 200
