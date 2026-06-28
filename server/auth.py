@@ -160,8 +160,9 @@ async def verify_auth(
         return _resolve_user_from_api_key(x_api_key, db)
 
     # SDK compat: Python/TS clients send "Authorization: Token <key>"
+    # Skip when AUTH_DISABLED so local-dev clients aren't forced to register a real key.
     auth_header = request.headers.get("authorization", "")
-    if auth_header.lower().startswith("token "):
+    if not AUTH_DISABLED and auth_header.lower().startswith("token "):
         token_key = auth_header[6:].strip()
         if token_key:
             if ADMIN_API_KEY and secrets.compare_digest(token_key, ADMIN_API_KEY):
