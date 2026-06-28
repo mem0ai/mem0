@@ -20,8 +20,8 @@ def format_memories_text(console: Console, memories: list[dict], title: str = "m
     console.print(f"\n[{BRAND_COLOR}]Found {count} {title}:[/]\n")
 
     for i, mem in enumerate(memories, 1):
-        memory_text = mem.get("memory", mem.get("text", ""))
-        mem_id = mem.get("id", "")[:8]
+        memory_text = mem.get("memory") or mem.get("text") or ""
+        mem_id = (mem.get("id") or "")[:8]
         score = mem.get("score")
         created = _format_date(mem.get("created_at"))
         category = mem.get("categories", [None])
@@ -67,8 +67,8 @@ def format_memories_table(
     table.add_column("Created", max_width=12)
 
     for mem in memories:
-        mem_id = mem.get("id", "")
-        memory_text = mem.get("memory", mem.get("text", ""))
+        mem_id = mem.get("id") or ""
+        memory_text = mem.get("memory") or mem.get("text") or ""
         if len(memory_text) > 60:
             memory_text = memory_text[:57] + "..."
         categories = mem.get("categories", [])

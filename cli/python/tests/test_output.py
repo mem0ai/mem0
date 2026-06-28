@@ -54,6 +54,11 @@ class TestTextFormat:
         output = buf.getvalue()
         assert "Found 0" in output
 
+    def test_format_memories_text_handles_null_fields(self):
+        console, buf = _make_console()
+        format_memories_text(console, [{"id": None, "memory": None, "created_at": None}])
+        assert "Found 1 memories" in buf.getvalue()
+
 
 class TestTableFormat:
     def test_format_memories_table(self):
@@ -69,6 +74,13 @@ class TestTableFormat:
         output = buf.getvalue()
         # Should still render (empty table)
         assert "ID" in output
+
+    def test_format_memories_table_handles_null_fields(self):
+        console, buf = _make_console()
+        format_memories_table(console, [{"id": None, "memory": None, "created_at": None}])
+        output = buf.getvalue()
+        assert "ID" in output
+        assert "Memory" in output
 
 
 class TestSingleMemory:
