@@ -139,6 +139,11 @@ class TestNestedAccess:
         assert set_nested_value(config, "platform.api_key", "new-key")
         assert config.platform.api_key == "new-key"
 
+    def test_set_int_value_rejects_invalid_input(self):
+        config = Mem0Config()
+        assert set_nested_value(config, "version", "abc") is False
+        assert config.version == 1
+
     def test_set_nonexistent_key(self):
         config = Mem0Config()
         assert set_nested_value(config, "nonexistent.key", "val") is False

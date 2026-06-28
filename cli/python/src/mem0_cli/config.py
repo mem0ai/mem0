@@ -235,7 +235,10 @@ def set_nested_value(config: Mem0Config, dotted_key: str, value: str) -> bool:
     if isinstance(current, bool):
         value = value.lower() in ("true", "1", "yes")  # type: ignore[assignment]
     elif isinstance(current, int):
-        value = int(value)  # type: ignore[assignment]
+        try:
+            value = int(value)  # type: ignore[assignment]
+        except ValueError:
+            return False
 
     setattr(obj, final_key, value)
     return True
