@@ -1529,3 +1529,36 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_sync_memory_init_does_not_dead_deepcopy_vector_store_config_when_telemetry_enabled(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Regression for #5871: Memory.__init__'s telemetry block used to call
+    ``_safe_deepcopy_config(self.config.vector_store.config)`` and assign the
+    result to ``telemetry_config``, then immediately overwrite that variable
+    with a dict-based constructor call. The deepcopy result was never read,
+    so every ``Memory()`` instantiation with ``MEM0_TELEMETRY=True`` wasted a
+    full config copy on the floor.
+
+    The sync class builds its telemetry config purely from
+    ``telemetry_config_dict``; the only ``_safe_deepcopy_config`` call site
+    inside ``__init__`` should therefore be... none. (The entity-store
+    deepcopy lives behind a ``@property`` and is not exercised during
+    construction.)
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    with patch('mem0.memory.main.MEM0_TELEMETRY', True):
+        with patch('mem0.memory.main._safe_deepcopy_config') as mock_deepcopy:
+            config = MemoryConfig()
+            Memory(config)
+            mock_deepcopy.assert_not_called()
+
