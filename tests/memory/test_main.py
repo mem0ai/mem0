@@ -117,6 +117,52 @@ class TestPromptOverridesCustomInstructions:
         assert "config-level instructions" in user_prompt
 
 
+class TestObservationDateFromMetadataTimestamp:
+    """Regression tests for issue #4963: when a caller supplies
+    metadata['timestamp'], the extraction prompt's `## Observation Date`
+    should reflect that historical timestamp rather than falling back to
+    the current system date.
+    """
+
+    HISTORICAL_TIMESTAMP = "2023-05-24T10:00:00+00:00"
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+
+        memory = Memory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    def test_sync_passes_metadata_timestamp_into_observation_date(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"timestamp": self.HISTORICAL_TIMESTAMP},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" in user_prompt
+
+    def test_sync_omits_observation_date_when_no_timestamp(self, mock_memory):
+        """When the caller does not supply a timestamp, the prompt should
+        not claim a historical observation date — Observation Date falls
+        back to Current Date (the system date)."""
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" not in user_prompt
+
+
 class TestAsyncUpdate:
     @pytest.fixture
     def mock_async_memory(self, mocker):
@@ -244,6 +290,35 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+
+class TestAsyncObservationDateFromMetadataTimestamp:
+    """Async regression for issue #4963."""
+
+    HISTORICAL_TIMESTAMP = "2023-05-24T10:00:00+00:00"
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+
+        memory = AsyncMemory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_async_passes_metadata_timestamp_into_observation_date(self, mock_async_memory):
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"timestamp": self.HISTORICAL_TIMESTAMP},
+            effective_filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_async_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" in user_prompt
 
 
 def _build_memory_instance(mocker, memory_cls):
