@@ -143,6 +143,25 @@ class TestNestedAccess:
         config = Mem0Config()
         assert set_nested_value(config, "nonexistent.key", "val") is False
 
+    def test_set_non_numeric_int_value_returns_false(self):
+        """Non-numeric input for an int field fails the set instead of crashing.
+
+        Regression: ``int(value)`` used to raise an uncaught ``ValueError``,
+        surfacing a raw traceback for ``mem0 config set version abc``. The
+        documented contract is that a failed set returns ``False`` (matching
+        the unknown-key case), leaving the original value untouched.
+        """
+        config = Mem0Config()
+        original = config.version
+        assert set_nested_value(config, "version", "not-a-number") is False
+        assert config.version == original
+
+    def test_set_valid_int_value_coerced(self):
+        """Numeric input for an int field still coerces and succeeds."""
+        config = Mem0Config()
+        assert set_nested_value(config, "version", "42") is True
+        assert config.version == 42
+
     def test_get_defaults_user_id(self):
         config = Mem0Config()
         config.defaults.user_id = "alice"
