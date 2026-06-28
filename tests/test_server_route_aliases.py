@@ -85,6 +85,11 @@ class TestV1PingAlias:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
+    def test_token_header_bypassed_when_auth_disabled(self, client):
+        resp = client.get("/v1/ping/", headers={"Authorization": "Token any-dummy-key"})
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "ok"}
+
 
 # ===========================================================================
 # /v3/memories/add/ and /v3/memories/ aliases
