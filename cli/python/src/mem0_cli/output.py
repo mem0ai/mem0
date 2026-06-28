@@ -20,11 +20,15 @@ def format_memories_text(console: Console, memories: list[dict], title: str = "m
     console.print(f"\n[{BRAND_COLOR}]Found {count} {title}:[/]\n")
 
     for i, mem in enumerate(memories, 1):
-        memory_text = mem.get("memory", mem.get("text", ""))
-        mem_id = mem.get("id", "")[:8]
+        # Defensive against explicit JSON nulls: ``dict.get(k, default)`` returns
+        # ``None`` when the key is present with a null value, which would crash
+        # the slice/``len`` below. Mirror the ``r.get(...) or ""`` pattern
+        # already used by ``format_add_result`` — see #5931.
+        memory_text = mem.get("memory") or mem.get("text") or ""
+        mem_id = (mem.get("id") or "")[:8]
         score = mem.get("score")
         created = _format_date(mem.get("created_at"))
-        category = mem.get("categories", [None])
+        category = mem.get("categories") or [None]
         if isinstance(category, list):
             category = category[0] if category else None
 
@@ -67,11 +71,12 @@ def format_memories_table(
     table.add_column("Created", max_width=12)
 
     for mem in memories:
-        mem_id = mem.get("id", "")
-        memory_text = mem.get("memory", mem.get("text", ""))
+        # Defensive against explicit JSON nulls — see #5931.
+        mem_id = mem.get("id") or ""
+        memory_text = mem.get("memory") or mem.get("text") or ""
         if len(memory_text) > 60:
             memory_text = memory_text[:57] + "..."
-        categories = mem.get("categories", [])
+        categories = mem.get("categories") or []
         if isinstance(categories, list) and categories:
             cat = (
                 categories[0]
@@ -104,8 +109,8 @@ def format_single_memory(console: Console, mem: dict, output: str = "text") -> N
         format_json(console, mem)
         return
 
-    memory_text = mem.get("memory", mem.get("text", ""))
-    mem_id = mem.get("id", "")
+    memory_text = mem.get("memory") or mem.get("text") or ""
+    mem_id = mem.get("id") or ""
 
     lines = []
     lines.append(f"  [white bold]{memory_text}[/]")

@@ -280,3 +280,48 @@ class TestSanitizeAgentData:
 
     def test_none_data(self):
         assert sanitize_agent_data("add", None) is None
+
+
+class TestNullFields:
+    """Regression tests for #5931.
+
+    Backend responses may carry explicit JSON ``null`` for ``id``/``memory``
+    fields. ``dict.get(k, default)`` returns ``None`` (not the default) when
+    the key is present with a null value, which used to make the slice/``len``
+    in the list/single formatters crash with ``TypeError``.
+    """
+
+    NULL_RECORDS = [
+        {
+            "id": None,
+            "memory": None,
+            "text": None,
+            "created_at": None,
+            "categories": None,
+            "score": None,
+        }
+    ]
+
+    def test_format_memories_text_handles_null_fields(self):
+        """Should not raise on records with explicit ``None`` fields."""
+        console, _buf = _make_console()
+        format_memories_text(console, self.NULL_RECORDS)  # no exception
+
+    def test_format_memories_table_handles_null_fields(self):
+        """Should not raise on records with explicit ``None`` fields."""
+        console, _buf = _make_console()
+        format_memories_table(console, self.NULL_RECORDS)  # no exception
+
+    def test_format_single_memory_handles_null_fields(self):
+        """Should not raise when the single-memory record is all-null."""
+        console, _buf = _make_console()
+        format_single_memory(console, self.NULL_RECORDS[0])  # no exception
+
+    def test_format_memories_table_renders_blank_id(self):
+        """A null ``id`` renders as an empty cell, not a crash."""
+        console, buf = _make_console()
+        format_memories_table(console, self.NULL_RECORDS)
+        output = buf.getvalue()
+        # Memory cell should be empty (None coerced to ""), no traceback.
+        assert "TypeError" not in output
+        assert "Memory" in output  # header still rendered
