@@ -388,6 +388,10 @@ class TestTokenAuthScheme:
         resp = auth_client.get("/v1/ping/", headers={"X-API-Key": "test-admin-key-for-token-auth"})
         assert resp.status_code == 200
 
+    def test_empty_token_value_returns_401(self, auth_client):
+        resp = auth_client.get("/v1/ping/", headers={"Authorization": "Token "})
+        assert resp.status_code == 401
+
     def test_token_scheme_on_versioned_alias(self, auth_client, _mock_memory):
         resp = auth_client.post(
             "/v3/memories/search/",
