@@ -56,7 +56,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        kwargs = {"input": [text], "model": self.config.model}
+        kwargs = {"input": [text], "model": self.config.model, "encoding_format": "float"}
         if self._pass_dimensions_to_api:
             kwargs["dimensions"] = self.config.embedding_dims
         return self.client.embeddings.create(**kwargs).data[0].embedding
@@ -71,7 +71,7 @@ class AzureOpenAIEmbedding(EmbeddingBase):
         all_embeddings = []
         for i in range(0, len(texts), MAX_BATCH):
             chunk = texts[i : i + MAX_BATCH]
-            kwargs = {"input": chunk, "model": self.config.model}
+            kwargs = {"input": chunk, "model": self.config.model, "encoding_format": "float"}
             if self._pass_dimensions_to_api:
                 kwargs["dimensions"] = self.config.embedding_dims
             response = self.client.embeddings.create(**kwargs)

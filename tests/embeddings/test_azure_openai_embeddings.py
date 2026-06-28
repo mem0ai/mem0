@@ -26,7 +26,9 @@ def test_embed_text(mock_openai_client):
     embedding = embedder.embed(text)
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["Hello, this is a test."], model="text-embedding-ada-002"
+        input=["Hello, this is a test."],
+        model="text-embedding-ada-002",
+        encoding_format="float",
     )
     assert embedding == [0.1, 0.2, 0.3]
 
@@ -45,8 +47,36 @@ def test_embed_passes_dimensions_only_when_explicit(mock_openai_client):
     embedder.embed("truncate me")
 
     mock_openai_client.embeddings.create.assert_called_once_with(
-        input=["truncate me"], model="text-embedding-3-small", dimensions=256
+        input=["truncate me"],
+        model="text-embedding-3-small",
+        encoding_format="float",
+        dimensions=256,
     )
+
+
+def test_embed_batch_passes_dimensions_only_when_explicit(mock_openai_client):
+    """embed_batch is the hot path for bulk memory add/update — it must forward
+    `dimensions` the same way `embed` does, otherwise matryoshka truncation
+    silently regresses for the bulk path while working for single embeds."""
+    config = BaseEmbedderConfig(model="text-embedding-3-small", embedding_dims=256)
+    embedder = AzureOpenAIEmbedding(config)
+
+    mock_response = Mock()
+    mock_response.data = [
+        Mock(index=0, embedding=[0.1] * 256),
+        Mock(index=1, embedding=[0.2] * 256),
+    ]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    embeddings = embedder.embed_batch(["first", "second"])
+
+    mock_openai_client.embeddings.create.assert_called_once_with(
+        input=["first", "second"],
+        model="text-embedding-3-small",
+        encoding_format="float",
+        dimensions=256,
+    )
+    assert embeddings == [[0.1] * 256, [0.2] * 256]
 
 
 @pytest.mark.parametrize(
