@@ -1852,7 +1852,10 @@ class Memory(MemoryBase):
         # delete all vector memories and reset the collections
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
-            self._delete_memory(memory.id)
+            # Pass the already-fetched ``memory`` as ``existing_memory`` so
+            # ``_delete_memory`` does not re-fetch it via ``vector_store.get``
+            # on every iteration — see #5869.
+            self._delete_memory(memory.id, existing_memory=memory)
 
         logger.info(f"Deleted {len(memories)} memories")
 
@@ -3472,7 +3475,10 @@ class AsyncMemory(MemoryBase):
 
         delete_tasks = []
         for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
+            # Pass the already-fetched ``memory`` as ``existing_memory`` so
+            # ``_delete_memory`` does not re-fetch it via ``vector_store.get``
+            # on every iteration — see #5869.
+            delete_tasks.append(self._delete_memory(memory.id, existing_memory=memory, skip_entity_cleanup=True))
 
         results = await asyncio.gather(*delete_tasks, return_exceptions=True)
 

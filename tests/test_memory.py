@@ -1529,3 +1529,72 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_delete_all_does_not_refetch_each_memory_from_vector_store(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Regression for #5869: ``Memory.delete_all`` already had every memory
+    in hand from ``vector_store.list()``, but called ``_delete_memory(memory.id)``
+    without forwarding the object — forcing ``_delete_memory`` to issue a
+    redundant ``vector_store.get()`` per memory (N extra reads).
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    # Pre-populate list() with three fake memories so delete_all has work to do.
+    fake_memories = [
+        MagicMock(id=f"mem-{i}", payload={"data": f"fact {i}", "user_id": "u1"})
+        for i in range(3)
+    ]
+    mock_vector_store.list.return_value = (fake_memories, 0)
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    memory.delete_all(user_id="u1")
+
+    # ``get`` must never be called: every memory was forwarded via existing_memory.
+    mock_vector_store.get.assert_not_called()
+    # And we did call ``delete`` exactly once per memory.
+    assert mock_vector_store.delete.call_count == len(fake_memories)
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_delete_all_does_not_refetch_each_memory_from_vector_store(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Regression for #5869 (async): ``AsyncMemory.delete_all`` had the same
+    N+1 read pattern as the sync path — fix forwards the already-fetched
+    memory into ``_delete_memory``."""
+    from mem0 import AsyncMemory
+
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    fake_memories = [
+        MagicMock(id=f"mem-{i}", payload={"data": f"fact {i}", "user_id": "u1"})
+        for i in range(3)
+    ]
+    mock_vector_store.list.return_value = (fake_memories, 0)
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    await memory.delete_all(user_id="u1")
+
+    mock_vector_store.get.assert_not_called()
+    assert mock_vector_store.delete.call_count == len(fake_memories)
+
