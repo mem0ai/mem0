@@ -60,7 +60,7 @@ import os
 
 from mem0 import Memory
 
-memory = Memory(api_key=os.environ["MEM0_API_KEY"])
+memory = Memory()
 
 # Sticky note: conversation memory
 memory.add(
@@ -72,8 +72,7 @@ memory.add(
 # Later in the session, pull long-term + session context
 results = memory.search(
     "Any hotel preferences?",
-    user_id="alex",
-    run_id="trip-planning-2025",
+    filters={"user_id": "alex", "run_id": "trip-planning-2025"},
 )
 ```
 
@@ -98,13 +97,13 @@ results = memory.search(
 | Org | Configured globally | Long-term | Shared knowledge | Needs owner to keep current |
 
 <Warning>
-  Avoid storing secrets or unredacted PII in user or org memories—Mem0 is retrievable by design. Encrypt or hash sensitive values first.
+  Avoid storing secrets or unredacted PII in user or org memories: Mem0 is retrievable by design. Encrypt or hash sensitive values first.
 </Warning>
 
 ## Put it into practice
 
 - Use the <Link href="/core-concepts/memory-operations/add">Add Memory</Link> guide to persist user preferences.
-- Follow <Link href="/platform/advanced-memory-operations">Advanced Memory Operations</Link> to tune metadata and graph writes.
+- Follow <Link href="/platform/advanced-memory-operations">Advanced Memory Operations</Link> to tune metadata and retrieval.
 
 ## See it live
 

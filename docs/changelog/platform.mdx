@@ -1,13 +1,31 @@
 ---
 title: "Platform"
-description: "Release notes for the Mem0 hosted platform — backend, dashboard, billing, and infrastructure changes."
+description: "Release notes for the Mem0 hosted platform: backend, dashboard, billing, and infrastructure changes."
 mode: "wide"
 ---
+
+<Update label="2026-05-13" description="">
+
+**New Features:**
+- **Memory:** Added Temporal Reasoning for Platform v3 to improve ranking for time-aware queries such as `last week`, `upcoming`, `right now`, and `as of ...`
+- **Search:** Added `reference_date` support to anchor relative temporal queries for tests, backfills, and reproducible demos
+
+**Improvements:**
+- **API:** Temporal reasoning preserves the normal client response shape for search and get-all results
+
+</Update>
+
+<Update label="2026-05-04" description="">
+
+**New Features:**
+- **Memory Decay:** Per-project search-time ranking bias that boosts recently-used memories and gently dampens stale ones. Opt-in via `decay` on the project endpoint; off by default. The scaling factor stays in `0.3×–1.5×`, the public `score` remains clamped to `[0, 1]`, and the bias never filters a candidate out. See [Memory Decay docs](/platform/features/memory-decay).
+
+</Update>
 
 <Update label="2026-04-16" description="">
 
 **Improvements:**
-- **UI:** Removed Graph Memory tab, page, and all references from dashboard, sidebar, project settings, playground, and billing
+- **UI:** Removed the legacy external-graph-store visualization tab, page, and its references from dashboard, sidebar, project settings, playground, and billing
 
 </Update>
 
@@ -294,4 +312,3 @@ mode: "wide"
 - **Core:** Fixed unicode error in user_id, agent_id, run_id and app_id
 
 </Update>
-

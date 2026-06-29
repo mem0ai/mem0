@@ -4,22 +4,7 @@ description: Fine-grained metadata queries for precise OSS memory retrieval.
 icon: "filter"
 ---
 
-Enhanced metadata filtering in Mem0 1.0.0 lets you run complex queries across memory metadata. Combine comparisons, logical operators, and wildcard matches to zero in on the exact memories your agent needs.
-
-<Info>
-  **You’ll use this when…**
-  - Retrieval must respect multiple metadata conditions before returning context.
-  - You need to mix numeric, boolean, and string filters in a single query.
-  - Agents rely on deterministic filtering instead of broad semantic search alone.
-</Info>
-
-<Warning>
-  Enhanced filtering requires Mem0 1.0.0 or later and a vector store that supports the operators you enable. Unsupported operators fall back to simple equality filters.
-</Warning>
-
-<Note>
-  The TypeScript SDK accepts the same filter shape shown here—transpose the dictionaries to objects and reuse the keys unchanged.
-</Note>
+Enhanced metadata filtering in Mem0 lets you run complex queries across memory metadata. Combine comparisons, logical operators, and wildcard matches to zero in on the exact memories your agent needs.
 
 ---
 
@@ -126,7 +111,7 @@ results = m.search(
 
 ### Wildcard matching
 
-Allow any value for a field while still requiring the field to exist—handy when the mere presence of a field matters.
+Allow any value for a field while still requiring the field to exist: handy when the mere presence of a field matters.
 
 ```python
 # Match any value for a field
@@ -148,8 +133,8 @@ Combine filters with `AND`, `OR`, and `NOT` to express complex decision trees. N
 results = m.search(
     "complex query",
     filters={
+        "user_id": "alice",
         "AND": [
-            {"user_id": "alice"},
             {"category": "work"},
             {"priority": {"gte": 7}},
             {"status": {"ne": "completed"}}
@@ -161,15 +146,11 @@ results = m.search(
 results = m.search(
     "flexible query",
     filters={
-        "AND": [
-            {"user_id": "alice"},
-            {
-                "OR": [
-                    {"category": "urgent"},
-                    {"priority": {"gte": 9}},
-                    {"deadline": {"contains": "today"}}
-                ]
-            }
+        "user_id": "alice",
+        "OR": [
+            {"category": "urgent"},
+            {"priority": {"gte": 9}},
+            {"deadline": {"contains": "today"}}
         ]
     }
 )
@@ -178,14 +159,10 @@ results = m.search(
 results = m.search(
     "exclusion query",
     filters={
-        "AND": [
-            {"user_id": "alice"},
-            {
-                "NOT": [
-                    {"category": "archived"},
-                    {"status": "deleted"}
-                ]
-            }
+        "user_id": "alice",
+        "NOT": [
+            {"category": "archived"},
+            {"status": "deleted"}
         ]
     }
 )
@@ -194,8 +171,8 @@ results = m.search(
 results = m.search(
     "advanced query",
     filters={
+        "user_id": "alice",
         "AND": [
-            {"user_id": "alice"},
             {
                 "OR": [
                     {"category": "work"},
@@ -214,7 +191,7 @@ results = m.search(
 ```
 
 <Info icon="check">
-  Inspect the response metadata—each returned memory should satisfy the combined logic tree exactly. If results look too broad, log the raw filters sent to your vector store.
+  Inspect the response metadata: each returned memory should satisfy the combined logic tree exactly. If results look too broad, log the raw filters sent to your vector store.
 </Info>
 
 ---
@@ -238,7 +215,7 @@ config = {
 ```
 
 <Info icon="check">
-  After enabling indexing, benchmark the same query—latency should drop once the store can prune documents on indexed fields before vector scoring.
+  After enabling indexing, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
 </Info>
 
 <Tip>
@@ -248,8 +225,8 @@ config = {
 ```python
 # More efficient: Filter on indexed fields first
 good_filters = {
+    "user_id": "alice",
     "AND": [
-        {"user_id": "alice"},
         {"category": "work"},
         {"content": {"contains": "meeting"}}
     ]
@@ -257,9 +234,9 @@ good_filters = {
 
 # Less efficient: Complex operations first
 avoid_filters = {
+    "user_id": "alice",
     "AND": [
-        {"description": {"icontains": "complex text search"}},
-        {"user_id": "alice"}
+        {"description": {"icontains": "complex text search"}}
     ]
 }
 ```
@@ -275,7 +252,7 @@ Vector store support varies. Confirm operator coverage before shipping:
     Full comparison, list, and logical support. Handles deeply nested boolean logic efficiently.
   </Accordion>
   <Accordion title="Chroma">
-    Equality and basic comparisons only. Limited nesting—break large trees into smaller calls.
+    Equality and basic comparisons only. Limited nesting: break large trees into smaller calls.
   </Accordion>
   <Accordion title="Pinecone">
     Comparisons plus `in`/`nin`. Text operators are constrained; rely on tags where possible.
@@ -302,8 +279,8 @@ results = m.search(
 results = m.search(
     "query",
     filters={
+        "user_id": "alice",
         "AND": [
-            {"user_id": "alice"},
             {"category": "work"},
             {"status": {"ne": "archived"}},
             {"priority": {"gte": 5}}
@@ -327,8 +304,8 @@ results = m.search(
 results = m.search(
     "What tasks need attention?",
     filters={
+        "user_id": "project_manager",
         "AND": [
-            {"user_id": "project_manager"},
             {"project": {"in": ["alpha", ""]}},
             {"priority": {"gte": 8}},
             {"status": {"ne": "completed"}},
@@ -354,8 +331,8 @@ results = m.search(
 results = m.search(
     "pending support issues",
     filters={
+        "agent_id": "support_bot",
         "AND": [
-            {"agent_id": "support_bot"},
             {"ticket_status": {"ne": "resolved"}},
             {"priority": {"in": ["high", "critical"]}},
             {"created_date": {"gte": "2024-01-01"}},
@@ -380,8 +357,8 @@ results = m.search(
 results = m.search(
     "recommend content",
     filters={
+        "user_id": "reader123",
         "AND": [
-            {"user_id": "reader123"},
             {
                 "OR": [
                     {"genre": {"in": ["sci-fi", "fantasy"]}},
@@ -436,7 +413,7 @@ except ValueError as e:
 ## Best practices
 
 1. **Use indexed fields first:** Order filters so equality checks run before complex string operations.
-2. **Combine operators intentionally:** Keep logical trees readable—large nests are harder to debug.
+2. **Combine operators intentionally:** Keep logical trees readable: large nests are harder to debug.
 3. **Test performance regularly:** Benchmark critical queries with production-like payloads.
 4. **Plan graceful degradation:** Provide fallback filters when an operator isn’t available.
 5. **Validate syntax early:** Catch malformed filters during development to protect agents at runtime.

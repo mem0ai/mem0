@@ -419,7 +419,7 @@
 													},
 													"results": {
 														"type": "array",
-														"description": "Array of results produced by the event."
+														"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal reasoning enrichment runs asynchronously by default."
 													},
 													"created_at": {
 														"type": "string",
@@ -1779,6 +1779,11 @@
 										"type": "object",
 										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`).",
 										"additionalProperties": true
+									},
+									"show_expired": {
+										"type": "boolean",
+										"default": false,
+										"description": "When true, include memories whose `expiration_date` has passed. Expired memories are hidden by default."
 									}
 								}
 							},
@@ -1977,6 +1982,12 @@
 										"additionalProperties": true,
 										"description": "User-supplied metadata to attach to each extracted memory."
 									},
+									"expiration_date": {
+										"type": "string",
+										"format": "date",
+										"nullable": true,
+										"description": "Optional expiration date in YYYY-MM-DD format. After this date, memories are hidden from search and get-all unless `show_expired` is true."
+									},
 									"custom_instructions": {
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
@@ -2071,7 +2082,7 @@
 					"memories"
 				],
 				"summary": "Search memories (V3)",
-				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval — the returned `score` is a combined `[0, 1]` value; per-signal component scores are not exposed on the response. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
+				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval and can also apply temporal reasoning for time-aware queries. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
 				"operationId": "memories_search_v3",
 				"requestBody": {
 					"required": true,
@@ -2094,6 +2105,11 @@
 										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`). Supports `AND`, `OR`, `NOT`, and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `contains`, `icontains`, `ne`).",
 										"additionalProperties": true
 									},
+									"show_expired": {
+										"type": "boolean",
+										"default": false,
+										"description": "When true, include memories whose `expiration_date` has passed. Expired memories are hidden by default."
+									},
 									"top_k": {
 										"type": "integer",
 										"minimum": 1,
@@ -2112,6 +2128,21 @@
 										"type": "boolean",
 										"default": false,
 										"description": "Apply the managed reranker for better ordering (adds latency)."
+									},
+									"reference_date": {
+										"oneOf": [
+											{
+												"type": "integer"
+											},
+											{
+												"type": "number"
+											},
+											{
+												"type": "string"
+											}
+										],
+										"nullable": true,
+										"description": "Optional query anchor time for relative temporal interpretation. Accepts Unix epoch, YYYY-MM-DD, or ISO datetime."
 									}
 								}
 							},
@@ -2417,6 +2448,12 @@
 									"metadata": {
 										"type": "object",
 										"description": "Additional metadata associated with the memory"
+									},
+									"expiration_date": {
+										"type": "string",
+										"format": "date",
+										"nullable": true,
+										"description": "Expiration date in YYYY-MM-DD format, or null to clear the expiration date."
 									}
 								}
 							}
@@ -4846,8 +4883,7 @@
 										"items": {
 											"type": "object",
 											"required": [
-												"memory_id",
-												"text"
+												"memory_id"
 											],
 											"properties": {
 												"memory_id": {
@@ -4858,6 +4894,11 @@
 												"text": {
 													"type": "string",
 													"description": "The new text content for the memory"
+												},
+												"metadata": {
+													"type": "object",
+													"additionalProperties": true,
+													"description": "Updated metadata to associate with the memory."
 												}
 											}
 										},
@@ -4933,18 +4974,27 @@
 							"schema": {
 								"type": "object",
 								"properties": {
-									"memory_ids": {
+									"memories": {
 										"type": "array",
 										"items": {
-											"type": "string",
-											"format": "uuid"
+											"type": "object",
+											"properties": {
+												"memory_id": {
+													"type": "string",
+													"format": "uuid",
+													"description": "The unique identifier of the memory to delete."
+												}
+											},
+											"required": [
+												"memory_id"
+											]
 										},
 										"maxItems": 1000,
-										"description": "Array of memory IDs to delete."
+										"description": "Array of memory objects to delete."
 									}
 								},
 								"required": [
-									"memory_ids"
+									"memories"
 								]
 							}
 						}

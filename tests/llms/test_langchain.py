@@ -115,6 +115,20 @@ def test_generate_response_with_tools(mock_langchain_model):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_forwards_extra_kwargs(mock_langchain_model):
+    """Per the LLMBase contract, extra model kwargs must be accepted and forwarded to
+    the underlying LangChain model's ``invoke``."""
+    config = BaseLlmConfig(model=mock_langchain_model, temperature=0.7, max_tokens=100, api_key="test-api-key")
+    llm = LangchainLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    response = llm.generate_response(messages, frequency_penalty=0.5)
+
+    mock_langchain_model.invoke.assert_called_once()
+    assert mock_langchain_model.invoke.call_args.kwargs["frequency_penalty"] == 0.5
+    assert response == "This is a test response"
+
+
 def test_invalid_model():
     """Test that LangchainLLM raises an error with an invalid model."""
     config = BaseLlmConfig(model="not-a-valid-model-instance", temperature=0.7, max_tokens=100, api_key="test-api-key")

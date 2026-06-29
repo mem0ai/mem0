@@ -4,18 +4,51 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-06-12" description="v1.0.13">
+
+**Fixes:**
+- **Custom categories payload:** `customCategories` (a `Record<string, string>` map) is now converted via the new `customCategoryMapToList()` helper into the `Array<Record<string, string>>` shape the Mem0 SDK expects on `add` calls: previously the raw object was passed as `custom_categories` and silently ignored ([#5345](https://github.com/mem0ai/mem0/pull/5345))
+- **Skip runtime setup during metadata registration:** `register()` now detects `registrationMode === "cli-metadata"`, registers only the CLI commands, and returns early: avoiding backend initialization, service/tool registration, and hook installation during OpenClaw's metadata-only registration pass ([#5383](https://github.com/mem0ai/mem0/pull/5383))
+
+**Security:**
+- Bumped `mem0ai` from `3.0.3` to `3.0.7` (latest Node SDK): includes the transitive axios CVE remediation shipped in `3.0.6` ([#5460](https://github.com/mem0ai/mem0/pull/5460))
+- Added pnpm override `uuid@<11.1.1` → `>=11.1.1` to resolve an open MEDIUM Dependabot alert ([#5489](https://github.com/mem0ai/mem0/pull/5489))
+
+**Improvements:**
+- **Repo consolidation:** Plugin moved from repo-root `openclaw/` to `integrations/openclaw/`; `package.json` `repository.directory` updated to match so npm provenance links to the correct subdirectory ([#5491](https://github.com/mem0ai/mem0/pull/5491))
+
+**Tests:**
+- Added `customCategoryMapToList` unit tests and a `PlatformProvider` test asserting `custom_categories` is passed to the Mem0 SDK as a list ([#5345](https://github.com/mem0ai/mem0/pull/5345))
+- Added a regression test asserting `cli-metadata` registration registers only CLI commands and triggers no runtime side effects ([#5383](https://github.com/mem0ai/mem0/pull/5383))
+
+</Update>
+
+<Update label="2026-06-02" description="v1.0.12">
+
+**Docs:**
+- **Agent Mode onboarding:** README now documents an autonomous setup path for AI agents: `mem0 init --agent --json` mints an evaluation Mem0 API key with no email, OTP, or browser and exports it as `MEM0_API_KEY` for `openclaw mem0 init`; a human owner can later run `mem0 init --email <email>` to claim ownership without disrupting the agent ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+
+**Security:**
+- Added pnpm overrides to remediate advisories in transitive dependencies: `langsmith@<0.6.0` → `^0.6.0`, `picomatch@<2.3.2` → `^2.3.2`, `vite` → `^8.0.5`, and `@qdrant/js-client-rest` → `^1.18.0` ([#5294](https://github.com/mem0ai/mem0/pull/5294))
+
+**Dependencies:**
+- Bumped `mem0ai` from `3.0.2` to `3.0.3` ([#5212](https://github.com/mem0ai/mem0/pull/5212))
+- Bumped dev dependencies `@vitest/coverage-v8` and `vitest` from `^4.0.18` to `^4.1.7`; added `vite@^8.0.5` and `@qdrant/js-client-rest@^1.18.0` ([#5294](https://github.com/mem0ai/mem0/pull/5294))
+
+</Update>
+
 <Update label="2026-04-29" description="v1.0.11">
 
 **New Features:**
-- **Skills-mode auto-setup:** `enableSkillsConfig()` now runs automatically after onboarding — enables triage, recall (with reranking + keyword search), and dream consolidation with `tools.profile = "full"` and disables the built-in session-memory hook to avoid conflicts
+- **Skills-mode auto-setup:** `enableSkillsConfig()` now runs automatically after onboarding: enables triage, recall (with reranking + keyword search), and dream consolidation with `tools.profile = "full"` and disables the built-in session-memory hook to avoid conflicts
 - **Memory runtime capability:** Plugin now exposes `runtime.getMemorySearchManager()` and `resolveMemoryBackendConfig()` on the registered memory capability, enabling OpenClaw gateway to query memory status and backend config directly
 - **Dimension-aware collections:** OSS wizard detects embedder dimension changes and creates a new collection (`mem0_<dims>d`) automatically, with a warning about old memories being inaccessible under the new embedder
 - **Tool documentation in skills:** Both `memory-triage` and `memory-dream` SKILL.md files now include full tool reference sections listing all available tools with parameters
 
 **Improvements:**
 - **Auto-capture and auto-recall default to enabled:** `autoCapture` and `autoRecall` now default to `true` (was `false`). Manifest descriptions updated accordingly. Ignored in skills mode
-- **`memory_update` over delete+add:** Skills now prefer `memory_update` for in-place edits — atomic and preserves edit history. Consolidation pattern updated: update best memory, delete redundant ones
-- **Search threshold lowered:** Default `searchThreshold` reduced from `0.5` to `0.1` for broader recall. Removed hardcoded `0.6` recall-specific override — all searches now use the configured threshold
+- **`memory_update` over delete+add:** Skills now prefer `memory_update` for in-place edits: atomic and preserves edit history. Consolidation pattern updated: update best memory, delete redundant ones
+- **Search threshold lowered:** Default `searchThreshold` reduced from `0.5` to `0.1` for broader recall. Removed hardcoded `0.6` recall-specific override: all searches now use the configured threshold
 - **Embedder dimension propagation:** Vector store config auto-resolves dimensions from embedder config when not explicitly set. Syncs `dimension` and `embeddingModelDims` fields for Qdrant/PGVector compatibility
 - **Config file write safety:** `writeFullConfig()` now re-reads and deep-merges the `plugins` section before writing, preserving `installs` and `slots` written by the OpenClaw gateway
 - **Additional embedder models:** Added `mxbai-embed-large` (1024), `all-minilm` (384), and `snowflake-arctic-embed` (1024) to known embedder dimensions
@@ -24,7 +57,7 @@ mode: "wide"
 - Bumped `protobufjs` to `>=7.5.5` via pnpm overrides (GHSA-xq3m-2v4x-88gg) ([#5012](https://github.com/mem0ai/mem0/pull/5012))
 
 **Fixes:**
-- Moved `bootstrapTelemetryFlag()` and removed `ensureInstallRecord()` from module-level side effects — both now run inside `register()` to avoid crashes when loaded outside OpenClaw gateway
+- Moved `bootstrapTelemetryFlag()` and removed `ensureInstallRecord()` from module-level side effects: both now run inside `register()` to avoid crashes when loaded outside OpenClaw gateway
 - Fixed OSS history DB path resolution: absolute paths no longer passed through `resolvePath()`, preventing double-prefix bugs
 - Manifest `providerAuthEnvVars` replaced with spec-compliant `setup.providers` format using `id` + `envVars`
 
@@ -37,14 +70,14 @@ mode: "wide"
 <Update label="2026-04-23" description="v1.0.10">
 
 **Security:**
-- Telemetry `distinct_id` now uses SHA-256 instead of MD5 — prevents rainbow-table reversal of API key hashes
-- User email is now SHA-256 hashed before sending as `distinct_id` — no PII in telemetry payloads
+- Telemetry `distinct_id` now uses SHA-256 instead of MD5: prevents rainbow-table reversal of API key hashes
+- User email is now SHA-256 hashed before sending as `distinct_id`: no PII in telemetry payloads
 - Declared PostHog telemetry endpoint (`us.i.posthog.com`) in `providerEndpoints`
 
 **Fixes:**
 - Fixed version-pinned install records preventing plugin updates. `ensureInstallRecord()` now detects semver-pinned specs (e.g. `@mem0/openclaw-mem0@1.0.7`) and rewrites them to `@latest` or `clawhub:` prefix so `openclaw plugins update` resolves to the newest release
 - Fixed `searchThreshold` default inconsistency: standardized to `0.3` across docs, README, and manifest
-- `PLUGIN_VERSION` now injected at build time via tsup `define` from `package.json` — no more hardcoded version strings
+- `PLUGIN_VERSION` now injected at build time via tsup `define` from `package.json`: no more hardcoded version strings
 
 **Manifest Compliance:**
 - Removed non-spec fields: `requiredEnvVars`, `dataLocations`, `privacy`, `setup` (with `externalEndpoints`, `providers`, `requiresRuntime`, `postInstallHint`)
@@ -62,7 +95,7 @@ mode: "wide"
 
 **Security & Compliance:**
 - Added top-level `requiredEnvVars` to plugin manifest, declaring env vars per mode (platform, OSS OpenAI, OSS Anthropic, OSS Ollama). Fixes ClaHub scanner "required env vars: none" mismatch
-- Added `sensitive: true` and descriptions to `apiKey` and `userEmail` in `configSchema` — previously only declared in `uiHints`
+- Added `sensitive: true` and descriptions to `apiKey` and `userEmail` in `configSchema`: previously only declared in `uiHints`
 - Added `default: false` with descriptions to `autoCapture` and `autoRecall` in `configSchema` so scanner can confirm opt-in defaults
 - Added `dataLocations` field to manifest declaring all persistence paths (config, vectorStore, historyDb, dreamState)
 - Added `privacy` field to manifest documenting data flow for platform vs open-source mode and credential storage guidance
@@ -77,7 +110,7 @@ mode: "wide"
 <Update label="2026-04-21" description="v1.0.8">
 
 **New Features:**
-- **OSS Onboarding Wizard:** New guided 4-step interactive setup for open-source mode — walks through LLM provider, embedding provider, vector store, and user ID selection with prefilled defaults
+- **OSS Onboarding Wizard:** New guided 4-step interactive setup for open-source mode: walks through LLM provider, embedding provider, vector store, and user ID selection with prefilled defaults
 - **Agent-Friendly CLI:** Added `--json` flag to all 16 CLI commands for machine-readable output. Agents can call `openclaw mem0 help --json` to discover every command and flag
 - **Non-Interactive OSS Setup:** Added `--mode open-source` with `--oss-llm`, `--oss-embedder`, `--oss-vector` flags for fully automated OSS configuration without prompts
 - **JSON Helpers Module:** New `cli/json-helpers.ts` with `jsonOut`, `jsonErr`, and `redactSecrets` utilities for consistent structured output
@@ -98,7 +131,7 @@ mode: "wide"
 <Update label="2026-04-20" description="v1.0.7">
 
 **New Features:**
-- **Chat-Based Setup:** Added chat-based Platform setup flow — users can now configure the plugin conversationally instead of editing config files manually
+- **Chat-Based Setup:** Added chat-based Platform setup flow: users can now configure the plugin conversationally instead of editing config files manually
 - **Installation Docs Rewrite:** Rewrote README and integration docs with chat-first setup, numbered manual steps.
 
 **Improvements:**
@@ -113,7 +146,7 @@ mode: "wide"
 **Bug Fixes:**
 - **Telemetry:** Replaced shared `"anonymous-openclaw"` fallback with a persistent per-machine random hash (`openclaw-anon-<uuid>`), so anonymous plugin users are counted individually in PostHog ([#4790](https://github.com/mem0ai/mem0/pull/4790))
 - **Telemetry:** Added PostHog `$identify` event on first authenticated run to stitch anonymous history onto the authenticated profile ([#4790](https://github.com/mem0ai/mem0/pull/4790))
-- **Telemetry:** Fixed event loss on short-lived CLI invocations — added `beforeExit` handler to flush queued events before the process exits ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Fixed event loss on short-lived CLI invocations: added `beforeExit` handler to flush queued events before the process exits ([#4790](https://github.com/mem0ai/mem0/pull/4790))
 - **Telemetry:** Added lazy `/v1/ping/` email resolution so users who configure API key outside `mem0 init` show as their email in PostHog, not an md5 hash ([#4790](https://github.com/mem0ai/mem0/pull/4790))
 - **Telemetry:** Unified CLI event prefix from `openclaw.<cmd>` to `openclaw.cli.<cmd>` on the needsSetup branch to match the authenticated branch ([#4790](https://github.com/mem0ai/mem0/pull/4790))
 
@@ -125,12 +158,12 @@ mode: "wide"
 <Update label="2026-04-07" description="v1.0.5">
 
 **Bug Fixes:**
-- **Init interactive choice bug**: Fixed number selection in `openclaw mem0 init` — entering 1/2/3 now correctly selects the corresponding option (was broken by readline prefill concatenating with user input)
+- **Init interactive choice bug**: Fixed number selection in `openclaw mem0 init`: entering 1/2/3 now correctly selects the corresponding option (was broken by readline prefill concatenating with user input)
 - **OSS pgvector crash** ([#4727](https://github.com/mem0ai/mem0/issues/4727)): Fixed "Client has already been connected" cascade when using pgvector in OSS mode. The warmup call swallowed errors leaving a half-initialized pg client; concurrent recall/capture then all hit `client.connect()` on the same client. Fix: let warmup errors propagate (so `initPromise` resets and retries with a fresh Memory + fresh pg client) and build fresh config objects per attempt instead of mutating shared state.
 
 **Removed:**
 - **`orgId` / `projectId` config parameters**: Removed from config schema, CLI (`config show/get/set`), init display, and providers. The API key is project-scoped, so separate org/project IDs are unnecessary and could cause access errors if mismatched.
-- **`enableGraph` config parameter**: Removed from all config surfaces, providers, backend, and tools. Graph memory is being deprecated — removing the flag avoids unnecessary exposure.
+- **`enableGraph` config parameter**: Removed from all config surfaces, providers, backend, and tools. Graph memory is being deprecated: removing the flag avoids unnecessary exposure.
 
 </Update>
 
@@ -138,8 +171,8 @@ mode: "wide"
 
 **New Features:**
 - **Interactive init flow**: `openclaw mem0 init` with interactive menu (email verification or direct API key). Non-interactive modes: `--api-key`, `--email`, `--email --code`
-- **`memory_add` tool**: Replaces `memory_store` — name now matches `mem0` CLI and platform API
-- **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
+- **`memory_add` tool**: Replaces `memory_store`: name now matches `mem0` CLI and platform API
+- **`memory_delete` tool**: Unified delete: single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
 - **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 status`, `openclaw mem0 config show`, `openclaw mem0 config set`
 - **`import` CLI command**: Bulk-import memories from a JSON file with `--user-id` and `--agent-id` overrides
 - **`event list` / `event status` CLI commands**: Monitor background processing events
@@ -157,17 +190,17 @@ mode: "wide"
 - **Auto-capture minimum content gate**: Skips extraction when total user content is fewer than 50 chars
 
 **Removed:**
-- `memory_store` tool — replaced by `memory_add`
-- `memory_forget` tool — replaced by `memory_delete`
-- `memory_delete_all` tool — merged into `memory_delete`
-- `memory_history` tool and `history` CLI command — deprecated
+- `memory_store` tool: replaced by `memory_add`
+- `memory_forget` tool: replaced by `memory_delete`
+- `memory_delete_all` tool: merged into `memory_delete`
+- `memory_history` tool and `history` CLI command: deprecated
 
 </Update>
 
 <Update label="2026-04-03" description="v1.0.3">
 
 **Bug Fixes:**
-- **Security**: Added `safePath()` containment helper to `readSkillFile` and `readDomainOverlay` in `skill-loader.ts` — prevents directory traversal
+- **Security**: Added `safePath()` containment helper to `readSkillFile` and `readDomainOverlay` in `skill-loader.ts`: prevents directory traversal
 - **Noise filter**: Reverted incorrect `After-Compaction` regex rename back to `Post-Compaction`
 
 **Changes:**
@@ -181,7 +214,7 @@ mode: "wide"
 <Update label="2026-04-02" description="v1.0.2">
 
 **Bug Fixes:**
-- **Security**: Removed `resolveEnvVars()` and `resolveEnvVarsDeep()` from `config.ts` — plugin-side env resolution was redundant and triggered static analysis warnings ([#4676](https://github.com/mem0ai/mem0/pull/4676))
+- **Security**: Removed `resolveEnvVars()` and `resolveEnvVarsDeep()` from `config.ts`: plugin-side env resolution was redundant and triggered static analysis warnings ([#4676](https://github.com/mem0ai/mem0/pull/4676))
 
 </Update>
 

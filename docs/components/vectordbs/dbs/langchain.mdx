@@ -47,12 +47,12 @@ m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
 ```typescript TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { MemoryVectorStore as LangchainMemoryStore } from "langchain/vectorstores/memory";
+import { MemoryVectorStore } from "langchain/vectorstores/memory";
 
 const embeddings = new OpenAIEmbeddings();
-const vectorStore = new LangchainVectorStore(embeddings);
+const vectorStore = new MemoryVectorStore(embeddings);
 
 const config = {
     "vector_store": {

@@ -6,24 +6,32 @@ description: "Use the Mem0 AI SDK Provider with Vercel AI SDK for persistent mem
 The [**Mem0 AI SDK Provider**](https://www.npmjs.com/package/@mem0/vercel-ai-provider) is a library developed by **Mem0** to integrate with the Vercel AI SDK. This library brings enhanced AI interaction capabilities to your applications by introducing persistent memory functionality.
 
 <Note type="info">
-  Mem0 AI SDK now supports <strong>Vercel AI SDK V5</strong>.
+  Mem0 AI SDK Provider v3.0.0 supports <strong>Vercel AI SDK v6</strong> (<code>LanguageModelV3</code> / <code>ProviderV3</code>). If you are upgrading from v2.x, see the <a href="https://ai-sdk.dev/docs/migration-guides/migration-guide-6-0">AI SDK v6 migration guide</a>.
 </Note>
 
 ## Overview
 
 1. Offers persistent memory storage for conversational AI
-2. Enables smooth integration with the Vercel AI SDK
-3. Ensures compatibility with multiple LLM providers
+2. Enables smooth integration with the Vercel AI SDK v6
+3. Ensures compatibility with multiple LLM providers (OpenAI, Anthropic, Google, Groq, Cohere)
 4. Supports structured message formats for clarity
 5. Facilitates streaming response capabilities
+6. Attaches Mem0 memories as sources in responses for programmatic access
 
 ## Setup and Configuration
 
-Install the SDK provider using npm:
+Install the SDK provider and AI SDK:
 
 ```bash
-npm install @mem0/vercel-ai-provider
+npm install @mem0/vercel-ai-provider ai@^6
 ```
+
+### Dependencies
+
+`@mem0/vercel-ai-provider` bundles `ai`, all `@ai-sdk/*` provider packages, and `@ai-sdk/provider` as regular dependencies: you do **not** need to install them separately. The install command above (`npm install @mem0/vercel-ai-provider ai@^6`) is sufficient.
+
+The only true peer dependency is `zod` (optional):
+- `zod` v3+ (`^3.0.0`): required only if you use Zod schemas in tool definitions
 
 ## Getting Started
 
@@ -41,7 +49,7 @@ npm install @mem0/vercel-ai-provider
       mem0ApiKey: "m0-xxx",
       apiKey: "provider-api-key",
       config: {
-        // Options for LLM Provider
+        // Options for the upstream LLM provider (e.g. baseURL)
       },
       // Optional Mem0 Global Config
       mem0Config: {
@@ -57,154 +65,153 @@ npm install @mem0/vercel-ai-provider
 3. Add Memories to Enhance Context:
 
     ```typescript
-    import { LanguageModelV2Prompt } from "@ai-sdk/provider";
     import { addMemories } from "@mem0/vercel-ai-provider";
 
-    const messages: LanguageModelV2Prompt = [
+    const messages = [
       { role: "user", content: [{ type: "text", text: "I love red cars." }] },
     ];
 
     await addMemories(messages, { user_id: "borat" });
     ```
 
-### Standalone Features:
+### Standalone Features
 
-    ```typescript
-    await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx" });
-    await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
-    await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
-    ```
-     > For standalone features, such as `addMemories`, `retrieveMemories`, and `getMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
+```typescript
+await addMemories(messages, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+await getMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
+```
 
-     > `getMemories` will return raw memories in the form of an array of objects, while `retrieveMemories` will return a response in string format with a system prompt ingested with the retrieved memories.
+> For standalone features, such as `addMemories`, `retrieveMemories`, and `getMemories`, you must either set `MEM0_API_KEY` as an environment variable or pass it directly in the function call.
 
-     > `getMemories` returns an array of memory objects.
+> `getMemories` will return raw memories in the form of an array of objects, while `retrieveMemories` will return a response in string format with a system prompt ingested with the retrieved memories.
 
 ### 1. Basic Text Generation with Memory Context
 
-    ```typescript
-    import { generateText } from "ai";
-    import { createMem0 } from "@mem0/vercel-ai-provider";
+```typescript
+import { generateText } from "ai";
+import { createMem0 } from "@mem0/vercel-ai-provider";
 
-    const mem0 = createMem0();
+const mem0 = createMem0();
 
-    const { text } = await generateText({
-      model: mem0("gpt-4-turbo", { user_id: "borat" }),
-      prompt: "Suggest me a good car to buy!",
-    });
-    ```
+const { text } = await generateText({
+  model: mem0("gpt-5-mini", { user_id: "borat" }),
+  prompt: "Suggest me a good car to buy!",
+});
+```
 
 ### 2. Combining OpenAI Provider with Memory Utils
 
-    ```typescript
-    import { generateText } from "ai";
-    import { openai } from "@ai-sdk/openai";
-    import { retrieveMemories } from "@mem0/vercel-ai-provider";
+```typescript
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { retrieveMemories } from "@mem0/vercel-ai-provider";
 
-    const prompt = "Suggest me a good car to buy.";
-    const memories = await retrieveMemories(prompt, { user_id: "borat" });
+const prompt = "Suggest me a good car to buy.";
+const memories = await retrieveMemories(prompt, { user_id: "borat" });
 
-    const { text } = await generateText({
-      model: openai("gpt-4-turbo"),
-      prompt: prompt,
-      system: memories,
-    });
-    ```
+const { text } = await generateText({
+  model: openai("gpt-5-mini"),
+  prompt: prompt,
+  system: memories,
+});
+```
 
 ### 3. Structured Message Format with Memory
 
-    ```typescript
-    import { generateText } from "ai";
-    import { createMem0 } from "@mem0/vercel-ai-provider";
+```typescript
+import { generateText } from "ai";
+import { createMem0 } from "@mem0/vercel-ai-provider";
 
-    const mem0 = createMem0();
+const mem0 = createMem0();
 
-    const { text } = await generateText({
-      model: mem0("gpt-4-turbo", { user_id: "borat" }),
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Suggest me a good car to buy." },
-            { type: "text", text: "Why is it better than the other cars for me?" },
-          ],
-        },
+const { text } = await generateText({
+  model: mem0("gpt-5-mini", { user_id: "borat" }),
+  messages: [
+    {
+      role: "user",
+      content: [
+        { type: "text", text: "Suggest me a good car to buy." },
+        { type: "text", text: "Why is it better than the other cars for me?" },
       ],
-    });
-    ```
+    },
+  ],
+});
+```
 
-### 3. Streaming Responses with Memory Context
+### 4. Streaming Responses with Memory Context
 
-    ```typescript
-    import { streamText } from "ai";
-    import { createMem0 } from "@mem0/vercel-ai-provider";
+```typescript
+import { streamText } from "ai";
+import { createMem0 } from "@mem0/vercel-ai-provider";
 
-    const mem0 = createMem0();
+const mem0 = createMem0();
 
-    const { textStream } = streamText({
-        model: mem0("gpt-4-turbo", {
-            user_id: "borat",
-        }),
-        prompt: "Suggest me a good car to buy! Why is it better than the other cars for me? Give options for every price range.",
-    });
+const { textStream } = streamText({
+  model: mem0("gpt-5-mini", {
+    user_id: "borat",
+  }),
+  prompt: "Suggest me a good car to buy! Why is it better than the other cars for me? Give options for every price range.",
+});
 
-    for await (const textPart of textStream) {
-        process.stdout.write(textPart);
-    }
-    ```
+for await (const textPart of textStream) {
+  process.stdout.write(textPart);
+}
+```
 
-### 4. Generate Responses with Tools Call
+### 5. Generate Responses with Tools Call
 
-    ```typescript
-    import { generateText } from "ai";
-    import { createMem0 } from "@mem0/vercel-ai-provider";
-    import { z } from "zod";
+```typescript
+import { generateText, tool } from "ai";
+import { createMem0 } from "@mem0/vercel-ai-provider";
+import { z } from "zod";
 
-    const mem0 = createMem0({
-      provider: "anthropic",
-      apiKey: "anthropic-api-key",
-      mem0Config: {
-        // Global User ID
-        user_id: "borat"
-      }
-    });
+const mem0 = createMem0({
+  provider: "anthropic",
+  apiKey: "anthropic-api-key",
+  mem0Config: {
+    user_id: "borat"
+  }
+});
 
-    const prompt = "What the temperature in the city that I live in?"
+const result = await generateText({
+  model: mem0('claude-sonnet-4-20250514'),
+  tools: {
+    weather: tool({
+      description: 'Get the weather in a location',
+      parameters: z.object({
+        location: z.string().describe('The location to get the weather for'),
+      }),
+      execute: async ({ location }) => ({
+        location,
+        temperature: 72 + Math.floor(Math.random() * 21) - 10,
+      }),
+    }),
+  },
+  prompt: "What the temperature in the city that I live in?",
+});
 
-    const result = await generateText({
-      model: mem0('claude-3-5-sonnet-20240620'),
-      tools: {
-        weather: tool({
-          description: 'Get the weather in a location',
-          parameters: z.object({
-            location: z.string().describe('The location to get the weather for'),
-          }),
-          execute: async ({ location }) => ({
-            location,
-            temperature: 72 + Math.floor(Math.random() * 21) - 10,
-          }),
-        }),
-      },
-      prompt: prompt,
-    });
+console.log(result);
+```
 
-    console.log(result);
-    ```
+### 6. Get Sources from Memory
 
-### 5. Get sources from memory
+`generateText` and `streamText` responses include Mem0 memories as a source, giving you programmatic access to the memories that influenced the response:
 
 ```typescript
 const { text, sources } = await generateText({
-    model: mem0("gpt-4-turbo"),
-    prompt: "Suggest me a good car to buy!",
+  model: mem0("gpt-5-mini", { user_id: "borat" }),
+  prompt: "Suggest me a good car to buy!",
 });
 
+// sources[0].title === "Mem0 Memories"
+// sources[0].providerMetadata.mem0.memories: array of memory objects
 console.log(sources);
 ```
 
 The same can be done for `streamText` as well.
 
-### 6. File Support with Memory Context
+### 7. File Support with Memory Context
 
 Mem0 AI SDK supports file processing with memory context. Here's an example of analyzing a PDF file:
 
@@ -226,15 +233,11 @@ const mem0 = createMem0({
 });
 
 async function main() {
-  // Read the PDF file
   const filePath = join(process.cwd(), 'my_pdf.pdf');
   const fileBuffer = readFileSync(filePath);
 
-  // Convert the file's arrayBuffer to a Base64 data URL
   const arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength);
   const uint8Array = new Uint8Array(arrayBuffer);
-
-  // Convert Uint8Array to an array of characters
   const charArray = Array.from(uint8Array, byte => String.fromCharCode(byte));
   const binaryString = charArray.join('');
   const base64Data = Buffer.from(binaryString, 'binary').toString('base64');
@@ -274,24 +277,59 @@ main();
 
 | Provider | Configuration Value |
 |----------|-------------------|
-| OpenAI | openai |
-| Anthropic | anthropic |
-| Google | google |
-| Groq | groq |
+| OpenAI | `openai` |
+| Anthropic | `anthropic` |
+| Google / Gemini | `google` or `gemini` |
+| Groq | `groq` |
+| Cohere | `cohere` |
 
-> **Note**: You can use `google` as provider for Gemini (Google) models. They are same and internally they use `@ai-sdk/google` package.
+> **Note**: You can use either `google` or `gemini` as the provider value for Google Gemini models. Both map to the `@ai-sdk/google` package internally.
+
+## Configuration Options
+
+### Mem0ConfigSettings
+
+These options can be passed per-request when creating a model instance:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `user_id` | `string` | User identifier for memory scoping |
+| `agent_id` | `string` | Agent identifier |
+| `app_id` | `string` | Application identifier |
+| `run_id` | `string` | Run/session identifier |
+| `metadata` | `object` | Custom metadata for memories |
+| `filters` | `object` | Filters for memory search |
+| `infer` | `boolean` | Enable inference-based retrieval |
+| `top_k` | `number` | Number of memories to retrieve (default: 10) |
+| `threshold` | `number` | Relevance threshold for search |
+| `rerank` | `boolean` | Enable reranking of results |
+| `page` | `number` | Page number for pagination |
+| `page_size` | `number` | Results per page |
+| `mem0ApiKey` | `string` | Mem0 API key; overrides the `MEM0_API_KEY` env var |
+| `host` | `string` | Custom Mem0 API base URL for self-hosted deployments |
 
 ## Key Features
 
-- `createMem0()`: Initializes a new Mem0 provider instance.
-- `retrieveMemories()`: Retrieves memory context for prompts.
+- `createMem0()`: Initializes a new Mem0 provider instance implementing `ProviderV3`.
+- `retrieveMemories()`: Retrieves memory context for prompts as a formatted system prompt string.
 - `getMemories()`: Get memories from your profile in array format.
 - `addMemories()`: Adds user memories to enhance contextual responses.
+- `searchMemories()`: Searches memories and returns the raw results array (semantic search rather than the full retrieval pipeline).
+
+## Migrating from v2.x
+
+If you're upgrading from `@mem0/vercel-ai-provider` v2.x:
+
+1. **Upgrade AI SDK**: `npm install ai@^6` and update all `@ai-sdk/*` provider packages to `^3.x`
+2. **Remove deprecated params**: Remove `org_id`, `project_id`, `output_format`, `filter_memories`, `async_mode`, `enable_graph` from your config
+3. **Remove graph memory**: All graph-related options (`enable_graph`, graph prompts) have been removed. Graph memory is now a project-level setting on the Mem0 Platform
+4. **Update imports**: `LanguageModelV2Prompt` is now `LanguageModelV3Prompt` if you import types directly
 
 ## Best Practices
 
 1. **User Identification**: Use a unique `user_id` for consistent memory retrieval.
 2. **Memory Cleanup**: Regularly clean up unused memory data.
+3. **Sources**: Access `result.sources` to inspect which memories influenced the response.
 
     > **Note**: We also have support for `agent_id`, `app_id`, and `run_id`. Refer [Docs](/api-reference/memory/add-memories).
 

@@ -9,6 +9,7 @@ import {
   SearchMemoryOptions,
   GetAllMemoryOptions,
   DeleteAllMemoryOptions,
+  DeleteMemoryOptions,
   MemoryUpdateBody,
   ProjectResponse,
   PromptUpdatePayload,
@@ -20,7 +21,18 @@ import {
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
 } from "./mem0.types";
-import { captureClientEvent, generateHash } from "./telemetry";
+import {
+  captureClientEvent,
+  generateHash,
+  isTelemetryEnabled,
+  telemetry,
+} from "./telemetry";
+import {
+  getOrCreateMem0UserId,
+  isMem0Aliased,
+  markMem0Aliased,
+  readMem0AnonIds,
+} from "./config";
 import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
@@ -118,6 +130,8 @@ export default class MemoryClient {
         this.telemetryId = generateHash(this.apiKey);
       }
 
+      await this._maybeAliasAnonToEmail();
+
       captureClientEvent("init", this, {
         client_type: "MemoryClient",
       }).catch((error: any) => {
@@ -129,6 +143,30 @@ export default class MemoryClient {
         error: error?.message || "Unknown error",
         stack: error?.stack || "No stack trace",
       });
+    }
+  }
+
+  private async _maybeAliasAnonToEmail(): Promise<void> {
+    if (!isTelemetryEnabled()) return;
+    try {
+      const email = this.telemetryId;
+      if (!email || !email.includes("@")) return;
+      const sharedAnonId = await getOrCreateMem0UserId();
+      const anonIds = await readMem0AnonIds();
+      if (!anonIds && !sharedAnonId) return;
+      const candidates = [anonIds?.oss || sharedAnonId, anonIds?.cli].filter(
+        (id): id is string => !!id && id !== email,
+      );
+      const seen = new Set<string>();
+      for (const anonId of candidates) {
+        if (seen.has(anonId) || (await isMem0Aliased(anonId, email))) continue;
+        seen.add(anonId);
+        if (await telemetry.captureIdentify(anonId, email)) {
+          await markMem0Aliased(anonId, email);
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to alias telemetry identity:", error);
     }
   }
 
@@ -215,6 +253,11 @@ export default class MemoryClient {
     messages: Array<Message>,
     options: AddMemoryOptions & Record<string, any> = {},
   ): Promise<Array<Memory>> {
+    // Tightly scoped validation guard to resolve #5465
+    if (!messages || (Array.isArray(messages) && messages.length === 0)) {
+      throw new Error("Cannot process an empty messages payload.");
+    }
+
     if (this.telemetryId === "") await this.ping();
 
     const payload = this._preparePayload(messages, options);
@@ -238,19 +281,22 @@ export default class MemoryClient {
       text,
       metadata,
       timestamp,
+      expirationDate,
     }: {
       text?: string;
       metadata?: Record<string, any>;
       timestamp?: number | string;
+      expirationDate?: string | null;
     },
   ): Promise<Array<Memory>> {
     if (
       text === undefined &&
       metadata === undefined &&
-      timestamp === undefined
+      timestamp === undefined &&
+      expirationDate === undefined
     ) {
       throw new Error(
-        "At least one of text, metadata, or timestamp must be provided for update.",
+        "At least one of text, metadata, timestamp, or expirationDate must be provided for update.",
       );
     }
 
@@ -259,6 +305,7 @@ export default class MemoryClient {
     if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
     if (timestamp !== undefined) payload.timestamp = timestamp;
+    if (expirationDate !== undefined) payload.expiration_date = expirationDate;
 
     const payloadKeys = Object.keys(payload);
     this._captureEvent("update", [payloadKeys]);
@@ -340,11 +387,17 @@ export default class MemoryClient {
     return response;
   }
 
-  async delete(memoryId: string): Promise<{ message: string }> {
+  async delete(
+    memoryId: string,
+    options: DeleteMemoryOptions = {},
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
-    this._captureEvent("delete", []);
+    this._captureEvent("delete", [Object.keys(options || {})]);
+    const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
+    // @ts-ignore
+    const query = new URLSearchParams(snakeOptions).toString();
     return this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/`,
+      `${this.host}/v1/memories/${memoryId}/${query ? `?${query}` : ""}`,
       {
         method: "DELETE",
         headers: this.headers,
@@ -652,7 +705,10 @@ export default class MemoryClient {
       throw new Error("Missing filters or schema");
     }
 
-    const { filters, ...rest } = data;
+    // filters and schema are user-controlled blobs whose keys must reach the
+    // API verbatim; only the remaining SDK params (e.g. exportInstructions)
+    // get camel->snake conversion. See issue #5593.
+    const { filters, schema, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/`,
       {
@@ -661,6 +717,7 @@ export default class MemoryClient {
         body: JSON.stringify({
           ...camelToSnakeKeys(rest),
           filters,
+          schema,
         }),
       },
     );

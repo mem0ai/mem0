@@ -337,11 +337,14 @@ export class RedisDB implements VectorStore {
       const id = ids[idx];
 
       // Create entry with required fields
+      const createdAt = payload.created_at
+        ? new Date(payload.created_at).getTime()
+        : 0;
       const entry: Record<string, any> = {
         memory_id: id,
-        hash: payload.hash,
-        memory: payload.data,
-        created_at: new Date(payload.created_at).getTime(),
+        hash: payload.hash ?? "",
+        memory: payload.data ?? "",
+        created_at: createdAt,
         embedding: new Float32Array(vector).buffer,
       };
 
@@ -444,7 +447,7 @@ export class RedisDB implements VectorStore {
         return {
           id: doc.value.memory_id,
           payload: toCamelCase(resultPayload),
-          score: Number(doc.value.__vector_score) ?? 0,
+          score: Math.max(0, 1 - (Number(doc.value.__vector_score) ?? 0)),
         };
       });
     } catch (error) {
@@ -561,12 +564,18 @@ export class RedisDB implements VectorStore {
     payload: Record<string, any>,
   ): Promise<void> {
     const snakePayload = toSnakeCase(payload);
+    const createdAt = snakePayload.created_at
+      ? new Date(snakePayload.created_at).getTime()
+      : 0;
+    const updatedAt = snakePayload.updated_at
+      ? new Date(snakePayload.updated_at).getTime()
+      : 0;
     const entry: Record<string, any> = {
       memory_id: vectorId,
-      hash: snakePayload.hash,
-      memory: snakePayload.data,
-      created_at: new Date(snakePayload.created_at).getTime(),
-      updated_at: new Date(snakePayload.updated_at).getTime(),
+      hash: snakePayload.hash ?? "",
+      memory: snakePayload.data ?? "",
+      created_at: createdAt,
+      updated_at: updatedAt,
       embedding: Buffer.from(new Float32Array(vector).buffer),
     };
 

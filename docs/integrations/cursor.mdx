@@ -1,16 +1,9 @@
 ---
 title: Cursor
-description: "Add persistent memory to Cursor with the Mem0 plugin — MCP server, lifecycle hooks, and SDK skill for context-aware coding."
+description: "Add persistent memory to Cursor with the Mem0 MCP server for context-aware coding."
 ---
 
-Add persistent memory to [**Cursor**](https://cursor.com) with the Mem0 plugin. Your AI assistant forgets everything between sessions — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
-
-## Overview
-
-1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
-2. **Lifecycle Hooks** — Automatic memory capture at session start, compaction, and user prompts (Marketplace install)
-3. **SDK Skill** — Teaches the agent how to integrate the Mem0 SDK into your applications
-4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
+Add persistent memory to [**Cursor**](https://cursor.com) with the Mem0 MCP server. Your AI assistant forgets everything between sessions. Mem0 fixes that by connecting Cursor to Mem0's cloud memory layer via MCP so you can save and retrieve relevant context during coding sessions.
 
 ## Prerequisites
 
@@ -22,11 +15,19 @@ Before setting up Mem0 with Cursor, ensure you have:
 
 2. Cursor installed ([cursor.com](https://cursor.com))
 
-3. Your API key exported in your shell:
+3. Your API key added to your shell profile (persists across sessions):
 
-```bash
-export MEM0_API_KEY="m0-your-api-key"
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+source ~/.zshrc
 ```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+</CodeGroup>
 
 <Warning>
   Already have `mem0` configured as an MCP server in Cursor? Remove the existing entry from your Cursor MCP settings before installing to avoid duplicate tools.
@@ -34,23 +35,23 @@ export MEM0_API_KEY="m0-your-api-key"
 
 ## Installation
 
-### Option A — One-Click Deeplink (MCP Only)
+### Option A: One-Click Deeplink (MCP Only)
 
 The fastest way to get started. Click the link below to install the Mem0 MCP server directly in Cursor:
 
 [Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidXJsIjoiaHR0cHM6Ly9tY3AubWVtMC5haS9tY3AvIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiVG9rZW4gJHtlbnY6TUVNMF9BUElfS0VZfSJ9fX19)
 
-### Option B — npx (MCP Only)
+### Option B: npx (MCP Only)
 
 ```bash
 npx mcp-add \
   --name mem0-mcp \
   --type http \
-  --url "https://mcp.mem0.ai/mcp" \
+  --url "https://mcp.mem0.ai/mcp/" \
   --clients "cursor"
 ```
 
-### Option C — Manual Configuration (MCP Only)
+### Option C: Manual Configuration (MCP Only)
 
 Add the following to your `.cursor/mcp.json`:
 
@@ -67,21 +68,10 @@ Add the following to your `.cursor/mcp.json`:
 }
 ```
 
-### Option D — Cursor Marketplace (Full Plugin)
-
-Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks, the Mem0 SDK skill, and automatic memory capture.
-
 <Info icon="check">
   Start a new Cursor session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
 </Info>
 
-## What's Included
-
-| Component | Marketplace Install | Deeplink / Manual / npx |
-|-----------|:-------------------:|:-----------------------:|
-| MCP Server (9 memory tools) | Yes | Yes |
-| Lifecycle Hooks | Yes | No |
-| Mem0 SDK Skill | Yes | No |
 
 ## Available MCP Tools
 
@@ -99,19 +89,6 @@ Once installed, the following tools are available in every Cursor session:
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 
-## Lifecycle Hooks (Marketplace Install)
-
-When installed via the Cursor Marketplace, Mem0 hooks into Cursor's lifecycle:
-
-### Session Start
-On every new session, the plugin prompts the agent to call `search_memories` to load relevant context from prior sessions.
-
-### User Prompt
-Before processing each user message, the plugin searches Mem0 for relevant memories and injects them into context. Short prompts are skipped to minimize latency.
-
-### Pre-Compaction
-Before context compaction, the plugin captures a comprehensive session summary so nothing is lost when the context window resets.
-
 ## Example Workflow
 
 ```text
@@ -120,7 +97,7 @@ You: The API endpoint /users is taking 3 seconds. Help me optimize it.
 
 # Cursor agent searches memories, proceeds with investigation.
 # After completing the task, Mem0 stores:
-#   - Learning: "N+1 query in UserService.getAll() — fixed with eager loading"
+#   - Learning: "N+1 query in UserService.getAll(): fixed with eager loading"
 #   - Decision: "Added database index on users.email column"
 #   - Preference: "User prefers query-level fixes over caching"
 
@@ -133,10 +110,9 @@ You: The /orders endpoint is also slow, same pattern as before.
 
 ## Troubleshooting
 
-- **"Connection failed"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
-- **Duplicate tools** — If you had a previous MCP config for `mem0`, remove it before installing the plugin
-- **No tools appearing** — Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
-- **Hooks not running** — Hooks require the Marketplace install (Option D). Deeplink/manual installs only provide MCP tools.
+- **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
+- **Duplicate tools**: If you had a previous MCP config for `mem0`, remove it before installing the plugin
+- **No tools appearing**: Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

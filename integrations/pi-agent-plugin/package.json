@@ -1,0 +1,81 @@
+{
+  "name": "@mem0/pi-agent-plugin",
+  "version": "0.1.2",
+  "type": "module",
+  "description": "Mem0 memory extension for Pi Agent persistent, scoped, semantic memory across sessions and projects",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "integrations/pi-agent-plugin"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "skills",
+    "memory",
+    "mem0",
+    "semantic-memory",
+    "persistent-memory",
+    "agent-memory"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "skills",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/entry.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^0.79.0",
+    "@earendil-works/pi-coding-agent": "^0.79.0",
+    "@types/node": "^25.9.2",
+    "tsup": "^8.5.0",
+    "typebox": "^1.2.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "mem0ai": "^3.0.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
+      "uuid@<11.1.1": ">=11.1.1",
+      "esbuild": ">=0.28.1",
+      "undici@<6.27.0": ">=6.27.0 <8.0.0",
+      "undici@>=8.0.0 <8.5.0": ">=8.5.0"
+    }
+  }
+}

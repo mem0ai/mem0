@@ -7,47 +7,47 @@ iconType: "solid"
 
 ## Why Memory Evaluation Matters
 
-Most AI agent memory systems retrieve information by maximizing context window size. That works on benchmarks but not in production, where every token adds cost. **Token efficiency** — achieving high accuracy with less context per query — is what separates benchmark performance from production viability.
+Most AI agent memory systems retrieve information by maximizing context window size. That works on benchmarks but not in production, where every token adds cost. **Token efficiency** means achieving high accuracy with less context per query. It is what separates benchmark performance from production viability.
 
 The new Mem0 algorithm achieves competitive accuracy on LoCoMo, LongMemEval, and BEAM while averaging **under 7,000 tokens per retrieval call**. Full-context approaches on the same benchmarks routinely consume 25,000+ tokens per query.
 
 Evaluating a memory system at scale comes down to three parameters: **accuracy** (what the benchmarks measure), **cost** (context tokens per query), and **performance** (latency). Optimizing one is easy. Balancing all three at scale is the actual problem.
 
-Some benchmarks today — particularly smaller ones like LoCoMo and LongMemEval — can be materially improved by aggressive retrieval strategies, larger context windows, or frontier models. That does not necessarily mean the underlying memory system has gotten better. We evaluate under constraints that reflect how memory systems actually run in production: limited context windows and practical token budgets.
+Some benchmarks today, particularly smaller ones like LoCoMo and LongMemEval, can be materially improved by aggressive retrieval strategies, larger context windows, or frontier models. That does not necessarily mean the underlying memory system has gotten better. We evaluate under constraints that reflect how memory systems actually run in production: limited context windows and practical token budgets.
 
 ## Architecture Overview
 
-Mem0's memory system operates across two phases — **extraction** (writing) and **retrieval** (reading) — with an entity linking layer connecting them.
+Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), with a graph memory layer (entity linking) connecting them.
 
 ### Memory Extraction (Distillation)
 
 When new conversations arrive, the extraction pipeline processes them through five stages:
 
-1. **Store New Memories** — Conversation enters the pipeline asynchronously (after the agent responds)
-2. **Context Lookup** — Find related existing memories to avoid duplicates
-3. **Distill Memories** — Single-pass LLM extraction produces ADD-only facts from input + context
-4. **Deduplicate + Embed** — Hash-based deduplication, then vectorize new memories
-5. **Entity Linking** — Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories
+1. **Store New Memories**: Conversation enters the pipeline asynchronously (after the agent responds)
+2. **Context Lookup**: Find related existing memories to avoid duplicates
+3. **Distill Memories**: Single-pass LLM extraction produces ADD-only facts from input + context
+4. **Deduplicate + Embed**: Hash-based deduplication, then vectorize new memories
+5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
 
 Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
 | Store | Contents | Purpose |
 |---|---|---|
 | **Vector Database** | Memory text, embeddings, metadata (timestamps, hash, categories, attributed_to) | Primary fact storage + semantic retrieval |
-| **Entity Store** | Entities + embeddings + linked memory IDs | Entity-based retrieval boost |
+| **Graph / Entity Store** | Entities + embeddings + linked memory IDs | Graph connections across memories + entity-based retrieval boost |
 | **SQL Database** | History log (ADD events) + rolling message window | Audit trail + extraction dedup context |
 
 <Info>
-The key architectural decision is **ADD-only extraction**. New facts are stored alongside old ones — nothing is overwritten or deleted. When information changes, both the old and new facts survive. This preserves temporal context and eliminates information loss from premature consolidation.
+The key architectural decision is **ADD-only extraction**. New facts are stored alongside old ones. Nothing is overwritten or deleted. When information changes, both the old and new facts survive. This preserves temporal context and eliminates information loss from premature consolidation.
 </Info>
 
 ### Multi-Signal Retrieval
 
 When a query arrives, the retrieval pipeline scores candidates across three signals in parallel:
 
-1. **Semantic Search** — Vector similarity scoring against memory embeddings
-2. **Keyword Search** — Normalized term matching via BM25 with verb-form lemmatization
-3. **Entity Search** — Entity graph matching boosts memories linked to query entities
+1. **Semantic Search**: Vector similarity scoring against memory embeddings
+2. **Keyword Search**: Normalized term matching via BM25 with verb-form lemmatization
+3. **Entity Search**: Entity matching boosts memories linked to query entities
 
 Results are fused via rank scoring into a final top-K set. Different query types lean on different signals:
 
@@ -76,7 +76,7 @@ The combined score outperformed every individual signal across every category te
 
 *Mean tokens: 6,956*
 
-The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and entity linking (connecting facts across memories).
+The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and graph memory / entity linking (connecting facts across memories).
 
 ### LongMemEval
 
@@ -94,7 +94,7 @@ The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning
 
 *Mean tokens: 6,787*
 
-The biggest gain is **single-session assistant (+53.6)** — the previous algorithm had a blind spot for agent-generated facts. The new algorithm treats them as first-class memories.
+The biggest gain is **single-session assistant (+53.6)** because the previous algorithm had a blind spot for agent-generated facts. The new algorithm treats them as first-class memories.
 
 The **+42.1 on temporal reasoning** reflects the ADD-only architecture preserving chronological context that the previous UPDATE/DELETE model would destroy.
 
@@ -119,7 +119,7 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 *Mean tokens (1M): 6,719. Mean tokens (10M): 6,914.*
 
 <Info>
-**BEAM is the most relevant benchmark here.** It operates at 1M and 10M token scales and cannot be solved by simply expanding the context window. The results at 10M reflect where memory systems actually stand at production context volumes. The system holds up well on preference following, instruction following, and knowledge updates at both scales. Weaker categories at 10M (temporal reasoning, event ordering, multi-session reasoning) are open problems across the field — they require higher-order representations of how events relate to each other across time, which is a primary focus of our ongoing research.
+**BEAM is the most relevant benchmark here.** It operates at 1M and 10M token scales and cannot be solved by simply expanding the context window. The results at 10M reflect where memory systems actually stand at production context volumes. The system holds up well on preference following, instruction following, and knowledge updates at both scales. Weaker categories at 10M (temporal reasoning, event ordering, multi-session reasoning) are open problems across the field. They require higher-order representations of how events relate to each other across time, which is a primary focus of our ongoing research.
 </Info>
 
 ### Performance Summary
@@ -130,8 +130,8 @@ All results use a single-pass retrieval setup: one retrieval call, one answer, n
 |---|---|---|---|
 | **LoCoMo** | 71.4 | **91.6** | 6,956 |
 | **LongMemEval** | 67.8 | **93.4** | 6,787 |
-| **BEAM (1M)** | — | **64.1** | 6,719 |
-| **BEAM (10M)** | — | **48.6** | 6,914 |
+| **BEAM (1M)** | N/A | **64.1** | 6,719 |
+| **BEAM (10M)** | N/A | **48.6** | 6,914 |
 
 <Info>
 Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK. Open-source users should expect directionally similar gains but not identical numbers.
@@ -183,7 +183,7 @@ Each benchmark is a Python module with its own runner ([source code](https://git
 |---|---|---|
 | `--project-name` | (required) | Run identifier for tracking results |
 | `--backend` | `oss` | `oss` (self-hosted) or `cloud` (Mem0 Platform) |
-| `--mem0-api-key` | — | Mem0 API key (required for `cloud` backend) |
+| `--mem0-api-key` | N/A | Mem0 API key (required for `cloud` backend) |
 | `--mem0-host` | `http://localhost:8888` | Mem0 server URL (for `oss` backend) |
 | `--top-k` | `200` | Number of memories to retrieve per query |
 | `--top-k-cutoffs` | `10,20,50,200` | Evaluate accuracy at multiple retrieval depths (BEAM default: `100`) |
@@ -192,9 +192,9 @@ Each benchmark is a Python module with its own runner ([source code](https://git
 | `--provider` | `openai` | LLM provider: `openai`, `anthropic`, `azure` |
 | `--judge-provider` | (same as `--provider`) | Override provider for the judge model |
 | `--max-workers` | `10` | Parallel workers for evaluation |
-| `--predict-only` | — | Stop after search, skip answer + judge phases |
-| `--evaluate-only` | — | Skip ingest + search, evaluate existing results |
-| `--resume` | — | Resume from checkpoint (BEAM and LongMemEval; on by default for LongMemEval) |
+| `--predict-only` | N/A | Stop after search, skip answer + judge phases |
+| `--evaluate-only` | N/A | Skip ingest + search, evaluate existing results |
+| `--resume` | N/A | Resume from checkpoint (BEAM and LongMemEval; on by default for LongMemEval) |
 
 <CodeGroup>
 ```bash LoCoMo
@@ -329,7 +329,7 @@ When evaluating memory systems, keep these considerations in mind:
     Yes. For self-hosted, configure the extraction model in your `mem0-config.yaml` (see the `configs/` directory of the evaluation repo for provider-specific examples). For Mem0 Cloud, extraction uses the platform's default. Using a frontier model will likely produce higher scores but at higher cost and latency.
   </Accordion>
   <Accordion title="Why are BEAM scores lower than LoCoMo/LongMemEval?">
-    BEAM operates at 1M and 10M token scales — orders of magnitude larger than LoCoMo or LongMemEval. At these scales, similar content appears multiple times across the window, and the memory system must surface the exact correct memory over many close matches. The scores reflect the genuine difficulty of the task, not a regression in the algorithm.
+    BEAM operates at 1M and 10M token scales, orders of magnitude larger than LoCoMo or LongMemEval. At these scales, similar content appears multiple times across the window, and the memory system must surface the exact correct memory over many close matches. The scores reflect the genuine difficulty of the task, not a regression in the algorithm.
   </Accordion>
   <Accordion title="How do I contribute a new benchmark?">
     Open a pull request to the [memory-benchmarks repository](https://github.com/mem0ai/memory-benchmarks) with your benchmark implementation. See the repository README for the expected interface and format.
@@ -345,7 +345,7 @@ When evaluating memory systems, keep these considerations in mind:
   <Card title="Research" icon="flask" href="https://mem0.ai/research">
     Published research papers and technical reports
   </Card>
-  <Card title="Blog Post" icon="newspaper" href="https://mem0.ai/blog/new-algorithm">
+  <Card title="Blog Post" icon="newspaper" href="https://mem0.ai/blog/the-token-efficient-memory-algorithm-now-has-temporal-reasoning">
     Detailed writeup of the new algorithm design and results
   </Card>
   <Card title="Platform Migration" icon="arrow-right" href="/migration/platform-v2-to-v3">

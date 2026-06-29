@@ -67,7 +67,8 @@ class TestConfig:
         from mem0_cli.config import CONFIG_FILE
 
         mode = os.stat(CONFIG_FILE).st_mode & 0o777
-        assert mode == 0o600
+        if os.name != "nt":
+            assert mode == 0o600
 
     def test_defaults_save_and_load(self, isolate_config):
         config = Mem0Config()
@@ -137,6 +138,11 @@ class TestNestedAccess:
         config = Mem0Config()
         assert set_nested_value(config, "platform.api_key", "new-key")
         assert config.platform.api_key == "new-key"
+
+    def test_set_int_value_rejects_invalid_input(self):
+        config = Mem0Config()
+        assert set_nested_value(config, "version", "abc") is False
+        assert config.version == 1
 
     def test_set_nonexistent_key(self):
         config = Mem0Config()

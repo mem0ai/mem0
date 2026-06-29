@@ -115,6 +115,9 @@ export function captureEvent(
 			}
 		}
 
+		// M4: every cli.* event carries agent_mode based on the config flag
+		// (unclaimed Agent Mode key). This is the growth-doc property used to
+		// join init → add → search funnels in PostHog.
 		const payload = {
 			api_key: POSTHOG_API_KEY,
 			distinct_id: distinctId,
@@ -123,6 +126,7 @@ export function captureEvent(
 				source: "CLI",
 				language: "node",
 				cli_version: CLI_VERSION,
+				agent_mode: Boolean(config.platform.agentMode),
 				node_version: process.version,
 				os: process.platform,
 				...properties,
@@ -141,11 +145,11 @@ export function captureEvent(
 			anonDistinctIdToAlias: anonIdToAlias,
 		};
 
-		const child = spawn(
-			process.execPath,
-			[SENDER_SCRIPT, JSON.stringify(context)],
-			{ detached: true, stdio: "ignore" },
-		);
+		const child = spawn(process.execPath, [SENDER_SCRIPT], {
+			detached: true,
+			stdio: ["pipe", "ignore", "ignore"],
+		});
+		child.stdin?.end(JSON.stringify(context));
 		child.unref();
 	} catch {
 		/* silently swallow */

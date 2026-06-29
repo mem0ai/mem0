@@ -36,10 +36,29 @@ import {
   SearchMemoryOptions,
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
+  UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
+import {
+  detectScaleThresholdFromAddResult,
+  detectScaleThresholdFromTopK,
+  detectPerformanceSlowQuery,
+  detectTemporalUsageFromMetadata,
+  detectTemporalUsageFromSearch,
+  displayDecayUsageNotice,
+  displayFirstRunNotice,
+  displayPerformanceSlowQueryNotice,
+  displayScaleThresholdNotice,
+  displayTemporalUsageNotice,
+  getDecayFeatureErrorMessage,
+  getDecayUsageDeleteCountAfterSuccess,
+  getTemporalFeatureErrorMessage,
+  isDecayUsageDeleteEligible,
+  PerformanceSlowQueryTrigger,
+  ScaleThresholdTrigger,
+} from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
   extractEntities,
@@ -53,6 +72,7 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
+import { getOrCreateMem0UserId } from "../../../client/config";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -276,6 +296,44 @@ export class Memory {
     return filters;
   }
 
+  private _normalizeEntityText(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  private async _existingEntitiesByText(
+    entityStore: VectorStore,
+    filters: Record<string, any>,
+  ): Promise<Map<string, { id: string; payload: Record<string, any> }>> {
+    const rowsByText = new Map<
+      string,
+      { id: string; payload: Record<string, any> }
+    >();
+    let rows: Array<{ id: string; payload: Record<string, any> }> = [];
+    try {
+      const listed = await entityStore.list(filters, 10000);
+      rows = (
+        Array.isArray(listed) && Array.isArray(listed[0])
+          ? listed[0]
+          : (listed as any)
+      ) as Array<{ id: string; payload: Record<string, any> }>;
+    } catch (e) {
+      console.debug(
+        `Exact entity lookup failed, falling back to semantic dedup: ${e}`,
+      );
+      return rowsByText;
+    }
+
+    for (const row of rows) {
+      const text = row.payload?.data;
+      if (typeof text !== "string") continue;
+      const key = this._normalizeEntityText(text);
+      if (key && !rowsByText.has(key)) {
+        rowsByText.set(key, row);
+      }
+    }
+    return rowsByText;
+  }
+
   /**
    * Remove `memoryId` from every entity record scoped to `filters`.
    * If an entity's `linkedMemoryIds` becomes empty after removal, the
@@ -373,6 +431,10 @@ export class Memory {
       if (entities.length === 0) return;
 
       const entityStore = await this.getEntityStore();
+      const exactMatches = await this._existingEntitiesByText(
+        entityStore,
+        filters,
+      );
 
       for (const entity of entities) {
         try {
@@ -389,12 +451,21 @@ export class Memory {
             score?: number;
             payload: Record<string, any>;
           }> = [];
-          try {
-            matches = await entityStore.search(entityVec, 1, filters);
-          } catch {}
+          const exactMatch = exactMatches.get(
+            this._normalizeEntityText(entity.text),
+          );
+          if (!exactMatch) {
+            try {
+              matches = await entityStore.search(entityVec, 1, filters);
+            } catch {}
+          }
 
-          if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
-            const match = matches[0];
+          const semanticMatch =
+            matches.length > 0 && (matches[0].score ?? 0) >= 0.95
+              ? matches[0]
+              : undefined;
+          const match = exactMatch ?? semanticMatch;
+          if (match) {
             const payload = match.payload || {};
             const linked = new Set<string>(
               Array.isArray(payload.linkedMemoryIds)
@@ -466,7 +537,12 @@ export class Memory {
         this.telemetryId === "anonymous" ||
         this.telemetryId === "anonymous-supabase"
       ) {
-        this.telemetryId = await this.vectorStore.getUserId();
+        this.telemetryId =
+          (await getOrCreateMem0UserId()) ||
+          (await this.vectorStore.getUserId());
+        try {
+          await this.vectorStore.setUserId(this.telemetryId);
+        } catch {}
       }
       return this.telemetryId;
     } catch (error) {
@@ -488,6 +564,73 @@ export class Memory {
     }
   }
 
+  private async _displayFirstRunNotice(triggerFunction: string) {
+    try {
+      await this._getTelemetryId();
+      await displayFirstRunNotice(this, triggerFunction);
+    } catch {}
+  }
+
+  private async _displayDecayUsageNotice(trigger: {
+    triggerFunction: "delete" | "delete_all";
+    triggerSource: "delete_count" | "delete_all";
+    triggerReason: "repeated_deletes" | "bulk_delete";
+    deleteCount?: number;
+    deletedCount?: number;
+  }) {
+    try {
+      await this._getTelemetryId();
+      await displayDecayUsageNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayTemporalUsageNotice(trigger: {
+    triggerFunction: "add" | "search";
+    triggerSource: "metadata" | "query" | "filter";
+    triggerReason:
+      | "date_like_metadata"
+      | "relative_phrase"
+      | "date_like_query"
+      | "date_range_filter";
+  }) {
+    try {
+      await this._getTelemetryId();
+      await displayTemporalUsageNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayScaleThresholdNotice(trigger: ScaleThresholdTrigger) {
+    try {
+      await this._getTelemetryId();
+      await displayScaleThresholdNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayPerformanceSlowQueryNotice(
+    trigger: PerformanceSlowQueryTrigger,
+  ) {
+    try {
+      await this._getTelemetryId();
+      await displayPerformanceSlowQueryNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _getNoticeTelemetryId() {
+    try {
+      if (
+        !this.telemetryId ||
+        this.telemetryId === "anonymous" ||
+        this.telemetryId === "anonymous-supabase"
+      ) {
+        this.telemetryId = (await getOrCreateMem0UserId()) || "anonymous";
+      }
+      return this.telemetryId;
+    } catch {
+      this.telemetryId = "anonymous";
+      return this.telemetryId;
+    }
+  }
+
   static fromConfig(configDict: Record<string, any>): Memory {
     try {
       const config = MemoryConfigSchema.parse(configDict);
@@ -498,16 +641,58 @@ export class Memory {
     }
   }
 
+  async updateProject(options: UpdateProjectOptions = {}): Promise<never> {
+    if (options?.decay === true) {
+      await this._getNoticeTelemetryId();
+      throw new Error(await getDecayFeatureErrorMessage(this));
+    }
+
+    throw new Error("Project updates are not supported by the OSS Memory SDK.");
+  }
+
   async add(
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    if (config?.timestamp !== undefined) {
+      await this._getNoticeTelemetryId();
+      throw new Error(
+        await getTemporalFeatureErrorMessage(this, {
+          triggerFunction: "add",
+          triggerParameter: "timestamp",
+        }),
+      );
+    }
+
     // Validate messages input
     if (messages === undefined || messages === null) {
       throw new Error(
         "messages is required and cannot be undefined or null. Provide a string or array of messages.",
       );
     }
+    if (Array.isArray(messages)) {
+      if (messages.length === 0) {
+        throw new Error(
+          "messages array cannot be empty. Provide at least one message with non-empty content.",
+        );
+      }
+      const allBlank = messages.every(
+        (m) => typeof m.content === "string" && m.content.trim() === "",
+      );
+      if (allBlank) {
+        throw new Error(
+          "messages array cannot contain only blank content. Provide at least one message with non-empty content.",
+        );
+      }
+    } else if (messages.trim() === "") {
+      throw new Error(
+        "messages string cannot be empty. Provide non-empty content.",
+      );
+    }
+
+    const temporalUsageNotice = detectTemporalUsageFromMetadata(
+      config?.metadata,
+    );
 
     await this._ensureInitialized();
     await this._captureEvent("add", {
@@ -548,6 +733,27 @@ export class Memory {
       infer,
     );
 
+    if (temporalUsageNotice) {
+      await this._displayTemporalUsageNotice({
+        triggerFunction: "add",
+        triggerSource: temporalUsageNotice.triggerSource,
+        triggerReason: temporalUsageNotice.triggerReason,
+      });
+    } else {
+      const scaleThresholdNotice = await detectScaleThresholdFromAddResult(
+        this,
+        vectorStoreResult,
+      );
+      if (scaleThresholdNotice) {
+        await this._displayScaleThresholdNotice({
+          triggerFunction: "add",
+          ...scaleThresholdNotice,
+        });
+      } else {
+        await this._displayFirstRunNotice("add");
+      }
+    }
+
     return {
       results: vectorStoreResult,
     };
@@ -562,7 +768,7 @@ export class Memory {
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
       for (const message of messages) {
-        if (message.content === "system") {
+        if (message.role === "system") {
           continue;
         }
         const memoryId = await this.createMemory(
@@ -595,7 +801,13 @@ export class Memory {
         // getLastMessages not supported — proceed without context
       }
     }
-    const parsedMessages = messages.map((m) => m.content).join("\n");
+    // Preserve role on the messages being extracted so the prompt's role-aware
+    // logic and the required `attributed_to` output have the speaker to work
+    // with. Matches the Python oss `parse_messages` helper (`role: content`);
+    // without this, assistant statements get attributed to the user.
+    const parsedMessages = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
 
     // Phase 1: Existing memory retrieval
     const queryEmbedding = await this.embedder.embed(parsedMessages);
@@ -901,6 +1113,10 @@ export class Memory {
 
         if (valid.length > 0) {
           const entityStore = await this.getEntityStore();
+          const exactMatches = await this._existingEntitiesByText(
+            entityStore,
+            filters,
+          );
 
           // 7c: Search for existing entities one by one (no batch search)
           const toInsertVectors: number[][] = [];
@@ -916,13 +1132,20 @@ export class Memory {
               score?: number;
               payload: Record<string, any>;
             }> = [];
-            try {
-              matches = await entityStore.search(entityVec, 1, filters);
-            } catch {}
+            const exactMatch = exactMatches.get(key);
+            if (!exactMatch) {
+              try {
+                matches = await entityStore.search(entityVec, 1, filters);
+              } catch {}
+            }
 
-            if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+            const semanticMatch =
+              matches.length > 0 && (matches[0].score ?? 0) >= 0.95
+                ? matches[0]
+                : undefined;
+            const match = exactMatch ?? semanticMatch;
+            if (match) {
               // Update existing entity
-              const match = matches[0];
               const payload = match.payload || {};
               const linked = new Set<string>(payload.linkedMemoryIds ?? []);
               for (const mid of memoryIds) linked.add(mid);
@@ -990,7 +1213,10 @@ export class Memory {
   async get(memoryId: string): Promise<MemoryItem | null> {
     await this._ensureInitialized();
     const memory = await this.vectorStore.get(memoryId);
-    if (!memory) return null;
+    if (!memory) {
+      await this._displayFirstRunNotice("get");
+      return null;
+    }
 
     const filters = {
       ...(memory.payload.user_id && { user_id: memory.payload.user_id }),
@@ -1025,13 +1251,36 @@ export class Memory {
       }
     }
 
-    return { ...memoryItem, ...filters };
+    const result = {
+      ...memoryItem,
+      ...filters,
+      ...(memory.payload.attributedTo && {
+        attributedTo: memory.payload.attributedTo,
+      }),
+    };
+    await this._displayFirstRunNotice("get");
+    return result;
   }
 
   async search(
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    if (config?.referenceDate !== undefined) {
+      await this._getNoticeTelemetryId();
+      throw new Error(
+        await getTemporalFeatureErrorMessage(this, {
+          triggerFunction: "search",
+          triggerParameter: "referenceDate",
+        }),
+      );
+    }
+
+    const temporalUsageNotice = detectTemporalUsageFromSearch(
+      query,
+      config?.filters,
+    );
+
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 
@@ -1058,7 +1307,7 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 20, threshold = 0.1 } = config;
+    const { topK = 20, threshold = 0.1, explain = false } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1098,6 +1347,8 @@ export class Memory {
           "Example: filters: { user_id: 'u1' }",
       );
     }
+
+    const searchStartMs = Date.now();
 
     // Step 1: Preprocess query
     const queryLemmatized = lemmatizeForBm25(query);
@@ -1163,17 +1414,35 @@ export class Memory {
 
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
+          const entitySearchFilters: Record<string, any> = {};
+          for (const k of ["user_id", "agent_id", "run_id"] as const) {
+            if (effectiveFilters[k])
+              entitySearchFilters[k] = effectiveFilters[k];
+          }
+          const entityTexts = deduped.map((e) => e.text);
+          const embeddings = await this.embedder.embedBatch(entityTexts);
 
-          for (const entity of deduped) {
-            try {
-              const entityEmbedding = await this.embedder.embed(entity.text);
-              const matches = await entityStore.search(
-                entityEmbedding,
-                500,
-                effectiveFilters,
-              );
+          if (embeddings.length !== entityTexts.length) {
+            console.warn(
+              `embedBatch returned ${embeddings.length} vectors for ${entityTexts.length} texts — skipping entity boost`,
+            );
+          } else {
+            const searchResults = await Promise.allSettled(
+              deduped.map((_, i) =>
+                entityStore.search(embeddings[i], 500, entitySearchFilters),
+              ),
+            );
 
-              for (const match of matches) {
+            for (const result of searchResults) {
+              if (result.status === "rejected") {
+                console.warn(
+                  "Entity boost search failed for one entity:",
+                  result.reason,
+                );
+                continue;
+              }
+
+              for (const match of result.value) {
                 const similarity = match.score ?? 0;
                 if (similarity < 0.5) continue;
 
@@ -1181,7 +1450,6 @@ export class Memory {
                 const linkedMemoryIds = payload.linkedMemoryIds ?? [];
                 if (!Array.isArray(linkedMemoryIds)) continue;
 
-                // Spread-attenuated boost
                 const numLinked = Math.max(linkedMemoryIds.length, 1);
                 const memoryCountWeight =
                   1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
@@ -1198,8 +1466,6 @@ export class Memory {
                   }
                 }
               }
-            } catch (e) {
-              // Individual entity boost failed — continue
             }
           }
         }
@@ -1222,6 +1488,7 @@ export class Memory {
       entityBoosts,
       threshold ?? 0.1,
       topK,
+      explain,
     );
 
     // Step 9: Format results
@@ -1254,12 +1521,46 @@ export class Memory {
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
+          ...(payload.attributedTo && { attributedTo: payload.attributedTo }),
+          ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
       });
 
-    return {
+    const result = {
       results,
     };
+    const searchElapsedMs = Date.now() - searchStartMs;
+    if (temporalUsageNotice) {
+      await this._displayTemporalUsageNotice({
+        triggerFunction: "search",
+        triggerSource: temporalUsageNotice.triggerSource,
+        triggerReason: temporalUsageNotice.triggerReason,
+      });
+    } else {
+      const scaleThresholdNotice = detectScaleThresholdFromTopK(topK);
+      if (scaleThresholdNotice) {
+        await this._displayScaleThresholdNotice({
+          triggerFunction: "search",
+          ...scaleThresholdNotice,
+        });
+      } else {
+        const performanceSlowQueryNotice = detectPerformanceSlowQuery(
+          searchElapsedMs,
+          topK,
+          results.length,
+        );
+        if (performanceSlowQueryNotice) {
+          await this._displayPerformanceSlowQueryNotice({
+            triggerFunction: "search",
+            triggerReason: "slow_query",
+            ...performanceSlowQueryNotice,
+          });
+        } else {
+          await this._displayFirstRunNotice("search");
+        }
+      }
+    }
+    return result;
   }
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
@@ -1267,14 +1568,28 @@ export class Memory {
     await this._captureEvent("update", { memory_id: memoryId });
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
-    return { message: "Memory updated successfully!" };
+    const result = { message: "Memory updated successfully!" };
+    await this._displayFirstRunNotice("update");
+    return result;
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
     await this._ensureInitialized();
     await this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
-    return { message: "Memory deleted successfully!" };
+    const result = { message: "Memory deleted successfully!" };
+    const deleteCount = getDecayUsageDeleteCountAfterSuccess();
+    if (isDecayUsageDeleteEligible(deleteCount)) {
+      await this._displayDecayUsageNotice({
+        triggerFunction: "delete",
+        triggerSource: "delete_count",
+        triggerReason: "repeated_deletes",
+        deleteCount,
+      });
+    } else {
+      await this._displayFirstRunNotice("delete");
+    }
+    return result;
   }
 
   async deleteAll(
@@ -1286,7 +1601,9 @@ export class Memory {
       has_agent_id: !!config.agentId,
       has_run_id: !!config.runId,
     });
-    const { userId, agentId, runId } = config;
+    const userId = validateAndTrimEntityId(config.userId, "userId");
+    const agentId = validateAndTrimEntityId(config.agentId, "agentId");
+    const runId = validateAndTrimEntityId(config.runId, "runId");
 
     // Convert camelCase entity params to snake_case for filters (matches storage and search/getAll)
     const filters: SearchFilters = {};
@@ -1305,12 +1622,25 @@ export class Memory {
       await this.deleteMemory(memory.id);
     }
 
-    return { message: "Memories deleted successfully!" };
+    const result = { message: "Memories deleted successfully!" };
+    if (memories.length > 0) {
+      await this._displayDecayUsageNotice({
+        triggerFunction: "delete_all",
+        triggerSource: "delete_all",
+        triggerReason: "bulk_delete",
+        deletedCount: memories.length,
+      });
+    } else {
+      await this._displayFirstRunNotice("delete_all");
+    }
+    return result;
   }
 
   async history(memoryId: string): Promise<any[]> {
     await this._ensureInitialized();
-    return this.db.getHistory(memoryId);
+    const result = await this.db.getHistory(memoryId);
+    await this._displayFirstRunNotice("history");
+    return result;
   }
 
   async reset(): Promise<void> {
@@ -1362,6 +1692,7 @@ export class Memory {
       console.error(this._initError);
     });
     await this._initPromise;
+    await this._displayFirstRunNotice("reset");
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
@@ -1427,9 +1758,22 @@ export class Memory {
       ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
       ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
       ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
+      ...(mem.payload.attributedTo && {
+        attributedTo: mem.payload.attributedTo,
+      }),
     }));
 
-    return { results };
+    const result = { results };
+    const scaleThresholdNotice = detectScaleThresholdFromTopK(topK);
+    if (scaleThresholdNotice) {
+      await this._displayScaleThresholdNotice({
+        triggerFunction: "get_all",
+        ...scaleThresholdNotice,
+      });
+    } else {
+      await this._displayFirstRunNotice("get_all");
+    }
+    return result;
   }
 
   private async createMemory(
@@ -1477,20 +1821,13 @@ export class Memory {
       existingEmbeddings[data] || (await this.embedder.embed(data));
 
     const newMetadata = {
+      ...existingMemory.payload,
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
+      textLemmatized: lemmatizeForBm25(data),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.user_id && {
-        user_id: existingMemory.payload.user_id,
-      }),
-      ...(existingMemory.payload.agent_id && {
-        agent_id: existingMemory.payload.agent_id,
-      }),
-      ...(existingMemory.payload.run_id && {
-        run_id: existingMemory.payload.run_id,
-      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);

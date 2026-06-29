@@ -20,8 +20,8 @@ def format_memories_text(console: Console, memories: list[dict], title: str = "m
     console.print(f"\n[{BRAND_COLOR}]Found {count} {title}:[/]\n")
 
     for i, mem in enumerate(memories, 1):
-        memory_text = mem.get("memory", mem.get("text", ""))
-        mem_id = mem.get("id", "")[:8]
+        memory_text = mem.get("memory") or mem.get("text") or ""
+        mem_id = (mem.get("id") or "")[:8]
         score = mem.get("score")
         created = _format_date(mem.get("created_at"))
         category = mem.get("categories", [None])
@@ -67,8 +67,8 @@ def format_memories_table(
     table.add_column("Created", max_width=12)
 
     for mem in memories:
-        mem_id = mem.get("id", "")
-        memory_text = mem.get("memory", mem.get("text", ""))
+        mem_id = mem.get("id") or ""
+        memory_text = mem.get("memory") or mem.get("text") or ""
         if len(memory_text) > 60:
             memory_text = memory_text[:57] + "..."
         categories = mem.get("categories", [])
@@ -104,8 +104,8 @@ def format_single_memory(console: Console, mem: dict, output: str = "text") -> N
         format_json(console, mem)
         return
 
-    memory_text = mem.get("memory", mem.get("text", ""))
-    mem_id = mem.get("id", "")
+    memory_text = mem.get("memory") or mem.get("text") or ""
+    mem_id = mem.get("id") or ""
 
     lines = []
     lines.append(f"  [white bold]{memory_text}[/]")
@@ -229,6 +229,16 @@ def format_json_envelope(
     if error:
         envelope["error"] = error
     envelope["data"] = data
+
+    # If the platform flagged this as an unclaimed Agent Mode account, surface
+    # the notice inside the JSON envelope so an agent consuming the output
+    # sees it without needing to inspect HTTP headers.
+    from mem0_cli.state import take_notice
+
+    notice = take_notice()
+    if notice:
+        envelope["mem0_notice"] = notice
+
     console.print_json(json.dumps(envelope, default=str))
 
 
@@ -323,6 +333,15 @@ def format_agent_envelope(
     if count is not None:
         envelope["count"] = count
     envelope["data"] = sanitize_agent_data(command, data)
+
+    # Surface the unclaimed-Agent-Mode notice (if any) in the envelope so an
+    # agent reading the JSON output sees it without inspecting HTTP headers.
+    from mem0_cli.state import take_notice
+
+    notice = take_notice()
+    if notice:
+        envelope["mem0_notice"] = notice
+
     console.print_json(json.dumps(envelope, default=str))
 
 

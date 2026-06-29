@@ -30,7 +30,7 @@ class PlatformBackend(Backend):
         )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        from mem0_cli.state import is_agent_mode
+        from mem0_cli.state import capture_notice, is_agent_mode
 
         self._client.headers["X-Mem0-Caller-Type"] = "agent" if is_agent_mode() else "user"
         resp = self._client.request(method, path, **kwargs)
@@ -48,7 +48,26 @@ class PlatformBackend(Backend):
         resp.raise_for_status()
         if resp.status_code == 204:
             return {}
-        return resp.json()
+        data = resp.json()
+
+        # Pull the unclaimed-Agent-Mode notice out of the body (or the header
+        # fallback for endpoints that return non-dict / non-dict-leading
+        # payloads) and stash it for end-of-command surfacing.
+        notice = None
+        if isinstance(data, dict) and "mem0_notice" in data:
+            notice = data.pop("mem0_notice")
+        elif (
+            isinstance(data, list)
+            and data
+            and isinstance(data[0], dict)
+            and "mem0_notice" in data[0]
+        ):
+            notice = data[0].pop("mem0_notice")
+        if notice is None:
+            notice = resp.headers.get("X-Mem0-Notice-Message") or None
+        capture_notice(notice)
+
+        return data
 
     def add(
         self,
@@ -277,13 +296,15 @@ class PlatformBackend(Backend):
         entities = {t: v for t, v in type_map.items() if v}
         if not entities:
             raise ValueError("At least one entity ID is required for delete_entities.")
-        # Delete each provided entity via the v2 path-based endpoint
-        result: dict = {}
+        # Delete each provided entity via the v2 path-based endpoint. Key each
+        # response by entity type so a multi-entity delete (e.g. --user-id and
+        # --agent-id together) doesn't discard everything but the last result.
+        results: dict = {}
         for entity_type, entity_id in entities.items():
-            result = self._request(
+            results[entity_type] = self._request(
                 "DELETE", f"/v2/entities/{entity_type}/{entity_id}/", params={"source": "CLI"}
             )
-        return result
+        return results
 
     def ping(self, timeout: float | None = None) -> dict:
         """Call the ping endpoint and return the raw response.

@@ -11,12 +11,15 @@ export interface AddMemoryOptions extends Entity {
   metadata?: Record<string, any>;
   filters?: SearchFilters;
   infer?: boolean;
+  timestamp?: number | string | Date | null;
 }
 
 export interface SearchMemoryOptions {
   topK?: number;
   filters?: SearchFilters;
   threshold?: number;
+  explain?: boolean;
+  referenceDate?: number | string | Date | null;
 }
 
 export interface GetAllMemoryOptions {
@@ -25,3 +28,8 @@ export interface GetAllMemoryOptions {
 }
 
 export interface DeleteAllMemoryOptions extends Entity {}
+
+export interface UpdateProjectOptions {
+  decay?: boolean;
+  [key: string]: any;
+}
