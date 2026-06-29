@@ -23,7 +23,7 @@ The self-hosted bundle ships the REST API and a web dashboard together. Configur
 ## Prerequisites
 
 - Docker and Docker Compose (the reference path).
-- An `OPENAI_API_KEY` (or equivalent — the server reads the same component config as the library).
+- An `OPENAI_API_KEY` or equivalent; the server reads the same component config as the library.
 - A free port `8888` for the API and `3000` for the dashboard.
 
 ---
@@ -60,7 +60,7 @@ make up
 
 This starts the containers and runs database migrations. The REST API listens on `http://localhost:8888` and the dashboard on `http://localhost:3000`.
 
-Open `http://localhost:3000` — since no admin account exists yet, the dashboard redirects to the one-time setup wizard at `/setup`. See [Run the setup wizard](#run-the-setup-wizard) below.
+Open `http://localhost:3000`. Since no admin account exists yet, the dashboard redirects to the one-time setup wizard at `/setup`. See [Run the setup wizard](#run-the-setup-wizard) below.
 
 ### Agent-first (command line)
 
@@ -71,7 +71,7 @@ cd server
 make bootstrap
 ```
 
-`make bootstrap` starts the same containers, then automatically creates the admin account and generates the first API key via the CLI. The admin credentials and API key are printed to your terminal — no browser required.
+`make bootstrap` starts the same containers, then automatically creates the admin account and generates the first API key via the CLI. The admin credentials and API key are printed to your terminal, no browser required.
 
 You can override the generated credentials:
 
@@ -90,16 +90,16 @@ Because `make bootstrap` already creates the admin, the setup wizard is skipped.
 ## Run the setup wizard
 
 <Info>
-  This section applies to the **browser-first** path (`make up`). If you used `make bootstrap`, the admin and API key were already created — skip ahead to [What the dashboard gives you](#what-the-dashboard-gives-you).
+  This section applies to the **browser-first** path (`make up`). If you used `make bootstrap`, the admin and API key were already created, so skip ahead to [What the dashboard gives you](#what-the-dashboard-gives-you).
 </Info>
 
 On a fresh install the dashboard redirects to `/setup`. Each step submits on Enter.
 
 **1. Create the admin account.** Name, email, password. This account becomes the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin.
 
-**2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart — the dashboard intentionally does not let you change provider secrets at runtime.
+**2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart. The dashboard intentionally does not let you change provider secrets at runtime.
 
-**3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately — the server only stores the prefix and a bcrypt hash.
+**3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately; the server only stores the prefix and a bcrypt hash.
 
 **4. Tell us your use case.** Pick a preset or describe your use case in a few words. Mem0 generates custom instructions that tell the memory system what to prioritize. You can edit the instructions before saving, or skip this step entirely.
 
@@ -126,8 +126,8 @@ For the underlying endpoints (including `/auth/*`, `/api-keys`, `/requests`, `/e
 
 The shipped container bundles the Python packages for:
 
-- **LLMs** — `openai`, `anthropic`, `gemini`
-- **Embedders** — `openai`, `gemini`
+- **LLMs:** `openai`, `anthropic`, `gemini`
+- **Embedders:** `openai`, `gemini`
 
 The Configuration page and `POST /configure` only accept providers from these lists. Anything else returns a 400 up front instead of failing at the first memory write.
 
@@ -147,9 +147,9 @@ Heavy providers (`sentence-transformers` pulls in PyTorch, ~2 GB) are intentiona
 
 Previous self-hosted builds allowed open access when `ADMIN_API_KEY` was unset. This build enables auth by default. After pulling the new image, pick **one**:
 
-1. **Fastest, zero client changes** — set `ADMIN_API_KEY` to a long random value (16+ characters). Existing clients that send `X-API-Key: <your-key>` keep working unchanged.
-2. **Recommended for teams** — visit `http://<host>:3000`, run the setup wizard, and switch clients to per-user API keys. You get the audit log and revocation for free.
-3. **Local development only** — set `AUTH_DISABLED=true`. The server logs a warning on every boot. Never use this in production.
+1. **Fastest, zero client changes:** set `ADMIN_API_KEY` to a long random value (16+ characters). Existing clients that send `X-API-Key: <your-key>` keep working unchanged.
+2. **Recommended for teams:** visit `http://<host>:3000`, run the setup wizard, and switch clients to per-user API keys. You get the audit log and revocation for free.
+3. **Local development only:** set `AUTH_DISABLED=true`. The server logs a warning on every boot. Never use this in production.
 
 The server prints an unmissable startup banner when it detects the "upgraded but not configured" state so you know exactly which option to pick.
 
