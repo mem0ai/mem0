@@ -316,16 +316,18 @@ export class PlatformBackend implements Backend {
 		if (entities.length === 0) {
 			throw new Error("At least one entity ID is required for deleteEntities.");
 		}
-		// Delete each provided entity via the v2 path-based endpoint
-		let result: Record<string, unknown> = {};
+		// Delete each provided entity via the v2 path-based endpoint. Key each
+		// response by entity type so a multi-entity delete (e.g. --user-id and
+		// --agent-id together) doesn't discard everything but the last result.
+		const results: Record<string, unknown> = {};
 		for (const [entityType, entityId] of entities) {
-			result = (await this._request(
+			results[entityType] = (await this._request(
 				"DELETE",
 				`/v2/entities/${entityType}/${entityId}/`,
 				{ params: { source: "CLI" } },
 			)) as Record<string, unknown>;
 		}
-		return result;
+		return results;
 	}
 
 	async ping(): Promise<Record<string, unknown>> {
