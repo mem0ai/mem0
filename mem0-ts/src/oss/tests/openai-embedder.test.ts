@@ -142,6 +142,21 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(result).toEqual(batch);
     });
 
+    it("embedBatch() throws when provider returns fewer embeddings than texts", async () => {
+      // Provider returns only 1 embedding for 2 texts (short-batch response).
+      mockEmbeddingsCreate.mockResolvedValue({
+        data: [{ index: 0, embedding: mockEmbedding }],
+      });
+
+      const embedder = new OpenAIEmbedder({
+        apiKey: "test-key",
+      });
+
+      await expect(embedder.embedBatch(["text1", "text2"])).rejects.toThrow(
+        /returned 1 embeddings for 2 texts/,
+      );
+    });
+
     it("uses custom model when provided", async () => {
       const embedder = new OpenAIEmbedder({
         apiKey: "test-key",
