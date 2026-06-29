@@ -24,6 +24,8 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
+        boto3_client: Optional[Any] = None,
+        boto3_session: Optional[Any] = None,
         **kwargs,
     ):
         """
@@ -42,6 +44,16 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
             model_kwargs: Additional model-specific parameters
+            boto3_client: Pre-built ``boto3`` ``bedrock-runtime`` client instance.
+                When provided, it is used directly and ``_test_connection`` is skipped.
+                This is the recommended pattern for cross-account assume-role or IRSA
+                (IAM Roles for Service Accounts on EKS) deployments where overwriting the
+                global ``boto3`` session would break other AWS service calls in the process.
+            boto3_session: Pre-built ``boto3.Session`` instance.  When provided, a
+                ``bedrock-runtime`` client is derived from it via
+                ``session.client("bedrock-runtime")``.  Takes precedence over the
+                individual ``aws_access_key_id`` / ``aws_secret_access_key`` parameters
+                but is ignored when ``boto3_client`` is also supplied.
             **kwargs: Additional arguments passed to base class
         """
         super().__init__(
@@ -59,6 +71,8 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
         self.model_kwargs = model_kwargs or {}
+        self.boto3_client = boto3_client
+        self.boto3_session = boto3_session
 
     @property
     def provider(self) -> str:
