@@ -23,7 +23,7 @@ The self-hosted bundle ships the REST API and a web dashboard together. Configur
 ## Prerequisites
 
 - Docker and Docker Compose (the reference path).
-- An `OPENAI_API_KEY` or equivalent; the server reads the same component config as the library.
+- An `OPENAI_API_KEY` or another provider key; the server reads the same component config as the library.
 - A free port `8888` for the API and `3000` for the dashboard.
 
 ---
@@ -71,7 +71,7 @@ cd server
 make bootstrap
 ```
 
-`make bootstrap` starts the same containers, then automatically creates the admin account and generates the first API key via the CLI. The admin credentials and API key are printed to your terminal, no browser required.
+`make bootstrap` starts the same containers, then automatically creates the admin account and generates the first API key via the CLI. The CLI prints the admin credentials and API key in your terminal. No browser required.
 
 You can override the generated credentials:
 
@@ -99,7 +99,7 @@ On a fresh install the dashboard redirects to `/setup`. Each step submits on Ent
 
 **2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart. The dashboard intentionally does not let you change provider secrets at runtime.
 
-**3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately; the server only stores the prefix and a bcrypt hash.
+**3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately. The server stores only the prefix and a bcrypt hash.
 
 **4. Tell us your use case.** Pick a preset or describe your use case in a few words. Mem0 generates custom instructions that tell the memory system what to prioritize. You can edit the instructions before saving, or skip this step entirely.
 
