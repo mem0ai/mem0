@@ -3,7 +3,7 @@ title: Cursor
 description: "Add persistent memory to Cursor with the Mem0 MCP server for context-aware coding."
 ---
 
-Add persistent memory to [**Cursor**](https://cursor.com) with the Mem0 MCP server. Your AI assistant forgets everything between sessions — Mem0 fixes that by connecting Cursor to Mem0's cloud memory layer via MCP so you can save and retrieve relevant context during coding sessions.
+Add persistent memory to [**Cursor**](https://cursor.com) with the Mem0 MCP server. Your AI assistant forgets everything between sessions. Mem0 fixes that by connecting Cursor to Mem0's cloud memory layer via MCP so you can save and retrieve relevant context during coding sessions.
 
 ## Prerequisites
 
@@ -35,13 +35,13 @@ source ~/.bashrc
 
 ## Installation
 
-### Option A — One-Click Deeplink (MCP Only)
+### Option A: One-Click Deeplink (MCP Only)
 
 The fastest way to get started. Click the link below to install the Mem0 MCP server directly in Cursor:
 
 [Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidXJsIjoiaHR0cHM6Ly9tY3AubWVtMC5haS9tY3AvIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiVG9rZW4gJHtlbnY6TUVNMF9BUElfS0VZfSJ9fX19)
 
-### Option B — npx (MCP Only)
+### Option B: npx (MCP Only)
 
 ```bash
 npx mcp-add \
@@ -51,7 +51,7 @@ npx mcp-add \
   --clients "cursor"
 ```
 
-### Option C — Manual Configuration (MCP Only)
+### Option C: Manual Configuration (MCP Only)
 
 Add the following to your `.cursor/mcp.json`:
 
@@ -97,7 +97,7 @@ You: The API endpoint /users is taking 3 seconds. Help me optimize it.
 
 # Cursor agent searches memories, proceeds with investigation.
 # After completing the task, Mem0 stores:
-#   - Learning: "N+1 query in UserService.getAll() — fixed with eager loading"
+#   - Learning: "N+1 query in UserService.getAll(): fixed with eager loading"
 #   - Decision: "Added database index on users.email column"
 #   - Preference: "User prefers query-level fixes over caching"
 
@@ -110,9 +110,9 @@ You: The /orders endpoint is also slow, same pattern as before.
 
 ## Troubleshooting
 
-- **"Connection failed"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
-- **Duplicate tools** — If you had a previous MCP config for `mem0`, remove it before installing the plugin
-- **No tools appearing** — Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
+- **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
+- **Duplicate tools**: If you had a previous MCP config for `mem0`, remove it before installing the plugin
+- **No tools appearing**: Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
 ## Multi-Agent Hierarchy with Shared Memory
 
-Because `memory_service` is passed to the `Runner`, every agent in the hierarchy shares the same memory automatically. Only the root coordinator needs the auto-save callback — ADK fires it once when the full turn completes:
+Because `memory_service` is passed to the `Runner`, every agent in the hierarchy shares the same memory automatically. Only the root coordinator needs the auto-save callback: ADK fires it once when the full turn completes:
 
 ```python
 import asyncio
@@ -295,11 +295,11 @@ if __name__ == "__main__":
 
 ## Key Features
 
-1. **Automatic Memory Injection**: ADK's built-in `load_memory` tool searches Mem0 at the start of each turn and injects relevant memories directly into the agent context — no prompt instructions needed.
+1. **Automatic Memory Injection**: ADK's built-in `load_memory` tool searches Mem0 at the start of each turn and injects relevant memories directly into the agent context. No prompt instructions are needed.
 2. **Automatic Session Saving**: The `save_session_to_memory` callback persists every completed turn to Mem0 without any manual calls.
-3. **Native ADK Integration**: `Mem0MemoryService` implements ADK's `BaseMemoryService` and integrates via the `Runner` — works natively across the entire agent hierarchy.
+3. **Native ADK Integration**: `Mem0MemoryService` implements ADK's `BaseMemoryService` and integrates via the `Runner`. It works natively across the entire agent hierarchy.
 4. **User Scoping**: `user_id` is passed automatically from the ADK session context, ensuring memories are always scoped to the correct user.
-5. **Multi-Agent Support**: A single `Mem0MemoryService` instance shared through the `Runner` gives all agents — coordinators and specialists — access to the same user memory.
+5. **Multi-Agent Support**: A single `Mem0MemoryService` instance shared through the `Runner` gives all agents, coordinators and specialists, access to the same user memory.
 
 ## Configuration Options
 

@@ -3,17 +3,17 @@ title: Pi Agent
 description: "Add persistent memory to Pi Agent with the Mem0 plugin semantic search, auto-capture, and dream consolidation."
 ---
 
-Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions — this plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
+Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions. This plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
 
 ## Overview
 
 The plugin provides:
-1. **Auto-capture** — Extracts durable facts from both user and assistant messages automatically
-2. **Semantic recall** — Retrieves relevant memories via the `mem0_memory` tool before each response
-3. **Dream consolidation** — Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
-4. **Monorepo-aware scoping** — Uses git root for project detection, consistent across subdirectories
-5. **Confirmation dialogs** — Destructive commands ask before acting via Pi's built-in UI
-6. **8 skills + 8 commands** — Essential memory management from slash commands and agent-guided workflows
+1. **Auto-capture**: Extracts durable facts from both user and assistant messages automatically
+2. **Semantic recall**: Retrieves relevant memories via the `mem0_memory` tool before each response
+3. **Dream consolidation**: Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
+4. **Monorepo-aware scoping**: Uses git root for project detection, consistent across subdirectories
+5. **Confirmation dialogs**: Destructive commands ask before acting via Pi's built-in UI
+6. **8 skills + 8 commands**: Essential memory management from slash commands and agent-guided workflows
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ source ~/.bashrc
 pi install npm:@mem0/pi-agent-plugin
 ```
 
-That's it. The extension loads automatically on every Pi session. No config files needed — `MEM0_API_KEY` from your environment is picked up automatically.
+That's it. The extension loads automatically on every Pi session. No config files needed: `MEM0_API_KEY` from your environment is picked up automatically.
 
 <Info>
   Start a new Pi session and run `/mem0-status` to verify the connection. You should see your user ID, detected project, and memory count.
@@ -103,9 +103,9 @@ The `mem0_memory` tool is registered with Pi and callable by the agent during co
 |--------|----------------|-------------|
 | `search` | `query` | Semantic search across memories |
 | `add` | `content` | Store a new memory |
-| `get_all` | — | List all memories in scope |
+| `get_all` | N/A | List all memories in scope |
 | `delete` | `memory_id` | Delete a specific memory |
-| `delete_all` | — | Delete all memories in scope |
+| `delete_all` | N/A | Delete all memories in scope |
 
 All actions accept an optional `scope` parameter: `project` (default), `session`, or `global`.
 
@@ -119,7 +119,7 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-forget <query>` | Search and delete memories (with confirmation dialog) |
 | `/mem0-search <query>` | Semantic search across memories |
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
-| `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
+| `/mem0-dream` | Consolidate: merge duplicates, prune stale, resolve contradictions |
 | `/mem0-pin <query>` | Pin a memory to protect from dream pruning (preserves memory ID) |
 | `/mem0-scope <scope>` | Change default scope for this session (project, session, global) |
 | `/mem0-status` | Connection health, identity, and memory count |
@@ -130,7 +130,7 @@ Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
 
 | Scope | Filters | Use Case |
 |-------|---------|----------|
-| `project` | user_id + app_id (git root) | **Default.** Project-specific knowledge — decisions, architecture, config |
+| `project` | user_id + app_id (git root) | **Default.** Project-specific knowledge: decisions, architecture, config |
 | `session` | user_id + app_id + run_id | Ephemeral context for the current session only |
 | `global` | user_id only | All memories across all your projects |
 
@@ -144,11 +144,11 @@ Destructive and mutating commands use Pi's built-in `ctx.ui.confirm()` dialog be
 
 - `/mem0-forget` asks "Delete this memory?" before deleting a single match
 - `/mem0-pin` asks "Pin this memory?" before modifying it
-- Cancelling either operation is always safe — no changes are made
+- Cancelling either operation is always safe. No changes are made
 
 ### Pin
 
-`/mem0-pin` uses Mem0's `update()` API to prepend `[PINNED]` to the memory text. This preserves the original memory ID — no add+delete cycle that would lose history or change the UUID.
+`/mem0-pin` uses Mem0's `update()` API to prepend `[PINNED]` to the memory text. This preserves the original memory ID. There is no add+delete cycle that would lose history or change the UUID.
 
 ### Dream Consolidation
 
@@ -163,16 +163,16 @@ You: I prefer dark mode and concise answers.
 
 # Session 2 (days later)
 You: What do you know about my preferences?
-# Pi retrieves stored memories — no re-explaining needed
+# Pi retrieves stored memories, no re-explaining needed
 ```
 
 ## Troubleshooting
 
-- **"No API key found"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
-- **Extension not loading** — Check Pi startup output for errors. Run `pi -e ./src/entry.ts` from the plugin directory for verbose output
-- **Memories not capturing** — Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
-- **Wrong project detected** — The plugin uses the git repository root as `app_id`. If not in a git repo, it falls back to the working directory name. Run `/mem0-status` to see the detected project
-- **Dream not triggering** — All three gates must pass (time, sessions, memories). Use `/mem0-dream` to force it manually
+- **"No API key found"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
+- **Extension not loading**: Check Pi startup output for errors. Run `pi -e ./src/entry.ts` from the plugin directory for verbose output
+- **Memories not capturing**: Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
+- **Wrong project detected**: The plugin uses the git repository root as `app_id`. If not in a git repo, it falls back to the working directory name. Run `/mem0-status` to see the detected project
+- **Dream not triggering**: All three gates must pass (time, sessions, memories). Use `/mem0-dream` to force it manually
 
 <CardGroup cols={2}>
   <Card title="Claude Code Integration" icon="terminal" href="/integrations/claude-code">
