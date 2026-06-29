@@ -151,9 +151,11 @@ Add the following to your `.cursor/mcp.json`:
 }
 ```
 
-**Option C — Cursor Marketplace** (full plugin with hooks and skills):
+**Option C — Cursor Marketplace / Team Marketplace** (full plugin with hooks and skills):
 
-Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
+The full Cursor plugin is packaged in this repository, but it is not currently searchable in the public Cursor Marketplace. Until a public listing is available, use Option A or B above for MCP-only setup.
+
+If your organization uses Cursor Team Marketplaces, a team admin can import the Mem0 repository (`mem0ai/mem0`) as a team marketplace and install the bundled `mem0` plugin from its `.cursor-plugin/marketplace.json` manifest.
 
 ### OpenCode
 

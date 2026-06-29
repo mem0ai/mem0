@@ -68,12 +68,14 @@ Add the following to your `.cursor/mcp.json`:
 }
 ```
 
-### Option D — Cursor Marketplace (Full Plugin)
+### Option D — Cursor Marketplace / Team Marketplace (Full Plugin)
 
-Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks, the Mem0 SDK skill, and automatic memory capture.
+The full Cursor plugin (MCP server, lifecycle hooks, Mem0 SDK skill, and automatic memory capture) is packaged in this repository, but it is not currently searchable in the public Cursor Marketplace. Until a public listing is available, use Options A-C above for the supported MCP-only Cursor setup.
+
+If your organization uses Cursor Team Marketplaces, a team admin can import the Mem0 repository (`mem0ai/mem0`) as a team marketplace and install the bundled `mem0` plugin from its `.cursor-plugin/marketplace.json` manifest.
 
 <Info icon="check">
-  Start a new Cursor session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+  After installing either the MCP-only setup or the full plugin, start a new Cursor session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
 </Info>
 
 ## What's Included
@@ -100,9 +102,9 @@ Once installed, the following tools are available in every Cursor session:
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 
-## Lifecycle Hooks (Marketplace Install)
+## Lifecycle Hooks (Full Plugin Install)
 
-When installed via the Cursor Marketplace, Mem0 hooks into Cursor's lifecycle:
+When installed through the full Cursor plugin, Mem0 hooks into Cursor's lifecycle:
 
 | Hook | Event | What it does |
 |------|-------|-------------|
@@ -137,7 +139,7 @@ You: The /orders endpoint is also slow, same pattern as before.
 - **"Connection failed"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
 - **Duplicate tools** — If you had a previous MCP config for `mem0`, remove it before installing the plugin
 - **No tools appearing** — Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
-- **Hooks not running** — Hooks require the Marketplace install (Option D). Deeplink/manual installs only provide MCP tools.
+- **Hooks not running** — Hooks require the full plugin install (Option D). Deeplink/manual installs only provide MCP tools.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
