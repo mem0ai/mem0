@@ -4,141 +4,174 @@ description: "Mem0 is a universal, self-improving memory layer for LLM applicati
 mode: "custom"
 ---
 
-{/* debug: welcome-layout-v10-pathicons */}
+{/* debug: welcome-layout-v3-grid */}
 
-<div className="px-6 pt-12 pb-2 lg:pt-16 max-w-3xl mx-auto text-center space-y-4">
-  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-zinc-50 tracking-tight">
-    Give your AI agents memory
+<div className="px-4 pt-8 pb-4 lg:pt-10 max-w-4xl mx-auto text-center space-y-3">
+  <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-zinc-50 tracking-tight mb-2">
+    Build with <span className="text-primary">Mem0</span>
   </h1>
 
-  <p className="text-sm lg:text-base text-gray-600 dark:text-zinc-400 leading-relaxed">
-    A self-improving memory layer that lets your agents remember users, preferences, and context across every session.
+  <p className="max-w-2xl mx-auto text-base text-gray-600 dark:text-zinc-400 leading-relaxed">
+    Universal, self-improving memory layer for LLM applications.
   </p>
 </div>
 
-<section className="px-6 pt-10 pb-16 max-w-5xl mx-auto">
-  <h2 className="text-center text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-zinc-500 mb-6">
-    Choose your path
-  </h2>
-
-  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+<section className="px-4 pt-4 pb-6 max-w-6xl mx-auto">
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     <a
       href="/platform/quickstart"
-      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-        <path d="m3.3 7 8.7 5 8.7-5" />
-        <path d="M12 22V12" />
-      </svg>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Add memory to your app
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Store and recall user facts, preferences, and context in a few lines of code.
-      </p>
-      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
-        Start the quickstart →
-      </span>
+      <img
+        className="block dark:hidden aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/light/mem0_platform.png"
+        alt="Mem0 Platform thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <img
+        className="hidden dark:block aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/dark/mem0_platform.png"
+        alt="Mem0 Platform thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3 text-left">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+          Store your first memory
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          Managed memory with production-scale infrastructure, ready in minutes.
+        </p>
+      </div>
     </a>
 
     <a
       href="/integrations"
-      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-      </svg>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Add memory to your agent
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Plug Mem0 into LangChain, LangGraph, CrewAI, Vercel AI SDK, and 20+ more.
-      </p>
-      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
-        Browse integrations →
-      </span>
-    </a>
-
-    <a
-      href="/integrations/claude-code"
-      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <rect x="2" y="4" width="20" height="16" rx="2" />
-        <path d="m6 9 3 3-3 3" />
-        <path d="M13 15h4" />
-      </svg>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Add memory to coding agents
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Add memory to Claude Code, Cursor, Codex, and OpenClaw.
-      </p>
-      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
-        Set it up →
-      </span>
+      <img
+        className="block dark:hidden aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/light/Integrations.png"
+        alt="Integrations thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <img
+        className="hidden dark:block aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/dark/Integrations.png"
+        alt="Integrations thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3 text-left">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+          Connect your agent framework
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          Connect Mem0 to LangChain, CrewAI, Vercel AI SDK, and 20+ partner frameworks.
+        </p>
+      </div>
     </a>
 
     <a
       href="/api-reference"
-      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <path d="m16 18 6-6-6-6" />
-        <path d="m8 6-6 6 6 6" />
-      </svg>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Use the API
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Hit every REST endpoint with copy-paste request and response examples.
-      </p>
-      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
-        Open the reference →
-      </span>
+      <img
+        className="block dark:hidden aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/light/API.png"
+        alt="API reference thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <img
+        className="hidden dark:block aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/dark/API.png"
+        alt="API reference thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3 text-left">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+          API Reference
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          Explore every REST endpoint with payload examples and usage guidance.
+        </p>
+      </div>
     </a>
 
     <a
-      href="/platform/overview"
-      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      href="/cookbooks/overview"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-      </svg>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Try out our platform
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Get managed memory in minutes. We run the infrastructure, free to start.
-      </p>
-      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
-        Explore the Platform →
-      </span>
+      <img
+        className="block dark:hidden aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/light/Cookbooks.png"
+        alt="Cookbooks thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <img
+        className="hidden dark:block aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/dark/Cookbooks.png"
+        alt="Cookbooks thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3 text-left">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+          Build from an example
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          Start with working recipes for companions, support flows, voice agents, and research tools.
+        </p>
+      </div>
     </a>
 
     <a
-      href="/open-source/python-quickstart"
-      className="group flex h-full flex-col rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 p-6 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+      href="/platform/agent-signup"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary mb-3">
-        <rect x="2" y="2" width="20" height="8" rx="2" />
-        <rect x="2" y="14" width="20" height="8" rx="2" />
-        <path d="M6 6h.01" />
-        <path d="M6 18h.01" />
-      </svg>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
-        Self host the Open Source Stack
-      </h3>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-zinc-400">
-        Run the full open-source stack with Python, TS, and your own vector DB.
-      </p>
-      <span className="mt-auto pt-4 text-sm font-medium text-primary opacity-90 group-hover:opacity-100 transition-opacity">
-        Get the OSS stack →
-      </span>
+      <img
+        className="block dark:hidden aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/light/CLI.png"
+        alt="Sign up as an agent thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <img
+        className="hidden dark:block aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/dark/CLI.png"
+        alt="Sign up as an agent thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3 text-left">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+          Sign up as an agent
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          For AI agents: mint a Mem0 API key in under five seconds — no email, no dashboard. Four commands to your first memory.
+        </p>
+      </div>
+    </a>
+
+    <a
+      href="/open-source/overview"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/40 transition hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-zinc-900"
+    >
+      <img
+        className="block dark:hidden aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/light/mem0_open_source.png"
+        alt="Mem0 Open Source thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <img
+        className="hidden dark:block aspect-[2/1] w-full object-cover"
+        src="/images/docs thumbnails/dark/mem0_open_source.png"
+        alt="Mem0 Open Source thumbnail"
+        style={{pointerEvents: "none"}}
+      />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 pt-3 text-left">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-primary">
+          Self-host memory
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">
+          Self-host the Mem0 stack for full control over data, deployment, and customization.
+        </p>
+      </div>
     </a>
   </div>
 </section>
