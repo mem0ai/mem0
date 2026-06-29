@@ -355,8 +355,10 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
         instructions = response
         test_message = "I like to hike on weekends."
         if "INSTRUCTIONS:" in response and "TEST_MESSAGE:" in response:
-            parts = response.split("TEST_MESSAGE:")
-            instructions = parts[0].replace("INSTRUCTIONS:", "").strip()
+            parts = response.rsplit("TEST_MESSAGE:", 1)
+            instructions = parts[0].strip()
+            if instructions.startswith("INSTRUCTIONS:"):
+                instructions = instructions[len("INSTRUCTIONS:") :].strip()
             test_message = parts[1].strip()
         return {"custom_instructions": instructions, "test_message": test_message}
     except Exception:
