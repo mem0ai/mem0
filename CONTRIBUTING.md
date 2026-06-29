@@ -15,6 +15,20 @@ To make a contribution, follow these steps:
 
 For more details about pull requests, please read [GitHub's guides](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
 
+### First-contribution fast path (docs and small quality fixes)
+
+If you are making a docs-only or small quality fix (typo, clarity update, tiny example correction), you can use this lightweight path:
+
+1. Create a focused branch name, for example `docs/fix-memory-api-typo`
+2. Keep the scope small and explain user impact in 1-2 lines
+3. Run formatting and quick checks before opening the PR:
+   - `pre-commit run --files <changed-files>`
+   - `make test` (when code paths are touched)
+4. Link the related issue (or open one) in the PR description
+5. Add before/after snippets for documentation changes when useful
+
+This keeps review fast and helps maintainers merge high-signal contributions quickly.
+
 
 ### 📦 Development Environment
 
