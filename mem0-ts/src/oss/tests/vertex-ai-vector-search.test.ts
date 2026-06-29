@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { VertexAIVectorSearch } from "../src/vector_stores/vertex_ai_vector_search";
 
 jest.mock("@google-cloud/aiplatform", () => {
@@ -27,6 +28,7 @@ describe("VertexAIVectorSearch", () => {
       endpointId: "test-endpoint",
       indexId: "test-index",
       deploymentIndexId: "test-deployment",
+      vectorSearchApiEndpoint: "test-api-endpoint",
     });
   });
 
@@ -43,6 +45,33 @@ describe("VertexAIVectorSearch", () => {
     const results = await store.search([1, 2, 3], 5);
     expect((store as any).matchClient.findNeighbors).toHaveBeenCalled();
     expect(results).toEqual([]);
+  });
+
+  it("should search vectors and return populated results", async () => {
+    const mockFindNeighbors = jest.fn().mockResolvedValue([{
+      nearestNeighbors: [{
+        neighbors: [{
+          datapoint: {
+            datapointId: "id1",
+            restricts: [{ namespace: "key", allowList: ["value"] }]
+          },
+          distance: 0.1
+        }]
+      }]
+    }]);
+    (store as any).matchClient.findNeighbors = mockFindNeighbors;
+    
+    const results = await store.search([1, 2, 3], 5, { key: "value" });
+    
+    expect(mockFindNeighbors).toHaveBeenCalled();
+    // It should map payload correctly and score should be 1.0 - distance
+    expect(results).toEqual([
+      {
+        id: "id1",
+        payload: { key: "value" },
+        score: 0.9,
+      }
+    ]);
   });
 
   it("should get vector by id", async () => {

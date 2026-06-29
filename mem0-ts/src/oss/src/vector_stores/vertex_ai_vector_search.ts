@@ -119,6 +119,9 @@ export class VertexAIVectorSearch implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    if (!this.config.vectorSearchApiEndpoint) {
+      throw new Error("vectorSearchApiEndpoint is required for search operation");
+    }
     await this.initialize();
 
     const restricts: any[] = [];
@@ -167,7 +170,12 @@ export class VertexAIVectorSearch implements VectorStore {
     }
 
     const neighbors = response.nearestNeighbors[0].neighbors || [];
-    return neighbors.map((neighbor: any) => {
+    return neighbors
+      .filter(
+        (neighbor: any) =>
+          neighbor.datapoint?.datapointId !== "mem0-user-id-record",
+      )
+      .map((neighbor: any) => {
       const payload: Record<string, any> = {};
       if (neighbor.datapoint?.restricts) {
         for (const restrict of neighbor.datapoint.restricts) {
@@ -190,6 +198,9 @@ export class VertexAIVectorSearch implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    if (!this.config.vectorSearchApiEndpoint) {
+      throw new Error("vectorSearchApiEndpoint is required for get operation");
+    }
     await this.initialize();
 
     const request = {
@@ -222,6 +233,10 @@ export class VertexAIVectorSearch implements VectorStore {
     }
 
     const neighbor = neighbors[0];
+    if (neighbor.datapoint?.datapointId !== vectorId) {
+      return null;
+    }
+
     const payload: Record<string, any> = {};
     if (neighbor.datapoint?.restricts) {
       for (const restrict of neighbor.datapoint.restricts) {
@@ -260,6 +275,7 @@ export class VertexAIVectorSearch implements VectorStore {
     // Verify existence first
     const existing = await this.get(vectorId);
     if (!existing) {
+      console.warn(`Vector not found for id: ${vectorId}`);
       return;
     }
 
@@ -306,17 +322,6 @@ export class VertexAIVectorSearch implements VectorStore {
 
     const results = await this.search(zeroVector, topK, filters);
     return [results, results.length];
-  }
-
-  private generateUUID(): string {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      },
-    );
   }
 
   async getUserId(): Promise<string> {
