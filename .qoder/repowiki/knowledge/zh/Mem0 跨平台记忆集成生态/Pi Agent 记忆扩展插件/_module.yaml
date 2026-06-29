@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: integrations/pi_agent_plugin
+title: Pi Agent 记忆扩展插件
+scope:
+    - integrations/pi-agent-plugin/
+source_files: []
+depends_on: []
+related_to:
+    - path: integrations/mem0_plugin
+    - path: integrations/openclaw
+    - path: skills
+    - path: examples
+    - path: cli/node_cli
+    - path: sdk_tests
+    - path: integrations/vercel_ai_sdk

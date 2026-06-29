@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: openmemory/ui_frontend/shared_ui
+title: 共享 UI 组件与状态管理
+scope:
+    - openmemory/ui/components/
+    - openmemory/ui/hooks/
+    - openmemory/ui/store/
+    - openmemory/ui/lib/
+    - openmemory/ui/styles/
+    - openmemory/ui/skeleton/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/ui_frontend/apps_feature
+    - path: openmemory/ui_frontend/memories_feature
+    - path: openmemory/ui_frontend/app_shell
+    - path: platform_server/dashboard_frontend

@@ -1,0 +1,16 @@
+schema_version: 1
+module_path: mem0_python_sdk
+title: Mem0 Python SDK
+scope:
+    - mem0/
+source_files: []
+depends_on: []
+related_to:
+    - path: mem0_typescript_sdk
+    - path: sdk_tests
+    - path: docs
+    - path: examples
+    - path: integrations/openclaw
+    - path: integrations/vercel_ai_sdk
+    - path: openmemory/api_backend/infrastructure
+    - path: platform_server/backend_api

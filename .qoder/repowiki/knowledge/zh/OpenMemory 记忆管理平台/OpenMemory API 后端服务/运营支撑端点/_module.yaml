@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: openmemory/api_backend/operational_endpoints
+title: 运营支撑端点
+scope:
+    - openmemory/api/app/routers/config.py
+    - openmemory/api/app/routers/backup.py
+    - openmemory/api/app/routers/stats.py
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/api_backend/infrastructure
+    - path: openmemory/ui_frontend
+    - path: docs

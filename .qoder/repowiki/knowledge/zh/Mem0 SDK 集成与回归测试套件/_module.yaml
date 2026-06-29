@@ -1,0 +1,17 @@
+schema_version: 1
+module_path: sdk_tests
+title: Mem0 SDK 集成与回归测试套件
+scope:
+    - tests/
+source_files: []
+depends_on: []
+related_to:
+    - path: mem0_python_sdk
+    - path: mem0_typescript_sdk
+    - path: examples
+    - path: integrations
+    - path: openmemory/api_backend/infrastructure
+    - path: skills
+    - path: openmemory/api_backend/entry_and_tests
+    - path: integrations/pi_agent_plugin
+    - path: integrations/vercel_ai_sdk

@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: cli/python_cli
+title: Mem0 CLI 命令行交互与后端集成
+scope:
+    - cli/python/
+source_files: []
+depends_on: []
+related_to:
+    - path: cli/node_cli
+    - path: integrations/mem0_plugin
+    - path: docs
+    - path: platform_server/backend_api

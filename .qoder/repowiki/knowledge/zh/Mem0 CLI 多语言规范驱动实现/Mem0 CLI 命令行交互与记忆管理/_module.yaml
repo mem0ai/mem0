@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: cli/node_cli
+title: Mem0 CLI 命令行交互与记忆管理
+scope:
+    - cli/node/
+source_files: []
+depends_on: []
+related_to:
+    - path: cli/python_cli
+    - path: integrations/mem0_plugin
+    - path: docs
+    - path: integrations/pi_agent_plugin
+    - path: integrations/openclaw

@@ -1,0 +1,16 @@
+schema_version: 1
+module_path: integrations/mem0_plugin
+title: Mem0 AI 记忆集成插件
+scope:
+    - integrations/mem0-plugin/
+source_files: []
+depends_on: []
+related_to:
+    - path: integrations/openclaw
+    - path: integrations/pi_agent_plugin
+    - path: skills
+    - path: cli/node_cli
+    - path: cli/python_cli
+    - path: openmemory/api_backend/entry_and_tests
+    - path: openmemory/api_backend
+    - path: examples

@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: openmemory/api_backend/entry_and_tests
+title: MCP 服务入口与测试
+scope:
+    - openmemory/api/main.py
+    - openmemory/api/app/mcp_server.py
+    - openmemory/api/tests/
+source_files: []
+depends_on: []
+related_to:
+    - path: integrations/mem0_plugin
+    - path: openmemory/api_backend/infrastructure
+    - path: sdk_tests

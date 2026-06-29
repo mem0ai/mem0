@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: integrations/vercel_ai_sdk
+title: Vercel AI SDK Mem0 记忆增强适配器
+scope:
+    - integrations/vercel-ai-sdk/
+source_files: []
+depends_on: []
+related_to:
+    - path: examples
+    - path: skills
+    - path: mem0_python_sdk
+    - path: mem0_typescript_sdk
+    - path: integrations/pi_agent_plugin
+    - path: sdk_tests

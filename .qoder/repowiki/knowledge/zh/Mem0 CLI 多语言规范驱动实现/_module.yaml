@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: cli
+title: Mem0 CLI 多语言规范驱动实现
+scope:
+    - cli/
+source_files: []
+depends_on: []
+related_to: []

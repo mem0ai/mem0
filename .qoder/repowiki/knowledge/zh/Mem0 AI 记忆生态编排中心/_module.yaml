@@ -1,0 +1,19 @@
+schema_version: 1
+module_path: ""
+title: Mem0 AI 记忆生态编排中心
+scope:
+    - README.md
+    - CONTRIBUTING.md
+    - .gitignore
+    - .pre-commit-config.yaml
+    - Makefile
+    - pyproject.toml
+    - poetry.lock
+    - marketplace.json
+    - LLM.md
+    - AGENTS.md
+    - .gitmodules
+    - LICENSE
+source_files: []
+depends_on: []
+related_to: []

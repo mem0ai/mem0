@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: platform_server/dashboard_frontend
+title: Mem0 管理控制台前端
+scope:
+    - server/dashboard/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/ui_frontend
+    - path: platform_server/backend_api
+    - path: openmemory/ui_frontend/shared_ui
+    - path: examples
+    - path: openmemory/ui_frontend/app_shell
+    - path: docs

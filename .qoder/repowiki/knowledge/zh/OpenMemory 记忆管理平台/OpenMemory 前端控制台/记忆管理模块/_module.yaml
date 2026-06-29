@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: openmemory/ui_frontend/memories_feature
+title: 记忆管理模块
+scope:
+    - openmemory/ui/app/memories/
+    - openmemory/ui/app/memory/
+source_files: []
+depends_on: []
+related_to:
+    - path: openmemory/ui_frontend/apps_feature
+    - path: openmemory/ui_frontend/shared_ui
+    - path: openmemory/ui_frontend/app_shell
+    - path: openmemory/api_backend
+    - path: openmemory/api_backend/infrastructure

@@ -1,0 +1,19 @@
+schema_version: 1
+module_path: docs
+title: Mem0 产品文档与 API 参考中心
+scope:
+    - docs/
+source_files: []
+depends_on: []
+related_to:
+    - path: mem0_python_sdk
+    - path: mem0_typescript_sdk
+    - path: platform_server/backend_api
+    - path: openmemory/api_backend
+    - path: cli/node_cli
+    - path: cli/python_cli
+    - path: integrations
+    - path: examples
+    - path: skills
+    - path: openmemory/api_backend/operational_endpoints
+    - path: platform_server/dashboard_frontend

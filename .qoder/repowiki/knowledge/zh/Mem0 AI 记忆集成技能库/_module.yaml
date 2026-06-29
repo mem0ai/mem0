@@ -1,0 +1,15 @@
+schema_version: 1
+module_path: skills
+title: Mem0 AI 记忆集成技能库
+scope:
+    - skills/
+source_files: []
+depends_on: []
+related_to:
+    - path: integrations/mem0_plugin
+    - path: integrations/openclaw
+    - path: integrations/pi_agent_plugin
+    - path: integrations/vercel_ai_sdk
+    - path: integrations
+    - path: docs
+    - path: sdk_tests
