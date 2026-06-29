@@ -199,8 +199,15 @@ class AzureAISearch(VectorStoreBase):
             if isinstance(value, str):
                 safe_value = value.replace("'", "''")
                 condition = f"{safe_key} eq '{safe_value}'"
-            else:
+            elif isinstance(value, bool):
+                condition = f"{safe_key} eq {str(value).lower()}"
+            elif isinstance(value, (int, float)):
                 condition = f"{safe_key} eq {value}"
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
             filter_conditions.append(condition)
         filter_expression = " and ".join(filter_conditions)
         return filter_expression

@@ -94,7 +94,7 @@ await client.add(messages, { userId: "alice" });
 </CodeGroup>
 
 <Info icon="check">
-  Inspect the response payload—the memories list should include entries extracted from the menu image as well as the text turns.
+  Inspect the response payload: the memories list should include entries extracted from the menu image as well as the text turns.
 </Info>
 
 ### Upload local images as base64
@@ -294,7 +294,7 @@ try {
 
 - After calling `add`, inspect the returned memories and confirm they include image-derived text (menu items, receipt totals, etc.).
 - Run a follow-up `search` for a detail from the image; the memory should surface alongside related text.
-- Monitor image upload latency—large files should still complete under your acceptable response time.
+- Monitor image upload latency: large files should still complete under your acceptable response time.
 - Log file size and URL sources to troubleshoot repeated failures.
 
 ---

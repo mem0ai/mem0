@@ -120,7 +120,7 @@ memory.update(
 </CodeGroup>
 
 <Note>
-  OSS JavaScript SDK does not expose `update` yet—use the REST API or Python SDK when self-hosting.
+  OSS JavaScript SDK does not expose `update` yet: use the REST API or Python SDK when self-hosting.
 </Note>
 
 ## Tips
@@ -141,7 +141,7 @@ memory.update(
 | Update call | `client.update(memory_id, {...})` | `memory.update(memory_id, data=...)` |
 | Batch updates | `client.batch_update` (up to 1000 memories) | Script your own loop or bulk job |
 | Dashboard visibility | Inspect updates in the UI | Inspect via logs or custom tooling |
-| Immutable handling | Returns descriptive error | Raises exception—delete and re-add |
+| Immutable handling | Returns descriptive error | Raises exception: delete and re-add |
 
 ## Put it into practice
 

@@ -151,10 +151,6 @@ Add the following to your `.cursor/mcp.json`:
 }
 ```
 
-**Option C — Cursor Marketplace** (full plugin with hooks and skills):
-
-Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
-
 ### OpenCode
 
 ```bash
@@ -225,14 +221,14 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes |
-| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes |
+| Component | Claude Code / Cowork | Cursor (MCP) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
+|-----------|:--------------------:|:------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | No | Opt-in | No | Yes | No | Yes |
+| Mem0 SDK Skill | Yes | No | Yes | No | Yes | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, Cursor, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 
 ## Updating the plugin

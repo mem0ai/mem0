@@ -145,7 +145,7 @@ client.delete_all(user_id="*")
 # Delete all memories across every agent in the project
 client.delete_all(agent_id="*")
 
-# Full project wipe — all four filters must be explicitly set to "*"
+# Full project wipe: all four filters must be explicitly set to "*"
 client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
 ```
 
@@ -159,7 +159,7 @@ client.deleteAll({ userId: "*" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
 
-// Full project wipe — all four filters must be explicitly set to "*"
+// Full project wipe: all four filters must be explicitly set to "*"
 client.deleteAll({ userId: "*", agentId: "*", appId: "*", runId: "*" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
@@ -184,7 +184,7 @@ memory.delete_all(user_id="alice")
 </CodeGroup>
 
 <Note>
-  The OSS JavaScript SDK does not yet expose deletion helpers—use the REST API or Python SDK when self-hosting.
+  The OSS JavaScript SDK does not yet expose deletion helpers: use the REST API or Python SDK when self-hosting.
 </Note>
 
 ## Use cases recap
