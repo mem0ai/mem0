@@ -426,7 +426,7 @@ def get_all_memories(
             # Admin all-memory listing is intentionally raw; scoped get_all below applies expiry visibility.
             return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
         filters = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
+            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
         }
         params = {"filters": filters}
         if top_k is not None:
