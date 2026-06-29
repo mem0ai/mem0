@@ -41,6 +41,14 @@ Multimodal support lets Mem0 extract facts from images alongside regular text. A
 
 ## Configure it
 
+<Warning>
+  You must set `enable_vision: True` in your LLM config for image content to be processed. Without it, image turns are silently dropped and no vision memories are created. Example:
+  ```python
+  config = {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+  client = Memory.from_config(config)
+  ```
+</Warning>
+
 ### Add image messages from URLs
 
 <CodeGroup>
@@ -66,7 +74,7 @@ client.add(messages, user_id="alice")
 ```
 
 ```ts TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 
 const client = new Memory();
 
@@ -123,7 +131,7 @@ client.add(messages, user_id="alice")
 
 ```ts TypeScript
 import fs from "fs";
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 
 function encodeImage(imagePath: string) {
   const buffer = fs.readFileSync(imagePath);
@@ -226,7 +234,7 @@ client.add(messages, user_id="user123")
 <CodeGroup>
 ```python Python
 from mem0 import Memory
-from mem0.exceptions import InvalidImageError, FileSizeError
+from mem0.exceptions import ValidationError
 
 client = Memory()
 
@@ -242,16 +250,14 @@ try:
     client.add(messages, user_id="user123")
     print("Image processed successfully")
 
-except InvalidImageError:
-    print("Invalid image format or corrupted file")
-except FileSizeError:
-    print("Image file too large")
+except ValidationError as exc:
+    print(f"Image validation error: {exc}")
 except Exception as exc:
     print(f"Unexpected error: {exc}")
 ```
 
 ```ts TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 
 const client = new Memory();
 

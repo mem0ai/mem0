@@ -60,7 +60,7 @@ import os
 
 from mem0 import Memory
 
-memory = Memory(api_key=os.environ["MEM0_API_KEY"])
+memory = Memory()
 
 # Sticky note: conversation memory
 memory.add(
@@ -72,8 +72,7 @@ memory.add(
 # Later in the session, pull long-term + session context
 results = memory.search(
     "Any hotel preferences?",
-    user_id="alex",
-    run_id="trip-planning-2025",
+    filters={"user_id": "alex", "run_id": "trip-planning-2025"},
 )
 ```
 

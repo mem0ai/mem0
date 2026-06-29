@@ -7,7 +7,8 @@ To use DeepSeek LLM models, you have to set the `DEEPSEEK_API_KEY` environment v
 
 ## Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -35,6 +36,32 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'deepseek',
+    config: {
+      apiKey: process.env.DEEPSEEK_API_KEY || '',
+      model: 'deepseek-chat',
+      temperature: 0.2,
+      maxTokens: 2000,
+      top_p: 1.0,
+    },
+  },
+};
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+];
+await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } });
+``` 
+</CodeGroup>
 
 You can also configure the API base URL in the config:
 
