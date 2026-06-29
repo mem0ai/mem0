@@ -355,9 +355,12 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
         instructions = response
         test_message = "I like to hike on weekends."
         if "INSTRUCTIONS:" in response and "TEST_MESSAGE:" in response:
-            parts = response.split("TEST_MESSAGE:")
-            instructions = parts[0].replace("INSTRUCTIONS:", "").strip()
-            test_message = parts[1].strip()
+            # Split on the first TEST_MESSAGE: marker so a test message that itself
+            # contains the marker keeps its full text, and strip only the leading
+            # INSTRUCTIONS: label rather than every occurrence in the body.
+            before, _, after = response.partition("TEST_MESSAGE:")
+            instructions = before.split("INSTRUCTIONS:", 1)[-1].strip()
+            test_message = after.strip()
         return {"custom_instructions": instructions, "test_message": test_message}
     except Exception:
         raise upstream_error()
