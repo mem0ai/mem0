@@ -5,6 +5,7 @@ export * from "./embeddings/base";
 export * from "./embeddings/openai";
 export * from "./embeddings/ollama";
 export * from "./embeddings/lmstudio";
+export * from "./embeddings/together";
 export * from "./embeddings/google";
 export * from "./embeddings/azure";
 export * from "./embeddings/langchain";
