@@ -1,0 +1,124 @@
+---
+title: Kilo Code
+description: "Add persistent memory to Kilo Code with the Mem0 plugin — native SDK-backed memory tools and lifecycle hooks."
+---
+
+Add persistent memory to [**Kilo Code**](https://kilo.ai) with the Mem0 plugin. Your agent forgets everything between sessions — Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
+
+This plugin is ported from the [Mem0 OpenCode plugin](/integrations/opencode). Kilo's plugin API (`@kilocode/plugin`) mirrors OpenCode's, so it shares the same SDK-backed memory tools and lifecycle hooks.
+
+## Prerequisites
+
+1. A Mem0 API key (starts with `m0-`):
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-kilo" rel="nofollow">Get your API key</a> (free sign-up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-kilo" rel="nofollow">app.mem0.ai</a>)
+
+2. Add it to your shell profile so it persists across sessions:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc && source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
+```
+</CodeGroup>
+
+## Installation
+
+Add `@mem0/kilo-plugin` to your Kilo plugin configuration (see the [Kilo plugin docs](https://kilo.ai/docs/automate/extending/plugins)). The plugin registers its memory tools itself via the `mem0ai` SDK — there is no MCP server to configure, and `MEM0_API_KEY` from your environment is picked up automatically.
+
+Restart Kilo Code after installing.
+
+<Info>
+  Start a new Kilo Code session and ask *"search my memories for recent decisions"*. If the `mem0` tools respond, the plugin is wired up correctly.
+</Info>
+
+## What's Included
+
+| Component | Description |
+|-----------|-------------|
+| 10 memory tools | Native, registered by the plugin via the `mem0ai` SDK (no MCP server) |
+| Lifecycle hooks | 6 hooks for auto-search, memory injection, error lookup, and compaction |
+| Auto-dream | Automatic memory consolidation, gated by time / sessions / memory count |
+| Secret redaction | User text is scrubbed of common secret patterns before it reaches Mem0 |
+
+## Available Memory Tools
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+| `get_event_status` | Check the status of an asynchronous memory operation |
+
+## Memory scope
+
+`search_memories`, `get_memories`, `add_memory`, and `delete_all_memories` accept an optional **`scope`** that controls how widely they read or write:
+
+| Scope | Reads | Writes |
+|-------|-------|--------|
+| `project` *(default)* | this repo (`user_id` + `app_id`) | this repo |
+| `session` | this run only (`+ run_id`) | this run |
+| `global` | **all your projects** (`app_id: "*"`) | user-wide |
+
+Just ask naturally — e.g. *"search my memories across all my projects"* — and the agent passes `scope: "global"`. For normal questions it stays scoped to the current project automatically.
+
+The **default** scope (used when no scope is passed) is read from `~/.mem0/settings.json` (`default_scope`) fresh on each memory operation, so a change applies immediately without a restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
+
+The project id (`app_id`) is derived from your git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory. Launch Kilo Code from inside your repo so memories scope to the project rather than your home directory.
+
+## Lifecycle Hooks
+
+The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly — pure TypeScript, no Python, no shell scripts.
+
+| Kilo Code Event | Hook | What happens |
+|----------------|------|-------------|
+| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
+| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
+| `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |
+| `experimental.chat.messages.transform` | **Messages transform** | Injects memory context (session memories, search results, error lookups) into the prompt |
+| `experimental.session.compacting` | **Compaction** | Stores session state, then injects prior memories into compaction context so nothing is lost |
+| `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to spawned shells |
+
+<Info>
+  The TUI skills and `/mem0-*` slash commands from the OpenCode plugin are out of scope for this initial release — it ships the memory tools and lifecycle hooks only. Slash-command support can land in a later version once Kilo's TUI command surface is confirmed.
+</Info>
+
+## Auto-dream (memory consolidation)
+
+The plugin can automatically consolidate stored memories — merging duplicates, dropping stale entries, and rewriting vague ones — so your memory set stays clean over time. It runs at most once per session, automatically, and only when **all** gates pass:
+
+- **Time** — at least `minHours` (default 24) since the last consolidation
+- **Sessions** — at least `minSessions` (default 5) sessions since then
+- **Memories** — at least `minMemories` (default 20) stored for the project
+
+A filesystem lock (`~/.mem0/mem0-dream.lock`) keeps two sessions from consolidating at once. Tune the thresholds with a `dream` block in `~/.mem0/settings.json`, or disable entirely with `MEM0_DREAM=false`:
+
+```json
+{
+  "dream": { "enabled": true, "auto": true, "minHours": 24, "minSessions": 5, "minMemories": 20 }
+}
+```
+
+## Troubleshooting
+
+- **No tools appearing** — Restart Kilo Code after installing the plugin
+- **"Connection failed" / 401** — Verify your key is set: `echo $MEM0_API_KEY` should print your `m0-` key
+- **Wrong project name / memories not found** — The project id comes from your git remote; launch Kilo Code from inside the repo (not your home directory)
+- **Auto-dream never runs** — It's gated (time + sessions + memories). Lower the thresholds in `~/.mem0/settings.json`, or check that you have enough stored memories for the project
+
+<CardGroup cols={2}>
+  <Card title="OpenCode Integration" icon="terminal" href="/integrations/opencode">
+    The OpenCode plugin this Kilo Code integration is ported from
+  </Card>
+  <Card title="Claude Code Integration" icon="puzzle-piece" href="/integrations/claude-code">
+    Add Mem0 memory to Claude Code
+  </Card>
+</CardGroup>

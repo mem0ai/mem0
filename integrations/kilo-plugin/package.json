@@ -1,0 +1,66 @@
+{
+  "name": "@mem0/kilo-plugin",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mem0 persistent memory plugin for Kilo — add, search, and manage memories across sessions",
+  "main": "dist/index.js",
+  "types": "dist/kilo-mem0.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/kilo-mem0.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "kilo",
+    "kilocode",
+    "kilo-plugin",
+    "mem0",
+    "memory",
+    "ai-memory",
+    "persistent-memory"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "integrations/kilo-plugin"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun build kilo-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
+    "dev": "bun build kilo-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
+    "type-check": "tsc --noEmit",
+    "test": "bun test",
+    "prepack": "bun run build",
+    "postpack": ""
+  },
+  "kilo": {
+    "type": "plugin",
+    "hooks": [
+      "chat.message",
+      "tool.execute.before",
+      "tool.execute.after",
+      "experimental.chat.messages.transform",
+      "experimental.session.compacting",
+      "shell.env"
+    ]
+  },
+  "dependencies": {
+    "@kilocode/plugin": "7.3.46",
+    "mem0ai": "^3.0.8"
+  },
+  "devDependencies": {
+    "bun-types": ">=1.3.14",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  }
+}
