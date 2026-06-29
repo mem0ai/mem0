@@ -1,86 +1,171 @@
-# Contributing to mem0
+# Contributing to Mem0
 
-Let us make contribution easy, collaborative and fun.
+First off, thank you for taking the time to contribute! 🎉 Mem0 is a
+community-driven project and we welcome contributions of all kinds — bug fixes,
+new features, documentation, examples, and integrations.
 
-## Submit your Contribution through PR
+Mem0 is a polyglot monorepo, and this guide covers contributing to both the
+**Python SDK** and the **TypeScript SDK** (and the rest of the repository).
 
-To make a contribution, follow these steps:
+## Before You Start
 
-1. Fork and clone this repository
-2. Do the changes on your fork with dedicated feature branch `feature/f1`
-3. If you modified the code (new feature or bug-fix), please add tests for it
-4. Include proper documentation / docstring and examples to run the feature
-5. Ensure that all tests pass
-6. Submit a pull request
+### 1. Open an Issue First
 
-For more details about pull requests, please read [GitHub's guides](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
+**Always open an issue before opening a pull request.** This lets us discuss the
+change, avoid duplicate effort, and agree on the approach before you invest time
+in code.
+
+- Search [existing issues](https://github.com/mem0ai/mem0/issues) first to see if
+  your bug or idea already exists.
+- If it doesn't, open a
+  [bug report](https://github.com/mem0ai/mem0/issues/new?template=bug_report.yml) or
+  [feature request](https://github.com/mem0ai/mem0/issues/new?template=feature_request.yml).
+- For anything beyond a trivial fix, wait for a maintainer to confirm the approach
+  before starting significant work.
+
+Every pull request must link to an issue using `Closes #<issue-number>`.
+
+### 2. Sign the Contributor License Agreement (CLA)
+
+**We cannot accept or merge any pull request until you have signed our Contributor
+License Agreement (CLA).**
+
+When you open your first PR, the CLA bot will automatically comment with a link to
+sign. Signing takes less than a minute and only needs to be done once. Pull
+requests from contributors who have not signed the CLA will be blocked from
+merging.
+
+## Repository Layout
+
+The two most common contribution targets are the SDKs:
+
+| Package               | Path       | Language     | Package manager |
+| --------------------- | ---------- | ------------ | --------------- |
+| Python SDK (`mem0ai`) | `mem0/`    | Python 3.9+  | `hatch`         |
+| TypeScript SDK (`mem0ai`) | `mem0-ts/` | TypeScript | `pnpm`        |
+
+Other packages include the CLIs (`cli/python/`, `cli/node/`), integrations
+(`integrations/`), the self-hosted `server/`, `openmemory/`, and the docs site
+(`docs/`). See [AGENTS.md](./AGENTS.md) for a full map of the repository.
+
+## Development Workflow
+
+1. **Fork** the repository and **clone** your fork.
+2. Create a **feature branch** from `main` (e.g. `feature/my-new-feature` or
+   `fix/issue-1234`).
+3. Make your changes — add **tests**, **documentation**, and **examples** as
+   appropriate.
+4. Run **linting and tests** for every package you touched (see below).
+5. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
+   (e.g. `feat:`, `fix:`, `docs:`, `refactor:`, `test:`).
+6. Push and open a **pull request** against `main`, linking the issue with
+   `Closes #<number>` and filling out the
+   [PR template](./.github/PULL_REQUEST_TEMPLATE.md).
 
 ### First-contribution fast path (docs and small quality fixes)
 
-If you are making a docs-only or small quality fix (typo, clarity update, tiny example correction), you can use this lightweight path:
+If you are shipping a docs-only or tiny quality fix, use this lightweight lane to speed reviews:
 
-1. Create a focused branch name, for example `docs/fix-memory-api-typo`
-2. Keep the scope small and explain user impact in 1-2 lines
-3. Run formatting and quick checks before opening the PR:
+1. Start from an agreed issue and keep scope to one clear user-facing improvement
+2. Use a focused branch name, for example `docs/fix-api-example-typo`
+3. Run quick local checks before opening PR:
    - `pre-commit run --files <changed-files>`
-   - `make test` (when code paths are touched)
-4. Link the related issue (or open one) in the PR description
-5. Add before/after snippets for documentation changes when useful
+   - package-specific tests only when code paths are touched
+4. Link issue in the PR body with `Closes #<number>`
+5. Add before/after snippets for docs clarifications when useful
 
-This keeps review fast and helps maintainers merge high-signal contributions quickly.
+This keeps contribution quality high while reducing review overhead for maintainers.
 
+### Contributing to the Python SDK (`mem0/`)
 
-### 📦 Development Environment
-
-We use `hatch` for managing development environments. To set up:
-
-```bash
-# Activate environment for specific Python version:
-hatch shell dev_py_3_9   # Python 3.9
-hatch shell dev_py_3_10  # Python 3.10  
-hatch shell dev_py_3_11  # Python 3.11
-hatch shell dev_py_3_12  # Python 3.12
-
-# The environment will automatically install all dev dependencies
-# Run tests within the activated shell:
-make test
-```
-
-### 📌 Pre-commit
-
-To ensure our standards, make sure to install pre-commit before starting to contribute.
+We use [`hatch`](https://hatch.pypa.io/latest/install/) to manage environments.
+**Do not use `pip` or `conda` for dependency management.**
 
 ```bash
+# Activate a dev environment (3.9 / 3.10 / 3.11 / 3.12)
+hatch shell dev_py_3_11
+
+# Install pre-commit hooks (runs ruff + isort on commit)
 pre-commit install
+
+# Lint, format, and sort imports
+make lint
+make format
+make sort
+
+# Run the test suite (run `make install_all` first if deps are missing)
+make test
 ```
 
-### 🧪 Testing
+- **Linter / formatter:** Ruff (line length **120**)
+- **Import sorting:** isort (`profile = "black"`)
+- **Tests:** pytest (in `tests/`)
 
-We use `pytest` to test our code across multiple Python versions. You can run tests using:
+See the full [Development guide](https://docs.mem0.ai/contributing/development) for
+environment details.
+
+### Contributing to the TypeScript SDK (`mem0-ts/`)
+
+We use [`pnpm`](https://pnpm.io/) (v10+) for all TypeScript packages. **Do not use
+`npm` or `yarn`.**
 
 ```bash
-# Run tests with default Python version
-make test
+cd mem0-ts
+pnpm install
 
-# Test specific Python versions:
-make test-py-3.9   # Python 3.9 environment
-make test-py-3.10  # Python 3.10 environment
-make test-py-3.11  # Python 3.11 environment
-make test-py-3.12  # Python 3.12 environment
-
-# When using hatch shells, run tests with:
-make test  # After activating a shell with hatch shell test_XX
+pnpm run build        # tsup (CJS + ESM)
+pnpm run test         # jest (all tests)
+pnpm run test:unit    # unit tests with coverage
 ```
 
-Make sure that all tests pass across all supported Python versions before submitting a pull request.
+- **Build:** tsup
+- **Formatter:** Prettier
+- **Tests:** jest
+- Always run type checking after changes: `pnpm run typecheck` (or `tsc --noEmit`).
+- Use ES module `import` syntax — never `require()`.
 
-We look forward to your pull requests and can't wait to see your contributions!
+## Good Contribution Practices
 
-### 🚀 Releasing
+- **Keep PRs small and focused.** One logical change per PR is easier to review and
+  merge.
+- **Follow existing patterns.** Match the style, structure, and conventions of the
+  code around you. Don't introduce new frameworks or abstractions without
+  discussion.
+- **Write tests** that would fail without your change — regression tests for bugs,
+  coverage for new features.
+- **Update documentation** in `docs/` for any user-facing change. New `.mdx` pages
+  must be added to `docs/llms.txt` (run
+  `python scripts/check-llms-txt-coverage.py --write` to scaffold entries).
+- **Add examples** when introducing new user-facing behavior.
+- **Run linters and tests locally** before pushing — CI re-runs them on every PR
+  via the CI Gate.
+- **Never commit secrets** — no `.env` files, API keys, or credentials.
+- **Don't add core dependencies lightly.** New Python dependencies belong in an
+  optional group in `pyproject.toml`, not the core `dependencies` list.
+- **Be responsive** to review feedback and keep your branch up to date with `main`.
 
-All packages are published automatically via GitHub Actions when a GitHub Release is created with the correct tag prefix.
+## Pull Request Checklist
 
-#### Tag Prefixes
+Before requesting review, make sure:
+
+- [ ] An issue exists and is linked with `Closes #<number>`
+- [ ] You have signed the CLA
+- [ ] Your code follows the project's style guidelines (lint passes)
+- [ ] You performed a self-review of your changes
+- [ ] Tests are added/updated and pass locally
+- [ ] Documentation is updated if needed
+
+## Reporting Security Issues
+
+**Do not report security vulnerabilities through public issues or pull requests.**
+Please follow our [Security Policy](./SECURITY.md) to report them privately.
+
+## Releasing
+
+All packages are published automatically via GitHub Actions when a GitHub Release
+is created with the correct tag prefix.
+
+### Tag Prefixes
 
 | Package | Registry | Tag Prefix | Example |
 |---------|----------|------------|---------|
@@ -91,15 +176,17 @@ All packages are published automatically via GitHub Actions when a GitHub Releas
 | `@mem0/vercel-ai-provider` | npm | `vercel-ai-v*` | `vercel-ai-v2.0.6` |
 | `@mem0/openclaw-mem0` | npm | `openclaw-v*` | `openclaw-v1.0.1` |
 
-#### How to Release
+### How to Release
 
 1. Bump the version in `pyproject.toml` (Python) or `package.json` (Node)
 2. Create a [GitHub Release](https://github.com/mem0ai/mem0/releases/new) with the matching tag prefix
 3. The correct workflow will trigger automatically — verify in the [Actions tab](https://github.com/mem0ai/mem0/actions)
 
-#### Publishing Details
+### Publishing Details
 
 - **PyPI packages** use OIDC trusted publishing via `pypa/gh-action-pypi-publish`
 - **npm packages** use OIDC trusted publishing via npm CLI (>= 11.5.1) — no tokens or secrets required
 - All workflows require `permissions: id-token: write` for OIDC authentication
 - First publish of a new npm package must be done manually; OIDC works for subsequent versions
+
+We look forward to your pull requests and can't wait to see your contributions!
