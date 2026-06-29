@@ -1,7 +1,8 @@
 import hashlib
+import json
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -128,23 +129,68 @@ def remove_code_blocks(content: str) -> str:
 
 
 
+def _first_parseable_json_object(text: str) -> Optional[str]:
+    """Return the first balanced ``{...}`` substring that parses as JSON.
+
+    Scans brace depth while respecting string literals (so braces inside JSON
+    string values do not affect nesting) and validates each candidate with
+    ``json.loads``. This skips brace-containing prose that precedes the real
+    JSON object, e.g. ``"the user said {hi}. {\"memory\": [...]}"``.
+    """
+    for start in range(len(text)):
+        if text[start] != "{":
+            continue
+        depth = 0
+        in_string = False
+        escaped = False
+        for i in range(start, len(text)):
+            char = text[i]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : i + 1]
+                    try:
+                        json.loads(candidate, strict=False)
+                    except json.JSONDecodeError:
+                        break  # this '{' does not start a valid object; try the next one
+                    return candidate
+    return None
+
+
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
-    If that also fails, returns the text as-is.
+    If no code block is found, returns the first balanced ``{...}`` substring that parses as JSON, so that
+    brace-containing prose preceding the JSON does not corrupt the result. Falls back to the span between the
+    first '{' and last '}', and finally to the text as-is.
     """
     text = text.strip()
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
+        parseable = _first_parseable_json_object(text)
+        if parseable is not None:
+            json_str = parseable
         else:
-            json_str = text
+            start_idx = text.find("{")
+            end_idx = text.rfind("}")
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = text[start_idx : end_idx + 1]
+            else:
+                json_str = text
     return json_str
 
 
