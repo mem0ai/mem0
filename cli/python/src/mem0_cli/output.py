@@ -104,8 +104,8 @@ def format_single_memory(console: Console, mem: dict, output: str = "text") -> N
         format_json(console, mem)
         return
 
-    memory_text = mem.get("memory", mem.get("text", ""))
-    mem_id = mem.get("id", "")
+    memory_text = mem.get("memory") or mem.get("text") or ""
+    mem_id = mem.get("id") or ""
 
     lines = []
     lines.append(f"  [white bold]{memory_text}[/]")

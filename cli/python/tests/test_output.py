@@ -99,6 +99,17 @@ class TestSingleMemory:
         output = buf.getvalue()
         assert '"memory"' in output
 
+    def test_format_single_memory_handles_null_fields(self):
+        console, buf = _make_console()
+        format_single_memory(
+            console,
+            {"id": None, "memory": None, "text": "Fallback memory", "created_at": None},
+            "text",
+        )
+        output = buf.getvalue()
+        assert "Fallback memory" in output
+        assert "ID:" not in output
+
 
 class TestAddResult:
     def test_format_add_result_text(self):
