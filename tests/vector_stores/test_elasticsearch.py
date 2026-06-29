@@ -10,7 +10,7 @@ except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
-from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
+from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData, _validate_filter
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -360,3 +360,33 @@ class TestElasticsearchDB(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config = {**base_config, "headers": headers}
                 ElasticsearchConfig(**config)
+
+    def test_filter_rejects_dict_value(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id", {"value": "alice", "boost": 0})
+
+    def test_filter_rejects_list_value(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id", ["alice", "bob"])
+
+    def test_filter_rejects_invalid_key(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id; DROP", "alice")
+
+    def test_filter_accepts_scalar_values(self):
+        _validate_filter("user_id", "alice")
+        _validate_filter("count", 42)
+        _validate_filter("score", 0.95)
+        _validate_filter("active", True)
+
+    def test_search_with_dict_filter_raises(self):
+        with self.assertRaises(ValueError):
+            self.es_db.search(
+                query="test",
+                vectors=[0.1] * 1536,
+                filters={"user_id": {"value": "*", "case_insensitive": True}},
+            )
+
+    def test_list_with_dict_filter_raises(self):
+        with self.assertRaises(ValueError):
+            self.es_db.list(filters={"user_id": {"$ne": ""}})
