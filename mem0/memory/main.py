@@ -654,6 +654,13 @@ class Memory(MemoryBase):
         """
         if self._entity_store is None:
             return
+        # Phase 1: Prepare the extraction inputs from recent conversation context.
+        # Phase 2: Run recall and reconciliation inside the helper.
+        # When fact_first_recall is enabled, the helper performs:
+        #   1) initial candidate-memory extraction from recent context
+        #   2) recall using the extracted candidate memories as queries
+        #   3) final extraction with recalled memories + recent context
+        # When disabled, it falls back to the legacy single-pass recall flow.
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
             listed = self.entity_store.list(filters=search_filters, top_k=10000)
@@ -1046,7 +1053,7 @@ class Memory(MemoryBase):
             self.db.save_messages(messages, session_scope)
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
+        # Phase 3: Batch embed the final extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
@@ -2728,7 +2735,13 @@ class AsyncMemory(MemoryBase):
         last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Extraction and optional recall flow
+        # Phase 1: Prepare the extraction inputs from recent conversation context.
+        # Phase 2: Run recall and reconciliation inside the helper.
+        # When fact_first_recall is enabled, the helper performs:
+        #   1) initial candidate-memory extraction from recent context
+        #   2) recall using the extracted candidate memories as queries
+        #   3) final extraction with recalled memories + recent context
+        # When disabled, it falls back to the legacy single-pass recall flow.
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
         custom_instr = prompt or self.custom_instructions
@@ -2750,7 +2763,7 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 3: Batch embed all extracted memory texts
+        # Phase 3: Batch embed the final extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
