@@ -7,6 +7,16 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-06-29" description="Fact-first memory recall">
+
+**Memory add pipeline now supports fact-first recall**
+
+- **Memory:** `add()` can now extract candidate memories first, recall existing memories from those candidates, and then run a final reconciliation pass with the recalled context.
+- **Memory:** Added `fact_first_recall` config to opt out and keep the legacy single-pass recall flow when lower latency or cost is preferred.
+- **Memory:** Async recall now runs candidate lookups concurrently to reduce the added latency from the extra recall phase.
+
+</Update>
+
 <Update label="2026-06-17" description="v2.0.7">
 
 **New Features:**

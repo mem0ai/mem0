@@ -2,6 +2,7 @@ import { MemoryConfig } from "../types";
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   disableHistory: false,
+  factFirstRecall: true,
   version: "v1.1",
   embedder: {
     provider: "openai",

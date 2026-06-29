@@ -72,6 +72,7 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customInstructions?: string;
+  factFirstRecall?: boolean;
 }
 
 export interface MemoryItem {
@@ -141,6 +142,7 @@ export const MemoryConfigSchema = z.object({
   }),
   historyDbPath: z.string().optional(),
   customInstructions: z.string().optional(),
+  factFirstRecall: z.boolean().optional(),
   historyStore: z
     .object({
       provider: z.string(),

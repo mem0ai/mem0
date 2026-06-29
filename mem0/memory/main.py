@@ -393,6 +393,17 @@ def _map_existing_memories(existing_results):
     return existing_memories, uuid_mapping
 
 
+def _replace_linked_memory_ids(extracted_memories, uuid_mapping):
+    """Replace prompt-time alias IDs with actual vector-store IDs."""
+    if not uuid_mapping:
+        return
+    for mem in extracted_memories:
+        linked_ids = mem.get("linked_memory_ids")
+        if not isinstance(linked_ids, list):
+            continue
+        mem["linked_memory_ids"] = [uuid_mapping.get(str(linked_id), linked_id) for linked_id in linked_ids]
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -734,6 +745,64 @@ class Memory(MemoryBase):
 
         return recalled_results
 
+    def _extract_memories_with_optional_fact_first_recall(
+        self,
+        *,
+        parsed_messages,
+        last_messages,
+        custom_instructions,
+        search_filters,
+        is_agent_scoped,
+    ):
+        """Extract memories either via the legacy single-pass flow or the fact-first recall flow."""
+        if not self.config.fact_first_recall:
+            query_embedding = self.embedding_model.embed(parsed_messages, "search")
+            existing_results = self.vector_store.search(
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
+            )
+            existing_memories, _ = _map_existing_memories(existing_results)
+            extracted_memories = self._generate_additive_extraction_memories(
+                parsed_messages=parsed_messages,
+                last_messages=last_messages,
+                custom_instructions=custom_instructions,
+                existing_memories=existing_memories,
+                is_agent_scoped=is_agent_scoped,
+            )
+            return extracted_memories, existing_results
+
+        # Intentional semantic change: if phase 1 yields no candidate memories,
+        # we skip recall entirely instead of giving the LLM existing memories to no-op against.
+        initial_memories = self._generate_additive_extraction_memories(
+            parsed_messages=parsed_messages,
+            last_messages=last_messages,
+            custom_instructions=custom_instructions,
+            is_agent_scoped=is_agent_scoped,
+        )
+        if not initial_memories:
+            return [], []
+
+        existing_results = self._recall_existing_memories_for_candidates(
+            initial_memories,
+            search_filters=search_filters,
+            top_k=5,
+        )
+        existing_memories, uuid_mapping = _map_existing_memories(existing_results)
+        extracted_memories = initial_memories
+        if existing_memories:
+            extracted_memories = self._generate_additive_extraction_memories(
+                parsed_messages=parsed_messages,
+                last_messages=last_messages,
+                custom_instructions=custom_instructions,
+                existing_memories=existing_memories,
+                recently_extracted_memories=initial_memories,
+                is_agent_scoped=is_agent_scoped,
+            )
+        _replace_linked_memory_ids(extracted_memories, uuid_mapping)
+        return extracted_memories, existing_results
+
     def add(
         self,
         messages,
@@ -886,56 +955,22 @@ class Memory(MemoryBase):
         last_messages = self.db.get_last_messages(session_scope, limit=10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Initial extraction from recent context only
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
         custom_instr = prompt or self.custom_instructions
 
         try:
-            initial_memories = self._generate_additive_extraction_memories(
+            extracted_memories, existing_results = self._extract_memories_with_optional_fact_first_recall(
                 parsed_messages=parsed_messages,
                 last_messages=last_messages,
                 custom_instructions=custom_instr,
+                search_filters=search_filters,
                 is_agent_scoped=is_agent_scoped,
             )
         except Exception as e:
             logger.error(f"LLM extraction failed: {e}")
-            return []
-
-        if not initial_memories:
             self.db.save_messages(messages, session_scope)
             return []
-
-        # Phase 2: Recall existing memories from extracted candidate memories
-        existing_results = self._recall_existing_memories_for_candidates(
-            initial_memories,
-            search_filters=search_filters,
-            top_k=5,
-        )
-
-        # Phase 3: Final extraction with recalled memory context
-        existing_memories, uuid_mapping = _map_existing_memories(existing_results)
-        extracted_memories = initial_memories
-        if existing_memories:
-            try:
-                extracted_memories = self._generate_additive_extraction_memories(
-                    parsed_messages=parsed_messages,
-                    last_messages=last_messages,
-                    custom_instructions=custom_instr,
-                    existing_memories=existing_memories,
-                    recently_extracted_memories=initial_memories,
-                    is_agent_scoped=is_agent_scoped,
-                )
-            except Exception as e:
-                logger.error(f"LLM reconciliation failed: {e}")
-                extracted_memories = initial_memories
-
-        if uuid_mapping:
-            for mem in extracted_memories:
-                linked_ids = mem.get("linked_memory_ids")
-                if not isinstance(linked_ids, list):
-                    continue
-                mem["linked_memory_ids"] = [uuid_mapping.get(str(linked_id), linked_id) for linked_id in linked_ids]
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2311,17 +2346,14 @@ class AsyncMemory(MemoryBase):
 
     async def _recall_existing_memories_for_candidates_async(self, candidate_memories, search_filters, top_k=5):
         """Async counterpart for candidate-memory-driven recall."""
-        recalled_results = []
-        seen_ids = set()
-
-        for mem in candidate_memories:
+        async def recall_one(mem):
             text = mem.get("text")
             if not text:
-                continue
+                return []
 
             try:
                 query_embedding = await asyncio.to_thread(self.embedding_model.embed, text, "search")
-                matches = await asyncio.to_thread(
+                return await asyncio.to_thread(
                     self.vector_store.search,
                     query=text,
                     vectors=query_embedding,
@@ -2330,8 +2362,13 @@ class AsyncMemory(MemoryBase):
                 )
             except Exception as e:
                 logger.warning(f"Failed to recall existing memories for candidate (async): {e}")
-                continue
+                return []
 
+        recalled_results = []
+        seen_ids = set()
+        matches_per_candidate = await asyncio.gather(*(recall_one(mem) for mem in candidate_memories))
+
+        for matches in matches_per_candidate:
             for match in matches:
                 if match.id in seen_ids:
                     continue
@@ -2339,6 +2376,65 @@ class AsyncMemory(MemoryBase):
                 recalled_results.append(match)
 
         return recalled_results
+
+    async def _extract_memories_with_optional_fact_first_recall_async(
+        self,
+        *,
+        parsed_messages,
+        last_messages,
+        custom_instructions,
+        search_filters,
+        is_agent_scoped,
+    ):
+        """Async extraction via legacy single-pass or fact-first recall flow."""
+        if not self.config.fact_first_recall:
+            query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+            existing_results = await asyncio.to_thread(
+                self.vector_store.search,
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
+            )
+            existing_memories, _ = _map_existing_memories(existing_results)
+            extracted_memories = await self._generate_additive_extraction_memories_async(
+                parsed_messages=parsed_messages,
+                last_messages=last_messages,
+                custom_instructions=custom_instructions,
+                existing_memories=existing_memories,
+                is_agent_scoped=is_agent_scoped,
+            )
+            return extracted_memories, existing_results
+
+        # Intentional semantic change: if phase 1 yields no candidate memories,
+        # we skip recall entirely instead of giving the LLM existing memories to no-op against.
+        initial_memories = await self._generate_additive_extraction_memories_async(
+            parsed_messages=parsed_messages,
+            last_messages=last_messages,
+            custom_instructions=custom_instructions,
+            is_agent_scoped=is_agent_scoped,
+        )
+        if not initial_memories:
+            return [], []
+
+        existing_results = await self._recall_existing_memories_for_candidates_async(
+            initial_memories,
+            search_filters=search_filters,
+            top_k=5,
+        )
+        existing_memories, uuid_mapping = _map_existing_memories(existing_results)
+        extracted_memories = initial_memories
+        if existing_memories:
+            extracted_memories = await self._generate_additive_extraction_memories_async(
+                parsed_messages=parsed_messages,
+                last_messages=last_messages,
+                custom_instructions=custom_instructions,
+                existing_memories=existing_memories,
+                recently_extracted_memories=initial_memories,
+                is_agent_scoped=is_agent_scoped,
+            )
+        _replace_linked_memory_ids(extracted_memories, uuid_mapping)
+        return extracted_memories, existing_results
 
     async def add(
         self,
@@ -2478,56 +2574,23 @@ class AsyncMemory(MemoryBase):
         last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Initial extraction from recent context only
+        # Phase 1: Extraction and optional recall flow
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
         custom_instr = prompt or self.custom_instructions
 
         try:
-            initial_memories = await self._generate_additive_extraction_memories_async(
+            extracted_memories, existing_results = await self._extract_memories_with_optional_fact_first_recall_async(
                 parsed_messages=parsed_messages,
                 last_messages=last_messages,
                 custom_instructions=custom_instr,
+                search_filters=search_filters,
                 is_agent_scoped=is_agent_scoped,
             )
         except Exception as e:
             logger.error(f"LLM extraction failed (async): {e}")
-            return []
-
-        if not initial_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
-
-        # Phase 2: Recall existing memories from extracted candidate memories
-        existing_results = await self._recall_existing_memories_for_candidates_async(
-            initial_memories,
-            search_filters=search_filters,
-            top_k=5,
-        )
-
-        # Phase 3: Final extraction with recalled memory context
-        existing_memories, uuid_mapping = _map_existing_memories(existing_results)
-        extracted_memories = initial_memories
-        if existing_memories:
-            try:
-                extracted_memories = await self._generate_additive_extraction_memories_async(
-                    parsed_messages=parsed_messages,
-                    last_messages=last_messages,
-                    custom_instructions=custom_instr,
-                    existing_memories=existing_memories,
-                    recently_extracted_memories=initial_memories,
-                    is_agent_scoped=is_agent_scoped,
-                )
-            except Exception as e:
-                logger.error(f"LLM reconciliation failed (async): {e}")
-                extracted_memories = initial_memories
-
-        if uuid_mapping:
-            for mem in extracted_memories:
-                linked_ids = mem.get("linked_memory_ids")
-                if not isinstance(linked_ids, list):
-                    continue
-                mem["linked_memory_ids"] = [uuid_mapping.get(str(linked_id), linked_id) for linked_id in linked_ids]
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)

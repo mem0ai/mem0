@@ -821,6 +821,12 @@ function serializeMemories(
 
 export function generateAdditiveExtractionPrompt(options: {
   existingMemories?: Array<{ id: string; text: string }>;
+  recentlyExtractedMemories?: Array<{
+    id?: string;
+    text?: string;
+    attributed_to?: string;
+    linked_memory_ids?: string[];
+  }>;
   newMessages?: string;
   lastKMessages?: Array<{ role: string; content: string }>;
   customInstructions?: string;
@@ -841,7 +847,11 @@ export function generateAdditiveExtractionPrompt(options: {
   );
 
   // Recently Extracted Memories — empty for now
-  sections.push("## Recently Extracted Memories\n[]");
+  sections.push(
+    `## Recently Extracted Memories\n${serializeMemories(
+      options.recentlyExtractedMemories,
+    )}`,
+  );
 
   sections.push(
     `## Existing Memories\n${serializeMemories(options.existingMemories)}`,
