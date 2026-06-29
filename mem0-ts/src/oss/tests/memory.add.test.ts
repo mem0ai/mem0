@@ -191,4 +191,76 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("fact-first recall uses extracted memory as the recall anchor", async () => {
+    const mem = createMemory();
+    await (mem as any)._initPromise;
+
+    const llm = (mem as any).llm;
+    llm.generateResponse
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          memory: [{ text: "User likes pour-over coffee", attributed_to: "user" }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          memory: [
+            {
+              text: "User likes pour-over coffee",
+              attributed_to: "user",
+              linked_memory_ids: ["0"],
+            },
+          ],
+        }),
+      );
+
+    const searchSpy = jest
+      .spyOn((mem as any).vectorStore, "search")
+      .mockResolvedValue([
+        {
+          id: "mem-123",
+          payload: { data: "User prefers light roast beans" },
+        },
+      ]);
+
+    const result: SearchResult = await mem.add("我最近更喜欢手冲咖啡", {
+      userId: "u1",
+    });
+
+    expect(searchSpy).toHaveBeenCalledTimes(1);
+    expect((mem as any).embedder.embed).toHaveBeenCalledWith(
+      "User likes pour-over coffee",
+    );
+    expect(llm.generateResponse).toHaveBeenCalledTimes(2);
+    const secondPrompt = llm.generateResponse.mock.calls[1][0][1].content;
+    expect(secondPrompt).toContain("User prefers light roast beans");
+    expect(result.results[0].memory).toBe("User likes pour-over coffee");
+  });
+
+  test("factFirstRecall=false preserves the legacy single-pass recall flow", async () => {
+    const mem = createMemory({ factFirstRecall: false });
+    await (mem as any)._initPromise;
+
+    const llm = (mem as any).llm;
+    llm.generateResponse.mockResolvedValueOnce(
+      JSON.stringify({
+        memory: [{ text: "legacy extracted memory", attributed_to: "user" }],
+      }),
+    );
+
+    const searchSpy = jest
+      .spyOn((mem as any).vectorStore, "search")
+      .mockResolvedValue([]);
+
+    await mem.add("我最近更喜欢手冲咖啡", {
+      userId: "u1",
+    });
+
+    expect(searchSpy).toHaveBeenCalledTimes(1);
+    expect((mem as any).embedder.embed).toHaveBeenCalledWith(
+      "user: 我最近更喜欢手冲咖啡",
+    );
+    expect(llm.generateResponse).toHaveBeenCalledTimes(1);
+  });
 });
