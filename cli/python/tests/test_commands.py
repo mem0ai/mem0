@@ -11,6 +11,7 @@ import pytest
 from rich.console import Console
 from typer import Exit as TyperExit
 
+from mem0_cli.backend.platform import PlatformBackend
 from mem0_cli.commands.config_cmd import (
     cmd_config_get,
     cmd_config_set,
@@ -894,6 +895,27 @@ class TestConfigCommands:
 
 
 class TestEntitiesDeleteCommand:
+    def test_platform_delete_entities_returns_each_response(self):
+        backend = PlatformBackend.__new__(PlatformBackend)
+        calls = []
+
+        def fake_request(method, path, **kwargs):
+            calls.append((method, path, kwargs))
+            return {"path": path}
+
+        backend._request = fake_request  # type: ignore[method-assign]
+
+        result = backend.delete_entities(user_id="alice", agent_id="bot")
+
+        assert result == {
+            "user": {"path": "/v2/entities/user/alice/"},
+            "agent": {"path": "/v2/entities/agent/bot/"},
+        }
+        assert calls == [
+            ("DELETE", "/v2/entities/user/alice/", {"params": {"source": "CLI"}}),
+            ("DELETE", "/v2/entities/agent/bot/", {"params": {"source": "CLI"}}),
+        ]
+
     def test_delete_entity_with_force(self, mock_backend):
         console, buf = _make_console()
         err_console, _err_buf = _make_err_console()
