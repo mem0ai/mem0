@@ -238,11 +238,11 @@ client.search("preferences", filters={
 - **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
 - **Scope with user ID**: Always provide `user_id` to scope search to relevant memories
   - **Platform API**: Use `filters={"user_id": "alice"}`
-  - **OSS**: Use `user_id="alice"` as parameter
+  - **OSS**: Use `filters={"user_id": "alice"}` (passing `user_id` as a top-level kwarg raises `ValueError` in v3)
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
 - **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff
-- **Enable reranking**: Use `rerank=True` (default) when you have a reranker configured
+- **Enable reranking**: Use `rerank=True` (default is `False`) when you have a reranker configured
 
 <Callout type="tip" icon="plug">
   **MCP Alternative**: With <Link href="/platform/mem0-mcp">Mem0 MCP</Link>, AI agents can search their own memories proactively when needed.

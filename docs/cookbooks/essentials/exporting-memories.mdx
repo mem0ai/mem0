@@ -58,6 +58,7 @@ Use `get_all()` with filters to retrieve everything for a specific user:
 ```python
 dev_memories = client.get_all(
     filters={"user_id": "dev"},
+    page=1,
     page_size=50
 )
 

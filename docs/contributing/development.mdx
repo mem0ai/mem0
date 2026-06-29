@@ -1,32 +1,65 @@
 ---
 title: Development
-description: "Guide to contributing code to Mem0, covering the fork and clone workflow, PR submission, and code quality checks."
+description: "Guide to contributing code to Mem0, covering the issue-first workflow, the CLA, environment setup for the Python and TypeScript SDKs, and code quality checks."
 icon: "code"
 ---
 
 # Development Contributions
 
-We strive to make contributions **easy, collaborative, and enjoyable**. Follow the steps below to ensure a smooth contribution process.
+We strive to make contributions **easy, collaborative, and enjoyable**. Mem0 is a
+polyglot monorepo containing the **Python SDK** (`mem0/`), the **TypeScript SDK**
+(`mem0-ts/`), CLIs, integrations, the self-hosted server, and the docs site.
+Follow the steps below for a smooth contribution process.
 
-## Submitting Your Contribution through PR
+<Note>
+  For the complete contributor checklist, see
+  [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md) in
+  the repository root.
+</Note>
 
-To contribute, follow these steps:
+## Before You Start
+
+### 1. Open an Issue First
+
+**Always open an issue before opening a pull request.** This lets us discuss the
+change, avoid duplicate work, and agree on the approach before you write code.
+
+- Search [existing issues](https://github.com/mem0ai/mem0/issues) first.
+- If none match, open a
+  [bug report](https://github.com/mem0ai/mem0/issues/new?template=bug_report.yml)
+  or [feature request](https://github.com/mem0ai/mem0/issues/new?template=feature_request.yml).
+- For anything beyond a trivial fix, wait for a maintainer to confirm the approach.
+
+Every pull request must link to an issue using `Closes #<issue-number>`.
+
+### 2. Sign the Contributor License Agreement (CLA)
+
+**We cannot merge any pull request until you have signed our Contributor License
+Agreement (CLA).** When you open your first PR, the CLA bot will comment with a
+link to sign — it takes less than a minute and only needs to be done once.
+
+## Submitting Your Contribution through a PR
 
 1. **Fork & Clone** the repository: [Mem0 on GitHub](https://github.com/mem0ai/mem0)
-2. **Create a Feature Branch**: Use a dedicated branch for your changes, e.g., `feature/my-new-feature`
-3. **Implement Changes**: If adding a feature or fixing a bug, ensure to:
+2. **Create a Feature Branch**: Use a dedicated branch, e.g., `feature/my-new-feature`
+3. **Implement Changes**: If adding a feature or fixing a bug, be sure to:
    - Write necessary **tests**
    - Add **documentation, docstrings, and runnable examples**
 4. **Code Quality Checks**:
    - Run **linting** to catch style issues
    - Ensure **all tests pass**
-5. **Submit a Pull Request**
+5. **Commit** using [Conventional Commits](https://www.conventionalcommits.org/)
+   (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`)
+6. **Submit a Pull Request** against `main`, linking the issue and filling out the
+   PR template.
 
 For detailed guidance on pull requests, refer to [GitHub's documentation](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request).
 
 ---
 
-## Dependency Management
+## Python SDK (`mem0/`)
+
+### Dependency Management
 
 We use `hatch` as our package manager. Install it by following the [official instructions](https://hatch.pypa.io/latest/install/).
 
@@ -44,13 +77,9 @@ hatch -e dev_py_3_11 shell  # For dev_py_3_11 (differences are mentioned in pypr
 make install_all
 ```
 
----
-
-## Development Standards
-
 ### Pre-commit Hooks
 
-Ensure `pre-commit` is installed before contributing:
+Ensure `pre-commit` is installed before contributing (hooks run ruff + isort):
 
 ```bash
 pre-commit install
@@ -58,7 +87,7 @@ pre-commit install
 
 ### Linting with `ruff`
 
-Run the linter and fix any reported issues before submitting your PR:
+Run the linter and fix any reported issues before submitting your PR (line length **120**):
 
 ```bash
 make lint
@@ -66,10 +95,11 @@ make lint
 
 ### Code Formatting
 
-To maintain a consistent code style, format your code:
+To maintain a consistent code style, format your code and sort imports (isort, `profile = "black"`):
 
 ```bash
 make format
+make sort
 ```
 
 ### Testing with `pytest`
@@ -84,9 +114,45 @@ make test
 
 ---
 
+## TypeScript SDK (`mem0-ts/`)
+
+We use [`pnpm`](https://pnpm.io/) (v10+) for all TypeScript packages. **Do NOT use
+`npm` or `yarn`.**
+
+```bash
+cd mem0-ts
+pnpm install
+
+pnpm run build        # tsup (CJS + ESM)
+pnpm run test         # jest (all tests)
+pnpm run test:unit    # unit tests with coverage
+```
+
+### Standards
+
+- **Build:** tsup
+- **Formatter:** Prettier
+- **Tests:** jest
+- Always run type checking after changes: `pnpm run typecheck` (or `tsc --noEmit`)
+- Use ES module `import` syntax — never `require()`
+
+---
+
+## Reporting Security Issues
+
+**Do not report security vulnerabilities through public issues or pull requests.**
+Please follow our [Security Policy](https://github.com/mem0ai/mem0/blob/main/SECURITY.md)
+to report them privately.
+
+---
+
 ## Release Process
 
-Currently, releases are handled manually. We aim for frequent releases, typically when new features or bug fixes are introduced.
+Packages are published automatically via GitHub Actions when a GitHub Release is
+created with the correct tag prefix (e.g. `v*` for the Python SDK, `ts-v*` for the
+TypeScript SDK). See
+[CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md#releasing)
+for the full tag-prefix table and publishing details.
 
 ---
 
