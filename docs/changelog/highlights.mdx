@@ -4,6 +4,21 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-06-27" description="SDK memory expiration and TypeScript provider updates">
+
+**SDK Memory Expiration: Expiring Memories Across Python and TypeScript**
+
+The latest SDK releases add first-class expiration controls to memory writes, updates, and reads, plus new TypeScript provider coverage for production deployments.
+
+- **Python client updates:** `MemoryClient.update()` and `AsyncMemoryClient.update()` now accept `expiration_date`, including `None` to clear an existing expiration.
+- **TypeScript client updates:** `AddMemoryOptions`, `update()`, and `Memory` now support `expirationDate`; `search()` and `getAll()` can include expired memories with `showExpired`.
+- **New TypeScript LLM providers:** `MiniMaxLLM` and `LiteLLM` are now available for OpenAI-compatible MiniMax and LiteLLM proxy deployments.
+- **PGVector deployment flexibility:** TypeScript PGVector config now supports `connectionString` and `ssl`, so apps can use a managed Postgres URI instead of separate connection fields.
+
+See [SDK & Tools](/changelog/sdk) for version details and PR links.
+
+</Update>
+
 <Update label="2026-05-13" description="Temporal Reasoning for Mem0 Platform v3">
 
 **Temporal Reasoning: Time-Aware Retrieval for Platform v3**
