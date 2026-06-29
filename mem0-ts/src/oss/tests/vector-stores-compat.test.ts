@@ -21,10 +21,12 @@ jest.setTimeout(15000);
 // 1. MemoryVectorStore — full CRUD, no external dependencies
 // ───────────────────────────────────────────────────────────────────────────
 describe("MemoryVectorStore – full backward compat", () => {
-  const { MemoryVectorStore } = require("../src/vector_stores/memory");
+  let MemoryVectorStore: any;
   let tmpDir: string;
 
   beforeEach(() => {
+    MemoryVectorStore =
+      require("../src/vector_stores/memory").MemoryVectorStore;
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mem0-vs-compat-"));
   });
 
@@ -677,6 +679,1097 @@ describe("AzureAISearch – backward compat with mocked client", () => {
     const p3 = store.initialize();
     await Promise.all([p1, p2, p3]);
     // No crash = idempotent
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 6. Neptune Analytics — mock NeptuneGraph client, test interface + init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Neptune Analytics – backward compat with mocked client", () => {
+  afterEach(() => {
+    jest.dontMock("@aws-sdk/client-neptune-graph");
+    jest.resetModules();
+  });
+
+  function createMockResponse(body: Record<string, any>) {
+    return {
+      payload: {
+        transformToString: jest.fn().mockResolvedValue(JSON.stringify(body)),
+      },
+    };
+  }
+
+  function createMockNeptuneClient(options?: {
+    failInsertUpsert?: boolean;
+    throwInsertUpsert?: boolean;
+    failUpdateUpsert?: boolean;
+  }) {
+    const nodes = new Map<
+      string,
+      {
+        embedding: number[];
+        labels: string[];
+        properties: Record<string, any>;
+      }
+    >();
+    let storedUserId: string | undefined;
+
+    const getPropertyValue = (
+      node: { labels: string[]; properties: Record<string, any> },
+      property: string,
+    ) => {
+      if (property === "~label") {
+        return node.labels;
+      }
+
+      return node.properties[property];
+    };
+
+    const matchesFilter = (
+      node: { labels: string[]; properties: Record<string, any> },
+      filter: any,
+    ): boolean => {
+      if (!filter) {
+        return true;
+      }
+
+      if (Array.isArray(filter.andAll)) {
+        return filter.andAll.every((entry: any) => matchesFilter(node, entry));
+      }
+
+      if (Array.isArray(filter.orAll)) {
+        return filter.orAll.some((entry: any) => matchesFilter(node, entry));
+      }
+
+      const propertyMatcher = (
+        property: string,
+        predicate: (value: any) => boolean,
+      ) => {
+        const value = getPropertyValue(node, property);
+        if (property === "~label") {
+          return (
+            Array.isArray(value) && value.some((label) => predicate(label))
+          );
+        }
+
+        return predicate(value);
+      };
+
+      if (filter.equals) {
+        return propertyMatcher(
+          filter.equals.property,
+          (value) => value === filter.equals.value,
+        );
+      }
+
+      if (filter.notEquals) {
+        return propertyMatcher(
+          filter.notEquals.property,
+          (value) => value !== filter.notEquals.value,
+        );
+      }
+
+      if (filter.greaterThan) {
+        return propertyMatcher(
+          filter.greaterThan.property,
+          (value) =>
+            typeof value === "number" && value > filter.greaterThan.value,
+        );
+      }
+
+      if (filter.greaterThanOrEquals) {
+        return propertyMatcher(
+          filter.greaterThanOrEquals.property,
+          (value) =>
+            typeof value === "number" &&
+            value >= filter.greaterThanOrEquals.value,
+        );
+      }
+
+      if (filter.lessThan) {
+        return propertyMatcher(
+          filter.lessThan.property,
+          (value) => typeof value === "number" && value < filter.lessThan.value,
+        );
+      }
+
+      if (filter.lessThanOrEquals) {
+        return propertyMatcher(
+          filter.lessThanOrEquals.property,
+          (value) =>
+            typeof value === "number" && value <= filter.lessThanOrEquals.value,
+        );
+      }
+
+      if (filter.in) {
+        return propertyMatcher(filter.in.property, (value) =>
+          filter.in.value.includes(value),
+        );
+      }
+
+      if (filter.notIn) {
+        return propertyMatcher(
+          filter.notIn.property,
+          (value) => !filter.notIn.value.includes(value),
+        );
+      }
+
+      if (filter.stringContains) {
+        return propertyMatcher(
+          filter.stringContains.property,
+          (value) =>
+            typeof value === "string" &&
+            value.includes(filter.stringContains.value),
+        );
+      }
+
+      if (filter.startsWith) {
+        return propertyMatcher(
+          filter.startsWith.property,
+          (value) =>
+            typeof value === "string" &&
+            value.startsWith(filter.startsWith.value),
+        );
+      }
+
+      return false;
+    };
+
+    const toNodeRecord = (
+      id: string,
+      node: { labels: string[]; properties: Record<string, any> },
+    ): Record<string, any> => ({
+      "~id": id,
+      "~labels": [...node.labels],
+      "~properties": { ...node.properties },
+    });
+
+    const matchesListParameters = (
+      properties: Record<string, any>,
+      parameters: Record<string, any>,
+    ) =>
+      Object.entries(parameters)
+        .filter(([key]) => key.startsWith("filter_"))
+        .every(([key, value]) => {
+          const match = key.match(/^filter_(?:eq_)?(.+)_\d+$/);
+          if (!match) {
+            return true;
+          }
+
+          return properties[match[1]] === value;
+        });
+
+    const extractStructuredArgument = (
+      queryString: string,
+      key: string,
+    ): any => {
+      const keyIndex = queryString.indexOf(`${key}:`);
+      if (keyIndex < 0) {
+        return undefined;
+      }
+
+      const objectStart = queryString.indexOf("{", keyIndex);
+      if (objectStart < 0) {
+        return undefined;
+      }
+
+      let depth = 0;
+      for (let index = objectStart; index < queryString.length; index += 1) {
+        const char = queryString[index];
+        if (char === "{") {
+          depth += 1;
+        } else if (char === "}") {
+          depth -= 1;
+          if (depth === 0) {
+            const literal = queryString.slice(objectStart, index + 1);
+            const jsonLiteral = literal.replace(
+              /([{\[,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g,
+              '$1"$2"$3',
+            );
+            return JSON.parse(jsonLiteral);
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    return {
+      send: jest.fn().mockImplementation(async (command: any) => {
+        const queryString = String(command.input.queryString || "");
+        const parameters = command.input.parameters || {};
+        const collectionLabelMatch = queryString.match(/MERGE \(n:`([^`]+)`/);
+        const collectionLabel = collectionLabelMatch?.[1] || "MEM0_VECTOR_test";
+
+        if (
+          queryString.includes("UNWIND $nodeIds AS nodeId") &&
+          queryString.includes("RETURN nodeId")
+        ) {
+          return createMockResponse({
+            results: (parameters.nodeIds || [])
+              .filter((nodeId: string) => nodes.has(nodeId))
+              .map((nodeId: string) => ({ nodeId })),
+          });
+        }
+
+        if (
+          queryString.includes("UNWIND $nodeIds AS nodeId") &&
+          queryString.includes("DETACH DELETE n")
+        ) {
+          for (const nodeId of parameters.nodeIds || []) {
+            nodes.delete(nodeId);
+          }
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes("CALL neptune.algo.vectors.upsert") &&
+          Array.isArray(parameters.rows) &&
+          queryString.includes("RETURN success")
+        ) {
+          for (const row of parameters.rows) {
+            const existing = nodes.get(row.node_id);
+            nodes.set(row.node_id, {
+              embedding: row.embedding,
+              labels: [collectionLabel],
+              properties: existing
+                ? { ...existing.properties, ...row.properties }
+                : { ...row.properties },
+            });
+          }
+
+          if (options?.throwInsertUpsert) {
+            throw new Error("Neptune upsert rejected");
+          }
+
+          return createMockResponse({
+            results: (parameters.rows || []).map(() => ({
+              success: !options?.failInsertUpsert,
+            })),
+          });
+        }
+
+        if (
+          queryString.includes("UNWIND $rows AS row") &&
+          queryString.includes("SET n += row.properties")
+        ) {
+          for (const row of parameters.rows || []) {
+            const existing = nodes.get(row.node_id);
+            if (existing) {
+              nodes.set(row.node_id, {
+                embedding: existing.embedding,
+                labels: existing.labels,
+                properties: { ...existing.properties, ...row.properties },
+              });
+            }
+          }
+
+          return createMockResponse({ results: [{ n: {} }] });
+        }
+
+        if (
+          queryString.includes("CALL neptune.algo.vectors.upsert") &&
+          parameters.vectorId
+        ) {
+          if (options?.failUpdateUpsert) {
+            return createMockResponse({ results: [{ success: false }] });
+          }
+
+          const existing = nodes.get(parameters.vectorId);
+          if (existing) {
+            nodes.set(parameters.vectorId, {
+              embedding: parameters.embedding,
+              labels: existing.labels,
+              properties: parameters.properties || existing.properties,
+            });
+          }
+          return createMockResponse({ results: [{ success: true }] });
+        }
+
+        if (queryString.includes("topK.byEmbedding")) {
+          const vertexFilter = extractStructuredArgument(
+            queryString,
+            "vertexFilter",
+          );
+          const match = [...nodes.entries()].find(([, node]) =>
+            matchesFilter(node, vertexFilter),
+          );
+
+          return createMockResponse({
+            results: match
+              ? [
+                  {
+                    node: toNodeRecord(match[0], match[1]),
+                    score: 0.25,
+                  },
+                ]
+              : [],
+          });
+        }
+
+        if (queryString.includes("pg_schema")) {
+          const labels = new Set<string>();
+          for (const node of nodes.values()) {
+            for (const label of node.labels) {
+              labels.add(label);
+            }
+          }
+          if (storedUserId) {
+            labels.add("MEM0_VECTOR_memory_migrations");
+          }
+          return createMockResponse({
+            results: [{ result: [...labels] }],
+          });
+        }
+
+        if (
+          queryString.includes(
+            "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+          ) &&
+          queryString.includes("RETURN n") &&
+          queryString.includes("LIMIT 1")
+        ) {
+          const node = nodes.get(parameters.vectorId);
+          return createMockResponse({
+            results: node
+              ? [{ n: toNodeRecord(parameters.vectorId, node) }]
+              : [],
+          });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("RETURN count(n) AS count")
+        ) {
+          const count = [...nodes.values()].filter((node) =>
+            matchesListParameters(node.properties, parameters),
+          ).length;
+
+          return createMockResponse({ results: [{ count }] });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("RETURN n") &&
+          queryString.includes("LIMIT $limit")
+        ) {
+          const results = [...nodes.entries()]
+            .filter(([, node]) =>
+              matchesListParameters(node.properties, parameters),
+            )
+            .slice(0, parameters.limit || 100)
+            .map(([id, node]) => ({ n: toNodeRecord(id, node) }));
+
+          return createMockResponse({ results });
+        }
+
+        if (
+          queryString.includes(
+            "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+          ) &&
+          queryString.includes("SET n = $properties")
+        ) {
+          const existing = nodes.get(parameters.vectorId);
+          if (existing) {
+            nodes.set(parameters.vectorId, {
+              embedding: existing.embedding,
+              labels: existing.labels,
+              properties: { ...parameters.properties },
+            });
+          }
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes(
+            "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+          ) &&
+          queryString.includes("DETACH DELETE n")
+        ) {
+          nodes.delete(parameters.vectorId);
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("DETACH DELETE n")
+        ) {
+          nodes.clear();
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_memory_migrations`") &&
+          queryString.includes("RETURN n")
+        ) {
+          return createMockResponse({
+            results: storedUserId
+              ? [
+                  {
+                    n: toNodeRecord(parameters.userNodeId, {
+                      labels: ["MEM0_VECTOR_memory_migrations"],
+                      properties: {
+                        user_id: storedUserId,
+                      },
+                    }),
+                  },
+                ]
+              : [],
+          });
+        }
+
+        if (
+          queryString.includes("MERGE (n:`MEM0_VECTOR_memory_migrations`") &&
+          queryString.includes("SET n.user_id = $userId")
+        ) {
+          storedUserId = parameters.userId;
+          return createMockResponse({ results: [] });
+        }
+
+        return createMockResponse({ results: [{ success: true }] });
+      }),
+    };
+  }
+
+  it("implements full VectorStore interface", () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+
+    expect(p1).toBe(p2);
+    expect(p2).toBe(p3);
+
+    await Promise.all([p1, p2, p3]);
+    expect(mockClient.send).not.toHaveBeenCalled();
+  });
+
+  it("passes custom HTTPS endpoints to the AWS client when graphIdentifier is provided", () => {
+    jest.resetModules();
+
+    const neptuneGraphClient = jest.fn().mockReturnValue({
+      send: jest.fn(),
+    });
+
+    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
+      ExecuteQueryCommand: class ExecuteQueryCommand {
+        input: any;
+
+        constructor(input: any) {
+          this.input = input;
+        }
+      },
+      NeptuneGraphClient: neptuneGraphClient,
+    }));
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+      collectionName: "test",
+      dimension: 3,
+      region: "us-east-1",
+      profile: "dev-profile",
+      maxAttempts: 3,
+    });
+
+    expect(neptuneGraphClient).toHaveBeenCalledWith({
+      endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+      maxAttempts: 3,
+      profile: "dev-profile",
+      region: "us-east-1",
+    });
+  });
+
+  it("rejects HTTPS endpoints without an explicit graphIdentifier", () => {
+    jest.resetModules();
+
+    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
+      ExecuteQueryCommand: class ExecuteQueryCommand {
+        input: any;
+
+        constructor(input: any) {
+          this.input = input;
+        }
+      },
+      NeptuneGraphClient: jest.fn().mockReturnValue({
+        send: jest.fn(),
+      }),
+    }));
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    expect(
+      () =>
+        new NeptuneAnalyticsVectorStore({
+          endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+          collectionName: "test",
+          dimension: 3,
+        }),
+    ).toThrow(
+      "Neptune Analytics HTTPS endpoints require graphIdentifier; pass graphIdentifier separately or use neptune-graph://<graph-id>.",
+    );
+  });
+
+  it("derives graphIdentifier from a neptune-graph endpoint URI", async () => {
+    jest.resetModules();
+
+    const send = jest
+      .fn()
+      .mockResolvedValue(createMockResponse({ results: [] }));
+    const neptuneGraphClient = jest.fn().mockReturnValue({ send });
+
+    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
+      ExecuteQueryCommand: class ExecuteQueryCommand {
+        input: any;
+
+        constructor(input: any) {
+          this.input = input;
+        }
+      },
+      NeptuneGraphClient: neptuneGraphClient,
+    }));
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      endpoint: "neptune-graph://g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+      region: "us-east-1",
+    });
+
+    await store.search([1, 2, 3], 1);
+
+    expect(neptuneGraphClient).toHaveBeenCalledWith({
+      region: "us-east-1",
+    });
+    expect(send).toHaveBeenCalled();
+    expect(send.mock.calls[0][0].input.graphIdentifier).toBe("g-1234567890");
+  });
+
+  it("shapes Neptune write requests and normalizes search results", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", label: "topic-a", priority: 7, user_id: "u1" }],
+    );
+
+    expect(mockClient.send).toHaveBeenCalled();
+    const insertCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes("MERGE"),
+      );
+    expect(insertCall).toBeDefined();
+    expect(insertCall.input.queryString).toContain("MERGE");
+    expect(insertCall.input.queryString).toContain(
+      "CALL neptune.algo.vectors.upsert",
+    );
+    expect(insertCall.input.queryString).not.toContain("FOREACH");
+    expect(insertCall.input.parameters.rows[0].properties.label).toBe(
+      "topic-a",
+    );
+    expect(insertCall.input.parameters.rows[0].embedding).toEqual([1, 2, 3]);
+
+    const results = await store.search([1, 2, 3], 1, {
+      $or: [{ user_id: "u2" }, { priority: { gte: 5 } }],
+      data: { contains: "alp" },
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      id: "id-1",
+      payload: expect.objectContaining({
+        data: "alpha",
+        label: "topic-a",
+        user_id: "u1",
+      }),
+      score: 0.8,
+    });
+
+    const searchCall =
+      mockClient.send.mock.calls[mockClient.send.mock.calls.length - 1];
+    const searchQuery = String(searchCall[0].input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(searchQuery).toContain("topK.byEmbedding");
+    expect(searchCall[0].input.parameters).toBeUndefined();
+    expect(searchQuery).toContain("topK: 1");
+    expect(searchQuery).toContain("embedding: [1, 2, 3]");
+    expect(searchQuery).toContain(
+      'property: "~label", value: "MEM0_VECTOR_test"',
+    );
+    expect(searchQuery).toContain('property: "user_id", value: "u2"');
+    expect(searchQuery).toContain('property: "priority", value: 5');
+    expect(searchQuery).toContain(
+      'stringContains: { property: "data", value: "alp" }',
+    );
+  });
+
+  it("serializes complex list filters into Cypher clauses and parameters", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.list(
+      {
+        $and: [
+          {
+            $or: [{ priority: { gte: 5 } }, { data: { startsWith: "alp" } }],
+          },
+          { $not: [{ archived: true }] },
+          { label: { contains: "topic" } },
+          { tag: ["a", "b"] },
+          { optional: "*" },
+        ],
+      },
+      7,
+    );
+
+    const listCall = mockClient.send.mock.calls.find(
+      ([command]: [any]) =>
+        String(command.input.queryString || "").includes("LIMIT $limit") &&
+        String(command.input.queryString || "").includes("RETURN n"),
+    )?.[0];
+    const countCall = mockClient.send.mock.calls.find(([command]: [any]) =>
+      String(command.input.queryString || "").includes(
+        "RETURN count(n) AS count",
+      ),
+    )?.[0];
+
+    expect(listCall).toBeDefined();
+    expect(countCall).toBeDefined();
+
+    const listQuery = String(listCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    const countQuery = String(countCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+
+    expect(listQuery).toContain("WHERE (");
+    expect(listQuery).toContain("n.`priority` >= $filter_gte_priority_1");
+    expect(listQuery).toContain(
+      "toString(n.`data`) STARTS WITH $filter_startsWith_data_2",
+    );
+    expect(listQuery).toContain("NOT (n.`archived` = $filter_archived_3)");
+    expect(listQuery).toContain(
+      "toString(n.`label`) CONTAINS $filter_contains_label_4",
+    );
+    expect(listQuery).toContain("n.`tag` IN $filter_in_tag_5");
+    expect(listQuery).toContain("n.`optional` IS NOT NULL");
+    expect(countQuery).toContain("RETURN count(n) AS count");
+    expect(listCall.input.parameters).toEqual({
+      filter_gte_priority_1: 5,
+      filter_startsWith_data_2: "alp",
+      filter_archived_3: true,
+      filter_contains_label_4: "topic",
+      filter_in_tag_5: ["a", "b"],
+      limit: 7,
+    });
+    expect(countCall.input.parameters).toEqual({
+      filter_gte_priority_1: 5,
+      filter_startsWith_data_2: "alp",
+      filter_archived_3: true,
+      filter_contains_label_4: "topic",
+      filter_in_tag_5: ["a", "b"],
+    });
+  });
+
+  it("replaces payloads on update and supports user-id storage", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1", stale: "remove-me" }],
+    );
+
+    const created = await store.get("id-1");
+    expect(created).not.toBeNull();
+    expect(created!.payload).toEqual(
+      expect.objectContaining({
+        data: "alpha",
+        user_id: "u1",
+      }),
+    );
+
+    await store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" });
+
+    const updated = await store.get("id-1");
+    expect(updated).not.toBeNull();
+    expect(updated!.payload).toEqual(
+      expect.objectContaining({
+        data: "beta",
+        user_id: "u1",
+      }),
+    );
+    expect(updated!.payload.stale).toBeUndefined();
+
+    const combinedUpdateCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      );
+    expect(
+      combinedUpdateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes(
+          "CALL neptune.algo.vectors.upsert",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      combinedUpdateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("SET n = $properties"),
+      ),
+    ).toBe(true);
+    expect(
+      combinedUpdateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("FOREACH"),
+      ),
+    ).toBe(false);
+
+    const [listed, count] = await store.list({ user_id: "u1" });
+    expect(count).toBe(1);
+    expect(listed[0].id).toBe("id-1");
+
+    const generatedUserId = await store.getUserId();
+    expect(typeof generatedUserId).toBe("string");
+    expect(generatedUserId.length).toBeGreaterThan(0);
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+
+    await store.delete("id-1");
+    expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("supports payload-only and vector-only Neptune updates", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1", stale: "remove-me" }],
+    );
+
+    await store.update("id-1", [], { data: "payload-only", user_id: "u1" });
+    expect((await store.get("id-1"))!.payload).toEqual(
+      expect.objectContaining({
+        data: "payload-only",
+        user_id: "u1",
+      }),
+    );
+
+    await store.update("id-1", [3, 2, 1], {});
+    expect((await store.get("id-1"))!.payload).toEqual(
+      expect.objectContaining({
+        data: "payload-only",
+        user_id: "u1",
+      }),
+    );
+
+    const updateCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      );
+    expect(
+      updateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("SET n = $properties"),
+      ),
+    ).toBe(true);
+    expect(
+      updateCalls.some(
+        (command: any) =>
+          String(command.input.queryString || "").includes(
+            "CALL neptune.algo.vectors.upsert",
+          ) && !("properties" in (command.input.parameters || {})),
+      ),
+    ).toBe(true);
+  });
+
+  it("deletes the full Neptune collection with deleteCol()", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 2, 3],
+        [3, 2, 1],
+      ],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", user_id: "u1" },
+        { data: "beta", user_id: "u1" },
+      ],
+    );
+
+    await store.deleteCol();
+
+    const [listed, count] = await store.list({ user_id: "u1" });
+    expect(listed).toEqual([]);
+    expect(count).toBe(0);
+
+    const deleteColCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test`)",
+        ),
+      );
+    expect(deleteColCall).toBeDefined();
+    expect(deleteColCall.input.queryString).toContain("DETACH DELETE n");
+  });
+
+  it("returns a real total count for list pagination", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 2, 3],
+        [3, 2, 1],
+      ],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", user_id: "u1" },
+        { data: "beta", user_id: "u1" },
+      ],
+    );
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 1);
+    expect(listed).toHaveLength(1);
+    expect(count).toBe(2);
+  });
+
+  it("reads a persisted user id on a fresh store instance", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.setUserId("persisted-user");
+
+    const freshStore = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    expect(await freshStore.getUserId()).toBe("persisted-user");
+  });
+
+  it("throws when Neptune rejects an update upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failUpdateUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    await expect(
+      store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
+    ).rejects.toThrow("Update failed in Neptune Analytics");
+
+    const unchanged = await store.get("id-1");
+    expect(unchanged).not.toBeNull();
+    expect(unchanged!.payload).toEqual(
+      expect.objectContaining({
+        data: "alpha",
+        user_id: "u1",
+      }),
+    );
+  });
+
+  it("does not leave a phantom record when Neptune rejects an insert upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failInsertUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.insert([[1, 2, 3]], ["id-1"], [{ data: "alpha", user_id: "u1" }]),
+    ).rejects.toThrow("Insert failed in Neptune Analytics");
+
+    expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("does not leave a phantom record when Neptune throws during insert upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ throwInsertUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.insert([[1, 2, 3]], ["id-1"], [{ data: "alpha", user_id: "u1" }]),
+    ).rejects.toThrow("Neptune upsert rejected");
+
+    expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("throws for unsupported Neptune search and list filter shapes", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(store.search([1, 2, 3], 1, { optional: "*" })).rejects.toThrow(
+      "Neptune Analytics vector search does not support property-existence filters.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { icontains: "alp" } }),
+    ).rejects.toThrow(
+      "Neptune Analytics vector search does not support case-insensitive contains filters.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { regex: "alp" } }),
+    ).rejects.toThrow("Unsupported Neptune Analytics filter operator: regex");
+    await expect(
+      store.search([1, 2, 3], 1, {
+        $not: [{ data: { contains: "alp" } }],
+      }),
+    ).rejects.toThrow(
+      "Neptune Analytics cannot negate this filter shape for vector search.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { eq: () => "alp" } }),
+    ).rejects.toThrow(
+      "Unsupported Neptune Analytics algorithm value type: function",
+    );
+    await expect(store.list({ data: { icontains: "alp" } })).rejects.toThrow(
+      "Neptune Analytics list filters do not support case-insensitive contains filters.",
+    );
+    await expect(store.list({ data: { regex: "alp" } })).rejects.toThrow(
+      "Unsupported Neptune Analytics filter operator: regex",
+    );
   });
 });
 

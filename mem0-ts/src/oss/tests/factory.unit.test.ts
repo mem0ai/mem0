@@ -108,6 +108,11 @@ jest.mock("../src/vector_stores/qdrant", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "qdrant", config })),
 }));
+jest.mock("../src/vector_stores/memory", () => ({
+  MemoryVectorStore: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "memory", config })),
+}));
 jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
     .fn()
@@ -137,6 +142,22 @@ jest.mock("../src/vector_stores/pgvector", () => ({
   PGVector: jest
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
+}));
+jest.mock("../src/vector_stores/neptune_analytics", () => ({
+  NeptuneAnalyticsVectorStore: jest.fn().mockImplementation((config) => ({
+    type: "neptune-analytics",
+    config,
+  })),
+}));
+jest.mock("../src/storage/SQLiteManager", () => ({
+  SQLiteManager: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "sqlite-history", config })),
+}));
+jest.mock("../src/storage/MemoryHistoryManager", () => ({
+  MemoryHistoryManager: jest
+    .fn()
+    .mockImplementation(() => ({ type: "memory-history" })),
 }));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
@@ -243,13 +264,11 @@ describe("LLMFactory", () => {
 
 describe("VectorStoreFactory", () => {
   test("creates memory vector store", () => {
-    // MemoryVectorStore is real (not mocked) — needs valid config
-    expect(() =>
-      VectorStoreFactory.create("memory", {
-        collectionName: "test",
-        dimension: 4,
-      }),
-    ).not.toThrow();
+    const store = VectorStoreFactory.create("memory", {
+      collectionName: "test",
+      dimension: 4,
+    }) as any;
+    expect(store.type).toBe("memory");
   });
 
   test.each([
@@ -260,10 +279,24 @@ describe("VectorStoreFactory", () => {
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["neptune-analytics"],
   ])("creates vector store for provider '%s'", (provider) => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),
     ).not.toThrow();
+  });
+
+  test("passes Neptune endpoint URI config through the factory", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune-analytics", config) as any;
+
+    expect(store.type).toBe("neptune-analytics");
+    expect(store.config).toEqual(config);
   });
 
   test("throws for unsupported provider", () => {
