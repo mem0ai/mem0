@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -12,6 +13,18 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_filter(key: str, value: Any) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
 
 
 class OutputData(BaseModel):
@@ -92,7 +105,10 @@ class UpstashVector(VectorStoreBase):
         )
 
     def _stringify(self, x):
-        return f'"{x}"' if isinstance(x, str) else x
+        if isinstance(x, str):
+            escaped = x.replace("\\", "\\\\").replace('"', '\\"')
+            return f'"{escaped}"'
+        return x
 
     def search(
         self,
@@ -113,6 +129,9 @@ class UpstashVector(VectorStoreBase):
             List[OutputData]: Search results.
         """
 
+        if filters:
+            for k, v in filters.items():
+                _validate_filter(k, v)
         filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
 
         response = []
@@ -161,6 +180,9 @@ class UpstashVector(VectorStoreBase):
             List[OutputData]: Search results, or None if sparse/BM25 search is not supported.
         """
         try:
+            if filters:
+                for k, v in filters.items():
+                    _validate_filter(k, v)
             filters_str = (
                 " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
                 if filters
@@ -252,6 +274,9 @@ class UpstashVector(VectorStoreBase):
         Returns:
             List[OutputData]: Search results.
         """
+        if filters:
+            for k, v in filters.items():
+                _validate_filter(k, v)
         filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
 
         info = self.client.info()
