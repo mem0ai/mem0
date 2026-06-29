@@ -495,6 +495,8 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Databricks](https://docs.mem0.ai/components/vectordbs/dbs/databricks) [OSS]: Use when the user is on Databricks with Delta Lake.
 - [Neptune Analytics](https://docs.mem0.ai/components/vectordbs/dbs/neptune_analytics) [OSS]: Use when the user is on AWS Neptune Analytics (graph + vector).
 - [Turbopuffer](https://docs.mem0.ai/components/vectordbs/dbs/turbopuffer) [OSS]: Use when the user is on Turbopuffer serverless.
+- [ScyllaDB](https://docs.mem0.ai/components/vectordbs/dbs/scylladb) [OSS]: Use when ScyllaDB Cloud is the backing store.
+
 
 ### Rerankers [OSS]
 - [Reranker Overview](https://docs.mem0.ai/components/rerankers/overview) [OSS]: Use when the user wants to improve OSS search result quality.
