@@ -220,7 +220,7 @@ describe("Memory - add()", () => {
 
       expect(searchSpy).toHaveBeenCalledWith(
         mockEmbedding,
-        10,
+        60,
         expect.objectContaining({ user_id: "target-user" }),
       );
       expect(result.results).toHaveLength(1);
@@ -261,7 +261,7 @@ describe("Memory - add()", () => {
 
       expect(searchSpy).toHaveBeenCalledWith(
         mockEmbedding,
-        10,
+        60,
         expect.objectContaining({ user_id: "target-user" }),
       );
       expect(result.results).toHaveLength(0);
@@ -302,7 +302,7 @@ describe("Memory - add()", () => {
 
       expect(searchSpy).toHaveBeenCalledWith(
         mockEmbedding,
-        10,
+        60,
         expect.objectContaining({ user_id: "target-user" }),
       );
       expect(result.results).toHaveLength(1);

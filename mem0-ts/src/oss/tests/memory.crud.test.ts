@@ -168,6 +168,46 @@ describe("Memory - get()", () => {
       await scopedMemory.reset();
     }
   });
+
+  test("keeps canonical scope payloads out of metadata", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const getSpy = jest.spyOn(vectorStore, "get").mockResolvedValueOnce({
+      id: "canonical-memory",
+      payload: {
+        data: "canonical memory",
+        hash: "canonical-hash",
+        user_id: "target-user",
+        agent_id: "agent-a",
+        run_id: "run-a",
+        source: "memory",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    try {
+      const item = await scopedMemory.get("canonical-memory");
+
+      expect(item).toEqual(
+        expect.objectContaining({
+          id: "canonical-memory",
+          memory: "canonical memory",
+          user_id: "target-user",
+          agent_id: "agent-a",
+          run_id: "run-a",
+        }),
+      );
+      expect(item!.metadata).toEqual({ source: "memory" });
+      expect(item!.metadata).not.toHaveProperty("user_id");
+      expect(item!.metadata).not.toHaveProperty("agent_id");
+      expect(item!.metadata).not.toHaveProperty("run_id");
+    } finally {
+      getSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });
 
 // ─── update() ────────────────────────────────────────────
@@ -392,7 +432,7 @@ describe("Memory - getAll()", () => {
         topK: 5,
       });
 
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 5);
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 60);
       expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
       expect(result.results[0].memory).toBe("target user memory");
       expect(result.results[0]).toEqual(
@@ -443,7 +483,7 @@ describe("Memory - getAll()", () => {
         topK: 5,
       });
 
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "*" }, 5);
+      expect(listSpy).toHaveBeenCalledWith(undefined, 60);
       expect(result.results.map((item) => item.id)).toEqual([
         "user-scoped-memory",
       ]);
@@ -494,7 +534,7 @@ describe("Memory - getAll()", () => {
         topK: 5,
       });
 
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 5);
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 60);
       expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
     } finally {
       listSpy.mockRestore();
@@ -670,6 +710,66 @@ describe("Memory - search()", () => {
     }
   });
 
+  test("keeps wildcard scope filtering in Memory instead of provider filters", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "user-scoped-memory",
+        score: 0.98,
+        payload: {
+          data: "target wildcard memory",
+          hash: "user-scoped-hash",
+          userId: "any-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "unscoped-memory",
+        score: 0.97,
+        payload: {
+          data: "target missing scope",
+          hash: "unscoped-hash",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: { user_id: "*" },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        undefined,
+      );
+      expect(keywordSpy).toHaveBeenCalledWith(
+        "target",
+        expect.any(Number),
+        undefined,
+      );
+      expect(result.results.map((item) => item.id)).toEqual([
+        "user-scoped-memory",
+      ]);
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({ user_id: "any-user" }),
+      );
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
   test("prefers canonical scope over conflicting camelCase aliases for search results", async () => {
     const scopedMemory = createMemory();
     await (scopedMemory as any)._ensureInitialized();
@@ -756,7 +856,8 @@ describe("Memory - deleteAll() scope hardening", () => {
       .mockResolvedValueOnce([rows, rows.length]);
     const getSpy = jest
       .spyOn(vectorStore, "get")
-      .mockImplementation(async (id: string) => {
+      .mockImplementation(async (...args: unknown[]) => {
+        const id = String(args[0]);
         const row = rows.find((item) => item.id === id);
         return row ?? null;
       });
@@ -771,7 +872,7 @@ describe("Memory - deleteAll() scope hardening", () => {
       const result = await scopedMemory.deleteAll({ userId: "target-user" });
 
       expect(result.message).toBe("Memories deleted successfully!");
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" });
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 10000);
       expect(deleteSpy).toHaveBeenCalledTimes(1);
       expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
       expect(entityCleanupSpy).toHaveBeenCalledWith("owned-memory", {
@@ -816,7 +917,8 @@ describe("Memory - deleteAll() scope hardening", () => {
       .mockResolvedValueOnce([rows, rows.length]);
     const getSpy = jest
       .spyOn(vectorStore, "get")
-      .mockImplementation(async (id: string) => {
+      .mockImplementation(async (...args: unknown[]) => {
+        const id = String(args[0]);
         const row = rows.find((item) => item.id === id);
         return row ?? null;
       });
@@ -831,7 +933,7 @@ describe("Memory - deleteAll() scope hardening", () => {
       const result = await scopedMemory.deleteAll({ userId: "*" });
 
       expect(result.message).toBe("Memories deleted successfully!");
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "*" });
+      expect(listSpy).toHaveBeenCalledWith(undefined, 10000);
       expect(deleteSpy).toHaveBeenCalledTimes(1);
       expect(deleteSpy).toHaveBeenCalledWith("user-scoped-memory");
       expect(entityCleanupSpy).toHaveBeenCalledWith("user-scoped-memory", {
@@ -879,7 +981,8 @@ describe("Memory - deleteAll() scope hardening", () => {
       .mockResolvedValueOnce([rows, rows.length]);
     const getSpy = jest
       .spyOn(vectorStore, "get")
-      .mockImplementation(async (id: string) => {
+      .mockImplementation(async (...args: unknown[]) => {
+        const id = String(args[0]);
         const row = rows.find((item) => item.id === id);
         return row ?? null;
       });
@@ -894,7 +997,7 @@ describe("Memory - deleteAll() scope hardening", () => {
       const result = await scopedMemory.deleteAll({ userId: "target-user" });
 
       expect(result.message).toBe("Memories deleted successfully!");
-      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" });
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 10000);
       expect(deleteSpy).toHaveBeenCalledTimes(1);
       expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
       expect(entityCleanupSpy).toHaveBeenCalledWith("owned-memory", {

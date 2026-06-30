@@ -101,6 +101,9 @@ const RESERVED_PAYLOAD_KEYS = new Set<string>([
   "attributedTo",
 ]);
 
+const MIN_SCOPE_POST_FILTER_FETCH = 60;
+const DELETE_ALL_SCOPE_FETCH_LIMIT = 10000;
+
 /**
  * Validates that no top-level entity parameters are passed in config.
  * @throws Error if entity params are found at top level
@@ -336,6 +339,20 @@ export class Memory {
     return metadata;
   }
 
+  private _providerFiltersForRequestedScope(
+    filters: Record<string, any>,
+  ): Record<string, any> | undefined {
+    const providerFilters: Record<string, any> = { ...filters };
+    for (const key of SCOPE_KEYS) {
+      if (providerFilters[key] === "*") {
+        delete providerFilters[key];
+      }
+    }
+    return Object.keys(providerFilters).length > 0
+      ? providerFilters
+      : undefined;
+  }
+
   private _normalizeEntityText(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, " ");
   }
@@ -569,6 +586,10 @@ export class Memory {
       return results;
     }
 
+    // Defense-in-depth after provider filtering: enforce only the scope keys
+    // explicitly requested by the caller. Bounded vector-store APIs do not
+    // expose a shared cursor, so callers may see fewer rows if a provider
+    // returns polluted rows before valid in-scope rows.
     return results.filter((result) =>
       requestedKeys.every((key) => {
         const payload = result.payload ?? {};
@@ -875,8 +896,13 @@ export class Memory {
 
     // Phase 1: Existing memory retrieval
     const queryEmbedding = await this.embedder.embed(parsedMessages);
+    const providerFilters = this._providerFiltersForRequestedScope(filters);
     const existingResults = this.filterByRequestedScope(
-      await this.vectorStore.search(queryEmbedding, 10, filters),
+      await this.vectorStore.search(
+        queryEmbedding,
+        MIN_SCOPE_POST_FILTER_FETCH,
+        providerFilters,
+      ),
       filters,
     );
 
@@ -1401,11 +1427,13 @@ export class Memory {
 
     // Step 3: Semantic search (over-fetch for scoring pool)
     const internalLimit = Math.max(topK * 4, 60);
+    const providerFilters =
+      this._providerFiltersForRequestedScope(effectiveFilters);
     const semanticResults = this.filterByRequestedScope(
       await this.vectorStore.search(
         queryEmbedding,
         internalLimit,
-        effectiveFilters,
+        providerFilters,
       ),
       effectiveFilters,
     );
@@ -1422,7 +1450,7 @@ export class Memory {
           (await this.vectorStore.keywordSearch(
             queryLemmatized,
             internalLimit,
-            effectiveFilters,
+            providerFilters,
           )) ?? null;
         keywordResults = rawKeywordResults
           ? this.filterByRequestedScope(rawKeywordResults, effectiveFilters)
@@ -1649,7 +1677,11 @@ export class Memory {
       );
     }
 
-    const [rawMemories] = await this.vectorStore.list(filters);
+    const providerFilters = this._providerFiltersForRequestedScope(filters);
+    const [rawMemories] = await this.vectorStore.list(
+      providerFilters,
+      DELETE_ALL_SCOPE_FETCH_LIMIT,
+    );
     const memories = this.filterByRequestedScope(rawMemories, filters);
     for (const memory of memories) {
       await this.deleteMemory(memory.id);
@@ -1766,8 +1798,17 @@ export class Memory {
       );
     }
 
-    const [rawMemories] = await this.vectorStore.list(filters, topK);
-    const memories = this.filterByRequestedScope(rawMemories, filters);
+    const providerFilters = this._providerFiltersForRequestedScope(filters);
+    const fetchLimit =
+      topK === 0 ? 0 : Math.max(topK * 4, MIN_SCOPE_POST_FILTER_FETCH);
+    const [rawMemories] = await this.vectorStore.list(
+      providerFilters,
+      fetchLimit,
+    );
+    const memories = this.filterByRequestedScope(rawMemories, filters).slice(
+      0,
+      topK,
+    );
 
     const results = memories.map((mem) => ({
       id: mem.id,
