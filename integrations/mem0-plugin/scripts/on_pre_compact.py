@@ -85,7 +85,12 @@ def parse_transcript(lines: list[str]) -> dict:
         except json.JSONDecodeError:
             continue
 
+        # Claude Code / Codex transcripts discriminate turns with ``type``;
+        # Cursor agent transcripts use ``role`` instead. Accept either so the
+        # PreCompact/Stop fallback works across all supported editors.
         entry_type = entry.get("type")
+        if entry_type not in ("user", "assistant"):
+            entry_type = entry.get("role")
         if entry_type not in ("user", "assistant"):
             continue
         if entry.get("isSidechain"):
@@ -109,6 +114,11 @@ def parse_transcript(lines: list[str]) -> dict:
                 user_messages.append(text)
 
         elif entry_type == "assistant":
+            if isinstance(content_blocks, str):
+                text = content_blocks.strip()
+                if text:
+                    last_assistant_text = text
+                continue
             for block in content_blocks:
                 if not isinstance(block, dict):
                     continue
