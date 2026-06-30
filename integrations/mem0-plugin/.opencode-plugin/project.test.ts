@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseProjectFromRemote } from "./project";
+import { parseProjectFromRemote, selectActiveProjectPath } from "./project";
 
 describe("parseProjectFromRemote", () => {
   test("ssh remote with a custom host alias (github.com-work)", () => {
@@ -25,5 +25,24 @@ describe("parseProjectFromRemote", () => {
   test("returns null when no owner/repo can be parsed", () => {
     expect(parseProjectFromRemote("not-a-remote")).toBeNull();
     expect(parseProjectFromRemote("")).toBeNull();
+  });
+});
+
+describe("selectActiveProjectPath", () => {
+  test("prefers worktree over directory", () => {
+    expect(selectActiveProjectPath({
+      worktree: "D:\\Repos\\active-worktree",
+      directory: "D:\\Repos\\fallback-directory",
+    })).toBe("D:\\Repos\\active-worktree");
+  });
+
+  test("uses directory when worktree is absent", () => {
+    expect(selectActiveProjectPath({
+      directory: "D:\\Repos\\active-directory",
+    })).toBe("D:\\Repos\\active-directory");
+  });
+
+  test("falls back to process cwd", () => {
+    expect(selectActiveProjectPath()).toBe(process.cwd());
   });
 });
