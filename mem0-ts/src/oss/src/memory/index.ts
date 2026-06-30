@@ -97,6 +97,8 @@ const RESERVED_PAYLOAD_KEYS = new Set<string>([
   "data",
   "createdAt",
   "updatedAt",
+  "created_at",
+  "updated_at",
   "textLemmatized",
   "attributedTo",
 ]);
@@ -339,18 +341,130 @@ export class Memory {
     return metadata;
   }
 
+  private _payloadCreatedAt(payload: Record<string, any>): any {
+    return payload.createdAt ?? payload.created_at;
+  }
+
+  private _payloadUpdatedAt(payload: Record<string, any>): any {
+    return payload.updatedAt ?? payload.updated_at;
+  }
+
   private _providerFiltersForRequestedScope(
     filters: Record<string, any>,
   ): Record<string, any> | undefined {
     const providerFilters: Record<string, any> = { ...filters };
+    const scopeAlternatives: Record<string, any>[] = [{}];
+    const provider = this.config.vectorStore.provider.toLowerCase();
+    const supportsScopeAliasOr = ["pgvector", "qdrant"].includes(provider);
+    const prefersCamelScope = provider === "vectorize";
+    const existingOr = supportsScopeAliasOr ? providerFilters.$or : undefined;
+    if (supportsScopeAliasOr) {
+      delete providerFilters.$or;
+    }
+
     for (const key of SCOPE_KEYS) {
-      if (providerFilters[key] === "*") {
-        delete providerFilters[key];
+      const value = providerFilters[key];
+      if (value === undefined || value === null) {
+        continue;
+      }
+
+      delete providerFilters[key];
+
+      if (value === "*") {
+        continue;
+      }
+
+      if (supportsScopeAliasOr) {
+        const currentAlternatives = scopeAlternatives.splice(0);
+        for (const alternative of currentAlternatives) {
+          scopeAlternatives.push({ ...alternative, [key]: value });
+          scopeAlternatives.push({
+            ...alternative,
+            [SCOPE_KEY_ALIASES[key]]: value,
+          });
+        }
+      } else if (prefersCamelScope) {
+        providerFilters[SCOPE_KEY_ALIASES[key]] = value;
+      } else {
+        providerFilters[key] = value;
       }
     }
+
+    if (supportsScopeAliasOr) {
+      const existingOrClauses = Array.isArray(existingOr)
+        ? existingOr
+        : undefined;
+
+      if (scopeAlternatives.length > 1 && existingOrClauses) {
+        providerFilters.$or = existingOrClauses.flatMap((clause) =>
+          scopeAlternatives.map((scope) => ({ ...clause, ...scope })),
+        );
+      } else if (scopeAlternatives.length > 1) {
+        providerFilters.$or = scopeAlternatives;
+      } else if (existingOr !== undefined) {
+        providerFilters.$or = existingOr;
+      }
+    }
+
     return Object.keys(providerFilters).length > 0
       ? providerFilters
       : undefined;
+  }
+
+  private async _listByRequestedScope(
+    filters: Record<string, any>,
+    options: {
+      topK?: number;
+      initialLimit: number;
+      exhaustive?: boolean;
+    },
+  ): Promise<VectorStoreResult[]> {
+    if (!options.exhaustive && options.topK === 0) {
+      return [];
+    }
+
+    const providerFilters = this._providerFiltersForRequestedScope(filters);
+    let fetchLimit = options.initialLimit;
+    let scoped: VectorStoreResult[] = [];
+
+    while (true) {
+      const [rawMemories, rawCount] = await this.vectorStore.list(
+        providerFilters,
+        fetchLimit,
+      );
+      scoped = this.filterByRequestedScope(rawMemories, filters);
+
+      if (
+        !options.exhaustive &&
+        options.topK !== undefined &&
+        scoped.length >= options.topK
+      ) {
+        return scoped.slice(0, options.topK);
+      }
+
+      const total = Number(rawCount);
+      if (
+        !Number.isFinite(total) ||
+        total <= rawMemories.length ||
+        fetchLimit >= total
+      ) {
+        return options.topK === undefined
+          ? scoped
+          : scoped.slice(0, options.topK);
+      }
+
+      const nextLimit = options.exhaustive
+        ? total
+        : Math.min(total, Math.max(fetchLimit * 2, fetchLimit + 1));
+
+      if (nextLimit <= fetchLimit) {
+        return options.topK === undefined
+          ? scoped
+          : scoped.slice(0, options.topK);
+      }
+
+      fetchLimit = nextLimit;
+    }
   }
 
   private _normalizeEntityText(value: string): string {
@@ -1314,8 +1428,8 @@ export class Memory {
       id: memory.id,
       memory: payload.data,
       hash: payload.hash,
-      createdAt: payload.createdAt,
-      updatedAt: payload.updatedAt,
+      createdAt: this._payloadCreatedAt(payload),
+      updatedAt: this._payloadUpdatedAt(payload),
       metadata: this._metadataFromPayload(payload),
     };
 
@@ -1576,8 +1690,8 @@ export class Memory {
           id: scored.id,
           memory: payload.data,
           hash: payload.hash,
-          createdAt: payload.createdAt,
-          updatedAt: payload.updatedAt,
+          createdAt: this._payloadCreatedAt(payload),
+          updatedAt: this._payloadUpdatedAt(payload),
           score: scored.score,
           metadata: this._metadataFromPayload(payload),
           ...this._sessionFiltersFromPayload(payload),
@@ -1677,12 +1791,10 @@ export class Memory {
       );
     }
 
-    const providerFilters = this._providerFiltersForRequestedScope(filters);
-    const [rawMemories] = await this.vectorStore.list(
-      providerFilters,
-      DELETE_ALL_SCOPE_FETCH_LIMIT,
-    );
-    const memories = this.filterByRequestedScope(rawMemories, filters);
+    const memories = await this._listByRequestedScope(filters, {
+      initialLimit: DELETE_ALL_SCOPE_FETCH_LIMIT,
+      exhaustive: true,
+    });
     for (const memory of memories) {
       await this.deleteMemory(memory.id);
     }
@@ -1798,24 +1910,19 @@ export class Memory {
       );
     }
 
-    const providerFilters = this._providerFiltersForRequestedScope(filters);
     const fetchLimit =
       topK === 0 ? 0 : Math.max(topK * 4, MIN_SCOPE_POST_FILTER_FETCH);
-    const [rawMemories] = await this.vectorStore.list(
-      providerFilters,
-      fetchLimit,
-    );
-    const memories = this.filterByRequestedScope(rawMemories, filters).slice(
-      0,
+    const memories = await this._listByRequestedScope(filters, {
       topK,
-    );
+      initialLimit: fetchLimit,
+    });
 
     const results = memories.map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
       hash: mem.payload.hash,
-      createdAt: mem.payload.createdAt,
-      updatedAt: mem.payload.updatedAt,
+      createdAt: this._payloadCreatedAt(mem.payload),
+      updatedAt: this._payloadUpdatedAt(mem.payload),
       metadata: this._metadataFromPayload(mem.payload),
       ...this._sessionFiltersFromPayload(mem.payload),
       ...(mem.payload.attributedTo && {

@@ -183,7 +183,8 @@ describe("Memory - get()", () => {
         agent_id: "agent-a",
         run_id: "run-a",
         source: "memory",
-        createdAt: "2026-01-01T00:00:00.000Z",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-02T00:00:00.000Z",
       },
     });
 
@@ -197,16 +198,88 @@ describe("Memory - get()", () => {
           user_id: "target-user",
           agent_id: "agent-a",
           run_id: "run-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-02T00:00:00.000Z",
         }),
       );
       expect(item!.metadata).toEqual({ source: "memory" });
       expect(item!.metadata).not.toHaveProperty("user_id");
       expect(item!.metadata).not.toHaveProperty("agent_id");
       expect(item!.metadata).not.toHaveProperty("run_id");
+      expect(item!.metadata).not.toHaveProperty("created_at");
+      expect(item!.metadata).not.toHaveProperty("updated_at");
     } finally {
       getSpy.mockRestore();
       await scopedMemory.reset();
     }
+  });
+});
+
+describe("Memory - provider scope filters", () => {
+  function providerFiltersFor(
+    provider: string,
+    filters: Record<string, any>,
+  ): Record<string, any> | undefined {
+    const memory = Object.create(Memory.prototype) as any;
+    memory.config = { vectorStore: { provider } };
+    return memory._providerFiltersForRequestedScope(filters);
+  }
+
+  test("widens qdrant and pgvector scope filters to snake and camel aliases", () => {
+    const expected = {
+      topic: "preferences",
+      $or: [
+        { user_id: "target-user", agent_id: "agent-a" },
+        { user_id: "target-user", agentId: "agent-a" },
+        { userId: "target-user", agent_id: "agent-a" },
+        { userId: "target-user", agentId: "agent-a" },
+      ],
+    };
+
+    expect(
+      providerFiltersFor("qdrant", {
+        user_id: "target-user",
+        agent_id: "agent-a",
+        topic: "preferences",
+      }),
+    ).toEqual(expected);
+    expect(
+      providerFiltersFor("pgvector", {
+        user_id: "target-user",
+        agent_id: "agent-a",
+        topic: "preferences",
+      }),
+    ).toEqual(expected);
+  });
+
+  test("preserves caller OR filters when widening provider scope aliases", () => {
+    expect(
+      providerFiltersFor("pgvector", {
+        user_id: "target-user",
+        $or: [{ topic: "travel" }, { topic: "food" }],
+      }),
+    ).toEqual({
+      $or: [
+        { topic: "travel", user_id: "target-user" },
+        { topic: "travel", userId: "target-user" },
+        { topic: "food", user_id: "target-user" },
+        { topic: "food", userId: "target-user" },
+      ],
+    });
+  });
+
+  test("maps vectorize scope filters to camelCase metadata keys", () => {
+    expect(
+      providerFiltersFor("vectorize", {
+        user_id: "target-user",
+        agent_id: "agent-a",
+        topic: "preferences",
+      }),
+    ).toEqual({
+      topic: "preferences",
+      userId: "target-user",
+      agentId: "agent-a",
+    });
   });
 });
 
@@ -535,6 +608,62 @@ describe("Memory - getAll()", () => {
       });
 
       expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 60);
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+    } finally {
+      listSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("refetches when provider count shows scoped list results are incomplete", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const firstPage = [
+      {
+        id: "foreign-memory",
+        payload: {
+          data: "wrong user memory",
+          hash: "foreign-hash",
+          userId: "other-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const secondPage = [
+      ...firstPage,
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([firstPage, 61])
+      .mockResolvedValueOnce([secondPage, 61]);
+
+    try {
+      const result: SearchResult = await scopedMemory.getAll({
+        filters: { user_id: "target-user" },
+        topK: 1,
+      });
+
+      expect(listSpy).toHaveBeenNthCalledWith(
+        1,
+        { user_id: "target-user" },
+        60,
+      );
+      expect(listSpy).toHaveBeenNthCalledWith(
+        2,
+        { user_id: "target-user" },
+        61,
+      );
       expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
     } finally {
       listSpy.mockRestore();
@@ -1003,6 +1132,78 @@ describe("Memory - deleteAll() scope hardening", () => {
       expect(entityCleanupSpy).toHaveBeenCalledWith("owned-memory", {
         user_id: "target-user",
       });
+    } finally {
+      listSpy.mockRestore();
+      getSpy.mockRestore();
+      deleteSpy.mockRestore();
+      entityCleanupSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("refetches before bulk delete when provider count exceeds the first batch", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const firstPage = [
+      {
+        id: "foreign-memory",
+        payload: {
+          data: "wrong user memory",
+          hash: "foreign-hash",
+          userId: "other-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const secondPage = [
+      ...firstPage,
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([firstPage, 10001])
+      .mockResolvedValueOnce([secondPage, 10001]);
+    const getSpy = jest
+      .spyOn(vectorStore, "get")
+      .mockImplementation(async (...args: unknown[]) => {
+        const id = String(args[0]);
+        const row = secondPage.find((item) => item.id === id);
+        return row ?? null;
+      });
+    const deleteSpy = jest
+      .spyOn(vectorStore, "delete")
+      .mockResolvedValue(undefined);
+    const entityCleanupSpy = jest
+      .spyOn(scopedMemory as any, "_removeMemoryFromEntityStore")
+      .mockResolvedValue(undefined);
+
+    try {
+      const result = await scopedMemory.deleteAll({ userId: "target-user" });
+
+      expect(result.message).toBe("Memories deleted successfully!");
+      expect(listSpy).toHaveBeenNthCalledWith(
+        1,
+        { user_id: "target-user" },
+        10000,
+      );
+      expect(listSpy).toHaveBeenNthCalledWith(
+        2,
+        { user_id: "target-user" },
+        10001,
+      );
+      expect(deleteSpy).toHaveBeenCalledTimes(1);
+      expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
     } finally {
       listSpy.mockRestore();
       getSpy.mockRestore();
