@@ -523,6 +523,11 @@ export class Memory {
     filters: Record<string, any>,
   ): T[] {
     const scopeKeys = ["user_id", "agent_id", "run_id"] as const;
+    const payloadAliases = {
+      user_id: "userId",
+      agent_id: "agentId",
+      run_id: "runId",
+    } as const;
     const requestedKeys = scopeKeys.filter(
       (key) => filters[key] !== undefined && filters[key] !== null,
     );
@@ -532,7 +537,16 @@ export class Memory {
     }
 
     return results.filter((result) =>
-      requestedKeys.every((key) => result.payload?.[key] === filters[key]),
+      requestedKeys.every((key) => {
+        const payload = result.payload ?? {};
+        const scopeValues = [payload[key], payload[payloadAliases[key]]];
+        if (filters[key] === "*") {
+          return scopeValues.some(
+            (value) => value !== undefined && value !== null,
+          );
+        }
+        return scopeValues.some((value) => value === filters[key]);
+      }),
     );
   }
 

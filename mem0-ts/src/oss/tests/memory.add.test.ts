@@ -232,4 +232,44 @@ describe("Memory - add()", () => {
       await scopedMemory.reset();
     }
   });
+
+  test("uses camelCase scoped existing search results when deduplicating inferred memories", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const extractedText = "user: I love Redis-compatible sushi.";
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "owned-memory",
+        score: 0.99,
+        payload: {
+          data: extractedText,
+          hash: createHash("md5").update(extractedText).digest("hex"),
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        "I love Redis-compatible sushi.",
+        { userId: "target-user" },
+      );
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        10,
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+      expect(result.results).toHaveLength(0);
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });

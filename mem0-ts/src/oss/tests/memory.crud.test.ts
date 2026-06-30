@@ -314,6 +314,95 @@ describe("Memory - getAll()", () => {
     });
     expect(result.results).toHaveLength(0);
   });
+
+  test("filters polluted vector store list results by requested scope", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "foreign-memory",
+        payload: {
+          data: "wrong user memory",
+          hash: "foreign-hash",
+          userId: "other-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-extra",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+
+    try {
+      const result: SearchResult = await scopedMemory.getAll({
+        filters: { user_id: "target-user" },
+        topK: 5,
+      });
+
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 5);
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+      expect(result.results[0].memory).toBe("target user memory");
+    } finally {
+      listSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("keeps non-null scoped rows for wildcard filters", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "user-scoped-memory",
+        payload: {
+          data: "user scoped memory",
+          hash: "user-scoped-hash",
+          userId: "any-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "unscoped-memory",
+        payload: {
+          data: "missing user scope",
+          hash: "unscoped-hash",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+
+    try {
+      const result: SearchResult = await scopedMemory.getAll({
+        filters: { user_id: "*" },
+        topK: 5,
+      });
+
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "*" }, 5);
+      expect(result.results.map((item) => item.id)).toEqual([
+        "user-scoped-memory",
+      ]);
+    } finally {
+      listSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });
 
 // ─── search() ────────────────────────────────────────────
@@ -372,7 +461,7 @@ describe("Memory - search()", () => {
         payload: {
           data: "wrong user memory",
           hash: "foreign-hash",
-          user_id: "other-user",
+          userId: "other-user",
           createdAt: "2026-01-01T00:00:00.000Z",
         },
       },
@@ -382,8 +471,8 @@ describe("Memory - search()", () => {
         payload: {
           data: "target user memory",
           hash: "owned-hash",
-          user_id: "target-user",
-          agent_id: "agent-extra",
+          userId: "target-user",
+          agentId: "agent-extra",
           createdAt: "2026-01-01T00:00:00.000Z",
         },
       },
@@ -412,6 +501,68 @@ describe("Memory - search()", () => {
       await scopedMemory.reset();
     }
   });
+
+  test("ignores wrong-scope keyword results when scoring", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "owned-memory",
+        score: 0.8,
+        payload: {
+          data: "target keyword memory",
+          hash: "owned-hash",
+          user_id: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce([
+        {
+          id: "foreign-keyword-memory",
+          score: 100,
+          payload: {
+            data: "wrong user keyword memory",
+            hash: "foreign-keyword-hash",
+            user_id: "other-user",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+      ]);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: { user_id: "target-user" },
+        threshold: 0,
+        topK: 5,
+        explain: true,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        { user_id: "target-user" },
+      );
+      expect(keywordSpy).toHaveBeenCalledWith("target", expect.any(Number), {
+        user_id: "target-user",
+      });
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+      expect((result.results[0] as any).score_details).toEqual(
+        expect.objectContaining({
+          bm25Score: 0,
+          maxPossibleScore: 1,
+        }),
+      );
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });
 
 describe("Memory - deleteAll() scope hardening", () => {
@@ -426,7 +577,7 @@ describe("Memory - deleteAll() scope hardening", () => {
         payload: {
           data: "wrong user memory",
           hash: "foreign-hash",
-          user_id: "other-user",
+          userId: "other-user",
           createdAt: "2026-01-01T00:00:00.000Z",
         },
       },
@@ -435,7 +586,7 @@ describe("Memory - deleteAll() scope hardening", () => {
         payload: {
           data: "target user memory",
           hash: "owned-hash",
-          user_id: "target-user",
+          userId: "target-user",
           createdAt: "2026-01-01T00:00:00.000Z",
         },
       },
@@ -464,6 +615,63 @@ describe("Memory - deleteAll() scope hardening", () => {
       expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" });
       expect(deleteSpy).toHaveBeenCalledTimes(1);
       expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
+    } finally {
+      listSpy.mockRestore();
+      getSpy.mockRestore();
+      deleteSpy.mockRestore();
+      entityCleanupSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("deletes only non-null scoped rows for wildcard filters", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "user-scoped-memory",
+        payload: {
+          data: "user scoped memory",
+          hash: "user-scoped-hash",
+          userId: "any-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "unscoped-memory",
+        payload: {
+          data: "missing user scope",
+          hash: "unscoped-hash",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+    const getSpy = jest
+      .spyOn(vectorStore, "get")
+      .mockImplementation(async (id: string) => {
+        const row = rows.find((item) => item.id === id);
+        return row ?? null;
+      });
+    const deleteSpy = jest
+      .spyOn(vectorStore, "delete")
+      .mockResolvedValue(undefined);
+    const entityCleanupSpy = jest
+      .spyOn(scopedMemory as any, "_removeMemoryFromEntityStore")
+      .mockResolvedValue(undefined);
+
+    try {
+      const result = await scopedMemory.deleteAll({ userId: "*" });
+
+      expect(result.message).toBe("Memories deleted successfully!");
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "*" });
+      expect(deleteSpy).toHaveBeenCalledTimes(1);
+      expect(deleteSpy).toHaveBeenCalledWith("user-scoped-memory");
     } finally {
       listSpy.mockRestore();
       getSpy.mockRestore();
