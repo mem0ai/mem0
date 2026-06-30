@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from mem0.configs.enums import MemoryType
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1015,3 +1016,84 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+class TestProceduralMemoryEntityLinking:
+    """Regression tests for procedural memory entity linking (#5620/#5621).
+
+    Ensures that ``_link_entities_for_memory`` is called after creating a
+    procedural memory, in both the sync (``Memory``) and async (``AsyncMemory``)
+    paths, with correct ``session_filters`` derived from metadata.
+    """
+
+    def test_sync_links_entities_via_add(self, mocker):
+        """Sync ``Memory.add(..., memory_type="procedural_memory")`` must call
+        ``_link_entities_for_memory`` with the correct text and filters."""
+        memory = _build_memory_instance(mocker, Memory)
+
+        mock_link = mocker.patch.object(memory, "_link_entities_for_memory")
+        # Avoid loading spaCy model for lemmatization in unit tests
+        mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+
+        # Stub the LLM so it returns a predictable procedural memory text
+        memory.llm.generate_response.return_value = "The user likes Python programming"
+        # Stub embedding so it returns a fixed vector (avoids live embedder calls)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+        # Suppress telemetry-event logging in test output
+        mocker.patch("mem0.memory.main.capture_event")
+
+        memory.add(
+            messages="I love Python",
+            agent_id="test_agent",
+            user_id="test_user",
+            memory_type=MemoryType.PROCEDURAL.value,
+        )
+
+        # --- assertions ---
+        mock_link.assert_called_once()
+        args = mock_link.call_args[0]  # (memory_id, text, session_filters)
+        assert len(args) == 3
+
+        _memory_id, text, session_filters = args
+        assert text == "The user likes Python programming"
+        assert session_filters == {"user_id": "test_user", "agent_id": "test_agent"}
+        assert isinstance(_memory_id, str)
+
+    @pytest.mark.asyncio
+    async def test_async_links_entities_via_add(self, mocker):
+        """Async ``AsyncMemory.add(..., memory_type="procedural_memory")`` must call
+        ``_link_entities_for_memory`` with the correct text and filters."""
+        # The async path has a lazy import of langchain_core. Provide a fake
+        # module so the import inside _create_procedural_memory succeeds.
+        mocker.patch.dict("sys.modules", {
+            "langchain_core": MagicMock(),
+            "langchain_core.messages": MagicMock(),
+            "langchain_core.messages.utils": MagicMock(),
+        })
+
+        memory = _build_memory_instance(mocker, AsyncMemory)
+
+        mock_link = mocker.patch.object(memory, "_link_entities_for_memory")
+        # Avoid loading spaCy model for lemmatization in unit tests
+        mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+
+        memory.llm.generate_response.return_value = "The agent should check system logs"
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+        mocker.patch("mem0.memory.main.capture_event")
+
+        await memory.add(
+            messages="Check system logs for errors",
+            agent_id="test_agent",
+            user_id="test_user",
+            memory_type=MemoryType.PROCEDURAL.value,
+        )
+
+        mock_link.assert_called_once()
+        args = mock_link.call_args[0]
+        assert len(args) == 3
+
+        _memory_id, text, session_filters = args
+        assert text == "The agent should check system logs"
+        assert session_filters == {"user_id": "test_user", "agent_id": "test_agent"}
+        assert isinstance(_memory_id, str)
+

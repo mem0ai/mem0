@@ -1945,6 +1945,9 @@ class Memory(MemoryBase):
         memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
 
+        session_filters = {k: metadata[k] for k in ("user_id", "agent_id", "run_id") if metadata.get(k)}
+        self._link_entities_for_memory(memory_id, procedural_memory, session_filters)
+
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
         return result
@@ -3594,6 +3597,9 @@ class AsyncMemory(MemoryBase):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
+
+        session_filters = {k: metadata[k] for k in ("user_id", "agent_id", "run_id") if metadata.get(k)}
+        await self._link_entities_for_memory(memory_id, procedural_memory, session_filters)
 
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
