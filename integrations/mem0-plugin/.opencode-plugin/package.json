@@ -34,7 +34,7 @@
     "opencode-skills"
   ],
   "scripts": {
-    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
+    "build": "bun build opencode-mem0.ts --outdir dist --target node --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
     "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
     "type-check": "tsc --noEmit",
     "prepack": "bun run build",

@@ -7,6 +7,21 @@
  * cwd. Keeping the parser pure makes the tricky remote formats testable.
  */
 
+export type ProjectContext = {
+  worktree?: string;
+  directory?: string;
+};
+
+export function selectActiveProjectPath(input: ProjectContext = {}): string {
+  const worktree = input.worktree?.trim();
+  if (worktree) return worktree;
+
+  const directory = input.directory?.trim();
+  if (directory) return directory;
+
+  return process.cwd();
+}
+
 /**
  * Parse `owner/repo` out of a git remote URL and return it as `owner-repo`.
  * Handles https, scp-style ssh, custom ssh host aliases (e.g.
