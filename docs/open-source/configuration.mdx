@@ -1,63 +1,47 @@
 ---
 title: "Configure the OSS Stack"
-description: "Wire up Mem0 OSS with your preferred LLM, vector store, embedder, and reranker."
+description: "Configure Mem0 OSS in Python or TypeScript with your own LLM, embedder, and vector store."
 icon: "sliders"
 ---
 
-# Configure Mem0 OSS Components
+Mem0 OSS works out of the box with OpenAI defaults. Point it at your own LLM, embedder, and vector store by passing a config when you create `Memory`. The Python SDK also supports a reranker and graph memory.
 
 <Info>
   **Prerequisites**
-  - Python 3.10+ with `pip` available
-  - Running vector database (e.g., Qdrant, Postgres + pgvector) or access credentials for a managed store
-  - API keys for your chosen LLM, embedder, and reranker providers
+  - Python 3.10+ (`pip`) or Node.js 18+ (`npm`)
+  - A running vector store such as Qdrant or Postgres + pgvector (Python's default Qdrant and Node's in-memory store need nothing extra)
+  - API keys for your chosen LLM and embedder providers
 </Info>
 
 <Tip>
-  Start from the <Link href="/open-source/python-quickstart">Python quickstart</Link> if you still need the base CLI and repository.
+  New to Mem0 OSS? Run the <Link href="/open-source/python-quickstart">Python</Link> or <Link href="/open-source/node-quickstart">Node.js</Link> quickstart first, then come back to swap in your own providers.
 </Tip>
 
 ## Install dependencies
 
-<Tabs>
-  <Tab title="Python">
-<Steps>
-<Step title="Install Mem0 OSS">
-```bash
+<CodeGroup>
+```bash pip
 pip install mem0ai
 ```
-</Step>
-<Step title="Add provider SDKs (example: Qdrant + OpenAI)">
-```bash
-pip install qdrant-client openai
+
+```bash npm
+npm install mem0ai
 ```
-</Step>
-</Steps>
-  </Tab>
-  <Tab title="Docker Compose">
-<Steps>
-<Step title="Clone the repo and copy the compose file">
+</CodeGroup>
+
+Using Qdrant as your vector store? Install its Python client (the Node SDK talks to Qdrant over REST) and run the server locally:
+
 ```bash
-git clone https://github.com/mem0ai/mem0.git
-cd mem0/examples/docker-compose
+pip install qdrant-client   # Python only
+docker run -p 6333:6333 qdrant/qdrant
 ```
-</Step>
-<Step title="Install dependencies for local overrides">
-```bash
-pip install -r requirements.txt
-```
-</Step>
-</Steps>
-  </Tab>
-</Tabs>
 
 ## Define your configuration
 
-<Tabs>
-  <Tab title="Python">
-<Steps>
-<Step title="Create a configuration dictionary">
-```python
+Each component takes a `provider` and a `config`. Keys are `snake_case` in Python and `camelCase` in TypeScript. Pass the config when you create `Memory`:
+
+<CodeGroup>
+```python Python
 from mem0 import Memory
 
 config = {
@@ -67,11 +51,11 @@ config = {
     },
     "llm": {
         "provider": "openai",
-        "config": {"model": "gpt-4.1-mini", "temperature": 0.1},
+        "config": {"model": "gpt-5-mini", "temperature": 0.1},
     },
     "embedder": {
-        "provider": "vertexai",
-        "config": {"model": "textembedding-gecko@003"},
+        "provider": "openai",
+        "config": {"model": "text-embedding-3-small"},
     },
     "reranker": {
         "provider": "cohere",
@@ -81,86 +65,95 @@ config = {
 
 memory = Memory.from_config(config)
 ```
-</Step>
-<Step title="Store secrets as environment variables">
+
+```ts Node.js
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  llm: {
+    provider: "openai",
+    config: { apiKey: process.env.OPENAI_API_KEY || "", model: "gpt-5-mini", temperature: 0.1 },
+  },
+  embedder: {
+    provider: "openai",
+    config: { apiKey: process.env.OPENAI_API_KEY || "", model: "text-embedding-3-small" },
+  },
+  vectorStore: {
+    provider: "qdrant",
+    config: { host: "localhost", port: 6333, collectionName: "memories" },
+  },
+});
+```
+</CodeGroup>
+
+Set your provider keys as environment variables:
+
 ```bash
-export QDRANT_API_KEY="..."
 export OPENAI_API_KEY="..."
-export COHERE_API_KEY="..."
+export COHERE_API_KEY="..."   # Python reranker only
 ```
-</Step>
-</Steps>
-  </Tab>
-  <Tab title="config.yaml">
-<Steps>
-<Step title="Create a `config.yaml` file">
-```yaml
-vector_store:
-  provider: qdrant
-  config:
-    host: localhost
-    port: 6333
 
-llm:
-  provider: azure_openai
-  config:
-    api_key: ${AZURE_OPENAI_KEY}
-    deployment_name: gpt-4.1-mini
+<Note>
+  The TypeScript OSS SDK configures the LLM, embedder, vector store, and history store. Reranker and graph memory are Python-only today.
+</Note>
 
-embedder:
-  provider: ollama
-  config:
-    model: nomic-embed-text
+Prefer a config file? Load YAML into Python's `from_config`:
 
-reranker:
-  provider: zero_entropy
-  config:
-    api_key: ${ZERO_ENTROPY_KEY}
-```
-</Step>
-<Step title="Load the config file at runtime">
 ```python
+import yaml
 from mem0 import Memory
 
-memory = Memory.from_config_file("config.yaml")
+with open("config.yaml") as f:
+    config = yaml.safe_load(f)
+
+memory = Memory.from_config(config)
 ```
-</Step>
-</Steps>
-  </Tab>
-</Tabs>
 
 <Info icon="check">
-  Run `memory.add("Remember my favorite cafe in Tokyo.", user_id="alex")` and then `memory.search("favorite cafe", filters={"user_id": "alex"})`. You should see the Qdrant collection populate and the reranker mark the memory as a top hit.
+  Verify it works: add a memory and search it back. `memory.add(...)` followed by `memory.search(...)` should populate your vector store and return the memory as a top hit.
 </Info>
+
+## Available providers
+
+Change the `provider` string to switch backends. The most common options:
+
+| Component | Python | TypeScript |
+| --- | --- | --- |
+| LLM | `openai`, `anthropic`, `gemini`, `groq`, `ollama`, `aws_bedrock`, `azure_openai`, `litellm` | `openai`, `anthropic`, `gemini`, `groq`, `ollama`, `azure_openai`, `mistral`, `deepseek` |
+| Embedder | `openai`, `gemini`, `azure_openai`, `ollama`, `huggingface`, `vertexai`, `aws_bedrock` | `openai`, `gemini`, `azure_openai`, `ollama` |
+| Vector store | `qdrant`, `pgvector`, `chroma`, `pinecone`, `redis`, `weaviate`, `milvus`, `elasticsearch` | `memory`, `qdrant`, `pgvector`, `redis`, `supabase`, `azure-ai-search`, `vectorize` |
+
+See the full catalog in <Link href="/components/llms/overview">Components</Link>.
 
 ## Tune component settings
 
 <AccordionGroup>
   <Accordion title="Vector store collections">
-    Name collections explicitly in production (`collection_name`) to isolate tenants and enable per-tenant retention policies.
+    Name collections explicitly in production (`collection_name` / `collectionName`) to isolate tenants and enable per-tenant retention policies.
   </Accordion>
   <Accordion title="LLM extraction temperature">
-    Keep extraction temperatures ≤0.2 so advanced memories stay deterministic. Raise it only when you see missing facts.
+    Keep extraction temperature at or below 0.2 so memories stay deterministic. Raise it only when you see facts being missed.
   </Accordion>
-  <Accordion title="Reranker depth">
-    Limit `top_k` to 10–20 results; sending more adds latency without meaningful gains.
+  <Accordion title="Reranker depth (Python)">
+    Limit `top_k` to 10 to 20 results. Sending more adds latency without meaningful gains.
   </Accordion>
 </AccordionGroup>
 
 <Warning>
-  Mixing managed and self-hosted components? Make sure every outbound provider call happens through a secure network path. Managed rerankers often require outbound internet even if your vector store is on-prem.
+  Mixing managed and self-hosted components? Make sure every outbound provider call has a secure network path. Managed rerankers and embedders often require outbound internet even if your vector store is on-prem.
 </Warning>
 
 ## Quick recovery
 
-- Qdrant connection errors → confirm port `6333` is exposed and API key (if set) matches.
-- Empty search results → verify the embedder model name; a mismatch causes dimension errors.
-- `Unknown reranker` → update the SDK (`pip install --upgrade mem0ai`) to load the latest provider registry.
+- Qdrant connection errors: confirm port `6333` is exposed and the API key (if set) matches.
+- Empty search results: verify the embedder model name. A mismatch causes dimension errors.
+- `Unknown reranker` (Python): upgrade the SDK with `pip install --upgrade mem0ai` to load the latest provider registry.
+- `Cannot find module` (Node): import from the OSS entry point, `import { Memory } from "mem0ai/oss"`, not `"mem0ai"`.
 
 <CardGroup cols={2}>
   <Card
     title="Pick Providers"
-    description="Review the LLM, vector store, embedder, and reranker catalogs."
+    description="Browse the LLM, vector store, embedder, and reranker catalogs."
     icon="sitemap"
     href="/components/llms/overview"
   />
