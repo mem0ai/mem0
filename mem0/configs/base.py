@@ -55,6 +55,10 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    fact_first_recall: bool = Field(
+        description="Whether to extract candidate memories first and use them as recall anchors before final extraction.",
+        default=True,
+    )
 
 
 class AzureConfig(BaseModel):

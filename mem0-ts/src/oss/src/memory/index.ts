@@ -155,6 +155,59 @@ function validateSearchParams(threshold?: number, topK?: number): void {
   }
 }
 
+function parseAdditiveExtractionResponse(response: string): Array<{
+  id?: string;
+  text?: string;
+  attributed_to?: string;
+  linked_memory_ids?: string[];
+}> {
+  const cleanResponse = extractJson(response);
+  if (!cleanResponse || !cleanResponse.trim()) {
+    return [];
+  }
+
+  try {
+    const parsed = AdditiveExtractionSchema.parse(JSON.parse(cleanResponse));
+    return parsed.memory;
+  } catch {
+    const fallbackJson = extractJson(cleanResponse);
+    return JSON.parse(fallbackJson)?.memory ?? [];
+  }
+}
+
+function mapExistingMemories(existingResults: Array<{ id: string; payload: Record<string, any> }>) {
+  const existingMemories: Array<{ id: string; text: string }> = [];
+  const uuidMapping: Record<string, string> = {};
+  for (let idx = 0; idx < existingResults.length; idx++) {
+    const mem = existingResults[idx];
+    uuidMapping[String(idx)] = mem.id;
+    existingMemories.push({
+      id: String(idx),
+      text: mem.payload?.data ?? "",
+    });
+  }
+  return { existingMemories, uuidMapping };
+}
+
+function replaceLinkedMemoryIds(
+  extractedMemories: Array<{
+    id?: string;
+    text?: string;
+    attributed_to?: string;
+    linked_memory_ids?: string[];
+  }>,
+  uuidMapping: Record<string, string>,
+): void {
+  for (const memory of extractedMemories) {
+    if (!Array.isArray(memory.linked_memory_ids)) {
+      continue;
+    }
+    memory.linked_memory_ids = memory.linked_memory_ids.map(
+      (linkedId) => uuidMapping[String(linkedId)] ?? linkedId,
+    );
+  }
+}
+
 export class Memory {
   private config: MemoryConfig;
   private customInstructions: string | undefined;
@@ -517,6 +570,162 @@ export class Memory {
     return parts.join("&");
   }
 
+  private async generateAdditiveExtractionMemories(options: {
+    parsedMessages: string;
+    lastMessages: Array<{ role: string; content: string; name?: string }>;
+    customInstructions?: string;
+    existingMemories?: Array<{ id: string; text: string }>;
+    recentlyExtractedMemories?: Array<{
+      id?: string;
+      text?: string;
+      attributed_to?: string;
+      linked_memory_ids?: string[];
+    }>;
+    isAgentScoped?: boolean;
+  }): Promise<
+    Array<{
+      id?: string;
+      text?: string;
+      attributed_to?: string;
+      linked_memory_ids?: string[];
+    }>
+  > {
+    let systemPrompt = ADDITIVE_EXTRACTION_PROMPT;
+    if (options.isAgentScoped) {
+      systemPrompt += AGENT_CONTEXT_SUFFIX;
+    }
+
+    const userPrompt = generateAdditiveExtractionPrompt({
+      existingMemories: options.existingMemories,
+      recentlyExtractedMemories: options.recentlyExtractedMemories,
+      newMessages: options.parsedMessages,
+      lastKMessages: options.lastMessages,
+      customInstructions: options.customInstructions,
+    });
+
+    const response = (await this.llm.generateResponse(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      { type: "json_object" },
+    )) as string;
+
+    return parseAdditiveExtractionResponse(response);
+  }
+
+  private async recallExistingMemoriesForCandidates(
+    candidateMemories: Array<{
+      id?: string;
+      text?: string;
+      attributed_to?: string;
+      linked_memory_ids?: string[];
+    }>,
+    filters: SearchFilters,
+    topK = 5,
+  ): Promise<VectorStoreResult[]> {
+    const recalledResults: VectorStoreResult[] = [];
+    const seenIds = new Set<string>();
+
+    await Promise.all(
+      candidateMemories.map(async (mem) => {
+        const text = mem.text;
+        if (!text) {
+          return;
+        }
+
+        try {
+          const queryEmbedding = await this.embedder.embed(text);
+          const matches = await this.vectorStore.search(
+            queryEmbedding,
+            topK,
+            filters,
+          );
+          for (const match of matches) {
+            if (seenIds.has(match.id)) {
+              continue;
+            }
+            seenIds.add(match.id);
+            recalledResults.push(match);
+          }
+        } catch (error) {
+          console.warn("Failed to recall existing memories for candidate:", error);
+        }
+      }),
+    );
+
+    return recalledResults;
+  }
+
+  private async extractMemoriesWithOptionalFactFirstRecall(options: {
+    parsedMessages: string;
+    lastMessages: Array<{ role: string; content: string; name?: string }>;
+    customInstructions?: string;
+    filters: SearchFilters;
+    isAgentScoped: boolean;
+  }): Promise<
+    [
+      Array<{
+        id?: string;
+        text?: string;
+        attributed_to?: string;
+        linked_memory_ids?: string[];
+      }>,
+      VectorStoreResult[],
+    ]
+  > {
+    if (!this.config.factFirstRecall) {
+      const queryEmbedding = await this.embedder.embed(options.parsedMessages);
+      const existingResults = await this.vectorStore.search(
+        queryEmbedding,
+        10,
+        options.filters,
+      );
+      const { existingMemories } = mapExistingMemories(existingResults);
+      const extractedMemories = await this.generateAdditiveExtractionMemories({
+        parsedMessages: options.parsedMessages,
+        lastMessages: options.lastMessages,
+        customInstructions: options.customInstructions,
+        existingMemories,
+        isAgentScoped: options.isAgentScoped,
+      });
+      return [extractedMemories, existingResults];
+    }
+
+    // Intentional semantic change: if phase 1 extracts nothing, recall is skipped.
+    const initialMemories = await this.generateAdditiveExtractionMemories({
+      parsedMessages: options.parsedMessages,
+      lastMessages: options.lastMessages,
+      customInstructions: options.customInstructions,
+      isAgentScoped: options.isAgentScoped,
+    });
+    if (initialMemories.length === 0) {
+      return [[], []];
+    }
+
+    const existingResults = await this.recallExistingMemoriesForCandidates(
+      initialMemories,
+      options.filters,
+      5,
+    );
+    const { existingMemories, uuidMapping } = mapExistingMemories(existingResults);
+    let extractedMemories = initialMemories;
+
+    if (existingMemories.length > 0) {
+      extractedMemories = await this.generateAdditiveExtractionMemories({
+        parsedMessages: options.parsedMessages,
+        lastMessages: options.lastMessages,
+        customInstructions: options.customInstructions,
+        existingMemories,
+        recentlyExtractedMemories: initialMemories,
+        isAgentScoped: options.isAgentScoped,
+      });
+    }
+
+    replaceLinkedMemoryIds(extractedMemories, uuidMapping);
+    return [extractedMemories, existingResults];
+  }
+
   private async _initializeTelemetry() {
     try {
       await this._getTelemetryId();
@@ -809,77 +1018,30 @@ export class Memory {
       .map((m) => `${m.role}: ${m.content}`)
       .join("\n");
 
-    // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages);
-    const existingResults = await this.vectorStore.search(
-      queryEmbedding,
-      10,
-      filters,
-    );
-
-    // Map UUIDs to integers (anti-hallucination)
-    const existingMemories: Array<{ id: string; text: string }> = [];
-    const uuidMapping: Record<string, string> = {};
-    for (let idx = 0; idx < existingResults.length; idx++) {
-      const mem = existingResults[idx];
-      uuidMapping[String(idx)] = mem.id;
-      existingMemories.push({
-        id: String(idx),
-        text: mem.payload?.data ?? "",
-      });
-    }
-
-    // Phase 2: LLM extraction (single call)
     const isAgentScoped = !!filters.agent_id && !filters.user_id;
-    let systemPrompt = ADDITIVE_EXTRACTION_PROMPT;
-    if (isAgentScoped) {
-      systemPrompt += AGENT_CONTEXT_SUFFIX;
-    }
-
-    const userPrompt = generateAdditiveExtractionPrompt({
-      existingMemories,
-      newMessages: parsedMessages,
-      lastKMessages: lastMessages,
-      customInstructions: this.customInstructions,
-    });
-
-    let response: string;
     try {
-      response = (await this.llm.generateResponse(
-        [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        { type: "json_object" },
-      )) as string;
+      var [extractedMemories, existingResults] =
+        await this.extractMemoriesWithOptionalFactFirstRecall({
+          parsedMessages,
+          lastMessages,
+          customInstructions: this.customInstructions,
+          filters,
+          isAgentScoped,
+        });
     } catch (e) {
       console.error("LLM extraction failed:", e);
-      return [];
-    }
-
-    // Parse response
-    let extractedMemories: Array<{
-      id?: string;
-      text?: string;
-      attributed_to?: string;
-      linked_memory_ids?: string[];
-    }> = [];
-    try {
-      const cleanResponse = extractJson(response);
-      if (cleanResponse && cleanResponse.trim()) {
+      if (typeof this.db.saveMessages === "function") {
         try {
-          const parsed = AdditiveExtractionSchema.parse(
-            JSON.parse(cleanResponse),
+          await this.db.saveMessages(
+            messages.map((m) => ({
+              role: m.role,
+              content: m.content as string,
+            })),
+            sessionScope,
           );
-          extractedMemories = parsed.memory;
-        } catch {
-          const fallbackJson = extractJson(cleanResponse);
-          extractedMemories = JSON.parse(fallbackJson)?.memory ?? [];
-        }
+        } catch {}
       }
-    } catch (e) {
-      console.error("Error parsing extraction response:", e);
-      extractedMemories = [];
+      return [];
     }
 
     if (extractedMemories.length === 0) {
