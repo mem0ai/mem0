@@ -186,9 +186,11 @@ def transcribe_audio_to_memory(
 
     Note:
         Each call to this function constructs a new ``AutoModel`` instance,
-        which loads model weights from disk. For repeated calls, build the
-        model once outside this function and pass it via ``model_kwargs``
-        or refactor to reuse the ``funasr_model`` object directly.
+        which loads model weights from disk. ``model_kwargs`` is forwarded as
+        constructor arguments to ``AutoModel`` and cannot inject an
+        already-instantiated model, so reusing a model across calls would
+        require a future signature change (e.g. accepting a pre-built
+        ``AutoModel``).
     """
     funasr_model = _load_funasr_model(model, vad_model, punc_model, spk_model, model_kwargs)
 
