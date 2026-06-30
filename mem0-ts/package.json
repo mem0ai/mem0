@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "3.0.11",
+  "version": "3.0.12",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -158,6 +158,7 @@
       "glob@>=10.2.0 <10.5.0": "^10.5.0",
       "@modelcontextprotocol/sdk": "^1.25.4",
       "esbuild": ">=0.28.1",
+      "undici@<6.27.0": ">=6.27.0 <8.0.0",
       "@aws-sdk/client-bedrock-runtime": "3.967.0"
     }
   },

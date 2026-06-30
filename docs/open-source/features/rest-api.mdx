@@ -18,7 +18,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Warning>
 
 <Warning>
-  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths — those do not apply to the OSS server.
+  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths: those do not apply to the OSS server.
 </Warning>
 
 <Warning>
@@ -111,7 +111,7 @@ docker build -t mem0-api-server .
 </Note>
 
 <Note>
-  `JWT_SECRET` is required once auth is enabled — the server returns `500` on auth endpoints if it's unset. Generate one with `openssl rand -base64 48`. See [Self-Hosted Setup](/open-source/setup#configure-the-environment) for the full env var table.
+  `JWT_SECRET` is required once auth is enabled: the server returns `500` on auth endpoints if it's unset. Generate one with `openssl rand -base64 48`. See [Self-Hosted Setup](/open-source/setup#configure-the-environment) for the full env var table.
 </Note>
 
 <Tip>
@@ -133,7 +133,7 @@ Auth is on by default. Protected endpoints require either a JWT (from the dashbo
 | Bearer JWT | `Authorization: Bearer <access_token>` | Dashboard sessions; tokens come from `POST /auth/login` and refresh via `POST /auth/refresh` |
 | Per-user API key | `X-API-Key: m0sk_...` | Programmatic access scoped to a single dashboard user |
 | Legacy `ADMIN_API_KEY` | `X-API-Key: <env value>` | Back-compat for deployments that set the `ADMIN_API_KEY` env var |
-| `AUTH_DISABLED=true` | — | Local development only; bypasses auth entirely |
+| `AUTH_DISABLED=true` | N/A | Local development only; bypasses auth entirely |
 
 The `/docs` OpenAPI explorer supports both auth modes. Click **Authorize** at the top of the page and paste either `Bearer <access_token>` (JWT) or your `X-API-Key` value. Protected endpoints return `401` until you authorize.
 
@@ -142,7 +142,7 @@ The `/docs` OpenAPI explorer supports both auth modes. Click **Authorize** at th
 Register the first admin (only works when no user exists yet), then log in:
 
 ```bash
-# First admin only — returns 403 after the first admin is registered
+# First admin only: returns 403 after the first admin is registered
 curl -X POST http://localhost:8888/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name": "Admin", "email": "admin@example.com", "password": "strong-password"}'
@@ -170,7 +170,7 @@ When the access token expires, exchange the refresh token at `POST /auth/refresh
 
 ### Create and use a per-user API key
 
-Create a key from the dashboard **API Keys** page, or call `POST /api-keys` with a JWT. The full `m0sk_...` value is returned **once** at creation time — store it securely.
+Create a key from the dashboard **API Keys** page, or call `POST /api-keys` with a JWT. The full `m0sk_...` value is returned **once** at creation time: store it securely.
 
 ```bash
 curl -X POST http://localhost:8888/memories \
@@ -186,14 +186,14 @@ Per-user keys inherit the creating user's scope. List or revoke them via `GET /a
 
 ### Legacy `ADMIN_API_KEY`
 
-Set the `ADMIN_API_KEY` environment variable and send it as `X-API-Key`. The request is treated as admin-level and is not tied to a dashboard user. This mode is kept for back-compat with older self-hosted deployments — prefer JWT or per-user keys for new setups.
+Set the `ADMIN_API_KEY` environment variable and send it as `X-API-Key`. The request is treated as admin-level and is not tied to a dashboard user. This mode is kept for back-compat with older self-hosted deployments: prefer JWT or per-user keys for new setups.
 
 ```bash
 ADMIN_API_KEY=your-long-admin-key
 ```
 
 <Warning>
-  Setting `AUTH_DISABLED=true` makes every protected endpoint open — the server logs a warning at startup when it's enabled. The server also warns when `ADMIN_API_KEY` is shorter than 16 characters. Never enable `AUTH_DISABLED` in production, and always use a long `ADMIN_API_KEY` if you rely on the legacy fallback.
+  Setting `AUTH_DISABLED=true` makes every protected endpoint open: the server logs a warning at startup when it's enabled. The server also warns when `ADMIN_API_KEY` is shorter than 16 characters. Never enable `AUTH_DISABLED` in production, and always use a long `ADMIN_API_KEY` if you rely on the legacy fallback.
 </Warning>
 
 ---

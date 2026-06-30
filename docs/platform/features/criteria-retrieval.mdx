@@ -88,7 +88,7 @@ After setting up your criteria, you can use them to filter and retrieve memories
 ```python
 messages = [
     {"role": "user", "content": "What a beautiful sunny day! I feel so refreshed and ready to take on anything!"},
-    {"role": "user", "content": "I've always wondered how storms form—what triggers them in the atmosphere?"},
+    {"role": "user", "content": "I've always wondered how storms form, what triggers them in the atmosphere?"},
     {"role": "user", "content": "It's been raining for days, and it just makes everything feel heavier."},
     {"role": "user", "content": "Finally I get time to draw something today, after a long time!! I am super happy today."}
 ]
@@ -182,7 +182,7 @@ If no criteria are defined for a project, search behaves normally based on seman
 This lets you prioritize memories that align with your agent's goals and not just those that look similar to the query.
 
 <Note>
-Criteria retrieval is automatically enabled when criteria are defined in your project. Use `use_criteria=False` in search to temporarily disable it for a specific query.
+Criteria retrieval is automatically enabled when criteria are defined in your project. Use `use_criteria=False` in search to temporarily disable it for a specific query. `use_criteria` is a server-side parameter passed through to the Platform API: it is not a typed option in the SDK's `SearchMemoryOptions` interface, but the server accepts and processes it when included in the request body.
 </Note>
 
 

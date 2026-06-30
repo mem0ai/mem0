@@ -1,9 +1,9 @@
 ---
 title: Claude Code
-description: "Add persistent memory to Claude Code and Claude Cowork with the Mem0 plugin — MCP server, lifecycle hooks, and SDK skill."
+description: "Add persistent memory to Claude Code and Claude Cowork with the Mem0 plugin: MCP server, lifecycle hooks, and SDK skill."
 ---
 
-Add persistent memory to [**Claude Code**](https://docs.anthropic.com/en/docs/claude-code) (CLI) and **Claude Cowork** (desktop app) with the Mem0 plugin. Your agent forgets everything between sessions — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+Add persistent memory to [**Claude Code**](https://docs.anthropic.com/en/docs/claude-code) (CLI) and **Claude Cowork** (desktop app) with the Mem0 plugin. Your agent forgets everything between sessions. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ echo $MEM0_API_KEY
 
 ## Installation
 
-### Option A — Plugin Marketplace (Recommended)
+### Option A: Plugin Marketplace (Recommended)
 
 Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 
@@ -56,7 +56,7 @@ Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 
 **Claude Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
 
-### Option B — MCP Only
+### Option B: MCP Only
 
 Add the Mem0 MCP server directly with a single command:
 
@@ -70,7 +70,7 @@ npx mcp-add \
 
 This gives you the MCP tools but not the lifecycle hooks or SDK skill.
 
-### Option C — Manual MCP Configuration
+### Option C: Manual MCP Configuration
 
 Add to your Claude Code MCP config (`.mcp.json`):
 
@@ -106,7 +106,7 @@ This runs the setup wizard which:
 3. Installs coding-optimized memory categories
 4. Shows your identity (user ID, project scope, branch)
 
-The onboarding is idempotent — safe to re-run anytime. It auto-triggers on first session in a new project, but you can always invoke it manually.
+The onboarding is idempotent and safe to re-run anytime. It auto-triggers on first session in a new project, but you can always invoke it manually.
 
 ## What's Included
 
@@ -138,9 +138,10 @@ When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecyc
 
 | Hook | Event | What it does |
 |------|-------|-------------|
+| **Setup** | `Setup` | Installs the mem0 SDK and dependencies (runs on init and maintenance) |
 | **Session start** | `SessionStart` | Loads prior memories and displays status banner |
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message; skips short prompts |
-| **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
+| **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
 | **Stop** | `Stop` | Stores a session summary when the session ends |
 | **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
@@ -167,10 +168,10 @@ You: Add refresh token rotation to the auth system.
 
 ## Troubleshooting
 
-- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
-- **No tools appearing** — Restart your Claude Code session after installation
-- **Memories not being captured** — Ensure you installed via the plugin marketplace (Option A) for lifecycle hooks. MCP-only installs require manual memory operations
-- **"Mem0 Inactive" banner every session** — Your API key isn't persisting. Add `export MEM0_API_KEY="m0-..."` to your `~/.zshrc` (or `~/.bashrc`) and run `source ~/.zshrc`
+- **"Connection failed"**: Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
+- **No tools appearing**: Restart your Claude Code session after installation
+- **Memories not being captured**: Ensure you installed via the plugin marketplace (Option A) for lifecycle hooks. MCP-only installs require manual memory operations
+- **"Mem0 Inactive" banner every session**: Your API key isn't persisting. Add `export MEM0_API_KEY="m0-..."` to your `~/.zshrc` (or `~/.bashrc`) and run `source ~/.zshrc`
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

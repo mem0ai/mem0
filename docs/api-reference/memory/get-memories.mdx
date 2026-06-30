@@ -4,7 +4,7 @@ description: "Retrieve memories with paginated results and advanced filtering us
 openapi: post /v3/memories/
 ---
 
-List memories scoped by filters with paginated results. Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object — top-level entity IDs are rejected with 400.
+List memories scoped by filters with paginated results. Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object: top-level entity IDs are rejected with 400.
 
 Expired memories are hidden by default. Pass `show_expired: true` to include memories whose `expiration_date` has passed.
 

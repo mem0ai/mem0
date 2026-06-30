@@ -32,7 +32,7 @@ client = MemoryClient(api_key="your-api-key")
 
 When a memory describes an event, a future plan, or an ongoing state, Temporal Reasoning recognizes the time context so the right results surface at search time.
 
-A query like `what did I do last week?` should return a completed past event — not an upcoming appointment and not a stable fact that hasn't changed. Temporal Reasoning handles that distinction automatically.
+A query like `what did I do last week?` should return a completed past event: not an upcoming appointment and not a stable fact that hasn't changed. Temporal Reasoning handles that distinction automatically.
 
 ### Memory types Temporal Reasoning handles
 
@@ -44,7 +44,7 @@ A query like `what did I do last week?` should return a completed past event —
 | Relationship | A durable connection between people or entities | "Priya manages Jordan." |
 | Preference | A stable preference or habit | "I prefer morning meetings." |
 
-Results come back in the normal search response shape — Temporal Reasoning affects ranking, not the response format.
+Results come back in the normal search response shape: Temporal Reasoning affects ranking, not the response format.
 
 ## Configure it
 
@@ -52,8 +52,8 @@ Temporal Reasoning is enabled by default for all v3 searches and writes. There i
 
 Two parameters give you precise control when you need it:
 
-- `timestamp` on `add()` — anchors an imported memory to the time it actually happened, rather than the time it was added to Mem0
-- `reference_date` on `search()` — resolves relative phrases like `last week` against a fixed point in time
+- `timestamp` on `add()`: anchors an imported memory to the time it actually happened, rather than the time it was added to Mem0
+- `reference_date` on `search()`: resolves relative phrases like `last week` against a fixed point in time
 
 <CodeGroup>
 ```python Python
