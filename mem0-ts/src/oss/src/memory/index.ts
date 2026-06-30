@@ -83,6 +83,9 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
+const ENTITY_SCOPE_KEYS = ["user_id", "agent_id", "run_id"] as const;
+const ENTITY_LINK_SEARCH_LIMIT = 10;
+const ENTITY_LINK_SIMILARITY_THRESHOLD = 0.95;
 
 /**
  * Validates that no top-level entity parameters are passed in config.
@@ -290,10 +293,55 @@ export class Memory {
     payload: Record<string, any>,
   ): Record<string, any> {
     const filters: Record<string, any> = {};
-    if (payload.user_id) filters.user_id = payload.user_id;
-    if (payload.agent_id) filters.agent_id = payload.agent_id;
-    if (payload.run_id) filters.run_id = payload.run_id;
+    for (const key of ENTITY_SCOPE_KEYS) {
+      if (payload[key]) filters[key] = payload[key];
+    }
     return filters;
+  }
+
+  private _entityPayloadMatchesScope(
+    payload: Record<string, any> | undefined,
+    filters: Record<string, any>,
+  ): boolean {
+    const payloadScope = this._sessionFiltersFromPayload(payload ?? {});
+    const filterScope = this._sessionFiltersFromPayload(filters);
+    return ENTITY_SCOPE_KEYS.every(
+      (key) => payloadScope[key] === filterScope[key],
+    );
+  }
+
+  private _findScopedEntityMatch(
+    matches: Array<{
+      id: string;
+      score?: number;
+      payload: Record<string, any>;
+    }>,
+    filters: Record<string, any>,
+  ):
+    | {
+        id: string;
+        score?: number;
+        payload: Record<string, any>;
+      }
+    | undefined {
+    let bestMatch:
+      | {
+          id: string;
+          score?: number;
+          payload: Record<string, any>;
+        }
+      | undefined;
+    let bestScore = ENTITY_LINK_SIMILARITY_THRESHOLD;
+
+    for (const match of matches) {
+      const score = match.score ?? 0;
+      if (score < bestScore) continue;
+      if (!this._entityPayloadMatchesScope(match.payload, filters)) continue;
+
+      bestMatch = match;
+      bestScore = score;
+    }
+    return bestMatch;
   }
 
   private _normalizeEntityText(value: string): string {
@@ -324,6 +372,8 @@ export class Memory {
     }
 
     for (const row of rows) {
+      if (!this._entityPayloadMatchesScope(row.payload, filters)) continue;
+
       const text = row.payload?.data;
       if (typeof text !== "string") continue;
       const key = this._normalizeEntityText(text);
@@ -451,19 +501,25 @@ export class Memory {
             score?: number;
             payload: Record<string, any>;
           }> = [];
-          const exactMatch = exactMatches.get(
+          const rawExactMatch = exactMatches.get(
             this._normalizeEntityText(entity.text),
           );
+          const exactMatch =
+            rawExactMatch &&
+            this._entityPayloadMatchesScope(rawExactMatch.payload, filters)
+              ? rawExactMatch
+              : undefined;
           if (!exactMatch) {
             try {
-              matches = await entityStore.search(entityVec, 1, filters);
+              matches = await entityStore.search(
+                entityVec,
+                ENTITY_LINK_SEARCH_LIMIT,
+                filters,
+              );
             } catch {}
           }
 
-          const semanticMatch =
-            matches.length > 0 && (matches[0].score ?? 0) >= 0.95
-              ? matches[0]
-              : undefined;
+          const semanticMatch = this._findScopedEntityMatch(matches, filters);
           const match = exactMatch ?? semanticMatch;
           if (match) {
             const payload = match.payload || {};
@@ -1132,17 +1188,23 @@ export class Memory {
               score?: number;
               payload: Record<string, any>;
             }> = [];
-            const exactMatch = exactMatches.get(key);
+            const rawExactMatch = exactMatches.get(key);
+            const exactMatch =
+              rawExactMatch &&
+              this._entityPayloadMatchesScope(rawExactMatch.payload, filters)
+                ? rawExactMatch
+                : undefined;
             if (!exactMatch) {
               try {
-                matches = await entityStore.search(entityVec, 1, filters);
+                matches = await entityStore.search(
+                  entityVec,
+                  ENTITY_LINK_SEARCH_LIMIT,
+                  filters,
+                );
               } catch {}
             }
 
-            const semanticMatch =
-              matches.length > 0 && (matches[0].score ?? 0) >= 0.95
-                ? matches[0]
-                : undefined;
+            const semanticMatch = this._findScopedEntityMatch(matches, filters);
             const match = exactMatch ?? semanticMatch;
             if (match) {
               // Update existing entity
@@ -1447,6 +1509,9 @@ export class Memory {
                 if (similarity < 0.5) continue;
 
                 const payload = match.payload || {};
+                if (!this._entityPayloadMatchesScope(payload, effectiveFilters))
+                  continue;
+
                 const linkedMemoryIds = payload.linkedMemoryIds ?? [];
                 if (!Array.isArray(linkedMemoryIds)) continue;
 
