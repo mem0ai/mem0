@@ -75,15 +75,31 @@ import {
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
+const SCOPE_KEYS = ["user_id", "agent_id", "run_id"] as const;
+type ScopeKey = (typeof SCOPE_KEYS)[number];
+
+const SCOPE_KEY_ALIASES: Record<ScopeKey, "userId" | "agentId" | "runId"> = {
+  user_id: "userId",
+  agent_id: "agentId",
+  run_id: "runId",
+};
+
 // Entity params that must be passed via filters - check both snake_case and camelCase
-const ENTITY_PARAMS = [
-  "user_id",
-  "agent_id",
-  "run_id",
-  "userId",
-  "agentId",
-  "runId",
+const ENTITY_PARAMS: string[] = [
+  ...SCOPE_KEYS,
+  ...Object.values(SCOPE_KEY_ALIASES),
 ];
+
+const RESERVED_PAYLOAD_KEYS = new Set<string>([
+  ...SCOPE_KEYS,
+  ...Object.values(SCOPE_KEY_ALIASES),
+  "hash",
+  "data",
+  "createdAt",
+  "updatedAt",
+  "textLemmatized",
+  "attributedTo",
+]);
 
 /**
  * Validates that no top-level entity parameters are passed in config.
@@ -291,10 +307,33 @@ export class Memory {
     payload: Record<string, any>,
   ): Record<string, any> {
     const filters: Record<string, any> = {};
-    if (payload.user_id) filters.user_id = payload.user_id;
-    if (payload.agent_id) filters.agent_id = payload.agent_id;
-    if (payload.run_id) filters.run_id = payload.run_id;
+    for (const key of SCOPE_KEYS) {
+      const value = this._payloadScopeValue(payload, key);
+      if (value !== undefined && value !== null) {
+        filters[key] = value;
+      }
+    }
     return filters;
+  }
+
+  private _payloadScopeValue(payload: Record<string, any>, key: ScopeKey): any {
+    const canonicalValue = payload[key];
+    if (canonicalValue !== undefined && canonicalValue !== null) {
+      return canonicalValue;
+    }
+    return payload[SCOPE_KEY_ALIASES[key]];
+  }
+
+  private _metadataFromPayload(
+    payload: Record<string, any>,
+  ): Record<string, any> {
+    const metadata: Record<string, any> = {};
+    for (const [key, value] of Object.entries(payload)) {
+      if (!RESERVED_PAYLOAD_KEYS.has(key)) {
+        metadata[key] = value;
+      }
+    }
+    return metadata;
   }
 
   private _normalizeEntityText(value: string): string {
@@ -522,13 +561,7 @@ export class Memory {
     results: T[],
     filters: Record<string, any>,
   ): T[] {
-    const scopeKeys = ["user_id", "agent_id", "run_id"] as const;
-    const payloadAliases = {
-      user_id: "userId",
-      agent_id: "agentId",
-      run_id: "runId",
-    } as const;
-    const requestedKeys = scopeKeys.filter(
+    const requestedKeys = SCOPE_KEYS.filter(
       (key) => filters[key] !== undefined && filters[key] !== null,
     );
 
@@ -539,13 +572,11 @@ export class Memory {
     return results.filter((result) =>
       requestedKeys.every((key) => {
         const payload = result.payload ?? {};
-        const scopeValues = [payload[key], payload[payloadAliases[key]]];
+        const scopeValue = this._payloadScopeValue(payload, key);
         if (filters[key] === "*") {
-          return scopeValues.some(
-            (value) => value !== undefined && value !== null,
-          );
+          return scopeValue !== undefined && scopeValue !== null;
         }
-        return scopeValues.some((value) => value === filters[key]);
+        return scopeValue === filters[key];
       }),
     );
   }
@@ -1250,44 +1281,23 @@ export class Memory {
       return null;
     }
 
-    const filters = {
-      ...(memory.payload.user_id && { user_id: memory.payload.user_id }),
-      ...(memory.payload.agent_id && { agent_id: memory.payload.agent_id }),
-      ...(memory.payload.run_id && { run_id: memory.payload.run_id }),
-    };
+    const payload = memory.payload || {};
+    const filters = this._sessionFiltersFromPayload(payload);
 
     const memoryItem: MemoryItem = {
       id: memory.id,
-      memory: memory.payload.data,
-      hash: memory.payload.hash,
-      createdAt: memory.payload.createdAt,
-      updatedAt: memory.payload.updatedAt,
-      metadata: {},
+      memory: payload.data,
+      hash: payload.hash,
+      createdAt: payload.createdAt,
+      updatedAt: payload.updatedAt,
+      metadata: this._metadataFromPayload(payload),
     };
-
-    // Add additional metadata
-    const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
-    for (const [key, value] of Object.entries(memory.payload)) {
-      if (!excludedKeys.has(key)) {
-        memoryItem.metadata![key] = value;
-      }
-    }
 
     const result = {
       ...memoryItem,
       ...filters,
-      ...(memory.payload.attributedTo && {
-        attributedTo: memory.payload.attributedTo,
+      ...(payload.attributedTo && {
+        attributedTo: payload.attributedTo,
       }),
     };
     await this._displayFirstRunNotice("get");
@@ -1530,18 +1540,6 @@ export class Memory {
     );
 
     // Step 9: Format results
-    const excludedKeys = new Set([
-      "user_id",
-      "agent_id",
-      "run_id",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
-
     const results = scoredResults
       .filter((scored) => scored.payload?.data)
       .map((scored) => {
@@ -1553,12 +1551,8 @@ export class Memory {
           createdAt: payload.createdAt,
           updatedAt: payload.updatedAt,
           score: scored.score,
-          metadata: Object.entries(payload)
-            .filter(([key]) => !excludedKeys.has(key))
-            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-          ...(payload.user_id && { user_id: payload.user_id }),
-          ...(payload.agent_id && { agent_id: payload.agent_id }),
-          ...(payload.run_id && { run_id: payload.run_id }),
+          metadata: this._metadataFromPayload(payload),
+          ...this._sessionFiltersFromPayload(payload),
           ...(payload.attributedTo && { attributedTo: payload.attributedTo }),
           ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
@@ -1775,29 +1769,14 @@ export class Memory {
     const [rawMemories] = await this.vectorStore.list(filters, topK);
     const memories = this.filterByRequestedScope(rawMemories, filters);
 
-    const excludedKeys = new Set([
-      "user_id",
-      "agent_id",
-      "run_id",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
     const results = memories.map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
       hash: mem.payload.hash,
       createdAt: mem.payload.createdAt,
       updatedAt: mem.payload.updatedAt,
-      metadata: Object.entries(mem.payload)
-        .filter(([key]) => !excludedKeys.has(key))
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-      ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
-      ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
-      ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
+      metadata: this._metadataFromPayload(mem.payload),
+      ...this._sessionFiltersFromPayload(mem.payload),
       ...(mem.payload.attributedTo && {
         attributedTo: mem.payload.attributedTo,
       }),

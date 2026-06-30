@@ -272,4 +272,46 @@ describe("Memory - add()", () => {
       await scopedMemory.reset();
     }
   });
+
+  test("prefers canonical scope over conflicting camelCase aliases during dedupe", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const extractedText = "user: I love canonical sushi.";
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "conflicting-memory",
+        score: 0.99,
+        payload: {
+          data: extractedText,
+          hash: createHash("md5").update(extractedText).digest("hex"),
+          user_id: "other-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        "I love canonical sushi.",
+        { userId: "target-user" },
+      );
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        10,
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].memory).toBe(extractedText);
+      expect(insertSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });

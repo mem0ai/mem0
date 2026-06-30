@@ -127,6 +127,47 @@ describe("Memory - get()", () => {
     expect(item!.createdAt).toBeDefined();
     expect(new Date(item!.createdAt!).toString()).not.toBe("Invalid Date");
   });
+
+  test("normalizes camelCase scope payloads without leaking aliases into metadata", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const getSpy = jest.spyOn(vectorStore, "get").mockResolvedValueOnce({
+      id: "redis-shaped-memory",
+      payload: {
+        data: "redis shaped memory",
+        hash: "redis-hash",
+        userId: "target-user",
+        agentId: "agent-a",
+        runId: "run-a",
+        source: "redis",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    try {
+      const item = await scopedMemory.get("redis-shaped-memory");
+
+      expect(getSpy).toHaveBeenCalledWith("redis-shaped-memory");
+      expect(item).toEqual(
+        expect.objectContaining({
+          id: "redis-shaped-memory",
+          memory: "redis shaped memory",
+          user_id: "target-user",
+          agent_id: "agent-a",
+          run_id: "run-a",
+        }),
+      );
+      expect(item!.metadata).toEqual({ source: "redis" });
+      expect(item!.metadata).not.toHaveProperty("userId");
+      expect(item!.metadata).not.toHaveProperty("agentId");
+      expect(item!.metadata).not.toHaveProperty("runId");
+    } finally {
+      getSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });
 
 // ─── update() ────────────────────────────────────────────
@@ -354,6 +395,14 @@ describe("Memory - getAll()", () => {
       expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 5);
       expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
       expect(result.results[0].memory).toBe("target user memory");
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({
+          user_id: "target-user",
+          agent_id: "agent-extra",
+        }),
+      );
+      expect(result.results[0].metadata).not.toHaveProperty("userId");
+      expect(result.results[0].metadata).not.toHaveProperty("agentId");
     } finally {
       listSpy.mockRestore();
       await scopedMemory.reset();
@@ -398,6 +447,55 @@ describe("Memory - getAll()", () => {
       expect(result.results.map((item) => item.id)).toEqual([
         "user-scoped-memory",
       ]);
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({ user_id: "any-user" }),
+      );
+      expect(result.results[0].metadata).not.toHaveProperty("userId");
+    } finally {
+      listSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("prefers canonical scope over conflicting camelCase aliases for list results", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "conflicting-memory",
+        payload: {
+          data: "conflicting user memory",
+          hash: "conflicting-hash",
+          user_id: "other-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          user_id: "target-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+
+    try {
+      const result: SearchResult = await scopedMemory.getAll({
+        filters: { user_id: "target-user" },
+        topK: 5,
+      });
+
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" }, 5);
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
     } finally {
       listSpy.mockRestore();
       await scopedMemory.reset();
@@ -495,6 +593,14 @@ describe("Memory - search()", () => {
       );
       expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
       expect(result.results[0].memory).toBe("target user memory");
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({
+          user_id: "target-user",
+          agent_id: "agent-extra",
+        }),
+      );
+      expect(result.results[0].metadata).not.toHaveProperty("userId");
+      expect(result.results[0].metadata).not.toHaveProperty("agentId");
     } finally {
       searchSpy.mockRestore();
       keywordSpy.mockRestore();
@@ -563,6 +669,59 @@ describe("Memory - search()", () => {
       await scopedMemory.reset();
     }
   });
+
+  test("prefers canonical scope over conflicting camelCase aliases for search results", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "conflicting-memory",
+        score: 0.99,
+        payload: {
+          data: "conflicting user memory",
+          hash: "conflicting-hash",
+          user_id: "other-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        score: 0.98,
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          user_id: "target-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: { user_id: "target-user" },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        { user_id: "target-user" },
+      );
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });
 
 describe("Memory - deleteAll() scope hardening", () => {
@@ -615,6 +774,9 @@ describe("Memory - deleteAll() scope hardening", () => {
       expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" });
       expect(deleteSpy).toHaveBeenCalledTimes(1);
       expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
+      expect(entityCleanupSpy).toHaveBeenCalledWith("owned-memory", {
+        user_id: "target-user",
+      });
     } finally {
       listSpy.mockRestore();
       getSpy.mockRestore();
@@ -672,6 +834,72 @@ describe("Memory - deleteAll() scope hardening", () => {
       expect(listSpy).toHaveBeenCalledWith({ user_id: "*" });
       expect(deleteSpy).toHaveBeenCalledTimes(1);
       expect(deleteSpy).toHaveBeenCalledWith("user-scoped-memory");
+      expect(entityCleanupSpy).toHaveBeenCalledWith("user-scoped-memory", {
+        user_id: "any-user",
+      });
+    } finally {
+      listSpy.mockRestore();
+      getSpy.mockRestore();
+      deleteSpy.mockRestore();
+      entityCleanupSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("prefers canonical scope over conflicting camelCase aliases before deleting", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "conflicting-memory",
+        payload: {
+          data: "conflicting user memory",
+          hash: "conflicting-hash",
+          user_id: "other-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          user_id: "target-user",
+          userId: "target-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+    const getSpy = jest
+      .spyOn(vectorStore, "get")
+      .mockImplementation(async (id: string) => {
+        const row = rows.find((item) => item.id === id);
+        return row ?? null;
+      });
+    const deleteSpy = jest
+      .spyOn(vectorStore, "delete")
+      .mockResolvedValue(undefined);
+    const entityCleanupSpy = jest
+      .spyOn(scopedMemory as any, "_removeMemoryFromEntityStore")
+      .mockResolvedValue(undefined);
+
+    try {
+      const result = await scopedMemory.deleteAll({ userId: "target-user" });
+
+      expect(result.message).toBe("Memories deleted successfully!");
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "target-user" });
+      expect(deleteSpy).toHaveBeenCalledTimes(1);
+      expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
+      expect(entityCleanupSpy).toHaveBeenCalledWith("owned-memory", {
+        user_id: "target-user",
+      });
     } finally {
       listSpy.mockRestore();
       getSpy.mockRestore();
