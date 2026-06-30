@@ -19,6 +19,96 @@ See [SDK & Tools](/changelog/sdk) for version details and PR links.
 
 </Update>
 
+<Update label="2026-06-25" description="Mem0 Plugin v0.2.11">
+
+**Mem0 Plugin: Shared Memory for Claude Code, Cursor, Codex, and Antigravity**
+
+The shared Mem0 editor plugin is current through v0.2.11:
+
+- **Automatic context injection:** File reads, bash errors, session resume prompts, and startup timelines can retrieve relevant memories automatically.
+- **Project and global scopes:** Project-scoped memories remain the default, while `global_search` supports team-wide recall across users and app scopes.
+- **Coding categories:** A 17-category coding taxonomy installs in the background and is cached per Mem0 account.
+- **Reliable capture:** Auto-capture, compaction summaries, session summaries, and metadata defaults keep memories scoped and readable.
+- **Editor correctness:** Telemetry now reports Claude Code, Cursor, Codex, and Antigravity separately with each editor's real plugin version.
+
+</Update>
+
+<Update label="2026-06-25" description="Antigravity Plugin v0.1.3">
+
+**Antigravity Plugin: Mem0 for Google Antigravity**
+
+Antigravity support in the shared Mem0 editor plugin family is current through v0.1.3:
+
+- **Self-contained plugin:** Includes its own plugin manifest, MCP config, hooks, shared scripts, and skills.
+- **AGENTS.md convention:** Uses Antigravity's `contextFileName: "AGENTS.md"` convention.
+- **Lifecycle hooks:** Wires session start, prompt recall, file-read context, memory-tool metadata enforcement, bash-error lookup, post-tool tracking, and stop summaries.
+- **Shared memory layer:** Reuses the Mem0 Platform MCP tools and the shared 16-skill command bundle.
+- **Better automatic recall:** v0.1.3 adds reranked injected context and clean `files_touched` metadata in session summaries.
+- **Telemetry correctness:** v0.1.2 reports Antigravity as `antigravity` with the plugin's own version.
+
+</Update>
+
+<Update label="2026-06-22" description="OpenCode Plugin v0.2.0">
+
+**OpenCode Plugin: Native SDK Memory Tools for OpenCode**
+
+`@mem0/opencode-plugin` adds memory to OpenCode and is current through v0.2.0:
+
+- **Native SDK tools:** Memory tools register through `@opencode-ai/plugin` and call the `mem0ai` SDK directly, so the plugin no longer depends on `mcp.mem0.ai`.
+- **Memory scopes:** Operations support `project`, `session`, and `global` scope, with `/mem0-scope` to change the default.
+- **Automatic context:** File-context injection, structured compaction summaries, and a recent-activity timeline surface relevant memories without manual recall.
+- **Auto-dream consolidation:** Gated consolidation merges duplicates, drops stale or sensitive entries, and rewrites vague memories.
+- **Skills load in place:** The `config` hook adds bundled skills to `skills.paths` instead of copying them into user config directories.
+- **Safety controls:** Blocks `MEMORY.md` writes and redacts secrets before storing memories.
+
+</Update>
+
+<Update label="2026-06-12" description="Pi Agent Plugin v0.1.2">
+
+**Pi Agent Plugin: Persistent Memory for Pi Agent**
+
+`@mem0/pi-agent-plugin` adds semantic memory to Pi Agent and has been updated through v0.1.2:
+
+- **Agent memory tool:** Registers `mem0_memory` for scoped search, add, get, delete, and delete-all operations.
+- **Slash commands:** Adds `/mem0-remember`, `/mem0-search`, `/mem0-forget`, `/mem0-tour`, `/mem0-dream`, `/mem0-pin`, `/mem0-scope`, and `/mem0-status`.
+- **Auto-capture:** Stores user and assistant memories after agent turns.
+- **Dream consolidation:** Merges duplicates, resolves contradictions, and prunes stale memories behind session, time, and memory-count gates.
+- **Project scoping:** Uses git-root detection for stable `app_id` values across monorepos.
+- **Relevant command results:** v0.1.2 adds visible command feedback and thresholded, reranked search for search, forget, and pin commands.
+
+</Update>
+
+<Update label="2026-06-12" description="OpenClaw v1.0.13">
+
+**OpenClaw Plugin: Current Memory Backend for OpenClaw**
+
+`@mem0/openclaw-mem0` is current through v1.0.13, with the original production-ready memory backend plus newer setup, security, and runtime work:
+
+- **Skills-based memory architecture:** Triage, recall, and dream skills handle extraction, recall, consolidation, and tool guidance.
+- **Chat and CLI setup:** Supports chat-based platform setup, `openclaw mem0 init`, direct API keys, email OTP, autonomous agent setup, and OSS onboarding.
+- **Platform and OSS modes:** Works with Mem0 Platform or self-hosted OSS providers including OpenAI, Anthropic, Ollama, Qdrant, and PGVector.
+- **Agent-friendly CLI:** All 16 CLI commands support `--json` for machine-driven setup and diagnostics.
+- **Runtime integration:** Exposes OpenClaw memory capability APIs for search manager and backend config status.
+- **Security and compliance:** Added path containment checks, sensitive config metadata, dependency overrides, telemetry hashing, and metadata-only registration safety.
+
+</Update>
+
+<Update label="2026-06-10" description="Vercel AI SDK Provider v3.0.0">
+
+**Vercel AI SDK Provider: Memory-Augmented Generation for AI SDK v6**
+
+The Vercel AI SDK provider moved to the v6 provider contract and Mem0 v3 APIs:
+
+- **AI SDK v6 support:** Migrated to `LanguageModelV3` / `ProviderV3`, including v3 stream lifecycle events and content arrays.
+- **Mem0 v3 API support:** Memory writes and searches now use `/v3/memories/add/` and `/v3/memories/search/`.
+- **Mem0 sources in responses:** `generateText` and `streamText` responses include memories as sources with `providerMetadata.mem0.memories`.
+- **Safer prompt handling:** Prompts are cloned before memory injection, avoiding caller-side mutation.
+- **Async storage fix:** `addMemories` is awaited so generated memories are not silently dropped.
+- **Raw memory utilities:** Exports `searchMemories`, `retrieveMemories`, `getMemories`, and `addMemories` for apps that need direct memory control.
+- **Deployment controls:** Per-request `mem0ApiKey` and `host` support Mem0 Platform, custom API keys, and self-hosted API endpoints.
+
+</Update>
+
 <Update label="2026-05-13" description="Temporal Reasoning for Mem0 Platform v3">
 
 **Temporal Reasoning: Time-Aware Retrieval for Platform v3**
@@ -91,34 +181,6 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - **Runtime coverage:** Works with Mem0 Platform and self-hosted OSS modes.
 - **Automation support:** Use `--json` for CI/CD pipelines and agent workflows.
 - **Dual implementation:** Same commands and behavior across Python and Node.js.
-
-</Update>
-
-<Update label="2026-04-06" description="OpenClaw v1.0.4">
-
-**OpenClaw Plugin: Production-Ready**
-
-The OpenClaw Mem0 plugin went from initial release to production-ready in one week (v1.0.0 → v1.0.4):
-
-- **Skills-based memory architecture:** New extraction pipeline with skill-loader, batched extraction, and domain-aware memory triage.
-- **Dream gate:** Automatic memory consolidation during idle periods for higher-quality long-term recall.
-- **Interactive CLI:** `openclaw mem0 init`, `status`, `config`, `import`, and `event` commands.
-- **Unified tool naming:** `memory_add` and `memory_delete` replace four legacy tools and match the platform API.
-- **Security hardened:** Path traversal protection, pinned dependencies, and 329 tests across 10 files.
-
-</Update>
-
-<Update label="2026-04-02" description="Mem0 Plugin for AI Editors">
-
-**Mem0 Plugin for Claude Code, Cursor, and Codex**
-
-Launched a unified Mem0 plugin across three major AI development environments: Claude Code and Cursor first (March 25), then Codex (April 2).
-
-- **9 MCP memory tools:** Add, search, get, update, delete, bulk delete, and entity management via `mcp.mem0.ai`.
-- **Lifecycle hooks:** Automatic memory capture at session start, context compaction, task completion, and session end.
-- **Cloud MCP server:** Managed endpoint replaces local MCP and Smithery setup.
-- **Streamable HTTP transport:** New MCP transport protocol for real-time streaming.
-- **Codex-specific skill:** Dedicated skill in `mem0-plugin/skills/mem0-codex` for Codex workflows.
 
 </Update>
 

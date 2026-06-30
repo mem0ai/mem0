@@ -136,20 +136,6 @@
                 ]
               },
               {
-                "tab": "OpenClaw",
-                "groups": [
-                  {
-                    "group": "Agent Harness",
-                    "icon": "robot",
-                    "pages": [
-                      "integrations/openclaw",
-                      "integrations/hermes",
-                      "integrations/pi-agent"
-                    ]
-                  }
-                ]
-              },
-              {
                 "tab": "Open Source",
                 "groups": [
                   {
@@ -574,8 +560,7 @@
                     "pages": [
                       "changelog/highlights",
                       "changelog/sdk",
-                      "changelog/platform",
-                      "changelog/openclaw"
+                      "changelog/platform"
                     ]
                   }
                 ]
@@ -629,6 +614,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/changelog/openclaw",
+      "destination": "/changelog/sdk"
+    },
     {
       "source": "/components/rerankers/models/llm",
       "destination": "/components/rerankers/models/llm_reranker"
