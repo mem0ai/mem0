@@ -4,19 +4,12 @@ description: "Self-host Mem0 with full control over your infrastructure and data
 icon: "house"
 ---
 
-# Mem0 Open Source Overview
+Mem0 Open Source is the same memory engine as the Platform, running on your own infrastructure. You own the stack, the data, and every component, and you choose where each one runs.
 
-Mem0 Open Source delivers the same adaptive memory engine as the platform, but packaged for teams that need to run everything on their own infrastructure. You own the stack, the data, and the customizations.
+Run it two ways:
 
-## What Mem0 OSS provides
-
-- **Full control**: Tune every component, from LLMs to vector stores, inside your environment.
-- **Offline ready**: Keep memory on your own network when compliance or privacy demands it.
-- **Extendable codebase**: Fork the repo, add providers, and ship custom automations.
-
-<Info>
-  Two ways to run Mem0 OSS: as a **library** inside your app (Python or Node), or as a **self-hosted server** with a dashboard, per-user API keys, and a request audit log.
-</Info>
+- **As a library** in your app. `pip install mem0ai` (or `npm install mem0ai`), call `Memory()`, and you have memory in a few lines.
+- **As a self-hosted server.** A Docker stack with a dashboard, per-user API keys, and a request audit log.
 
 ## Get started
 
@@ -50,39 +43,29 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
   Need a managed alternative? Compare hosting models in the <Link href="/platform/platform-vs-oss">Platform vs OSS guide</Link> or switch tabs to the Platform documentation.
 </Tip>
 
-<AccordionGroup>
-  <Accordion title="What you get with Mem0 OSS" icon="code-branch">
-
-    | Benefit | What you get |
-    | --- | --- |
-    | Full infrastructure control | Host on your own servers with complete access to configuration and deployment. |
-    | Complete customization | Modify the implementation, extend functionality, and tailor it to your stack. |
-    | Local development | Perfect for development, testing, and offline environments. |
-    | No vendor lock-in | Keep ownership of your data, providers, and pipelines. |
-    | Community driven | Contribute improvements and tap into a growing ecosystem. |
-  </Accordion>
-</AccordionGroup>
-
 ## Default components
 
-<Note>
-  **Library defaults** (when you `import` Mem0 and call `Memory()` directly):
-  - LLM: OpenAI `gpt-5-mini` (via `OPENAI_API_KEY`)
-  - Embeddings: OpenAI `text-embedding-3-small`
-  - Vector store: Local Qdrant at `/tmp/qdrant`
-  - History store: SQLite at `~/.mem0/history.db`
-  - Reranker: Disabled until configured
+Mem0 runs out of the box with the defaults below. Override any of them through [configuration](/open-source/configuration).
 
-  Override any component with <Link href="/open-source/configuration">`Memory.from_config`</Link>.
-</Note>
+**As a library** (you `import` Mem0 and call `Memory()`):
 
-<Note>
-  **Self-hosted server defaults** (the `server/` Docker Compose stack):
-  - LLM: OpenAI `gpt-4.1-nano-2025-04-14` (override with `MEM0_DEFAULT_LLM_MODEL`)
-  - Embeddings: OpenAI `text-embedding-3-small` (override with `MEM0_DEFAULT_EMBEDDER_MODEL`)
-  - Vector store: Postgres + pgvector
-  - Bundled providers: `openai`, `anthropic`, `gemini` (switch from the Configuration page)
+| Component | Default |
+|---|---|
+| LLM | OpenAI `gpt-5-mini` (set `OPENAI_API_KEY`) |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| Vector store | Local Qdrant at `/tmp/qdrant` |
+| History store | SQLite at `~/.mem0/history.db` |
+| Reranker | Disabled until configured |
 
-  See <Link href="/open-source/setup#supported-providers">Self-Hosted Setup</Link> for the full provider list and how to extend it.
-</Note>
+Override any component with [`Memory.from_config`](/open-source/configuration).
 
+**As a self-hosted server** (the `server/` Docker Compose stack):
+
+| Component | Default |
+|---|---|
+| LLM | OpenAI `gpt-5-mini` (override with `MEM0_DEFAULT_LLM_MODEL`) |
+| Embeddings | OpenAI `text-embedding-3-small` (override with `MEM0_DEFAULT_EMBEDDER_MODEL`) |
+| Vector store | Postgres + pgvector |
+| Bundled providers | `openai`, `anthropic`, `gemini` (switch on the Configuration page) |
+
+See [Self-Hosted Setup](/open-source/setup#supported-providers) for the full provider list and how to extend it.
