@@ -175,6 +175,22 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     return trimmed
 
 
+def _require_entity_filter_scope(filters: dict) -> None:
+    """Require at least one entity scope filter to prevent unauthorized cross-user data access (IDOR).
+
+    All store operations must be scoped to at least one of user_id, agent_id, or run_id.
+    An empty scope would allow unrestricted access across all users' data.
+
+    Raises:
+        ValueError: If no entity scope filter is present.
+    """
+    if not any(filters.get(k) for k in ("user_id", "agent_id", "run_id")):
+        raise ValueError(
+            "At least one of 'user_id', 'agent_id', or 'run_id' must be present in filters "
+            "to prevent unauthorized cross-user data access."
+        )
+
+
 def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[int] = None) -> None:
     """
     Validates search parameters.
@@ -563,6 +579,7 @@ class Memory(MemoryBase):
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            _require_entity_filter_scope(search_filters)
             exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
 
             existing = []
@@ -621,6 +638,7 @@ class Memory(MemoryBase):
         if self._entity_store is None:
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         try:
             listed = self.entity_store.list(filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -873,6 +891,7 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -1701,6 +1720,7 @@ class Memory(MemoryBase):
             return {}
 
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         memory_boosts = {}
 
         try:
@@ -2189,6 +2209,7 @@ class AsyncMemory(MemoryBase):
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            _require_entity_filter_scope(search_filters)
             exact_match = (
                 await asyncio.to_thread(self._existing_entities_by_text, search_filters)
             ).get(self._normalize_entity_text(entity_text))
@@ -2244,6 +2265,7 @@ class AsyncMemory(MemoryBase):
         if self._entity_store is None:
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         try:
             listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -2260,6 +2282,7 @@ class AsyncMemory(MemoryBase):
         if self._entity_store is None:
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         try:
             listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -3317,6 +3340,7 @@ class AsyncMemory(MemoryBase):
             return {}
 
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         memory_boosts = {}
 
         try:

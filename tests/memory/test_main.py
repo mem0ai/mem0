@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import AsyncMemory, Memory, _require_entity_filter_scope
 
 
 def _setup_mocks(mocker):
@@ -1015,3 +1015,26 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestRequireEntityFilterScope:
+    def test_raises_when_all_filters_absent(self):
+        with pytest.raises(ValueError, match="user_id.*agent_id.*run_id"):
+            _require_entity_filter_scope({})
+
+    def test_raises_when_all_filters_none(self):
+        with pytest.raises(ValueError):
+            _require_entity_filter_scope({"user_id": None, "agent_id": None, "run_id": None})
+
+    def test_raises_when_all_filters_empty_string(self):
+        with pytest.raises(ValueError):
+            _require_entity_filter_scope({"user_id": "", "agent_id": "", "run_id": ""})
+
+    def test_passes_with_user_id(self):
+        _require_entity_filter_scope({"user_id": "u1"})
+
+    def test_passes_with_agent_id(self):
+        _require_entity_filter_scope({"agent_id": "a1"})
+
+    def test_passes_with_run_id(self):
+        _require_entity_filter_scope({"run_id": "r1"})
