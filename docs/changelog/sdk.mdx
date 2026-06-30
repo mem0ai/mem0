@@ -1732,6 +1732,16 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
+<Update label="2026-06-30" description="mem0-plugin v0.2.12">
+
+**New Features:**
+- **Query-driven prefetch:** The `UserPromptSubmit` hook now searches Mem0 with the current prompt and injects the top matches, so relevant memories are guaranteed in context instead of relying on the agent to search for them. Opt out with `MEM0_PREFETCH=false`.
+
+**Improvements:**
+- **Multi-hop guidance:** The decision rubric now tells the agent to run follow-up searches for multi-part or comparative questions instead of stopping after one. Tool descriptions for every memory tool were sharpened with clearer "what + when to use" guidance.
+
+</Update>
+
 <Update label="2026-06-25" description="mem0-plugin v0.2.11">
 
 **Fixes:**
@@ -1972,6 +1982,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="OpenCode">
 
+<Update label="2026-06-30" description="OpenCode plugin v0.2.1">
+
+**Improvements:**
+- **Sharper tool descriptions:** Every memory tool (`get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, `get_event_status`) now states what it does and when to use it. `search_memories` nudges proactive, multi-hop retrieval and the destructive tools carry explicit irreversible-action warnings.
+
+</Update>
+
 <Update label="2026-06-22" description="OpenCode plugin v0.2.0">
 
 **Breaking Changes:**
@@ -2038,6 +2055,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-06-30" description="Antigravity plugin v0.1.4">
+
+**New Features:**
+- **Query-driven prefetch:** The user-prompt hook now searches Mem0 with the current prompt and injects the top matches, so relevant memories are guaranteed in context instead of relying on the agent to search for them. Opt out with `MEM0_PREFETCH=false`.
+
+**Improvements:**
+- **Multi-hop guidance:** The decision rubric now tells the agent to run follow-up searches for multi-part or comparative questions instead of stopping after one.
+
+</Update>
+
 <Update label="2026-06-25" description="Antigravity plugin v0.1.3">
 
 **Fixes:**
@@ -2074,6 +2101,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-06-30" description="openclaw-mem0 v1.0.14">
+
+**Improvements:**
+- **Sharper tool descriptions:** Every memory tool (`memory_search`, `memory_get`, `memory_list`, `memory_add`, `memory_update`, `memory_delete`) now states what it does and when to use it. `memory_search` nudges proactive, multi-hop retrieval; `memory_add` nudges proactive saves; and the delete tools carry explicit irreversible-action warnings.
+
+</Update>
 
 <Update label="2026-06-12" description="openclaw-mem0 v1.0.13">
 
@@ -2320,6 +2354,17 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="Pi Agent">
+
+<Update label="2026-06-30" description="Pi Agent plugin v0.1.3">
+
+**New Features:**
+- **Guaranteed retrieval:** Memories relevant to each prompt are now prefetched and injected as a `<mem0-relevant-memories>` block before the agent runs, so context no longer depends on the agent remembering to search. Context injection is on by default; set `contextInjection: false` to disable.
+
+**Improvements:**
+- **Multi-hop retrieval:** The memory policy and the `mem0_memory` tool description now push proactive, multi-hop search -- several queries with different phrasings instead of stopping after one.
+- **Clearer tool schema:** The `mem0_memory` action and parameter descriptions (`action`, `query`, `content`, `memory_id`, `scope`) now explain each action and scope.
+
+</Update>
 
 <Update label="2026-06-12" description="Pi Agent plugin v0.1.2">
 

@@ -30,6 +30,7 @@ def _run_hook(prompt: str, env_overrides: dict | None = None, session_id: str = 
         "MEM0_RESOLVED_USER_ID": "testuser",
         "MEM0_PROJECT_ID": "test-project",
         "MEM0_BRANCH": "main",
+        "MEM0_PREFETCH": "false",
     }
     if env_overrides:
         env.update(env_overrides)
