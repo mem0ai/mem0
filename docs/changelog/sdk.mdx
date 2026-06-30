@@ -1583,10 +1583,33 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-06-19" description="Python v0.2.8 / Node v0.2.9">
+
+**Security:**
+- **Telemetry key handling:** CLI telemetry no longer passes the Mem0 API key to a child process through command-line arguments. The context is sent over stdin, so the key is not visible in `ps`, `/proc/<pid>/cmdline`, or Activity Monitor. Fixes #4862.
+
+**Bug Fixes:**
+- **Python package version:** `__version__` now matches the packaged `mem0-cli` version.
+
+</Update>
+
 <Update label="2026-06-01" description="Node v0.2.8">
 
 **Security:**
 - **Dependencies:** Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs: `jws` → 4.0.1 (CVE-2025-65945), `langsmith` → ^0.6.0 (CVE-2026-45134), `tar-fs` → ^2.1.4 (CVE-2025-48387, CVE-2025-59343), `picomatch` → ^2.3.2 (CVE-2026-33671), `minimatch` → ^3.1.3 / ^5.1.8 / ^9.0.7 (CVE-2026-27903, CVE-2026-27904, CVE-2026-26996), `path-to-regexp` → ^8.4.0 (CVE-2026-4926), `rollup` → ^4.59.0 (CVE-2026-27606), `glob` → ^10.5.0 (CVE-2025-64756), `@modelcontextprotocol/sdk` → ^1.25.4 (CVE-2025-66414, CVE-2026-0621)
+
+</Update>
+
+<Update label="2026-05-20" description="Python v0.2.7 / Node v0.2.7">
+
+**New Features:**
+- **`mem0 whoami`:** Prints the active agent's `default_user_id` from local config without a network call.
+- **`mem0 agent-rush <add | search>`:** Wraps the `/v1/agent-rush/` platform endpoints for the AGENTRUSH game. Project routing is resolved server-side, and platform error codes are shown as actionable hints.
+- **PII safety prompt:** The first interactive `mem0 agent-rush add` asks users to acknowledge that AGENTRUSH memories are public. The acknowledgement is stored in `~/.mem0/config.json` under `agent_rush.acknowledged_at`.
+- **Config schema:** Added `agent_rush.acknowledged_at` for the local acknowledgement timestamp.
+
+**Changes:**
+- **Agent Rush telemetry:** Agent Rush commands send `X-Mem0-Mode: agent-rush` so platform telemetry can split game traffic from regular CLI usage.
 
 </Update>
 
@@ -1706,12 +1729,638 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 <Tab title="Plugins">
 
-<Update label="2026-06-01" description="openclaw-mem0 v1.0.12">
+<Tabs>
+<Tab title="Mem0 Plugin">
 
-**Security:**
-- **Dependencies:** Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs: `protobufjs` → ^7.5.5, `vite` → ^8.0.5, `langsmith` → ^0.6.0 (CVE-2026-45134), `picomatch` → ^2.3.2 (CVE-2026-33671), `@qdrant/js-client-rest` → ^1.18.0
+<Update label="2026-06-25" description="mem0-plugin v0.2.11">
+
+**Fixes:**
+- **Session summary metadata:** `files_touched` now stores a real list instead of a double-encoded JSON string, so returned memories render readable file paths across Claude Code, Cursor, Codex, and Antigravity.
+
+**Improvements:**
+- **Reranked auto-injected context:** File-context, bash-error lookup, and session-resume prefetch now rerank by default. Disable with `MEM0_RERANK=0`, `false`, `no`, or `off`.
 
 </Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.10">
+
+**Fixes:**
+- **Editor telemetry attribution:** Antigravity is no longer counted as Claude Code, Codex no longer falls back to the generic `plugin` bucket, and Cursor wrappers now pin their platform before delegating to shared hook scripts.
+- **Per-editor plugin version:** Telemetry reads the manifest for the detected platform instead of always reading the Claude plugin manifest.
+
+**New Features:**
+- **`MEM0_PLATFORM` override:** Explicit platform markers now win over env-var auto-detection for reliable telemetry labels.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.9">
+
+**New Features:**
+- **File-context injection:** Before supported editors read a file, Mem0 searches for memories that reference that path and injects a compact prior-work timeline.
+- **Stop hook session summaries:** Session-end hooks store structured summaries with request, decisions, learnings, next steps, and files touched.
+- **SessionStart activity timeline:** Sessions with existing memories show recent decisions, bug fixes, and session summaries on startup.
+
+**Changes:**
+- Added shared `file_context.py`, `capture_session_summary.py`, and `session_timeline.py` helpers for the hook pipeline.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.8">
+
+**New Features:**
+- **Global search mode:** `global_search` lets reads search all users and projects in the platform project while writes stay scoped to the current `user_id` and `app_id`.
+- **Automatic coding categories:** The coding taxonomy is installed in the background on session start and gated by an API-key and taxonomy fingerprint.
+- **Global scope controls:** `/mem0:switch-project --global` and `/mem0:switch-project --no-global` persist global-search behavior in `~/.mem0/settings.json`.
+- **Scope-aware startup:** Session banners show `scope=global` when global search is active, and startup memory counts use the same global filter.
+- **Category setup state:** `~/.mem0/categories_setup.json` caches setup per Mem0 account and taxonomy fingerprint, so categories are applied once and re-applied only when the taxonomy changes.
+- **Tests:** Added coverage for category fingerprints, state-file gating, state save/load, and idempotent category application.
+
+**Changes:**
+- Session start spawns `auto_setup_categories.py` in the background alongside project-file auto-import.
+- Onboarding no longer asks users to install coding categories manually; it verifies status and applies categories only if the background run has not finished.
+- New-project startup copy now tells users that coding categories install automatically.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.7">
+
+**Fixes:**
+- **First-install auth:** Removed `authorizationUrl` from `.mcp.json` so Claude Code uses the `MEM0_API_KEY` header instead of falling into a broken OAuth reconnect flow.
+- **Onboarding auth copy:** `/mem0:onboard` no longer tells users to complete browser OAuth.
+- **Invalid configure command:** Removed `claude plugin configure mem0` references and clarified that Claude Code stores the plugin API key through the enable UI prompt.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.6">
+
+**Fixes:**
+- **Memory count and stats:** Removed the `run_id: "*"` filter from read paths so memories written without `run_id` are visible again.
+- **Write scoping:** `add_memory` moved session tracking from top-level `run_id` to `metadata.session_id`, keeping new memories in the default query partition.
+- **Session stats:** Memory add/search tracking moved into `enforce_metadata_defaults.sh`, because plugin MCP tools do not trigger PostToolUse hooks.
+- **Auto-capture reliability:** Added direct API auto-capture every third message plus a proportional prompt nudge when few memories have been stored.
+- **Desktop API keys:** `_identity.sh` and `_identity.py` can read `MEM0_API_KEY` from common shell profiles when Claude Code Desktop does not inherit shell env vars.
+- **Import cleanup:** Stale auto-import chunks now delete through the v1 delete endpoint, matching Mem0 v3 add behavior.
+
+**Removed:**
+- Removed Stop and SessionEnd hook capture paths, redundant post-commit/task/subagent scripts, dead settings, and the deleted file-read test.
+
+**Changes:**
+- Stats and tour now query with `user_id` + `app_id` filters only.
+- Session banners now tell agents to store learnings incrementally instead of waiting until session end.
+- Session-start resets per-user message counters so nudges begin cleanly.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.5">
+
+**Fixes:**
+- **Hook schema:** PostToolUse scripts now read `tool_response`, Stop hook output is schema-compliant, and SessionStart uses visible raw stdout.
+- **Tool coverage:** Memory write blocking includes `MultiEdit`, and metadata enforcement covers add, search, get, update, and delete-all variants.
+- **Identity injection:** `add_memory`, `search_memories`, `get_memories`, and `delete_all_memories` receive safe default `user_id` and `app_id` values when the agent omits them.
+- **Skill API calls:** Export, stats, pin, health, memory-reviewer, dream, tour, onboard, context-loader, and weekly stats examples now use the correct filter and `top_k` shapes.
+- **Compact summary capture:** `capture_compact_summary.py` is spawned correctly after compaction and guarded against unset identity variables.
+
+**New Features:**
+- **Stop hook analyzer:** Added `stop_hook_check.py` to detect meaningful work before prompting memory capture.
+- **Skill checklists:** Added progress checklists to `/mem0:dream` and `/mem0:onboard`.
+
+**Changes:**
+- `enforce_metadata_defaults.sh` was rewritten around handler-based dispatch and never overrides explicitly provided identity.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.4">
+
+**Fixes:**
+- **PostToolUse matcher:** Supports both `mcp__mem0__` and `mcp__plugin_mem0_mem0__` names so session stats record memory operations again.
+- **File-read noise:** File-read recall now prefers `metadata.files` plus score threshold before falling back to basename search.
+- **Pinning:** `/mem0:pin` no longer uses removed `immutable=True`; it relies on pinned metadata/text conventions.
+- **Project listing:** `/mem0:list-projects` merges null-scoped and app-scoped memories so legacy records are counted.
+- **ID lookup:** `/mem0:peek` routes memory-id references to `get_memory` instead of semantic search.
+
+**New Features:**
+- **Session ID capture:** SessionStart persists the Claude session ID for session-scoped memory operations.
+- **Search controls:** `_search.py` gained `min_score`, metadata filters, rerank, and threshold support.
+- **Reranked tour and peek:** `/mem0:tour` and `/mem0:peek` use reranking for better precision.
+
+**Removed:**
+- Removed the nonexistent `PostToolUseFailure` hook and the superseded `/mem0:protocol` skill.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.3">
+
+**New Features:**
+- **Read hook:** Added `PreToolUse(Read)` file recall with skip rules for non-code files, lockfiles, and `node_modules`.
+- **Shared search module:** Added `_search.py` for v3 search calls and consistent context formatting.
+- **Settings file:** Added `~/.mem0/settings.json` with search, retention, confidence, debug, and capture settings.
+- **Memory skills:** Added `/mem0:forget`, `/mem0:peek`, `/mem0:memory-reviewer`, and `/mem0:context-loader`.
+- **Compact output style:** Added compact `[type] content [mem0:id]` memory display.
+- **Claude userConfig:** Added sensitive `api_key` plugin config support.
+
+**Changes:**
+- Skills were renamed to shorter command names, bash-error hooks now run real searches, resume prompts prefetch context, and remember-intent phrases route to `/mem0:remember`.
+- API key resolution now checks `CLAUDE_PLUGIN_OPTION_API_KEY`, and hook timeouts increased for prompt and bash-output searches.
+
+**Removed:**
+- Removed `/mem0:dream --forget`, `/mem0:dream --schedule`, `/mem0:health --fix`, and CLI config fallback.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.2">
+
+**Fixes:**
+- **Compaction writes:** Prevented duplicate pre-compaction captures and shortened session-state content before letting Mem0 infer structured memories.
+- **Error detection:** Reduced false positives from routine test and linter output.
+- **Git commit noise:** Removed automatic background commit-context writes and gated post-commit prompts behind settings.
+- **Project identity:** Added git-remote hash fallback when folders are renamed.
+- **Dependency install race:** Added a lock and failure sentinel for `ensure_deps.sh`.
+- **Telemetry:** Switched `distinct_id` from MD5 to SHA-256, protected system props, and loaded plugin version from the manifest.
+
+**New Features:**
+- **Chunking and import:** Added shared chunking helpers and Markdown chunk imports.
+- **Metadata defaults:** Added `enforce_metadata_defaults.sh` for default confidence, source, and type on `add_memory`.
+- **Project utilities:** Added list-projects, all-project tour, weekly stats, dream forget mode, and competing-tools import.
+
+**Removed:**
+- Removed `on_pre_commit.py` and merged digest, forget, import-tools, and peek flows into existing skills.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.1">
+
+**New Features:**
+- **Skill suite:** Added 11 skills for dream, export, import, tool import, forget, health, peek, pin, remember, stats, and digest.
+- **Hook suite:** Added bash-error recall, git/commit context hooks, compaction recovery, session-end capture, subagent reminders, tool-failure recovery, and pre-commit capture.
+- **Telemetry:** Added sampled PostHog telemetry with no memory content or API keys and `MEM0_TELEMETRY=false` opt-out.
+- **Coding categories:** Added 10 more coding categories and dependency-managed SDK install through `ensure_deps.sh`.
+- **Project onboarding:** Added auto-onboarding, `mem0.md` config loading, inactive API-key banner, import/export parsers, and competing-tool import.
+
+**Changes:**
+- Memory scoping moved from `metadata.project_id` to top-level `app_id`, and write paths moved to `/v3/memories/add/`.
+- Session stats gained category counters and recent memory IDs.
+- Tour, onboard, prompt hooks, and MCP guidance were updated for project-aware workflows.
+
+**Fixes:**
+- Shared scripts now resolve plugin API-key env vars consistently and pass hook CWD into project/branch resolution.
+
+</Update>
+
+<Update label="2026-06-25" description="mem0-plugin v0.2.0">
+
+**New Features:**
+- **Project-scoped memories:** Deterministic project IDs from git remotes isolate memories per repo.
+- **Branch-aware tagging:** Session-state and compact-summary memories include branch metadata.
+- **Project file import:** SessionStart imports `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.windsurfrules`, and `mem0.md` as project-profile memories.
+- **Active identity banner:** Startup shows user, project, branch, and memory count.
+- **Session report:** Stop hook reports memory writes, retrieves, and touched categories.
+- **Onboarding, tour, and switch-project skills:** Added first-run setup, proof-of-value browsing, and manual project override.
+- **Session stats tracker:** Added local add/search tracking for reports.
+
+</Update>
+
+<Update label="2026-04-02" description="mem0-plugin v0.1.3">
+
+**Fixes:**
+- **User ID regression:** `user_id` resolution no longer derives from `MEM0_API_KEY`, restoring `MEM0_USER_ID` to `$USER` to `default` order so older memories remain reachable.
+
+**Upgrade Notes:**
+- The `~/.mem0/identity.json` cache is no longer used.
+- Users who stored memories under the short-lived API-key hash can recover them by temporarily setting `MEM0_USER_ID` to the old hash.
+
+</Update>
+
+<Update label="2026-04-02" description="mem0-plugin v0.1.2">
+
+**New Features:**
+- **Identity resolver:** Added deterministic user-id resolver, later reverted in v0.1.3.
+- **Compact summaries:** Added SessionStart compact handler for `compact_summary` memories.
+- **Coding taxonomy setup:** Added one-shot coding category setup for architecture, anti-patterns, task learnings, tooling, bug fixes, conventions, and preferences.
+- **Debug logging:** Added opt-in hook logs with `MEM0_DEBUG=1`.
+- **Shared MCP skill:** Replaced the Claude-Code-specific Codex skill with `mem0-mcp`.
+
+**Fixes:**
+- Session IDs are stored in memory metadata, startup exits quietly without an API key, memory-write blocking avoids `docs/memory/*.md`, duplicate compact writes were removed, and hook captures now expire after 90 days.
+
+</Update>
+
+<Update label="2026-04-02" description="mem0-plugin v0.1.1">
+
+**Fixes:**
+- Cursor plugin became fully functional.
+- Codex plugin support and integration docs were added.
+- Codex lifecycle hooks became available through the opt-in installer.
+- Invalid Claude plugin config keys were removed.
+
+</Update>
+
+<Update label="2026-04-02" description="mem0-plugin v0.1.0">
+
+**Mem0 Plugin for Claude Code, Cursor, and Codex**
+
+Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex support:
+
+- **9 MCP memory tools:** `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`: all via `mcp.mem0.ai`.
+- **Lifecycle hooks:** Automatic memory capture at session start, context compaction, task completion, and session end.
+- **Cloud MCP server:** Managed endpoint replaces local MCP and Smithery setup.
+- **Streamable HTTP transport:** New MCP transport protocol for real-time streaming.
+- **Codex-specific skill:** Dedicated skill in `mem0-plugin/skills/mem0-codex` for Codex workflows.
+
+</Update>
+
+</Tab>
+
+<Tab title="OpenCode">
+
+<Update label="2026-06-22" description="OpenCode plugin v0.2.0">
+
+**Breaking Changes:**
+- **Native SDK tools:** Memory tools are registered through `@opencode-ai/plugin` and backed by the `mem0ai` SDK directly. The plugin no longer registers or depends on `mcp.mem0.ai`.
+- **Skills load in place:** The `config` hook adds `opencode-skills/` to `skills.paths`; skills are no longer copied into user config directories.
+- **Focused skill set:** Trimmed to 9 skills: `context-loader`, `dream`, `forget`, `status`, `search`, `scope`, `pin`, `remember`, and `tour`.
+
+**New Features:**
+- **Memory scopes:** Memory operations support `project`, `session`, and `global` scope, with `/mem0-scope` for changing the default.
+- **Auto-dream:** Gated memory consolidation can merge duplicates, drop stale/sensitive entries, and rewrite vague memories.
+- **Expanded telemetry:** OpenCode emits the shared `plugin.*` schema, including prompt, bash-error, pre-compact, session-stop, dream-triggered, and dream-completed events.
+
+**Fixes:**
+- **Project ID detection:** Git remote parsing now handles HTTPS, SSH, and custom SSH host aliases before falling back to the repo root.
+- **Auto-dream visibility:** `/mem0-status` shows which dream gate is blocking consolidation.
+- **Delete-all safety:** User-wide deletes require explicit `scope="global"`, regardless of the default scope.
+
+</Update>
+
+<Update label="2026-06-22" description="OpenCode plugin v0.1.3">
+
+**New Features:**
+- **File-context injection:** Before a file read, the plugin searches for memories referencing that path and injects prior work as system context.
+- **Structured compaction summaries:** Session compaction stores `session_summary` memories with `infer=True`.
+- **Recent activity timeline:** Initial memory loading shows typed memories with age labels instead of bare text.
+- **PostHog telemetry:** Anonymous plugin telemetry uses the shared `plugin.*` schema and never sends memory content, prompts, or API keys.
+
+</Update>
+
+<Update label="2026-06-22" description="OpenCode plugin v0.1.2">
+
+**New Features:**
+- **Automatic coding categories:** Sets up 17 coding categories at startup, idempotently and in the background.
+- **Global search mode:** Adds `global_search` support across initial load, per-message recall, resume detection, error lookup, and compaction context.
+- **Global search env:** Exports `MEM0_GLOBAL_SEARCH` to child shells via the `shell.env` hook.
+
+**Changes:**
+- Search filters now follow the `global_search` setting instead of always using project-scoped filters.
+- Resume and error-pattern searches broadened by removing narrow metadata type filters.
+
+</Update>
+
+<Update label="2026-06-22" description="OpenCode plugin v0.1.1">
+
+**Changes:**
+- Renamed the package to `@mem0/opencode-plugin` ([#5272](https://github.com/mem0ai/mem0/pull/5272)).
+- Added the plugin array to the bundled `opencode.json` ([#5271](https://github.com/mem0ai/mem0/pull/5271)).
+- Fixed `tsconfig`, added `publishConfig` and the bun lockfile ([#5273](https://github.com/mem0ai/mem0/pull/5273)).
+- Validated the CI/CD publish flow ([#5288](https://github.com/mem0ai/mem0/pull/5288)).
+
+</Update>
+
+<Update label="2026-04-02" description="OpenCode plugin v0.1.0">
+
+**Initial Release:**
+- **Native OpenCode plugin:** Added `@mem0/opencode-plugin` with TypeScript hooks for chat messages, tool execution, system-message transforms, session compaction, and shell env injection.
+- **Memory tooling:** Added add, search, update, delete, delete-all, entity tools, session-start memory loading, per-prompt semantic search, error-pattern lookup, auto-capture, and compaction capture.
+- **Skills and commands:** Bundled 16 OpenCode-native Mem0 skills and slash commands.
+- **Safety:** Blocks `MEMORY.md` writes and redacts secrets before memory storage.
+
+</Update>
+
+</Tab>
+
+<Tab title="Antigravity">
+
+<Update label="2026-06-25" description="Antigravity plugin v0.1.3">
+
+**Fixes:**
+- **Readable session metadata:** Stop-hook session summaries now store `files_touched` as a real list instead of a double-encoded JSON string, so returned memories show clean file paths.
+
+**Improvements:**
+- **Reranked injected context:** File-context, bash-error lookup, and session-resume recall now rerank by default for higher-quality automatic context. Disable with `MEM0_RERANK=0`, `false`, `no`, or `off`.
+
+</Update>
+
+<Update label="2026-06-25" description="Antigravity plugin v0.1.2">
+
+**Fixes:**
+- **Telemetry attribution:** Antigravity is now reported as `antigravity` instead of being counted as Claude Code.
+- **Per-editor version reporting:** Telemetry reads Antigravity's own `plugin.json`, so events report the Antigravity plugin version instead of the Claude plugin version.
+
+**New Features:**
+- **Platform override support:** Shared scripts honor `MEM0_PLATFORM` when an editor needs to pin its telemetry platform explicitly.
+
+</Update>
+
+<Update label="2026-04-02" description="Antigravity plugin v0.1.0">
+
+**Initial Release:**
+- **Self-contained plugin:** Added Antigravity plugin packaging with `plugin.json`, `mcp_config.json`, `hooks.json`, lifecycle hooks, shared scripts, and shared Mem0 skills.
+- **AGENTS.md support:** Uses Antigravity's `contextFileName: "AGENTS.md"` convention.
+- **Shared memory layer:** Reuses the Mem0 Platform MCP server, shared hook scripts, and 16 slash-command skills.
+- **Lifecycle hooks:** Wires session start, user prompt, file read, memory-tool metadata enforcement, bash output, post-tool tracking, and stop summaries.
+- **Install options:** Supports `degit` installs into `~/.gemini/config/plugins/mem0` and local Antigravity plugin installs.
+- **Codex parity:** Added missing Codex Write/Edit/MultiEdit blocking and pre-compaction hooks during the shared-plugin restructure.
+
+</Update>
+
+</Tab>
+
+<Tab title="OpenClaw">
+
+<Update label="2026-06-12" description="openclaw-mem0 v1.0.13">
+
+**Fixes:**
+- **Custom categories payload:** `customCategories` is converted into the list shape expected by the Mem0 SDK before add calls ([#5345](https://github.com/mem0ai/mem0/pull/5345)).
+- **Metadata registration:** `register()` exits early in `cli-metadata` mode, avoiding backend initialization and hook installation during OpenClaw metadata scans ([#5383](https://github.com/mem0ai/mem0/pull/5383)).
+
+**Security:**
+- Bumped `mem0ai` to `3.0.7` and added a `uuid` override to resolve known dependency advisories ([#5460](https://github.com/mem0ai/mem0/pull/5460), [#5489](https://github.com/mem0ai/mem0/pull/5489)).
+
+**Improvements:**
+- **Repo consolidation:** OpenClaw moved to `integrations/openclaw/`; npm provenance now points to the correct subdirectory ([#5491](https://github.com/mem0ai/mem0/pull/5491)).
+
+</Update>
+
+<Update label="2026-06-02" description="openclaw-mem0 v1.0.12">
+
+**Docs:**
+- **Agent Mode onboarding:** README documents `mem0 init --agent --json` for autonomous setup without email, OTP, or browser.
+
+**Security:**
+- Added overrides for `langsmith`, `picomatch`, `vite`, and `@qdrant/js-client-rest`.
+
+**Dependencies:**
+- Bumped `mem0ai` to `3.0.3` and refreshed Vitest coverage tooling.
+
+</Update>
+
+<Update label="2026-04-29" description="openclaw-mem0 v1.0.11">
+
+**New Features:**
+- **Skills-mode auto-setup:** Onboarding enables triage, recall, dream consolidation, and full tool profile automatically.
+- **Memory runtime capability:** Exposes `runtime.getMemorySearchManager()` and `resolveMemoryBackendConfig()`.
+- **Dimension-aware collections:** OSS wizard creates a new collection when embedder dimensions change.
+- **Tool docs in skills:** Memory triage and dream skills now include full tool reference sections.
+
+**Improvements:**
+- Auto-capture and auto-recall default to enabled.
+- Skills prefer `memory_update` over delete+add for atomic edits.
+- Default search threshold lowered to `0.1` for broader recall.
+- Config writes preserve OpenClaw gateway `plugins` state.
+
+</Update>
+
+<Update label="2026-04-23" description="openclaw-mem0 v1.0.10">
+
+**Security:**
+- Telemetry identity now uses SHA-256 hashes instead of MD5, and user email is hashed before telemetry submission.
+
+**Fixes:**
+- Version-pinned installs are rewritten to updatable specs.
+- `searchThreshold` is standardized across docs, README, and manifest.
+- `PLUGIN_VERSION` is injected at build time from `package.json`.
+
+**Manifest Compliance:**
+- Removed non-spec manifest fields and moved endpoint declarations to spec-compliant `providerEndpoints`.
+
+</Update>
+
+<Update label="2026-04-22" description="openclaw-mem0 v1.0.9">
+
+**Security & Compliance:**
+- **Manifest security metadata:** Added required env var declarations, sensitive config schema fields, data locations, privacy notes, and external endpoint declarations for platform and OSS modes.
+- **Static-analysis cleanup:** Tests now use `vi.stubEnv` / `vi.unstubAllEnvs` instead of direct environment access in places flagged by plugin scanning.
+
+**Tests:**
+- Expanded coverage to 421 tests across 15 files.
+
+</Update>
+
+<Update label="2026-04-21" description="openclaw-mem0 v1.0.8">
+
+**New Features:**
+- **OSS onboarding wizard:** Guided setup for LLM provider, embedding provider, vector store, and user ID.
+- **Agent-friendly CLI:** `--json` added to all 16 CLI commands.
+- **Non-interactive OSS setup:** Added `--mode open-source` with `--oss-llm`, `--oss-embedder`, and `--oss-vector`.
+- **JSON helpers:** Added structured `jsonOut`, `jsonErr`, and `redactSecrets` helpers.
+
+</Update>
+
+<Update label="2026-04-20" description="openclaw-mem0 v1.0.7">
+
+**New Features:**
+- **Chat-based setup:** Users can configure the Mem0 platform connection inside OpenClaw chat instead of editing config files manually.
+
+**Improvements:**
+- **V3 SDK compatibility:** Bumped the `mem0ai` dependency to `3.0.1` for Mem0 v3 API support.
+- **Config cleanup:** Removed deprecated `orgId`, `projectId`, and `enableGraph` setup paths from docs and CLI prompts.
+- **Noise filtering:** Expanded memory-add filtering and improved JSON extraction when model output includes leading text.
+
+</Update>
+
+<Update label="2026-04-11" description="openclaw-mem0 v1.0.6">
+
+**Fixes:**
+- **Telemetry identity:** Anonymous users now get a persistent per-machine hash instead of the shared `anonymous-openclaw` fallback.
+- **Telemetry stitching:** First authenticated runs emit `$identify` so anonymous history can attach to the authenticated profile.
+- **CLI event flushing:** Short-lived CLI invocations flush queued telemetry before exit.
+- **Email resolution:** API-key-only users resolve email lazily through `/v1/ping/`.
+
+**Improvements:**
+- **OpenClaw source tag:** Provider calls now send `source: "OPENCLAW"` across add, search, list, recall, CLI, and OSS backend paths.
+
+</Update>
+
+<Update label="2026-04-07" description="openclaw-mem0 v1.0.5">
+
+**Fixes:**
+- **Init menu selection:** `openclaw mem0 init` number choices now select the intended option.
+- **OSS pgvector recovery:** Warmup errors now reset initialization so failed pgvector clients do not cascade into repeated `client.connect()` failures.
+
+**Removed:**
+- Removed `orgId`, `projectId`, and `enableGraph` from config, CLI, providers, backend, and tools because API keys are project-scoped and graph memory moved to platform-level configuration.
+
+</Update>
+
+<Update label="2026-04-04" description="openclaw-mem0 v1.0.4">
+
+**OpenClaw Plugin: Production-Ready**
+
+- **Interactive init flow:** `openclaw mem0 init` supports email verification and direct API key setup.
+- **Unified tools:** `memory_add` and `memory_delete` replace legacy memory tools and match Mem0 naming.
+- **CLI commands:** Added `init`, `status`, `config`, `import`, `event list`, and `event status`.
+- **Modular architecture:** Extracted tools, CLI, filesystem safety, and backend modules.
+- **Security and tests:** Added path traversal protection, pinned dependencies, and 329 tests across 10 files.
+
+</Update>
+
+<Update label="2026-04-03" description="openclaw-mem0 v1.0.3">
+
+**Fixes:**
+- **Path traversal protection:** Added `safePath()` containment checks for skill and domain-overlay reads.
+- **Noise filter correction:** Restored the `Post-Compaction` pattern after an incorrect rename.
+
+**Security:**
+- Pinned `mem0ai` to exact `2.3.0`.
+
+</Update>
+
+<Update label="2026-04-02" description="openclaw-mem0 v1.0.2">
+
+**Fixes:**
+- **Env resolution:** Removed plugin-side env-var expansion from config because OpenClaw already resolves env references before plugin registration.
+
+</Update>
+
+<Update label="2026-04-02" description="openclaw-mem0 v1.0.1">
+
+**New Features:**
+- **CD workflow:** Added trusted-publishing release workflow.
+- **Plugin metadata:** Added compatibility and build metadata to `package.json`.
+- **License:** Added Apache-2.0 license file.
+
+**Fixes:**
+- **Dream gate:** Fixed cheap-first ordering, session isolation, and completion verification.
+- **Graceful startup:** Plugin starts cleanly when no API key is configured.
+
+</Update>
+
+<Update label="2026-04-01" description="openclaw-mem0 v1.0.0">
+
+**New Features:**
+- **Skills-based memory architecture:** Added the skill loader, memory triage skill, memory dream skill, batched extraction, and skill-aware recall.
+- **Dream gate:** Added idle-period memory consolidation.
+- **Enhanced recall:** Added `recall.ts` with improved retrieval and injection logic.
+- **Plugin manifest:** Added `openclaw.plugin.json` and setup helper scripts.
+
+</Update>
+
+<Update label="2026-03-26" description="openclaw-mem0 v0.4.1">
+
+**New Features:**
+- **Extraction quality:** Improved noise filtering, deduplication, and extraction instructions.
+
+**Fixes:**
+- Improved credential, API key, and secret detection during extraction.
+- Prevented standalone timestamps from being stored as memories.
+
+</Update>
+
+<Update label="2026-03-16" description="openclaw-mem0 v0.4.0">
+
+**New Features:**
+- **Trigger filtering:** Skips recall and capture for cron, heartbeat, automation, and schedule triggers.
+- **Subagent isolation:** Routes ephemeral subagent sessions back to the parent namespace.
+- **Dynamic recall thresholding:** Drops candidates below 50% of the top score.
+- **OSS resilience:** Adds SQLite init retry and `oss.disableHistory`.
+
+**Fixes:**
+- Lifecycle hooks now use `ctx.sessionKey` directly, removing a concurrent-session race.
+
+</Update>
+
+<Update label="2026-03-12" description="openclaw-mem0 v0.3.1">
+
+**New Features:**
+- **Message filtering pipeline:** Multi-stage noise removal before extraction.
+- **Broad recall:** Short or new-session prompts trigger secondary broad search.
+- **Temporal anchoring:** Extraction instructions include the current date.
+
+**Changes:**
+- Extraction now reads the last 20 messages and the monolithic plugin file was split into focused modules.
+
+</Update>
+
+<Update label="2026-03-10" description="openclaw-mem0 v0.3.0">
+
+**Fixes:**
+- Updated `mem0ai` for the SQLite to `better-sqlite3` migration.
+
+</Update>
+
+<Update label="2026-03-09" description="openclaw-mem0 v0.2.0">
+
+**New Features:**
+- **Multi-agent isolation:** Added per-agent memory isolation via `agentId`.
+- **Docs:** Added guidance for understanding `userId`.
+
+**Fixes:**
+- Migrated platform search to the Mem0 v2 API.
+
+</Update>
+
+<Update label="2026-02-19" description="openclaw-mem0 v0.1.2">
+
+**New Features:**
+- Added a source field for OpenClaw memory entries.
+
+**Fixes:**
+- Fixed auto-recall injection and auto-capture message drops.
+
+</Update>
+
+<Update label="2026-02-02" description="openclaw-mem0 v0.1.0">
+
+**Initial Release:**
+- **Memory backend:** Added Mem0 Cloud and self-hosted OSS modes for OpenClaw.
+- **Auto-recall:** Injects relevant memories before each turn.
+- **Auto-capture:** Stores facts after each turn.
+- **Config:** Added `topK`, `threshold`, and `apiVersion` options.
+
+</Update>
+
+</Tab>
+
+<Tab title="Pi Agent">
+
+<Update label="2026-06-12" description="Pi Agent plugin v0.1.2">
+
+**Fixes:**
+- **Visible command feedback:** `/mem0-remember`, `/mem0-forget`, `/mem0-pin`, and `/mem0-scope` now render persistent message blocks instead of easy-to-miss status notifications.
+- **Relevance-filtered search:** Search, forget, and pin commands now pass `threshold`, `top_k`, and `rerank` to avoid weak unrelated matches.
+
+**Improvements:**
+- **Richer command output:** Commands show scope, query, match counts, and affected memories.
+- **Cleaner dream flow:** `/mem0-dream` keeps the consolidation protocol hidden behind a concise status line.
+- **Configurable relevance floor:** `searchThreshold` defaults to `0.3` in `mem0-config.json` and is shown in `/mem0-status`.
+
+</Update>
+
+<Update label="2026-06-10" description="Pi Agent plugin v0.1.1">
+
+**Chores:**
+- Version bump to validate the new `pi-agent-plugin-checks.yml` and `pi-agent-plugin-cd.yml` release pipeline.
+
+</Update>
+
+<Update label="2026-06-09" description="Pi Agent plugin v0.1.0">
+
+**Initial Release:**
+- **Extension entry point:** Registers the `mem0_memory` tool, 8 slash commands, and auto-capture hooks.
+- **Agent tool:** Supports search, add, get-all, delete, and delete-all with scoped filters.
+- **Slash commands:** Adds `/mem0-remember`, `/mem0-forget`, `/mem0-search`, `/mem0-tour`, `/mem0-dream`, `/mem0-pin`, `/mem0-scope`, and `/mem0-status`.
+- **Auto-capture:** Extracts and stores memories from user and assistant messages on `agent_end`.
+- **Dream consolidation:** Merges duplicates, resolves contradictions, and prunes stale entries behind session, time, and memory-count gates.
+- **System prompt injection:** Appends `MEMORY_POLICY` before every agent turn.
+- **Project scoping:** Uses `git rev-parse --show-toplevel` for stable `app_id` values across monorepos.
+- **Scopes and categories:** Supports project, session, and global scopes plus 10 default memory categories.
+- **Agent skills:** Bundles `context-loader`, `remember`, `search`, `forget`, `dream`, `tour`, `pin`, and `status` skills.
+- **Safety:** Confirmation dialogs protect destructive commands, pins preserve memory IDs, full memory UUIDs stay visible, outputs are truncated, all tool actions respect `AbortSignal`, and shutdown releases dream locks.
+- **Telemetry:** Batched PostHog telemetry uses PII-safe error payloads.
+
+</Update>
+
+</Tab>
+
+<Tab title="Vercel AI SDK">
 
 <Update label="2026-06-10" description="Vercel AI SDK v3.0.0">
 
@@ -1726,6 +2375,10 @@ A full-featured command-line interface for Mem0, available in both Python and No
 **New Features:**
 - **V3 provider contract:** `specificationVersion: 'v3'`, `supportedUrls` property, V3 content array in `doGenerate`, V3 stream lifecycle events in `doStream` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
 - **Mem0 source in responses:** Memories are attached as a `source` in `generateText`/`streamText` responses with `providerMetadata.mem0.memories` for programmatic access ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Raw search helper:** `searchMemories()` is exported alongside `addMemories()`, `retrieveMemories()`, and `getMemories()` for callers that need raw semantic search results.
+- **Self-hosted API support:** `mem0ApiKey` and `host` can be passed per request, letting apps override the environment API key and point at a custom Mem0 API base URL.
+- **Provider coverage:** Built-in provider selection covers OpenAI, Anthropic, Google/Gemini, Groq, and Cohere through the AI SDK provider packages.
+- **Multimodal memory input:** File, image, Markdown, and PDF prompt parts are converted into the Mem0-compatible message shape when adding or searching memories.
 
 **Bug Fixes:**
 - **Async memory storage:** `addMemories` is now properly `await`ed: memories no longer silently fail to store ([#4741](https://github.com/mem0ai/mem0/pull/4741))
@@ -1740,21 +2393,6 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 **Security:**
 - **Dependencies:** Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs: `glob` → ^10.5.0 (CVE-2025-64756), `minimatch` → ^3.1.3 / ^5.1.8 / ^9.0.7 (CVE-2026-27903, CVE-2026-27904, CVE-2026-26996), `picomatch` → ^2.3.2 (CVE-2026-33671), `rollup` → ^4.59.0 (CVE-2026-27606)
-
-</Update>
-
-<Update label="2026-04-02" description="mem0-plugin v1.0.0">
-
-**Mem0 Plugin for Claude Code, Cursor, and Codex**
-
-The unified Mem0 plugin for AI development environments:
-
-- **9 MCP memory tools:** `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`: all via `mcp.mem0.ai`
-- **Lifecycle hooks:** Automatic memory capture at session start, context compaction, task completion, and session end
-- **Cloud MCP server:** Managed endpoint replaces local MCP and Smithery setup
-- **Streamable HTTP transport:** New MCP transport protocol for real-time streaming
-- **Codex-specific skill:** Dedicated skill in `mem0-plugin/skills/mem0-codex` for Codex workflows
-- **Supported editors:** Claude Code, Claude Cowork, Cursor, Codex
 
 </Update>
 
@@ -1804,6 +2442,9 @@ The unified Mem0 plugin for AI development environments:
 **New Features:**
 - Added support for graph memories.
 </Update>
+
+</Tab>
+</Tabs>
 
 </Tab>
 

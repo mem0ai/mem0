@@ -555,8 +555,7 @@
                     "pages": [
                       "changelog/highlights",
                       "changelog/sdk",
-                      "changelog/platform",
-                      "changelog/openclaw"
+                      "changelog/platform"
                     ]
                   }
                 ]
@@ -610,6 +609,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/changelog/openclaw",
+      "destination": "/changelog/sdk"
+    },
     {
       "source": "/components/rerankers/models/llm",
       "destination": "/components/rerankers/models/llm_reranker"
