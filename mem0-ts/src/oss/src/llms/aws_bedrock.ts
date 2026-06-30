@@ -39,14 +39,12 @@ export function extractProvider(model: string): string {
   throw new Error(`Unknown provider in model: ${model}`);
 }
 
-interface AWSBedrockConfig extends LLMConfig {
-  awsRegion?: string;
-  awsAccessKeyId?: string;
-  awsSecretAccessKey?: string;
-  awsSessionToken?: string;
-  /** Pre-constructed BedrockRuntimeClient (dependency injection for tests). */
-  client?: any;
-}
+/**
+ * AWS Bedrock fields (awsRegion / awsAccessKeyId / awsSecretAccessKey /
+ * awsSessionToken / client) now live on the shared `LLMConfig`, so the
+ * provider is configurable through the standard typed `Memory` config path.
+ */
+type AWSBedrockConfig = LLMConfig;
 
 /**
  * AWS Bedrock LLM provider for the TypeScript OSS SDK.
