@@ -98,7 +98,7 @@ export class Qdrant implements VectorStore {
     }
 
     this.collectionName = config.collectionName;
-    this.dimension = config.dimension || 1536; // Default OpenAI dimension
+    this.dimension = config.dimension ?? config.embeddingModelDims ?? 1536; // Default OpenAI dimension
     this.initialize().catch(console.error);
   }
 
