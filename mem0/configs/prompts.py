@@ -754,6 +754,24 @@ Observation Date: 2025-08-19
 
 Output: {"memory": []}
 
+## Example 4: Skip Assistant Echoes of User Preferences
+
+Summary: ""
+Recently Extracted: []
+Existing Memories: []
+New Messages:
+[{"role": "user", "content": "For badminton venues, I prefer quiet courts with wooden floors after 8 PM, and please don't recommend Smash Arena because it is too noisy."},
+ {"role": "assistant", "content": "Got it. I will prioritize quiet wooden-floor venues after 8 PM and avoid recommending Smash Arena because it is too noisy."}]
+Observation Date: 2025-04-12
+
+Output:
+{"memory": [
+  {"id": "0", "text": "User prefers quiet badminton venues with wooden floors for play after 8 PM"},
+  {"id": "1", "text": "User does not want Smash Arena recommended for badminton because it is too noisy"}
+]}
+
+The assistant message only confirms and restates the same venue preference and constraint. Extract the preference and constraint from the user's statement, not from the assistant's restatement; do NOT add a duplicate memory such as "Assistant will prioritize quiet wooden-floor venues" because that is an echo, not new information.
+
 ## Example 5: Deduplication — Skip Already Captured
 
 Recently Extracted: ["Marcus was promoted to Senior Engineer at Shopify around August 12, 2025"]
