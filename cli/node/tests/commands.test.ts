@@ -436,6 +436,27 @@ describe("agent mode", () => {
     expect(parsed.data).toBeDefined();
   });
 
+  it("cmdWhoami outputs JSON envelope", async () => {
+    vi.doMock("../src/config.js", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/config.js")>();
+      return {
+        ...actual,
+        loadConfig: () => ({
+          platform: { defaultUserId: "user_test" },
+        }),
+      };
+    });
+    setAgentMode(true);
+
+    const { cmdWhoami } = await import("../src/commands/whoami.js");
+    await cmdWhoami();
+
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("whoami");
+    expect(parsed.data).toEqual({ default_user_id: "user_test" });
+  });
+
   it("cmdEventList outputs JSON envelope", async () => {
     setAgentMode(true);
     const { cmdEventList } = await import("../src/commands/events.js");

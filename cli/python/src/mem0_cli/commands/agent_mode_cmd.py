@@ -124,6 +124,27 @@ def bootstrap_via_backend(
     config.defaults.user_id = envelope["default_user_id"]
     save_config(config)
 
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        from mem0_cli.output import format_json_envelope
+        from mem0_cli.state import capture_notice
+
+        capture_notice(envelope.get("mem0_notice"))
+
+        format_json_envelope(
+            console,
+            command="init",
+            data={
+                "api_key_saved": True,
+                "agent_mode": True,
+                "default_user_id": envelope["default_user_id"],
+                "agent_caller": agent_caller or "",
+                "claim_command": envelope.get("claim_command", "mem0 init --email <your-email>"),
+            },
+        )
+        return
+
     print_success(console, f"Agent Mode active. Default user_id: {envelope['default_user_id']}")
     notice = envelope.get("mem0_notice")
     if notice:
