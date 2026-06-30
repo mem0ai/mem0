@@ -7,6 +7,7 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreResult,
 } from "../types";
 import {
   EmbedderFactory,
@@ -517,6 +518,24 @@ export class Memory {
     return parts.join("&");
   }
 
+  private filterByRequestedScope<T extends Pick<VectorStoreResult, "payload">>(
+    results: T[],
+    filters: Record<string, any>,
+  ): T[] {
+    const scopeKeys = ["user_id", "agent_id", "run_id"] as const;
+    const requestedKeys = scopeKeys.filter(
+      (key) => filters[key] !== undefined && filters[key] !== null,
+    );
+
+    if (requestedKeys.length === 0) {
+      return results;
+    }
+
+    return results.filter((result) =>
+      requestedKeys.every((key) => result.payload?.[key] === filters[key]),
+    );
+  }
+
   private async _initializeTelemetry() {
     try {
       await this._getTelemetryId();
@@ -811,9 +830,8 @@ export class Memory {
 
     // Phase 1: Existing memory retrieval
     const queryEmbedding = await this.embedder.embed(parsedMessages);
-    const existingResults = await this.vectorStore.search(
-      queryEmbedding,
-      10,
+    const existingResults = this.filterByRequestedScope(
+      await this.vectorStore.search(queryEmbedding, 10, filters),
       filters,
     );
 
@@ -1359,9 +1377,12 @@ export class Memory {
 
     // Step 3: Semantic search (over-fetch for scoring pool)
     const internalLimit = Math.max(topK * 4, 60);
-    const semanticResults = await this.vectorStore.search(
-      queryEmbedding,
-      internalLimit,
+    const semanticResults = this.filterByRequestedScope(
+      await this.vectorStore.search(
+        queryEmbedding,
+        internalLimit,
+        effectiveFilters,
+      ),
       effectiveFilters,
     );
 
@@ -1373,12 +1394,15 @@ export class Memory {
     }> | null = null;
     if (typeof this.vectorStore.keywordSearch === "function") {
       try {
-        keywordResults =
+        const rawKeywordResults =
           (await this.vectorStore.keywordSearch(
             queryLemmatized,
             internalLimit,
             effectiveFilters,
           )) ?? null;
+        keywordResults = rawKeywordResults
+          ? this.filterByRequestedScope(rawKeywordResults, effectiveFilters)
+          : null;
       } catch {
         keywordResults = null;
       }
@@ -1617,7 +1641,8 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters);
+    const [rawMemories] = await this.vectorStore.list(filters);
+    const memories = this.filterByRequestedScope(rawMemories, filters);
     for (const memory of memories) {
       await this.deleteMemory(memory.id);
     }
@@ -1733,7 +1758,8 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters, topK);
+    const [rawMemories] = await this.vectorStore.list(filters, topK);
+    const memories = this.filterByRequestedScope(rawMemories, filters);
 
     const excludedKeys = new Set([
       "user_id",

@@ -5,6 +5,7 @@
 /// <reference types="jest" />
 import { Memory } from "../src/memory";
 import type { MemoryConfig, MemoryItem, SearchResult } from "../src/types";
+import { createHash } from "crypto";
 
 jest.setTimeout(15000);
 
@@ -190,5 +191,45 @@ describe("Memory - add()", () => {
     expect(result.results[0].metadata).toEqual(
       expect.objectContaining({ event: "ADD" }),
     );
+  });
+
+  test("ignores wrong-scope existing search results when deduplicating inferred memories", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const extractedText = "user: I love carefully scoped sushi.";
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "foreign-memory",
+        score: 0.99,
+        payload: {
+          data: extractedText,
+          hash: createHash("md5").update(extractedText).digest("hex"),
+          user_id: "other-user",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        "I love carefully scoped sushi.",
+        { userId: "target-user" },
+      );
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        10,
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].memory).toBe(extractedText);
+      const stored = await scopedMemory.get(result.results[0].id);
+      expect((stored as any).user_id).toBe("target-user");
+    } finally {
+      searchSpy.mockRestore();
+      await scopedMemory.reset();
+    }
   });
 });

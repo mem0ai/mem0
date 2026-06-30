@@ -110,7 +110,7 @@ describe("Entity boost parallelism (#5214)", () => {
     m.vectorStore.search = jest
       .fn()
       .mockResolvedValue([
-        { id: "mem-1", score: 0.8, payload: { data: "test" } },
+        { id: "mem-1", score: 0.8, payload: { data: "test", user_id: "u1" } },
       ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
@@ -158,8 +158,16 @@ describe("Entity boost parallelism (#5214)", () => {
 
     // Semantic results include mem-1 and mem-2
     m.vectorStore.search = jest.fn().mockResolvedValue([
-      { id: "mem-1", score: 0.85, payload: { data: "alice memory" } },
-      { id: "mem-2", score: 0.75, payload: { data: "bob memory" } },
+      {
+        id: "mem-1",
+        score: 0.85,
+        payload: { data: "alice memory", user_id: "u1" },
+      },
+      {
+        id: "mem-2",
+        score: 0.75,
+        payload: { data: "bob memory", user_id: "u1" },
+      },
     ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
@@ -202,11 +210,13 @@ describe("Entity boost parallelism (#5214)", () => {
           Promise.resolve(texts.map(() => mockEmbedding)),
         ),
     };
-    m.vectorStore.search = jest
-      .fn()
-      .mockResolvedValue([
-        { id: "mem-9", score: 0.85, payload: { data: "surviving memory" } },
-      ]);
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-9",
+        score: 0.85,
+        payload: { data: "surviving memory", user_id: "u1" },
+      },
+    ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -257,7 +267,7 @@ describe("Entity boost parallelism (#5214)", () => {
     m.vectorStore.search = jest
       .fn()
       .mockResolvedValue([
-        { id: "mem-1", score: 0.8, payload: { data: "test" } },
+        { id: "mem-1", score: 0.8, payload: { data: "test", user_id: "u1" } },
       ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
