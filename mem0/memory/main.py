@@ -4,13 +4,14 @@ import gc
 import hashlib
 import json
 import logging
+import math
 import os
 import time
 import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -142,6 +143,16 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
             f"Top-level entity parameters {invalid_keys} are not supported in {method_name}(). "
             f"Use filters={{'user_id': '...'}} instead."
         )
+
+
+def _cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
+    """Compute cosine similarity between two vectors. Returns value in [-1, 1]."""
+    dot = sum(a * b for a, b in zip(vec_a, vec_b))
+    norm_a = math.sqrt(sum(a * a for a in vec_a))
+    norm_b = math.sqrt(sum(b * b for b in vec_b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
 
 
 def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
@@ -865,6 +876,7 @@ class Memory(MemoryBase):
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE ===
+        returned_memories = []
 
         # Phase 0: Context gathering
         session_scope = _build_session_scope(filters)
@@ -949,16 +961,43 @@ class Memory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        # Build set of existing hashes for dedup
+        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup + semantic conflict detection
+        # Build lookup structures for existing memories
         existing_hashes = set()
+        existing_embeddings_map = {}  # memory_id -> embedding (from Phase 1 search results)
+        existing_data_map = {}  # memory_id -> text
         for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
+            payload = mem.payload if hasattr(mem, "payload") and mem.payload else {}
+            h = payload.get("hash")
             if h:
                 existing_hashes.add(h)
+            # Store existing memory data for conflict detection
+            existing_data_map[mem.id] = payload.get("data", "")
+
+        # Embed existing memories for semantic comparison (use search embeddings from Phase 1)
+        # Re-embed existing memory texts to get comparable vectors
+        existing_texts = [existing_data_map[mid] for mid in existing_data_map if existing_data_map[mid]]
+        existing_ids = [mid for mid in existing_data_map if existing_data_map[mid]]
+        if existing_texts:
+            try:
+                existing_vecs = self.embedding_model.embed_batch(existing_texts, "search")
+                for mid, vec in zip(existing_ids, existing_vecs):
+                    existing_embeddings_map[mid] = vec
+            except Exception:
+                for mid, txt in zip(existing_ids, existing_texts):
+                    try:
+                        existing_embeddings_map[mid] = self.embedding_model.embed(txt, "search")
+                    except Exception:
+                        pass
+
+        # Build reverse UUID mapping: integer id -> actual UUID
+        reverse_uuid_mapping = {str(idx): mem.id for idx, mem in enumerate(existing_results)}
 
         records = []  # (memory_id, text, embedding, payload)
+        update_records = []  # (existing_memory_id, new_text, new_embedding)
         seen_hashes = set()  # dedup within the current batch
+        SEMANTIC_CONFLICT_THRESHOLD = 0.85
+
         for mem in extracted_memories:
             text = mem.get("text")
             if not text or text not in embed_map:
@@ -968,6 +1007,49 @@ class Memory(MemoryBase):
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
                 continue
+
+            new_embedding = embed_map[text]
+
+            # Check if LLM flagged this as linked to an existing memory
+            linked_ids = mem.get("linked_memory_ids", [])
+            resolved_linked_id = None
+            for lid in linked_ids:
+                resolved = reverse_uuid_mapping.get(str(lid)) if str(lid) in reverse_uuid_mapping else lid
+                if resolved in existing_data_map:
+                    resolved_linked_id = resolved
+                    break
+
+            # Semantic similarity check against existing memories
+            best_match_id = None
+            best_match_score = 0.0
+            for mid, existing_vec in existing_embeddings_map.items():
+                score = _cosine_similarity(new_embedding, existing_vec)
+                if score > best_match_score:
+                    best_match_score = score
+                    best_match_id = mid
+
+            # Decide: UPDATE existing memory or ADD new one
+            should_update = False
+            target_memory_id = None
+
+            if resolved_linked_id and best_match_score >= SEMANTIC_CONFLICT_THRESHOLD:
+                # LLM linked it AND it's semantically similar — strong signal for update
+                should_update = True
+                target_memory_id = resolved_linked_id
+            elif best_match_score >= 0.90:
+                # Very high semantic similarity even without LLM link — likely a conflict
+                should_update = True
+                target_memory_id = best_match_id
+
+            if should_update and target_memory_id:
+                logger.info(
+                    f"Updating existing memory {target_memory_id} (score={best_match_score:.3f}) "
+                    f"instead of adding duplicate: {text[:80]}"
+                )
+                update_records.append((target_memory_id, text, new_embedding))
+                seen_hashes.add(mem_hash)
+                continue
+
             seen_hashes.add(mem_hash)
 
             text_lemmatized = lemmatize_for_bm25(text)
@@ -985,50 +1067,79 @@ class Memory(MemoryBase):
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
-        if not records:
+        # Phase 5b: Process updates for conflicting memories
+        for target_id, new_text, new_vec in update_records:
+            try:
+                existing_memory = self.vector_store.get(vector_id=target_id)
+                if existing_memory is None:
+                    continue
+
+                prev_value = existing_memory.payload.get("data", "")
+                new_metadata = deepcopy(existing_memory.payload)
+                new_metadata["data"] = new_text
+                new_metadata["hash"] = hashlib.md5(new_text.encode()).hexdigest()
+                new_metadata["text_lemmatized"] = lemmatize_for_bm25(new_text)
+                new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+                self.vector_store.update(
+                    vector_id=target_id,
+                    vector=new_vec,
+                    payload=new_metadata,
+                )
+                self.db.add_history(target_id, prev_value, new_text, "UPDATE")
+                returned_memories.append(
+                    {"id": target_id, "memory": new_text, "event": "UPDATE", "previous_memory": prev_value}
+                )
+            except Exception as e:
+                logger.error(f"Failed to update conflicting memory {target_id}: {e}")
+
+        if not records and not update_records:
             self.db.save_messages(messages, session_scope)
-            return []
+            return returned_memories if returned_memories else []
 
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
+        # Phase 6: Batch persist new memories
+        if records:
+            all_vectors = [r[2] for r in records]
+            all_ids = [r[0] for r in records]
+            all_payloads = [r[3] for r in records]
 
-        try:
-            self.vector_store.insert(
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+            try:
+                self.vector_store.insert(
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                # Fallback: insert one by one
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {mid}: {e}")
 
-        # Batch history
-        history_records = [
-            {
-                "memory_id": r[0],
-                "old_memory": None,
-                "new_memory": r[1],
-                "event": "ADD",
-                "created_at": r[3].get("created_at"),
-                "is_deleted": 0,
-            }
-            for r in records
-        ]
-        try:
-            self.db.batch_add_history(history_records)
-        except Exception:
-            # Fallback: add one by one
-            for hr in history_records:
-                try:
-                    self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
+            # Batch history
+            history_records = [
+                {
+                    "memory_id": r[0],
+                    "old_memory": None,
+                    "new_memory": r[1],
+                    "event": "ADD",
+                    "created_at": r[3].get("created_at"),
+                    "is_deleted": 0,
+                }
+                for r in records
+            ]
+            try:
+                self.db.batch_add_history(history_records)
+            except Exception:
+                # Fallback: add one by one
+                for hr in history_records:
+                    try:
+                        self.db.add_history(
+                            hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at")
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
 
         # Phase 7: Batch entity linking
         try:
@@ -1139,10 +1250,9 @@ class Memory(MemoryBase):
         # Phase 8: Save messages + return
         self.db.save_messages(messages, session_scope)
 
-        returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
-        ]
+        # Combine ADD results with UPDATE results from conflict resolution
+        add_results = [{"id": r[0], "memory": r[1], "event": "ADD"} for r in records]
+        returned_memories.extend(add_results)
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(

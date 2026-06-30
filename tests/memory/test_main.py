@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -6,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import AsyncMemory, Memory, _cosine_similarity
 
 
 def _setup_mocks(mocker):
@@ -1015,3 +1016,167 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+# --- Regression tests for conflicting memory deduplication (issue #5867) ---
+
+
+class TestCosineHelper:
+    """Unit tests for the _cosine_similarity helper."""
+
+    def test_identical_vectors(self):
+        assert _cosine_similarity([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]) == pytest.approx(1.0)
+
+    def test_orthogonal_vectors(self):
+        assert _cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)
+
+    def test_zero_vector(self):
+        assert _cosine_similarity([0.0, 0.0], [1.0, 2.0]) == 0.0
+
+
+class TestConflictingMemoryDeduplication:
+    """Regression tests for issue #5867: ADD-only extraction creates conflicting memories."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.add_history = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    def test_high_similarity_memory_triggers_update(self, mocker, mock_memory):
+        """When a new memory is very similar to an existing one (>=0.90), it should UPDATE instead of ADD."""
+        mocker.patch("mem0.memory.main.capture_event")
+
+        # Existing memory in vector store: "User's favorite player is Ronaldo"
+        existing_mem = MagicMock()
+        existing_mem.id = "existing-uuid-1"
+        existing_mem.payload = {"data": "User's favorite player is Ronaldo", "hash": "abc123"}
+        existing_mem.score = 0.92
+        mock_memory.vector_store.search.return_value = [existing_mem]
+
+        # LLM extracts a new memory about the same topic with a linked_memory_ids hint
+        mock_memory.llm.generate_response.return_value = json.dumps({
+            "memory": [
+                {
+                    "id": "0",
+                    "text": "User's favorite player is Messi",
+                    "linked_memory_ids": ["0"],
+                }
+            ]
+        })
+
+        # Both embeddings are near-identical (cosine > 0.90)
+        shared_vec = [0.9, 0.1, 0.05, 0.02]
+        mock_memory.embedding_model.embed.return_value = shared_vec
+        mock_memory.embedding_model.embed_batch.return_value = [shared_vec]
+
+        # The vector store should return the existing memory when asked to get it for update
+        mock_memory.vector_store.get.return_value = MagicMock(
+            payload={
+                "data": "User's favorite player is Ronaldo",
+                "hash": "abc123",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }
+        )
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "My favorite player is Messi now"}],
+            metadata={},
+            filters={"user_id": "test-user"},
+            infer=True,
+        )
+
+        # Should have called vector_store.update (not just insert)
+        assert mock_memory.vector_store.update.called, "Expected vector_store.update to be called for conflicting memory"
+
+        # The update should contain the new text
+        update_payload = mock_memory.vector_store.update.call_args.kwargs["payload"]
+        assert update_payload["data"] == "User's favorite player is Messi"
+
+        # Result should include an UPDATE event
+        update_events = [r for r in result if r.get("event") == "UPDATE"]
+        assert len(update_events) >= 1, f"Expected UPDATE event in result, got: {result}"
+        assert update_events[0]["memory"] == "User's favorite player is Messi"
+
+    def test_low_similarity_memory_adds_normally(self, mocker, mock_memory):
+        """When a new memory is NOT similar to existing ones (<0.85), it should ADD as usual."""
+        mocker.patch("mem0.memory.main.capture_event")
+
+        # Existing memory about a completely different topic
+        existing_mem = MagicMock()
+        existing_mem.id = "existing-uuid-1"
+        existing_mem.payload = {"data": "User lives in India", "hash": "xyz789"}
+        existing_mem.score = 0.3
+        mock_memory.vector_store.search.return_value = [existing_mem]
+
+        # LLM extracts a new unrelated memory
+        mock_memory.llm.generate_response.return_value = json.dumps({
+            "memory": [
+                {
+                    "id": "0",
+                    "text": "User's favorite programming language is Python",
+                }
+            ]
+        })
+
+        # Embeddings are different (low cosine similarity)
+        mock_memory.embedding_model.embed.side_effect = lambda text, mode: (
+            [0.1, 0.9, 0.05] if "India" in text else [0.9, 0.1, 0.05]
+        )
+        mock_memory.embedding_model.embed_batch.side_effect = lambda texts, mode: [
+            [0.1, 0.9, 0.05] if "India" in t else [0.9, 0.1, 0.05] for t in texts
+        ]
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I love Python"}],
+            metadata={},
+            filters={"user_id": "test-user"},
+            infer=True,
+        )
+
+        # Should have called insert (ADD), not update
+        assert mock_memory.vector_store.insert.called, "Expected vector_store.insert for non-conflicting memory"
+        add_events = [r for r in result if r.get("event") == "ADD"]
+        assert len(add_events) >= 1, f"Expected ADD event in result, got: {result}"
+
+    def test_exact_hash_duplicate_still_skipped(self, mocker, mock_memory):
+        """Exact hash duplicates should still be skipped (not double-counted as updates)."""
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "existing-uuid-1"
+        import hashlib
+        exact_text = "User likes pizza"
+        exact_hash = hashlib.md5(exact_text.encode()).hexdigest()
+        existing_mem.payload = {"data": exact_text, "hash": exact_hash}
+        existing_mem.score = 1.0
+        mock_memory.vector_store.search.return_value = [existing_mem]
+
+        # LLM extracts the exact same text
+        mock_memory.llm.generate_response.return_value = json.dumps({
+            "memory": [{"id": "0", "text": exact_text}]
+        })
+
+        shared_vec = [0.5, 0.5, 0.5]
+        mock_memory.embedding_model.embed.return_value = shared_vec
+        mock_memory.embedding_model.embed_batch.return_value = [shared_vec]
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like pizza"}],
+            metadata={},
+            filters={"user_id": "test-user"},
+            infer=True,
+        )
+
+        # Should NOT insert or update — exact hash match means skip entirely
+        assert not mock_memory.vector_store.insert.called, "Should not insert exact duplicate"
+        assert not mock_memory.vector_store.update.called, "Should not update exact duplicate"
