@@ -1388,6 +1388,102 @@ describe("Memory - search()", () => {
     }
   });
 
+  test("preserves nested logical scope comparisons in post-filtering", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "low-priority-memory",
+        score: 0.99,
+        payload: {
+          data: "matching scope below priority threshold",
+          hash: "low-priority-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          priority: 5,
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "priority-memory",
+        score: 0.98,
+        payload: {
+          data: "matching priority threshold",
+          hash: "priority-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          priority: "12",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "blocked-topic-memory",
+        score: 0.97,
+        payload: {
+          data: "matching agent blocked by nested NOT",
+          hash: "blocked-topic-hash",
+          userId: "target-user",
+          agentId: "agent-b",
+          topic: "secret",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "allowed-topic-memory",
+        score: 0.96,
+        payload: {
+          data: "matching agent allowed by nested NOT",
+          hash: "allowed-topic-hash",
+          userId: "target-user",
+          agentId: "agent-b",
+          topic: "public",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: {
+          user_id: "target-user",
+          OR: [
+            { AND: [{ agent_id: "agent-a" }, { priority: { gte: 10 } }] },
+            {
+              AND: [{ agent_id: "agent-b" }, { NOT: [{ topic: "secret" }] }],
+            },
+          ],
+        },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        {
+          user_id: "target-user",
+          $or: [
+            { agent_id: "agent-a", priority: { gte: 10 } },
+            { agent_id: "agent-b", $not: [{ topic: "secret" }] },
+          ],
+        },
+      );
+      expect(result.results.map((item) => item.id)).toEqual([
+        "priority-memory",
+        "allowed-topic-memory",
+      ]);
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
   test("preserves mixed scope and metadata NOT semantics in post-filtering", async () => {
     const scopedMemory = createMemory();
     await (scopedMemory as any)._ensureInitialized();

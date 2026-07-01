@@ -990,6 +990,22 @@ export class Memory {
           ) {
             return false;
           }
+        } else if (operator === "gt") {
+          if (!this._compareFilterValues(payloadValue, value, ">")) {
+            return false;
+          }
+        } else if (operator === "gte") {
+          if (!this._compareFilterValues(payloadValue, value, ">=")) {
+            return false;
+          }
+        } else if (operator === "lt") {
+          if (!this._compareFilterValues(payloadValue, value, "<")) {
+            return false;
+          }
+        } else if (operator === "lte") {
+          if (!this._compareFilterValues(payloadValue, value, "<=")) {
+            return false;
+          }
         } else if (operator === "in") {
           if (!Array.isArray(value) || !value.includes(payloadValue)) {
             return false;
@@ -1025,6 +1041,42 @@ export class Memory {
     }
 
     return payloadValue === condition;
+  }
+
+  private _compareFilterValues(
+    payloadValue: any,
+    filterValue: any,
+    operator: ">" | ">=" | "<" | "<=",
+  ): boolean {
+    if (payloadValue === undefined || payloadValue === null) {
+      return false;
+    }
+
+    const payloadNumber = Number(payloadValue);
+    const filterNumber = Number(filterValue);
+    if (Number.isFinite(payloadNumber) && Number.isFinite(filterNumber)) {
+      if (operator === ">") return payloadNumber > filterNumber;
+      if (operator === ">=") return payloadNumber >= filterNumber;
+      if (operator === "<") return payloadNumber < filterNumber;
+      return payloadNumber <= filterNumber;
+    }
+
+    const payloadTime =
+      payloadValue instanceof Date
+        ? payloadValue.getTime()
+        : Date.parse(String(payloadValue));
+    const filterTime =
+      filterValue instanceof Date
+        ? filterValue.getTime()
+        : Date.parse(String(filterValue));
+    if (Number.isFinite(payloadTime) && Number.isFinite(filterTime)) {
+      if (operator === ">") return payloadTime > filterTime;
+      if (operator === ">=") return payloadTime >= filterTime;
+      if (operator === "<") return payloadTime < filterTime;
+      return payloadTime <= filterTime;
+    }
+
+    return false;
   }
 
   private async _initializeTelemetry() {
@@ -1812,21 +1864,7 @@ export class Memory {
 
     // Apply enhanced metadata filtering if advanced operators are detected
     if (this._hasAdvancedOperators(effectiveFilters)) {
-      const processedFilters = this._processMetadataFilters(effectiveFilters);
-      // Remove logical/operator keys that have been reprocessed
-      for (const logicalKey of ["AND", "OR", "NOT"]) {
-        delete effectiveFilters[logicalKey];
-      }
-      for (const fk of Object.keys(effectiveFilters)) {
-        if (
-          !["AND", "OR", "NOT", "user_id", "agent_id", "run_id"].includes(fk) &&
-          typeof effectiveFilters[fk] === "object" &&
-          effectiveFilters[fk] !== null
-        ) {
-          delete effectiveFilters[fk];
-        }
-      }
-      effectiveFilters = { ...effectiveFilters, ...processedFilters };
+      effectiveFilters = this._processMetadataFilters(effectiveFilters);
     }
 
     // Validate filters contains at least one entity ID (snake_case)
@@ -2423,8 +2461,6 @@ export class Memory {
   private _processMetadataFilters(
     metadataFilters: Record<string, any>,
   ): Record<string, any> {
-    const processedFilters: Record<string, any> = {};
-
     const processCondition = (
       key: string,
       condition: any,
@@ -2469,56 +2505,52 @@ export class Memory {
       return result;
     };
 
-    for (const [key, value] of Object.entries(metadataFilters)) {
-      if (key === "AND") {
-        // Logical AND: combine multiple conditions
-        if (!Array.isArray(value)) {
-          throw new Error("AND operator requires a list of conditions");
-        }
-        for (const condition of value) {
-          for (const [subKey, subValue] of Object.entries(condition)) {
-            Object.assign(processedFilters, processCondition(subKey, subValue));
-          }
-        }
-      } else if (key === "OR") {
-        // Logical OR: Pass through to vector store for implementation-specific handling
-        if (!Array.isArray(value) || value.length === 0) {
-          throw new Error(
-            "OR operator requires a non-empty list of conditions",
-          );
-        }
-        processedFilters["$or"] = [];
-        for (const condition of value) {
-          const orCondition: Record<string, any> = {};
-          for (const [subKey, subValue] of Object.entries(
-            condition as Record<string, any>,
-          )) {
-            Object.assign(orCondition, processCondition(subKey, subValue));
-          }
-          processedFilters["$or"].push(orCondition);
-        }
-      } else if (key === "NOT") {
-        // Logical NOT: Pass through to vector store for implementation-specific handling
-        if (!Array.isArray(value) || value.length === 0) {
-          throw new Error(
-            "NOT operator requires a non-empty list of conditions",
-          );
-        }
-        processedFilters["$not"] = [];
-        for (const condition of value) {
-          const notCondition: Record<string, any> = {};
-          for (const [subKey, subValue] of Object.entries(
-            condition as Record<string, any>,
-          )) {
-            Object.assign(notCondition, processCondition(subKey, subValue));
-          }
-          processedFilters["$not"].push(notCondition);
-        }
-      } else {
-        Object.assign(processedFilters, processCondition(key, value));
-      }
-    }
+    const processFilterObject = (
+      filters: Record<string, any>,
+    ): Record<string, any> => {
+      const processedFilters: Record<string, any> = {};
 
-    return processedFilters;
+      for (const [key, value] of Object.entries(filters)) {
+        if (key === "AND" || key === "$and") {
+          // Logical AND: combine multiple conditions into the same filter
+          // object where vector stores interpret fields as implicit AND.
+          if (!Array.isArray(value)) {
+            throw new Error("AND operator requires a list of conditions");
+          }
+          for (const condition of value) {
+            Object.assign(
+              processedFilters,
+              processFilterObject(condition as Record<string, any>),
+            );
+          }
+        } else if (key === "OR" || key === "$or") {
+          // Logical OR: Pass through to vector store for implementation-specific handling
+          if (!Array.isArray(value) || value.length === 0) {
+            throw new Error(
+              "OR operator requires a non-empty list of conditions",
+            );
+          }
+          processedFilters["$or"] = value.map((condition) =>
+            processFilterObject(condition as Record<string, any>),
+          );
+        } else if (key === "NOT" || key === "$not") {
+          // Logical NOT: Pass through to vector store for implementation-specific handling
+          if (!Array.isArray(value) || value.length === 0) {
+            throw new Error(
+              "NOT operator requires a non-empty list of conditions",
+            );
+          }
+          processedFilters["$not"] = value.map((condition) =>
+            processFilterObject(condition as Record<string, any>),
+          );
+        } else {
+          Object.assign(processedFilters, processCondition(key, value));
+        }
+      }
+
+      return processedFilters;
+    };
+
+    return processFilterObject(metadataFilters);
   }
 }
