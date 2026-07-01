@@ -1,13 +1,13 @@
 ---
 title: Together
-description: "Configure Together AI as an embedding provider in Mem0 with support for 768-dimensional embedding models."
+description: "Configure Together AI as an embedding provider in Mem0 with support for 1024-dimensional embedding models."
 ---
 
-To use Together embedding models, set the `TOGETHER_API_KEY` environment variable. You can obtain the Together API key from the [Together Platform](https://api.together.xyz/settings/api-keys).
+To use Together embedding models, set the `TOGETHER_API_KEY` environment variable. You can obtain the Together API key from the [Together Platform](https://api.together.ai/settings/projects/~current/api-keys).
 
 ### Usage
 
-<Note> The `embedding_model_dims` parameter for `vector_store` should be set to `768` for Together embedder. </Note>
+<Note> The `embedding_model_dims` parameter for `vector_store` should be set to `1024` for Together embedder. </Note>
 
 <CodeGroup>
 ```python Python
@@ -21,7 +21,7 @@ config = {
     "embedder": {
         "provider": "together",
         "config": {
-            "model": "togethercomputer/m2-bert-80M-8k-retrieval"
+            "model": "intfloat/multilingual-e5-large-instruct"
         }
     }
 }
@@ -30,7 +30,7 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="john")
@@ -44,8 +44,8 @@ const config = {
     provider: 'together',
     config: {
       apiKey: 'your-together-api-key',
-      model: 'togethercomputer/m2-bert-80M-8k-retrieval',
-      embeddingDims: 768,
+      model: 'intfloat/multilingual-e5-large-instruct',
+      embeddingDims: 1024,
     },
   },
 };
@@ -64,16 +64,16 @@ Here are the parameters available for configuring Together embedder:
 <Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| `model` | The name of the embedding model to use | `togethercomputer/m2-bert-80M-8k-retrieval` |
-| `embedding_dims` | Dimensions of the embedding model | `768` |
+| `model` | The name of the embedding model to use | `intfloat/multilingual-e5-large-instruct` |
+| `embedding_dims` | Dimensions of the embedding model | `1024` |
 | `api_key` | The Together API key | `None` |
 </Tab>
 <Tab title="TypeScript">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
-| `model` | The name of the embedding model to use | `togethercomputer/m2-bert-80M-8k-retrieval` |
-| `embeddingDims` | Dimensions of the embedding model for vector store configuration | `768` |
+| `model` | The name of the embedding model to use | `intfloat/multilingual-e5-large-instruct` |
+| `embeddingDims` | Dimensions of the embedding model for vector store configuration | `1024` |
 | `apiKey` | The Together API key | `TOGETHER_API_KEY` |
-| `baseURL` | Base URL for an OpenAI-compatible Together endpoint | `https://api.together.xyz/v1` |
+| `baseURL` | Base URL for an OpenAI-compatible Together endpoint | `https://api.together.ai/v1` |
 </Tab>
 </Tabs>

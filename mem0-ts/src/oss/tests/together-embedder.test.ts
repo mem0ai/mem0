@@ -38,10 +38,10 @@ describe("TogetherEmbedder (unit)", () => {
 
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "test-key",
-      baseURL: "https://api.together.xyz/v1",
+      baseURL: "https://api.together.ai/v1",
     });
     expect(mockEmbeddingsCreate).toHaveBeenCalledWith({
-      model: "togethercomputer/m2-bert-80M-8k-retrieval",
+      model: "intfloat/multilingual-e5-large-instruct",
       input: "hello",
       encoding_format: "float",
     });
@@ -56,7 +56,7 @@ describe("TogetherEmbedder (unit)", () => {
 
     expect(mockOpenAI).toHaveBeenCalledWith({
       apiKey: "env-key",
-      baseURL: "https://api.together.xyz/v1",
+      baseURL: "https://api.together.ai/v1",
     });
   });
 

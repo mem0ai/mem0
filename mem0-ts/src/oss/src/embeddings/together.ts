@@ -1,8 +1,8 @@
 import { OpenAIEmbedder } from "./openai";
 import { TogetherEmbeddingConfig } from "../types";
 
-const DEFAULT_BASE_URL = "https://api.together.xyz/v1";
-const DEFAULT_MODEL = "togethercomputer/m2-bert-80M-8k-retrieval";
+const DEFAULT_BASE_URL = "https://api.together.ai/v1";
+const DEFAULT_MODEL = "intfloat/multilingual-e5-large-instruct";
 
 export class TogetherEmbedder extends OpenAIEmbedder {
   constructor(config: TogetherEmbeddingConfig) {
