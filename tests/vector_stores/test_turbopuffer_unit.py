@@ -40,7 +40,7 @@ class TestTurbopufferDB:
     # --- init ---
 
     def test_init_creates_client_and_namespace(self):
-        store = self._make_store()
+        self._make_store()
         self.MockTurbopuffer.assert_called_once()
         self.mock_client.namespace.assert_called_once_with("test-ns")
 

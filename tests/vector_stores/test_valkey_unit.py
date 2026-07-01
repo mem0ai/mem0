@@ -71,7 +71,7 @@ class TestValkeyDB:
     # --- init ---
 
     def test_init_creates_index_when_not_found(self):
-        store = self._make_store()
+        self._make_store()
         calls = [c.args[0] for c in self.mock_client.execute_command.call_args_list]
         assert "FT._LIST" in calls
         assert "FT.CREATE" in calls
