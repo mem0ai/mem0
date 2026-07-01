@@ -138,6 +138,11 @@ jest.mock("../src/vector_stores/pgvector", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
 }));
+jest.mock("../src/vector_stores/chroma", () => ({
+  ChromaDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "chroma", config })),
+}));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
     .fn()
@@ -260,6 +265,7 @@ describe("VectorStoreFactory", () => {
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["chroma"],
   ])("creates vector store for provider '%s'", (provider) => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),
