@@ -1,4 +1,4 @@
-import json
+﻿import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -167,6 +167,67 @@ async def test_async_memory_reset_clears_messages_table(mock_llm_factory, mock_v
     hist_count = memory.db.connection.execute("SELECT COUNT(*) FROM history").fetchone()[0]
     assert msg_count == 0, "messages must be empty after AsyncMemory.reset()"
     assert hist_count == 0, "history must be empty after AsyncMemory.reset()"
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.reset')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+async def test_async_memory_reset_uses_factory_reset_when_supported(
+    mock_llm_factory, mock_vector_factory, mock_vector_reset, mock_embedder_factory, tmp_path
+):
+    """AsyncMemory.reset() must call VectorStoreFactory.reset() when the vector store exposes reset().
+
+    Regression for issue #5915: the async path was unconditionally calling delete_col()
+    instead of checking hasattr(vector_store, "reset") like the sync Memory.reset() does.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock(spec=["reset", "delete_col"])
+    mock_vector_factory.return_value = mock_vector_store
+    mock_vector_reset.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = AsyncMemory(config)
+
+    await memory.reset()
+
+    mock_vector_reset.assert_called_once_with(mock_vector_store)
+    mock_vector_store.delete_col.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.reset')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+async def test_async_memory_reset_falls_back_to_delete_col(
+    mock_llm_factory, mock_vector_factory, mock_vector_reset, mock_embedder_factory, tmp_path
+):
+    """AsyncMemory.reset() must fall back to delete_col() when the vector store lacks reset().
+
+    Regression for issue #5915: ensures the fallback path (no reset method) still works.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock(spec=["delete_col"])
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = AsyncMemory(config)
+
+    await memory.reset()
+
+    mock_vector_store.delete_col.assert_called_once()
+    mock_vector_reset.assert_not_called()
+
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -571,7 +632,7 @@ def test_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, m
     """
     Test that _update_memory() raises ValueError when memory_id does not exist.
 
-    Same class of bug as #3849 — vector_store.get() returns None and code
+    Same class of bug as #3849 â€” vector_store.get() returns None and code
     accesses .payload without a null check.
     """
     mock_embedder_factory.return_value = MagicMock()
@@ -601,7 +662,7 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
     """
     Test that async _update_memory() raises ValueError when memory_id does not exist.
 
-    Same class of bug as #3849 — vector_store.get() returns None and code
+    Same class of bug as #3849 â€” vector_store.get() returns None and code
     accesses .payload without a null check.
     """
     mock_embedder_factory.return_value = MagicMock()
@@ -1068,7 +1129,7 @@ class TestProcessMetadataFiltersMerge:
         assert result == {"price": {"gt": 10, "lt": 20}, "category": "electronics"}
 
     def test_and_simple_equality_no_merge(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
-        """AND with simple equality values on the same key — last value wins."""
+        """AND with simple equality values on the same key â€” last value wins."""
         memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
         result = memory._process_metadata_filters({
             "AND": [{"status": "active"}, {"status": "pending"}]
@@ -1102,7 +1163,7 @@ def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mo
     assert memory.graph is None
 
 
-# ─── Entity Param Rejection Tests ─────────────────────────────────────────────
+# â”€â”€â”€ Entity Param Rejection Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -1139,7 +1200,7 @@ def test_get_all_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vecto
         memory.get_all(user_id="u1")
 
 
-# ─── Regression: AsyncMemory._create_memory must store text_lemmatized ─────────
+# â”€â”€â”€ Regression: AsyncMemory._create_memory must store text_lemmatized â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
