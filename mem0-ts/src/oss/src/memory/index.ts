@@ -360,13 +360,47 @@ export class Memory {
     }
 
     const provider = this.config.vectorStore.provider.toLowerCase();
-    if (!["pgvector", "qdrant"].includes(provider)) {
-      return providerFilters;
+    if (["pgvector", "qdrant"].includes(provider)) {
+      return this._providerFilterFromAlternatives(
+        this._providerScopeAliasAlternatives(providerFilters),
+      );
     }
 
-    return this._providerFilterFromAlternatives(
-      this._providerScopeAliasAlternatives(providerFilters),
+    if (!this._providerSupportsLogicalFilters(provider)) {
+      return this._stripUnsupportedLogicalFiltersForProvider(providerFilters);
+    }
+
+    return providerFilters;
+  }
+
+  private _isLogicalFilterKey(key: string): boolean {
+    return (
+      key === "AND" ||
+      key === "OR" ||
+      key === "NOT" ||
+      key === "$and" ||
+      key === "$or" ||
+      key === "$not"
     );
+  }
+
+  private _providerSupportsLogicalFilters(provider: string): boolean {
+    return provider === "memory";
+  }
+
+  private _stripUnsupportedLogicalFiltersForProvider(
+    filter: Record<string, any>,
+  ): Record<string, any> | undefined {
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(filter)) {
+      if (this._isLogicalFilterKey(key)) {
+        continue;
+      }
+      result[key] = value;
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined;
   }
 
   private _stripScopeWildcardsForProvider(
@@ -375,19 +409,11 @@ export class Memory {
     const result: Record<string, any> = {};
 
     for (const [key, value] of Object.entries(filter)) {
-      const isLogicalKey =
-        key === "AND" ||
-        key === "OR" ||
-        key === "NOT" ||
-        key === "$and" ||
-        key === "$or" ||
-        key === "$not";
-
       if (this._canonicalScopeKey(key) && value === "*") {
         continue;
       }
 
-      if (isLogicalKey && Array.isArray(value)) {
+      if (this._isLogicalFilterKey(key) && Array.isArray(value)) {
         const logicalFilters: Record<string, any>[] = [];
         let logicalFilterIsUnrestricted = false;
 
@@ -422,6 +448,57 @@ export class Memory {
     }
 
     return Object.keys(result).length > 0 ? result : undefined;
+  }
+
+  private _wildcardScopeKeys(
+    filter: unknown,
+    keys = new Set<ScopeKey>(),
+  ): Set<ScopeKey> {
+    if (!filter || typeof filter !== "object") {
+      return keys;
+    }
+
+    if (Array.isArray(filter)) {
+      for (const item of filter) {
+        this._wildcardScopeKeys(item, keys);
+      }
+      return keys;
+    }
+
+    for (const [key, value] of Object.entries(filter)) {
+      const scopeKey = this._canonicalScopeKey(key);
+      if (scopeKey && value === "*") {
+        keys.add(scopeKey);
+      }
+
+      if (this._isLogicalFilterKey(key)) {
+        this._wildcardScopeKeys(value, keys);
+      }
+    }
+
+    return keys;
+  }
+
+  private _rejectWildcardScopeFilters(
+    filter: Record<string, any>,
+    methodName: string,
+  ): void {
+    const wildcardScopeKeys = SCOPE_KEYS.filter((key) =>
+      this._wildcardScopeKeys(filter).has(key),
+    );
+
+    if (wildcardScopeKeys.length === 0) {
+      return;
+    }
+
+    const suffix =
+      methodName === "deleteAll"
+        ? " because it is destructive. Provide explicit scope values, or use reset() to delete all memories."
+        : ". Provide explicit scope values.";
+
+    throw new Error(
+      `Wildcard scope filters [${wildcardScopeKeys.join(", ")}] are not supported in ${methodName}()${suffix}`,
+    );
   }
 
   private _providerScopeAliasAlternatives(
@@ -656,6 +733,18 @@ export class Memory {
       }
 
       if (
+        !options.exhaustive &&
+        !providerReturnsTotalCount &&
+        options.topK !== undefined &&
+        scoped.length < options.topK &&
+        rawMemories.length >= fetchLimit
+      ) {
+        throw new Error(
+          `getAll cannot safely return all requested scoped memories for vector store provider '${provider}' because list() returned a full page without a total count. Narrow the scope filters or lower topK.`,
+        );
+      }
+
+      if (
         total === undefined ||
         !Number.isFinite(total) ||
         fetchLimit >= total
@@ -698,6 +787,7 @@ export class Memory {
           total !== undefined &&
           Number.isFinite(total) &&
           total > 0 &&
+          total > rawMemories.length &&
           rawMemories.length >= DELETE_ALL_SCOPE_FETCH_LIMIT
         ) {
           throw new Error(
@@ -1965,6 +2055,8 @@ export class Memory {
         )
       : {};
 
+    this._rejectWildcardScopeFilters(normalizedFilters, "search");
+
     await this._ensureInitialized();
     const { topK = 20, threshold = 0.1, explain = false } = config;
 
@@ -2254,12 +2346,7 @@ export class Memory {
       );
     }
 
-    const wildcardScopeKeys = SCOPE_KEYS.filter((key) => filters[key] === "*");
-    if (wildcardScopeKeys.length > 0) {
-      throw new Error(
-        `Wildcard scope filters [${wildcardScopeKeys.join(", ")}] are not supported in deleteAll() because it is destructive. Provide explicit scope values, or use reset() to delete all memories.`,
-      );
-    }
+    this._rejectWildcardScopeFilters(filters, "deleteAll");
 
     const deletedCount = await this._deleteAllByRequestedScope(filters);
 
@@ -2358,6 +2445,8 @@ export class Memory {
         run_id: validateAndTrimEntityId(config.filters?.run_id, "run_id"),
       }).filter(([, v]) => v !== undefined),
     );
+
+    this._rejectWildcardScopeFilters(filters, "getAll");
 
     await this._captureEvent("get_all", {
       topK,
