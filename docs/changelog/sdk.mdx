@@ -1606,6 +1606,15 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-07-01" description="Python v0.2.9 / Node v0.2.10">
+
+**Bug Fixes:**
+- **`entity delete`:** Keep every deleted entity in the result output instead of only the last one (Python [#5936](https://github.com/mem0ai/mem0/pull/5936), Node [#5970](https://github.com/mem0ai/mem0/pull/5970))
+- **Output formatters (Python):** Handle null memory fields in the output formatters instead of erroring ([#5957](https://github.com/mem0ai/mem0/pull/5957))
+- **Config (Python):** Reject invalid integer config values with a clean error instead of a traceback ([#5956](https://github.com/mem0ai/mem0/pull/5956))
+
+</Update>
+
 <Update label="2026-06-19" description="Python v0.2.8 / Node v0.2.9">
 
 **Security:**
