@@ -681,7 +681,467 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6. Vectorize — mock Cloudflare client, test idempotent init
+// 6. Cassandra — mock client, test interface + idempotent init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Cassandra – backward compat with mocked client", () => {
+  let CassandraDB: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    jest.doMock("cassandra-driver", () => {
+      const rows = new Map<
+        string,
+        { id: string; vector: number[]; payload: string }
+      >();
+      const memoryRows = () =>
+        Array.from(rows.entries())
+          .filter(([key]) => key.startsWith("memories:"))
+          .map(([, row]) => row);
+
+      class MockClient {
+        connect = jest.fn().mockResolvedValue(undefined);
+
+        execute = jest
+          .fn()
+          .mockImplementation(
+            async (
+              query: string,
+              params: any[] = [],
+              options: Record<string, any> = {},
+            ) => {
+              const normalized = query.replace(/\s+/g, " ").trim();
+
+              if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+                return { rows: [] };
+              }
+
+              if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "INSERT INTO mem0.memories (id, vector, payload) VALUES (?, ?, ?)",
+                )
+              ) {
+                rows.set(`memories:${params[0]}`, {
+                  id: params[0],
+                  vector: params[1],
+                  payload: params[2],
+                });
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT id, payload FROM mem0.memories WHERE id = ?",
+                )
+              ) {
+                const row = rows.get(`memories:${params[0]}`);
+                return {
+                  rows: row ? [{ id: row.id, payload: row.payload }] : [],
+                };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT id, vector, payload FROM mem0.memories",
+                )
+              ) {
+                return {
+                  rows: memoryRows().map((row) => ({
+                    ...row,
+                  })),
+                };
+              }
+
+              if (
+                normalized.startsWith("SELECT id, payload FROM mem0.memories")
+              ) {
+                return {
+                  rows: memoryRows().map((row) => ({
+                    id: row.id,
+                    payload: row.payload,
+                  })),
+                };
+              }
+
+              if (normalized.startsWith("DROP TABLE IF EXISTS mem0.memories")) {
+                for (const key of Array.from(rows.keys())) {
+                  if (key.startsWith("memories:")) {
+                    rows.delete(key);
+                  }
+                }
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith("DELETE FROM mem0.memories WHERE id = ?")
+              ) {
+                rows.delete(`memories:${params[0]}`);
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "INSERT INTO mem0.memory_migrations (id, user_id) VALUES (?, ?)",
+                )
+              ) {
+                rows.set(`migrations:${params[0]}`, {
+                  id: params[0],
+                  vector: [0],
+                  payload: JSON.stringify({ user_id: params[1] }),
+                });
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+                )
+              ) {
+                const row = rows.get(`migrations:${params[0]}`);
+                if (!row) {
+                  return { rows: [] };
+                }
+                return {
+                  rows: [{ user_id: JSON.parse(row.payload).user_id }],
+                };
+              }
+
+              throw new Error(
+                `Unexpected Cassandra query: ${normalized} prepare=${options.prepare}`,
+              );
+            },
+          );
+      }
+
+      return {
+        __esModule: true,
+        default: {
+          Client: jest.fn().mockImplementation(() => new MockClient()),
+          auth: {
+            PlainTextAuthProvider: jest
+              .fn()
+              .mockImplementation((username: string, password: string) => ({
+                username,
+                password,
+              })),
+          },
+        },
+      };
+    });
+
+    CassandraDB = require("../src/vector_stores/cassandra").CassandraDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new CassandraDB({
+      client: {
+        execute: jest.fn().mockResolvedValue({ rows: [] }),
+      },
+      collectionName: "memories",
+      dimension: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const cassandraDriver = require("cassandra-driver");
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    const clientInstance = cassandraDriver.default.Client.mock.results[0].value;
+    expect(clientInstance.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("shapes Cassandra writes and normalizes search results", async () => {
+    const cassandraDriver = require("cassandra-driver");
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const clientInstance = cassandraDriver.default.Client.mock.results[0].value;
+    expect(clientInstance.execute).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "INSERT INTO mem0.memories (id, vector, payload)",
+      ),
+      ["id-1", [1, 0, 0], JSON.stringify({ user_id: "u1", topic: "alpha" })],
+      { prepare: true },
+    );
+
+    const results = await store.search([1, 0, 0], 5, { user_id: "u1" });
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+    ]);
+  });
+
+  it("roundtrips migration user ids", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+  });
+
+  it("supports get, update, delete, and list", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 0, 0],
+        [0, 1, 0],
+      ],
+      ["id-1", "id-2"],
+      [
+        { user_id: "u1", topic: "alpha" },
+        { user_id: "u2", topic: "beta" },
+      ],
+    );
+
+    expect(await store.get("missing")).toBeNull();
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "alpha" },
+    });
+
+    await store.update("id-1", [0, 0, 1], {
+      user_id: "u1",
+      topic: "gamma",
+    });
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "gamma" },
+    });
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 10);
+    expect(count).toBe(1);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "gamma" },
+      },
+    ]);
+
+    await store.delete("id-2");
+    expect(await store.get("id-2")).toBeNull();
+
+    await store.deleteCol();
+    const [afterDrop, afterDropCount] = await store.list(undefined, 10);
+    expect(afterDrop).toEqual([]);
+    expect(afterDropCount).toBe(0);
+  });
+
+  it("scans paged search and list results", async () => {
+    const execute = jest
+      .fn()
+      .mockImplementation(
+        async (
+          query: string,
+          _params: any[] = [],
+          options: Record<string, any> = {},
+        ) => {
+          const normalized = query.replace(/\s+/g, " ").trim();
+
+          if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT id, vector, payload FROM mem0.memories",
+            )
+          ) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    vector: [1, 0, 0],
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  vector: [0, 1, 0],
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (normalized.startsWith("SELECT id, payload FROM mem0.memories")) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+            )
+          ) {
+            return { rows: [] };
+          }
+
+          throw new Error(`Unexpected Cassandra query: ${normalized}`);
+        },
+      );
+    const store = new CassandraDB({
+      client: { execute },
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const searchResults = await store.search([1, 0, 0], 5);
+    expect(searchResults).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+        score: 0,
+      },
+    ]);
+
+    const [listed, count] = await store.list(undefined, 10);
+    expect(count).toBe(2);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+      },
+    ]);
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: undefined,
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+  });
+
+  it("rejects unsafe identifiers", () => {
+    expect(
+      () =>
+        new CassandraDB({
+          client: {
+            execute: jest.fn().mockResolvedValue({ rows: [] }),
+          },
+          keyspace: "bad-name",
+          collectionName: "memories",
+          dimension: 3,
+        }),
+    ).toThrow("Invalid keyspace");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;
