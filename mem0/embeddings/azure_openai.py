@@ -14,6 +14,10 @@ class AzureOpenAIEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
+        # Only pass `dimensions` to the API when the user set embedding_dims, mirroring
+        # OpenAIEmbedding; otherwise the requested dimension is silently ignored.
+        self._pass_dimensions_to_api = self.config.embedding_dims is not None
+
         api_key = self.config.azure_kwargs.api_key or os.getenv("EMBEDDING_AZURE_OPENAI_API_KEY")
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("EMBEDDING_AZURE_DEPLOYMENT")
         azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("EMBEDDING_AZURE_ENDPOINT")
@@ -52,7 +56,10 @@ class AzureOpenAIEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         text = text.replace("\n", " ")
-        return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
+        kwargs = {"input": [text], "model": self.config.model, "encoding_format": "float"}
+        if self._pass_dimensions_to_api:
+            kwargs["dimensions"] = self.config.embedding_dims
+        return self.client.embeddings.create(**kwargs).data[0].embedding
 
     def embed_batch(self, texts, memory_action="add"):
         """Embed multiple texts in a single Azure OpenAI API call.
@@ -64,9 +71,9 @@ class AzureOpenAIEmbedding(EmbeddingBase):
         all_embeddings = []
         for i in range(0, len(texts), MAX_BATCH):
             chunk = texts[i : i + MAX_BATCH]
-            response = self.client.embeddings.create(
-                input=chunk,
-                model=self.config.model,
-            )
+            kwargs = {"input": chunk, "model": self.config.model, "encoding_format": "float"}
+            if self._pass_dimensions_to_api:
+                kwargs["dimensions"] = self.config.embedding_dims
+            response = self.client.embeddings.create(**kwargs)
             all_embeddings.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
         return all_embeddings
