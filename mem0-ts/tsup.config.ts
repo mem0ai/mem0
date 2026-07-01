@@ -22,6 +22,7 @@ const external = [
   "@langchain/core",
   "compromise",
   "natural",
+  "weaviate-client",
 ];
 
 const define = {

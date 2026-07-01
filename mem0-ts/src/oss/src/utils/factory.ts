@@ -116,6 +116,11 @@ export class VectorStoreFactory {
         return new AzureAISearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "weaviate": {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { WeaviateDB } = require("../vector_stores/weaviate");
+        return new WeaviateDB(config as any);
+      }
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
