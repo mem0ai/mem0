@@ -306,6 +306,24 @@ describe("ConfigManager", () => {
       expect(cfg.llm.config.baseURL).toBe("http://camel:1234/v1");
     });
 
+    it("normalizes extra_headers to extraHeaders for LLM", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: { provider: "memory", config: {} },
+        llm: {
+          provider: "openai",
+          config: {
+            apiKey: "k",
+            extra_headers: { "Helicone-Auth": "Bearer test" },
+          } as any,
+        },
+      });
+
+      expect(cfg.llm.config.extraHeaders).toEqual({
+        "Helicone-Auth": "Bearer test",
+      });
+    });
+
     it("falls back to default baseURL when neither is provided for LLM", () => {
       const cfg = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
