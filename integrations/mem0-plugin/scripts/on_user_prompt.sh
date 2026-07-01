@@ -25,6 +25,14 @@ if [ ${#PROMPT} -lt 20 ]; then
   exit 0
 fi
 
+# Honor auto_search setting: when false, skip all automatic searches and
+# rubric injection.  The agent can still call search_memories via MCP
+# manually — this only disables the hook-driven auto-retrieval that
+# consumes the monthly retrieval quota.
+if [ "${MEM0_AUTO_SEARCH:-true}" = "false" ]; then
+  exit 0
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
