@@ -1,6 +1,7 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
+import { TogetherEmbedder } from "../embeddings/together";
 import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
@@ -48,6 +49,8 @@ export class EmbedderFactory {
         return new OllamaEmbedder(config);
       case "lmstudio":
         return new LMStudioEmbedder(config);
+      case "together":
+        return new TogetherEmbedder(config);
       case "google":
       case "gemini":
         return new GoogleEmbedder(config);

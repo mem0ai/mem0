@@ -5,6 +5,9 @@ import pytest
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.together import TogetherEmbedding
 
+DEFAULT_MODEL = "intfloat/multilingual-e5-large-instruct"
+DEFAULT_EMBEDDING_DIMS = 1024
+
 
 @pytest.fixture
 def mock_together_client():
@@ -15,7 +18,7 @@ def mock_together_client():
 
 
 def test_embed_text(mock_together_client):
-    config = BaseEmbedderConfig(model="togethercomputer/m2-bert-80M-8k-retrieval", embedding_dims=768)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, embedding_dims=DEFAULT_EMBEDDING_DIMS)
     embedder = TogetherEmbedding(config)
 
     mock_together_client.embeddings.create.return_value = Mock(data=[Mock(embedding=[0.1, 0.2, 0.3, 0.4, 0.5])])
@@ -23,14 +26,12 @@ def test_embed_text(mock_together_client):
     text = "Sample text to embed."
     embedding = embedder.embed(text)
 
-    mock_together_client.embeddings.create.assert_called_once_with(
-        model="togethercomputer/m2-bert-80M-8k-retrieval", input=text
-    )
+    mock_together_client.embeddings.create.assert_called_once_with(model=DEFAULT_MODEL, input=text)
     assert embedding == [0.1, 0.2, 0.3, 0.4, 0.5]
 
 
 def test_embed_batch_single_call(mock_together_client):
-    config = BaseEmbedderConfig(model="togethercomputer/m2-bert-80M-8k-retrieval", embedding_dims=768)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, embedding_dims=DEFAULT_EMBEDDING_DIMS)
     embedder = TogetherEmbedding(config)
 
     mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
@@ -40,14 +41,12 @@ def test_embed_batch_single_call(mock_together_client):
     texts = ["First text.", "Second text."]
     embeddings = embedder.embed_batch(texts)
 
-    mock_together_client.embeddings.create.assert_called_once_with(
-        model="togethercomputer/m2-bert-80M-8k-retrieval", input=texts
-    )
+    mock_together_client.embeddings.create.assert_called_once_with(model=DEFAULT_MODEL, input=texts)
     assert embeddings == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
 
 def test_embed_batch_empty_list(mock_together_client):
-    config = BaseEmbedderConfig(model="togethercomputer/m2-bert-80M-8k-retrieval", embedding_dims=768)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, embedding_dims=DEFAULT_EMBEDDING_DIMS)
     embedder = TogetherEmbedding(config)
 
     result = embedder.embed_batch([])
@@ -57,7 +56,7 @@ def test_embed_batch_empty_list(mock_together_client):
 
 
 def test_embed_batch_count_mismatch_raises(mock_together_client):
-    config = BaseEmbedderConfig(model="togethercomputer/m2-bert-80M-8k-retrieval", embedding_dims=768)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, embedding_dims=DEFAULT_EMBEDDING_DIMS)
     embedder = TogetherEmbedding(config)
 
     mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
@@ -65,3 +64,10 @@ def test_embed_batch_count_mismatch_raises(mock_together_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_default_config_uses_current_together_embedding_model(mock_together_client):
+    embedder = TogetherEmbedding(BaseEmbedderConfig())
+
+    assert embedder.config.model == DEFAULT_MODEL
+    assert embedder.config.embedding_dims == DEFAULT_EMBEDDING_DIMS
