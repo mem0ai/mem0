@@ -16,6 +16,8 @@ jest.mock("../src/llms/google", () => ({
   GoogleLLM: jest.fn(),
 }));
 
+let lastUserPrompt = "";
+
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest.fn().mockImplementation(() => ({
     generateResponse: jest
@@ -25,6 +27,7 @@ jest.mock("../src/llms/openai", () => ({
           // V3 pipeline: single LLM call with additive extraction prompt.
           const userMsg = messages.find((m) => m.role === "user");
           const content = userMsg?.content ?? "";
+          lastUserPrompt = content;
           const newMsgMatch = content.match(
             /## New Messages\n([\s\S]*?)(?=\n##|$)/,
           );
@@ -169,6 +172,34 @@ describe("Memory - add()", () => {
     expect(stored).not.toBeNull();
     expect(stored!.metadata).toEqual(
       expect.objectContaining({ source: "chat", tag: "programming" }),
+    );
+  });
+
+  test("uses metadata timestamp as observation date", async () => {
+    await memory.add("I went to Paris last week", {
+      userId,
+      metadata: { timestamp: "2022-01-16T09:30:00+00:00" },
+    });
+
+    expect(lastUserPrompt).toContain(
+      "## Observation Date\n2022-01-16T09:30:00+00:00",
+    );
+  });
+
+  test("uses message created_at as observation date without metadata timestamp", async () => {
+    await memory.add(
+      [
+        {
+          role: "user",
+          content: "I went to Paris last week",
+          created_at: "2021-03-01T00:00:00+00:00",
+        } as any,
+      ],
+      { userId },
+    );
+
+    expect(lastUserPrompt).toContain(
+      "## Observation Date\n2021-03-01T00:00:00+00:00",
     );
   });
 
