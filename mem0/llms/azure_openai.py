@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 from typing import Dict, List, Optional, Union
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
@@ -87,7 +88,7 @@ class AzureOpenAILLM(LLMBase):
         messages = copy.deepcopy(messages)
         last_content = messages[-1].get("content")
         if isinstance(last_content, str):
-            messages[-1]["content"] = last_content.replace("assistant", "ai")
+            messages[-1]["content"] = re.sub(r'(?i)\bassistant\b', 'ai', last_content)
         return messages
 
     def _parse_response(self, response, tools):
