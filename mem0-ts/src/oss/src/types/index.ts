@@ -19,6 +19,8 @@ export interface EmbeddingConfig {
   url?: string;
   embeddingDims?: number;
   modelProperties?: Record<string, any>;
+  // HuggingFace TEI / OpenAI-compatible inference endpoint base URL.
+  huggingfaceBaseUrl?: string;
 }
 
 export interface VectorStoreConfig {
