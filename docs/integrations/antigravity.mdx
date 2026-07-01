@@ -1,9 +1,9 @@
 ---
 title: Antigravity
-description: "Add persistent memory to Google Antigravity with the Mem0 plugin — MCP server, lifecycle hooks, and slash commands."
+description: "Add persistent memory to Google Antigravity with the Mem0 plugin: MCP server, lifecycle hooks, and slash commands."
 ---
 
-Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. Your agent forgets everything between sessions — Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
+Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 
 ## Installation
 
-**Option A — degit** (recommended):
+**Option A: degit** (recommended):
 
 ```bash
 # Install the plugin (MCP server, hooks, scripts)
@@ -57,7 +57,7 @@ This installs the MCP server, lifecycle hooks, and shared scripts.
 
 ## Lifecycle Hooks
 
-The plugin uses the same shell scripts as Claude Code, Cursor, and Codex — hooks bridge environment variables using `${extensionPath}` (Antigravity's plugin-root token).
+The plugin uses the same shell scripts as Claude Code, Cursor, and Codex: hooks bridge environment variables using `${extensionPath}` (Antigravity's plugin-root token).
 
 | Hook | Event | What it does |
 |------|-------|-------------|
@@ -69,9 +69,9 @@ The plugin uses the same shell scripts as Claude Code, Cursor, and Codex — hoo
 
 ## Troubleshooting
 
-- **No tools appearing** — Restart your Antigravity session after installation
-- **"Connection failed"** — Verify your key is set: `echo $MEM0_API_KEY`
-- **MCP 401 Unauthorized** — If `${MEM0_API_KEY}` interpolation doesn't work in your `agy` version, replace with your literal key in `mcp_config.json`
+- **No tools appearing**: Restart your Antigravity session after installation
+- **"Connection failed"**: Verify your key is set: `echo $MEM0_API_KEY`
+- **MCP 401 Unauthorized**: If `${MEM0_API_KEY}` interpolation doesn't work in your `agy` version, replace with your literal key in `mcp_config.json`
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

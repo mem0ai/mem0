@@ -53,34 +53,12 @@ async function addUserPreferences() {
 await addUserPreferences();
 ```
 
-```json Output (Memories)
- [
-  {
-    "id": "ff9f3367-9e83-415d-b9c5-dc8befd9a4b4",
-    "data": { "memory": "Loves BMW, Audi, and Porsche" },
-    "event": "ADD"
-  },
-  {
-    "id": "04172ce6-3d7b-45a3-b4a1-ee9798593cb4",
-    "data": { "memory": "Hates Mercedes" },
-    "event": "ADD"
-  },
-  {
-    "id": "db363a5d-d258-4953-9e4c-777c120de34d",
-    "data": { "memory": "Loves red cars and maroon cars" },
-    "event": "ADD"
-  },
-  {
-    "id": "5519aaad-a2ac-4c0d-81d7-0d55c6ecdba8",
-    "data": { "memory": "Has a budget of 120K to 150K USD" },
-    "event": "ADD"
-  },
-  {
-    "id": "523b7693-7344-4563-922f-5db08edc8634",
-    "data": { "memory": "Likes Audi the most" },
-    "event": "ADD"
-  }
-]
+```json Output
+{
+  "message": "Memory processing has been queued for background execution",
+  "status": "PENDING",
+  "event_id": "9f8c2b1a-4e7d-4c3a-9b21-1a2b3c4d5e6f"
+}
 ```
 </CodeGroup>
 ## Retrieving Memories
@@ -88,7 +66,7 @@ await addUserPreferences();
 Search for relevant memories based on the current user input:
 
 ```javascript
-const relevantMemories = await mem0Client.search(userInput, { userId: USER_ID });
+const relevantMemories = await mem0Client.search(userInput, { filters: { user_id: USER_ID } });
 ```
 
 ## Structured Responses with Zod
@@ -194,7 +172,7 @@ async function main(memory = false) {
   // Search for relevant memories
   let relevantMemories = []
   if (memory) {
-    relevantMemories = await mem0Client.search(input, { userId: USER_ID });
+    relevantMemories = await mem0Client.search(input, { filters: { user_id: USER_ID } });
   }
 
   const response = await openAIClient.responses.create({

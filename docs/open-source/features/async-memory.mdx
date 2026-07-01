@@ -18,7 +18,7 @@ icon: "bolt"
 </Warning>
 
 <Note>
-  Working in TypeScript? The OSS `Memory` class in the Node SDK (`mem0ai/oss`) is also fully async — every method returns a `Promise` and must be `await`ed. Python’s `AsyncMemory` serves the same purpose within Python async frameworks like FastAPI. Both runtimes support awaited memory operations; choose the SDK that matches your language.
+  Working in TypeScript? The OSS `Memory` class in the Node SDK (`mem0ai/oss`) is also fully async: every method returns a `Promise` and must be `await`ed. Python’s `AsyncMemory` serves the same purpose within Python async frameworks like FastAPI. Both runtimes support awaited memory operations; choose the SDK that matches your language.
 </Note>
 
 ## Feature anatomy
@@ -151,7 +151,7 @@ async def robust_memory_search():
 ```
 
 <Warning>
-  Always cap retries—runaway loops can keep the event loop busy and block other tasks.
+  Always cap retries. Runaway loops can keep the event loop busy and block other tasks.
 </Warning>
 
 ---
@@ -301,7 +301,7 @@ async def handle_memory_operation_errors():
 ```
 
 <Warning>
-  Catch and log `ValueError` exceptions from invalid inputs—async stack traces can otherwise disappear inside background tasks.
+  Catch and log `ValueError` exceptions from invalid inputs: async stack traces can otherwise disappear inside background tasks.
 </Warning>
 
 ### Serve through FastAPI
@@ -331,7 +331,7 @@ async def search_memories(query: str, user_id: str, limit: int = 10):
 ```
 
 <Tip>
-  Create one `AsyncMemory` instance per process when using FastAPI—startup hooks are a good place to configure and reuse it.
+  Create one `AsyncMemory` instance per process when using FastAPI: startup hooks are a good place to configure and reuse it.
 </Tip>
 
 ### Instrument logging
@@ -378,13 +378,13 @@ async def logged_memory_add(memory, messages, user_id):
 - Run a quick add/search cycle and confirm the returned memory content matches your input.
 - Inspect application logs to ensure async tasks complete without blocking the event loop.
 - In FastAPI or other frameworks, hit health endpoints to verify the shared client handles concurrent requests.
-- Monitor retry counters—unexpected spikes indicate configuration or connectivity issues.
+- Monitor retry counters: unexpected spikes indicate configuration or connectivity issues.
 
 ---
 
 ## Best practices
 
-1. **Keep operations awaited:** Forgetting `await` is the fastest way to miss writes—lint for it or add helper wrappers.
+1. **Keep operations awaited:** Forgetting `await` is the fastest way to miss writes: lint for it or add helper wrappers.
 2. **Scope deletions carefully:** Always supply `user_id`, `agent_id`, or `run_id` to avoid purging too much data.
 3. **Batch writes thoughtfully:** Use `asyncio.gather` for throughput but cap concurrency based on backend capacity.
 4. **Log errors with context:** Capture user and agent scopes to triage failures quickly.

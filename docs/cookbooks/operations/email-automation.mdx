@@ -314,18 +314,16 @@ class EmailProcessor:
             user_id (str): User identifier
             sender (str, optional): Filter by sender email address
         """
-        # In OSS, user_id is an explicit parameter (not inside filters)
         if not sender:
             results = self.memory.search(
                 query=query,
-                user_id=user_id,
-                filters={"memory_category": "email"},
+                filters={"user_id": user_id, "memory_category": "email"},
             )
         else:
             results = self.memory.search(
                 query=query,
-                user_id=user_id,
                 filters={
+                    "user_id": user_id,
                     "AND": [
                         {"memory_category": "email"},
                         {"sender": sender},
@@ -343,10 +341,9 @@ class EmailProcessor:
             subject (str): Email subject to match
             user_id (str): User identifier
         """
-        # In OSS, user_id is an explicit parameter
         thread = self.memory.get_all(
-            user_id=user_id,
             filters={
+                "user_id": user_id,
                 "AND": [
                     {"memory_category": "email"},
                     {"subject": {"icontains": subject}},

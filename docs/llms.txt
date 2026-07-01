@@ -6,7 +6,7 @@
 
 ### Don't have a Mem0 API key?
 
-Install the CLI, then mint a key — no email, no dashboard, no OTP required:
+Install the CLI, then mint a key without email, dashboard, or OTP:
 
 ```bash
 # Python
@@ -16,7 +16,7 @@ pip install mem0-cli
 npm install -g @mem0/cli
 ```
 
-Then run: `mem0 init --agent --agent-caller <your-name> --json` — replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
+Then run: `mem0 init --agent --agent-caller <your-name> --json`. Replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
 
 This mints an evaluation key in <5 seconds. Use it immediately against the Platform API or MCP server. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
 
@@ -184,6 +184,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ## Core Concepts
 
+- [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/graph/history stores, and multi-signal retrieval.
 - [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when explaining working, factual, episodic, and semantic memory distinctions.
 - [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add) [Both]: Use when explaining how `add()` extracts facts, resolves conflicts, and writes to both stores.
 - [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search) [Both]: Use when explaining how queries are processed and ranked.
@@ -194,7 +195,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ## Platform
 
 ### Features - Essential
-- [Platform Features Overview](https://docs.mem0.ai/platform/features/platform-overview) [Platform]: Use when surveying what managed offers beyond CRUD.
 - [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters) [Platform]: Use when compound filters (AND/OR on metadata, entity, time) are needed at search.
 - [Entity-Scoped Memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) [Platform]: Use when partitioning memories by user, agent, app, or run.
 - [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory) [Platform]: Use when connecting facts across memories through shared entities for entity-centric or multi-hop questions.
@@ -208,7 +208,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Temporal Reasoning](https://docs.mem0.ai/platform/features/temporal-reasoning) [Platform]: Use when time-aware searches like last week, upcoming, or right now need better result ordering.
 - [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add) [Platform]: Use when `add()` should consider the surrounding conversation, not just the latest turn.
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
-- [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones — opt-in per project, search-time only, never filters candidates out.
+- [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones. Opt in per project; applies at search time and never filters candidates out.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
 
 ### Features - Data Management
@@ -220,7 +220,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Webhooks](https://docs.mem0.ai/platform/features/webhooks) [Platform]: Use when another system needs to react to memory changes in real time.
 - [Feedback Mechanism](https://docs.mem0.ai/platform/features/feedback-mechanism) [Platform]: Use when capturing user feedback to improve memory quality.
 - [Group Chat Support](https://docs.mem0.ai/platform/features/group-chat) [Platform]: Use when the conversation has multiple participants.
-- [MCP Integration](https://docs.mem0.ai/platform/features/mcp-integration) [Platform]: Use when wiring Mem0 into Claude/Cursor/other MCP clients.
 
 ### Support & Migration
 - [FAQs](https://docs.mem0.ai/platform/faqs) [Platform]: Use when answering common Platform questions.

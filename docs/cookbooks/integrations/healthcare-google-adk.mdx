@@ -50,7 +50,7 @@ load_dotenv()
 USER_ID = "Alex"
 
 # Initialize Mem0 client
-mem0 = MemoryClient()
+mem0_client = MemoryClient()
 ```
 
 ## Define Memory Tools
@@ -76,7 +76,7 @@ def retrieve_patient_info(query: str) -> dict:
     # Search Mem0
     results = mem0_client.search(
         query,
-        user_id=USER_ID,
+        filters={"user_id": USER_ID},
         top_k=5,
         threshold=0.7  # Higher threshold for more relevant results
     )

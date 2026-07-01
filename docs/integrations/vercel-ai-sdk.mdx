@@ -28,10 +28,10 @@ npm install @mem0/vercel-ai-provider ai@^6
 
 ### Dependencies
 
-`@mem0/vercel-ai-provider` bundles `ai`, all `@ai-sdk/*` provider packages, and `@ai-sdk/provider` as regular dependencies — you do **not** need to install them separately. The install command above (`npm install @mem0/vercel-ai-provider ai@^6`) is sufficient.
+`@mem0/vercel-ai-provider` bundles `ai`, all `@ai-sdk/*` provider packages, and `@ai-sdk/provider` as regular dependencies: you do **not** need to install them separately. The install command above (`npm install @mem0/vercel-ai-provider ai@^6`) is sufficient.
 
 The only true peer dependency is `zod` (optional):
-- `zod` v3+ (`^3.0.0`) — required only if you use Zod schemas in tool definitions
+- `zod` v3+ (`^3.0.0`): required only if you use Zod schemas in tool definitions
 
 ## Getting Started
 
@@ -205,7 +205,7 @@ const { text, sources } = await generateText({
 });
 
 // sources[0].title === "Mem0 Memories"
-// sources[0].providerMetadata.mem0.memories — array of memory objects
+// sources[0].providerMetadata.mem0.memories: array of memory objects
 console.log(sources);
 ```
 

@@ -60,6 +60,10 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
     | **Multimodal support** | ✅ | ✅ |
     | **Custom categories** | ✅ | Limited |
     | **Advanced retrieval** | ✅ | ✅ |
+    | **Criteria retrieval** | ✅ | ❌ |
+    | **Temporal reasoning** | ✅ (v3) | ❌ |
+    | **Memory decay** | ✅ (v3) | ❌ |
+    | **Graph memory** | ✅ Built-in | ✅ External graph store |
     | **Memory filters v2** | ✅ | ⚠️ (via metadata) |
     | **Webhooks** | ✅ | ❌ |
     | **Memory export** | ✅ | ❌ |
@@ -71,8 +75,8 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
     | **Hosting** | Managed by Mem0 | Self-hosted |
     | **Auto-scaling** | ✅ | Manual |
     | **High availability** | ✅ Built-in | DIY setup |
-    | **Vector DB choice** | Managed | Qdrant, Chroma, Pinecone, Milvus, +20 more |
-    | **LLM choice** | Managed (optimized) | OpenAI, Anthropic, Ollama, Together, +10 more |
+    | **Vector DB choice** | Managed | 20+ stores: Qdrant, Pinecone, Chroma, Weaviate, Milvus, pgvector |
+    | **LLM choice** | Managed (optimized) | 15+ providers: OpenAI, Anthropic, Gemini, Groq, Ollama, Together |
     | **Data residency** | US (expandable) | Your choice |
   </Accordion>
 
@@ -88,10 +92,10 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
   <Accordion title="Development & Integration" icon="code">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **REST API** | ✅ | ✅ (via feature flag) |
+    | **REST API** | ✅ | ✅ (self-hosted server) |
     | **Python SDK** | ✅ | ✅ |
     | **JavaScript SDK** | ✅ | ✅ |
-    | **Framework integrations** | LangChain, CrewAI, LlamaIndex, +15 | Same |
+    | **Framework integrations** | LangChain, CrewAI, LlamaIndex, and 20+ more | Same |
     | **Dashboard** | ✅ Web-based | ❌ |
     | **Analytics** | ✅ Built-in | DIY |
   </Accordion>
@@ -101,45 +105,17 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
 
 ## Decision Guide
 
-### Choose **Platform** if you want:
+**Choose Platform if you want:**
+- Fast time to market: get your AI app with memory live in hours, not weeks.
+- Production-ready hosting: auto-scaling, high availability, and managed infrastructure.
+- Built-in analytics: track memory usage, query patterns, and user engagement through the dashboard.
+- Advanced features: webhooks, memory export, custom categories, and priority support.
 
-<CardGroup cols={2}>
-  <Card icon="bolt" title="Fast Time to Market">
-    Get your AI app with memory live in hours, not weeks. No infrastructure setup needed.
-  </Card>
-
-  <Card icon="shield" title="Production-Ready">
-    Auto-scaling, high availability, and managed infrastructure out of the box.
-  </Card>
-
-  <Card icon="chart-line" title="Built-in Analytics">
-    Track memory usage, query patterns, and user engagement through our dashboard.
-  </Card>
-
-  <Card icon="webhook" title="Advanced Features">
-    Access to webhooks, memory export, custom categories, and priority support.
-  </Card>
-</CardGroup>
-
-### Choose **Open Source** if you need:
-
-<CardGroup cols={2}>
-  <Card icon="lock" title="Full Data Control">
-    Host everything on your infrastructure. Complete data residency and privacy control.
-  </Card>
-
-  <Card icon="wrench" title="Custom Configuration">
-    Choose your own vector DB, LLM provider, embedder, and deployment strategy.
-  </Card>
-
-  <Card icon="code" title="Extensibility">
-    Modify the codebase, add custom features, and contribute back to the community.
-  </Card>
-
-  <Card icon="dollar-sign" title="Cost Optimization">
-    Use local LLMs (Ollama), self-hosted vector DBs, and optimize for your specific use case.
-  </Card>
-</CardGroup>
+**Choose Open Source if you need:**
+- Full data control: host everything on your infrastructure with complete data residency.
+- Custom configuration: choose your own vector DB, LLM provider, embedder, and deployment strategy.
+- Extensibility: modify the codebase, add custom features, and contribute back to the community.
+- Cost optimization: use local LLMs (Ollama), self-hosted vector DBs, and optimize for your use case.
 
 ---
 
