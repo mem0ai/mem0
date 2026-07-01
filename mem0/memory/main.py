@@ -52,6 +52,7 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message_async,
 )
 from mem0.memory.utils import (
+    cap_text_for_embedding,
     extract_json,
     parse_messages,
     parse_vision_messages,
@@ -873,10 +874,15 @@ class Memory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
+        # Cap the embedding input to avoid embedding-provider token-limit
+        # crashes on long multi-turn conversations (issue #5148). The full
+        # parsed_messages is still used for the LLM extraction step below;
+        # only the embedding-for-retrieval input is bounded.
+        embed_input = cap_text_for_embedding(parsed_messages)
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        query_embedding = self.embedding_model.embed(embed_input, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=embed_input,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -2499,11 +2505,16 @@ class AsyncMemory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
+        # Cap the embedding input to avoid embedding-provider token-limit
+        # crashes on long multi-turn conversations (issue #5148). The full
+        # parsed_messages is still used for the LLM extraction step below;
+        # only the embedding-for-retrieval input is bounded.
+        embed_input = cap_text_for_embedding(parsed_messages)
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, embed_input, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=embed_input,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,

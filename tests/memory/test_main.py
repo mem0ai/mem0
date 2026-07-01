@@ -1061,3 +1061,116 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+# ===========================================================================
+# Issue #5148: Cap embedding input length to prevent token-limit crash
+# ===========================================================================
+
+
+class TestEmbeddingInputCapForLongConversations:
+    """Verify that Memory._add_to_vector_store Phase 1 caps the embedding
+    input length when the conversation is too long, so we don't crash on
+    embedding-provider token limits (e.g. OpenAI 8192-token cap).
+
+    Regression coverage for issue #5148.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        # Return empty extraction so the test stays in Phase 1.
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        return memory
+
+    def test_long_conversation_does_not_crash_and_embed_input_is_bounded(self, mock_memory):
+        """A long conversation (well over the 8192-token embedding limit)
+        must not raise from embed(); the cap helper bounds the input."""
+        from mem0.memory.utils import DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+
+        # ~80KB of conversation = far beyond any embedding provider's limit.
+        long_content = "Talk about microservices and Postgres migrations. " * 1600
+        messages = [
+            {"role": "user", "content": long_content},
+            {"role": "assistant", "content": "Acknowledged."},
+        ]
+
+        # Sanity: parsed text would blow past the budget without the cap.
+        from mem0.memory.utils import parse_messages
+        assert len(parse_messages(messages)) > DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+
+        # Should not raise. (Before the fix, embedding would receive the
+        # entire conversation and a real provider would 400 on token limit.)
+        result = mock_memory._add_to_vector_store(
+            messages=messages, metadata={}, filters={"user_id": "u1"}, infer=True
+        )
+
+        # Verify the embedding call received a bounded input, not the
+        # full parsed conversation.
+        embed_calls = mock_memory.embedding_model.embed.call_args_list
+        assert len(embed_calls) >= 1
+        first_arg = embed_calls[0].args[0]
+        assert isinstance(first_arg, str)
+        assert len(first_arg) <= DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET, (
+            f"Embedding input was {len(first_arg)} chars, expected <= "
+            f"{DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET}"
+        )
+        # No exception → test passes; result shape is allowed to be empty
+        assert isinstance(result, list)
+
+    def test_short_conversation_passes_through_unchanged(self, mock_memory):
+        """Short conversations should NOT be truncated — only ones that
+        actually exceed the budget."""
+        messages = [
+            {"role": "user", "content": "I like pizza"},
+            {"role": "assistant", "content": "Noted."},
+        ]
+        mock_memory._add_to_vector_store(
+            messages=messages, metadata={}, filters={"user_id": "u1"}, infer=True
+        )
+        embed_calls = mock_memory.embedding_model.embed.call_args_list
+        assert len(embed_calls) >= 1
+        first_arg = embed_calls[0].args[0]
+        # The whole short conversation should be present in the embed input.
+        assert "I like pizza" in first_arg
+        assert "Noted." in first_arg
+
+    def test_long_conversation_embed_input_preserves_head_and_tail(self, mock_memory):
+        """PR #5281 review fix: when capping a long conversation, the
+        retrieval-embedding input must preserve BOTH the oldest and the
+        most-recent content so older semantically-related memories still
+        surface for dedup/update — not just the recent tail.
+
+        Uses distinctive sentinels at the very start and very end of a long
+        conversation and asserts both survive in the bounded embed input.
+        """
+        from mem0.memory.utils import DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+
+        head_sentinel = "OLDEST_TURN_SENTINEL_ABC"
+        tail_sentinel = "NEWEST_TURN_SENTINEL_XYZ"
+        filler = "Discuss microservices and Postgres migrations. " * 1600
+        messages = [
+            {"role": "user", "content": head_sentinel + " " + filler},
+            {"role": "assistant", "content": filler + " " + tail_sentinel},
+        ]
+
+        mock_memory._add_to_vector_store(
+            messages=messages, metadata={}, filters={"user_id": "u1"}, infer=True
+        )
+
+        embed_calls = mock_memory.embedding_model.embed.call_args_list
+        assert len(embed_calls) >= 1
+        embed_input = embed_calls[0].args[0]
+        assert isinstance(embed_input, str)
+        # Crash-prevention invariant: never exceeds the budget.
+        assert len(embed_input) <= DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+        # Both ends preserved — the core fix for the reviewer's concern.
+        assert head_sentinel in embed_input, "oldest turn lost — older-memory recall broken"
+        assert tail_sentinel in embed_input, "newest turn lost — recency broken"
