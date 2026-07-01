@@ -1,5 +1,7 @@
 import datetime
 import enum
+import logging
+import threading
 import uuid
 
 import sqlalchemy as sa
@@ -229,15 +231,55 @@ def categorize_memory(memory: Memory, db: Session) -> None:
 
 @event.listens_for(Memory, 'after_insert')
 def after_memory_insert(mapper, connection, target):
-    """Trigger categorization after a memory is inserted."""
-    db = Session(bind=connection)
-    categorize_memory(target, db)
-    db.close()
+    """Trigger categorization after a memory is inserted (non-blocking)."""
+    from app.database import SessionLocal
+
+    memory_id = target.id
+
+    def _categorize_in_background():
+        db = SessionLocal()
+        try:
+            memory = db.query(Memory).filter(Memory.id == memory_id).first()
+            if memory:
+                categorize_memory(memory, db)
+        except Exception as e:
+            logging.warning(f"[categorize] Background categorization failed for memory {memory_id}: {e}")
+        finally:
+            db.close()
+
+    thread = threading.Thread(target=_categorize_in_background, daemon=True)
+    thread.start()
 
 
 @event.listens_for(Memory, 'after_update')
 def after_memory_update(mapper, connection, target):
-    """Trigger categorization after a memory is updated."""
-    db = Session(bind=connection)
-    categorize_memory(target, db)
-    db.close()
+    """Trigger categorization after a memory is updated (non-blocking).
+
+    Only re-categorizes when the memory content has actually changed,
+    skipping state-only transitions (e.g., archive, delete, pause).
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.database import SessionLocal
+
+    # Check if the 'content' column was actually modified
+    state = sa_inspect(target)
+    content_history = state.attrs.content.history
+    if not content_history.has_changes():
+        return
+
+    memory_id = target.id
+
+    def _categorize_in_background():
+        db = SessionLocal()
+        try:
+            memory = db.query(Memory).filter(Memory.id == memory_id).first()
+            if memory:
+                categorize_memory(memory, db)
+        except Exception as e:
+            logging.warning(f"[categorize] Background categorization failed for memory {memory_id}: {e}")
+        finally:
+            db.close()
+
+    thread = threading.Thread(target=_categorize_in_background, daemon=True)
+    thread.start()
