@@ -452,3 +452,51 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+
+# ---------------------------------------------------------------------------
+# profile_name routing
+#
+# AWSBedrockConfig.get_aws_config() includes `profile_name` when aws_profile is
+# set. boto3.client() rejects that kwarg -- only boto3.Session() accepts it.
+# Verify construction is routed accordingly.
+# ---------------------------------------------------------------------------
+
+class TestProfileNameRouting:
+    def test_no_profile_uses_boto3_client_directly(self):
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            runtime_client = MagicMock()
+            bedrock_client = MagicMock()
+            bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+            mock_b3.client.side_effect = lambda service, **_: (
+                runtime_client if service == "bedrock-runtime" else bedrock_client
+            )
+            config = AWSBedrockConfig(model="anthropic.claude-3-sonnet-20240229-v1:0")
+            AWSBedrockLLM(config)
+            mock_b3.client.assert_any_call("bedrock-runtime", region_name=config.aws_region)
+            mock_b3.Session.assert_not_called()
+
+    def test_profile_routes_through_session(self):
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            runtime_client = MagicMock()
+            bedrock_client = MagicMock()
+            bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+            session = MagicMock()
+            session.client.side_effect = lambda service, **_: (
+                runtime_client if service == "bedrock-runtime" else bedrock_client
+            )
+            mock_b3.Session.return_value = session
+            config = AWSBedrockConfig(
+                model="anthropic.claude-3-sonnet-20240229-v1:0", aws_profile="my-sso-profile"
+            )
+            AWSBedrockLLM(config)
+            # Session built with the profile; client created from the session.
+            mock_b3.Session.assert_any_call(profile_name="my-sso-profile")
+            session.client.assert_any_call("bedrock-runtime", region_name=config.aws_region)
+            # _test_connection reaches the `bedrock` service through the same Session.
+            session.client.assert_any_call("bedrock", region_name=config.aws_region)
+            # profile_name must NOT be forwarded as a client kwarg (boto3 rejects it).
+            for call in session.client.call_args_list:
+                assert "profile_name" not in call.kwargs
+            for call in mock_b3.client.call_args_list:
+                assert "profile_name" not in call.kwargs
