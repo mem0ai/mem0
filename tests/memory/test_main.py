@@ -1,5 +1,6 @@
 import logging
 import time
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
@@ -62,7 +63,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -227,7 +230,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -530,6 +535,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -660,7 +666,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -683,7 +690,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -1015,3 +1023,115 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+def test_add_includes_usage_only_when_requested(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.config.llm.config = {}
+    memory.llm.reset_last_usage = Mock()
+    memory.llm.get_last_usage = Mock(
+        return_value={
+            "prompt_tokens": 11,
+            "completion_tokens": 7,
+            "total_tokens": 18,
+        }
+    )
+    memory._add_to_vector_store = Mock(return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}])
+
+    default_result = memory.add("Likes pizza", user_id="alice")
+    usage_result = memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert "usage" not in default_result
+    assert usage_result["usage"] == {
+        "prompt_tokens": 11,
+        "completion_tokens": 7,
+        "total_tokens": 18,
+    }
+    memory.llm.start_usage_capture.assert_called_once()
+    memory.llm.stop_usage_capture.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_add_includes_usage_only_when_requested(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.config.llm.config = {}
+    memory.llm.reset_last_usage = Mock()
+    memory.llm.get_last_usage = Mock(
+        return_value={
+            "prompt_tokens": 5,
+            "completion_tokens": 3,
+            "total_tokens": 8,
+        }
+    )
+    memory._add_to_vector_store = mocker.AsyncMock(
+        return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]
+    )
+
+    default_result = await memory.add("Likes pizza", user_id="alice")
+    usage_result = await memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert "usage" not in default_result
+    assert usage_result["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+    memory.llm.start_usage_capture.assert_called_once()
+    memory.llm.stop_usage_capture.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_add_includes_usage_from_threaded_llm_path(mocker):
+    class ContextVarUsageLLM:
+        def __init__(self):
+            self._capture = ContextVar("capture", default=False)
+            self._usage = ContextVar("usage", default=None)
+
+        def start_usage_capture(self):
+            self._capture.set(True)
+            self._usage.set(None)
+
+        def stop_usage_capture(self):
+            self._capture.set(False)
+
+        def get_last_usage(self):
+            usage = self._usage.get()
+            return dict(usage) if usage else None
+
+        def generate_response(self, messages, response_format=None, **kwargs):
+            if self._capture.get():
+                self._usage.set(
+                    {
+                        "prompt_tokens": 5,
+                        "completion_tokens": 3,
+                        "total_tokens": 8,
+                    }
+                )
+            return '{"memory": [{"text": "Likes pizza"}]}'
+
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.config.llm.config = {}
+    memory.custom_instructions = None
+    memory.llm = ContextVarUsageLLM()
+    memory.embedding_model = Mock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+    memory.vector_store.search.return_value = []
+    memory.vector_store.insert = Mock()
+    memory.db.get_last_messages.return_value = []
+    memory.db.save_messages = Mock()
+    memory.db.batch_add_history = Mock()
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+    mocker.patch("mem0.memory.main.display_first_run_notice_async", mocker.AsyncMock())
+    mocker.patch("mem0.memory.main.display_temporal_usage_notice_async", mocker.AsyncMock())
+    mocker.patch("mem0.memory.main.display_scale_threshold_notice_async", mocker.AsyncMock())
+
+    result = await memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert result["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+    assert result["results"][0]["memory"] == "Likes pizza"
