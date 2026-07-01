@@ -81,6 +81,12 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+# Page size used by `delete_all` when iterating the vector store. Some vector
+# stores cap `list` at a default page size (e.g. 100); without paging,
+# `delete_all` silently leaves older matching memories behind (issue #4869).
+_DELETE_ALL_PAGE_SIZE = 1000
+
+
 def _vector_store_list_rows(listed):
     if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
         return listed[0]
@@ -1849,14 +1855,25 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # delete all vector memories and reset the collections.
+        # Iterate in pages because some vector stores cap `list` at a default
+        # page size (e.g. 100). A single call would leave older matching
+        # memories behind. See issue #4869. We stop when a page is shorter
+        # than requested (last page) or empty.
+        total_deleted = 0
+        while True:
+            page = self.vector_store.list(filters=filters, top_k=_DELETE_ALL_PAGE_SIZE)[0]
+            if not page:
+                break
+            for memory in page:
+                self._delete_memory(memory.id)
+            total_deleted += len(page)
+            if len(page) < _DELETE_ALL_PAGE_SIZE:
+                break
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {total_deleted} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(total_deleted)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3468,10 +3485,24 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        # Iterate in pages because some vector stores cap `list` at a default
+        # page size (e.g. 100). A single call would leave older matching
+        # memories behind. See issue #4869. We stop when a page is shorter
+        # than requested (last page) or empty.
+        all_memories = []
+        while True:
+            page = await asyncio.to_thread(
+                self.vector_store.list, filters=filters, top_k=_DELETE_ALL_PAGE_SIZE
+            )
+            page_memories = page[0] if page else []
+            if not page_memories:
+                break
+            all_memories.extend(page_memories)
+            if len(page_memories) < _DELETE_ALL_PAGE_SIZE:
+                break
 
         delete_tasks = []
-        for memory in memories[0]:
+        for memory in all_memories:
             delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
 
         results = await asyncio.gather(*delete_tasks, return_exceptions=True)
@@ -3487,7 +3518,7 @@ class AsyncMemory(MemoryBase):
 
         logger.info(f"Deleted {len(results) - len(errors)} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(len(all_memories))
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
