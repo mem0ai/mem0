@@ -1,6 +1,7 @@
 import os
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
 from mem0.configs.llms.base import BaseLlmConfig
@@ -45,6 +46,15 @@ def test_xai_accepts_base_llm_config():
     llm = XAILLM(BaseLlmConfig(model="grok-2-latest", api_key="k"))
     assert isinstance(llm.config, XAIConfig)
     assert llm.config.xai_base_url is None
+
+
+def test_xai_preserves_http_client_proxies_from_base_config(mock_xai_client):
+    # Converting a BaseLlmConfig used to pass the already-built client as the
+    # proxies value, so any configured proxy crashed in build_http_client.
+    config = BaseLlmConfig(model="grok-2-latest", api_key="k", http_client_proxies="http://localhost:8080")
+    llm = XAILLM(config)
+    assert isinstance(llm.config, XAIConfig)
+    assert isinstance(llm.config.http_client, httpx.Client)
 
 
 def test_generate_response_without_tools(mock_xai_client):
