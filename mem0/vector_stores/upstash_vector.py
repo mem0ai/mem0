@@ -14,16 +14,21 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_SAFE_FILTER_KEY = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*\Z")
 
 
 def _validate_filter(key: str, value: Any) -> None:
-    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.fullmatch(key):
         raise ValueError(f"Invalid filter key: {key!r}")
     if not isinstance(value, (str, int, float, bool)):
         raise ValueError(
             f"Filter value for {key!r} must be str, int, float, or bool, "
             f"got {type(value).__name__}"
+        )
+    if isinstance(value, str) and ('"' in value or "\\" in value):
+        raise ValueError(
+            f"Filter value for {key!r} contains prohibited characters "
+            f"(double quote or backslash): {value!r}"
         )
 
 
@@ -106,8 +111,7 @@ class UpstashVector(VectorStoreBase):
 
     def _stringify(self, x):
         if isinstance(x, str):
-            escaped = x.replace("\\", "\\\\").replace('"', '\\"')
-            return f'"{escaped}"'
+            return f'"{x}"'
         return x
 
     def search(
@@ -179,16 +183,16 @@ class UpstashVector(VectorStoreBase):
         Returns:
             List[OutputData]: Search results, or None if sparse/BM25 search is not supported.
         """
-        try:
-            if filters:
-                for k, v in filters.items():
-                    _validate_filter(k, v)
-            filters_str = (
-                " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
-                if filters
-                else None
-            )
+        if filters:
+            for k, v in filters.items():
+                _validate_filter(k, v)
+        filters_str = (
+            " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
+            if filters
+            else None
+        )
 
+        try:
             response = self.client.query(
                 data=query,
                 top_k=top_k,

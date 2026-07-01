@@ -249,9 +249,14 @@ def test_filter_accepts_scalars():
     _validate_filter("active", True)
 
 
-def test_stringify_escapes_quotes(upstash_instance):
-    result = upstash_instance._stringify('alice" OR 1=1 --')
-    assert result == '"alice\\" OR 1=1 --"'
+def test_filter_rejects_double_quote_in_value():
+    with pytest.raises(ValueError, match="prohibited characters"):
+        _validate_filter("user_id", 'alice" OR 1=1 --')
+
+
+def test_filter_rejects_backslash_in_value():
+    with pytest.raises(ValueError, match="prohibited characters"):
+        _validate_filter("user_id", "alice\\bob")
 
 
 def test_search_rejects_dict_filter(upstash_instance):
@@ -259,6 +264,18 @@ def test_search_rejects_dict_filter(upstash_instance):
         upstash_instance.search(
             query="test", vectors=[[0.1]], filters={"user_id": {"$ne": ""}}
         )
+
+
+def test_keyword_search_raises_on_invalid_filter(upstash_instance):
+    with pytest.raises(ValueError):
+        upstash_instance.keyword_search(
+            query="test", filters={"user_id": 'alice" OR 1=1'}
+        )
+
+
+def test_filter_rejects_key_with_trailing_newline():
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        _validate_filter("user_id\n", "alice")
 
 
 def test_insert_vectors_with_embeddings_missing_data(upstash_instance_with_embeddings):
