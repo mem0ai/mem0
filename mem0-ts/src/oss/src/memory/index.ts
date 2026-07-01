@@ -354,60 +354,189 @@ export class Memory {
   private _providerFiltersForRequestedScope(
     filters: Record<string, any>,
   ): Record<string, any> | undefined {
-    const providerFilters: Record<string, any> = { ...filters };
-    const scopeAlternatives: Record<string, any>[] = [{}];
+    const providerFilters = this._stripScopeWildcardsForProvider(filters);
+    if (!providerFilters) {
+      return undefined;
+    }
+
     const provider = this.config.vectorStore.provider.toLowerCase();
-    const supportsScopeAliasOr = ["pgvector", "qdrant"].includes(provider);
-    const existingOr = supportsScopeAliasOr ? providerFilters.$or : undefined;
-    if (supportsScopeAliasOr) {
-      delete providerFilters.$or;
+    if (!["pgvector", "qdrant"].includes(provider)) {
+      return providerFilters;
     }
 
-    for (const key of SCOPE_KEYS) {
-      const value = providerFilters[key];
-      if (value === undefined || value === null) {
+    return this._providerFilterFromAlternatives(
+      this._providerScopeAliasAlternatives(providerFilters),
+    );
+  }
+
+  private _stripScopeWildcardsForProvider(
+    filter: Record<string, any>,
+  ): Record<string, any> | undefined {
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(filter)) {
+      const isLogicalKey =
+        key === "AND" ||
+        key === "OR" ||
+        key === "NOT" ||
+        key === "$and" ||
+        key === "$or" ||
+        key === "$not";
+
+      if (this._canonicalScopeKey(key) && value === "*") {
         continue;
       }
 
-      delete providerFilters[key];
+      if (isLogicalKey && Array.isArray(value)) {
+        const logicalFilters: Record<string, any>[] = [];
+        let logicalFilterIsUnrestricted = false;
 
-      if (value === "*") {
-        continue;
-      }
+        for (const condition of value) {
+          if (
+            !condition ||
+            typeof condition !== "object" ||
+            Array.isArray(condition)
+          ) {
+            logicalFilters.push(condition);
+            continue;
+          }
 
-      if (supportsScopeAliasOr) {
-        const currentAlternatives = scopeAlternatives.splice(0);
-        for (const alternative of currentAlternatives) {
-          scopeAlternatives.push({ ...alternative, [key]: value });
-          scopeAlternatives.push({
-            ...alternative,
-            [SCOPE_KEY_ALIASES[key]]: value,
-          });
+          const stripped = this._stripScopeWildcardsForProvider(condition);
+          if (!stripped) {
+            if (key === "OR" || key === "$or") {
+              logicalFilterIsUnrestricted = true;
+              break;
+            }
+            continue;
+          }
+          logicalFilters.push(stripped);
         }
-      } else {
-        providerFilters[key] = value;
+
+        if (!logicalFilterIsUnrestricted && logicalFilters.length > 0) {
+          result[key] = logicalFilters;
+        }
+        continue;
       }
+
+      result[key] = value;
     }
 
-    if (supportsScopeAliasOr) {
-      const existingOrClauses = Array.isArray(existingOr)
-        ? existingOr
-        : undefined;
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
 
-      if (scopeAlternatives.length > 1 && existingOrClauses) {
-        providerFilters.$or = existingOrClauses.flatMap((clause) =>
-          scopeAlternatives.map((scope) => ({ ...clause, ...scope })),
+  private _providerScopeAliasAlternatives(
+    filter: Record<string, any>,
+  ): Record<string, any>[] {
+    let alternatives: Record<string, any>[] = [{}];
+
+    const mergeAlternatives = (branches: Record<string, any>[]) => {
+      alternatives = alternatives.flatMap((alternative) =>
+        branches.map((branch) => ({ ...alternative, ...branch })),
+      );
+    };
+
+    const appendToAlternatives = (key: string, value: any) => {
+      alternatives = alternatives.map((alternative) => ({
+        ...alternative,
+        [key]: value,
+      }));
+    };
+
+    for (const [key, value] of Object.entries(filter)) {
+      if (key === "AND" || key === "$and") {
+        if (!Array.isArray(value)) {
+          appendToAlternatives(key, value);
+          continue;
+        }
+        for (const condition of value) {
+          if (
+            condition &&
+            typeof condition === "object" &&
+            !Array.isArray(condition)
+          ) {
+            mergeAlternatives(this._providerScopeAliasAlternatives(condition));
+          }
+        }
+        continue;
+      }
+
+      if (key === "OR" || key === "$or") {
+        if (!Array.isArray(value)) {
+          appendToAlternatives(key, value);
+          continue;
+        }
+        const branches = value.flatMap((condition) =>
+          condition &&
+          typeof condition === "object" &&
+          !Array.isArray(condition)
+            ? this._providerScopeAliasAlternatives(condition)
+            : [],
         );
-      } else if (scopeAlternatives.length > 1) {
-        providerFilters.$or = scopeAlternatives;
-      } else if (existingOr !== undefined) {
-        providerFilters.$or = existingOr;
+        if (branches.some((branch) => Object.keys(branch).length === 0)) {
+          continue;
+        }
+        if (branches.length > 0) {
+          mergeAlternatives(branches);
+        }
+        continue;
       }
+
+      if (key === "NOT" || key === "$not") {
+        if (!Array.isArray(value)) {
+          appendToAlternatives(key, value);
+          continue;
+        }
+        const notBranches = value.flatMap((condition) =>
+          condition &&
+          typeof condition === "object" &&
+          !Array.isArray(condition)
+            ? this._providerScopeAliasAlternatives(condition)
+            : [],
+        );
+        const nonEmptyBranches = notBranches.filter(
+          (branch) => Object.keys(branch).length > 0,
+        );
+        if (nonEmptyBranches.length > 0) {
+          alternatives = alternatives.map((alternative) => ({
+            ...alternative,
+            $not: [
+              ...((alternative.$not as Record<string, any>[] | undefined) ??
+                []),
+              ...nonEmptyBranches,
+            ],
+          }));
+        }
+        continue;
+      }
+
+      const scopeKey = this._canonicalScopeKey(key);
+      if (scopeKey) {
+        mergeAlternatives([
+          { [scopeKey]: value },
+          { [SCOPE_KEY_ALIASES[scopeKey]]: value },
+        ]);
+        continue;
+      }
+
+      appendToAlternatives(key, value);
     }
 
-    return Object.keys(providerFilters).length > 0
-      ? providerFilters
-      : undefined;
+    return alternatives;
+  }
+
+  private _providerFilterFromAlternatives(
+    alternatives: Record<string, any>[],
+  ): Record<string, any> | undefined {
+    const nonEmptyAlternatives = alternatives.filter(
+      (alternative) => Object.keys(alternative).length > 0,
+    );
+    if (nonEmptyAlternatives.length === 0) {
+      return undefined;
+    }
+    if (nonEmptyAlternatives.length === 1) {
+      return nonEmptyAlternatives[0];
+    }
+    return { $or: nonEmptyAlternatives };
   }
 
   private _providerListCountIsTotal(): boolean {
@@ -712,10 +841,10 @@ export class Memory {
       return results;
     }
 
-    // Defense-in-depth after provider filtering: enforce only the scope keys
-    // explicitly requested by the caller. Bounded vector-store APIs do not
-    // expose a shared cursor, so callers may see fewer rows if a provider
-    // returns polluted rows before valid in-scope rows.
+    // Defense-in-depth after provider filtering: replay filters that contain
+    // requested scope keys so provider drift cannot leak or delete wrong-scope
+    // rows. Bounded vector-store APIs do not expose a shared cursor, so callers
+    // may see fewer rows if polluted rows crowd out valid in-scope rows.
     return results.filter((result) =>
       this._matchesScopeFilter(result.payload ?? {}, filters),
     );
@@ -806,11 +935,8 @@ export class Memory {
         if (!Array.isArray(value)) {
           return false;
         }
-        const scopeConditions = value.filter((condition) =>
-          this._filterContainsScope(condition),
-        );
         if (
-          scopeConditions.some((condition) =>
+          value.some((condition) =>
             this._matchesScopeFilter(payload, condition),
           )
         ) {
@@ -820,11 +946,11 @@ export class Memory {
       }
 
       const scopeKey = this._canonicalScopeKey(key);
-      if (!scopeKey || value === undefined || value === null) {
+      if (value === undefined || value === null) {
         continue;
       }
 
-      if (!this._matchesScopeCondition(payload, scopeKey, value)) {
+      if (!this._matchesFieldCondition(payload, key, value, scopeKey)) {
         return false;
       }
     }
@@ -832,57 +958,62 @@ export class Memory {
     return true;
   }
 
-  private _matchesScopeCondition(
+  private _matchesFieldCondition(
     payload: Record<string, any>,
-    key: ScopeKey,
+    key: string,
     condition: any,
+    scopeKey?: ScopeKey,
   ): boolean {
-    const scopeValue = this._payloadScopeValue(payload, key);
+    const payloadValue = scopeKey
+      ? this._payloadScopeValue(payload, scopeKey)
+      : payload[key];
 
     if (condition === "*") {
-      return scopeValue !== undefined && scopeValue !== null;
+      return scopeKey
+        ? payloadValue !== undefined && payloadValue !== null
+        : true;
     }
 
     if (Array.isArray(condition)) {
-      return condition.includes(scopeValue);
+      return condition.includes(payloadValue);
     }
 
     if (typeof condition === "object" && condition !== null) {
       for (const [operator, value] of Object.entries(condition)) {
         if (operator === "eq") {
-          if (scopeValue !== value) return false;
+          if (payloadValue !== value) return false;
         } else if (operator === "ne") {
           if (
-            scopeValue === undefined ||
-            scopeValue === null ||
-            scopeValue === value
+            (scopeKey &&
+              (payloadValue === undefined || payloadValue === null)) ||
+            payloadValue === value
           ) {
             return false;
           }
         } else if (operator === "in") {
-          if (!Array.isArray(value) || !value.includes(scopeValue)) {
+          if (!Array.isArray(value) || !value.includes(payloadValue)) {
             return false;
           }
         } else if (operator === "nin") {
           if (
             !Array.isArray(value) ||
-            scopeValue === undefined ||
-            scopeValue === null ||
-            value.includes(scopeValue)
+            (scopeKey &&
+              (payloadValue === undefined || payloadValue === null)) ||
+            value.includes(payloadValue)
           ) {
             return false;
           }
         } else if (operator === "contains") {
           if (
-            typeof scopeValue !== "string" ||
-            !scopeValue.includes(String(value))
+            typeof payloadValue !== "string" ||
+            !payloadValue.includes(String(value))
           ) {
             return false;
           }
         } else if (operator === "icontains") {
           if (
-            typeof scopeValue !== "string" ||
-            !scopeValue.toLowerCase().includes(String(value).toLowerCase())
+            typeof payloadValue !== "string" ||
+            !payloadValue.toLowerCase().includes(String(value).toLowerCase())
           ) {
             return false;
           }
@@ -893,7 +1024,7 @@ export class Memory {
       return true;
     }
 
-    return scopeValue === condition;
+    return payloadValue === condition;
   }
 
   private async _initializeTelemetry() {

@@ -227,12 +227,23 @@ describe("Memory - provider scope filters", () => {
 
   test("widens qdrant and pgvector scope filters to snake and camel aliases", () => {
     const expected = {
-      topic: "preferences",
       $or: [
-        { user_id: "target-user", agent_id: "agent-a" },
-        { user_id: "target-user", agentId: "agent-a" },
-        { userId: "target-user", agent_id: "agent-a" },
-        { userId: "target-user", agentId: "agent-a" },
+        {
+          user_id: "target-user",
+          agent_id: "agent-a",
+          topic: "preferences",
+        },
+        {
+          user_id: "target-user",
+          agentId: "agent-a",
+          topic: "preferences",
+        },
+        {
+          userId: "target-user",
+          agent_id: "agent-a",
+          topic: "preferences",
+        },
+        { userId: "target-user", agentId: "agent-a", topic: "preferences" },
       ],
     };
 
@@ -261,10 +272,46 @@ describe("Memory - provider scope filters", () => {
     ).toEqual({
       $or: [
         { topic: "travel", user_id: "target-user" },
-        { topic: "travel", userId: "target-user" },
         { topic: "food", user_id: "target-user" },
+        { topic: "travel", userId: "target-user" },
         { topic: "food", userId: "target-user" },
       ],
+    });
+  });
+
+  test("widens nested logical scope filters for alias-aware providers", () => {
+    expect(
+      providerFiltersFor("qdrant", {
+        user_id: "target-user",
+        $or: [{ agent_id: "agent-a" }, { topic: "travel" }],
+      }),
+    ).toEqual({
+      $or: [
+        { user_id: "target-user", agent_id: "agent-a" },
+        { user_id: "target-user", agentId: "agent-a" },
+        { user_id: "target-user", topic: "travel" },
+        { userId: "target-user", agent_id: "agent-a" },
+        { userId: "target-user", agentId: "agent-a" },
+        { userId: "target-user", topic: "travel" },
+      ],
+    });
+  });
+
+  test("keeps nested wildcard scope filters out of provider filters", () => {
+    expect(
+      providerFiltersFor("memory", {
+        user_id: "target-user",
+        $or: [{ agent_id: "*" }, { topic: "travel" }],
+      }),
+    ).toEqual({ user_id: "target-user" });
+
+    expect(
+      providerFiltersFor("qdrant", {
+        user_id: "target-user",
+        $or: [{ agent_id: "*" }, { topic: "travel" }],
+      }),
+    ).toEqual({
+      $or: [{ user_id: "target-user" }, { userId: "target-user" }],
     });
   });
 
@@ -1156,6 +1203,68 @@ describe("Memory - search()", () => {
     }
   });
 
+  test("honors nested scope AND filters when filtering search results", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "wrong-agent-memory",
+        score: 0.99,
+        payload: {
+          data: "same user wrong nested agent",
+          hash: "wrong-agent-hash",
+          userId: "target-user",
+          agentId: "agent-c",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        score: 0.98,
+        payload: {
+          data: "target user matching nested agent",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: {
+          user_id: "target-user",
+          AND: [{ agent_id: "agent-a" }],
+        },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        { user_id: "target-user", agent_id: "agent-a" },
+      );
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({
+          user_id: "target-user",
+          agent_id: "agent-a",
+        }),
+      );
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
   test("honors nested scope NOT filters when filtering search results", async () => {
     const scopedMemory = createMemory();
     await (scopedMemory as any)._ensureInitialized();
@@ -1211,6 +1320,143 @@ describe("Memory - search()", () => {
           agent_id: "allowed-agent",
         }),
       );
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("preserves mixed scope and metadata OR semantics in post-filtering", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "wrong-topic-memory",
+        score: 0.99,
+        payload: {
+          data: "matching scope wrong topic",
+          hash: "wrong-topic-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          topic: "food",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        score: 0.98,
+        payload: {
+          data: "matching scope and topic",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          topic: "travel",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: {
+          user_id: "target-user",
+          OR: [{ agent_id: "agent-a", topic: "travel" }],
+        },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        {
+          user_id: "target-user",
+          $or: [{ agent_id: "agent-a", topic: "travel" }],
+        },
+      );
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("preserves mixed scope and metadata NOT semantics in post-filtering", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "blocked-secret-memory",
+        score: 0.99,
+        payload: {
+          data: "blocked agent secret topic",
+          hash: "blocked-secret-hash",
+          userId: "target-user",
+          agentId: "blocked-agent",
+          topic: "secret",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "blocked-public-memory",
+        score: 0.98,
+        payload: {
+          data: "blocked agent public topic",
+          hash: "blocked-public-hash",
+          userId: "target-user",
+          agentId: "blocked-agent",
+          topic: "public",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        score: 0.97,
+        payload: {
+          data: "allowed agent secret topic",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "allowed-agent",
+          topic: "secret",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: {
+          user_id: "target-user",
+          NOT: [{ agent_id: "blocked-agent", topic: "secret" }],
+        },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        {
+          user_id: "target-user",
+          $not: [{ agent_id: "blocked-agent", topic: "secret" }],
+        },
+      );
+      expect(result.results.map((item) => item.id)).toEqual([
+        "blocked-public-memory",
+        "owned-memory",
+      ]);
     } finally {
       searchSpy.mockRestore();
       keywordSpy.mockRestore();
