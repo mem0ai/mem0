@@ -7,7 +7,7 @@ export function createMemoryGetTool(deps: ToolDeps) {
   return {
     name: "memory_get",
     label: "Memory Get",
-    description: "Retrieve a specific memory by its ID from Mem0.",
+    description: "Fetch one memory by its exact ID (e.g. an ID returned by memory_search or memory_list) to read its full content and metadata.",
     parameters: Type.Object({
       memoryId: Type.String({ description: "The memory ID to retrieve" }),
     }),

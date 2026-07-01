@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Hook: UserPromptSubmit
 #
-# Fires on every user message. Instead of pre-searching mem0 with the
-# raw prompt, this injects a decision rubric telling the agent when
-# and how to search itself. The agent has more context than this
-# script does -- let it decide.
+# Fires on every user message. Prefetches memories relevant to the current
+# prompt (so relevant context is guaranteed) and also injects a decision
+# rubric telling the agent when to search further itself -- including
+# follow-up searches for multi-part questions. Prefetch can be disabled
+# with MEM0_PREFETCH=false.
 #
 # Input:  JSON on stdin (prompt, session_id, cwd, transcript_path)
 # Output: Decision rubric injected into Claude's context (exit 0)
@@ -152,12 +153,37 @@ else:
   fi
 fi
 
+# Query-driven prefetch: search mem0 with the current prompt and inject the top
+# matches so relevant memories are guaranteed in context, not left for the agent
+# to fetch. Skipped on resume (handled above with targeted queries) and when
+# MEM0_PREFETCH=false.
+if [ -z "$HAS_RESUME" ] && [ "${MEM0_PREFETCH:-true}" != "false" ]; then
+  PREFETCH_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" MEM0_SEARCH_QUERY="$PROMPT" python3 -c "
+import os, sys
+sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
+from _search import search_memories, format_results_for_context, should_rerank
+
+api_key = os.environ.get('MEM0_API_KEY', '')
+user_id = os.environ.get('MEM0_SEARCH_USER', 'default')
+project_id = os.environ.get('MEM0_PROJECT_ID', 'unknown')
+query = os.environ.get('MEM0_SEARCH_QUERY', '')
+
+results = search_memories(api_key, user_id, project_id, query, top_k=5, rerank=should_rerank())
+if results:
+    print(format_results_for_context(results, heading='Relevant memories (auto-retrieved for this request)'))
+" 2>/dev/null || echo "")
+
+  if [ -n "$PREFETCH_RESULTS" ]; then
+    _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}${PREFETCH_RESULTS}"
+  fi
+fi
+
 if [ -n "$HAS_REMEMBER" ]; then
   _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Remember intent detected. The /mem0:remember skill auto-classifies, sets confidence=1.0, and stores verbatim."
 fi
 
 if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
-  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id."
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id. For multi-part or comparative questions, run follow-up searches and combine results before answering -- one search is rarely enough."
   touch "$RUBRIC_FLAG" 2>/dev/null || true
 fi
 

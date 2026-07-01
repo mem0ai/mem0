@@ -1,7 +1,7 @@
 {
   "id": "mem0",
   "name": "mem0",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Persistent semantic memory for Antigravity agents. Cross-session, user-level recall via the Mem0 Platform MCP server. 16 slash commands, lifecycle hooks for auto-capture and metadata enforcement.",
   "author": { "name": "Mem0", "email": "support@mem0.ai" },
   "publisher": "mem0ai",
