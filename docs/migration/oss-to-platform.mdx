@@ -120,13 +120,14 @@ client = MemoryClient(api_key="m0-...")
 
 | Method | Open Source | Platform |
 | ------ | ----------- | -------- |
-| `search()` | `m.search(query, user_id="alex")` | `client.search(query, filters={"user_id": "alex"})` |
-| `get_all()` | `m.get_all(user_id="alex")` | `client.get_all(filters={"user_id": "alex"})` |
+| `search()` | `m.search(query, filters={"user_id": "alex"})` | `client.search(query, filters={"user_id": "alex"})` |
+| `get_all()` | `m.get_all(filters={"user_id": "alex"})` | `client.get_all(filters={"user_id": "alex"})` |
 | `add()` | `m.add(memory, user_id="alex")` | `client.add(memory, user_id="alex")` |
+| `update()` | `m.update(memory_id, data="Updated content")` | `client.update(memory_id, text="Updated content")` |
 | `delete()` | `m.delete(memory_id)` | `client.delete(memory_id)` |
 | `delete_all()` | `m.delete_all(user_id="alex")` | `client.delete_all(user_id="alex")` |
 
-Note: `add()` and `delete()` methods remain unchanged. The `update()` method is not available in Platform - use delete + add pattern instead.
+Note: `add()` and `delete()` methods remain unchanged. The `update()` method is available in Platform via `client.update(memory_id, text="Updated content")`.
 
 <AccordionGroup>
   <Accordion title="Search Memories">
@@ -158,18 +159,15 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     <CodeGroup>
     ```python Open Source (Old)
     # Get all memories for a user
-    memories = m.get_all(user_id="alex", top_k=10)
-
-    # Get memories with pagination
-    memories = m.get_all(user_id="alex", top_k=5, offset=10)
+    memories = m.get_all(filters={"user_id": "alex"}, top_k=10)
     ```
 
     ```python Platform (New)
     # Get all memories for a user
     memories = client.get_all(filters={"user_id": "alex"}, top_k=10)
 
-    # Get memories with pagination
-    memories = client.get_all(filters={"user_id": "alex"}, top_k=5, offset=10)
+    # Get memories with pagination (Platform supports page/page_size)
+    memories = client.get_all(filters={"user_id": "alex"}, page=2, page_size=10)
     ```
     </CodeGroup>
   </Accordion>
@@ -218,16 +216,18 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     <CodeGroup>
     ```python Open Source (Old)
     # Update memory content
-    m.update(memory_id="mem_123", new_memory="Updated content")
+    m.update(memory_id="mem_123", data="Updated content")
     ```
 
     ```python Platform (New)
-    # Update memory (not available in Platform)
-    # Use delete + add pattern instead
-    client.delete(memory_id="mem_123")
-    client.add("Updated content", user_id="alex")
+    # Update memory content
+    client.update(memory_id="mem_123", text="Updated content")
     ```
     </CodeGroup>
+
+    <Note>
+      The parameter name differs between SDKs: OSS `Memory.update()` takes `data=`, while the Platform `MemoryClient.update()` (Python and JS/TS) takes `text=`. When migrating, rename this keyword argument.
+    </Note>
   </Accordion>
 </AccordionGroup>
 
@@ -392,7 +392,7 @@ The Platform introduces powerful capabilities not available in OSS:
 | **Add Method** | `m.add(memory, user_id="x")` | `client.add(memory, user_id="x")` | No change |
 | **Delete Method** | `m.delete(memory_id)` | `client.delete(memory_id)` | No change |
 | **Delete All** | `m.delete_all(user_id="x")` | `client.delete_all(user_id="x")` | No change |
-| **Update Method** | `m.update(memory_id, new_memory)` | Use delete + add pattern | Replace with delete then add |
+| **Update Method** | `m.update(memory_id, data="Updated content")` | `client.update(memory_id, text="Updated content")` | Rename `data=` kwarg to `text=` |
 | **Config** | Local vector store + LLM config | Managed cloud infrastructure | Remove local config setup |
 
 ## Rollback plan
