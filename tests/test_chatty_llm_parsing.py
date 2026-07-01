@@ -9,7 +9,11 @@ import json
 
 import pytest
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.memory.utils import (
+    _first_parseable_json_object,
+    extract_json,
+    remove_code_blocks,
+)
 
 
 # --- Test extract_json ---
@@ -90,6 +94,48 @@ That's the result."""
         result = extract_json(text)
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
+
+    def test_chatty_prose_with_braces_before_json(self):
+        """Prose that itself contains braces must not corrupt extraction.
+
+        Regression test: the naive first-'{'-to-last-'}' fallback grabbed a
+        brace from the prose, producing invalid JSON and (via the outer except
+        in _add_to_vector_store) silently dropping all extracted memories.
+        """
+        text = (
+            "Based on the conversation {about travel}, here is the update: "
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_braces_inside_json_string_value(self):
+        """Braces inside a JSON string value must not break extraction."""
+        text = '{"memory": [{"id": "0", "text": "use {curly} braces", "event": "ADD"}]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "use {curly} braces"
+
+    def test_many_unbalanced_braces_stays_linear(self):
+        """Regression guard against O(n^2) rescanning of unbalanced braces.
+
+        The first implementation restarted a full scan from every '{', so a long
+        run of unbalanced braces (truncated output, or '{{ }}' templating) was
+        O(n^2): about 25s for 50k braces. The linear scan handles it in
+        milliseconds; the generous bound fails the quadratic version by a wide
+        margin without being flaky on slow CI.
+        """
+        import time
+
+        text = "{" * 50000
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        # No balanced JSON object exists, so nothing parseable is found.
+        assert _first_parseable_json_object(text) is None
+        assert result == text  # falls through to the return-as-is branch
+        assert elapsed < 2.0
 
 
 # --- Test remove_code_blocks ---
@@ -230,3 +276,16 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+    def test_chatty_prose_with_braces(self):
+        """Full chain: chatty prose containing braces before the JSON.
+
+        Previously the fallback produced invalid JSON and the outer except in
+        main.py swallowed it, silently dropping all extracted memories.
+        """
+        response = (
+            "The user mentioned {a trip}. Here is the update: "
+            '{"memory": [{"id": "0", "text": "planning a trip", "event": "ADD"}]}'
+        )
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "planning a trip"
