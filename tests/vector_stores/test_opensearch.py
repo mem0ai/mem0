@@ -151,6 +151,55 @@ class TestOpenSearchDB(unittest.TestCase):
         self.os_db.create_index()
         self.client_mock.indices.create.assert_not_called()
 
+    def test_auto_refresh_disabled_by_default(self):
+        """Test that auto_refresh is disabled by default (Issue #3739).
+
+        This ensures OpenSearch Serverless compatibility out-of-the-box since
+        the indices.refresh() API is not supported in serverless mode.
+        """
+        # Default instance should have auto_refresh=False
+        self.assertFalse(self.os_db.auto_refresh)
+        self.client_mock.reset_mock()
+
+        vectors = [[0.1] * 1536]
+        payloads = [{"key1": "value1"}]
+        ids = ["id1"]
+
+        self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # Verify index was called but refresh was NOT called (default behavior)
+        self.assertEqual(self.client_mock.index.call_count, 1)
+        self.client_mock.indices.refresh.assert_not_called()
+
+    def test_auto_refresh_enabled(self):
+        """Test that refresh is called once per batch (not per document) when auto_refresh=True."""
+        with patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock):
+            auto_refresh_db = OpenSearchDB(
+                host="localhost",
+                port=9200,
+                collection_name="test_auto_refresh",
+                embedding_model_dims=1536,
+                auto_refresh=True,  # Enable auto-refresh
+            )
+
+        self.assertTrue(auto_refresh_db.auto_refresh)
+        # auto_refresh_db reuses self.client_mock (patched above), so reset to drop
+        # the index calls made during construction before asserting on insert().
+        self.client_mock.reset_mock()
+
+        # Insert a batch of 3 vectors to verify the refresh is hoisted out of the
+        # per-document loop: index() is called once per document, but refresh()
+        # must fire exactly once for the whole batch.
+        vectors = [[0.1] * 1536, [0.2] * 1536, [0.3] * 1536]
+        payloads = [{"key1": "value1"}, {"key2": "value2"}, {"key3": "value3"}]
+        ids = ["id1", "id2", "id3"]
+
+        auto_refresh_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # index() once per document, but refresh() only once for the batch
+        self.assertEqual(self.client_mock.index.call_count, 3)
+        self.assertEqual(self.client_mock.indices.refresh.call_count, 1)
+
     def test_insert(self):
         vectors = [[0.1] * 1536, [0.2] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}]

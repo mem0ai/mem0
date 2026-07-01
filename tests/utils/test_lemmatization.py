@@ -119,6 +119,22 @@ class TestMultilingualBm25Fallback:
         assert "123" in tokens
         assert "sku_77" in tokens
 
+    def test_mixed_latin_plural_keeps_query_overlap_without_spacy(self, monkeypatch):
+        from mem0.utils import spacy_models
+        from mem0.utils.lemmatization import lemmatize_for_bm25
+
+        def fail_if_called():
+            raise AssertionError("spaCy should not be loaded for mixed non-Latin text")
+
+        monkeypatch.setattr(spacy_models, "get_nlp_lemma", fail_if_called)
+
+        stored = set(lemmatize_for_bm25("Alice 年糕汤 employees").split())
+        query = set(lemmatize_for_bm25("Alice 年糕汤 employee").split())
+
+        assert "employee" in stored
+        assert "employee" in query
+        assert stored & query
+
     def test_latin_text_falls_back_when_spacy_unavailable(self, monkeypatch):
         from mem0.utils import spacy_models
         from mem0.utils.lemmatization import lemmatize_for_bm25

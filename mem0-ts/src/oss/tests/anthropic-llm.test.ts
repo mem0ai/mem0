@@ -4,17 +4,46 @@
  */
 
 const mockCreate = jest.fn();
+const mockConstructor = jest.fn();
 
 jest.mock("@anthropic-ai/sdk", () => {
-  return jest.fn().mockImplementation(() => ({
-    messages: { create: mockCreate },
-  }));
+  return jest.fn().mockImplementation((args) => {
+    mockConstructor(args);
+    return { messages: { create: mockCreate } };
+  });
 });
 
 import { AnthropicLLM } from "../src/llms/anthropic";
 
 describe("AnthropicLLM (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    mockConstructor.mockClear();
+  });
+
+  // Regression #5665: a configured baseURL must reach the Anthropic client so
+  // proxy/gateway users are not silently bypassed (TS parity with #5626).
+  it("forwards baseURL to the Anthropic client when set", () => {
+    new AnthropicLLM({
+      apiKey: "test-key",
+      baseURL: "https://proxy.example/v1",
+    });
+
+    expect(mockConstructor).toHaveBeenCalledTimes(1);
+    const ctorArgs = mockConstructor.mock.calls[0][0];
+    expect(ctorArgs.apiKey).toBe("test-key");
+    expect(ctorArgs.baseURL).toBe("https://proxy.example/v1");
+  });
+
+  // When no baseURL is configured the client must not receive a baseURL key
+  // (so the SDK default endpoint is used).
+  it("does NOT set baseURL when none is configured", () => {
+    new AnthropicLLM({ apiKey: "test-key" });
+
+    expect(mockConstructor).toHaveBeenCalledTimes(1);
+    const ctorArgs = mockConstructor.mock.calls[0][0];
+    expect(ctorArgs.baseURL).toBeUndefined();
+  });
 
   it("returns text when no tools are provided and model returns a text block", async () => {
     mockCreate.mockResolvedValueOnce({

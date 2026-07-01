@@ -7,10 +7,29 @@ All pre-fetch hooks use this instead of duplicating urllib boilerplate.
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 
 SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
 SEARCH_TIMEOUT = 5
+
+
+def should_rerank() -> bool:
+    """Whether auto-injection searches should request Platform reranking.
+
+    The REST search endpoint does not rerank when ``rerank`` is omitted, so
+    auto-injected context is ordered by raw vector similarity and the single
+    most relevant memory can fall outside the injected top_k window. We default
+    reranking ON for the hook-driven injection path (the extra ~150-200ms is
+    well within the hook's curl budget) and let users opt out via MEM0_RERANK.
+
+    MEM0_RERANK is read case-insensitively; ``0``, ``false``, ``no``, and
+    ``off`` disable reranking. Anything else (including unset) enables it.
+    """
+    raw = os.environ.get("MEM0_RERANK")
+    if raw is None:
+        return True
+    return raw.strip().lower() not in ("0", "false", "no", "off", "")
 
 
 def _do_search(api_key: str, payload: dict) -> list[dict]:

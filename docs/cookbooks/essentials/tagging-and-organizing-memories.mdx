@@ -19,7 +19,7 @@ client = MemoryClient(api_key="your-api-key")
 ```
 
 <Note>
-Define custom categories at the **project level** with `client.project.update()` before adding memories. Categories apply to all future memories—Mem0 auto-assigns them based on content semantics.
+Define custom categories at the **project level** with `client.project.update()` before adding memories. Categories apply to all future memories: Mem0 auto-assigns them based on content semantics.
 </Note>
 
 ---
@@ -67,7 +67,7 @@ Total memories: 3
 ```
 
 <Warning>
-Without categories, agents waste time reading through everything. For a customer with 100 memories, finding one billing issue means scanning all 100. Categories let you filter to exactly what you need—billing issues only, no password resets or feedback mixed in.
+Without categories, agents waste time reading through everything. For a customer with 100 memories, finding one billing issue means scanning all 100. Categories let you filter to exactly what you need: billing issues only, no password resets or feedback mixed in.
 </Warning>
 
 Everything is mixed together. Support agents have to read through all memories to find what they need.
@@ -91,7 +91,7 @@ client.project.update(custom_categories=custom_categories)
 ```
 
 <Tip>
-Start with 3-5 clear categories that match how your team thinks. Too many categories dilute auto-tagging accuracy. Add more later if needed—it's easier to expand than to fix over-complicated classification.
+Start with 3-5 clear categories that match how your team thinks. Too many categories dilute auto-tagging accuracy. Add more later if needed: it's easier to expand than to fix over-complicated classification.
 </Tip>
 
 These categories are now available project-wide. Every memory can be tagged with one or more categories.
@@ -160,7 +160,7 @@ Billing issues:
 ```
 
 <Info icon="check">
-**Expected output:** Only the billing issue returned—no password reset, no upgrade request. Category filtering worked. Joseph can audit billing without reading through unrelated support tickets.
+**Expected output:** Only the billing issue returned: no password reset, no upgrade request. Category filtering worked. Joseph can audit billing without reading through unrelated support tickets.
 </Info>
 
 Only billing-related memories are returned. No need to filter through account updates or feedback.
@@ -239,7 +239,7 @@ This pattern scales from 10 customers to 10,000 without degrading retrieval spee
 
 Categories make retrieval faster and compliance easier. Define 3-5 clear categories with `client.project.update()`, let Mem0 auto-assign them based on content, then filter with `categories: {in: [...]}` to pull exactly what you need.
 
-Instead of searching through everything, agents jump directly to the information type they need—billing issues, account details, or support tickets.
+Instead of searching through everything, agents jump directly to the information type they need: billing issues, account details, or support tickets.
 
 <CardGroup cols={2}>
   <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">

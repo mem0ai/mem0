@@ -17,7 +17,7 @@ The new Mem0 release redesigns both extraction and retrieval, and cleans up the 
 - **Retrieval**: Multi-signal hybrid search (semantic + BM25 keyword + entity matching)
 - **Entity linking**: Automatic entity extraction and cross-memory linking
 - **SDK cleanup**: Deprecated parameters removed, naming conventions standardized
-- **API surface aligned with Platform**: Entity IDs now follow the same convention across OSS and Platform — top-level kwargs for `add()` / `delete_all()`, inside `filters` for `search()` / `get_all()`
+- **API surface aligned with Platform**: Entity IDs now follow the same convention across OSS and Platform: top-level kwargs for `add()` / `delete_all()`, inside `filters` for `search()` / `get_all()`
 
 These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and **+26 point improvement on LongMemEval** (67.8 → 93.4), while cutting extraction latency roughly in half.
 
@@ -27,13 +27,13 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 
 | Change | Old | New | Migration |
 |---|---|---|---|
-| `search()` / `get_all()` entity IDs | Top-level kwargs (`user_id="..."`) | Inside `filters` dict | `m.search("q", filters={"user_id": "..."})` — top-level kwargs now raise `ValueError` |
+| `search()` / `get_all()` entity IDs | Top-level kwargs (`user_id="..."`) | Inside `filters` dict | `m.search("q", filters={"user_id": "..."})`: top-level kwargs now raise `ValueError` |
 | `top_k` default | `100` | `20` | Pass `top_k=100` explicitly to restore |
 | `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
 | `threshold` validation | Any float | Must be in `[0, 1]` | Out-of-range values now raise `ValueError` |
 | `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
 | Entity ID validation | Accepted any string | Trimmed; empty / whitespace-only rejected (`ValueError`) | Pass a non-empty identifier without internal spaces |
-| `messages` in `add()` | Could be `None` | Must be `str` / `dict` / `list[dict]` — other types raise `Mem0ValidationError` (code `VALIDATION_003`) | Always pass a string, dict, or list of messages |
+| `messages` in `add()` | Could be `None` | Must be `str` / `dict` / `list[dict]`: other types raise `Mem0ValidationError` (code `VALIDATION_003`) | Always pass a string, dict, or list of messages |
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
 | Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
 | Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
@@ -50,8 +50,8 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | `search()` / `getAll()` entity IDs | Top-level options (`userId: "..."`) | Inside `filters` object | `m.search("q", { filters: { userId: "..." } })` |
 | `threshold` validation | Any number | Must be in `[0, 1]` | Out-of-range values now throw |
 | Entity ID validation | Any string | Trimmed; empty / whitespace-only rejected | Pass non-empty identifiers without internal spaces |
-| `messages` in `add()` | Could be `null` / `undefined` | Required — throws on null/undefined | Always pass a string or array |
-| Payload key for lemmatized text | `text_lemmatized` (snake_case) | `textLemmatized` (camelCase) | TS-only internal field. If you share a vector store collection between Python and TS SDKs, lemma-based BM25 will not resolve across languages — keep collections language-scoped. |
+| `messages` in `add()` | Could be `null` / `undefined` | Required: throws on null/undefined | Always pass a string or array |
+| Payload key for lemmatized text | `text_lemmatized` (snake_case) | `textLemmatized` (camelCase) | TS-only internal field. If you share a vector store collection between Python and TS SDKs, lemma-based BM25 will not resolve across languages: keep collections language-scoped. |
 | Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
 | Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph store support has been removed entirely |
 | Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer used |
@@ -62,7 +62,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 |---|---|---|---|
 | Constructor | `MemoryClient(api_key, org_id, project_id)` | `MemoryClient(api_key)` | Remove `org_id`, `project_id` from constructor |
 | Method options | `client.add(messages, **kwargs)` | `client.add(messages, options=AddMemoryOptions(...))` | Use typed option classes (or `**kwargs` still works) |
-| Removed params | `api_version`, `output_format`, `async_mode`, `filter_memories`, `expiration_date`, `keyword_search`, `force_add_only`, `batch_size`, `immutable`, `includes`, `excludes`, `enable_graph`, `org_name`, `project_name` | — | Remove from all calls |
+| Removed params | `api_version`, `output_format`, `async_mode`, `filter_memories`, `keyword_search`, `force_add_only`, `batch_size`, `immutable`, `includes`, `excludes`, `enable_graph`, `org_name`, `project_name` | N/A | Remove from all calls |
 
 ### TypeScript Client SDK
 
@@ -70,7 +70,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 |---|---|---|---|
 | Constructor | `new MemoryClient({ apiKey, organizationId, projectId })` | `new MemoryClient({ apiKey })` | Remove `organizationId`, `projectId`, `organizationName`, `projectName` |
 | All params | snake_case: `user_id`, `agent_id`, `top_k` | camelCase: `userId`, `agentId`, `topK` | Rename all params to camelCase |
-| Removed params | `api_version`, `output_format`, `async_mode`, `enable_graph`, `org_id`, `project_id`, `org_name`, `project_name`, `filter_memories`, `batch_size`, `force_add_only`, `immutable`, `expiration_date`, `includes`, `excludes`, `keyword_search` | — | Remove from all calls |
+| Removed params | `api_version`, `output_format`, `async_mode`, `enable_graph`, `org_id`, `project_id`, `org_name`, `project_name`, `filter_memories`, `batch_size`, `force_add_only`, `immutable`, `includes`, `excludes`, `keyword_search` | N/A | Remove from all calls |
 | Output format enum | `OutputFormat.V1`, `OutputFormat.V1_1` | Removed | v1.1 is now always used |
 | API version enum | `API_VERSION.V1`, `API_VERSION.V2` | Removed | Handled internally |
 
@@ -87,23 +87,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
     # For hybrid search + entity extraction (recommended)
     pip install --upgrade "mem0ai[nlp]"
     python -m spacy download en_core_web_sm
-    ```
 
-    BM25 keyword preprocessing includes built-in multilingual tokenization for non-Latin scripts such as CJK, Thai, Arabic, and Cyrillic. No language-specific spaCy model is required for non-Latin BM25 tokenization, and non-Latin BM25 preprocessing always uses the built-in tokenizer. The default spaCy model remains `en_core_web_sm` for English lemmatization and entity extraction.
-
-    Install/download any non-default spaCy model before setting it, e.g. `python -m spacy download zh_core_web_sm`. To use a different spaCy pipeline for entity extraction or lemmatization, configure the model names with environment variables:
-
-    ```bash
-    export MEM0_SPACY_MODEL=zh_core_web_sm
-    export MEM0_SPACY_ENTITY_MODEL=zh_core_web_sm
-    export MEM0_SPACY_LEMMA_MODEL=en_core_web_sm
-    ```
-
-    `MEM0_SPACY_ENTITY_MODEL` and `MEM0_SPACY_LEMMA_MODEL` override `MEM0_SPACY_MODEL` for their specific pipelines. `MEM0_SPACY_LEMMA_MODEL` applies to Latin-only spaCy lemmatization.
-
-    Existing collections keep the `text_lemmatized` payload stored at insert or update time. Re-add, update, or reindex existing memories to refresh BM25 tokens after upgrading. Backends that add BM25 fields or sparse vector slots may require a fresh v3 collection or backend-specific reindexing.
-
-    ```bash
     # Qdrant users: also install fastembed to enable BM25 keyword search
     pip install fastembed
     ```
@@ -120,11 +104,11 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 </Tabs>
 
 <Info>
-The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and English keyword lemmatization. Without spaCy, Mem0 skips spaCy statistical NER/noun-chunk extraction; quoted/code fallback extraction still runs. BM25 preprocessing falls back to the dependency-free tokenizer. Whether BM25 keyword search is available still depends on the vector store/backend; Qdrant requires `fastembed` for sparse BM25 vectors.
+The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for richer entity extraction and English keyword lemmatization. Without it, Mem0 still works with regex-based entity extraction and dependency-free keyword tokenization, but statistical NER/noun-chunk coverage and English lemmatization are reduced.
 </Info>
 
 <Warning>
-**Qdrant users — install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without `fastembed`, Qdrant cannot encode sparse BM25 vectors, so the BM25 keyword signal is disabled — you'll see a log warning `"fastembed not installed — BM25 keyword search disabled"` on the first search call. Search continues with semantic results and any other configured signals. Other vector stores do not use Qdrant sparse-vector encoding, but BM25 availability varies by backend and configuration.
+**Qdrant users: install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without it, Qdrant cannot encode sparse BM25 vectors, so the BM25 keyword signal is disabled and the first search call logs a warning. Other vector stores use their native full-text capabilities and do not need `fastembed`.
 
 ```bash
 pip install fastembed
@@ -150,8 +134,8 @@ pip install fastembed
     # After
     config = {
         "custom_instructions": "Focus on user preferences",  # [OK] New name
-        # custom_update_memory_prompt removed — use custom_instructions
-        # enable_graph and graph_store removed — graph store support has been removed
+        # custom_update_memory_prompt removed: use custom_instructions
+        # enable_graph and graph_store removed: graph store support has been removed
     }
     ```
   </Tab>
@@ -170,7 +154,7 @@ pip install fastembed
     // After
     const config = {
       customInstructions: "Focus on user preferences",  // [OK] New name
-      // enableGraph and graphStore removed — graph store support has been removed
+      // enableGraph and graphStore removed: graph store support has been removed
     };
     ```
   </Tab>
@@ -181,7 +165,7 @@ pip install fastembed
 <Tabs>
   <Tab title="Python OSS">
     ```python
-    # Before — entity IDs as top-level kwargs
+    # Before: entity IDs as top-level kwargs
     results = m.search(
         "what meetings did I attend?",
         user_id="alice",
@@ -190,7 +174,7 @@ pip install fastembed
     for r in results:
         print(r["score"])  # Was raw cosine similarity
 
-    # After — entity IDs go inside `filters` (matches Platform API)
+    # After: entity IDs go inside `filters` (matches Platform API)
     results = m.search(
         "what meetings did I attend?",
         filters={"user_id": "alice"},   # [REMOVED top-level kwarg, use filters]
@@ -208,13 +192,13 @@ pip install fastembed
   </Tab>
   <Tab title="TypeScript OSS">
     ```typescript
-    // Before — entity IDs as top-level options
+    // Before: entity IDs as top-level options
     const results = await m.search("what meetings did I attend?", {
       userId: "alice",
       limit: 20          // [REMOVED] Renamed to 'topK' for consistency
     });
 
-    // After — entity IDs go inside `filters` (matches Platform API)
+    // After: entity IDs go inside `filters` (matches Platform API)
     const results = await m.search("what meetings did I attend?", {
       filters: { userId: "alice" },   // [REMOVED top-level option, use filters]
       topK: 20                        // [OK] Renamed from 'limit'
@@ -270,7 +254,7 @@ pip install fastembed
 <Tabs>
   <Tab title="Python OSS">
     ```python
-    # Before — could return ADD, UPDATE, DELETE events
+    # Before: could return ADD, UPDATE, DELETE events
     result = m.add("I love hiking and my dog's name is Max", user_id="alice")
     for item in result["results"]:
         if item["event"] == "ADD":
@@ -280,7 +264,7 @@ pip install fastembed
         elif item["event"] == "DELETE":
             print("Deleted:", item["memory"])      # [REMOVED] No longer returned
 
-    # After — only ADD events
+    # After: only ADD events
     result = m.add("I love hiking and my dog's name is Max", user_id="alice")
     for item in result["results"]:
         print("New memory:", item["memory"])  # Only ADD events
@@ -293,7 +277,7 @@ pip install fastembed
     # Before
     client.add(messages, user_id="alice", async_mode=True, output_format="v1.1")
 
-    # After — async_mode and output_format removed (async by default, v1.1 always)
+    # After: async_mode and output_format removed (async by default, v1.1 always)
     client.add(
         messages,
         options=AddMemoryOptions(user_id="alice")
@@ -321,7 +305,7 @@ pip install fastembed
 </Tabs>
 
 <Tip>
-The ADD-only model means memories accumulate over time. When information changes, the new fact is stored alongside the old one. Retrieval handles ranking — the most relevant, current information surfaces first.
+The ADD-only model means memories accumulate over time. When information changes, the new fact is stored alongside the old one. Retrieval handles ranking: the most relevant, current information surfaces first.
 </Tip>
 
 ### 5. Update Vector Store Dependencies
@@ -338,7 +322,7 @@ pip install "upstash-vector>=0.6.0"
 
 ### 6. Entity Store Setup
 
-The new algorithm automatically creates a parallel entity store collection named `{your_collection}_entities`. No manual setup is required — it's created on first use.
+The new algorithm automatically creates a parallel entity store collection named `{your_collection}_entities`. No manual setup is required: it's created on first use.
 
 <Warning>
 Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection with the same embedding dimensions as your main collection.
@@ -359,7 +343,7 @@ Mem0 now builds the graph itself. It extracts entities (proper nouns, quoted tex
 
 **Migration:**
 - Remove `enable_graph` / `enableGraph` from your config
-- Remove the `graph_store` / `graphStore` block — it is no longer read
+- Remove the `graph_store` / `graphStore` block: it is no longer read
 - Uninstall external graph drivers (neo4j, memgraph, etc.) if you were using them only for Mem0
 - No schema migration is required for the SDK to run, but existing memories need re-add, update, reindex, or backfill to refresh BM25 payloads and participate in entity boosting.
 
@@ -381,7 +365,7 @@ Input conversation
     → Entity extraction + linking
 ```
 
-The previous algorithm used two LLM calls — one to extract candidate facts, one to decide ADD/UPDATE/DELETE actions against existing memories. The new algorithm collapses this into a single call that only adds. The model spends its capacity on understanding the input rather than diffing against existing state.
+The previous algorithm used two LLM calls: one to extract candidate facts, one to decide ADD/UPDATE/DELETE actions against existing memories. The new algorithm collapses this into a single call that only adds. The model spends its capacity on understanding the input rather than diffing against existing state.
 
 ### Retrieval: Multi-Signal Hybrid Search
 
@@ -395,17 +379,17 @@ Query
     → Score fusion → Top-K selection
 ```
 
-**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic alone, semantic + BM25, or all three when backend BM25 is available and entity extraction has produced linked entities; spaCy broadens statistical NER/noun-chunk coverage).
+**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic-only, semantic + BM25, or all three when backend BM25 is available and entity extraction has produced linked entities; spaCy broadens statistical NER/noun-chunk coverage).
 
-**BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates — BM25 and entity scores boost ranking but don't add new candidates.
+**BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates: BM25 and entity scores boost ranking but don't add new candidates.
 
 ## Vector Store Compatibility
 
-Supported vector stores expose a common compatibility interface for keyword search and batch search where the backend supports it.
+All 15 supported vector stores have been enhanced with two new capabilities:
 
 | Capability | Purpose | Fallback if Unsupported |
 |---|---|---|
-| `keyword_search()` | BM25/full-text keyword matching | Omits the keyword signal; semantic ranking still works |
+| `keyword_search()` | BM25/full-text keyword matching | Falls back to semantic-only search |
 | `search_batch()` | Batch search for entity matching | Falls back to sequential search |
 
 **Qdrant-specific changes:**
@@ -413,8 +397,9 @@ Supported vector stores expose a common compatibility interface for keyword sear
 - Requires `fastembed` library for BM25 encoding (lazy-loaded, gracefully degrades)
 - Install: `pip install fastembed`
 
-**Other vector stores:**
-Other vector stores vary by backend and configuration. Backends with native full-text support use their provider keyword-search capability; unsupported or incompletely configured backends may omit the keyword signal. Install any provider-specific extras and verify BM25 support for your selected store.
+**All other vector stores:**
+- Enhanced with `keyword_search()` methods using their native full-text capabilities
+- No additional dependencies required
 
 ## Graceful Degradation
 
@@ -422,8 +407,8 @@ The new features degrade gracefully when optional dependencies are missing:
 
 | Missing Dependency | Impact | Search Still Works? |
 |---|---|---|
-| spaCy (`mem0ai[nlp]`) | No spaCy statistical NER/noun-chunk extraction; quoted/code fallback extraction still runs; BM25 preprocessing uses the dependency-free tokenizer | Yes (semantic + backend-supported BM25) |
-| `fastembed` (Qdrant) | No Qdrant BM25 keyword signal | Yes (semantic + entity if configured) |
+| spaCy (`mem0ai[nlp]`) | No entity extraction, no BM25 lemmatization | Yes (semantic-only) |
+| `fastembed` (Qdrant) | No BM25 keyword search | Yes (semantic + entity) |
 | Entity store unavailable | No entity boosting | Yes (semantic + BM25) |
 
 You always get semantic search. Hybrid search features layer on top when available.
@@ -432,13 +417,13 @@ You always get semantic search. Hybrid search features layer on top when availab
 
 These parameters have been removed across all SDKs. Remove them from your code:
 
-### Python Client SDK — Removed parameters
+### Python Client SDK: Removed parameters
 
 **Constructor:** `org_id`, `project_id`
 
 **All methods:** `api_version`, `output_format`, `async_mode`, `org_name`, `project_name`, `org_id`, `project_id`
 
-**add():** `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+**add():** `enable_graph`, `immutable`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
 
 **search():** `enable_graph`
 
@@ -446,19 +431,19 @@ These parameters have been removed across all SDKs. Remove them from your code:
 
 **project.update():** `enable_graph`
 
-### TypeScript Client SDK — Removed parameters
+### TypeScript Client SDK: Removed parameters
 
 **Constructor:** `organizationId`, `projectId`, `organizationName`, `projectName`
 
 **All methods:** `OutputFormat` enum, `API_VERSION` enum
 
-**add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `expiration_date` / `expirationDate`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
+**add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
 
 **search():** `enable_graph` / `enableGraph`
 
 **get_all():** `enable_graph` / `enableGraph`
 
-### Python OSS — Removed/renamed parameters
+### Python OSS: Removed/renamed parameters
 
 **Config:** `custom_fact_extraction_prompt` → renamed to `custom_instructions`
 
@@ -466,7 +451,7 @@ These parameters have been removed across all SDKs. Remove them from your code:
 
 **Config:** `enable_graph` + `graph_store` → removed (graph store support removed entirely)
 
-### TypeScript OSS — Removed/renamed parameters
+### TypeScript OSS: Removed/renamed parameters
 
 **Config:** `customPrompt` → renamed to `customInstructions`
 
@@ -524,16 +509,10 @@ results = m.search("query", filters={"user_id": "alice"}, threshold=0.0)
 
 ### spaCy model not found
 
-If you see errors about missing spaCy models, download the model named in the warning or configuration. Default English users should install `en_core_web_sm`:
+If you see errors about missing spaCy models, download the required model:
 
 ```bash
 python -m spacy download en_core_web_sm
-```
-
-Custom model users should download that configured model first. For example, if you set `zh_core_web_sm`:
-
-```bash
-python -m spacy download zh_core_web_sm
 ```
 
 If spaCy is not installed at all, install the NLP extras:
@@ -548,7 +527,7 @@ The entity store tries to create a `{collection_name}_entities` collection autom
 
 ### Score values are different from before
 
-The top-level `score` still ranges `[0, 1]`, but it is computed differently in v3. Relative ranking between results stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
+The top-level `score` still ranges `[0, 1]`, but it is computed differently in v3. Relative ranking between results stays comparable, but absolute numbers shift: retune any hard thresholds in your app against representative queries.
 
 If you need the raw cosine similarity for a specific use case, run an unboosted vector query directly against your vector store via `vector_store.search(...)`.
 

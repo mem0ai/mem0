@@ -1,9 +1,9 @@
 ---
 title: Codex
-description: "Add persistent memory to OpenAI Codex with the Mem0 plugin — MCP server, lifecycle hooks, and SDK skill."
+description: "Add persistent memory to OpenAI Codex with the Mem0 plugin: MCP server, lifecycle hooks, and SDK skill."
 ---
 
-Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ source ~/.bashrc
 
 ## Installation
 
-### Option A — Plugin Marketplace (Recommended)
+### Option A: Plugin Marketplace (Recommended)
 
 Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 
@@ -41,27 +41,39 @@ Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
    codex plugin marketplace add mem0ai/mem0
    ```
 
-2. Restart Codex, open the Plugin Directory, browse the **Mem0 Plugins** marketplace, and install **Mem0**.
+2. Install the plugin:
+
+   ```bash
+   codex plugin add mem0@mem0-plugins
+   ```
+
+   Or, in the app: restart Codex, open the Plugin Directory, browse the **Mem0 Plugins** marketplace, and install **Mem0**.
+
+<Note>
+  Step 1 is required for the app UI. Mem0 isn't in OpenAI's curated directory yet, so **without `codex plugin marketplace add`, Mem0 won't appear in the Codex app's Plugin Directory**: searching for it returns nothing. Adding the marketplace surfaces it (under **Created by you**) and makes it installable.
+</Note>
 
 <Info>
   Do not combine with Option B. The plugin manifest auto-registers the `mem0` MCP server, so adding both will create a duplicate registration.
 </Info>
 
-### Option B — Direct MCP
+### Option B: Direct MCP
 
-The fastest way to connect Codex to Mem0 — no plugin, no marketplace. Add to `~/.codex/config.toml`:
+The fastest way to connect Codex to Mem0 needs no plugin or marketplace. Add the MCP server with a single command:
+
+```bash
+codex mcp add mem0 --url https://mcp.mem0.ai/mcp/ --bearer-token-env-var MEM0_API_KEY
+```
+
+Or add it manually to `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.mem0]
-url = "https://mcp.mem0.ai/mcp"
+url = "https://mcp.mem0.ai/mcp/"
 bearer_token_env_var = "MEM0_API_KEY"
 ```
 
 Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then restart Codex.
-
-<Info>
-  Codex's `codex mcp add` CLI only supports stdio MCP servers. Because Mem0's MCP is HTTP/streamable, you configure it by editing `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
-</Info>
 
 This gives you the MCP tools but not the lifecycle hooks or SDK skill.
 
@@ -69,7 +81,8 @@ This gives you the MCP tools but not the lifecycle hooks or SDK skill.
 
 ```bash
 codex plugin marketplace upgrade               # pull latest plugin versions
-codex plugin marketplace remove mem0-plugins   # unregister the marketplace
+codex plugin remove mem0@mem0-plugins          # uninstall the plugin (keeps the marketplace)
+codex plugin marketplace remove mem0-plugins   # unregister the marketplace entirely
 ```
 
 To update, run `codex plugin marketplace upgrade` to pull the latest from the Mem0 repo.
@@ -110,9 +123,10 @@ When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to 
 |------|-------|-------------|
 | **Session start** | `SessionStart` | Loads prior memories and displays status banner |
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
-| **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
+| **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Pre-compact** | `PreCompact` | Stores a session summary before context compaction |
+| **Stop** | `Stop` | Stores a session summary when the session ends |
+| **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
 
 ## Example Workflow
 
@@ -135,10 +149,10 @@ You: Add WebSocket support for real-time notification delivery.
 
 ## Troubleshooting
 
-- **"Connection failed"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
-- **No tools appearing** — Restart your Codex session after installation
-- **Duplicate `mem0` MCP / "tool collision" errors** — You combined Option A with Option B. Remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`; the plugin registers it automatically
-- **Hooks not firing** — Ensure the plugin is installed via the marketplace (Option A). MCP-only installs do not include hooks
+- **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
+- **No tools appearing**: Restart your Codex session after installation
+- **Duplicate `mem0` MCP / "tool collision" errors**: You combined Option A with Option B. Remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`; the plugin registers it automatically
+- **Hooks not firing**: Ensure the plugin is installed via the marketplace (Option A). MCP-only installs do not include hooks
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

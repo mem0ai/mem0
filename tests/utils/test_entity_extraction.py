@@ -35,8 +35,9 @@ class TestExtractEntities:
 
         entities = extract_entities("The machine learning engineer built a neural network")
         entity_texts = [e[1].lower() for e in entities]
-        has_compound = any("machine" in t and "learning" in t for t in entity_texts) or \
-                       any("neural" in t and "network" in t for t in entity_texts)
+        has_compound = any("machine" in t and "learning" in t for t in entity_texts) or any(
+            "neural" in t and "network" in t for t in entity_texts
+        )
         assert has_compound, f"Expected compound nouns, got {entities}"
 
     def test_empty_string(self):
@@ -78,8 +79,36 @@ class TestExtractEntities:
         for entity in entities:
             assert isinstance(entity, tuple)
             assert len(entity) == 2
-            assert entity[0] in ("PROPER", "QUOTED", "COMPOUND", "NOUN")
+            assert entity[0] in ("PROPER", "QUOTED", "TOPIC", "IDENTIFIER")
             assert isinstance(entity[1], str)
+
+    def test_handles_names_lists_and_identifiers(self):
+        from mem0.utils.entity_extraction import extract_entities
+
+        text = (
+            "User reported top inbound integration pages: OpenClaw 25,443, "
+            "Claude Code 8,916, Codex 2,573, Dify 656. "
+            "User compared Cartesia and Deepgram. "
+            "The email field for Mem0 lives at person.properties.email. "
+            "The qwen endpoint uses person.properties.email. "
+            "Johnson & Johnson was mentioned. "
+            "Glasses around my window. "
+            "On 2026-05-27 there were 90 days of stats."
+        )
+
+        entities = extract_entities(text)
+        entity_texts = {entity_text for _, entity_text in entities}
+        normalized = {entity_text.lower() for entity_text in entity_texts}
+
+        assert {"OpenClaw", "Claude Code", "Codex", "Dify", "Cartesia", "Deepgram", "Mem0"}.issubset(entity_texts)
+        assert "person.properties.email" in entity_texts
+        assert "qwen endpoint" in entity_texts
+        assert "Johnson & Johnson" in entity_texts
+        assert "top" not in normalized
+        assert "glasses" not in normalized
+        assert "Cartesia and Deepgram" not in entity_texts
+        assert "Claude Code 8,916" not in entity_texts
+        assert not {"8,916", "2,573", "656", "2026-05-27", "90"}.intersection(entity_texts)
 
 
 @pytest.mark.usefixtures("ensure_spacy")
@@ -116,8 +145,13 @@ def test_batch_empty_input():
 
 
 class FakeEnt:
-    def __init__(self, text):
+    def __init__(self, text, label="PERSON", start=0):
         self.text = text
+        self.label_ = label
+        self._tokens = [FakeToken(start, text)]
+
+    def __iter__(self):
+        return iter(self._tokens)
 
 
 class FakeToken:
@@ -126,24 +160,29 @@ class FakeToken:
     lemma_ = "x"
     pos_ = "NOUN"
     dep_ = "ROOT"
+    tag_ = "NN"
     is_sent_start = False
     is_stop = False
 
-    def __init__(self, i=0):
+    def __init__(self, i=0, text="x"):
         self.i = i
+        self.text = text
+        self.text_with_ws = f"{text} "
+        self.lemma_ = text.lower()
         self.head = self
 
 
 class FakeDoc:
     def __init__(self, text="阿宁在苏州使用 EMP-123", ents=None, noun_chunks_error=None):
         self.text = text
-        self.ents = [FakeEnt("阿宁"), FakeEnt("苏州")] if ents is None else ents
+        self.ents = [FakeEnt("阿宁", start=0), FakeEnt("苏州", start=1)] if ents is None else ents
+        self._tokens = [FakeToken(idx, ent.text) for idx, ent in enumerate(self.ents)]
         self._noun_chunks_error = noun_chunks_error or NotImplementedError(
             "noun_chunks not implemented for this language"
         )
 
     def __iter__(self):
-        return iter([FakeToken()])
+        return iter(self._tokens)
 
     @property
     def noun_chunks(self):
@@ -194,7 +233,7 @@ def test_fallback_entities_work_without_spacy(monkeypatch):
     entities = extract_entities('用户说 "年糕汤" 的员工编号是 EMP-123')
 
     assert ("QUOTED", "年糕汤") in entities
-    assert ("PROPER", "EMP-123") in entities
+    assert ("IDENTIFIER", "EMP-123") in entities
 
 
 def test_unicode_quote_fallback_entities_work_without_spacy(monkeypatch):
@@ -220,7 +259,7 @@ def test_single_quote_fallback_entities_work_without_spacy(monkeypatch):
     entities = extract_entities("用户说 '年糕汤' 的员工编号是 EMP-123")
 
     assert ("QUOTED", "年糕汤") in entities
-    assert ("PROPER", "EMP-123") in entities
+    assert ("IDENTIFIER", "EMP-123") in entities
 
 
 def test_code_like_substring_entities_are_not_pruned_without_spacy(monkeypatch):
@@ -231,8 +270,38 @@ def test_code_like_substring_entities_are_not_pruned_without_spacy(monkeypatch):
 
     entities = extract_entities("Use ABC-123 and ABC-123-def as distinct IDs")
 
-    assert ("PROPER", "ABC-123") in entities
-    assert ("PROPER", "ABC-123-def") in entities
+    assert ("IDENTIFIER", "ABC-123") in entities
+    assert ("IDENTIFIER", "ABC-123-def") in entities
+
+
+def test_spacy_proper_entity_beats_regex_quoted_duplicate(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(
+        spacy_models,
+        "get_nlp_full",
+        lambda: lambda text: FakeDoc(text=text, ents=[FakeEnt("Apple", label="ORG")]),
+    )
+
+    entities = extract_entities('The note says "Apple" and Apple shipped the fix')
+
+    assert ("PROPER", "Apple") in entities
+    assert ("QUOTED", "Apple") not in entities
+
+
+def test_code_regex_ignores_common_short_alphanumeric_words_without_spacy(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+
+    entities = extract_entities("Ship ABC-123, not 4th, Python3, B2B, or G20. Keep AB12CD.")
+    entity_texts = {text for _, text in entities}
+
+    assert "ABC-123" in entity_texts
+    assert "AB12CD" in entity_texts
+    assert not {"4th", "Python3", "B2B", "G20"}.intersection(entity_texts)
 
 
 def test_batch_preserves_length_when_pipe_returns_fewer_docs(monkeypatch):
@@ -246,7 +315,7 @@ def test_batch_preserves_length_when_pipe_returns_fewer_docs(monkeypatch):
 
     assert len(results) == len(texts)
     assert ("QUOTED", "年糕汤") in results[0]
-    assert ("PROPER", "EMP-123") in results[1]
+    assert ("IDENTIFIER", "EMP-123") in results[1]
 
 
 def test_batch_preserves_length_when_pipe_returns_extra_docs(monkeypatch):
@@ -263,7 +332,7 @@ def test_batch_preserves_length_when_pipe_returns_extra_docs(monkeypatch):
     results = extract_entities_batch(texts)
 
     assert len(results) == len(texts)
-    assert ("PROPER", "EMP-123") in results[0]
+    assert ("IDENTIFIER", "EMP-123") in results[0]
     assert all(entity_text != "서울" for result in results for _, entity_text in result)
 
 
