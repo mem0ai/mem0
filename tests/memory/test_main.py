@@ -1015,3 +1015,41 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestTruncateToTokenLimit:
+    def test_short_text_unchanged(self):
+        from mem0.memory.utils import truncate_to_token_limit
+
+        result = truncate_to_token_limit("hello world")
+        assert result == "hello world"
+
+    def test_empty_text_unchanged(self):
+        from mem0.memory.utils import truncate_to_token_limit
+
+        assert truncate_to_token_limit("") == ""
+        assert truncate_to_token_limit(None) is None
+
+    def test_long_text_truncated_from_head(self):
+        from mem0.memory.utils import truncate_to_token_limit
+
+        # Force truncation with small max_tokens
+        long_text = "word " * 5000  # ~5000 tokens
+        result = truncate_to_token_limit(long_text, max_tokens=100)
+        assert len(result) < len(long_text)
+        # Tail is preserved
+        assert long_text.endswith(result[-50:])
+
+    def test_truncation_logs_warning(self, caplog):
+        from mem0.memory.utils import truncate_to_token_limit
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.utils"):
+            truncate_to_token_limit("word " * 5000, max_tokens=100)
+        assert any("Truncating" in msg for msg in caplog.messages)
+
+    def test_custom_max_tokens(self):
+        from mem0.memory.utils import truncate_to_token_limit
+
+        text = "a " * 1000
+        result = truncate_to_token_limit(text, max_tokens=50)
+        assert len(result) < len(text)
