@@ -1529,3 +1529,97 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_default_path_does_not_require_langchain_core(
+    mock_llm_factory, mock_emb, mock_vs
+):
+    """Regression #5907: the default async path (llm=None) must not import
+    langchain_core at function entry. Previously the unconditional import
+    raised ModuleNotFoundError on a base `pip install mem0ai` even when no
+    custom LLM was supplied, while the sync equivalent worked."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory import main as memory_main
+
+    config = MemoryConfig()
+    memory = memory_main.AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    # Stub the default LLM so generate_response returns a clean string; the
+    # regression is about the import boundary, not the response shape.
+    memory.llm.generate_response.return_value = "remember to validate inputs"
+
+    # If anything in the function unconditionally imports langchain_core this
+    # patch turns the import into ImportError, which the function would re-raise.
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocking_import(name, *args, **kwargs):
+        if name == "langchain_core.messages.utils" or name.startswith("langchain_core"):
+            raise ImportError("simulated missing langchain-core")
+        return real_import(name, *args, **kwargs)
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    with patch("builtins.__import__", side_effect=blocking_import):
+        # Default path (llm=None) should succeed despite langchain-core being
+        # unimportable. The custom-LLM branch would raise; we don't take it.
+        result = await memory._create_procedural_memory(messages, metadata=metadata)
+
+    assert result["results"][0]["memory"] == "remember to validate inputs"
+    memory.llm.generate_response.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_custom_llm_still_requires_langchain_core(
+    mock_llm_factory, mock_emb, mock_vs
+):
+    """Symmetric regression for #5907: when a custom llm IS supplied, the
+    langchain-core import still runs and a missing dependency still raises
+    rather than silently skipping the conversion."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory import main as memory_main
+
+    config = MemoryConfig()
+    memory = memory_main.AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocking_import(name, *args, **kwargs):
+        if name == "langchain_core.messages.utils" or name.startswith("langchain_core"):
+            raise ImportError("simulated missing langchain-core")
+        return real_import(name, *args, **kwargs)
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    with patch("builtins.__import__", side_effect=blocking_import):
+        with pytest.raises(ImportError, match="langchain-core"):
+            await memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
+
+    # The custom LLM was never invoked because conversion failed first.
+    mock_langchain_llm.invoke.assert_not_called()
