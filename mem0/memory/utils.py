@@ -132,40 +132,45 @@ def remove_code_blocks(content: str) -> str:
 def _first_parseable_json_object(text: str) -> Optional[str]:
     """Return the first balanced ``{...}`` substring that parses as JSON.
 
-    Scans brace depth while respecting string literals (so braces inside JSON
-    string values do not affect nesting) and validates each candidate with
-    ``json.loads``. This skips brace-containing prose that precedes the real
-    JSON object, e.g. ``"the user said {hi}. {\"memory\": [...]}"``.
+    Single linear pass over ``text``: brace depth is tracked while respecting
+    string literals (so braces inside JSON string values do not affect nesting).
+    A candidate span opens only when depth returns to 0, and each completed
+    top-level ``{...}`` span is validated with ``json.loads``; on a failed parse
+    the scan simply continues rather than restarting, keeping this O(n) even for
+    long runs of unbalanced braces (e.g. truncated output). This skips
+    brace-containing prose preceding the real JSON, e.g.
+    ``"the user said {hi}. {\"memory\": [...]}"``.
     """
-    for start in range(len(text)):
-        if text[start] != "{":
+    start = -1
+    depth = 0
+    in_string = False
+    escaped = False
+    for i, char in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
             continue
-        depth = 0
-        in_string = False
-        escaped = False
-        for i in range(start, len(text)):
-            char = text[i]
-            if in_string:
-                if escaped:
-                    escaped = False
-                elif char == "\\":
-                    escaped = True
-                elif char == '"':
-                    in_string = False
-                continue
-            if char == '"':
-                in_string = True
-            elif char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[start : i + 1]
-                    try:
-                        json.loads(candidate, strict=False)
-                    except json.JSONDecodeError:
-                        break  # this '{' does not start a valid object; try the next one
-                    return candidate
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif char == "}":
+            if depth == 0:
+                continue  # stray closing brace, ignore
+            depth -= 1
+            if depth == 0:
+                candidate = text[start : i + 1]
+                try:
+                    json.loads(candidate, strict=False)
+                except json.JSONDecodeError:
+                    continue  # not valid JSON; keep scanning for the next object
+                return candidate
     return None
 
 

@@ -9,7 +9,11 @@ import json
 
 import pytest
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.memory.utils import (
+    _first_parseable_json_object,
+    extract_json,
+    remove_code_blocks,
+)
 
 
 # --- Test extract_json ---
@@ -112,6 +116,26 @@ That's the result."""
         result = extract_json(text)
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "use {curly} braces"
+
+    def test_many_unbalanced_braces_stays_linear(self):
+        """Regression guard against O(n^2) rescanning of unbalanced braces.
+
+        The first implementation restarted a full scan from every '{', so a long
+        run of unbalanced braces (truncated output, or '{{ }}' templating) was
+        O(n^2): about 25s for 50k braces. The linear scan handles it in
+        milliseconds; the generous bound fails the quadratic version by a wide
+        margin without being flaky on slow CI.
+        """
+        import time
+
+        text = "{" * 50000
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        # No balanced JSON object exists, so nothing parseable is found.
+        assert _first_parseable_json_object(text) is None
+        assert result == text  # falls through to the return-as-is branch
+        assert elapsed < 2.0
 
 
 # --- Test remove_code_blocks ---
