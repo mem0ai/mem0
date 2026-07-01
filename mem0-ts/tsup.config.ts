@@ -13,6 +13,7 @@ const external = [
   "redis",
   "ollama",
   "@google/genai",
+  "@google-cloud/aiplatform",
   "@mistralai/mistralai",
   "@supabase/supabase-js",
   "@azure/search-documents",

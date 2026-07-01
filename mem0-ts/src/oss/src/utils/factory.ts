@@ -38,6 +38,7 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -114,6 +115,8 @@ export class VectorStoreFactory {
         return new VectorizeDB(config as any);
       case "azure-ai-search":
         return new AzureAISearch(config as any);
+      case "vertex_ai_vector_search":
+        return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
       default:
