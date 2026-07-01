@@ -15,6 +15,7 @@ const external = [
   "@google/genai",
   "@mistralai/mistralai",
   "@supabase/supabase-js",
+  "@aws-sdk/client-bedrock-runtime",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",

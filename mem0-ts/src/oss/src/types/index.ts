@@ -52,6 +52,14 @@ export interface LLMConfig {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
+  // AWS Bedrock provider config (used when provider === "aws_bedrock").
+  // Credentials otherwise resolve via the standard AWS credential chain.
+  awsRegion?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsSessionToken?: string;
+  // Optional pre-constructed client (e.g. BedrockRuntimeClient) for DI/testing.
+  client?: any;
 }
 
 export interface MemoryConfig {
