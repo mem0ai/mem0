@@ -681,7 +681,358 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6. Vectorize — mock Cloudflare client, test idempotent init
+// 6. S3 Vectors — mock AWS client, test interface + init
+// ───────────────────────────────────────────────────────────────────────────
+describe("S3 Vectors – backward compat with mocked client", () => {
+  function createMockS3VectorsClient(options?: {
+    queryDistance?: number;
+    queryDistanceMetric?: "cosine" | "euclidean";
+  }) {
+    const buckets = new Set<string>();
+    const indexes = new Map<
+      string,
+      {
+        dimension: number;
+        distanceMetric: string;
+      }
+    >();
+    const vectors = new Map<
+      string,
+      {
+        key: string;
+        data: { float32: number[] };
+        metadata: Record<string, any>;
+      }
+    >();
+
+    const vectorMapKey = (indexName: string, key: string) =>
+      `${indexName}:${key}`;
+
+    return {
+      send: jest.fn().mockImplementation(async (command: any) => {
+        const name = command.constructor.name;
+        const input = command.input;
+
+        switch (name) {
+          case "GetVectorBucketCommand":
+            if (!buckets.has(input.vectorBucketName)) {
+              const error: any = new Error("Bucket not found");
+              error.name = "NotFoundException";
+              throw error;
+            }
+            return {};
+          case "CreateVectorBucketCommand":
+            if (buckets.has(input.vectorBucketName)) {
+              const error: any = new Error("Bucket exists");
+              error.name = "ConflictException";
+              throw error;
+            }
+            buckets.add(input.vectorBucketName);
+            return {};
+          case "GetIndexCommand":
+            if (!indexes.has(input.indexName)) {
+              const error: any = new Error("Index not found");
+              error.name = "NotFoundException";
+              throw error;
+            }
+            return {};
+          case "CreateIndexCommand":
+            if (indexes.has(input.indexName)) {
+              const error: any = new Error("Index exists");
+              error.name = "ConflictException";
+              throw error;
+            }
+            indexes.set(input.indexName, {
+              dimension: input.dimension,
+              distanceMetric: input.distanceMetric,
+            });
+            return {};
+          case "PutVectorsCommand":
+            for (const vector of input.vectors || []) {
+              vectors.set(vectorMapKey(input.indexName, vector.key), {
+                key: vector.key,
+                data: vector.data,
+                metadata: vector.metadata || {},
+              });
+            }
+            return {};
+          case "QueryVectorsCommand":
+            return {
+              distanceMetric: options?.queryDistanceMetric ?? "cosine",
+              vectors: [
+                {
+                  key: "doc-1",
+                  metadata: { user_id: "u1", topic: "alpha" },
+                  distance: options?.queryDistance ?? 0.25,
+                },
+              ],
+            };
+          case "GetVectorsCommand":
+            return {
+              vectors: (input.keys || [])
+                .map((key: string) =>
+                  vectors.get(vectorMapKey(input.indexName, key)),
+                )
+                .filter(Boolean),
+            };
+          case "DeleteVectorsCommand":
+            for (const key of input.keys || []) {
+              vectors.delete(vectorMapKey(input.indexName, key));
+            }
+            return {};
+          case "DeleteIndexCommand":
+            indexes.delete(input.indexName);
+            for (const key of Array.from(vectors.keys())) {
+              if (key.startsWith(`${input.indexName}:`)) {
+                vectors.delete(key);
+              }
+            }
+            return {};
+          case "ListVectorsCommand":
+            return {
+              vectors: Array.from(vectors.values())
+                .filter((entry) =>
+                  vectorMapKey(input.indexName, entry.key).startsWith(
+                    `${input.indexName}:`,
+                  ),
+                )
+                .map((entry) => ({
+                  key: entry.key,
+                  metadata: entry.metadata,
+                })),
+            };
+          default:
+            throw new Error(`Unexpected S3Vectors command: ${name}`);
+        }
+      }),
+    };
+  }
+
+  function findCommandInput(
+    client: { send: jest.Mock },
+    commandName: string,
+  ): Record<string, any> | undefined {
+    const match = client.send.mock.calls.find(
+      ([command]) => command.constructor.name === commandName,
+    );
+    return match?.[0]?.input;
+  }
+
+  it("implements full VectorStore interface", () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const store = new S3Vectors({
+      client: createMockS3VectorsClient(),
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+
+    await Promise.all([p1, p2, p3]);
+
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "CreateVectorBucketCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "CreateIndexCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "GetVectorBucketCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "GetIndexCommand",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("shapes S3 write requests and normalizes search results", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[0.1, 0.2, 0.3]],
+      ["doc-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const putInput = findCommandInput(mockClient, "PutVectorsCommand");
+    expect(putInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      vectors: [
+        {
+          key: "doc-1",
+          data: { float32: [0.1, 0.2, 0.3] },
+          metadata: { user_id: "u1", topic: "alpha" },
+        },
+      ],
+    });
+
+    const results = await store.search([0.1, 0.2, 0.3], 5, { user_id: "u1" });
+
+    const queryInput = findCommandInput(mockClient, "QueryVectorsCommand");
+    expect(queryInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      queryVector: { float32: [0.1, 0.2, 0.3] },
+      topK: 5,
+      filter: { user_id: { $eq: "u1" } },
+      returnMetadata: true,
+      returnDistance: true,
+    });
+    expect(results).toEqual([
+      {
+        id: "doc-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.75,
+      },
+    ]);
+  });
+
+  it("normalizes euclidean distances without collapsing scores to zero", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const store = new S3Vectors({
+      client: createMockS3VectorsClient({
+        queryDistance: 1.5,
+        queryDistanceMetric: "euclidean",
+      }),
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+      distanceMetric: "cosine",
+    });
+
+    const [result] = await store.search([0.1, 0.2, 0.3], 1);
+
+    expect(result).toEqual({
+      id: "doc-1",
+      payload: { user_id: "u1", topic: "alpha" },
+      score: 0.4,
+    });
+  });
+
+  it("normalizes empty in and nin operands before search hits AWS", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    const baselineQueryCalls = mockClient.send.mock.calls.filter(
+      ([command]) => command.constructor.name === "QueryVectorsCommand",
+    ).length;
+    const emptyInResults = await store.search([0.1, 0.2, 0.3], 5, {
+      topic: { in: [] },
+    });
+    expect(emptyInResults).toEqual([]);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "QueryVectorsCommand",
+      ),
+    ).toHaveLength(baselineQueryCalls);
+
+    await store.search([0.1, 0.2, 0.3], 5, {
+      topic: { nin: [] },
+    });
+
+    const queryInput = findCommandInput(mockClient, "QueryVectorsCommand");
+    expect(queryInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      queryVector: { float32: [0.1, 0.2, 0.3] },
+      topK: 5,
+      returnMetadata: true,
+      returnDistance: true,
+    });
+    expect(queryInput.filter).toBeUndefined();
+  });
+  it("applies client-side list filters, including empty $nin operands", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [
+        [0.1, 0.2, 0.3],
+        [0.3, 0.2, 0.1],
+      ],
+      ["doc-1", "doc-2"],
+      [
+        { user_id: "u1", topic: "alpha", tags: ["keep"] },
+        { user_id: "u2", topic: "beta", tags: ["skip"] },
+      ],
+    );
+
+    const [allRows, allCount] = await store.list({ topic: { nin: [] } }, 10);
+    expect(allCount).toBe(2);
+    expect(allRows.map((row) => row.id)).toEqual(["doc-1", "doc-2"]);
+
+    const [filteredRows, filteredCount] = await store.list(
+      {
+        $and: [{ topic: { nin: ["beta"] } }, { tags: { in: ["keep"] } }],
+      },
+      10,
+    );
+
+    expect(filteredCount).toBe(1);
+    expect(filteredRows).toEqual([
+      {
+        id: "doc-1",
+        payload: { user_id: "u1", topic: "alpha", tags: ["keep"] },
+      },
+    ]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;

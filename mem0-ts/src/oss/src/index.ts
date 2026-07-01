@@ -28,4 +28,5 @@ export * from "./vector_stores/langchain";
 export * from "./vector_stores/vectorize";
 export * from "./vector_stores/azure_ai_search";
 export * from "./vector_stores/pgvector";
+export * from "./vector_stores/s3_vectors";
 export * from "./utils/factory";

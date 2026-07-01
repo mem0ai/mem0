@@ -138,6 +138,11 @@ jest.mock("../src/vector_stores/pgvector", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
 }));
+jest.mock("../src/vector_stores/s3_vectors", () => ({
+  S3Vectors: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "s3-vectors", config })),
+}));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
     .fn()
@@ -260,6 +265,7 @@ describe("VectorStoreFactory", () => {
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["s3-vectors"],
   ])("creates vector store for provider '%s'", (provider) => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),
