@@ -246,6 +246,147 @@ class TestAsyncAddToVectorStoreErrors:
         assert mock_async_memory.llm.generate_response.call_count == 1
 
 
+class TestLongConversationPhase1Embed:
+    """Regression tests for issue #5148.
+
+    Phase 1 of ``Memory.add()`` previously embedded the *entire* concatenated
+    conversation in one shot. Conversations beyond the embedding model's input
+    limit (8192 tokens for all current OpenAI embedding models) raised a
+    400 error that crashed the whole ``add()`` call before any extraction or
+    storage happened. We now truncate the Phase 1 query before embedding so
+    long inputs no longer crash, while Phase 2 fact extraction continues to
+    see the full conversation.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        # Phase 2 LLM returns a single extracted memory so Phase 3 also runs.
+        mock_llm.return_value.generate_response.return_value = (
+            '{"memory": [{"text": "user is planning a trip to Japan"}]}'
+        )
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    @staticmethod
+    def _make_long_messages(num_turns: int = 400):
+        """Build a multi-turn conversation well over the 8192-token embedding limit.
+
+        Each turn contributes ~80 tokens of content; 400 turns lands around
+        30k+ tokens — comfortably past every OpenAI embedding model's cap.
+        """
+        filler = (
+            "I've been thinking through a bunch of unrelated topics today including "
+            "Japan travel plans, my current side project in Rust, dinner ideas, "
+            "and a tricky bug at work involving Kafka consumer rebalancing."
+        )
+        messages = []
+        for i in range(num_turns):
+            messages.append({"role": "user", "content": f"Turn {i} (user): {filler}"})
+            messages.append({"role": "assistant", "content": f"Turn {i} (assistant): {filler}"})
+        return messages
+
+    def test_long_conversation_does_not_crash_phase1_embed(self, mock_memory, caplog):
+        """Long conversations must not blow past the embedding model's token limit.
+
+        Pins the fix for #5148: before the fix, Phase 1 passed the full raw
+        conversation to ``embedding_model.embed`` and crashed with a 400 on
+        anything over ~8192 tokens. After the fix, the conversation is
+        truncated for the Phase 1 retrieval embed only.
+        """
+        embed_calls = []
+
+        def _record_embed(text, mode):  # noqa: D401 - test stub
+            embed_calls.append((text, mode))
+            # Simulate the real-world failure mode: any input over the model's
+            # token limit raises. If the production code forgets to truncate,
+            # this test will fail loudly — exactly the bug we're guarding.
+            # cl100k_base tokenizes ~4 chars/token, so 8192 tokens ~= 32k chars.
+            if mode == "search" and len(text) > 8192 * 5:
+                raise RuntimeError(
+                    "Embedding input exceeds model token limit "
+                    "(simulated OpenAI 400 BadRequest from issue #5148)"
+                )
+            return [0.1, 0.2, 0.3]
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(side_effect=_record_embed)
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        # Empty existing memory set keeps Phase 1 simple.
+        mock_memory.vector_store = Mock()
+        mock_memory.vector_store.search = Mock(return_value=[])
+        mock_memory.vector_store.insert = Mock()
+        mock_memory.db.add_history = MagicMock()
+
+        long_messages = self._make_long_messages(num_turns=400)
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=long_messages, metadata={}, filters={}, infer=True
+            )
+
+        # Phase 1 must have been invoked with a *truncated* search query.
+        search_embed_calls = [c for c in embed_calls if c[1] == "search"]
+        assert len(search_embed_calls) == 1, "Expected exactly one Phase 1 search embed"
+        truncated_query = search_embed_calls[0][0]
+        assert len(truncated_query) <= 8192 * 5, (
+            "Phase 1 search embed was not truncated under the token limit"
+        )
+
+        # And the user-visible behaviour: add() returned the extracted memory
+        # rather than crashing.
+        assert isinstance(result, list)
+        assert any(item.get("memory") == "user is planning a trip to Japan" for item in result), (
+            f"Expected the extracted memory to be returned; got {result!r}"
+        )
+
+        # A warning should be logged so operators can see truncation happened.
+        assert any(
+            "embedding token limit" in record.message.lower() for record in caplog.records
+        ), "Expected a warning log when the Phase 1 query is truncated"
+
+    def test_short_conversation_is_not_truncated(self, mock_memory, caplog):
+        """Short conversations must pass through Phase 1 unchanged (no regression)."""
+        embed_calls = []
+
+        def _record_embed(text, mode):
+            embed_calls.append((text, mode))
+            return [0.1, 0.2, 0.3]
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(side_effect=_record_embed)
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        mock_memory.vector_store = Mock()
+        mock_memory.vector_store.search = Mock(return_value=[])
+        mock_memory.vector_store.insert = Mock()
+        mock_memory.db.add_history = MagicMock()
+
+        short_messages = [{"role": "user", "content": "Hello, I love sushi."}]
+
+        with caplog.at_level(logging.WARNING):
+            mock_memory._add_to_vector_store(
+                messages=short_messages, metadata={}, filters={}, infer=True
+            )
+
+        search_embed_calls = [c for c in embed_calls if c[1] == "search"]
+        assert len(search_embed_calls) == 1
+        # The Phase 1 query is the parsed conversation, which for one user
+        # turn is "user: Hello, I love sushi.\n" — must be passed through
+        # untouched.
+        assert "Hello, I love sushi." in search_embed_calls[0][0]
+        assert not any(
+            "embedding token limit" in record.message.lower() for record in caplog.records
+        ), "Did not expect a truncation warning for a short conversation"
+
+
 def _build_memory_instance(mocker, memory_cls):
     _setup_mocks(mocker)
     mocker.patch("mem0.memory.main.SQLiteManager", mocker.MagicMock())
