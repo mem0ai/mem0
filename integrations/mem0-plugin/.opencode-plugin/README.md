@@ -22,6 +22,8 @@ Get your API key (free): [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/da
 echo 'export MEM0_API_KEY="m0-your-key"' >> ~/.zshrc && source ~/.zshrc
 ```
 
+OpenCode Desktop may not inherit variables from shell startup files such as `.zshrc` or `.bashrc`. If Desktop logs say `MEM0_API_KEY` is missing, set the variable in the environment that launches OpenCode Desktop, or start Desktop from a terminal where `MEM0_API_KEY` is already exported.
+
 Restart OpenCode.
 
 ## What's included
@@ -93,8 +95,9 @@ If the `mem0` tools respond, you're all set.
 | Problem | Fix |
 |---------|-----|
 | No tools appearing | Restart OpenCode after installing |
-| 401 Unauthorized | `echo $MEM0_API_KEY` must print your `m0-` key |
+| 401 Unauthorized | `echo $MEM0_API_KEY` must print your `m0-` key. For OpenCode Desktop, make sure the key is available to the Desktop process, not only to interactive shells. |
 | Plugin not loading | Run `opencode plugin @mem0/opencode-plugin` again |
+| Wrong project name / memories not found | Open the repo folder directly. If Desktop still resolves the wrong id, set `export MEM0_APP_ID="owner-repo"` before launching OpenCode, then verify with `/mem0-status`. |
 
 ## License
 

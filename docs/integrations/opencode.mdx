@@ -22,6 +22,8 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 ```
 </CodeGroup>
 
+OpenCode Desktop may not inherit variables from shell startup files such as `.zshrc` or `.bashrc`. If Desktop logs say `MEM0_API_KEY` is missing, set the variable in the environment that launches OpenCode Desktop, or start Desktop from a terminal where `MEM0_API_KEY` is already exported.
+
 ## Installation
 
 ### Option A: Plugin Install (Recommended)
@@ -103,6 +105,14 @@ The default persists in `~/.mem0/settings.json` (`default_scope`) and is read fr
 
 The project id (`app_id`) is derived from your git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory. Launch OpenCode from inside your repo so memories scope to the project rather than your home directory.
 
+If OpenCode Desktop resolves the wrong project id, set `MEM0_APP_ID` before launching OpenCode:
+
+```bash
+export MEM0_APP_ID="owner-repo"
+```
+
+Run `/mem0-status` after restart to confirm the active `app_id`.
+
 ## Lifecycle Hooks
 
 The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly. It is pure TypeScript, no Python, no shell scripts.
@@ -138,11 +148,11 @@ If auto-dream hasn't run yet, it's almost always because a gate hasn't been met 
 ## Troubleshooting
 
 - **No tools appearing**: Restart OpenCode after installing
-- **"Connection failed"**: Verify your key is set: `echo $MEM0_API_KEY`
+- **"Connection failed"**: Verify your key is set: `echo $MEM0_API_KEY`. For OpenCode Desktop, make sure the key is available to the Desktop process, not only to interactive shells.
 - **Plugin not loading**: Run `opencode plugin @mem0/opencode-plugin` again, then restart
 - **Hooks not firing**: Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
 - **Auto-dream never runs**: It's gated (time + sessions + memories). Run `/mem0-status` to see which gate is blocking, or `/mem0-dream` to consolidate now.
-- **Wrong project name / memories not found**: The project id comes from your git remote; launch OpenCode from inside the repo (not your home directory). Check the resolved id with `/mem0-status`.
+- **Wrong project name / memories not found**: The project id comes from your git remote; launch OpenCode from inside the repo (not your home directory). If Desktop still resolves the wrong id, set `MEM0_APP_ID` before launching OpenCode. Check the resolved id with `/mem0-status`.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
