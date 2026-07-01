@@ -21,6 +21,16 @@ export interface EmbeddingConfig {
   modelProperties?: Record<string, any>;
 }
 
+export interface VertexAIConfig extends EmbeddingConfig {
+  vertexCredentialsJson?: string;
+  googleServiceAccountJson?: string | Record<string, any>;
+  googleProjectId?: string;
+  location?: string;
+  memoryAddEmbeddingType?: string;
+  memoryUpdateEmbeddingType?: string;
+  memorySearchEmbeddingType?: string;
+}
+
 export interface VectorStoreConfig {
   collectionName?: string;
   dimension?: number;
@@ -113,6 +123,13 @@ export const MemoryConfigSchema = z.object({
       baseURL: z.string().optional(),
       embeddingDims: z.number().optional(),
       url: z.string().optional(),
+      vertexCredentialsJson: z.string().optional(),
+      googleServiceAccountJson: z.union([z.string(), z.any()]).optional(),
+      googleProjectId: z.string().optional(),
+      location: z.string().optional(),
+      memoryAddEmbeddingType: z.string().optional(),
+      memoryUpdateEmbeddingType: z.string().optional(),
+      memorySearchEmbeddingType: z.string().optional(),
     }),
   }),
   vectorStore: z.object({
