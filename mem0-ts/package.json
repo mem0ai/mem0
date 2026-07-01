@@ -120,6 +120,7 @@
     "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
     "groq-sdk": "0.3.0",
+    "mongodb": "^7.0.0",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
