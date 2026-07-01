@@ -137,6 +137,19 @@ The dashboard sets the following response headers on every path (see `server/das
 
 Together these prevent iframe embedding, sniffing of mislabelled MIME types, and cross-origin referrer leaks. Harden further behind your own reverse proxy if needed.
 
+## Docker image
+
+Published to Docker Hub at [`mem0/mem0-api-server`](https://hub.docker.com/r/mem0/mem0-api-server). On each release the workflow at `.github/workflows/server-docker-cd.yml` publishes a multi-platform (linux/amd64 + linux/arm64) image with the following tags:
+
+| Tag | Notes |
+|---|---|
+| `mem0/mem0-api-server:vX.Y.Z` | Exact pin — **recommended for production** deployments (immutable, audit-friendly). |
+| `mem0/mem0-api-server:vX.Y` | Minor channel — auto-update on patch releases. |
+| `mem0/mem0-api-server:vX` | Major channel — auto-update on minor + patch releases. |
+| `mem0/mem0-api-server:latest` | Tracks the most recent release. Convenient for local dev; **not recommended for production** because the underlying digest moves silently. |
+
+For Kubernetes deployments that mount config via a ConfigMap, pair this with `MEM0_CONFIG_PATH` (see [server_state.py](./server_state.py)) so config changes don't require an image rebuild.
+
 ## Migrating from `ankane/pgvector` to `pgvector/pgvector`
 
 The `ankane/pgvector` Docker image is archived and no longer maintained. This release
