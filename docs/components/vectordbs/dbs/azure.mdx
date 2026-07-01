@@ -81,13 +81,13 @@ Azure client ID, secret, tenant ID, or certificate in environment variables for 
 Utilizes Azure Workload Identity (relevant for Kubernetes and Azure workloads).
 
 3. **Managed Identity Credential:**
-Authenticates as a Managed Identity (for apps/services hosted in Azure with Managed Identity enabled), this is the most secure production credential.
+Authenticates as a Managed Identity (for apps/services hosted in Azure with Managed Identity enabled); this is the most secure production credential.
 
 4. **Shared Token Cache Credential / Visual Studio Credential (Windows only):**
 Uses cached credentials from Visual Studio sign-ins (and sometimes VS Code if SSO is enabled).
 
 5. **Azure CLI Credential:**
-Uses the currently logged-in user from the Azure CLI (`az login`), this is the most common development credential.
+Uses the currently logged-in user from the Azure CLI (`az login`); this is the most common development credential.
 
 6. **Azure PowerShell Credential:**
 Uses the identity from Azure PowerShell (`Connect-AzAccount`).
@@ -135,7 +135,7 @@ config = {
 ```
 
 ### Environment Variables to Use Azure Identity Credential
-* For an Environment Credential, you will need to setup a Service Principal and set the following environment variables:
+* For an Environment Credential, you will need to set up a Service Principal and set the following environment variables:
   - `AZURE_TENANT_ID`: Your Azure Active Directory tenant ID.
   - `AZURE_CLIENT_ID`: The client ID of your service principal or managed identity.
   - `AZURE_CLIENT_SECRET`: The client secret of your service principal.
