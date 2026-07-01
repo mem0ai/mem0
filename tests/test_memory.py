@@ -984,20 +984,19 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 
     mock_vector_store.list.return_value = ([mem1, mem2, mem3],)
 
-    def _get_side_effect(vector_id):
+    # delete_all now passes existing_memory straight through, so the failure
+    # must be simulated on vector_store.delete (not get) to exercise the
+    # partial-failure handling in asyncio.gather(return_exceptions=True).
+    def _delete_side_effect(vector_id):
         if vector_id == "mem-2":
             raise RuntimeError("simulated store failure")
-        return {
-            "mem-1": mem1,
-            "mem-3": mem3,
-        }.get(vector_id)
 
-    mock_vector_store.get.side_effect = _get_side_effect
+    mock_vector_store.delete.side_effect = _delete_side_effect
 
     result = await memory.delete_all(user_id="test-user")
 
     assert result == {"message": "Memories deleted successfully!"}
-    assert mock_vector_store.delete.call_count == 2
+    assert mock_vector_store.delete.call_count == 3
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -1495,6 +1494,86 @@ class TestAsyncDeleteAllEntityRace:
 
         mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
 
+        assert mock_vector_store.delete.call_count == 2
+
+
+class TestDeleteAllSkipsRedundantVectorStoreGets:
+    """Regression #5869: delete_all must not re-fetch each memory via
+    vector_store.get() after list() already returned them, and must use
+    a single bulk entity-clear instead of N per-memory cleanups."""
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_sync_delete_all_passes_existing_memory_and_uses_bulk_clear(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        mock_vector_store = MagicMock()
+        mem_a = MagicMock()
+        mem_a.id = "mem-a"
+        mem_a.payload = {"data": "Alice likes Python", "user_id": "alice"}
+        mem_b = MagicMock()
+        mem_b.id = "mem-b"
+        mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
+        mock_vector_store.list.return_value = ([mem_a, mem_b],)
+        mock_vector_factory.return_value = mock_vector_store
+
+        mock_entity_store = MagicMock()
+        mock_entity_store.list.return_value = ([],)
+
+        from mem0.memory.main import Memory
+        config = MemoryConfig()
+        memory = Memory(config)
+        memory._entity_store = mock_entity_store
+
+        memory.delete_all(user_id="alice")
+
+        # No re-fetch: list() already gave us the memories.
+        mock_vector_store.get.assert_not_called()
+        assert mock_vector_store.delete.call_count == 2
+        # One bulk pass instead of N per-memory cleanups.
+        assert mock_entity_store.list.call_count == 1
+        # Per-memory _remove_memory_from_entity_store would have called
+        # entity_store.list N times; bulk clear calls it exactly once.
+
+    @pytest.mark.asyncio
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    async def test_async_delete_all_passes_existing_memory(
+        self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+    ):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        mock_vector_store = MagicMock()
+        mem_a = MagicMock()
+        mem_a.id = "mem-a"
+        mem_a.payload = {"data": "Alice likes Python", "user_id": "alice"}
+        mem_b = MagicMock()
+        mem_b.id = "mem-b"
+        mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
+        mock_vector_store.list.return_value = ([mem_a, mem_b],)
+        mock_vector_factory.return_value = mock_vector_store
+
+        mock_entity_store = MagicMock()
+        mock_entity_store.list.return_value = ([],)
+
+        from mem0.memory.main import AsyncMemory
+        config = MemoryConfig()
+        memory = AsyncMemory(config)
+        memory._entity_store = mock_entity_store
+
+        await memory.delete_all(user_id="alice")
+
+        mock_vector_store.get.assert_not_called()
         assert mock_vector_store.delete.call_count == 2
 
 
