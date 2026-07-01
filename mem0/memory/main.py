@@ -55,6 +55,7 @@ from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
+    recover_extraction_via_tools,
     remove_code_blocks,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
@@ -928,7 +929,19 @@ class Memory(MemoryBase):
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
-            extracted_memories = []
+            if "{" in str(response):
+                # JSON was emitted but did not parse (e.g. truncated by
+                # max_tokens). A forced tool call cannot fix a token budget, so
+                # do not spend extra LLM calls here. (Hijack prose that merely
+                # contains a brace also lands here and keeps the current
+                # behavior - a deliberate fail-safe: never pay for recovery
+                # when JSON may have been emitted.)
+                extracted_memories = []
+            else:
+                # No JSON at all: the model answered with prose (content
+                # hijack). Recover via a forced tool call where supported, else
+                # fall back to [].
+                extracted_memories = recover_extraction_via_tools(self.llm, system_prompt, user_prompt)
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2552,7 +2565,16 @@ class AsyncMemory(MemoryBase):
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
-            extracted_memories = []
+            if "{" in str(response):
+                # JSON was emitted but did not parse (e.g. truncated by
+                # max_tokens) - not recoverable via a forced tool call.
+                extracted_memories = []
+            else:
+                # No JSON at all (content hijack): recover via a forced tool
+                # call where supported, else fall back to [].
+                extracted_memories = await asyncio.to_thread(
+                    recover_extraction_via_tools, self.llm, system_prompt, user_prompt
+                )
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)

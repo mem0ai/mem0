@@ -12,6 +12,8 @@ from mem0.memory.utils import extract_json
 
 
 class OpenAILLM(LLMBase):
+    supports_tool_calls = True
+
     def __init__(self, config: Optional[Union[BaseLlmConfig, OpenAIConfig, Dict]] = None):
         # Convert to OpenAIConfig if needed
         if config is None:

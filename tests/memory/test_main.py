@@ -62,7 +62,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -78,6 +80,116 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 only makes 1 LLM call (no separate merge step)
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
+
+
+# A synthetic content-hijack response: the model continued / role-played the
+# conversation instead of extracting facts, so there is no JSON object anywhere.
+# This reproduces the "Expecting value: line 1 column 1 (char 0)" parse failure
+# without using any private conversation data.
+HIJACK_PROSE = (
+    "PLAN: I'll help you organize that. Before I start, a few questions: "
+    "1) What is the deadline? 2) Who is the audience? Let me know and we'll begin."
+)
+
+
+def _tool_call_response(text):
+    """Provider response shape when a forced tool call succeeds (OpenAI/Anthropic)."""
+    return {
+        "content": None,
+        "tool_calls": [{"name": "save_memories", "arguments": {"memory": [{"id": "0", "text": text}]}}],
+    }
+
+
+class TestParseFailureRecovery:
+    """A parse failure (prose, no JSON) is recovered via a forced tool call on
+    capable providers, and silently dropped (current behavior) otherwise."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
+        return memory
+
+    def test_recovers_dropped_memories_when_provider_supports_tools(self, mock_memory, caplog):
+        recovered_text = "User was promoted to Senior Engineer at Shopify"
+        mock_memory.llm.supports_tool_calls = True
+        mock_memory.llm.generate_response.side_effect = [
+            HIJACK_PROSE,  # extraction: hijacked, no JSON -> parse failure
+            _tool_call_response(recovered_text),  # forced-tool recovery
+        ]
+
+        with caplog.at_level(logging.INFO):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+
+        # Two calls: the hijacked extraction, then the forced-tool recovery.
+        assert mock_memory.llm.generate_response.call_count == 2
+        recovery_kwargs = mock_memory.llm.generate_response.call_args_list[1].kwargs
+        assert recovery_kwargs["tool_choice"] == "required"
+        assert recovery_kwargs["tools"][0]["function"]["name"] == "save_memories"
+        # The dropped fact is recovered instead of silently lost.
+        assert any(m["memory"] == recovered_text for m in result)
+        assert any("Recovered" in r.message for r in caplog.records)
+
+    def test_silently_drops_when_provider_does_not_support_tools(self, mock_memory, caplog):
+        # No supports_tool_calls opt-in -> current behavior: one call, empty result.
+        mock_memory.llm.supports_tool_calls = False
+        mock_memory.llm.generate_response.return_value = HIJACK_PROSE
+
+        with caplog.at_level(logging.ERROR):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert result == []
+        assert any("Error parsing extraction response" in r.message for r in caplog.records)
+
+    def test_truncated_json_does_not_trigger_tool_recovery(self, mock_memory):
+        # A response that contained JSON but failed to parse (e.g. max_tokens
+        # cut it off mid-object) is a token-budget problem, not a content
+        # hijack. The forced-tool recovery must not fire - otherwise every
+        # under-budgeted extraction silently pays for extra LLM calls.
+        mock_memory.llm.supports_tool_calls = True
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"id": "0", "text": "User likes hik'
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+        )
+
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert result == []
+
+    def test_hijack_prose_containing_a_brace_keeps_current_behavior(self, mock_memory):
+        # Pins the deliberate fail-safe edge of the '{' gate: hijack prose that
+        # merely contains a brace (e.g. an echoed code snippet) is treated as
+        # "JSON may have been emitted" and keeps the current no-recovery
+        # behavior rather than paying for a recovery call.
+        mock_memory.llm.supports_tool_calls = True
+        mock_memory.llm.generate_response.return_value = (
+            "Sure! Here is a config you could use: server { listen 80; } - let me know if it works."
+        )
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+        )
+
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert result == []
 
 
 class TestPromptOverridesCustomInstructions:
@@ -227,7 +339,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -244,6 +358,76 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+
+@pytest.mark.asyncio
+class TestAsyncParseFailureRecovery:
+    """Async counterpart of TestParseFailureRecovery."""
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
+        return memory
+
+    @pytest.mark.asyncio
+    async def test_async_recovers_dropped_memories(self, mock_async_memory, caplog):
+        recovered_text = "User adopted a dog named Poppy"
+        mock_async_memory.llm.supports_tool_calls = True
+        mock_async_memory.llm.generate_response.side_effect = [
+            HIJACK_PROSE,
+            _tool_call_response(recovered_text),
+        ]
+
+        with caplog.at_level(logging.INFO):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+
+        assert mock_async_memory.llm.generate_response.call_count == 2
+        assert any(m["memory"] == recovered_text for m in result)
+        assert any("Recovered" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_silently_drops_when_provider_does_not_support_tools(self, mock_async_memory, caplog):
+        mock_async_memory.llm.supports_tool_calls = False
+        mock_async_memory.llm.generate_response.return_value = HIJACK_PROSE
+
+        with caplog.at_level(logging.ERROR):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+
+        assert mock_async_memory.llm.generate_response.call_count == 1
+        assert result == []
+        assert any("Error parsing extraction response (async)" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_truncated_json_does_not_trigger_tool_recovery(self, mock_async_memory):
+        # Async counterpart: truncated JSON (token budget) must not fire the
+        # forced-tool recovery.
+        mock_async_memory.llm.supports_tool_calls = True
+        mock_async_memory.llm.generate_response.return_value = '{"memory": [{"id": "0", "text": "User likes hik'
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        assert mock_async_memory.llm.generate_response.call_count == 1
+        assert result == []
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -530,6 +714,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -660,7 +845,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -683,7 +869,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )

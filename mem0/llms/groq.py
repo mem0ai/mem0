@@ -25,6 +25,18 @@ class GroqLLM(LLMBase):
         api_key = self.config.api_key or os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=api_key)
 
+    @property
+    def supports_tool_calls(self) -> bool:
+        # Groq is #4054's provider. Forced-tool_choice recovery needs a model
+        # that honors tool calling; the compound agentic systems that reject
+        # JSON response_format (_supports_json_mode) reject tool calling too, so
+        # reuse that gate and opt in every other Groq model. Verified against the
+        # live Groq API: llama-3.3-70b-versatile and openai/gpt-oss-20b recover
+        # via a forced tool call, while compound-beta returns "tool calling is
+        # not supported". A weaker model that fails to emit a valid call surfaces
+        # a caught error and falls back to the current behavior, never a crash.
+        return self._supports_json_mode(self.config.model)
+
     @staticmethod
     def _supports_json_mode(model: Optional[Union[str, Dict]]) -> bool:
         """
