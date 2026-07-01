@@ -1,7 +1,10 @@
+import ast
 import hashlib
+import json
 import logging
 import re
-from typing import Any, Dict, List
+import threading
+from typing import Any, Dict, List, Tuple
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -14,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
     """Get fact retrieval messages based on the memory type.
-    
+
     Args:
         message: The message content to extract facts from
         is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
+
     Returns:
         tuple: (system_prompt, user_prompt)
     """
@@ -52,8 +55,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
     combined = (system_prompt + user_prompt).lower()
     if "json" not in combined:
         system_prompt += (
-            "\n\nYou must return your response in valid JSON format "
-            "with a 'facts' key containing an array of strings."
+            "\n\nYou must return your response in valid JSON format with a 'facts' key containing an array of strings."
         )
     return system_prompt, user_prompt
 
@@ -86,6 +88,7 @@ def format_entities(entities):
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
+
 
 def normalize_facts(raw_facts):
     """Normalize LLM-extracted facts to a list of strings.
@@ -123,9 +126,8 @@ def remove_code_blocks(content: str) -> str:
     """
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
+    match_res = match.group(1).strip() if match else content.strip()
     return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
-
 
 
 def extract_json(text):
@@ -146,6 +148,226 @@ def extract_json(text):
         else:
             json_str = text
     return json_str
+
+
+def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
+    """Recover complete memory objects from a malformed or truncated extraction.
+
+    When the extraction LLM hits ``max_tokens`` mid-output, it returns valid but
+    incomplete JSON (an unterminated ``{"memory": [...]}`` array). ``json.loads``
+    and ``extract_json`` both fail on it, so every fact is dropped - including
+    the ones the model fully wrote before the cut.
+
+    This peels complete objects off the ``memory`` array one at a time with
+    ``json.JSONDecoder.raw_decode`` (stdlib, no new dependency), stopping at the
+    first object that does not fully parse (the cut-off tail). Only fully-closed,
+    self-contained objects are returned; the half-written object is dropped
+    because its content cannot be trusted.
+
+    Returns ``(memories, truncated)`` where ``truncated`` is True when the array
+    did not close cleanly (at least one object was cut off, so the optional
+    token-raise retry could recover more).
+    """
+    if not text or not isinstance(text, str):
+        # This runs inside the parse-failure except handler; a provider that
+        # returned a non-string must degrade to "nothing salvaged", not raise.
+        return [], False
+    # Tolerate either quote style on the key: some models emit a Python-repr
+    # dict ({'memory': [...]}) that fails json.loads upstream and lands here.
+    match = re.search(r"""['"]memory['"]\s*:\s*\[""", text)
+    if not match:
+        return [], False
+
+    decoder = json.JSONDecoder()
+    bracket_idx = match.end() - 1  # the '[' that opens the memory array
+    idx = match.end()
+    n = len(text)
+    memories: List[Dict[str, Any]] = []
+    truncated = True  # assume cut off until we see the closing ']'
+    while idx < n:
+        while idx < n and text[idx] in " \t\r\n,":
+            idx += 1
+        if idx >= n:
+            break
+        if text[idx] == "]":
+            truncated = False  # array closed cleanly; nothing was lost
+            break
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+        except (json.JSONDecodeError, ValueError):
+            break  # incomplete tail object -> stop, leave truncated=True
+        if isinstance(obj, dict):
+            memories.append(obj)
+        idx = end
+
+    if memories:
+        return memories, truncated
+
+    # The JSON peeler recovered nothing from a response that DID match the
+    # memory key. The usual cause is non-JSON dict syntax (single quotes,
+    # Python repr) that json.raw_decode cannot read. Try a safe literal-eval of
+    # the complete array before giving up - and if even that fails, log loudly
+    # rather than re-create the silent drop this function exists to kill.
+    # (An apostrophe inside a single-quoted value - "it's" - desyncs the
+    # bracket scanner; that degrades to literal_eval failing and the warning
+    # below, never a crash or a silent drop.)
+    close_idx = _find_matching_bracket(text, bracket_idx)
+    if close_idx != -1:
+        try:
+            parsed = ast.literal_eval(text[bracket_idx : close_idx + 1])
+        except Exception:
+            # literal_eval on untrusted model output can raise more than
+            # ValueError/SyntaxError (RecursionError, MemoryError, ...). This
+            # runs inside the parse-failure except handler, whose contract is to
+            # degrade to "nothing salvaged", never to raise out of it - so catch
+            # broadly and fall through to the warning.
+            parsed = None
+        if isinstance(parsed, list):
+            # Parsed cleanly (array closed); return whatever dicts it held - an
+            # empty/dictless array is a legitimately empty extraction, not a drop.
+            return [o for o in parsed if isinstance(o, dict)], False
+    logger.warning(
+        "Extraction response matched a 'memory' array but no complete object could be "
+        "salvaged (non-JSON dict syntax or truncated mid-first-object); not dropping silently."
+    )
+    return memories, truncated
+
+
+def _find_matching_bracket(text: str, open_idx: int) -> int:
+    """Index of the ``]`` matching the ``[`` at ``open_idx``, or -1 if unclosed.
+
+    Quote-aware (handles ``'`` and ``"`` strings with backslash escapes) so a
+    bracket inside a string value cannot throw off the depth count.
+    """
+    depth = 0
+    quote = None
+    i = open_idx
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if quote is not None:
+            if ch == "\\":
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+#: A truncated extraction is retried once at this multiple of the configured
+#: ``max_tokens``. Real-corpus data: truncations recovered at ~4x the base
+#: budget (e.g. 2000 -> 8000); a 2x raise under-shot and re-truncated. The
+#: absolute cap bounds the retry's cost so a large configured budget cannot
+#: multiply into an arbitrarily expensive call, and keeps the raised value
+#: inside common provider output limits.
+_RETRY_TOKEN_MULTIPLIER = 4
+_RETRY_TOKEN_CAP = 8192
+# Serializes the raise/restore of a shared llm.config.max_tokens below. The async add()
+# path runs this retry in a worker thread on a single shared llm, so without a lock two
+# concurrent retries could interleave and leave config.max_tokens permanently corrupted.
+# The lock is per-llm-instance (created once and cached on the llm) so retries on
+# different llm instances never serialize against each other; _RETRY_LOCK_INIT guards the
+# lazy creation, and _RETRY_TOKEN_LOCK is a process-wide fallback for an llm that cannot
+# hold the cached attribute. The retry is a rare truncation-only fallback.
+_RETRY_LOCK_INIT = threading.Lock()
+_RETRY_TOKEN_LOCK = threading.Lock()
+
+
+def _retry_lock_for(llm):
+    """Return the per-instance lock that serializes ``llm``'s own token-raise retries.
+
+    Created once and cached on the llm as ``_retry_lock`` (double-checked under
+    ``_RETRY_LOCK_INIT`` so concurrent first-time callers share one lock rather than each
+    minting their own). Isolates each llm instance. The shared-``_RETRY_TOKEN_LOCK`` fallback
+    is purely defensive: every shipped provider instance carries a ``__dict__`` and caches the
+    lock, so the fallback only triggers for an exotic attribute-less llm, where it still keeps
+    the no-corruption guarantee (at the cost of over-serializing).
+    """
+    lock = getattr(llm, "_retry_lock", None)
+    if lock is not None:
+        return lock
+    with _RETRY_LOCK_INIT:
+        lock = getattr(llm, "_retry_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            try:
+                llm._retry_lock = lock
+            except Exception:
+                return _RETRY_TOKEN_LOCK
+        return lock
+
+
+def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[Dict[str, Any]]:
+    """Single bounded retry of extraction with a raised ``max_tokens``.
+
+    For the truncation case only: re-runs the same extraction once at
+    ``_RETRY_TOKEN_MULTIPLIER`` times the configured ``max_tokens`` to recover
+    the memories that were cut off. Bounded to one attempt (no retry loop, no
+    unbounded raising). Returns the parsed memory list, or ``[]`` on any failure
+    (including a second truncation, where the caller falls back to whatever
+    ``salvage_memory_objects`` already kept).
+
+    Skipped when ``max_tokens`` is unset or non-positive (cannot compute a
+    raise) or already at/above ``_RETRY_TOKEN_CAP`` (no meaningful raise left).
+    """
+    current = getattr(getattr(llm, "config", None), "max_tokens", None)
+    if not current or current <= 0:
+        return []
+    if min(current * _RETRY_TOKEN_MULTIPLIER, _RETRY_TOKEN_CAP) <= current:
+        return []
+    # ``max_tokens`` is not part of the ``generate_response`` signature. Nearly half the
+    # providers accept ``**kwargs`` (so the kwarg reached the API there), but the rest
+    # raise ``TypeError`` on the unexpected kwarg, which the broad except swallowed -
+    # silently recovering nothing on those. Most providers instead read
+    # ``self.config.max_tokens`` at request time, so raise it there for the single retry
+    # call and restore it. Providers that snapshot or bake in max_tokens (LangChain,
+    # Bedrock) or drop it (the OpenAI structured-output provider, reasoning models such as
+    # gpt-5/o1/o3) ignore the raise, and the caller falls back to the already-salvaged
+    # memories. The raise/restore runs under this llm's own lock with the base re-read
+    # inside it, so concurrent retries on a shared llm cannot corrupt the config, while
+    # retries on different llm instances never serialize against each other. The lock is
+    # held across the one retry call. (Concurrent non-retry calls on the same llm take no
+    # lock and can observe the raised value during the retry window - a transient
+    # output-budget bump on those calls, not corruption; always restored.)
+    try:
+        with _retry_lock_for(llm):
+            base = llm.config.max_tokens
+            try:
+                llm.config.max_tokens = min(base * _RETRY_TOKEN_MULTIPLIER, _RETRY_TOKEN_CAP)
+                response = llm.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+            finally:
+                llm.config.max_tokens = base
+        response = remove_code_blocks(response)
+        try:
+            memories = json.loads(response, strict=False).get("memory", [])
+        except json.JSONDecodeError:
+            memories = json.loads(extract_json(response), strict=False).get("memory", [])
+    except Exception as e:
+        logger.warning("Token-raise extraction retry failed: %s", e)
+        return []
+    if not isinstance(memories, list):
+        return []
+    # Same shape discipline as salvage_memory_objects: downstream reads
+    # m.get("text"), so non-dict items must be dropped, not passed through.
+    memories = [m for m in memories if isinstance(m, dict)]
+    if memories:
+        logger.info("Recovered %d memory item(s) via token-raise retry after truncation", len(memories))
+    return memories
 
 
 def get_image_description(image_obj, llm, vision_details):
@@ -317,4 +539,3 @@ def remove_spaces_from_entities(
         item["destination"] = item["destination"].lower().replace(" ", "_")
         cleaned.append(item)
     return cleaned
-

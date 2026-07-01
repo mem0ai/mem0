@@ -145,6 +145,18 @@ memory = Memory.from_config_file("config.yaml")
   <Accordion title="Reranker depth">
     Limit `top_k` to 10–20 results; sending more adds latency without meaningful gains.
   </Accordion>
+  <Accordion title="Truncated extraction recovery">
+    When the extraction LLM hits its `max_tokens` mid-output, the complete facts it finished writing are always salvaged from the partial response. To also recover the cut-off remainder, set the top-level `recover_truncated_extractions: True` (default `False`):
+
+    ```python
+    config = {
+        "llm": {"provider": "openai", "config": {"model": "gpt-4.1-mini", "max_tokens": 2000}},
+        "recover_truncated_extractions": True,
+    }
+    ```
+
+    On a truncated response this retries extraction once at a raised `max_tokens` (4x, capped at an absolute ceiling of 8192). The retry is skipped when the configured `max_tokens` is already at or above the cap, and it spends the extra tokens only on the truncation path, never on a normal extraction.
+  </Accordion>
 </AccordionGroup>
 
 <Warning>

@@ -55,6 +55,19 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    recover_truncated_extractions: bool = Field(
+        description=(
+            "When True, if an extraction response is truncated (the model hit "
+            "max_tokens mid-JSON), retry once at a raised max_tokens (4x, capped "
+            "at an absolute ceiling of 8192 tokens) to recover the cut-off "
+            "memories. The retry is skipped when the configured max_tokens is "
+            "already at or above the cap. Complete memories are always salvaged "
+            "from a truncated response regardless of this flag; enabling it only "
+            "adds the extra retry call (which costs more tokens and overrides the "
+            "configured max_tokens for that one call)."
+        ),
+        default=False,
+    )
 
 
 class AzureConfig(BaseModel):

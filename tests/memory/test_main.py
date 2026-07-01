@@ -63,7 +63,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -101,6 +103,296 @@ class TestAddToVectorStoreErrors:
         # The documented LLMError contract is honoured, and the original
         # provider exception is preserved as the cause for debugging.
         assert isinstance(exc_info.value.__cause__, _ProviderError)
+
+
+# A response truncated mid-stream: memories 0 and 1 finished; memory 2 was cut
+# off while its text was still being written (model hit max_tokens).
+TRUNCATED_EXTRACTION = (
+    '{"memory": ['
+    '{"id": "0", "text": "User likes hiking in the Laurel Highlands"}, '
+    '{"id": "1", "text": "User was promoted to Senior Engineer"}, '
+    '{"id": "2", "text": "User has a dog nam'
+)
+# The same extraction, complete, as a higher-max_tokens retry would return it.
+COMPLETE_EXTRACTION = (
+    '{"memory": ['
+    '{"id": "0", "text": "User likes hiking in the Laurel Highlands"}, '
+    '{"id": "1", "text": "User was promoted to Senior Engineer"}, '
+    '{"id": "2", "text": "User has a dog named Max"}]}'
+)
+
+
+class TestTruncationRecovery:
+    """Truncated extractions: complete memories are always salvaged (Layer 1);
+    the cut-off remainder is recovered only when the opt-in retry is enabled."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
+        return memory
+
+    def test_salvages_complete_memories_by_default_no_retry(self, mock_memory, caplog):
+        # Default: opt-in retry OFF. Salvage still recovers the 2 complete ones.
+        mock_memory.config.recover_truncated_extractions = False
+        mock_memory.llm.generate_response.return_value = TRUNCATED_EXTRACTION
+
+        with caplog.at_level(logging.INFO):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+
+        assert mock_memory.llm.generate_response.call_count == 1  # no retry
+        texts = [m["memory"] for m in result]
+        assert "User likes hiking in the Laurel Highlands" in texts
+        assert "User was promoted to Senior Engineer" in texts
+        # the cut-off memory is dropped, not stored as a partial fact
+        assert not any("dog nam" in t for t in texts)
+        assert any("Salvaged" in r.message for r in caplog.records)
+
+    def test_opt_in_retry_recovers_cut_off_remainder(self, mock_memory):
+        mock_memory.config.recover_truncated_extractions = True
+        mock_memory.llm.config.max_tokens = 1000
+
+        # Record the max_tokens in effect at each call so we can prove the retry raised it
+        # via the shared config, not via a kwarg most providers reject (the original bug).
+        responses = iter([TRUNCATED_EXTRACTION, COMPLETE_EXTRACTION])
+        observed_max_tokens = []
+
+        def fake_generate_response(*args, **kwargs):
+            observed_max_tokens.append(mock_memory.llm.config.max_tokens)
+            return next(responses)
+
+        mock_memory.llm.generate_response.side_effect = fake_generate_response
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+        )
+
+        assert mock_memory.llm.generate_response.call_count == 2  # extraction + token-raise retry
+        # The retry raised max_tokens 4x via the shared config (see _RETRY_TOKEN_MULTIPLIER)
+        # and must NOT pass max_tokens as a kwarg; this fails against the old kwarg-based code.
+        assert observed_max_tokens[1] == 4000
+        assert "max_tokens" not in mock_memory.llm.generate_response.call_args_list[1].kwargs
+        assert mock_memory.llm.config.max_tokens == 1000  # restored after the retry
+        texts = [m["memory"] for m in result]
+        assert "User has a dog named Max" in texts  # the previously cut-off fact
+        assert len(result) == 3
+
+    def test_concurrent_retries_do_not_corrupt_shared_config(self):
+        # The retry raises a SHARED llm.config.max_tokens; the async path runs it in a
+        # worker thread, so concurrent retries on one llm must not corrupt it. The lock in
+        # retry_extraction_with_more_tokens serializes the raise/restore. Without the lock
+        # this trips: some retry sees a doubly-raised budget, or the config never restores.
+        # This drives the sync function directly from 8 threads on one shared llm, which is
+        # exactly what concurrent async to_thread(retry_extraction_with_more_tokens) calls do,
+        # so it is the canonical serialization test for both the sync and async paths (the
+        # async _add_to_vector_store tests use a MagicMock llm and so assert recovery, not
+        # serialization).
+        import threading
+        import time
+
+        from mem0.memory.utils import (
+            _RETRY_TOKEN_MULTIPLIER,
+            retry_extraction_with_more_tokens,
+        )
+
+        class _FakeConfig:
+            max_tokens = 1000
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+                self.seen = []
+
+            def generate_response(self, messages, response_format=None):
+                self.seen.append(self.config.max_tokens)  # what this retry sees while it holds the raise
+                time.sleep(0.001)  # widen the interleaving window
+                return COMPLETE_EXTRACTION
+
+        llm = _FakeLLM()
+        threads = [
+            threading.Thread(target=retry_extraction_with_more_tokens, args=(llm, "sys", "usr")) for _ in range(8)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = 1000 * _RETRY_TOKEN_MULTIPLIER
+        assert llm.seen == [expected] * 8  # every retry saw exactly base*MULT, never a corrupted budget
+        assert llm.config.max_tokens == 1000  # always restored to the original
+
+    def test_retry_budget_is_capped(self):
+        # 4x a large configured budget would be very expensive; the raise is
+        # capped at an absolute ceiling instead of multiplying without bound.
+        from mem0.memory.utils import (
+            _RETRY_TOKEN_CAP,
+            retry_extraction_with_more_tokens,
+        )
+
+        class _FakeConfig:
+            max_tokens = 4000  # 4x = 16000, above the cap
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+                self.seen = []
+
+            def generate_response(self, messages, response_format=None):
+                self.seen.append(self.config.max_tokens)
+                return COMPLETE_EXTRACTION
+
+        llm = _FakeLLM()
+        retry_extraction_with_more_tokens(llm, "sys", "usr")
+        assert llm.seen == [_RETRY_TOKEN_CAP]
+        assert llm.config.max_tokens == 4000  # restored
+
+    def test_retry_skipped_when_budget_already_at_cap(self):
+        # A budget already at/above the cap has no meaningful raise left; the
+        # retry is skipped rather than re-spending the same budget.
+        from mem0.memory.utils import (
+            _RETRY_TOKEN_CAP,
+            retry_extraction_with_more_tokens,
+        )
+
+        class _FakeConfig:
+            max_tokens = _RETRY_TOKEN_CAP
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+                self.calls = 0
+
+            def generate_response(self, messages, response_format=None):
+                self.calls += 1
+                return COMPLETE_EXTRACTION
+
+        llm = _FakeLLM()
+        assert retry_extraction_with_more_tokens(llm, "sys", "usr") == []
+        assert llm.calls == 0
+
+    def test_retry_drops_non_dict_memory_items(self):
+        # A schema-violating retry response (bare strings in the memory array)
+        # must be filtered, not passed downstream where m.get("text") would
+        # crash add() - same shape discipline as salvage_memory_objects.
+        from mem0.memory.utils import retry_extraction_with_more_tokens
+
+        class _FakeConfig:
+            max_tokens = 1000
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+
+            def generate_response(self, messages, response_format=None):
+                return '{"memory": ["bare string fact", {"id": "0", "text": "Real fact"}, 42]}'
+
+        llm = _FakeLLM()
+        assert retry_extraction_with_more_tokens(llm, "sys", "usr") == [{"id": "0", "text": "Real fact"}]
+
+    def test_retry_lock_is_per_llm_instance(self):
+        # The retry lock is cached on each llm: concurrent retries on ONE llm serialize
+        # (the corruption guard), while retries on DIFFERENT llms never block each other.
+        # A non-caching getattr(llm, "_retry_lock", threading.Lock()) - a fresh lock every
+        # call - serializes nothing and fails the first assert; a single process-wide lock
+        # over-serializes and fails the second.
+        from mem0.memory.utils import _retry_lock_for
+
+        class _FakeLLM:
+            pass
+
+        a, b = _FakeLLM(), _FakeLLM()
+        assert _retry_lock_for(a) is _retry_lock_for(a)  # same llm -> one cached lock, reused
+        assert _retry_lock_for(a) is not _retry_lock_for(b)  # different llms -> isolated locks
+
+
+@pytest.mark.asyncio
+class TestAsyncTruncationRecovery:
+    """Async counterpart of TestTruncationRecovery. The async path drives recovery
+    through AsyncMemory._add_to_vector_store, which dispatches the token-raise retry via
+    asyncio.to_thread(retry_extraction_with_more_tokens, ...). That wiring - the flag
+    check, argument forwarding, and result assignment on a worker thread - is exercised by
+    zero sync tests, so a regression there would be silent."""
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
+        return memory
+
+    async def test_async_salvages_complete_memories_by_default_no_retry(self, mock_async_memory, caplog):
+        # Default: opt-in retry OFF. The async Layer-1 salvage still recovers the 2 complete ones.
+        mock_async_memory.config.recover_truncated_extractions = False
+        mock_async_memory.llm.generate_response.return_value = TRUNCATED_EXTRACTION
+
+        with caplog.at_level(logging.INFO):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+
+        assert mock_async_memory.llm.generate_response.call_count == 1  # no retry
+        texts = [m["memory"] for m in result]
+        assert "User likes hiking in the Laurel Highlands" in texts
+        assert "User was promoted to Senior Engineer" in texts
+        # the cut-off memory is dropped, not stored as a partial fact
+        assert not any("dog nam" in t for t in texts)
+        assert any("Salvaged" in r.message for r in caplog.records)
+
+    async def test_async_opt_in_retry_recovers_cut_off_remainder(self, mock_async_memory):
+        mock_async_memory.config.recover_truncated_extractions = True
+        mock_async_memory.llm.config.max_tokens = 1000
+
+        # Record the max_tokens in effect at each call - including the retry call, which runs
+        # on a worker thread - to prove the retry raised it via the shared config rather than
+        # via a kwarg most providers reject (the original bug), through the async dispatch.
+        responses = iter([TRUNCATED_EXTRACTION, COMPLETE_EXTRACTION])
+        observed_max_tokens = []
+
+        def fake_generate_response(*args, **kwargs):
+            observed_max_tokens.append(mock_async_memory.llm.config.max_tokens)
+            return next(responses)
+
+        mock_async_memory.llm.generate_response.side_effect = fake_generate_response
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        assert mock_async_memory.llm.generate_response.call_count == 2  # extraction + token-raise retry
+        # The retry raised max_tokens 4x via the shared config (see _RETRY_TOKEN_MULTIPLIER) on a
+        # worker thread, and must NOT pass max_tokens as a kwarg; both fail against the old code.
+        assert observed_max_tokens[1] == 4000
+        assert "max_tokens" not in mock_async_memory.llm.generate_response.call_args_list[1].kwargs
+        assert mock_async_memory.llm.config.max_tokens == 1000  # restored after the retry
+        texts = [m["memory"] for m in result]
+        assert "User has a dog named Max" in texts  # the previously cut-off fact
+        assert len(result) == 3
 
 
 class TestPromptOverridesCustomInstructions:
@@ -250,7 +542,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -576,6 +870,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -706,7 +1001,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -729,7 +1025,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
