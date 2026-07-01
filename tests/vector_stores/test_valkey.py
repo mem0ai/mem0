@@ -1066,3 +1066,37 @@ def test_escape_tag_value_normal_strings(valkey_db):
 def test_escape_tag_value_hyphenated_user_id(valkey_db):
     """Hyphenated user IDs must have the hyphen escaped for exact-match."""
     assert valkey_db._escape_tag_value("user-123") == r"user\-123"
+
+
+# Regression test for index prefix leak (trailing colon fix)
+
+
+def test_build_index_schema_prefix_has_trailing_colon(valkey_db):
+    """_build_index_schema must append a trailing colon to the PREFIX argument
+    of FT.CREATE so that the memories index does not accidentally cover keys
+    from the entity collection.
+
+    Without the colon, ``mem0:my-memories`` is a string-prefix of
+    ``mem0:my-memories_entities:*``, causing Valkey to index entity documents
+    under the memories index.
+
+    Regression test for the trailing-colon prefix bug.
+    """
+    cmd = valkey_db._build_index_schema(
+        collection_name="my-memories",
+        embedding_dims=1536,
+        distance_metric="COSINE",
+        prefix="mem0:my-memories",
+    )
+
+    prefix_idx = cmd.index("PREFIX")
+    # The token after "PREFIX <count>" is the actual prefix string
+    actual_prefix = cmd[prefix_idx + 2]
+    assert actual_prefix.endswith(":"), (
+        f"FT.CREATE PREFIX must end with ':' to avoid matching entity-collection keys, got {actual_prefix!r}"
+    )
+    assert actual_prefix == "mem0:my-memories:", f"Expected 'mem0:my-memories:' but got {actual_prefix!r}"
+    # Confirm it does NOT match the entity collection prefix
+    assert not "mem0:my-memories_entities:".startswith(actual_prefix), (
+        "The index prefix must NOT be a string-prefix of the entity collection key namespace"
+    )

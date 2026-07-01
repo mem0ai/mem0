@@ -119,7 +119,10 @@ class ValkeyDB(VectorStoreBase):
             collection_name (str): Name of the collection/index
             embedding_dims (int): Vector embedding dimensions
             distance_metric (str): Distance metric (e.g., "COSINE", "L2", "IP")
-            prefix (str): Key prefix for the index
+            prefix (str): Key prefix base for the index. A trailing colon is appended
+                internally (e.g. ``"mem0:col"`` → ``"mem0:col:"``), so only keys that
+                belong to this collection are indexed and not those from collections
+                whose names start with the same string (e.g. ``"mem0:col_entities:*``).
 
         Returns:
             list: Complete FT.CREATE command as list of arguments
@@ -169,7 +172,7 @@ class ValkeyDB(VectorStoreBase):
             "HASH",
             "PREFIX",
             "1",
-            prefix,
+            prefix.rstrip(":") + ":",
             "SCHEMA",
             "memory_id",
             "TAG",
