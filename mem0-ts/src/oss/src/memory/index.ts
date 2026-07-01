@@ -429,9 +429,64 @@ export class Memory {
   ): Record<string, any>[] {
     let alternatives: Record<string, any>[] = [{}];
 
+    const appendAndClauses = (
+      filterObject: Record<string, any>,
+      clauses: Record<string, any>[],
+    ): Record<string, any> => {
+      const nonEmptyClauses = clauses.filter(
+        (clause) => Object.keys(clause).length > 0,
+      );
+      if (nonEmptyClauses.length === 0) {
+        return filterObject;
+      }
+
+      const existingAnd = Array.isArray(filterObject.$and)
+        ? filterObject.$and
+        : filterObject.$and !== undefined
+          ? [filterObject.$and]
+          : [];
+
+      return {
+        ...filterObject,
+        $and: [...existingAnd, ...nonEmptyClauses],
+      };
+    };
+
+    const mergeConjunctiveFilters = (
+      left: Record<string, any>,
+      right: Record<string, any>,
+    ): Record<string, any> => {
+      let merged = { ...left };
+
+      for (const [key, value] of Object.entries(right)) {
+        if (!(key in merged)) {
+          merged[key] = value;
+          continue;
+        }
+
+        if (
+          key === "$and" &&
+          Array.isArray(merged.$and) &&
+          Array.isArray(value)
+        ) {
+          merged = appendAndClauses(merged, value);
+          continue;
+        }
+
+        const existingValue = merged[key];
+        delete merged[key];
+        merged = appendAndClauses(merged, [
+          { [key]: existingValue },
+          { [key]: value },
+        ]);
+      }
+
+      return merged;
+    };
+
     const mergeAlternatives = (branches: Record<string, any>[]) => {
       alternatives = alternatives.flatMap((alternative) =>
-        branches.map((branch) => ({ ...alternative, ...branch })),
+        branches.map((branch) => mergeConjunctiveFilters(alternative, branch)),
       );
     };
 
@@ -608,6 +663,65 @@ export class Memory {
         return options.topK === undefined
           ? scoped
           : scoped.slice(0, options.topK);
+      }
+    }
+  }
+
+  private async _deleteAllByRequestedScope(
+    filters: Record<string, any>,
+  ): Promise<number> {
+    const providerFilters = this._providerFiltersForRequestedScope(filters);
+    const providerReturnsTotalCount = this._providerListCountIsTotal();
+    const provider = this.config.vectorStore.provider;
+    let deletedCount = 0;
+    const deletedIds = new Set<string>();
+
+    while (true) {
+      const [rawMemories, rawCount] = await this.vectorStore.list(
+        providerFilters,
+        DELETE_ALL_SCOPE_FETCH_LIMIT,
+      );
+      const scoped = this.filterByRequestedScope(rawMemories, filters);
+
+      if (
+        !providerReturnsTotalCount &&
+        rawMemories.length >= DELETE_ALL_SCOPE_FETCH_LIMIT
+      ) {
+        throw new Error(
+          `deleteAll cannot safely delete all scoped memories for vector store provider '${provider}' because list() returned a full page without a total count. Narrow the scope filters or delete matching memories individually.`,
+        );
+      }
+
+      if (scoped.length === 0) {
+        const total = providerReturnsTotalCount ? Number(rawCount) : undefined;
+        if (
+          total !== undefined &&
+          Number.isFinite(total) &&
+          total > 0 &&
+          rawMemories.length >= DELETE_ALL_SCOPE_FETCH_LIMIT
+        ) {
+          throw new Error(
+            `deleteAll cannot safely delete all scoped memories for vector store provider '${provider}' because scoped rows may be hidden behind a full provider page. Narrow the scope filters or delete matching memories individually.`,
+          );
+        }
+        return deletedCount;
+      }
+
+      const nextScoped = scoped.filter((memory) => !deletedIds.has(memory.id));
+      if (nextScoped.length === 0) {
+        throw new Error(
+          `deleteAll cannot safely delete all scoped memories for vector store provider '${provider}' because repeated list() calls made no deletion progress. Narrow the scope filters or delete matching memories individually.`,
+        );
+      }
+
+      for (const memory of nextScoped) {
+        await this.deleteMemory(memory.id);
+        deletedIds.add(memory.id);
+      }
+      deletedCount += nextScoped.length;
+
+      if (rawMemories.length < DELETE_ALL_SCOPE_FETCH_LIMIT) {
+        return deletedCount;
       }
     }
   }
@@ -2147,21 +2261,15 @@ export class Memory {
       );
     }
 
-    const memories = await this._listByRequestedScope(filters, {
-      initialLimit: DELETE_ALL_SCOPE_FETCH_LIMIT,
-      exhaustive: true,
-    });
-    for (const memory of memories) {
-      await this.deleteMemory(memory.id);
-    }
+    const deletedCount = await this._deleteAllByRequestedScope(filters);
 
     const result = { message: "Memories deleted successfully!" };
-    if (memories.length > 0) {
+    if (deletedCount > 0) {
       await this._displayDecayUsageNotice({
         triggerFunction: "delete_all",
         triggerSource: "delete_all",
         triggerReason: "bulk_delete",
-        deletedCount: memories.length,
+        deletedCount,
       });
     } else {
       await this._displayFirstRunNotice("delete_all");
@@ -2418,7 +2526,14 @@ export class Memory {
 
     for (const [key, value] of Object.entries(filters)) {
       // Check for platform-style logical operators
-      if (key === "AND" || key === "OR" || key === "NOT") {
+      if (
+        key === "AND" ||
+        key === "OR" ||
+        key === "NOT" ||
+        key === "$and" ||
+        key === "$or" ||
+        key === "$not"
+      ) {
         return true;
       }
       // Check for comparison operators
@@ -2510,19 +2625,52 @@ export class Memory {
     ): Record<string, any> => {
       const processedFilters: Record<string, any> = {};
 
+      const appendAndFilters = (clauses: Record<string, any>[]) => {
+        const nonEmptyClauses = clauses.filter(
+          (clause) => Object.keys(clause).length > 0,
+        );
+        if (nonEmptyClauses.length === 0) {
+          return;
+        }
+        processedFilters["$and"] = [
+          ...((processedFilters["$and"] as Record<string, any>[] | undefined) ??
+            []),
+          ...nonEmptyClauses,
+        ];
+      };
+
+      const setProcessedClause = (key: string, value: any) => {
+        if (
+          key === "$and" &&
+          Array.isArray(processedFilters["$and"]) &&
+          Array.isArray(value)
+        ) {
+          appendAndFilters(value as Record<string, any>[]);
+          return;
+        }
+
+        if (!(key in processedFilters)) {
+          processedFilters[key] = value;
+          return;
+        }
+
+        const existingValue = processedFilters[key];
+        delete processedFilters[key];
+        appendAndFilters([{ [key]: existingValue }, { [key]: value }]);
+      };
+
       for (const [key, value] of Object.entries(filters)) {
         if (key === "AND" || key === "$and") {
-          // Logical AND: combine multiple conditions into the same filter
-          // object where vector stores interpret fields as implicit AND.
+          // Logical AND: preserve each conjunct so repeated keys/logical
+          // groups cannot overwrite each other while filters are normalized.
           if (!Array.isArray(value)) {
             throw new Error("AND operator requires a list of conditions");
           }
-          for (const condition of value) {
-            Object.assign(
-              processedFilters,
+          appendAndFilters(
+            value.map((condition) =>
               processFilterObject(condition as Record<string, any>),
-            );
-          }
+            ),
+          );
         } else if (key === "OR" || key === "$or") {
           // Logical OR: Pass through to vector store for implementation-specific handling
           if (!Array.isArray(value) || value.length === 0) {
@@ -2530,8 +2678,11 @@ export class Memory {
               "OR operator requires a non-empty list of conditions",
             );
           }
-          processedFilters["$or"] = value.map((condition) =>
-            processFilterObject(condition as Record<string, any>),
+          setProcessedClause(
+            "$or",
+            value.map((condition) =>
+              processFilterObject(condition as Record<string, any>),
+            ),
           );
         } else if (key === "NOT" || key === "$not") {
           // Logical NOT: Pass through to vector store for implementation-specific handling
@@ -2540,11 +2691,18 @@ export class Memory {
               "NOT operator requires a non-empty list of conditions",
             );
           }
-          processedFilters["$not"] = value.map((condition) =>
-            processFilterObject(condition as Record<string, any>),
+          setProcessedClause(
+            "$not",
+            value.map((condition) =>
+              processFilterObject(condition as Record<string, any>),
+            ),
           );
         } else {
-          Object.assign(processedFilters, processCondition(key, value));
+          for (const [processedKey, processedValue] of Object.entries(
+            processCondition(key, value),
+          )) {
+            setProcessedClause(processedKey, processedValue);
+          }
         }
       }
 

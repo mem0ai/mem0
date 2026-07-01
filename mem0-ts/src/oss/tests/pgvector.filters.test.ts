@@ -166,6 +166,21 @@ describe("buildFilterConditions", () => {
     expect(result.values).toEqual(["alice", "bob"]);
   });
 
+  test("$and operator preserves repeated field bounds", () => {
+    const result = buildFilterConditions(
+      {
+        $and: [{ score: { gte: 1 } }, { score: { lte: 10 } }],
+      },
+      1,
+    );
+    expect(result.conditions).toHaveLength(1);
+    expect(result.conditions[0]).toContain(" AND ");
+    expect(result.conditions[0]).toContain("::numeric >= $1");
+    expect(result.conditions[0]).toContain("::numeric <= $2");
+    expect(result.values).toEqual([1, 10]);
+    expect(result.paramIndex).toBe(3);
+  });
+
   test("$not operator", () => {
     const result = buildFilterConditions(
       {
