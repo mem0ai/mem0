@@ -22,6 +22,7 @@ import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
+import { AWSBedrockLLM } from "../llms/aws_bedrock";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { SupabaseDB } from "../vector_stores/supabase";
@@ -87,6 +88,8 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "aws_bedrock":
+        return new AWSBedrockLLM(config);
       case "litellm":
         return new LiteLLM(config);
       case "minimax":

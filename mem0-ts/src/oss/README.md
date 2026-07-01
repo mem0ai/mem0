@@ -107,6 +107,49 @@ The memory system comes with sensible defaults:
 
 You only need to provide API keys - all other settings are optional.
 
+### AWS Bedrock LLM
+
+The `aws_bedrock` provider drives Bedrock-hosted models (Anthropic, Amazon Nova,
+Meta Llama, Mistral, Cohere, etc.) via the Bedrock Converse API. The AWS SDK is an
+**optional peer dependency** - install it only if you use this provider:
+
+```bash
+npm install @aws-sdk/client-bedrock-runtime
+```
+
+Credentials resolve via the standard AWS credential chain (env vars, shared
+config, or IAM role) unless you pass them explicitly:
+
+```typescript
+const memory = new Memory({
+  llm: {
+    provider: "aws_bedrock",
+    config: {
+      model: "anthropic.claude-3-5-sonnet-20240620-v1:0",
+      awsRegion: "us-east-1",
+      // Optional - omit to use the default AWS credential chain:
+      // awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      // awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  },
+});
+```
+
+> Note: the provider uses the Bedrock **Converse API** by default, which covers
+> the current Bedrock model families through a single uniform interface
+> (recommended). For legacy models that are only reachable via `InvokeModel`,
+> set `bedrockApi: "invoke_model"` in the LLM config to opt into the
+> per-family `InvokeModelCommand` path (no tool-calling support on that path).
+> Streaming remains out of scope for now.
+>
+> ```typescript
+> // opt into the legacy InvokeModel path for a non-Converse model
+> llm: {
+>   provider: "aws_bedrock",
+>   config: { model: "ai21.j2-ultra-v1", bedrockApi: "invoke_model" },
+> }
+> ```
+
 ### Methods
 
 - `add(messages: string | Message[], userId?: string, ...): Promise<SearchResult>`

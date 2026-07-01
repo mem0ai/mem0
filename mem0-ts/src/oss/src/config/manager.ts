@@ -135,6 +135,20 @@ export class ConfigManager {
             temperature,
             topP,
             maxTokens,
+            // Pass through AWS Bedrock fields so the aws_bedrock provider works
+            // through the standard Memory config path (snake_case tolerated).
+            awsRegion:
+              userConf?.awsRegion ?? (llmRaw?.aws_region as string | undefined),
+            awsAccessKeyId:
+              userConf?.awsAccessKeyId ??
+              (llmRaw?.aws_access_key_id as string | undefined),
+            awsSecretAccessKey:
+              userConf?.awsSecretAccessKey ??
+              (llmRaw?.aws_secret_access_key as string | undefined),
+            awsSessionToken:
+              userConf?.awsSessionToken ??
+              (llmRaw?.aws_session_token as string | undefined),
+            client: userConf?.client,
           };
         })(),
       },
