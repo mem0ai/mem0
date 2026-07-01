@@ -305,6 +305,26 @@ def test_generate_response_rewrites_assistant_keyword_for_model_only(mock_azure_
 
 
 @mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_preserves_assistant_substring(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": "i need assistance"}]
+    llm.generate_response(messages)
+
+    sent_messages = mock_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == "i need assistance"
+    assert messages[-1]["content"] == "i need assistance"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
 def test_generate_response_handles_multimodal_content(mock_azure_openai):
     mock_client = Mock()
     mock_azure_openai.return_value = mock_client

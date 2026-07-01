@@ -165,6 +165,22 @@ def test_generate_response_rewrites_assistant_keyword_for_model_only(mock_openai
     assert messages[-1]["content"] == "my assistant helps me"
 
 
+def test_generate_response_preserves_assistant_substring(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "i need assistance"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    sent_messages = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == "i need assistance"
+    assert messages[-1]["content"] == "i need assistance"
+
+
 def test_generate_response_handles_multimodal_content(mock_openai_client):
     config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
