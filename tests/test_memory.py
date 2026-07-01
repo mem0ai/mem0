@@ -1529,3 +1529,150 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+class TestMetadataScopeFilters:
+    """Tests for metadata keys flowing into add() scope filters (fixes #5121)."""
+
+    def test_build_filters_includes_metadata_keys(self):
+        from mem0.memory.main import _build_filters_and_metadata
+        meta, filters = _build_filters_and_metadata(
+            user_id="u1",
+            input_metadata={"app_id": "app-a", "tenant": "t1"},
+        )
+        assert filters["user_id"] == "u1"
+        assert filters["app_id"] == "app-a"
+        assert filters["tenant"] == "t1"
+        assert meta["app_id"] == "app-a"
+        assert meta["user_id"] == "u1"
+
+    def test_build_filters_entity_ids_not_overwritten_by_metadata(self):
+        from mem0.memory.main import _build_filters_and_metadata
+        meta, filters = _build_filters_and_metadata(
+            user_id="u1",
+            input_metadata={"user_id": "should-not-override"},
+        )
+        assert filters["user_id"] == "u1"
+
+    def test_build_filters_none_metadata_values_excluded(self):
+        from mem0.memory.main import _build_filters_and_metadata
+        _, filters = _build_filters_and_metadata(
+            user_id="u1",
+            input_metadata={"app_id": None, "tenant": "t1"},
+        )
+        assert "app_id" not in filters
+        assert filters["tenant"] == "t1"
+
+    def test_build_session_scope_includes_metadata_keys(self):
+        from mem0.memory.main import _build_session_scope
+        scope = _build_session_scope({"user_id": "u1", "app_id": "app-a"})
+        assert "app_id=app-a" in scope
+        assert "user_id=u1" in scope
+
+    def test_build_session_scope_deterministic_order(self):
+        from mem0.memory.main import _build_session_scope
+        scope_a = _build_session_scope({"user_id": "u1", "app_id": "app-a"})
+        scope_b = _build_session_scope({"app_id": "app-a", "user_id": "u1"})
+        assert scope_a == scope_b
+        assert scope_a == "app_id=app-a&user_id=u1"
+
+    def test_build_session_scope_separates_apps(self):
+        from mem0.memory.main import _build_session_scope
+        scope_a = _build_session_scope({"user_id": "u1", "app_id": "app-a"})
+        scope_b = _build_session_scope({"user_id": "u1", "app_id": "app-b"})
+        assert scope_a != scope_b
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_add_passes_metadata_to_phase1_search(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_llm = MagicMock()
+        mock_llm.generate_response.return_value = '{"facts": [{"text": "prefers dark mode"}]}'
+        mock_llm_factory.return_value = mock_llm
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
+
+        mock_vector_store = MagicMock()
+        mock_vector_store.search.return_value = []
+        mock_vector_store.keyword_search.return_value = None
+        mock_vector_factory.return_value = mock_vector_store
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        memory.add(
+            "prefers dark mode",
+            user_id="u1",
+            metadata={"app_id": "app-a"},
+        )
+
+        search_call = mock_vector_store.search.call_args
+        filters_used = search_call.kwargs.get("filters") or search_call[1].get("filters", {})
+        assert filters_used.get("app_id") == "app-a", (
+            f"Phase 1 search should include metadata app_id but got: {filters_used}"
+        )
+
+    def test_add_effective_filters_include_metadata(self):
+        from mem0.memory.main import _build_filters_and_metadata
+        _, filters_a = _build_filters_and_metadata(
+            user_id="u1", input_metadata={"app_id": "app-a"},
+        )
+        _, filters_b = _build_filters_and_metadata(
+            user_id="u1", input_metadata={"app_id": "app-b"},
+        )
+        assert filters_a != filters_b
+        assert filters_a["app_id"] == "app-a"
+        assert filters_b["app_id"] == "app-b"
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_entity_store_uses_scope_filters_not_metadata(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Entity-store search/insert must use only scope keys, not metadata like app_id."""
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [0.1] * 1536
+        mock_embedder_factory.return_value = mock_embedder
+
+        mock_llm = MagicMock()
+        mock_llm.generate_response.return_value = '{"facts": [{"text": "prefers dark mode"}]}'
+        mock_llm_factory.return_value = mock_llm
+
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
+
+        mock_vector_store = MagicMock()
+        mock_vector_store.search.return_value = []
+        mock_vector_store.keyword_search.return_value = None
+        mock_vector_factory.return_value = mock_vector_store
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        mock_entity_store = MagicMock()
+        mock_entity_store.search_batch.return_value = []
+        memory._entity_store = mock_entity_store
+
+        memory.add(
+            "prefers dark mode",
+            user_id="u1",
+            metadata={"app_id": "app-a"},
+        )
+
+        if mock_entity_store.search_batch.called:
+            entity_filters = mock_entity_store.search_batch.call_args.kwargs.get("filters", {})
+            assert "app_id" not in entity_filters, (
+                f"Entity-store search should not include metadata keys but got: {entity_filters}"
+            )
+            assert entity_filters.get("user_id") == "u1"
+
+        if mock_entity_store.insert.called:
+            payloads = mock_entity_store.insert.call_args.kwargs.get("payloads", [])
+            for p in payloads:
+                assert "app_id" not in p, (
+                    f"Entity-store insert payload should not include metadata keys but got: {p}"
+                )
