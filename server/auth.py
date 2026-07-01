@@ -147,7 +147,7 @@ async def verify_auth(
     x_api_key: str | None = Depends(api_key_header),
     db: Session = Depends(get_db),
 ) -> User | None:
-    """Authenticate via JWT, X-API-Key, or legacy ADMIN_API_KEY. Returns User or None."""
+    """Authenticate via JWT, X-API-Key, Token <key>, or legacy ADMIN_API_KEY. Returns User or None."""
     if credentials is not None:
         _mark_auth_type(request, "bearer")
         return _resolve_user_from_jwt(credentials.credentials, db)
@@ -158,6 +158,18 @@ async def verify_auth(
             return None
         _mark_auth_type(request, "api_key")
         return _resolve_user_from_api_key(x_api_key, db)
+
+    # SDK compat: Python/TS clients send "Authorization: Token <key>"
+    # Skip when AUTH_DISABLED so local-dev clients aren't forced to register a real key.
+    auth_header = request.headers.get("authorization", "")
+    if not AUTH_DISABLED and auth_header.lower().startswith("token "):
+        token_key = auth_header[6:].strip()
+        if token_key:
+            if ADMIN_API_KEY and secrets.compare_digest(token_key, ADMIN_API_KEY):
+                _mark_auth_type(request, "admin_api_key")
+                return None
+            _mark_auth_type(request, "api_key")
+            return _resolve_user_from_api_key(token_key, db)
 
     if AUTH_DISABLED:
         _mark_auth_type(request, "disabled")
