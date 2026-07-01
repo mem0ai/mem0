@@ -121,7 +121,7 @@ async def websocket_endpoint(websocket: WebSocket):
     # LLM for response generation
     llm = OpenAILLMService(
         api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-3.5-turbo",
+        model="gpt-5-mini",
         system_prompt="You are a helpful assistant that remembers past conversations."
     )
     
@@ -218,3 +218,5 @@ memory = Mem0MemoryService(
     Create conversational voice agents
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

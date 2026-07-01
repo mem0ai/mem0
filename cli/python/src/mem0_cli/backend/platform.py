@@ -296,13 +296,15 @@ class PlatformBackend(Backend):
         entities = {t: v for t, v in type_map.items() if v}
         if not entities:
             raise ValueError("At least one entity ID is required for delete_entities.")
-        # Delete each provided entity via the v2 path-based endpoint
-        result: dict = {}
+        # Delete each provided entity via the v2 path-based endpoint. Key each
+        # response by entity type so a multi-entity delete (e.g. --user-id and
+        # --agent-id together) doesn't discard everything but the last result.
+        results: dict = {}
         for entity_type, entity_id in entities.items():
-            result = self._request(
+            results[entity_type] = self._request(
                 "DELETE", f"/v2/entities/{entity_type}/{entity_id}/", params={"source": "CLI"}
             )
-        return result
+        return results
 
     def ping(self, timeout: float | None = None) -> dict:
         """Call the ping endpoint and return the raw response.

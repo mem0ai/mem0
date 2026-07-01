@@ -4,8 +4,6 @@ description: "Blend Tavily's realtime results with personal context stored in Me
 ---
 
 
-<Snippet file="security-compliance.mdx" />
-
 Imagine asking a search assistant for "coffee shops nearby" and instead of generic results, it shows remote-work-friendly cafes with great WiFi in your city because it remembers you mentioned working remotely before. Or when you search for "lunchbox ideas for kids" it knows you have a 7-year-old daughter and recommends peanut-free options that align with her allergy.
 
 That's what we are going to build today, a Personalized Search Assistant powered by Mem0 for memory and [Tavily](https://tavily.com) for real-time search.
@@ -41,7 +39,7 @@ Let’s break down the main components.
 
 ### 1: Initialize Mem0 with Custom Instructions
 
-We configure Mem0 with custom instructions that guide it to infer user memories tailored specifically for our usecase.
+We configure Mem0 with custom instructions that guide it to infer user memories tailored specifically for our use case.
 
 ```python
 from mem0 import MemoryClient
@@ -204,3 +202,5 @@ Full Code: [Personalized Search GitHub](https://github.com/mem0ai/mem0/blob/main
     Categorize search results and user preferences for better personalization.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

@@ -57,7 +57,7 @@ class CustomerSupportAIAgent:
         """
         # Start a streaming chat completion request to the AI
         stream = self.client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-5-mini",
             stream=True,
             messages=[
                 {"role": "system", "content": "You are a customer support AI agent."},
@@ -121,3 +121,5 @@ As the conversation progresses, Mem0's memory automatically updates based on the
     Extend support capabilities with intelligent email processing and routing.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

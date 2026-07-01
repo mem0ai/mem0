@@ -26,12 +26,12 @@ Install the SDK provider and AI SDK:
 npm install @mem0/vercel-ai-provider ai@^6
 ```
 
-### Peer Dependencies
+### Dependencies
 
-`@mem0/vercel-ai-provider` v3.0.0 requires:
-- `ai` v6+ (`^6.0.199`)
-- `@ai-sdk/provider` v3+ (`^3.0.10`)
-- Provider packages at v3+: `@ai-sdk/openai@^3`, `@ai-sdk/anthropic@^3`, `@ai-sdk/google@^3`, `@ai-sdk/groq@^3`, `@ai-sdk/cohere@^3`
+`@mem0/vercel-ai-provider` bundles `ai`, all `@ai-sdk/*` provider packages, and `@ai-sdk/provider` as regular dependencies: you do **not** need to install them separately. The install command above (`npm install @mem0/vercel-ai-provider ai@^6`) is sufficient.
+
+The only true peer dependency is `zod` (optional):
+- `zod` v3+ (`^3.0.0`): required only if you use Zod schemas in tool definitions
 
 ## Getting Started
 
@@ -205,7 +205,7 @@ const { text, sources } = await generateText({
 });
 
 // sources[0].title === "Mem0 Memories"
-// sources[0].providerMetadata.mem0.memories — array of memory objects
+// sources[0].providerMetadata.mem0.memories: array of memory objects
 console.log(sources);
 ```
 
@@ -305,6 +305,8 @@ These options can be passed per-request when creating a model instance:
 | `rerank` | `boolean` | Enable reranking of results |
 | `page` | `number` | Page number for pagination |
 | `page_size` | `number` | Results per page |
+| `mem0ApiKey` | `string` | Mem0 API key; overrides the `MEM0_API_KEY` env var |
+| `host` | `string` | Custom Mem0 API base URL for self-hosted deployments |
 
 ## Key Features
 
@@ -312,6 +314,7 @@ These options can be passed per-request when creating a model instance:
 - `retrieveMemories()`: Retrieves memory context for prompts as a formatted system prompt string.
 - `getMemories()`: Get memories from your profile in array format.
 - `addMemories()`: Adds user memories to enhance contextual responses.
+- `searchMemories()`: Searches memories and returns the raw results array (semantic search rather than the full retrieval pipeline).
 
 ## Migrating from v2.x
 
@@ -343,3 +346,4 @@ Mem0's Vercel AI SDK enables the creation of intelligent, context-aware applicat
   </Card>
 </CardGroup>
 
+<Snippet file="star-on-github.mdx" />

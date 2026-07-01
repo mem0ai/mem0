@@ -3,7 +3,7 @@ title: OpenClaw
 description: "Add long-term memory to OpenClaw agents using the Mem0 plugin with skills-based memory extraction and recall."
 ---
 
-Add long-term memory to [OpenClaw](https://github.com/openclaw/openclaw) agents with the `@mem0/openclaw-mem0` plugin. Your agent forgets everything between sessions — this plugin fixes that by automatically watching conversations, extracting what matters, and bringing it back when relevant.
+Add long-term memory to [OpenClaw](https://github.com/openclaw/openclaw) agents with the `@mem0/openclaw-mem0` plugin. Your agent forgets everything between sessions. This plugin fixes that by automatically watching conversations, extracting what matters, and bringing it back when relevant.
 
 ## Overview
 
@@ -12,10 +12,10 @@ Add long-term memory to [OpenClaw](https://github.com/openclaw/openclaw) agents 
 </Frame>
 
 The plugin provides:
-1. **Triage** — The agent extracts durable facts from conversations using a structured protocol with importance gates and domain overlays
-2. **Recall** — Before each turn, relevant memories are retrieved with reranking and injected into context
-3. **Dream** — Periodic memory consolidation: merges duplicates, resolves conflicts, prunes stale entries
-4. **Agent Tools** — Eight tools for explicit memory operations during conversations
+1. **Triage**: The agent extracts durable facts from conversations using a structured protocol with importance gates and domain overlays
+2. **Recall**: Before each turn, relevant memories are retrieved with reranking and injected into context
+3. **Dream**: Periodic memory consolidation merges duplicates, resolves conflicts, prunes stale entries
+4. **Agent Tools**: Eight tools for explicit memory operations during conversations
 
 Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
@@ -50,7 +50,7 @@ If you prefer the OpenClaw CLI, or are setting up self-hosted / open-source mode
 
 ### Understanding `userId`
 
-The `userId` field is a **string you choose** to uniquely identify the user whose memories are being stored. It is **not** something you look up in the Mem0 dashboard — you define it yourself.
+The `userId` field is a **string you choose** to uniquely identify the user whose memories are being stored. It is **not** something you look up in the Mem0 dashboard: you define it yourself.
 
 Pick any stable, unique identifier for the user. Common choices:
 
@@ -58,7 +58,7 @@ Pick any stable, unique identifier for the user. Common choices:
 - A UUID (e.g. `"550e8400-e29b-41d4-a716-446655440000"`)
 - A simple username (e.g. `"alice"`)
 
-All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to your OS username.
+All memories are scoped to this `userId`: different values create separate memory namespaces. If you don't set it, it defaults to your OS username.
 
 <Tip>In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.</Tip>
 
@@ -66,8 +66,8 @@ All memories are scoped to this `userId` — different values create separate me
 
 There are two ways to set up `@mem0/openclaw-mem0` on the Mem0 platform:
 
-- **Chat setup (recommended)** — run the setup inside any OpenClaw chat. No config editing, no API key handling.
-- **Manual config** — edit `openclaw.json` directly.
+- **Chat setup (recommended)**: run the setup inside any OpenClaw chat. No config editing, no API key handling.
+- **Manual config**: edit `openclaw.json` directly.
 
 #### Option 1: Chat Setup (Recommended)
 
@@ -75,7 +75,7 @@ You no longer need manual config editing to get started. Everything happens insi
 
 <Steps>
   <Step title="Send the setup command to your OpenClaw agent">
-    Open any OpenClaw channel — Telegram, WhatsApp, your default chat, wherever your agent lives. Paste and send this command:
+    Open any OpenClaw channel: Telegram, WhatsApp, your default chat, wherever your agent lives. Paste and send this command:
 
     ```
     Setup Mem0 from mem0.ai/claw-setup
@@ -103,7 +103,7 @@ You no longer need manual config editing to get started. Everything happens insi
 
 That's it. No API key, no config file editing, no environment variables. The plugin is now active with skills-based memory (triage, recall, and dream) running automatically.
 
-<Note>The chat flow uses the same underlying config as manual setup — it writes `apiKey`, `userId`, and `skills` config into `openclaw.json` for you. You can still open the file to inspect or override values afterward.</Note>
+<Note>The chat flow uses the same underlying config as manual setup: it writes `apiKey`, `userId`, and `skills` config into `openclaw.json` for you. You can still open the file to inspect or override values afterward.</Note>
 
 #### Option 2: Manual Config
 
@@ -155,12 +155,12 @@ That's it. No API key, no config file editing, no environment variables. The plu
 </Steps>
 
 <Warning>
-OpenClaw treats memory plugins as an exclusive slot. Installing the plugin alone does **not** activate it — you must also set `plugins.slots.memory` as shown above.
+OpenClaw treats memory plugins as an exclusive slot. Installing the plugin alone does **not** activate it: you must also set `plugins.slots.memory` as shown above.
 </Warning>
 
 ### Open-Source Mode (Self-hosted)
 
-No Mem0 key needed. Defaults use OpenAI (`gpt-5-mini` for LLM, `text-embedding-3-small` for embeddings) — requires `OPENAI_API_KEY`. For a fully local setup, use Ollama for both.
+No Mem0 key is needed. Defaults use OpenAI (`gpt-5-mini` for LLM, `text-embedding-3-small` for embeddings), so `OPENAI_API_KEY` is required. For a fully local setup, use Ollama for both.
 
 #### Option 1: Interactive Wizard (Recommended)
 
@@ -189,7 +189,7 @@ The wizard walks you through:
 
 #### Option 2: Non-Interactive Setup
 
-For CI/CD, scripts, or agent-driven setup — pass all options as flags:
+For CI/CD, scripts, or agent-driven setup: pass all options as flags:
 
 ```bash
 # Fully local with Ollama + Qdrant
@@ -234,7 +234,7 @@ Add `--json` for machine-readable output (useful when an LLM agent is driving th
 
 #### Option 3: Manual Config
 
-Minimal config — uses OpenAI defaults:
+Minimal config: uses OpenAI defaults:
 
 ```json5
 {
@@ -287,11 +287,11 @@ All `oss` fields are optional. See [Mem0 OSS docs](/open-source/node-quickstart)
 
 Memories are organized into two scopes:
 
-- **Session (short-term)** — Auto-capture stores memories scoped to the current session via Mem0's `run_id` / `runId` parameter. These are contextual to the ongoing conversation.
+- **Session (short-term)**: Auto-capture stores memories scoped to the current session via Mem0's `run_id` / `runId` parameter. These are contextual to the ongoing conversation.
 
-- **User (long-term)** — The agent can explicitly store long-term memories using the `memory_add` tool (with `longTerm: true`, the default). These persist across all sessions for the user.
+- **User (long-term)**: The agent can explicitly store long-term memories using the `memory_add` tool (with `longTerm: true`, the default). These persist across all sessions for the user.
 
-During **auto-recall**, the plugin searches both scopes and presents them separately — long-term memories first, then session memories — so the agent has full context.
+During **auto-recall**, the plugin searches both scopes and presents them separately, with long-term memories first and session memories second. This means the agent has full context.
 
 ## Agent Tools
 
@@ -312,7 +312,7 @@ The `memory_search` and `memory_list` tools accept a `scope` parameter (`"sessio
 
 ## CLI Commands
 
-All commands support `--json` for machine-readable output — useful when an LLM agent drives the CLI programmatically. Run `openclaw mem0 help --json` to discover every command and flag.
+All commands support `--json` for machine-readable output. Use it when an LLM agent drives the CLI programmatically. Run `openclaw mem0 help --json` to discover every command and flag.
 
 ```bash
 # Search all memories (long-term + session)
@@ -350,8 +350,8 @@ openclaw mem0 status --json
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `apiKey` | `string` | — | **Required.** Mem0 API key (supports `${MEM0_API_KEY}`) |
-| `customInstructions` | `string` | *(built-in)* | Extraction rules — what to store, how to format |
+| `apiKey` | `string` | N/A | **Required.** Mem0 API key (supports `${MEM0_API_KEY}`) |
+| `customInstructions` | `string` | *(built-in)* | Extraction rules: what to store, how to format |
 | `customCategories` | `object` | *(12 defaults)* | Category name → description map for tagging |
 
 ### Open-Source Mode Options
@@ -360,15 +360,15 @@ openclaw mem0 status --json
 |-----|------|---------|-------------|
 | `customInstructions` | `string` | *(built-in)* | Extraction prompt for memory processing |
 | `oss.embedder.provider` | `string` | `"openai"` | Embedding provider (`"openai"`, `"ollama"`, etc.) |
-| `oss.embedder.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL` |
+| `oss.embedder.config` | `object` | N/A | Provider config: `apiKey`, `model`, `baseURL` |
 | `oss.vectorStore.provider` | `string` | `"memory"` | Vector store (`"memory"`, `"qdrant"`, `"chroma"`, etc.) |
-| `oss.vectorStore.config` | `object` | — | Provider config: `host`, `port`, `collectionName`, `dimension` |
+| `oss.vectorStore.config` | `object` | N/A | Provider config: `host`, `port`, `collectionName`, `dimension` |
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, etc.) |
-| `oss.llm.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
-| `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
+| `oss.llm.config` | `object` | N/A | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
+| `oss.historyDbPath` | `string` | N/A | SQLite path for memory edit history |
 | `oss.disableHistory` | `boolean` | `false` | Disable memory edit history tracking |
 
-Everything inside `oss` is optional — defaults use OpenAI embeddings (`text-embedding-3-small`), in-memory vector store, and OpenAI LLM (`gpt-5-mini`).
+Everything inside `oss` is optional: defaults use OpenAI embeddings (`text-embedding-3-small`), in-memory vector store, and OpenAI LLM (`gpt-5-mini`).
 
 ## Plugin Management
 
@@ -466,11 +466,11 @@ The agent can always use memory tools (`memory_add`, `memory_search`, etc.) expl
 
 The plugin never stores API keys, tokens, or secrets as memories. Five independent layers enforce this:
 
-1. **Triage gate** — The extraction prompt rejects values matching known credential patterns (`sk-`, `m0-`, `ghp_`, `AKIA`, `Bearer`, `password=`, `token=`, `secret=`)
-2. **Dream cleanup** — Periodic memory consolidation deletes any memories that slipped through containing credential patterns
-3. **Extraction instructions** — Default extraction rules explicitly instruct the model to store only that a credential was configured, never the value
-4. **Configurable patterns** — Add custom credential patterns via `skills.triage.credentialPatterns`
-5. **CLI redaction** — `openclaw mem0 config show` redacts sensitive fields (`apiKey`, `oss.*.config.apiKey`)
+1. **Triage gate**: The extraction prompt rejects values matching known credential patterns (`sk-`, `m0-`, `ghp_`, `AKIA`, `Bearer`, `password=`, `token=`, `secret=`)
+2. **Dream cleanup**: Periodic memory consolidation deletes any memories that slipped through containing credential patterns
+3. **Extraction instructions**: Default extraction rules explicitly instruct the model to store only that a credential was configured, never the value
+4. **Configurable patterns**: Add custom credential patterns via `skills.triage.credentialPatterns`
+5. **CLI redaction**: `openclaw mem0 config show` redacts sensitive fields (`apiKey`, `oss.*.config.apiKey`)
 
 ### API Key Storage
 
@@ -478,7 +478,7 @@ Plugin config is stored in `~/.openclaw/openclaw.json` with file permissions `0o
 
 ### Telemetry
 
-Anonymous usage telemetry (PostHog) is enabled by default to help improve the plugin. No conversation content or memory values are included — only event counts (recall, capture, tool usage, CLI commands).
+Anonymous usage telemetry (PostHog) is enabled by default to help improve the plugin. No conversation content or memory values are included, only event counts (recall, capture, tool usage, CLI commands).
 
 To opt out, set the environment variable:
 
@@ -488,13 +488,15 @@ export MEM0_TELEMETRY=false
 
 ### System Prompt Context
 
-The plugin injects memory-related instructions into the agent's system context via OpenClaw's `prependSystemContext` mechanism. This includes the memory triage protocol and recalled memories. This is the standard OpenClaw plugin SDK pattern for memory backends — no user-facing prompts are modified.
+The plugin injects memory-related instructions into the agent's system context via OpenClaw's `prependSystemContext` mechanism. This includes the memory triage protocol and recalled memories. This is the standard OpenClaw plugin SDK pattern for memory backends. No user-facing prompts are modified.
 
 <CardGroup cols={2}>
-  <Card title="OpenAI Agents SDK" icon="robot" href="/integrations/openai-agents-sdk">
+  <Card title="OpenAI Agents SDK" icon="/images/provider-icons/openai.svg" href="/integrations/openai-agents-sdk">
     Build agents with OpenAI's SDK and Mem0
   </Card>
   <Card title="LangGraph Integration" icon="diagram-project" href="/integrations/langgraph">
     Create stateful agent workflows with memory
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

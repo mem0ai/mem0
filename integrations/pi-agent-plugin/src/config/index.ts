@@ -20,7 +20,7 @@ const DEFAULT_CONFIG: Mem0Config = {
   userId: "",
   autoCapture: true,
   defaultScope: "project",
-  contextInjection: false,
+  contextInjection: true,
   searchThreshold: 0.3,
   dream: DEFAULT_DREAM,
 };

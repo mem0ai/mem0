@@ -21,34 +21,33 @@ from mem0 import Memory
 load_dotenv()
 
 config = {
-"vector_store": {
-"provider": "pgvector",
-"config": {
-"connection_string": os.environ["DATABASE_URL"],
-"collection_name": "memories",
-"embedding_model_dims": 1536,
-"hnsw": True,
-},
-},
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "connection_string": os.environ["DATABASE_URL"],
+            "collection_name": "memories",
+            "embedding_model_dims": 1536,
+            "hnsw": True,
+        },
+    },
 }
 
 m = Memory.from_config(config)
 messages = [
-{"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-{"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-{"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
-{"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 
 results = m.search(
-"What movies should I recommend?",
-filters={"user_id": "alice"},
+    "What movies should I recommend?",
+    filters={"user_id": "alice"},
 )
 
 print(results)
-
-````
+```
 
 ```typescript TypeScript
 import "dotenv/config";
@@ -87,7 +86,7 @@ const results = await m.search("What movies should I recommend?", {
 });
 
 console.log(results);
-````
+```
 
 </CodeGroup>
 
