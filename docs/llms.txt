@@ -475,6 +475,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone) [OSS]: Use when the user is on Pinecone managed.
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.
 - [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure) [OSS]: Use when the user is on Azure AI Search.
+- [Azure Cosmos DB NoSQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_cosmos_nosql) [OSS]: Use when embeddings should live in Azure Cosmos DB for NoSQL documents.
 - [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis) [OSS]: Use when Redis Stack is the backing store.
 - [Valkey](https://docs.mem0.ai/components/vectordbs/dbs/valkey) [OSS]: Use when the user is on Valkey (Redis fork).

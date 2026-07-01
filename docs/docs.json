@@ -208,6 +208,7 @@
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
                               "components/vectordbs/dbs/azure",
+                              "components/vectordbs/dbs/azure_cosmos_nosql",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
                               "components/vectordbs/dbs/valkey",

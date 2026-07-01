@@ -38,6 +38,7 @@ vector-stores = [
     "faiss-cpu>=1.7.4",
     "upstash-vector>=0.6.0",
     "azure-search-documents>=11.4.0b8",
+    "azure-cosmos>=4.7.0",
     "psycopg>=3.2.8",
     "psycopg-pool>=3.2.6,<4.0.0",
     "pymongo>=4.13.2",

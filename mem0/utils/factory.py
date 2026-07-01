@@ -183,6 +183,7 @@ class VectorStoreFactory:
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
+        "azure_cosmos_nosql": "mem0.vector_stores.azure_cosmos_nosql.AzureCosmosNoSQL",
         "azure_mysql": "mem0.vector_stores.azure_mysql.AzureMySQL",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
         "mongodb": "mem0.vector_stores.mongodb.MongoDB",

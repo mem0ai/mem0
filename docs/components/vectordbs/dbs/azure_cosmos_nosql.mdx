@@ -1,0 +1,83 @@
+---
+title: Azure Cosmos DB NoSQL
+description: "Use Azure Cosmos DB for NoSQL as a vector store in Mem0, storing embeddings alongside your data with native vector indexing."
+---
+
+[Azure Cosmos DB for NoSQL](https://learn.microsoft.com/azure/cosmos-db/nosql/) is a globally distributed, fully managed NoSQL database service. Its native [vector search](https://learn.microsoft.com/azure/cosmos-db/nosql/vector-search) support lets you store embeddings directly inside your documents — alongside other data — with efficient vector indexing (including DiskANN), autoscaling, low latency, and high availability.
+
+<Note> Vector search must be enabled on your Cosmos DB account before use. Enable the **Vector Search for NoSQL API** feature in the Azure portal under *Settings → Features*, or via the Azure CLI. </Note>
+
+<Note> Ensure the `embedding_model_dims` in your config matches your chosen embedding model's dimensions. For example, OpenAI's text-embedding-3-small uses 1536 dimensions. </Note>
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"   # This key is used for embedding purpose
+
+config = {
+    "vector_store": {
+        "provider": "azure_cosmos_nosql",
+        "config": {
+            "endpoint": "https://<your-account>.documents.azure.com:443/",
+            "api_key": "<your-account-key>",
+            "database_name": "mem0db",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Using a connection string
+
+```python
+config = {
+    "vector_store": {
+        "provider": "azure_cosmos_nosql",
+        "config": {
+            "connection_string": "AccountEndpoint=https://<your-account>.documents.azure.com:443/;AccountKey=<key>;",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536
+        }
+    }
+}
+```
+
+Credentials can also be supplied via environment variables instead of config fields: `AZURE_COSMOS_CONNECTION_STRING`, or `AZURE_COSMOS_ENDPOINT` + `AZURE_COSMOS_KEY`.
+
+## Configuration Parameters
+
+| Parameter | Description | Default Value | Options |
+| --- | --- | --- | --- |
+| `collection_name` | Name of the container that stores memories | `mem0` | Any valid container name |
+| `database_name` | Name of the database | `mem0db` | Any valid database name |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` | Any integer value |
+| `client` | Existing `azure.cosmos.CosmosClient` instance | `None` | Any `CosmosClient` |
+| `endpoint` | Cosmos DB account endpoint URL | `None` | Falls back to `AZURE_COSMOS_ENDPOINT` |
+| `api_key` | Cosmos DB account key | `None` | Falls back to `AZURE_COSMOS_KEY` |
+| `connection_string` | Cosmos DB connection string | `None` | Falls back to `AZURE_COSMOS_CONNECTION_STRING` |
+| `metric` | Distance function for vector similarity | `cosine` | `cosine`, `dotproduct`, `euclidean` |
+| `index_type` | Vector index type | `diskANN` | `flat`, `quantizedFlat`, `diskANN` |
+
+## Notes on Configuration Options
+
+- **index_type**:
+  - `diskANN` (default): approximate-nearest-neighbor index that scales to high-dimensional embeddings with low latency and cost.
+  - `quantizedFlat`: exact search over quantized vectors — good accuracy/cost balance for mid-sized collections.
+  - `flat`: exact search over raw vectors; Cosmos DB caps `flat` indexes at 505 dimensions, so it is unsuitable for most modern embedding models (e.g. 1536-dim OpenAI embeddings).
+
+- **Scores**: Mem0 normalizes Cosmos DB's `VectorDistance()` results into similarity scores where higher is better — cosine similarity is clamped to `[0, 1]`, and euclidean distance is converted via `1 / (1 + distance)`.
+
+- **Document layout**: each memory is stored as a document `{"id": ..., "vector": [...], "payload": {...}}` with `/id` as the partition key, and the `/vector` path excluded from the regular index.
