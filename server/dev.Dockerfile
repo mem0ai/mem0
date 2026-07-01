@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -8,6 +8,7 @@ ENV PATH="/root/.local/bin:$PATH"
 
 # Copy requirements first for better caching
 COPY server/requirements.txt .
+RUN apt-get update && apt-get install -y postgresql-client
 RUN pip install -r requirements.txt
 
 # Install mem0 in editable mode using Poetry
