@@ -19,8 +19,7 @@ export class TogetherEmbedder implements Embedder {
   constructor(config: EmbeddingConfig) {
     this.openai = new OpenAI({
       apiKey: config.apiKey || process.env.TOGETHER_API_KEY,
-      baseURL:
-        config.baseURL || config.url || "https://api.together.xyz/v1",
+      baseURL: config.baseURL || config.url || "https://api.together.xyz/v1",
     });
     this.model = config.model || "togethercomputer/m2-bert-80M-8k-retrieval";
   }
