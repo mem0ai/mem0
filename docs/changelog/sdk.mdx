@@ -7,6 +7,21 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-07-01" description="v2.0.11">
+
+**Bug Fixes:**
+- **Embeddings:** Guard against an `embed_batch` count mismatch in the OpenAI and Azure OpenAI embedders ([#5966](https://github.com/mem0ai/mem0/pull/5966))
+- **Memory:** Re-raise LLM extraction failures instead of silently returning `[]` ([#5878](https://github.com/mem0ai/mem0/pull/5878))
+- **Vector Stores:** Normalize vectors for the cosine distance strategy in FAISS ([#5960](https://github.com/mem0ai/mem0/pull/5960))
+
+**Security:**
+- **Vector Stores:** Validate OpenSearch filter values to prevent term query injection ([#5986](https://github.com/mem0ai/mem0/pull/5986))
+- **Vector Stores:** Validate value types and escape quotes in Azure AI Search OData filters ([#5983](https://github.com/mem0ai/mem0/pull/5983))
+- **Vector Stores:** Validate Databricks catalog/schema/table identifiers to prevent SQL injection ([#5988](https://github.com/mem0ai/mem0/pull/5988))
+- **Graph:** Escape Neptune filter values in openCypher queries to prevent injection ([#5982](https://github.com/mem0ai/mem0/pull/5982))
+
+</Update>
+
 <Update label="2026-06-27" description="v2.0.10">
 
 **New Features:**
@@ -1084,6 +1099,14 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-07-01" description="v3.0.13">
+
+**Bug Fixes:**
+- **Embeddings:** Guard against an `embed_batch` count mismatch in the OpenAI and Azure OpenAI embedders ([#5966](https://github.com/mem0ai/mem0/pull/5966))
+- **LLMs:** Handle empty Google chat candidates without crashing ([#5817](https://github.com/mem0ai/mem0/pull/5817))
+
+</Update>
 
 <Update label="2026-06-27" description="v3.0.12">
 
