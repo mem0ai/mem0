@@ -19,15 +19,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def lemmatize_for_bm25(text: str) -> str:
+def lemmatize_for_bm25(text: str, spacy_model: str = "en_core_web_sm") -> str:
     """Lemmatize text for BM25 matching.
 
     Returns space-joined lemmas for full-text search. Falls back to
     the original text if spaCy is unavailable.
+
+    Args:
+        text: Input text to lemmatize.
+        spacy_model: spaCy model name to use (default: "en_core_web_sm")
+
+    Returns:
+        Space-joined lemmatized tokens or original text if unavailable.
     """
     from mem0.utils.spacy_models import get_nlp_lemma
 
-    nlp = get_nlp_lemma()
+    nlp = get_nlp_lemma(spacy_model)
     if nlp is None:
         return text
 
