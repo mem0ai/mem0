@@ -1,9 +1,9 @@
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def _ensure_spacy():
-    """Skip tests if spaCy model is not available."""
+@pytest.fixture()
+def ensure_spacy():
+    """Skip a test when the English spaCy model is not available."""
     try:
         import spacy
 
@@ -12,6 +12,7 @@ def _ensure_spacy():
         pytest.skip("spaCy en_core_web_sm model not available")
 
 
+@pytest.mark.usefixtures("ensure_spacy")
 class TestExtractEntities:
     def test_proper_nouns(self):
         from mem0.utils.entity_extraction import extract_entities
@@ -110,6 +111,7 @@ class TestExtractEntities:
         assert not {"8,916", "2,573", "656", "2026-05-27", "90"}.intersection(entity_texts)
 
 
+@pytest.mark.usefixtures("ensure_spacy")
 class TestExtractEntitiesBatch:
     def test_batch_processing(self):
         from mem0.utils.entity_extraction import extract_entities_batch
@@ -125,11 +127,6 @@ class TestExtractEntitiesBatch:
         assert isinstance(results[1], list)
         assert isinstance(results[2], list)
 
-    def test_empty_input(self):
-        from mem0.utils.entity_extraction import extract_entities_batch
-
-        assert extract_entities_batch([]) == []
-
     def test_consistency_with_single(self):
         from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 
@@ -139,3 +136,211 @@ class TestExtractEntitiesBatch:
         assert len(batch) == 1
         # Both should extract the same entities
         assert set(t for _, t in single) == set(t for _, t in batch[0])
+
+
+def test_batch_empty_input():
+    from mem0.utils.entity_extraction import extract_entities_batch
+
+    assert extract_entities_batch([]) == []
+
+
+class FakeEnt:
+    def __init__(self, text, label="PERSON", start=0):
+        self.text = text
+        self.label_ = label
+        self._tokens = [FakeToken(start, text)]
+
+    def __iter__(self):
+        return iter(self._tokens)
+
+
+class FakeToken:
+    text = "x"
+    text_with_ws = "x "
+    lemma_ = "x"
+    pos_ = "NOUN"
+    dep_ = "ROOT"
+    tag_ = "NN"
+    is_sent_start = False
+    is_stop = False
+
+    def __init__(self, i=0, text="x"):
+        self.i = i
+        self.text = text
+        self.text_with_ws = f"{text} "
+        self.lemma_ = text.lower()
+        self.head = self
+
+
+class FakeDoc:
+    def __init__(self, text="阿宁在苏州使用 EMP-123", ents=None, noun_chunks_error=None):
+        self.text = text
+        self.ents = [FakeEnt("阿宁", start=0), FakeEnt("苏州", start=1)] if ents is None else ents
+        self._tokens = [FakeToken(idx, ent.text) for idx, ent in enumerate(self.ents)]
+        self._noun_chunks_error = noun_chunks_error or NotImplementedError(
+            "noun_chunks not implemented for this language"
+        )
+
+    def __iter__(self):
+        return iter(self._tokens)
+
+    @property
+    def noun_chunks(self):
+        raise self._noun_chunks_error
+
+
+class FakeNlp:
+    def __init__(self, docs):
+        self.docs = docs
+
+    def pipe(self, texts, batch_size=32):
+        yield from self.docs
+
+
+def test_extracts_spacy_doc_entities_as_proper_entities():
+    from mem0.utils.entity_extraction import _extract_entities_from_doc
+
+    entities = _extract_entities_from_doc(FakeDoc())
+
+    assert ("PROPER", "阿宁") in entities
+    assert ("PROPER", "苏州") in entities
+
+
+def test_unsupported_noun_chunks_do_not_crash():
+    from mem0.utils.entity_extraction import _extract_entities_from_doc
+
+    entities = _extract_entities_from_doc(FakeDoc())
+
+    assert isinstance(entities, list)
+
+
+def test_value_error_noun_chunks_do_not_crash_and_keep_doc_entities():
+    from mem0.utils.entity_extraction import _extract_entities_from_doc
+
+    entities = _extract_entities_from_doc(
+        FakeDoc(text="東京で働く", ents=[FakeEnt("東京")], noun_chunks_error=ValueError("unsupported parser"))
+    )
+
+    assert ("PROPER", "東京") in entities
+
+
+def test_fallback_entities_work_without_spacy(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+
+    entities = extract_entities('用户说 "年糕汤" 的员工编号是 EMP-123')
+
+    assert ("QUOTED", "年糕汤") in entities
+    assert ("IDENTIFIER", "EMP-123") in entities
+
+
+def test_unicode_quote_fallback_entities_work_without_spacy(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+
+    entities = extract_entities("用户说 “阿宁”，地点是「東京」，标题是『서울』，书名是《山海》")
+
+    assert ("QUOTED", "阿宁") in entities
+    assert ("QUOTED", "東京") in entities
+    assert ("QUOTED", "서울") in entities
+    assert ("QUOTED", "山海") in entities
+
+
+def test_single_quote_fallback_entities_work_without_spacy(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+
+    entities = extract_entities("用户说 '年糕汤' 的员工编号是 EMP-123")
+
+    assert ("QUOTED", "年糕汤") in entities
+    assert ("IDENTIFIER", "EMP-123") in entities
+
+
+def test_code_like_substring_entities_are_not_pruned_without_spacy(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+
+    entities = extract_entities("Use ABC-123 and ABC-123-def as distinct IDs")
+
+    assert ("IDENTIFIER", "ABC-123") in entities
+    assert ("IDENTIFIER", "ABC-123-def") in entities
+
+
+def test_spacy_proper_entity_beats_regex_quoted_duplicate(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(
+        spacy_models,
+        "get_nlp_full",
+        lambda: lambda text: FakeDoc(text=text, ents=[FakeEnt("Apple", label="ORG")]),
+    )
+
+    entities = extract_entities('The note says "Apple" and Apple shipped the fix')
+
+    assert ("PROPER", "Apple") in entities
+    assert ("QUOTED", "Apple") not in entities
+
+
+def test_code_regex_ignores_common_short_alphanumeric_words_without_spacy(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+
+    entities = extract_entities("Ship ABC-123, not 4th, Python3, B2B, or G20. Keep AB12CD.")
+    entity_texts = {text for _, text in entities}
+
+    assert "ABC-123" in entity_texts
+    assert "AB12CD" in entity_texts
+    assert not {"4th", "Python3", "B2B", "G20"}.intersection(entity_texts)
+
+
+def test_batch_preserves_length_when_pipe_returns_fewer_docs(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities_batch
+
+    texts = ['用户说 "年糕汤"', "员工编号是 EMP-123"]
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: FakeNlp([FakeDoc(text=texts[0], ents=[])]))
+
+    results = extract_entities_batch(texts)
+
+    assert len(results) == len(texts)
+    assert ("QUOTED", "年糕汤") in results[0]
+    assert ("IDENTIFIER", "EMP-123") in results[1]
+
+
+def test_batch_preserves_length_when_pipe_returns_extra_docs(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities_batch
+
+    texts = ["员工编号是 EMP-123"]
+    monkeypatch.setattr(
+        spacy_models,
+        "get_nlp_full",
+        lambda: FakeNlp([FakeDoc(text=texts[0], ents=[]), FakeDoc(text="额外 “서울”", ents=[FakeEnt("서울")])]),
+    )
+
+    results = extract_entities_batch(texts)
+
+    assert len(results) == len(texts)
+    assert ("IDENTIFIER", "EMP-123") in results[0]
+    assert all(entity_text != "서울" for result in results for _, entity_text in result)
+
+
+def test_no_spacy_batch_fallback_matches_single(monkeypatch):
+    from mem0.utils import spacy_models
+    from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
+
+    monkeypatch.setattr(spacy_models, "get_nlp_full", lambda: None)
+    texts = ['用户说 "年糕汤"', "员工编号是 EMP-123", "Use ABC-123 and ABC-123-def as distinct IDs"]
+
+    assert extract_entities_batch(texts) == [extract_entities(text) for text in texts]

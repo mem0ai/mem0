@@ -12,13 +12,20 @@ Public API:
 
 Returns:
     List of ``(entity_type, entity_text)`` tuples where entity_type is one of
-    PROPER, QUOTED, TOPIC, or IDENTIFIER. Returns ``[]`` if spaCy is unavailable.
+    PROPER, QUOTED, TOPIC, or IDENTIFIER. When spaCy is unavailable, regex-based
+    quoted text and identifier extraction still run.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import re
+
+from mem0.utils.text_tokenization import contains_non_latin_letters
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -352,6 +359,19 @@ _GENERIC_CAPS = {
 # Markdown/formatting markers to skip during extraction
 _FORMATTING_MARKERS = {"*", "-", "+", "\u2022", "\u2013", "\u2014", "#", "##", "###", "**", "__"}
 
+_CODE_ENTITY_RE = re.compile(
+    r"\b(?=[A-Za-z0-9._:-]*[A-Za-z])(?=[A-Za-z0-9._:-]*\d)[A-Za-z0-9]+(?:[._:-][A-Za-z0-9]+)+\b"
+    r"|\b(?=[A-Za-z0-9]*[A-Za-z])(?=(?:[A-Za-z]*\d){2,})[A-Za-z0-9]{6,}\b"
+)
+_QUOTE_PAIRS = (
+    ('"', '"'),
+    ("\u201c", "\u201d"),
+    ("\u2018", "\u2019"),
+    ("\u300c", "\u300d"),
+    ("\u300e", "\u300f"),
+    ("\u300a", "\u300b"),
+)
+
 
 def _is_sentence_start(tokens: list, idx: int) -> bool:
     """Check if a token is at the start of a sentence or after formatting."""
@@ -388,6 +408,11 @@ def _has_artifacts(txt: str) -> bool:
             txt.startswith(("\u2022", "-", "+", "\u2013", "\u2014")),
         ]
     )
+
+
+def _has_entity_signal(text: str) -> bool:
+    stripped = text.strip()
+    return len(stripped) > 2 or (len(stripped) >= 2 and contains_non_latin_letters(stripped))
 
 
 def _clean_text(txt: str) -> str:
@@ -480,7 +505,7 @@ def _add_candidate(
     priority: int,
 ) -> None:
     cleaned = _clean_text(text)
-    if not cleaned or len(cleaned) <= 2 or _has_artifacts(cleaned):
+    if not cleaned or not _has_entity_signal(cleaned) or _has_artifacts(cleaned):
         return
     candidates.append(
         _EntityCandidate(
@@ -579,16 +604,37 @@ def _add_proper_name_candidates(tokens: list, candidates: list[_EntityCandidate]
 
 
 def _add_quoted_candidates(text: str, candidates: list[_EntityCandidate]) -> None:
-    for m in re.finditer(r'"([^"]+)"', text):
-        if len(m.group(1).strip()) > 2:
-            _add_candidate(candidates, "QUOTED", m.group(1).strip(), "quoted", -1, -1, 0.75, 3)
+    for open_quote, close_quote in _QUOTE_PAIRS:
+        pattern = rf"{re.escape(open_quote)}([^{re.escape(close_quote)}]+){re.escape(close_quote)}"
+        for m in re.finditer(pattern, text):
+            if _has_entity_signal(m.group(1)):
+                _add_candidate(candidates, "QUOTED", m.group(1).strip(), "quoted", -1, -1, 0.75, 3)
     for m in re.finditer(r"(?:^|[\s\(\[{,;])'([^']+)'(?=[\s\.,;:!?\)\]]|$)", text):
-        if len(m.group(1).strip()) > 2:
+        if _has_entity_signal(m.group(1)):
             _add_candidate(candidates, "QUOTED", m.group(1).strip(), "quoted", -1, -1, 0.75, 3)
+
+
+def _add_regex_identifier_candidates(text: str, candidates: list[_EntityCandidate]) -> None:
+    for m in _CODE_ENTITY_RE.finditer(text):
+        value = m.group(0).strip()
+        if _has_entity_signal(value):
+            _add_candidate(candidates, "IDENTIFIER", value, "regex_identifier", -1, -1, 0.85, 1)
+
+
+def _extract_regex_candidates(text: str) -> list[_EntityCandidate]:
+    candidates: list[_EntityCandidate] = []
+    _add_quoted_candidates(text, candidates)
+    _add_regex_identifier_candidates(text, candidates)
+    return candidates
 
 
 def _add_topic_phrase_candidates(doc, candidates: list[_EntityCandidate]) -> None:
-    for chunk in doc.noun_chunks:
+    try:
+        noun_chunks = list(doc.noun_chunks)
+    except (NotImplementedError, ValueError):
+        noun_chunks = []
+
+    for chunk in noun_chunks:
         chunk_tokens = list(chunk)
         split_indices: list[int] = []
         poss_splits: list[int] = []
@@ -728,6 +774,15 @@ def _resolve_candidates(candidates: list[_EntityCandidate]) -> list[tuple[str, s
     return [(candidate.entity_type, candidate.text) for candidate in accepted]
 
 
+def _add_doc_candidates(doc, candidates: list[_EntityCandidate]) -> None:
+    tokens = list(doc)
+    _add_ner_candidates(doc, candidates)
+    _add_technical_identifier_candidates(tokens, candidates)
+    _add_proper_name_candidates(tokens, candidates)
+    _add_quoted_candidates(doc.text, candidates)
+    _add_topic_phrase_candidates(doc, candidates)
+
+
 def _extract_entities_from_doc(doc) -> list[tuple[str, str]]:
     """Extract typed entity candidates from a spaCy Doc.
 
@@ -738,35 +793,68 @@ def _extract_entities_from_doc(doc) -> list[tuple[str, str]]:
         Deduplicated list of ``(entity_type, entity_text)`` tuples.
         Entity types include PROPER, QUOTED, TOPIC, and IDENTIFIER.
     """
-    tokens = list(doc)
     candidates: list[_EntityCandidate] = []
-    _add_ner_candidates(doc, candidates)
-    _add_technical_identifier_candidates(tokens, candidates)
-    _add_proper_name_candidates(tokens, candidates)
-    _add_quoted_candidates(doc.text, candidates)
-    _add_topic_phrase_candidates(doc, candidates)
+    _add_doc_candidates(doc, candidates)
     return _resolve_candidates(candidates)
 
 
 def extract_entities(text: str) -> list[tuple[str, str]]:
-    """Extract typed entity candidates from text."""
+    """Extract typed entity candidates from text.
+
+    Args:
+        text: Input text to analyze.
+
+    Returns:
+        Deduplicated list of ``(entity_type, entity_text)`` tuples. When spaCy
+        is unavailable, regex-based quoted text and identifier extraction still
+        returns useful fallback entities.
+    """
     from mem0.utils.spacy_models import get_nlp_full
 
+    candidates = _extract_regex_candidates(text)
     nlp = get_nlp_full()
     if nlp is None:
-        return []
-    return _extract_entities_from_doc(nlp(text))
+        return _resolve_candidates(candidates)
+    _add_doc_candidates(nlp(text), candidates)
+    return _resolve_candidates(candidates)
 
 
 def extract_entities_batch(texts: list[str], batch_size: int = 32) -> list[list[tuple[str, str]]]:
-    """Extract typed entity candidates from multiple texts."""
+    """Extract typed entity candidates from multiple texts.
+
+    Args:
+        texts: Input texts to analyze.
+        batch_size: Batch size passed to ``nlp.pipe`` when spaCy is available.
+
+    Returns:
+        One entity list per input text. If spaCy is unavailable, or if a mocked
+        ``nlp.pipe`` yields too few documents, regex fallback results preserve
+        the input length.
+    """
     if not texts:
         return []
 
     from mem0.utils.spacy_models import get_nlp_full
 
+    fallback_candidates = [_extract_regex_candidates(text) for text in texts]
+    results = [_resolve_candidates(candidates) for candidates in fallback_candidates]
     nlp = get_nlp_full()
     if nlp is None:
-        return [[] for _ in texts]
+        return results
 
-    return [_extract_entities_from_doc(doc) for doc in nlp.pipe(texts, batch_size=batch_size)]
+    docs_seen = 0
+    for idx, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
+        if idx >= len(texts):
+            logger.warning("spaCy nlp.pipe returned more docs than input texts; ignoring extra docs")
+            break
+        candidates = list(fallback_candidates[idx])
+        _add_doc_candidates(doc, candidates)
+        results[idx] = _resolve_candidates(candidates)
+        docs_seen += 1
+
+    if docs_seen < len(texts):
+        logger.warning(
+            "spaCy nlp.pipe returned fewer docs than input texts; using fallback-only extraction for missing docs"
+        )
+
+    return results
