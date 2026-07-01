@@ -3713,20 +3713,25 @@ class AsyncMemory(MemoryBase):
             Recreates the vector store with a new client
         """
         logger.warning("Resetting all memories")
-        await asyncio.to_thread(self.vector_store.delete_col)
 
-        gc.collect()
+        if hasattr(self.vector_store, "reset"):
+            self.vector_store = await asyncio.to_thread(VectorStoreFactory.reset, self.vector_store)
+        else:
+            logger.warning("Vector store does not support reset. Skipping.")
+            await asyncio.to_thread(self.vector_store.delete_col)
 
-        if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
-            await asyncio.to_thread(self.vector_store.client.close)
+            gc.collect()
+
+            if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
+                await asyncio.to_thread(self.vector_store.client.close)
+
+            self.vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, self.config.vector_store.config
+            )
 
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
         self.db = SQLiteManager(self.config.history_db_path)
-
-        self.vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, self.config.vector_store.config
-        )
 
         if self._entity_store is not None:
             try:
