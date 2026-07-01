@@ -192,3 +192,79 @@ describe("Memory - add()", () => {
     );
   });
 });
+
+describe("Memory - ingestion caps", () => {
+  test("caps add context-search embedding to the recent tail", async () => {
+    const memory = createMemory({
+      vectorStore: {
+        provider: "memory",
+        config: {
+          collectionName: `test-add-context-cap-${Date.now()}`,
+          dimension: 1536,
+          dbPath: ":memory:",
+        },
+      },
+    });
+    const embedSpy = jest.spyOn((memory as any).embedder, "embed");
+    const longText = `old-${"x".repeat(15000)}`;
+
+    await memory.add(longText, { userId: `cap_user_${Date.now()}` });
+
+    expect(embedSpy.mock.calls[0][0]).toBe(longText.slice(-15000));
+    await memory.reset();
+  });
+
+  test("caps extracted memories to the latest 20 before embedding", async () => {
+    const memory = createMemory({
+      vectorStore: {
+        provider: "memory",
+        config: {
+          collectionName: `test-add-memory-cap-${Date.now()}`,
+          dimension: 1536,
+          dbPath: ":memory:",
+        },
+      },
+    });
+    (memory as any).llm.generateResponse = jest.fn().mockResolvedValue(
+      JSON.stringify({
+        memory: Array.from({ length: 25 }, (_, i) => ({
+          id: String(i),
+          text: `memory-${i}`,
+        })),
+      }),
+    );
+    const embedBatchSpy = jest.spyOn((memory as any).embedder, "embedBatch");
+
+    const result: SearchResult = await memory.add("remember these", {
+      userId: `cap_user_${Date.now()}`,
+    });
+
+    expect(result.results).toHaveLength(20);
+    expect(embedBatchSpy.mock.calls[0][0]).toEqual(
+      Array.from({ length: 20 }, (_, i) => `memory-${i + 5}`),
+    );
+    await memory.reset();
+  });
+
+  test("caps search query before embedding", async () => {
+    const memory = createMemory({
+      vectorStore: {
+        provider: "memory",
+        config: {
+          collectionName: `test-search-cap-${Date.now()}`,
+          dimension: 1536,
+          dbPath: ":memory:",
+        },
+      },
+    });
+    const embedSpy = jest.spyOn((memory as any).embedder, "embed");
+    const longQuery = `old-${"q".repeat(15000)}`;
+
+    await memory.search(longQuery, {
+      filters: { user_id: `cap_user_${Date.now()}` },
+    });
+
+    expect(embedSpy.mock.calls[0][0]).toBe(longQuery.slice(-15000));
+    await memory.reset();
+  });
+});
