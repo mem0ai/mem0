@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from mem0.vector_stores.upstash_vector import UpstashVector
+from mem0.vector_stores.upstash_vector import UpstashVector, _validate_filter
 
 
 @dataclass
@@ -225,6 +225,57 @@ def test_update_vector_with_embeddings(upstash_instance_with_embeddings):
         metadata={"name": "updated_vector", "data": "updated_data"},
         namespace="ns",
     )
+
+
+def test_filter_rejects_dict_value():
+    with pytest.raises(ValueError):
+        _validate_filter("user_id", {"$ne": ""})
+
+
+def test_filter_rejects_list_value():
+    with pytest.raises(ValueError):
+        _validate_filter("user_id", ["alice", "bob"])
+
+
+def test_filter_rejects_invalid_key():
+    with pytest.raises(ValueError):
+        _validate_filter("user_id; DROP", "alice")
+
+
+def test_filter_accepts_scalars():
+    _validate_filter("user_id", "alice")
+    _validate_filter("count", 42)
+    _validate_filter("score", 0.95)
+    _validate_filter("active", True)
+
+
+def test_filter_rejects_double_quote_in_value():
+    with pytest.raises(ValueError, match="prohibited characters"):
+        _validate_filter("user_id", 'alice" OR 1=1 --')
+
+
+def test_filter_rejects_backslash_in_value():
+    with pytest.raises(ValueError, match="prohibited characters"):
+        _validate_filter("user_id", "alice\\bob")
+
+
+def test_search_rejects_dict_filter(upstash_instance):
+    with pytest.raises(ValueError):
+        upstash_instance.search(
+            query="test", vectors=[[0.1]], filters={"user_id": {"$ne": ""}}
+        )
+
+
+def test_keyword_search_raises_on_invalid_filter(upstash_instance):
+    with pytest.raises(ValueError):
+        upstash_instance.keyword_search(
+            query="test", filters={"user_id": 'alice" OR 1=1'}
+        )
+
+
+def test_filter_rejects_key_with_trailing_newline():
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        _validate_filter("user_id\n", "alice")
 
 
 def test_insert_vectors_with_embeddings_missing_data(upstash_instance_with_embeddings):
