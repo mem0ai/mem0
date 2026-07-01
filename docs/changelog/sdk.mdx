@@ -1100,6 +1100,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="Unreleased" description="Next TypeScript SDK">
+
+**Bug Fixes:**
+- **Memory (OSS):** Post-filter scoped `search()`, `getAll()`, add-time dedupe, and `deleteAll()` results by requested scope so provider filter drift cannot leak or delete wrong-scope memories. Read filters continue to use `user_id`, `agent_id`, and `run_id`; `deleteAll()` options continue to use `userId`, `agentId`, and `runId`. Wildcard scope filters now throw in `search()`, `getAll()`, and `deleteAll()`, cursorless providers fail closed when full pages cannot prove completeness, and public results normalize stored scope/timestamp aliases. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
+
+</Update>
+
 <Update label="2026-07-01" description="v3.0.13">
 
 **Bug Fixes:**

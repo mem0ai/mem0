@@ -268,7 +268,7 @@ describe("Memory - provider scope filters", () => {
     });
   });
 
-  test("maps vectorize scope filters to camelCase metadata keys", () => {
+  test("keeps vectorize scope filters in stored snake_case metadata keys", () => {
     expect(
       providerFiltersFor("vectorize", {
         user_id: "target-user",
@@ -277,9 +277,57 @@ describe("Memory - provider scope filters", () => {
       }),
     ).toEqual({
       topic: "preferences",
-      userId: "target-user",
-      agentId: "agent-a",
+      user_id: "target-user",
+      agent_id: "agent-a",
     });
+  });
+
+  test("passes widened provider scope filters through public getAll calls", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    (scopedMemory as any).config.vectorStore.provider = "qdrant";
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user memory",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+
+    try {
+      const result: SearchResult = await scopedMemory.getAll({
+        filters: { user_id: "target-user", agent_id: "agent-a" },
+        topK: 5,
+      });
+
+      expect(listSpy).toHaveBeenCalledWith(
+        {
+          $or: [
+            { user_id: "target-user", agent_id: "agent-a" },
+            { user_id: "target-user", agentId: "agent-a" },
+            { userId: "target-user", agent_id: "agent-a" },
+            { userId: "target-user", agentId: "agent-a" },
+          ],
+        },
+        60,
+      );
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+    } finally {
+      listSpy.mockRestore();
+      (scopedMemory as any).config.vectorStore.provider = "memory";
+      await scopedMemory.reset();
+    }
   });
 });
 
@@ -670,6 +718,70 @@ describe("Memory - getAll()", () => {
       await scopedMemory.reset();
     }
   });
+
+  test("requires every requested scope key when filtering list results", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "wrong-agent-memory",
+        payload: {
+          data: "same user wrong agent",
+          hash: "wrong-agent-hash",
+          userId: "target-user",
+          agentId: "other-agent",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "wrong-user-memory",
+        payload: {
+          data: "wrong user same agent",
+          hash: "wrong-user-hash",
+          userId: "other-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user and agent",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+
+    try {
+      const result: SearchResult = await scopedMemory.getAll({
+        filters: { user_id: "target-user", agent_id: "agent-a" },
+        topK: 5,
+      });
+
+      expect(listSpy).toHaveBeenCalledWith(
+        { user_id: "target-user", agent_id: "agent-a" },
+        60,
+      );
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({
+          user_id: "target-user",
+          agent_id: "agent-a",
+        }),
+      );
+    } finally {
+      listSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
 });
 
 // ─── search() ────────────────────────────────────────────
@@ -830,6 +942,76 @@ describe("Memory - search()", () => {
         expect.objectContaining({
           bm25Score: 0,
           maxPossibleScore: 1,
+        }),
+      );
+    } finally {
+      searchSpy.mockRestore();
+      keywordSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("requires every requested scope key when filtering search results", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search").mockResolvedValueOnce([
+      {
+        id: "wrong-agent-memory",
+        score: 0.99,
+        payload: {
+          data: "same user wrong agent",
+          hash: "wrong-agent-hash",
+          userId: "target-user",
+          agentId: "other-agent",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "wrong-user-memory",
+        score: 0.98,
+        payload: {
+          data: "wrong user same agent",
+          hash: "wrong-user-hash",
+          userId: "other-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        score: 0.97,
+        payload: {
+          data: "target user and agent",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ]);
+    const keywordSpy = jest
+      .spyOn(vectorStore, "keywordSearch")
+      .mockResolvedValueOnce(null);
+
+    try {
+      const result: SearchResult = await scopedMemory.search("target", {
+        filters: { user_id: "target-user", agent_id: "agent-a" },
+        threshold: 0,
+        topK: 5,
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        expect.any(Number),
+        { user_id: "target-user", agent_id: "agent-a" },
+      );
+      expect(result.results.map((item) => item.id)).toEqual(["owned-memory"]);
+      expect(result.results[0]).toEqual(
+        expect.objectContaining({
+          user_id: "target-user",
+          agent_id: "agent-a",
         }),
       );
     } finally {
@@ -1209,6 +1391,136 @@ describe("Memory - deleteAll() scope hardening", () => {
       getSpy.mockRestore();
       deleteSpy.mockRestore();
       entityCleanupSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("requires every requested scope key before bulk deleting", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "wrong-agent-memory",
+        payload: {
+          data: "same user wrong agent",
+          hash: "wrong-agent-hash",
+          userId: "target-user",
+          agentId: "other-agent",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "wrong-user-memory",
+        payload: {
+          data: "wrong user same agent",
+          hash: "wrong-user-hash",
+          userId: "other-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "owned-memory",
+        payload: {
+          data: "target user and agent",
+          hash: "owned-hash",
+          userId: "target-user",
+          agentId: "agent-a",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([rows, rows.length]);
+    const getSpy = jest
+      .spyOn(vectorStore, "get")
+      .mockImplementation(async (...args: unknown[]) => {
+        const id = String(args[0]);
+        const row = rows.find((item) => item.id === id);
+        return row ?? null;
+      });
+    const deleteSpy = jest
+      .spyOn(vectorStore, "delete")
+      .mockResolvedValue(undefined);
+    const entityCleanupSpy = jest
+      .spyOn(scopedMemory as any, "_removeMemoryFromEntityStore")
+      .mockResolvedValue(undefined);
+
+    try {
+      const result = await scopedMemory.deleteAll({
+        userId: "target-user",
+        agentId: "agent-a",
+      });
+
+      expect(result.message).toBe("Memories deleted successfully!");
+      expect(listSpy).toHaveBeenCalledWith(
+        { user_id: "target-user", agent_id: "agent-a" },
+        10000,
+      );
+      expect(deleteSpy).toHaveBeenCalledTimes(1);
+      expect(deleteSpy).toHaveBeenCalledWith("owned-memory");
+      expect(entityCleanupSpy).toHaveBeenCalledWith("owned-memory", {
+        user_id: "target-user",
+        agent_id: "agent-a",
+      });
+    } finally {
+      listSpy.mockRestore();
+      getSpy.mockRestore();
+      deleteSpy.mockRestore();
+      entityCleanupSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("fails closed when bulk delete cannot prove a full provider page is complete", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    (scopedMemory as any).config.vectorStore.provider = "qdrant";
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const fullPage = Array.from({ length: 10000 }, (_, index) => ({
+      id: `memory-${index}`,
+      payload: {
+        data: `target memory ${index}`,
+        hash: `hash-${index}`,
+        userId: "target-user",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    }));
+
+    const listSpy = jest
+      .spyOn(vectorStore, "list")
+      .mockResolvedValueOnce([fullPage, fullPage.length]);
+    const deleteSpy = jest
+      .spyOn(vectorStore, "delete")
+      .mockResolvedValue(undefined);
+    const entityCleanupSpy = jest
+      .spyOn(scopedMemory as any, "_removeMemoryFromEntityStore")
+      .mockResolvedValue(undefined);
+
+    try {
+      await expect(
+        scopedMemory.deleteAll({ userId: "target-user" }),
+      ).rejects.toThrow(
+        "deleteAll cannot safely delete all scoped memories for vector store provider 'qdrant'",
+      );
+
+      expect(listSpy).toHaveBeenCalledWith(
+        { $or: [{ user_id: "target-user" }, { userId: "target-user" }] },
+        10000,
+      );
+      expect(deleteSpy).not.toHaveBeenCalled();
+      expect(entityCleanupSpy).not.toHaveBeenCalled();
+    } finally {
+      listSpy.mockRestore();
+      deleteSpy.mockRestore();
+      entityCleanupSpy.mockRestore();
+      (scopedMemory as any).config.vectorStore.provider = "memory";
       await scopedMemory.reset();
     }
   });

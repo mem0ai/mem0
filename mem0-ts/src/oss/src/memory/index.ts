@@ -104,6 +104,8 @@ const RESERVED_PAYLOAD_KEYS = new Set<string>([
 ]);
 
 const MIN_SCOPE_POST_FILTER_FETCH = 60;
+// deleteAll has no cursor-aware vector-store list API today, so use a large
+// one-shot page and fail closed for providers that cannot prove total counts.
 const DELETE_ALL_SCOPE_FETCH_LIMIT = 10000;
 
 /**
@@ -356,7 +358,6 @@ export class Memory {
     const scopeAlternatives: Record<string, any>[] = [{}];
     const provider = this.config.vectorStore.provider.toLowerCase();
     const supportsScopeAliasOr = ["pgvector", "qdrant"].includes(provider);
-    const prefersCamelScope = provider === "vectorize";
     const existingOr = supportsScopeAliasOr ? providerFilters.$or : undefined;
     if (supportsScopeAliasOr) {
       delete providerFilters.$or;
@@ -383,8 +384,6 @@ export class Memory {
             [SCOPE_KEY_ALIASES[key]]: value,
           });
         }
-      } else if (prefersCamelScope) {
-        providerFilters[SCOPE_KEY_ALIASES[key]] = value;
       } else {
         providerFilters[key] = value;
       }
@@ -411,6 +410,12 @@ export class Memory {
       : undefined;
   }
 
+  private _providerListCountIsTotal(): boolean {
+    return ["memory", "pgvector", "redis", "supabase"].includes(
+      this.config.vectorStore.provider.toLowerCase(),
+    );
+  }
+
   private async _listByRequestedScope(
     filters: Record<string, any>,
     options: {
@@ -424,6 +429,8 @@ export class Memory {
     }
 
     const providerFilters = this._providerFiltersForRequestedScope(filters);
+    const providerReturnsTotalCount = this._providerListCountIsTotal();
+    const provider = this.config.vectorStore.provider;
     let fetchLimit = options.initialLimit;
     let scoped: VectorStoreResult[] = [];
 
@@ -442,28 +449,37 @@ export class Memory {
         return scoped.slice(0, options.topK);
       }
 
-      const total = Number(rawCount);
+      const total = providerReturnsTotalCount ? Number(rawCount) : undefined;
+      if (total !== undefined && Number.isFinite(total) && fetchLimit < total) {
+        const nextLimit = options.exhaustive
+          ? total
+          : Math.min(total, Math.max(fetchLimit * 2, fetchLimit + 1));
+
+        if (nextLimit > fetchLimit) {
+          fetchLimit = nextLimit;
+          continue;
+        }
+      }
+
       if (
+        options.exhaustive &&
+        !providerReturnsTotalCount &&
+        rawMemories.length >= fetchLimit
+      ) {
+        throw new Error(
+          `deleteAll cannot safely delete all scoped memories for vector store provider '${provider}' because list() returned a full page without a total count. Narrow the scope filters or delete matching memories individually.`,
+        );
+      }
+
+      if (
+        total === undefined ||
         !Number.isFinite(total) ||
-        total <= rawMemories.length ||
         fetchLimit >= total
       ) {
         return options.topK === undefined
           ? scoped
           : scoped.slice(0, options.topK);
       }
-
-      const nextLimit = options.exhaustive
-        ? total
-        : Math.min(total, Math.max(fetchLimit * 2, fetchLimit + 1));
-
-      if (nextLimit <= fetchLimit) {
-        return options.topK === undefined
-          ? scoped
-          : scoped.slice(0, options.topK);
-      }
-
-      fetchLimit = nextLimit;
     }
   }
 
