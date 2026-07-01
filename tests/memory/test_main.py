@@ -1061,3 +1061,162 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_fake_mem(mem_id, user_id="u1"):
+    m = MagicMock()
+    m.id = mem_id
+    m.payload = {"data": f"data-{mem_id}", "user_id": user_id, "created_at": "2026-01-01T00:00:00+00:00"}
+    return m
+
+
+# ---------------------------------------------------------------------------
+# delete_all N+1 fix
+# ---------------------------------------------------------------------------
+
+class TestDeleteAllPerformanceFix:
+    """delete_all must use list() + bulk entity cleanup — never re-fetch via get()."""
+
+    @pytest.fixture()
+    def mem(self, mocker):
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mocker.MagicMock())
+        vs = mocker.MagicMock()
+        mocker.patch("mem0.utils.factory.VectorStoreFactory.create", return_value=vs)
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+        mocker.patch("mem0.memory.main.capture_event")
+        m = Memory.__new__(Memory)
+        m.config = mocker.MagicMock()
+        m.vector_store = vs
+        m.db = mocker.MagicMock()
+        m._entity_store = None
+        m.llm = mocker.MagicMock()
+        m.embedding_model = mocker.MagicMock()
+        return m, vs
+
+    def test_no_vector_store_get_calls(self, mem, mocker):
+        m, vs = mem
+        fakes = [_make_fake_mem(f"id-{i}") for i in range(3)]
+        vs.list.return_value = [fakes]
+        vs.delete.return_value = None
+        mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        m.delete_all(user_id="u1")
+        vs.get.assert_not_called()
+
+    def test_list_called_once(self, mem, mocker):
+        m, vs = mem
+        fakes = [_make_fake_mem(f"id-{i}") for i in range(5)]
+        vs.list.return_value = [fakes]
+        vs.delete.return_value = None
+        mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        m.delete_all(user_id="u1")
+        assert vs.list.call_count == 1
+
+    def test_delete_called_once_per_memory(self, mem, mocker):
+        m, vs = mem
+        fakes = [_make_fake_mem(f"id-{i}") for i in range(4)]
+        vs.list.return_value = [fakes]
+        vs.delete.return_value = None
+        mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        m.delete_all(user_id="u1")
+        assert vs.delete.call_count == 4
+
+    def test_empty_list_no_error(self, mem, mocker):
+        m, vs = mem
+        vs.list.return_value = [[]]
+        mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        m.delete_all(user_id="u1")
+        vs.delete.assert_not_called()
+
+    def test_fault_isolation_one_failure_continues(self, mem, mocker):
+        m, vs = mem
+        fakes = [_make_fake_mem(f"id-{i}") for i in range(3)]
+        vs.list.return_value = [fakes]
+        vs.delete.side_effect = [None, RuntimeError("boom"), None]
+        mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        m.delete_all(user_id="u1")
+        assert vs.delete.call_count == 3
+
+    def test_bulk_entity_clear_called_when_entity_store_present(self, mem, mocker):
+        m, vs = mem
+        m._entity_store = mocker.MagicMock()
+        fakes = [_make_fake_mem("id-0")]
+        vs.list.return_value = [fakes]
+        vs.delete.return_value = None
+        mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        bulk_mock = mocker.patch.object(m, "_bulk_clear_entity_store")
+        m.delete_all(user_id="u1")
+        bulk_mock.assert_called_once()
+
+    def test_per_memory_entity_cleanup_skipped_in_delete_all(self, mem, mocker):
+        m, vs = mem
+        m._entity_store = mocker.MagicMock()
+        fakes = [_make_fake_mem(f"id-{i}") for i in range(3)]
+        vs.list.return_value = [fakes]
+        vs.delete.return_value = None
+        per_mem_cleanup = mocker.patch.object(m, "_remove_memory_from_entity_store")
+        mocker.patch.object(m, "_bulk_clear_entity_store")
+        mocker.patch.object(m.db, "delete_history")
+        m.delete_all(user_id="u1")
+        per_mem_cleanup.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_existing_memory_passed(self, mocker):
+        mocker.patch("mem0.memory.main.capture_event")
+        am = AsyncMemory.__new__(AsyncMemory)
+        am.config = mocker.MagicMock()
+        vs = mocker.MagicMock()
+        am.vector_store = vs
+        am.db = mocker.MagicMock()
+        am._entity_store = None
+        am.llm = mocker.MagicMock()
+        am.embedding_model = mocker.MagicMock()
+
+        fake = _make_fake_mem("id-42")
+        mocker.patch("asyncio.to_thread", return_value=[[fake]])
+
+        calls = []
+
+        async def capture_delete(mem_id, existing_memory=None, skip_entity_cleanup=False):
+            calls.append((mem_id, existing_memory))
+
+        mocker.patch.object(am, "_delete_memory", side_effect=capture_delete)
+        await am.delete_all(user_id="u1")
+        assert calls[0] == ("id-42", fake)
+
+    @pytest.mark.asyncio
+    async def test_async_fault_isolation(self, mocker):
+        mocker.patch("mem0.memory.main.capture_event")
+        am = AsyncMemory.__new__(AsyncMemory)
+        am.config = mocker.MagicMock()
+        vs = mocker.MagicMock()
+        am.vector_store = vs
+        am.db = mocker.MagicMock()
+        am._entity_store = None
+        am.llm = mocker.MagicMock()
+        am.embedding_model = mocker.MagicMock()
+
+        fakes = [_make_fake_mem(f"id-{i}") for i in range(3)]
+        mocker.patch("asyncio.to_thread", return_value=[fakes])
+
+        call_count = 0
+
+        async def sometimes_fail(mem_id, existing_memory=None, skip_entity_cleanup=False):
+            nonlocal call_count
+            call_count += 1
+            if mem_id == "id-1":
+                raise RuntimeError("boom")
+
+        mocker.patch.object(am, "_delete_memory", side_effect=sometimes_fail)
+        await am.delete_all(user_id="u1")
+        assert call_count == 3
