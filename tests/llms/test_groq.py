@@ -182,3 +182,23 @@ def test_generate_response_handles_non_string_model(mock_groq_client):
 
     _, kwargs = mock_groq_client.chat.completions.create.call_args
     assert kwargs["response_format"] == {"type": "json_object"}
+
+
+@pytest.mark.parametrize(
+    "model,expected",
+    [
+        ("llama-3.3-70b-versatile", True),
+        ("openai/gpt-oss-20b", True),
+        ("llama3-70b-8192", True),
+        ("groq/compound", False),
+        ("compound-beta", False),
+        ("groq/compound-mini", False),
+    ],
+)
+def test_supports_tool_calls_excludes_compound_models(mock_groq_client, model, expected):
+    # Forced-tool_choice recovery must be enabled for tool-capable Groq models
+    # (#4054's provider) but NOT for the compound agentic systems, which reject
+    # tool calling the same way they reject JSON response_format.
+    config = BaseLlmConfig(model=model, temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GroqLLM(config)
+    assert llm.supports_tool_calls is expected
