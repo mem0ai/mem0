@@ -116,24 +116,47 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
 
+
+def _parse_embedding_dims(raw: Optional[str]) -> Optional[int]:
+    if raw is None or raw == "":
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        logging.warning("MEM0_EMBEDDING_DIMS=%r is not an integer; ignoring.", raw)
+        return None
+    if value <= 0:
+        logging.warning("MEM0_EMBEDDING_DIMS=%d must be positive; ignoring.", value)
+        return None
+    return value
+
+
+EMBEDDING_DIMS = _parse_embedding_dims(os.environ.get("MEM0_EMBEDDING_DIMS"))
+
+_vector_store_config: Dict[str, Any] = {
+    "host": POSTGRES_HOST,
+    "port": int(POSTGRES_PORT),
+    "dbname": POSTGRES_DB,
+    "user": POSTGRES_USER,
+    "password": POSTGRES_PASSWORD,
+    "collection_name": POSTGRES_COLLECTION_NAME,
+}
+_embedder_config: Dict[str, Any] = {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}
+if EMBEDDING_DIMS is not None:
+    _vector_store_config["embedding_model_dims"] = EMBEDDING_DIMS
+    _embedder_config["embedding_dims"] = EMBEDDING_DIMS
+
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
         "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
+        "config": _vector_store_config,
     },
     "llm": {
         "provider": "openai",
         "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {"provider": "openai", "config": _embedder_config},
     "history_db_path": HISTORY_DB_PATH,
 }
 
