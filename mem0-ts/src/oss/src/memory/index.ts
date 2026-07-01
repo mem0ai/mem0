@@ -708,11 +708,7 @@ export class Memory {
     results: T[],
     filters: Record<string, any>,
   ): T[] {
-    const requestedKeys = SCOPE_KEYS.filter(
-      (key) => filters[key] !== undefined && filters[key] !== null,
-    );
-
-    if (requestedKeys.length === 0) {
+    if (!this._filterContainsScope(filters)) {
       return results;
     }
 
@@ -721,15 +717,183 @@ export class Memory {
     // expose a shared cursor, so callers may see fewer rows if a provider
     // returns polluted rows before valid in-scope rows.
     return results.filter((result) =>
-      requestedKeys.every((key) => {
-        const payload = result.payload ?? {};
-        const scopeValue = this._payloadScopeValue(payload, key);
-        if (filters[key] === "*") {
-          return scopeValue !== undefined && scopeValue !== null;
-        }
-        return scopeValue === filters[key];
-      }),
+      this._matchesScopeFilter(result.payload ?? {}, filters),
     );
+  }
+
+  private _canonicalScopeKey(key: string): ScopeKey | undefined {
+    if ((SCOPE_KEYS as readonly string[]).includes(key)) {
+      return key as ScopeKey;
+    }
+
+    for (const [scopeKey, alias] of Object.entries(SCOPE_KEY_ALIASES)) {
+      if (alias === key) {
+        return scopeKey as ScopeKey;
+      }
+    }
+
+    return undefined;
+  }
+
+  private _filterContainsScope(filter: any): boolean {
+    if (!filter || typeof filter !== "object" || Array.isArray(filter)) {
+      return false;
+    }
+
+    for (const [key, value] of Object.entries(filter)) {
+      if (
+        this._canonicalScopeKey(key) &&
+        value !== undefined &&
+        value !== null
+      ) {
+        return true;
+      }
+      if (
+        (key === "AND" ||
+          key === "OR" ||
+          key === "NOT" ||
+          key === "$and" ||
+          key === "$or" ||
+          key === "$not") &&
+        Array.isArray(value) &&
+        value.some((condition) => this._filterContainsScope(condition))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private _matchesScopeFilter(
+    payload: Record<string, any>,
+    filter: any,
+  ): boolean {
+    if (!filter || typeof filter !== "object" || Array.isArray(filter)) {
+      return true;
+    }
+
+    for (const [key, value] of Object.entries(filter)) {
+      if (key === "AND" || key === "$and") {
+        if (!Array.isArray(value)) {
+          return false;
+        }
+        if (
+          !value.every((condition) =>
+            this._matchesScopeFilter(payload, condition),
+          )
+        ) {
+          return false;
+        }
+        continue;
+      }
+
+      if (key === "OR" || key === "$or") {
+        if (!Array.isArray(value) || value.length === 0) {
+          return false;
+        }
+        if (
+          !value.some((condition) =>
+            this._matchesScopeFilter(payload, condition),
+          )
+        ) {
+          return false;
+        }
+        continue;
+      }
+
+      if (key === "NOT" || key === "$not") {
+        if (!Array.isArray(value)) {
+          return false;
+        }
+        const scopeConditions = value.filter((condition) =>
+          this._filterContainsScope(condition),
+        );
+        if (
+          scopeConditions.some((condition) =>
+            this._matchesScopeFilter(payload, condition),
+          )
+        ) {
+          return false;
+        }
+        continue;
+      }
+
+      const scopeKey = this._canonicalScopeKey(key);
+      if (!scopeKey || value === undefined || value === null) {
+        continue;
+      }
+
+      if (!this._matchesScopeCondition(payload, scopeKey, value)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private _matchesScopeCondition(
+    payload: Record<string, any>,
+    key: ScopeKey,
+    condition: any,
+  ): boolean {
+    const scopeValue = this._payloadScopeValue(payload, key);
+
+    if (condition === "*") {
+      return scopeValue !== undefined && scopeValue !== null;
+    }
+
+    if (Array.isArray(condition)) {
+      return condition.includes(scopeValue);
+    }
+
+    if (typeof condition === "object" && condition !== null) {
+      for (const [operator, value] of Object.entries(condition)) {
+        if (operator === "eq") {
+          if (scopeValue !== value) return false;
+        } else if (operator === "ne") {
+          if (
+            scopeValue === undefined ||
+            scopeValue === null ||
+            scopeValue === value
+          ) {
+            return false;
+          }
+        } else if (operator === "in") {
+          if (!Array.isArray(value) || !value.includes(scopeValue)) {
+            return false;
+          }
+        } else if (operator === "nin") {
+          if (
+            !Array.isArray(value) ||
+            scopeValue === undefined ||
+            scopeValue === null ||
+            value.includes(scopeValue)
+          ) {
+            return false;
+          }
+        } else if (operator === "contains") {
+          if (
+            typeof scopeValue !== "string" ||
+            !scopeValue.includes(String(value))
+          ) {
+            return false;
+          }
+        } else if (operator === "icontains") {
+          if (
+            typeof scopeValue !== "string" ||
+            !scopeValue.toLowerCase().includes(String(value).toLowerCase())
+          ) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    return scopeValue === condition;
   }
 
   private async _initializeTelemetry() {
@@ -1804,6 +1968,13 @@ export class Memory {
     if (!Object.keys(filters).length) {
       throw new Error(
         "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method.",
+      );
+    }
+
+    const wildcardScopeKeys = SCOPE_KEYS.filter((key) => filters[key] === "*");
+    if (wildcardScopeKeys.length > 0) {
+      throw new Error(
+        `Wildcard scope filters [${wildcardScopeKeys.join(", ")}] are not supported in deleteAll() because it is destructive. Provide explicit scope values, or use reset() to delete all memories.`,
       );
     }
 
