@@ -127,6 +127,29 @@ describe("Memory - get()", () => {
     expect(item!.createdAt).toBeDefined();
     expect(new Date(item!.createdAt!).toString()).not.toBe("Invalid Date");
   });
+
+  // Regression test: session identifiers must NOT leak into metadata.
+  // They are surfaced as top-level fields; get() previously used a
+  // camelCase exclusion set (userId/agentId/runId) that did not match
+  // the snake_case payload keys, so they leaked into metadata — unlike
+  // search() and getAll(), which use snake_case and excluded them.
+  test("does not leak session identifiers into metadata", async () => {
+    const addResult: SearchResult = await memory.add("Scope leak test", {
+      userId,
+      agentId: `agent_${Date.now()}`,
+      runId: `run_${Date.now()}`,
+      infer: false,
+      metadata: { category: "work" },
+    });
+    const id = addResult.results[0].id;
+    const item: MemoryItem | null = await memory.get(id);
+
+    expect(item!.metadata).not.toHaveProperty("user_id");
+    expect(item!.metadata).not.toHaveProperty("agent_id");
+    expect(item!.metadata).not.toHaveProperty("run_id");
+    // Genuine custom metadata is still surfaced.
+    expect(item!.metadata).toMatchObject({ category: "work" });
+  });
 });
 
 // ─── update() ────────────────────────────────────────────

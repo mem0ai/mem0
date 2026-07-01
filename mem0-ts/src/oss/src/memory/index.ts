@@ -1233,11 +1233,15 @@ export class Memory {
       metadata: {},
     };
 
-    // Add additional metadata
+    // Add additional metadata. Session identifiers are surfaced as
+    // top-level fields below, so exclude them here. The payload stores
+    // them snake_case (user_id/agent_id/run_id) — matching search() and
+    // getAll() — so the exclusion set must use the same casing. (A prior
+    // camelCase set leaked the session ids back into `metadata`.)
     const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
+      "user_id",
+      "agent_id",
+      "run_id",
       "hash",
       "data",
       "createdAt",
