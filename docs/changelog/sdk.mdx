@@ -1102,8 +1102,12 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Update label="Unreleased" description="Next TypeScript SDK">
 
+**Breaking / Behavior Changes:**
+- **Memory (OSS):** Scoped read/delete filters now reject wildcard and broad scope predicates such as `{ user_id: "*" }`, `{ user_id: { ne: "u1" } }`, `{ user_id: ["u1", "u2"] }`, and `deleteAll({ userId: "*" })`. Use explicit positive scope equality filters/options instead, or `reset()` when intentionally deleting everything. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
+- **Memory (OSS):** `search()`, inferred `add()`, cursorless `getAll()`, and ambiguous `deleteAll()` calls now fail closed when provider pages cannot prove scoped completeness. This primarily affects providers without cursor-aware scoped reads or reliable total counts (for example Qdrant, Azure AI Search, and Vectorize on full pages); narrow filters, lower `topK`, or use `reset()` for intentional full-collection deletion. Public results also normalize stored scope/timestamp aliases to top-level fields instead of repeating them in `metadata`. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
+
 **Bug Fixes:**
-- **Memory (OSS):** Post-filter scoped `search()`, `getAll()`, add-time dedupe, and `deleteAll()` results by requested scope so provider filter drift cannot leak or delete wrong-scope memories. Read filters continue to use `user_id`, `agent_id`, and `run_id`; `deleteAll()` options continue to use `userId`, `agentId`, and `runId`. Wildcard scope filters now throw in `search()`, `getAll()`, and `deleteAll()`, cursorless providers fail closed when full pages cannot prove completeness, and public results normalize stored scope/timestamp aliases. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
+- **Memory (OSS):** Post-filter scoped `search()`, `getAll()`, add-time dedupe, and `deleteAll()` candidates by requested scope so provider filter drift cannot leak, suppress, or delete wrong-scope memories. Read filters continue to use `user_id`, `agent_id`, and `run_id`, while camelCase aliases are normalized before provider reads and `deleteAll()` options continue to use `userId`, `agentId`, and `runId`. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
 
 </Update>
 

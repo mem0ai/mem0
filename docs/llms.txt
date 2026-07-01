@@ -140,8 +140,8 @@ const memory = new Memory();
 await memory.add("I love hiking on weekends", { userId: "alice" });
 
 // Read
-await memory.search("What does Alice like to do?", { userId: "alice" });
-await memory.getAll({ userId: "alice" });
+await memory.search("What does Alice like to do?", { filters: { user_id: "alice" } });
+await memory.getAll({ filters: { user_id: "alice" } });
 await memory.get("<memory_id>");
 
 // Update
@@ -150,6 +150,7 @@ await memory.update("<memory_id>", "Alice loves mountain hiking");
 // Delete
 await memory.delete("<memory_id>");
 await memory.deleteAll({ userId: "alice" });
+await memory.reset(); // Intentionally delete the whole local collection.
 ```
 
 Relevant docs: same as OSS Python.

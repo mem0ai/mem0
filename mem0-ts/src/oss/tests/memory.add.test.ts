@@ -161,6 +161,325 @@ describe("Memory - add()", () => {
     );
   });
 
+  test.each([
+    [
+      "wildcard",
+      { user_id: "*" },
+      "Wildcard scope filters [user_id] are not supported in add()",
+    ],
+    [
+      "array shorthand",
+      { user_id: ["target-user", "other-user"] },
+      "Scope filter [user_id] in add() must use explicit equality",
+    ],
+    [
+      "negative operator",
+      { user_id: { ne: "other-user" } },
+      "Scope filter [user_id] in add() must use explicit equality",
+    ],
+    [
+      "nin operator",
+      { user_id: { nin: ["other-user"] } },
+      "Scope filter [user_id] in add() must use explicit equality",
+    ],
+    [
+      "negative logical scope",
+      { user_id: "target-user", NOT: [{ agent_id: "blocked-agent" }] },
+      "Negative scope filters [agent_id] are not supported in add()",
+    ],
+  ])(
+    "rejects broad %s scope filters before inferred existing-memory search",
+    async (_name, filters, message) => {
+      const scopedMemory = createMemory();
+      await (scopedMemory as any)._ensureInitialized();
+
+      const vectorStore = (scopedMemory as any).vectorStore;
+      const searchSpy = jest.spyOn(vectorStore, "search");
+
+      try {
+        await expect(
+          scopedMemory.add("I love carefully scoped sushi.", {
+            filters,
+          } as any),
+        ).rejects.toThrow(message);
+
+        expect(searchSpy).not.toHaveBeenCalled();
+      } finally {
+        searchSpy.mockRestore();
+        await scopedMemory.reset();
+      }
+    },
+  );
+
+  test("stores scope metadata when add scope is supplied via filters", async () => {
+    const scopedMemory = createMemory();
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        "I love filter-only sushi.",
+        {
+          filters: { user_id: "target-user" },
+        },
+      );
+
+      expect(result.results).toHaveLength(1);
+      const stored = await scopedMemory.get(result.results[0].id);
+      expect(stored).toEqual(
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+    } finally {
+      await scopedMemory.reset();
+    }
+  });
+
+  test("rejects reserved scope metadata that conflicts with requested add scope", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      await expect(
+        scopedMemory.add("Direct conflicting scope metadata", {
+          filters: { user_id: "target-user" },
+          metadata: { userId: "other-user", source: "chat" },
+          infer: false,
+        }),
+      ).rejects.toThrow(
+        "Metadata field [userId] conflicts with requested user_id scope in add()",
+      );
+
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("rejects metadata with conflicting canonical and alias scope values", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      await expect(
+        scopedMemory.add("Direct internally conflicting scope metadata", {
+          filters: { user_id: "target-user" },
+          metadata: {
+            user_id: "target-user",
+            userId: "other-user",
+            source: "chat",
+          },
+          infer: false,
+        }),
+      ).rejects.toThrow(
+        "Metadata field [userId] conflicts with requested user_id scope in add()",
+      );
+
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("stores authoritative canonical scope when metadata repeats the same scope", async () => {
+    const scopedMemory = createMemory();
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        "Direct matching scope metadata",
+        {
+          filters: { user_id: "target-user" },
+          metadata: { userId: "target-user", source: "chat" },
+          infer: false,
+        },
+      );
+
+      const stored = await scopedMemory.get(result.results[0].id);
+      expect(stored).toEqual(
+        expect.objectContaining({
+          user_id: "target-user",
+          metadata: { source: "chat" },
+        }),
+      );
+      expect(stored!.metadata).not.toHaveProperty("userId");
+      expect(stored!.metadata).not.toHaveProperty("user_id");
+    } finally {
+      await scopedMemory.reset();
+    }
+  });
+
+  test.each([
+    ["wildcard", { user_id: "*" }],
+    ["ne", { user_id: { ne: "other-user" } }],
+    ["in", { user_id: { in: ["target-user"] } }],
+    ["range", { user_id: { gt: "other-user" } }],
+    ["conflicting alias", { user_id: "target-user", userId: "other-user" }],
+  ])(
+    "rejects top-level scope with malformed same-key %s filter before add search",
+    async (_name, filters) => {
+      const scopedMemory = createMemory();
+      await (scopedMemory as any)._ensureInitialized();
+
+      const vectorStore = (scopedMemory as any).vectorStore;
+      const searchSpy = jest.spyOn(vectorStore, "search");
+
+      try {
+        await expect(
+          scopedMemory.add("I love carefully scoped sushi.", {
+            userId: "target-user",
+            filters,
+          } as any),
+        ).rejects.toThrow(
+          "Conflicting scope filters [user_id] are not supported in add()",
+        );
+
+        expect(searchSpy).not.toHaveBeenCalled();
+      } finally {
+        searchSpy.mockRestore();
+        await scopedMemory.reset();
+      }
+    },
+  );
+
+  test("rejects conflicting top-level and filter scopes before add search", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search");
+
+    try {
+      await expect(
+        scopedMemory.add("I love carefully scoped sushi.", {
+          userId: "target-user",
+          filters: { user_id: "other-user" },
+        }),
+      ).rejects.toThrow(
+        "Conflicting scope filters [user_id] are not supported in add()",
+      );
+
+      expect(searchSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("rejects overly complex scope filters before add search", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search");
+    let nested: Record<string, any> = { topic: "travel" };
+    for (let i = 0; i < 40; i += 1) {
+      nested = { AND: [nested] };
+    }
+
+    try {
+      await expect(
+        scopedMemory.add("I love carefully scoped sushi.", {
+          filters: { user_id: "target-user", AND: [nested] },
+        }),
+      ).rejects.toThrow("Scope filter is too complex to safely evaluate");
+
+      expect(searchSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("rejects malformed logical filters before add search", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search");
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      await expect(
+        scopedMemory.add("I love carefully scoped sushi.", {
+          filters: {
+            user_id: "target-user",
+            NOT: { topic: "secret" },
+          } as any,
+        }),
+      ).rejects.toThrow("NOT operator requires a non-empty list of conditions");
+
+      expect(searchSpy).not.toHaveBeenCalled();
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("uses canonical scope internally when add scope is supplied via camelCase filters", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const entityStore = {
+      list: jest.fn().mockResolvedValue([[], 0]),
+      search: jest.fn().mockResolvedValue([]),
+      insert: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    (scopedMemory as any)._entityStore = entityStore;
+
+    const db = (scopedMemory as any).db;
+    const getLastMessagesSpy = jest
+      .spyOn(db, "getLastMessages")
+      .mockResolvedValue([]);
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        'Alice Liddell discussed "Project Hailstorm" with Bob Stone.',
+        {
+          filters: { userId: "target-user" },
+        },
+      );
+
+      expect(result.results).toHaveLength(1);
+      expect(getLastMessagesSpy).toHaveBeenCalledWith(
+        "user_id=target-user",
+        10,
+      );
+
+      const stored = await scopedMemory.get(result.results[0].id);
+      expect(stored).toEqual(
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+
+      expect(entityStore.list).toHaveBeenCalledWith(
+        { user_id: "target-user" },
+        10000,
+      );
+      expect(entityStore.search).toHaveBeenCalledWith(expect.any(Array), 1, {
+        user_id: "target-user",
+      });
+      expect(entityStore.insert).toHaveBeenCalled();
+      const lastInsertCall =
+        entityStore.insert.mock.calls[entityStore.insert.mock.calls.length - 1];
+      const payloads = lastInsertCall[2] as Array<Record<string, any>>;
+      expect(payloads.length).toBeGreaterThan(0);
+      for (const payload of payloads) {
+        expect(payload.user_id).toBe("target-user");
+      }
+    } finally {
+      getLastMessagesSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
   test("passes metadata through to stored memory", async () => {
     const result: SearchResult = await memory.add("I love TypeScript", {
       userId,
@@ -233,6 +552,291 @@ describe("Memory - add()", () => {
     }
   });
 
+  test("fails closed when inferred dedupe search cannot prove scoped completeness", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const foreignRows = Array.from({ length: 60 }, (_, index) => ({
+      id: `foreign-memory-${index}`,
+      score: 1 - index / 1000,
+      payload: {
+        data: `foreign duplicate candidate ${index}`,
+        hash: createHash("md5")
+          .update(`foreign duplicate candidate ${index}`)
+          .digest("hex"),
+        user_id: "other-user",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    }));
+    const searchSpy = jest
+      .spyOn(vectorStore, "search")
+      .mockResolvedValueOnce(foreignRows)
+      .mockResolvedValueOnce([]);
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      await expect(
+        scopedMemory.add("I love carefully scoped sushi.", {
+          userId: "target-user",
+        }),
+      ).rejects.toThrow(
+        "add cannot safely infer scoped memories for vector store provider 'memory'",
+      );
+
+      expect(searchSpy).toHaveBeenCalledWith(
+        mockEmbedding,
+        60,
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("fails closed when a capped provider returns its maximum search page during inferred dedupe", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    (scopedMemory as any).config.vectorStore.provider = "vectorize";
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const foreignRows = Array.from({ length: 50 }, (_, index) => ({
+      id: `foreign-memory-${index}`,
+      score: 1 - index / 1000,
+      payload: {
+        data: `foreign duplicate candidate ${index}`,
+        hash: createHash("md5")
+          .update(`foreign duplicate candidate ${index}`)
+          .digest("hex"),
+        user_id: "other-user",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    }));
+    const searchSpy = jest
+      .spyOn(vectorStore, "search")
+      .mockResolvedValueOnce(foreignRows);
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      await expect(
+        scopedMemory.add("I love carefully scoped sushi.", {
+          userId: "target-user",
+        }),
+      ).rejects.toThrow(
+        "add cannot safely infer scoped memories for vector store provider 'vectorize'",
+      );
+
+      expect(searchSpy).toHaveBeenNthCalledWith(
+        1,
+        mockEmbedding,
+        50,
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+      expect(searchSpy).toHaveBeenNthCalledWith(
+        2,
+        mockEmbedding,
+        50,
+        expect.objectContaining({ userId: "target-user" }),
+      );
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      (scopedMemory as any).config.vectorStore.provider = "memory";
+      await scopedMemory.reset();
+    }
+  });
+
+  test("keeps inferred dedupe prompt context capped after scoped over-fetching", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      id: `owned-memory-${index}`,
+      score: 1 - index / 1000,
+      payload: {
+        data: `existing scoped memory ${index}`,
+        hash: createHash("md5")
+          .update(`existing scoped memory ${index}`)
+          .digest("hex"),
+        user_id: "target-user",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    }));
+    const searchSpy = jest
+      .spyOn(vectorStore, "search")
+      .mockResolvedValueOnce(rows);
+    const llmGenerateSpy = jest.spyOn(
+      (scopedMemory as any).llm,
+      "generateResponse",
+    );
+
+    try {
+      await scopedMemory.add("I love carefully scoped sushi.", {
+        userId: "target-user",
+      });
+
+      const llmMessages = llmGenerateSpy.mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const userPrompt = llmMessages.find(
+        (message) => message.role === "user",
+      )?.content;
+
+      expect(userPrompt).toContain("existing scoped memory 9");
+      expect(userPrompt).not.toContain("existing scoped memory 10");
+      expect(userPrompt).not.toContain("existing scoped memory 11");
+    } finally {
+      searchSpy.mockRestore();
+      llmGenerateSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("keeps logical metadata filtering in inferred context for simple providers", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    (scopedMemory as any).config.vectorStore.provider = "redis";
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "wrong-topic-memory",
+        score: 0.99,
+        payload: {
+          data: "same user wrong topic",
+          hash: createHash("md5").update("same user wrong topic").digest("hex"),
+          userId: "target-user",
+          topic: "food",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "topic-match-memory",
+        score: 0.98,
+        payload: {
+          data: "same user travel memory",
+          hash: createHash("md5")
+            .update("same user travel memory")
+            .digest("hex"),
+          userId: "target-user",
+          topic: "travel",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const searchSpy = jest
+      .spyOn(vectorStore, "search")
+      .mockResolvedValueOnce(rows);
+    const llmGenerateSpy = jest.spyOn(
+      (scopedMemory as any).llm,
+      "generateResponse",
+    );
+
+    try {
+      await scopedMemory.add("I love carefully scoped sushi.", {
+        userId: "target-user",
+        filters: { OR: [{ topic: "travel" }, { agent_id: "agent-a" }] },
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(mockEmbedding, 60, {
+        user_id: "target-user",
+      });
+
+      const llmMessages = llmGenerateSpy.mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const userPrompt = llmMessages.find(
+        (message) => message.role === "user",
+      )?.content;
+
+      expect(userPrompt).toContain("same user travel memory");
+      expect(userPrompt).not.toContain("same user wrong topic");
+    } finally {
+      searchSpy.mockRestore();
+      llmGenerateSpy.mockRestore();
+      (scopedMemory as any).config.vectorStore.provider = "memory";
+      await scopedMemory.reset();
+    }
+  });
+
+  test("keeps advanced metadata filtering in inferred context for simple providers", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    (scopedMemory as any).config.vectorStore.provider = "redis";
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const rows = [
+      {
+        id: "wrong-topic-memory",
+        score: 0.99,
+        payload: {
+          data: "same user wrong topic",
+          hash: createHash("md5").update("same user wrong topic").digest("hex"),
+          userId: "target-user",
+          topic: "food",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      {
+        id: "topic-match-memory",
+        score: 0.98,
+        payload: {
+          data: "same user travel memory",
+          hash: createHash("md5")
+            .update("same user travel memory")
+            .digest("hex"),
+          userId: "target-user",
+          topic: "travel plans",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      },
+    ];
+    const searchSpy = jest
+      .spyOn(vectorStore, "search")
+      .mockResolvedValueOnce(rows);
+    const llmGenerateSpy = jest.spyOn(
+      (scopedMemory as any).llm,
+      "generateResponse",
+    );
+
+    try {
+      await scopedMemory.add("I love carefully scoped sushi.", {
+        userId: "target-user",
+        filters: { topic: { contains: "travel" } },
+      });
+
+      expect(searchSpy).toHaveBeenCalledWith(mockEmbedding, 60, {
+        user_id: "target-user",
+      });
+
+      const llmMessages = llmGenerateSpy.mock.calls[0][0] as Array<{
+        role: string;
+        content: string;
+      }>;
+      const userPrompt = llmMessages.find(
+        (message) => message.role === "user",
+      )?.content;
+
+      expect(userPrompt).toContain("same user travel memory");
+      expect(userPrompt).not.toContain("same user wrong topic");
+    } finally {
+      searchSpy.mockRestore();
+      llmGenerateSpy.mockRestore();
+      (scopedMemory as any).config.vectorStore.provider = "memory";
+      await scopedMemory.reset();
+    }
+  });
+
   test("uses camelCase scoped existing search results when deduplicating inferred memories", async () => {
     const scopedMemory = createMemory();
     await (scopedMemory as any)._ensureInitialized();
@@ -273,6 +877,59 @@ describe("Memory - add()", () => {
     }
   });
 
+  test("uses Vectorize legacy alias scoped results when deduplicating inferred memories", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    (scopedMemory as any).config.vectorStore.provider = "vectorize";
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const extractedText = "user: I love Vectorize-compatible sushi.";
+    const searchSpy = jest
+      .spyOn(vectorStore, "search")
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "legacy-owned-memory",
+          score: 0.99,
+          payload: {
+            data: extractedText,
+            hash: createHash("md5").update(extractedText).digest("hex"),
+            userId: "target-user",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+      ]);
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      const result: SearchResult = await scopedMemory.add(
+        "I love Vectorize-compatible sushi.",
+        { userId: "target-user" },
+      );
+
+      expect(searchSpy).toHaveBeenNthCalledWith(
+        1,
+        mockEmbedding,
+        50,
+        expect.objectContaining({ user_id: "target-user" }),
+      );
+      expect(searchSpy).toHaveBeenNthCalledWith(
+        2,
+        mockEmbedding,
+        50,
+        expect.objectContaining({ userId: "target-user" }),
+      );
+      expect(result.results).toHaveLength(0);
+      expect(insertSpy).not.toHaveBeenCalled();
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      (scopedMemory as any).config.vectorStore.provider = "memory";
+      await scopedMemory.reset();
+    }
+  });
+
   test("prefers canonical scope over conflicting camelCase aliases during dedupe", async () => {
     const scopedMemory = createMemory();
     await (scopedMemory as any)._ensureInitialized();
@@ -308,6 +965,30 @@ describe("Memory - add()", () => {
       expect(result.results).toHaveLength(1);
       expect(result.results[0].memory).toBe(extractedText);
       expect(insertSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      searchSpy.mockRestore();
+      insertSpy.mockRestore();
+      await scopedMemory.reset();
+    }
+  });
+
+  test("rejects conflicting add scope aliases before persistence", async () => {
+    const scopedMemory = createMemory();
+    await (scopedMemory as any)._ensureInitialized();
+
+    const vectorStore = (scopedMemory as any).vectorStore;
+    const searchSpy = jest.spyOn(vectorStore, "search");
+    const insertSpy = jest.spyOn(vectorStore, "insert");
+
+    try {
+      await expect(
+        scopedMemory.add("I love conflicting sushi.", {
+          filters: { user_id: "canonical-user", userId: "alias-user" },
+        }),
+      ).rejects.toThrow("Conflicting scope filters [user_id]");
+
+      expect(searchSpy).not.toHaveBeenCalled();
+      expect(insertSpy).not.toHaveBeenCalled();
     } finally {
       searchSpy.mockRestore();
       insertSpy.mockRestore();
