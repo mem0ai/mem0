@@ -366,7 +366,7 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
 @app.post("/memories", summary="Create memories")
 def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
-    if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
+    if not (memory_create.user_id or memory_create.agent_id or memory_create.run_id):
         raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
 
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
@@ -419,7 +419,7 @@ def get_all_memories(
 ):
     """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
     try:
-        if not any([user_id, run_id, agent_id]):
+        if not (user_id or run_id or agent_id):
             auth_type = getattr(request.state, "auth_type", "none")
             if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
                 raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
@@ -531,7 +531,7 @@ def delete_all_memories(
     _auth=Depends(require_admin),
 ):
     """Delete all memories for a given identifier. Requires admin role."""
-    if not any([user_id, run_id, agent_id]):
+    if not (user_id or run_id or agent_id):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
         params = {
