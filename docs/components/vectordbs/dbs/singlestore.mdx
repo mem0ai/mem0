@@ -1,0 +1,109 @@
+---
+title: "SingleStore"
+description: "Use SingleStore as a vector store in Mem0 for high-performance hybrid search combining vector similarity, full-text BM25, and SQL filtering in a single engine."
+---
+
+[SingleStore](https://www.singlestore.com/) is a distributed SQL database with native vector search, full-text search (BM25), and JSON support. It provides ANN vector indexing (HNSW_FLAT, IVF_PQFS), native `MATCH ... AGAINST` full-text search, and `JSON_EXTRACT` metadata filtering — all in one unified engine.
+
+### Prerequisites
+
+Install the SingleStore Python client:
+
+```bash
+pip install singlestoredb
+```
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "singlestore",
+        "config": {
+            "host": "svc-xxx.singlestore.com",
+            "port": 3306,
+            "user": "admin",
+            "password": "your-password",
+            "database": "mem0db",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+</CodeGroup>
+
+### Using a Connection URL
+
+You can also connect using a URL string instead of individual parameters:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "singlestore",
+        "config": {
+            "connection_url": "admin:password@svc-xxx.singlestore.com:3306/mem0db",
+        }
+    }
+}
+```
+
+### Config
+
+Here are the parameters available for configuring SingleStore:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `host` | SingleStore host address | `None` |
+| `port` | SingleStore port | `3306` |
+| `user` | Database user | `None` |
+| `password` | Database password | `None` |
+| `database` | Database name | `None` |
+| `collection_name` | Name of the table used to store memories | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `connection_url` | Connection URL (overrides individual connection parameters) | `None` |
+| `pool_size` | Connection pool size | `5` |
+| `use_vector_index` | Create an ANN vector index (HNSW_FLAT) for faster search | `True` |
+| `use_fulltext_index` | Create a FULLTEXT index for native BM25 keyword search | `True` |
+| `distance_strategy` | Distance metric: `DOT_PRODUCT` or `EUCLIDEAN_DISTANCE` | `DOT_PRODUCT` |
+
+<Note>
+  The connection parameters have the following priority:
+  1. `connection_url` (highest priority)
+  2. Individual connection parameters (`host`, `port`, `user`, `password`, `database`)
+</Note>
+
+### Features
+
+SingleStore provides several advantages as a mem0 vector store:
+
+- **Hybrid search**: Native vector ANN search and BM25 full-text search in a single query engine — no external services needed for mem0's hybrid scoring pipeline.
+- **HNSW_FLAT vector index**: High-recall approximate nearest neighbor search with low latency.
+- **Native BM25**: Full-text search v2 with `MATCH ... AGAINST` powers mem0's keyword search without external tooling.
+- **JSON metadata filtering**: `JSON_EXTRACT_STRING` enables efficient filtering on payload fields (user_id, agent_id, etc.).
+- **Distributed architecture**: Automatic sharding across partitions for horizontal scalability.
+- **Batch operations**: Efficient bulk inserts via `executemany` for high-throughput memory ingestion.
+
+### Distance Strategies
+
+| Strategy | Best For | Order |
+| --- | --- | --- |
+| `DOT_PRODUCT` | Normalized embeddings (most LLM embedding models) | Higher = more similar |
+| `EUCLIDEAN_DISTANCE` | Non-normalized embeddings | Lower = more similar |
+
+<Note>
+  Most embedding models (OpenAI, Cohere, etc.) produce normalized vectors. Use `DOT_PRODUCT` (the default) for these models.
+</Note>

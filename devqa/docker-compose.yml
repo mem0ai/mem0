@@ -1,0 +1,15 @@
+services:
+  singlestore:
+    image: ghcr.io/singlestore-labs/singlestoredb-dev:latest
+    platform: linux/amd64
+    environment:
+      ROOT_PASSWORD: "${SINGLESTORE_PASSWORD:-testpassword}"
+    ports:
+      - "3306:3306"
+      - "8080:8080"
+    volumes:
+      - singlestore-data:/data
+      - ./init.sql:/init.sql
+
+volumes:
+  singlestore-data:
