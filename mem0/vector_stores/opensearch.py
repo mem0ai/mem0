@@ -26,16 +26,20 @@ class OpenSearchDB(VectorStoreBase):
         config = OpenSearchConfig(**kwargs)
 
         # Initialize OpenSearch client
-        self.client = OpenSearch(
-            hosts=[{"host": config.host, "port": config.port or 9200}],
-            http_auth=config.http_auth
+        client_kwargs = {
+            "hosts": [{"host": config.host, "port": config.port or 9200}],
+            "http_auth": config.http_auth
             if config.http_auth
             else ((config.user, config.password) if (config.user and config.password) else None),
-            use_ssl=config.use_ssl,
-            verify_certs=config.verify_certs,
-            connection_class=RequestsHttpConnection,
-            pool_maxsize=20,
-        )
+            "use_ssl": config.use_ssl,
+            "verify_certs": config.verify_certs,
+            "connection_class": RequestsHttpConnection,
+            "pool_maxsize": config.pool_maxsize,
+        }
+        # Pass timeout only when set, so an unset value preserves opensearch-py's default.
+        if config.timeout is not None:
+            client_kwargs["timeout"] = config.timeout
+        self.client = OpenSearch(**client_kwargs)
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
