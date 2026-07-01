@@ -122,3 +122,30 @@ def test_embed_passes_dimensions_only_when_explicit(mock_openai_client):
     mock_openai_client.embeddings.create.assert_called_once_with(
         input=["truncate me"], model="text-embedding-3-small", dimensions=256, encoding_format="float"
     )
+
+
+def test_embed_batch_returns_all_embeddings(mock_openai_client):
+    config = BaseEmbedderConfig()
+    embedder = OpenAIEmbedding(config)
+    mock_response = Mock()
+    mock_response.data = [
+        Mock(index=0, embedding=[0.1, 0.2]),
+        Mock(index=1, embedding=[0.3, 0.4]),
+    ]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    result = embedder.embed_batch(["first text", "second text"])
+
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+
+def test_embed_batch_count_mismatch_raises(mock_openai_client):
+    config = BaseEmbedderConfig()
+    embedder = OpenAIEmbedding(config)
+    # Provider returns fewer embeddings than inputs (partial/dropped batch).
+    mock_response = Mock()
+    mock_response.data = [Mock(index=0, embedding=[0.1, 0.2])]
+    mock_openai_client.embeddings.create.return_value = mock_response
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["first text", "second text"])
