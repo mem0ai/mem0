@@ -2401,8 +2401,11 @@ class AsyncMemory(MemoryBase):
             processed_metadata["expiration_date"] = normalized_expiration_date
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise ValueError(
-                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            raise Mem0ValidationError(
+                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
+                error_code="VALIDATION_002",
+                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
 
         if isinstance(messages, str):
