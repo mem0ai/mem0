@@ -143,6 +143,11 @@ jest.mock("../src/storage/SupabaseHistoryManager", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "supabase-history", config })),
 }));
+jest.mock("../src/storage/SQLiteManager", () => ({
+  SQLiteManager: jest
+    .fn()
+    .mockImplementation((path) => ({ type: "sqlite-history", path })),
+}));
 
 import {
   EmbedderFactory,
@@ -276,36 +281,56 @@ describe("VectorStoreFactory", () => {
 // ─── HistoryManagerFactory ──────────────────────────────
 
 describe("HistoryManagerFactory", () => {
-  test("creates SQLite history manager", () => {
+  test("creates SQLite history manager", async () => {
     const config: HistoryStoreConfig = {
       provider: "sqlite",
       config: { historyDbPath: ":memory:" },
     };
-    expect(() => HistoryManagerFactory.create("sqlite", config)).not.toThrow();
+    await expect(
+      HistoryManagerFactory.create("sqlite", config),
+    ).resolves.not.toThrow();
   });
 
-  test("creates supabase history manager", () => {
+  test("creates supabase history manager", async () => {
     const config: HistoryStoreConfig = {
       provider: "supabase",
       config: { supabaseUrl: "http://test", supabaseKey: "key" },
     };
-    expect(() =>
+    await expect(
       HistoryManagerFactory.create("supabase", config),
-    ).not.toThrow();
+    ).resolves.not.toThrow();
   });
 
-  test("creates memory history manager", () => {
+  test("creates memory history manager", async () => {
     const config: HistoryStoreConfig = {
       provider: "memory",
       config: {},
     };
-    expect(() => HistoryManagerFactory.create("memory", config)).not.toThrow();
+    await expect(
+      HistoryManagerFactory.create("memory", config),
+    ).resolves.not.toThrow();
   });
 
-  test("throws for unsupported provider", () => {
+  test("throws for unsupported provider", async () => {
     const config: HistoryStoreConfig = { provider: "bad", config: {} };
-    expect(() => HistoryManagerFactory.create("bad", config)).toThrow(
+    await expect(HistoryManagerFactory.create("bad", config)).rejects.toThrow(
       "Unsupported history store provider: bad",
     );
+  });
+
+  test("does not eagerly load SQLiteManager for non-sqlite providers", async () => {
+    const { SQLiteManager } = jest.requireMock(
+      "../src/storage/SQLiteManager",
+    ) as {
+      SQLiteManager: jest.MockedClass<any>;
+    };
+    SQLiteManager.mockClear();
+
+    const config: HistoryStoreConfig = {
+      provider: "memory",
+      config: {},
+    };
+    await HistoryManagerFactory.create("memory", config);
+    expect(SQLiteManager).not.toHaveBeenCalled();
   });
 });

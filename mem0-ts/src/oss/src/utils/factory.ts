@@ -25,7 +25,6 @@ import { DeepSeekLLM } from "../llms/deepseek";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { SupabaseDB } from "../vector_stores/supabase";
-import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
 import { SupabaseHistoryManager } from "../storage/SupabaseHistoryManager";
 import { HistoryManager } from "../storage/base";
@@ -123,10 +122,15 @@ export class VectorStoreFactory {
 }
 
 export class HistoryManagerFactory {
-  static create(provider: string, config: HistoryStoreConfig): HistoryManager {
+  static async create(
+    provider: string,
+    config: HistoryStoreConfig,
+  ): Promise<HistoryManager> {
     switch (provider.toLowerCase()) {
-      case "sqlite":
+      case "sqlite": {
+        const { SQLiteManager } = await import("../storage/SQLiteManager");
         return new SQLiteManager(config.config.historyDbPath || ":memory:");
+      }
       case "supabase":
         return new SupabaseHistoryManager({
           supabaseUrl: config.config.supabaseUrl || "",
