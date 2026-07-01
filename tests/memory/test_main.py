@@ -1061,3 +1061,38 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+# ---------------------------------------------------------------------------
+# Dead deepcopy removal guard
+# ---------------------------------------------------------------------------
+
+class TestDeadDeepcopyRemoved:
+    """Guards the one-line removal of the dead _safe_deepcopy_config call in
+    Memory.__init__ and pins the load-bearing async path against regression."""
+
+    def test_sync_init_telemetry_does_not_call_safe_deepcopy(self, mocker):
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.utils.factory.VectorStoreFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+        mocker.patch("mem0.memory.main.MEM0_TELEMETRY", True)
+        spy = mocker.patch("mem0.memory.main._safe_deepcopy_config", wraps=lambda x: x)
+
+        Memory()
+
+        # The dead call on the sync path has been removed — deepcopy must not fire.
+        spy.assert_not_called()
+
+    def test_async_init_telemetry_still_calls_safe_deepcopy(self, mocker):
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.utils.factory.VectorStoreFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+        mocker.patch("mem0.memory.main.MEM0_TELEMETRY", True)
+        spy = mocker.patch("mem0.memory.main._safe_deepcopy_config", wraps=lambda x: x)
+
+        AsyncMemory()
+
+        # The async path mutates the deepcopy in-place — the call must remain.
+        spy.assert_called_once()
