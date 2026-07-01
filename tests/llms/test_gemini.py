@@ -298,3 +298,60 @@ def test_init_base_config_respects_vertexai_env(monkeypatch):
     with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
         GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", api_key="ignored-key"))
     mock_client_class.assert_called_once_with(vertexai=True, project="env-project", location="us-west1")
+
+
+def _tool_mock_response():
+    mock_part = Mock(text="ok", function_call=None)
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    return Mock(candidates=[mock_candidate])
+
+
+def _basic_tools():
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "add_memory",
+                "description": "Add a memory",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+
+def test_tool_choice_required_maps_to_any(mock_gemini_client: Mock):
+    """tool_choice='required' must map to Gemini ANY mode and constrain function names.
+
+    Guards #5452: previously only 'auto'/'any' were handled; 'required' (the
+    OpenAI-style value mem0 passes for forced extraction) fell through to NONE,
+    disabling the tool entirely.
+    """
+    config = BaseLlmConfig(model="gemini-2.0-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    mock_gemini_client.models.generate_content.return_value = _tool_mock_response()
+
+    llm.generate_response(
+        [{"role": "user", "content": "hi"}], tools=_basic_tools(), tool_choice="required"
+    )
+
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    fcc = cfg.tool_config.function_calling_config
+    assert fcc.mode == types.FunctionCallingConfigMode.ANY
+    assert fcc.allowed_function_names == ["add_memory"]
+
+
+def test_generate_response_kwargs_override_config(mock_gemini_client: Mock):
+    """Per-call kwargs (max_tokens/temperature/top_p) override configured defaults."""
+    config = BaseLlmConfig(model="gemini-2.0-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    mock_gemini_client.models.generate_content.return_value = _tool_mock_response()
+
+    llm.generate_response(
+        [{"role": "user", "content": "hi"}], max_tokens=4096, temperature=0.1, top_p=0.5
+    )
+
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.max_output_tokens == 4096
+    assert cfg.temperature == 0.1
+    assert cfg.top_p == 0.5
