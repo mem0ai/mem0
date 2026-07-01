@@ -191,4 +191,34 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  // Regression: infer=false must skip system messages by ROLE, not by content.
+  // See https://github.com/mem0ai/mem0/issues/5676 — comparing message.content
+  // to "system" both (a) stored system prompts as memories and (b) dropped
+  // legitimate user messages whose content happened to equal "system".
+  test("with infer=false skips system messages by role, not content", async () => {
+    const messages = [
+      { role: "system", content: "You are a helpful assistant" },
+      { role: "user", content: "I live in Berlin" },
+    ];
+    const result: SearchResult = await memory.add(messages, {
+      userId,
+      infer: false,
+    });
+    const stored = result.results.map((r) => r.memory);
+    // System prompt must NOT be stored.
+    expect(stored).not.toContain("You are a helpful assistant");
+    // The user message must be stored.
+    expect(stored).toContain("I live in Berlin");
+  });
+
+  test("with infer=false stores a user message whose content is 'system'", async () => {
+    const messages = [{ role: "user", content: "system" }];
+    const result: SearchResult = await memory.add(messages, {
+      userId,
+      infer: false,
+    });
+    // A user message with content === "system" must NOT be skipped.
+    expect(result.results.map((r) => r.memory)).toContain("system");
+  });
 });
