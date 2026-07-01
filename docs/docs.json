@@ -39,13 +39,13 @@
                     "group": "Getting Started",
                     "icon": "rocket",
                     "pages": [
-                      "platform/overview",
-                      "platform/platform-vs-oss",
                       "platform/quickstart",
-                      "platform/mem0-mcp",
-                      "platform/cli",
+                      "platform/overview",
                       "platform/agent-signup",
-                      "vibecoding"
+                      "vibecoding",
+                      "platform/cli",
+                      "platform/mem0-mcp",
+                      "platform/platform-vs-oss"
                     ]
                   },
                   {
@@ -65,7 +65,6 @@
                     "group": "Features",
                     "icon": "star",
                     "pages": [
-                      "platform/features/platform-overview",
                       {
                         "group": "Essentials",
                         "icon": "circle-check",
@@ -971,11 +970,11 @@
     },
     {
       "source": "/features/custom-prompts",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/custom-instructions"
     },
     {
       "source": "/features/selective-memory",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/custom-instructions"
     },
     {
       "source": "/features/custom-categories",
@@ -1007,7 +1006,7 @@
     },
     {
       "source": "/features/online-memory",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/async-client"
     },
     {
       "source": "/features/multimodal",
@@ -1015,7 +1014,7 @@
     },
     {
       "source": "/features/inferences",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/features/graph-memory",
@@ -1027,7 +1026,7 @@
     },
     {
       "source": "/platform/features/online-memory",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/async-client"
     },
     {
       "source": "/platform/features/multimodal",
@@ -1035,7 +1034,7 @@
     },
     {
       "source": "/platform/features/inferences",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/platform/features/custom-prompts",

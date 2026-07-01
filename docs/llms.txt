@@ -195,7 +195,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ## Platform
 
 ### Features - Essential
-- [Platform Features Overview](https://docs.mem0.ai/platform/features/platform-overview) [Platform]: Use when surveying what managed offers beyond CRUD.
 - [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters) [Platform]: Use when compound filters (AND/OR on metadata, entity, time) are needed at search.
 - [Entity-Scoped Memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) [Platform]: Use when partitioning memories by user, agent, app, or run.
 - [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory) [Platform]: Use when connecting facts across memories through shared entities for entity-centric or multi-hop questions.
