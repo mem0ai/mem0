@@ -681,7 +681,940 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6. Vectorize — mock Cloudflare client, test idempotent init
+// 6. Databricks — mock SQL + REST clients, test interface + idempotent init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Databricks – backward compat with mocked clients", () => {
+  let DatabricksVectorStore: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    jest.doMock("@databricks/sql", () => {
+      let migrationUserId: string | undefined;
+
+      const executeStatement = jest
+        .fn()
+        .mockImplementation(async (sql: string) => {
+          const normalized = sql.replace(/\s+/g, " ").trim();
+
+          if (
+            normalized.startsWith("CREATE SCHEMA IF NOT EXISTS") ||
+            normalized.startsWith("CREATE TABLE IF NOT EXISTS") ||
+            normalized.startsWith("ALTER TABLE main.default.memories")
+          ) {
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM main.default.memory_migrations LIMIT 1",
+            )
+          ) {
+            return {
+              fetchAll: jest
+                .fn()
+                .mockResolvedValue(
+                  migrationUserId ? [{ user_id: migrationUserId }] : [],
+                ),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith("DELETE FROM main.default.memory_migrations")
+          ) {
+            migrationUserId = undefined;
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "INSERT INTO main.default.memory_migrations (user_id)",
+            )
+          ) {
+            const match = normalized.match(/VALUES \('([^']*)'\)/);
+            migrationUserId = match ? match[1] : undefined;
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          return {
+            fetchAll: jest.fn().mockResolvedValue([]),
+            close: jest.fn().mockResolvedValue(undefined),
+          };
+        });
+
+      const session = {
+        executeStatement,
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const client = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        openSession: jest.fn().mockResolvedValue(session),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+
+      client.connect.mockResolvedValue(client);
+
+      return {
+        DBSQLClient: jest.fn().mockImplementation(() => client),
+        __mockClient: client,
+        __mockSession: session,
+      };
+    });
+
+    jest.doMock("axios", () => {
+      let endpointExists = false;
+      let endpointPendingReadyResponses = 0;
+      let indexExists = false;
+      let indexPendingReadyResponses = 0;
+      let syncPendingReadyResponses = 0;
+      let pagedQueryResponses: any[] = [];
+
+      const defaultQueryResponse = {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.98],
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.75],
+          ],
+        },
+      };
+
+      const httpClient = {
+        get: jest.fn().mockImplementation(async (url: string) => {
+          if (url === "/endpoints/mem0_vector_search") {
+            if (!endpointExists) {
+              const error: any = new Error("missing endpoint");
+              error.response = { status: 404 };
+              throw error;
+            }
+            if (endpointPendingReadyResponses > 0) {
+              endpointPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "mem0_vector_search",
+                  endpoint_status: { state: "PROVISIONING" },
+                },
+              };
+            }
+            return {
+              data: {
+                name: "mem0_vector_search",
+                endpoint_status: { state: "ONLINE" },
+              },
+            };
+          }
+
+          if (url === "/indexes/main.default.memories") {
+            if (!indexExists) {
+              const error: any = new Error("missing index");
+              error.response = { status: 404 };
+              throw error;
+            }
+            if (indexPendingReadyResponses > 0) {
+              indexPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
+            }
+            if (syncPendingReadyResponses > 0) {
+              syncPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
+            }
+            return {
+              data: {
+                name: "main.default.memories",
+                status: { ready: true },
+              },
+            };
+          }
+
+          throw new Error(`Unexpected Databricks GET ${url}`);
+        }),
+        post: jest.fn().mockImplementation(async (url: string, body: any) => {
+          if (url === "/endpoints") {
+            endpointExists = true;
+            endpointPendingReadyResponses = 1;
+            return { data: { endpoint: body.name } };
+          }
+
+          if (url === "/indexes") {
+            indexExists = true;
+            indexPendingReadyResponses = 1;
+            return { data: { index: body.name } };
+          }
+
+          if (url === "/indexes/main.default.memories/sync") {
+            syncPendingReadyResponses = 1;
+            return { data: { status: "queued" } };
+          }
+
+          if (url === "/indexes/main.default.memories/query") {
+            return {
+              data:
+                pagedQueryResponses.shift() ??
+                JSON.parse(JSON.stringify(defaultQueryResponse)),
+            };
+          }
+
+          if (url === "/indexes/main.default.memories/query-next-page") {
+            return {
+              data:
+                pagedQueryResponses.shift() ??
+                JSON.parse(JSON.stringify(defaultQueryResponse)),
+            };
+          }
+
+          throw new Error(`Unexpected Databricks POST ${url}`);
+        }),
+        delete: jest.fn().mockImplementation(async (url: string) => {
+          if (url === "/indexes/main.default.memories") {
+            indexExists = false;
+            return { data: {} };
+          }
+          throw new Error(`Unexpected Databricks DELETE ${url}`);
+        }),
+      };
+
+      const create = jest.fn().mockReturnValue(httpClient);
+      const authPost = jest.fn().mockResolvedValue({
+        data: { access_token: "oauth-token", expires_in: 3600 },
+      });
+
+      return {
+        __esModule: true,
+        default: { create, post: authPost },
+        create,
+        post: authPost,
+        __mockHttpClient: httpClient,
+        __setPagedQueryResponses: (responses: any[]) => {
+          pagedQueryResponses = responses.map((response) =>
+            JSON.parse(JSON.stringify(response)),
+          );
+        },
+        __mockAuthPost: authPost,
+      };
+    });
+
+    DatabricksVectorStore =
+      require("../src/vector_stores/databricks").DatabricksVectorStore;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const databricksSql = require("@databricks/sql");
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    const clientInstance = databricksSql.DBSQLClient.mock.results[0].value;
+    const session = databricksSql.__mockSession;
+    const httpClient = axiosModule.__mockHttpClient;
+    expect(clientInstance.connect).toHaveBeenCalledTimes(1);
+    expect(clientInstance.openSession).toHaveBeenCalledTimes(1);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/endpoints/mem0_vector_search",
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories",
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(httpClient.post).toHaveBeenCalledWith("/endpoints", {
+      name: "mem0_vector_search",
+      endpoint_type: "STANDARD",
+    });
+    expect(httpClient.post).toHaveBeenCalledWith("/indexes", {
+      name: "main.default.memories",
+      endpoint_name: "mem0_vector_search",
+      primary_key: "memory_id",
+      index_type: "DELTA_SYNC",
+      delta_sync_index_spec: {
+        source_table: "main.default.memories",
+        pipeline_type: "TRIGGERED",
+        columns_to_sync: [
+          "memory_id",
+          "payload",
+          "user_id",
+          "agent_id",
+          "run_id",
+        ],
+        embedding_vector_columns: [
+          {
+            name: "embedding",
+            embedding_dimension: 3,
+          },
+        ],
+      },
+    });
+    expect(
+      session.executeStatement.mock.calls.some(
+        ([sql]: [string]) =>
+          sql.includes("ALTER TABLE main.default.memories") &&
+          sql.includes("delta.enableChangeDataFeed"),
+      ),
+    ).toBe(true);
+  });
+
+  it("supports service-principal credentials for REST and SQL setup", async () => {
+    const axiosModule = require("axios");
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    await store.insert([[1, 0, 0]], ["id-1"], [{ user_id: "u1" }]);
+    await store.search([1, 0, 0], 1);
+
+    expect(axiosModule.__mockAuthPost).toHaveBeenCalledWith(
+      "https://workspace.databricks.com/oidc/v1/token",
+      expect.any(URLSearchParams),
+      expect.objectContaining({
+        auth: {
+          username: "client-id",
+          password: "client-secret",
+        },
+      }),
+    );
+    const authDetails = axiosModule.__mockAuthPost.mock.calls.map(
+      ([, params]: [string, URLSearchParams]) =>
+        params.get("authorization_details"),
+    );
+    const readDetails = JSON.stringify([
+      {
+        type: "unity_catalog_permission",
+        securable_type: "table",
+        securable_object_name: "main.default.memories",
+        operation: "ReadVectorIndex",
+      },
+    ]);
+    const writeDetails = JSON.stringify([
+      {
+        type: "unity_catalog_permission",
+        securable_type: "table",
+        securable_object_name: "main.default.memories",
+        operation: "WriteVectorIndex",
+      },
+    ]);
+
+    expect(authDetails).toContain(null);
+    expect(authDetails).toContain(readDetails);
+    expect(authDetails).toContain(writeDetails);
+    expect(databricksSql.__mockClient.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authType: "databricks-oauth",
+        oauthClientId: "client-id",
+        oauthClientSecret: "client-secret",
+      }),
+    );
+  });
+
+  it("shapes Databricks SQL writes, syncs triggered indexes, and normalizes search results", async () => {
+    const databricksSql = require("@databricks/sql");
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const session = databricksSql.__mockSession;
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO main.default.memories"),
+    );
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("'id-1'"),
+    );
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("array(1, 0, 0)"),
+    );
+    await store.update("id-1", [0, 1, 0], { user_id: "u1", topic: "beta" });
+    await store.delete("id-1");
+
+    const results = await store.search([1, 0, 0], 5, {
+      user_id: "u1",
+      topic: "alpha",
+    });
+    const httpClient = axiosModule.__mockHttpClient;
+    expect(
+      httpClient.post.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+      ),
+    ).toHaveLength(3);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories",
+      ).length,
+    ).toBeGreaterThan(4);
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/indexes/main.default.memories/query",
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        filters_json: JSON.stringify({ user_id: "u1" }),
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("keeps metadata-only filters local for standard endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, { topic: "alpha" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("applies multiple local metadata operators on the same field", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            [
+              "id-1",
+              JSON.stringify({ user_id: "u1", importance: 1.0, topic: "high" }),
+              0.99,
+            ],
+            [
+              "id-2",
+              JSON.stringify({
+                user_id: "u1",
+                importance: 0.75,
+                topic: "within-range",
+              }),
+              0.98,
+            ],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, {
+      importance: { gte: 0.5, lte: 0.9 },
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-2",
+        payload: { user_id: "u1", importance: 0.75, topic: "within-range" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("paginates when local-only filters need matches beyond the first page", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.99],
+          ],
+          next_page_token: "page-2",
+        },
+      },
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.98],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 1, { topic: "alpha" });
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.some(
+        ([url]: [string]) =>
+          url === "/indexes/main.default.memories/query-next-page",
+      ),
+    ).toBe(true);
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("paginates across Databricks result pages when topK exceeds the first page", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.99],
+          ],
+          next_page_token: "page-2",
+        },
+      },
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.98],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 1001);
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        num_results: 1001,
+      }),
+    );
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.some(
+        ([url]: [string]) =>
+          url === "/indexes/main.default.memories/query-next-page",
+      ),
+    ).toBe(true);
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.99,
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("caps full-text local-fallback requests at Databricks' 200-result limit", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.keywordSearch("alpha", 5, { topic: "alpha" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        num_results: 200,
+        query_type: "FULL_TEXT",
+        query_text: "alpha",
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("uses SQL-like filters for storage-optimized endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+    const query = new Array(16).fill(0);
+    query[0] = 1;
+
+    const results = await store.search(query, 5, {
+      user_id: "u1",
+      topic: "alpha",
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        filters: "user_id = 'u1'",
+        query_type: "ANN",
+        query_vector: query,
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("translates storage-optimized array shorthand filters into IN clauses", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+    const query = new Array(16).fill(0);
+    query[0] = 1;
+
+    await store.search(query, 5, {
+      user_id: ["u1", "u2"],
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        filters: "user_id IN ('u1', 'u2')",
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+  });
+
+  it("falls back to local filtering for logical operators", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const orResults = await store.search([1, 0, 0], 5, {
+      $or: [{ user_id: "u1" }, { topic: "beta" }],
+    });
+    const notResults = await store.search([1, 0, 0], 5, {
+      $not: [{ user_id: "u2" }],
+    });
+    const queryCalls = axiosModule.__mockHttpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCalls).toHaveLength(2);
+    expect(queryCalls[0][1]).not.toHaveProperty("filters_json");
+    expect(queryCalls[1][1]).not.toHaveProperty("filters_json");
+    expect(orResults.map((result: any) => result.id)).toEqual(["id-1", "id-2"]);
+    expect(notResults.map((result: any) => result.id)).toEqual(["id-1"]);
+  });
+
+  it("keeps memory_id filters aligned between Databricks and local fallback", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, { memory_id: "id-1" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        filters_json: JSON.stringify({ memory_id: "id-1" }),
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("omits columns_to_sync for storage-optimized endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+
+    await store.initialize();
+
+    expect(axiosModule.__mockHttpClient.post).toHaveBeenCalledWith("/indexes", {
+      name: "main.default.memories",
+      endpoint_name: "mem0_vector_search",
+      primary_key: "memory_id",
+      index_type: "DELTA_SYNC",
+      delta_sync_index_spec: {
+        source_table: "main.default.memories",
+        pipeline_type: "TRIGGERED",
+        columns_to_sync: undefined,
+        embedding_vector_columns: [
+          {
+            name: "embedding",
+            embedding_dimension: 16,
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects invalid storage-optimized embedding dimensions", () => {
+    expect(
+      () =>
+        new DatabricksVectorStore({
+          workspaceUrl: "https://workspace.databricks.com",
+          httpPath: "/sql/1.0/warehouses/test",
+          accessToken: "dapi-test",
+          catalog: "main",
+          schema: "default",
+          collectionName: "memories",
+          dimension: 3,
+          endpointType: "STORAGE_OPTIMIZED",
+        }),
+    ).toThrow("require dimensions divisible by 16");
+  });
+
+  it("rejects HYBRID vector search without query text", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      queryType: "HYBRID",
+      syncPollIntervalMs: 0,
+    });
+
+    await expect(store.search([1, 0, 0], 5)).rejects.toThrow(
+      "Databricks HYBRID search requires query_text",
+    );
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.find(
+        ([url]: [string]) => url === "/indexes/main.default.memories/query",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("roundtrips migration user ids", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;
@@ -759,7 +1692,7 @@ describe("Vectorize – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 7. LangchainVectorStore — mock Langchain client, verify no-op init
+// 8. LangchainVectorStore — mock Langchain client, verify no-op init
 // ───────────────────────────────────────────────────────────────────────────
 describe("LangchainVectorStore – backward compat", () => {
   it("implements full VectorStore interface", () => {
@@ -866,7 +1799,7 @@ describe("LangchainVectorStore – backward compat", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 8. Memory class — ensure it works with each provider via mocked factories
+// 9. Memory class — ensure it works with each provider via mocked factories
 // ───────────────────────────────────────────────────────────────────────────
 describe("Memory class – backward compat with all providers", () => {
   function createMockEmbedder(dims: number) {
@@ -1103,6 +2036,44 @@ describe("Memory class – backward compat with all providers", () => {
     expect(mockVectorStoreFactory.create).toHaveBeenCalledTimes(2);
     // Second store should also have initialize called
     expect(mockVStore2.initialize).toHaveBeenCalled();
+  });
+
+  it("derives a separate Databricks entity table when provider casing differs", async () => {
+    const primaryStore = createMockVectorStore();
+    const entityStore = createMockVectorStore();
+    mockVectorStoreFactory.create
+      .mockReturnValueOnce(primaryStore)
+      .mockReturnValueOnce(entityStore);
+
+    const mem = new MemoryClass({
+      embedder: { provider: "openai", config: { apiKey: "k" } },
+      vectorStore: {
+        provider: "Databricks",
+        config: {
+          workspaceUrl: "https://workspace.databricks.com",
+          httpPath: "/sql/1.0/warehouses/test",
+          accessToken: "dapi-test",
+          collectionName: "memories",
+          tableName: "memory_rows",
+          dimension: 1536,
+        },
+      },
+      llm: { provider: "openai", config: { apiKey: "k" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+    await (mem as any).getEntityStore();
+
+    expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+      2,
+      "databricks",
+      expect.objectContaining({
+        collectionName: "memories_entities",
+        tableName: "memory_rows_entities",
+      }),
+    );
+    expect(entityStore.initialize).toHaveBeenCalled();
   });
 
   it("propagates init error to public methods", async () => {

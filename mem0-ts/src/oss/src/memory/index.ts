@@ -7,6 +7,7 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreConfig,
 } from "../types";
 import {
   EmbedderFactory,
@@ -263,18 +264,24 @@ export class Memory {
 
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
+      const entityProvider = this.config.vectorStore.provider.toLowerCase();
       const entityCollectionName = `${this.collectionName}_entities`;
-      const entityConfig = {
+      const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
       // For file-based stores (memory/SQLite), always use a separate DB for entities
-      if (this.config.vectorStore.provider === "memory") {
+      if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
         entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
+      if (entityProvider === "databricks") {
+        entityConfig.tableName = entityConfig.tableName
+          ? `${entityConfig.tableName}_entities`
+          : entityCollectionName;
+      }
       this._entityStore = VectorStoreFactory.create(
-        this.config.vectorStore.provider,
+        entityProvider,
         entityConfig,
       );
       await this._entityStore.initialize();
