@@ -10,7 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 from pydantic import ValidationError
 
@@ -66,6 +66,7 @@ from mem0.utils.factory import (
     VectorStoreFactory,
 )
 from mem0.utils.lemmatization import lemmatize_for_bm25
+from mem0.utils.planner_retrieval import build_planner_query, rerank_plan_memories
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
     get_bm25_params,
@@ -1472,6 +1473,78 @@ class Memory(MemoryBase):
         else:
             display_first_run_notice(self, "sync", "search")
         return {"results": original_memories}
+
+    def search_for_plan(
+        self,
+        user_goal: str,
+        *,
+        plan: Optional[Sequence[str]] = None,
+        current_step: Optional[str] = None,
+        tools: Optional[Sequence[str]] = None,
+        previous_failures: Optional[Sequence[str]] = None,
+        limit: int = 5,
+        candidate_limit: Optional[int] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        threshold: float = 0.1,
+        rerank: bool = False,
+        explain: bool = False,
+        reference_date: Optional[Any] = None,
+        show_expired: bool = False,
+        rerank_plan_results: bool = True,
+        **kwargs,
+    ):
+        """
+        Search memories using planner-executor context.
+
+        Args:
+            user_goal (str): Overall user goal the plan is serving.
+            plan (list[str], optional): Current plan steps.
+            current_step (str, optional): Step currently being executed.
+            tools (list[str], optional): Available tools for the agent.
+            previous_failures (list[str], optional): Prior failures or lessons to avoid repeating.
+            limit (int, optional): Number of memories to return. Defaults to 5.
+            candidate_limit (int, optional): Number of candidates to retrieve before local plan reranking.
+            filters (dict): Same filters accepted by `search()`.
+            threshold (float, optional): Same threshold accepted by `search()`.
+            rerank (bool, optional): Whether to use the configured search reranker. Defaults to False.
+            explain (bool, optional): Whether to include score details in search results.
+            reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            show_expired (bool, optional): Include expired memories.
+            rerank_plan_results (bool, optional): Whether to apply lightweight plan-aware reranking.
+
+        Returns:
+            dict: Search result with planner-aware candidates under the "results" key.
+        """
+        query = build_planner_query(
+            user_goal=user_goal,
+            plan=plan,
+            current_step=current_step,
+            tools=tools,
+            previous_failures=previous_failures,
+        )
+        search_limit = candidate_limit or (max(limit * 4, limit) if rerank_plan_results else limit)
+        result = self.search(
+            query,
+            top_k=search_limit,
+            filters=filters,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            reference_date=reference_date,
+            show_expired=show_expired,
+            **kwargs,
+        )
+
+        if rerank_plan_results:
+            result = dict(result)
+            result["results"] = rerank_plan_memories(
+                result.get("results", []),
+                user_goal=user_goal,
+                current_step=current_step,
+                tools=tools,
+                limit=limit,
+            )
+        return result
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -3102,6 +3175,78 @@ class AsyncMemory(MemoryBase):
         else:
             await display_first_run_notice_async(self, "async", "search")
         return {"results": original_memories}
+
+    async def search_for_plan(
+        self,
+        user_goal: str,
+        *,
+        plan: Optional[Sequence[str]] = None,
+        current_step: Optional[str] = None,
+        tools: Optional[Sequence[str]] = None,
+        previous_failures: Optional[Sequence[str]] = None,
+        limit: int = 5,
+        candidate_limit: Optional[int] = None,
+        filters: Optional[Dict[str, Any]] = None,
+        threshold: float = 0.1,
+        rerank: bool = False,
+        explain: bool = False,
+        reference_date: Optional[Any] = None,
+        show_expired: bool = False,
+        rerank_plan_results: bool = True,
+        **kwargs,
+    ):
+        """
+        Search memories asynchronously using planner-executor context.
+
+        Args:
+            user_goal (str): Overall user goal the plan is serving.
+            plan (list[str], optional): Current plan steps.
+            current_step (str, optional): Step currently being executed.
+            tools (list[str], optional): Available tools for the agent.
+            previous_failures (list[str], optional): Prior failures or lessons to avoid repeating.
+            limit (int, optional): Number of memories to return. Defaults to 5.
+            candidate_limit (int, optional): Number of candidates to retrieve before local plan reranking.
+            filters (dict): Same filters accepted by `search()`.
+            threshold (float, optional): Same threshold accepted by `search()`.
+            rerank (bool, optional): Whether to use the configured search reranker. Defaults to False.
+            explain (bool, optional): Whether to include score details in search results.
+            reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            show_expired (bool, optional): Include expired memories.
+            rerank_plan_results (bool, optional): Whether to apply lightweight plan-aware reranking.
+
+        Returns:
+            dict: Search result with planner-aware candidates under the "results" key.
+        """
+        query = build_planner_query(
+            user_goal=user_goal,
+            plan=plan,
+            current_step=current_step,
+            tools=tools,
+            previous_failures=previous_failures,
+        )
+        search_limit = candidate_limit or (max(limit * 4, limit) if rerank_plan_results else limit)
+        result = await self.search(
+            query,
+            top_k=search_limit,
+            filters=filters,
+            threshold=threshold,
+            rerank=rerank,
+            explain=explain,
+            reference_date=reference_date,
+            show_expired=show_expired,
+            **kwargs,
+        )
+
+        if rerank_plan_results:
+            result = dict(result)
+            result["results"] = rerank_plan_memories(
+                result.get("results", []),
+                user_goal=user_goal,
+                current_step=current_step,
+                tools=tools,
+                limit=limit,
+            )
+        return result
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
