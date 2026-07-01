@@ -39,6 +39,10 @@ import {
   UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
+import {
+  DEFAULT_EMBED_TOKEN_LIMIT,
+  truncateTextToTokenLimit,
+} from "../utils/embed_text";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
 import {
@@ -810,7 +814,20 @@ export class Memory {
       .join("\n");
 
     // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages);
+    const embedQuery = truncateTextToTokenLimit(
+      parsedMessages,
+      DEFAULT_EMBED_TOKEN_LIMIT,
+    );
+    if (
+      embedQuery !== parsedMessages &&
+      embedQuery.length < parsedMessages.length
+    ) {
+      console.warn(
+        `Conversation text exceeds embedding token limit (~${DEFAULT_EMBED_TOKEN_LIMIT} tokens); ` +
+          "truncating Phase 1 retrieval query. Fact extraction still uses the full conversation.",
+      );
+    }
+    const queryEmbedding = await this.embedder.embed(embedQuery);
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,

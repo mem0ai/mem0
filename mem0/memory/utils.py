@@ -76,6 +76,46 @@ def parse_messages(messages):
     return response
 
 
+# Conservative ceiling that fits every current OpenAI embedding model
+# (text-embedding-3-small/large and ada-002 all top out at 8192 tokens).
+DEFAULT_EMBED_TOKEN_LIMIT = 8000
+
+
+def truncate_text_to_token_limit(text: str, max_tokens: int = DEFAULT_EMBED_TOKEN_LIMIT) -> str:
+    """Truncate ``text`` so its tokenized length does not exceed ``max_tokens``.
+
+    Used before passing concatenated conversation text to an embedding model in
+    ``Memory.add()`` Phase 1. Sending more than the model limit raises a 400
+    error and fails the entire add() call before extraction (issue #5148).
+
+    Prefers ``tiktoken`` when available (transitive via the OpenAI SDK) and
+    falls back to a conservative ~4 chars/token heuristic.
+    """
+    if not text:
+        return text
+
+    try:
+        import tiktoken  # type: ignore
+
+        try:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:  # pragma: no cover - narrow tiktoken init failure
+            encoding = None
+
+        if encoding is not None:
+            tokens = encoding.encode(text)
+            if len(tokens) <= max_tokens:
+                return text
+            return encoding.decode(tokens[:max_tokens])
+    except ImportError:
+        pass
+
+    char_budget = max_tokens * 4
+    if len(text) <= char_budget:
+        return text
+    return text[:char_budget]
+
+
 def format_entities(entities):
     if not entities:
         return ""

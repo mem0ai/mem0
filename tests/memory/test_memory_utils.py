@@ -2,10 +2,12 @@ import pytest
 from unittest.mock import Mock
 
 from mem0.memory.utils import (
+    DEFAULT_EMBED_TOKEN_LIMIT,
     parse_messages,
     parse_vision_messages,
     remove_spaces_from_entities,
     sanitize_relationship_for_cypher,
+    truncate_text_to_token_limit,
 )
 
 
@@ -168,3 +170,32 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestTruncateTextToTokenLimit:
+    def test_no_op_for_short_text(self):
+        text = "user: hello\n"
+        assert truncate_text_to_token_limit(text) is text
+
+    def test_truncates_beyond_budget(self):
+        long_text = "word " * (DEFAULT_EMBED_TOKEN_LIMIT + 100)
+        truncated = truncate_text_to_token_limit(long_text)
+        try:
+            import tiktoken
+
+            encoding = tiktoken.get_encoding("cl100k_base")
+            assert len(encoding.encode(truncated)) <= DEFAULT_EMBED_TOKEN_LIMIT
+        except ImportError:
+            assert len(truncated) <= DEFAULT_EMBED_TOKEN_LIMIT * 4
+        assert truncated != long_text
+
+    def test_tiktoken_path_when_available(self):
+        try:
+            import tiktoken
+        except ImportError:
+            pytest.skip("tiktoken not installed")
+
+        encoding = tiktoken.get_encoding("cl100k_base")
+        long_text = "word " * (DEFAULT_EMBED_TOKEN_LIMIT + 50)
+        truncated = truncate_text_to_token_limit(long_text)
+        assert len(encoding.encode(truncated)) <= DEFAULT_EMBED_TOKEN_LIMIT
