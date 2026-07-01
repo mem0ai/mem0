@@ -1061,3 +1061,61 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestSyncDeleteAllEntityHardening:
+    """Guards #5697: sync delete_all must clear the entity store in one bulk pass
+    (skip_entity_cleanup on each delete) instead of N racy read-modify-writes."""
+
+    def _memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.custom_instructions = None
+        return memory
+
+    def test_delete_all_bulk_clears_entities_once(self, mocker):
+        memory = self._memory(mocker)
+        m1 = SimpleNamespace(id="m1", payload={"user_id": "u1", "data": "a"})
+        m2 = SimpleNamespace(id="m2", payload={"user_id": "u1", "data": "b"})
+        memory.vector_store = mocker.MagicMock()
+        memory.vector_store.list.return_value = ([m1, m2],)
+        memory.db = mocker.MagicMock()
+        memory._entity_store = mocker.MagicMock()
+        memory._remove_memory_from_entity_store = mocker.MagicMock()
+        memory._bulk_clear_entity_store = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.detect_decay_usage_from_delete_all", return_value=None)
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+
+        memory.delete_all(user_id="u1")
+
+        # bulk clear exactly once; never per-memory cleanup during delete_all
+        memory._bulk_clear_entity_store.assert_called_once()
+        memory._remove_memory_from_entity_store.assert_not_called()
+
+    def test_delete_all_continues_on_individual_delete_error(self, mocker):
+        memory = self._memory(mocker)
+        m1 = SimpleNamespace(id="m1", payload={"user_id": "u1", "data": "a"})
+        m2 = SimpleNamespace(id="m2", payload={"user_id": "u1", "data": "b"})
+        memory.vector_store = mocker.MagicMock()
+        memory.vector_store.list.return_value = ([m1, m2],)
+        memory.db = mocker.MagicMock()
+        memory._entity_store = mocker.MagicMock()
+        memory._bulk_clear_entity_store = mocker.MagicMock()
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.detect_decay_usage_from_delete_all", return_value=None)
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+
+        calls = []
+        def _del(mid, skip_entity_cleanup=False):
+            calls.append(mid)
+            if mid == "m1":
+                raise RuntimeError("boom")
+            return mid
+        memory._delete_memory = mocker.MagicMock(side_effect=_del)
+
+        # Must not raise; both memories attempted despite m1 failing.
+        memory.delete_all(user_id="u1")
+        assert calls == ["m1", "m2"]
+        memory._bulk_clear_entity_store.assert_called_once()
