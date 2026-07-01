@@ -32,6 +32,12 @@ jest.mock(
         this.input = input;
       }
     },
+    InvokeModelCommand: class {
+      input: any;
+      constructor(input: any) {
+        this.input = input;
+      }
+    },
   }),
   { virtual: true },
 );
@@ -165,5 +171,54 @@ describe("AWSBedrockLLM", () => {
     const llm = makeLLM(client);
     const res = await llm.generateChat([{ role: "user", content: "hi" }]);
     expect(res).toEqual({ content: "hello from bedrock", role: "assistant" });
+  });
+
+  describe("invoke_model API (#6023)", () => {
+    // Fake client returning a raw JSON body string, as InvokeModel does.
+    function makeInvokeClient(bodyObj: any) {
+      return {
+        lastInput: null as any,
+        async send(command: any) {
+          this.lastInput = command?.input ?? command;
+          return { body: JSON.stringify(bodyObj) };
+        },
+      };
+    }
+
+    it("uses InvokeModel with an anthropic body and parses content", async () => {
+      const client = makeInvokeClient({ content: [{ text: "legacy reply" }] });
+      const llm = new AWSBedrockLLM({
+        model: "anthropic.claude-v2",
+        bedrockApi: "invoke_model",
+        client: client as any,
+      });
+      const res = await llm.generateResponse([{ role: "user", content: "hi" }]);
+      expect(res).toBe("legacy reply");
+      const body = JSON.parse(client.lastInput.body);
+      expect(body.anthropic_version).toBe("bedrock-2023-05-31");
+      expect(client.lastInput.modelId).toBe("anthropic.claude-v2");
+    });
+
+    it("builds an ai21/j2 body and parses completions", async () => {
+      const client = makeInvokeClient({
+        completions: [{ data: { text: "j2 output" } }],
+      });
+      const llm = new AWSBedrockLLM({
+        model: "ai21.j2-ultra-v1",
+        bedrockApi: "invoke_model",
+        client: client as any,
+      });
+      const res = await llm.generateChat([{ role: "user", content: "hi" }]);
+      expect(res).toEqual({ content: "j2 output", role: "assistant" });
+    });
+
+    it("defaults to converse when bedrockApi is not set", async () => {
+      const client = new FakeBedrockClient(textResponse);
+      const llm = makeLLM(client);
+      await llm.generateResponse([{ role: "user", content: "hi" }]);
+      // Converse path stores modelId + messages (not a raw JSON body string).
+      expect(client.lastInput.messages).toBeDefined();
+      expect(client.lastInput.body).toBeUndefined();
+    });
   });
 });

@@ -135,9 +135,20 @@ const memory = new Memory({
 });
 ```
 
-> Note: the provider uses the Converse API, which covers the current Bedrock
-> model families through a single uniform interface. Streaming and legacy
-> `InvokeModel`-only models are out of scope for now.
+> Note: the provider uses the Bedrock **Converse API** by default, which covers
+> the current Bedrock model families through a single uniform interface
+> (recommended). For legacy models that are only reachable via `InvokeModel`,
+> set `bedrockApi: "invoke_model"` in the LLM config to opt into the
+> per-family `InvokeModelCommand` path (no tool-calling support on that path).
+> Streaming remains out of scope for now.
+>
+> ```typescript
+> // opt into the legacy InvokeModel path for a non-Converse model
+> llm: {
+>   provider: "aws_bedrock",
+>   config: { model: "ai21.j2-ultra-v1", bedrockApi: "invoke_model" },
+> }
+> ```
 
 ### Methods
 
