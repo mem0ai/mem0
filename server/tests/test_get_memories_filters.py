@@ -1,22 +1,35 @@
-"""Regression tests for filter building in GET /memories (get_all_memories)."""
+"""Regression tests for entity-id filter scoping in server/main.py.
+
+Empty-string entity ids (e.g. `?agent_id=`) must be dropped when building the
+downstream filter/params, consistent with the `any([...])` "list all" / "id
+required" guards. Otherwise they are forwarded as real (empty) filter values
+and silently over-scope the query. Covers GET /memories, /search, and
+DELETE /memories, which all shared the same `is not None` pattern.
+"""
 
 import main
-from main import get_all_memories
+from main import SearchRequest, delete_all_memories, get_all_memories, search_memories
 
 
 class _StubMemory:
     def __init__(self):
-        self.calls = []
+        self.get_all_calls = []
+        self.search_calls = []
+        self.delete_all_calls = []
 
     def get_all(self, **params):
-        self.calls.append(params)
+        self.get_all_calls.append(params)
         return {"results": []}
 
+    def search(self, query, filters=None, **params):
+        self.search_calls.append(filters)
+        return {"results": []}
 
-def test_empty_string_ids_are_not_forwarded_as_filters(monkeypatch):
-    # A real user_id plus empty-string agent_id/run_id (e.g. `?agent_id=&run_id=`).
-    # The empty strings must be dropped, consistent with the `any([...])` guard
-    # above, instead of being passed through as real (empty) filter values.
+    def delete_all(self, **params):
+        self.delete_all_calls.append(params)
+
+
+def test_get_all_drops_empty_string_ids(monkeypatch):
     stub = _StubMemory()
     monkeypatch.setattr(main, "get_memory_instance", lambda: stub)
 
@@ -30,5 +43,27 @@ def test_empty_string_ids_are_not_forwarded_as_filters(monkeypatch):
         _auth=None,
     )
 
-    assert stub.calls, "get_all should have been called"
-    assert stub.calls[0]["filters"] == {"user_id": "alice"}
+    assert stub.get_all_calls, "get_all should have been called"
+    assert stub.get_all_calls[0]["filters"] == {"user_id": "alice"}
+
+
+def test_search_drops_empty_string_ids(monkeypatch):
+    stub = _StubMemory()
+    monkeypatch.setattr(main, "get_memory_instance", lambda: stub)
+
+    search_memories(
+        SearchRequest(query="hi", user_id="alice", agent_id="", run_id=""),
+        _auth=None,
+    )
+
+    # Only the real id ends up in the deprecated-param -> filters promotion.
+    assert stub.search_calls == [{"user_id": "alice"}]
+
+
+def test_delete_all_drops_empty_string_ids(monkeypatch):
+    stub = _StubMemory()
+    monkeypatch.setattr(main, "get_memory_instance", lambda: stub)
+
+    delete_all_memories(user_id="alice", run_id="", agent_id="", _auth=None)
+
+    assert stub.delete_all_calls == [{"user_id": "alice"}]

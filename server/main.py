@@ -456,7 +456,7 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
         deprecated_keys = []
         for entity_key in ("user_id", "agent_id", "run_id"):
             entity_val = getattr(search_req, entity_key, None)
-            if entity_val is not None:
+            if entity_val:
                 filters[entity_key] = entity_val
                 deprecated_keys.append(entity_key)
         if deprecated_keys:
@@ -535,7 +535,7 @@ def delete_all_memories(
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
         params = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
+            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
         }
         get_memory_instance().delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
