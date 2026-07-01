@@ -78,6 +78,9 @@ export interface MemoryItem {
   id: string;
   memory: string;
   hash?: string;
+  user_id?: string;
+  agent_id?: string;
+  run_id?: string;
   createdAt?: string;
   updatedAt?: string;
   score?: number;

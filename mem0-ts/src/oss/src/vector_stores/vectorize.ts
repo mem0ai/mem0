@@ -378,7 +378,14 @@ export class VectorizeDB implements VectorStore {
             },
           });
 
-          const properties = ["userId", "agentId", "runId"];
+          const properties = [
+            "user_id",
+            "agent_id",
+            "run_id",
+            "userId",
+            "agentId",
+            "runId",
+          ];
 
           for (const propertyName of properties) {
             await this.client?.vectorize.indexes.metadataIndex.create(
@@ -407,7 +414,14 @@ export class VectorizeDB implements VectorStore {
       for (const metadataIndex of metadataIndexes?.metadataIndexes || []) {
         existingMetadataIndexes.add(metadataIndex.propertyName!);
       }
-      const properties = ["userId", "agentId", "runId"];
+      const properties = [
+        "user_id",
+        "agent_id",
+        "run_id",
+        "userId",
+        "agentId",
+        "runId",
+      ];
       for (const propertyName of properties) {
         if (!existingMetadataIndexes.has(propertyName)) {
           await this.client?.vectorize.indexes.metadataIndex.create(

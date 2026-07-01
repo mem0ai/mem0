@@ -181,6 +181,28 @@ describe("buildFilterConditions", () => {
     expect(result.paramIndex).toBe(3);
   });
 
+  test("$and and $or preserve alias-widened scope filter shape", () => {
+    const result = buildFilterConditions(
+      {
+        $and: [
+          { $or: [{ user_id: "u1" }, { userId: "u1" }] },
+          { $or: [{ agent_id: "agent-a" }, { agentId: "agent-a" }] },
+        ],
+      },
+      1,
+    );
+
+    expect(result.conditions).toHaveLength(1);
+    expect(result.conditions[0]).toContain(" AND ");
+    expect(result.conditions[0]).toContain(" OR ");
+    expect(result.conditions[0]).toContain("payload->>'user_id' = $1");
+    expect(result.conditions[0]).toContain("payload->>'userId' = $2");
+    expect(result.conditions[0]).toContain("payload->>'agent_id' = $3");
+    expect(result.conditions[0]).toContain("payload->>'agentId' = $4");
+    expect(result.values).toEqual(["u1", "u1", "agent-a", "agent-a"]);
+    expect(result.paramIndex).toBe(5);
+  });
+
   test("$not operator", () => {
     const result = buildFilterConditions(
       {
