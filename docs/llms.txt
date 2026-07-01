@@ -220,7 +220,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Webhooks](https://docs.mem0.ai/platform/features/webhooks) [Platform]: Use when another system needs to react to memory changes in real time.
 - [Feedback Mechanism](https://docs.mem0.ai/platform/features/feedback-mechanism) [Platform]: Use when capturing user feedback to improve memory quality.
 - [Group Chat Support](https://docs.mem0.ai/platform/features/group-chat) [Platform]: Use when the conversation has multiple participants.
-- [MCP Integration](https://docs.mem0.ai/platform/features/mcp-integration) [Platform]: Use when wiring Mem0 into Claude/Cursor/other MCP clients.
 
 ### Support & Migration
 - [FAQs](https://docs.mem0.ai/platform/faqs) [Platform]: Use when answering common Platform questions.

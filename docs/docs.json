@@ -105,8 +105,7 @@
                         "pages": [
                           "platform/features/webhooks",
                           "platform/features/feedback-mechanism",
-                          "platform/features/group-chat",
-                          "platform/features/mcp-integration"
+                          "platform/features/group-chat"
                         ]
                       }
                     ]
@@ -963,6 +962,14 @@
     {
       "source": "/v0x/introduction",
       "destination": "/introduction"
+    },
+    {
+      "source": "/platform/features/mcp-integration",
+      "destination": "/platform/mem0-mcp"
+    },
+    {
+      "source": "/platform/features/platform-overview",
+      "destination": "/platform/features/v2-memory-filters"
     },
     {
       "source": "/features/async-client",
