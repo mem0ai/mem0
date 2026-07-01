@@ -24,7 +24,7 @@ import {
   DREAM_PROTOCOL,
 } from "./dream";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
-import {parseProjectFromRemote} from "./project";
+import {parseProjectFromRemote, selectActiveProjectPath, type ProjectContext} from "./project";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -35,12 +35,23 @@ async function getUserId(): Promise<string> {
   return process.env.USER || process.env.USERNAME || "unknown";
 }
 
-async function getProjectId($: any): Promise<string> {
+type ShellCommand = {
+  cwd?: (path: string) => ShellCommand;
+  quiet: () => Promise<{ stdout: { toString(): string } }>;
+};
+
+function commandInProject(command: ShellCommand, projectPath: string): ShellCommand {
+  if (typeof command.cwd === "function") return command.cwd(projectPath);
+  return command;
+}
+
+export async function getProjectId(input: ProjectContext & {$: any}): Promise<string> {
   if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
+  const projectPath = selectActiveProjectPath(input);
   // Prefer the git remote's owner/repo — stable across clones, worktrees, and
   // sub-directories (handles https + ssh, incl. custom host aliases).
   try {
-    const r = await $`git remote get-url origin`.quiet();
+    const r = await commandInProject(input.$`git remote get-url origin`, projectPath).quiet();
     const project = parseProjectFromRemote(r.stdout.toString());
     if (project) return project;
   } catch {
@@ -48,11 +59,13 @@ async function getProjectId($: any): Promise<string> {
   // No usable remote: use the git repo ROOT dir name, not cwd (which may be a
   // sub-directory, or your home dir if OpenCode was launched outside a repo).
   try {
-    const r = await $`git rev-parse --show-toplevel`.quiet();
+    const r = await commandInProject(input.$`git rev-parse --show-toplevel`, projectPath).quiet();
     const top = r.stdout.toString().trim();
     if (top) return basename(top);
   } catch {
   }
+  const selectedBasename = basename(projectPath);
+  if (selectedBasename) return selectedBasename;
   return basename(process.cwd());
 }
 
@@ -277,7 +290,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const mem0 = new MemoryClient({apiKey});
   const userId = await getUserId();
-  const appId = await getProjectId($);
+  const appId = await getProjectId(ctx);
   const branch = await getBranch($);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
