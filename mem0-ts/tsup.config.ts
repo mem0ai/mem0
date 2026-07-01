@@ -22,6 +22,7 @@ const external = [
   "@langchain/core",
   "compromise",
   "natural",
+  "mysql2",
 ];
 
 const define = {
