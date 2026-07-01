@@ -67,6 +67,19 @@ All rerankers share these common configuration parameters:
 | `llm.config`   | LLM configuration object    | `dict` | Required |
 | `top_n`        | Number of results to return | `int`  | `None`   |
 
+### OpenAI-Compatible
+
+For any self-hosted or third-party reranker exposing a Cohere/Jina-style `/rerank` endpoint
+(e.g. self-deployed `bge-reranker`, Jina, Voyage, SiliconFlow, Together, or a vLLM-hosted reranker).
+
+| Parameter  | Description                                                 | Type   | Default  |
+| ---------- | ----------------------------------------------------------- | ------ | -------- |
+| `base_url` | Base URL of the reranker service exposing `/rerank`         | `str`  | Required |
+| `model`    | Reranker model name passed to the endpoint                  | `str`  | `None`   |
+| `api_key`  | Bearer token sent as `Authorization: Bearer <api_key>`      | `str`  | `None`   |
+| `headers`  | Extra HTTP headers to send with each request                | `dict` | `None`   |
+| `timeout`  | Request timeout in seconds                                  | `float`| `60.0`   |
+
 ## Environment Variables
 
 You can set API keys using environment variables:
@@ -76,6 +89,8 @@ You can set API keys using environment variables:
 - `HUGGINGFACE_API_KEY` - HuggingFace API token
 - `OPENAI_API_KEY` - OpenAI API key (for LLM-based reranker)
 - `ANTHROPIC_API_KEY` - Anthropic API key (for LLM-based reranker)
+- `RERANKER_BASE_URL` - Base URL for the OpenAI-compatible reranker
+- `RERANKER_API_KEY` - API key for the OpenAI-compatible reranker
 
 ## Basic Configuration Example
 

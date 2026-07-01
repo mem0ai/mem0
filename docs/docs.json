@@ -280,7 +280,8 @@
                               "components/rerankers/models/sentence_transformer",
                               "components/rerankers/models/huggingface",
                               "components/rerankers/models/llm_reranker",
-                              "components/rerankers/models/zero_entropy"
+                              "components/rerankers/models/zero_entropy",
+                              "components/rerankers/models/openai_compatible"
                             ]
                           }
                         ]

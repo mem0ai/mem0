@@ -19,6 +19,7 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
 from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
+from mem0.configs.rerankers.openai_compatible import OpenAICompatibleRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
@@ -236,6 +237,10 @@ class RerankerFactory:
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
+        "openai_compatible": (
+            "mem0.reranker.openai_compatible_reranker.OpenAICompatibleReranker",
+            OpenAICompatibleRerankerConfig,
+        ),
     }
 
     @classmethod

@@ -1,0 +1,119 @@
+---
+title: OpenAI-Compatible
+description: "Point Mem0 at any self-hosted or third-party reranker that exposes a Cohere/Jina-compatible /rerank endpoint."
+---
+
+The `openai_compatible` reranker lets you use any service that speaks the standard Cohere/Jina-style
+`/rerank` HTTP contract. This covers self-hosted `bge-reranker`, Jina Reranker, Voyage, SiliconFlow,
+Together, vLLM-hosted rerankers, and internal corporate gateways — anything reachable over HTTP that
+follows the contract below.
+
+Use this when the built-in providers (`cohere`, `sentence_transformer`, `zero_entropy`, `huggingface`,
+`llm_reranker`) don't cover your deployment and you want to repoint Mem0 at your own endpoint, the same
+way `openai_base_url` works on the LLM/embedding side.
+
+## HTTP Contract
+
+The endpoint must accept a POST to `{base_url}/rerank`:
+
+```http
+POST {base_url}/rerank
+Authorization: Bearer {api_key}
+Content-Type: application/json
+
+{
+  "model": "bge-reranker-v2-m3",
+  "query": "What is the user's profession?",
+  "documents": ["...", "..."],
+  "top_n": 5
+}
+```
+
+and respond with a Cohere/Jina-style payload (a bare list of results is also accepted):
+
+```json
+{
+  "results": [
+    {"index": 2, "relevance_score": 0.91},
+    {"index": 0, "relevance_score": 0.42}
+  ]
+}
+```
+
+Either `relevance_score` or `score` is read from each result, and `index` maps the score back onto the
+input documents.
+
+## Configuration
+
+```python Python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "my_memories",
+            "path": "./chroma_db"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-5-mini"
+        }
+    },
+    "reranker": {
+        "provider": "openai_compatible",
+        "config": {
+            "base_url": "https://my-reranker.internal/v1",  # or set RERANKER_BASE_URL
+            "api_key": "sk-...",                              # or set RERANKER_API_KEY
+            "model": "bge-reranker-v2-m3",
+            "top_k": 5
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## Environment Variables
+
+```bash
+export RERANKER_BASE_URL="https://my-reranker.internal/v1"
+export RERANKER_API_KEY="sk-..."
+```
+
+## Configuration Parameters
+
+| Parameter  | Description                                            | Type    | Default  |
+| ---------- | ------------------------------------------------------ | ------- | -------- |
+| `base_url` | Base URL of the reranker service exposing `/rerank`    | `str`   | Required |
+| `model`    | Reranker model name passed to the endpoint             | `str`   | `None`   |
+| `api_key`  | Bearer token sent as `Authorization: Bearer <api_key>` | `str`   | `None`   |
+| `headers`  | Extra HTTP headers to send with each request           | `dict`  | `None`   |
+| `timeout`  | Request timeout in seconds                              | `float` | `60.0`   |
+| `top_k`    | Maximum documents to return after reranking            | `int`   | `None`   |
+
+## Custom Headers
+
+Some gateways require additional headers (e.g. a tenant or routing key). Pass them via `headers`:
+
+```python Python
+config = {
+    "reranker": {
+        "provider": "openai_compatible",
+        "config": {
+            "base_url": "https://gateway.internal/v1",
+            "headers": {"X-Tenant": "acme"},
+            "model": "bge-reranker-v2-m3"
+        }
+    }
+}
+```
+
+## Notes
+
+- If the request fails for any reason, Mem0 falls back to the original vector-search order with a neutral
+  `rerank_score` of `0.0`, so search continues to work even when the reranker is unavailable.
+- The `top_n` field is sent to the endpoint and the response is additionally truncated to `top_k`
+  client-side, so the limit is honored whether or not the endpoint applies it.
