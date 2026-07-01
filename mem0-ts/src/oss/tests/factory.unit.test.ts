@@ -20,6 +20,11 @@ jest.mock("../src/embeddings/google", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "google-embedder", config })),
 }));
+jest.mock("../src/embeddings/fastembed", () => ({
+  FastEmbedEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "fastembed-embedder", config })),
+}));
 jest.mock("../src/embeddings/azure", () => ({
   AzureOpenAIEmbedder: jest
     .fn()
@@ -173,6 +178,7 @@ describe("EmbedderFactory", () => {
     ["google"],
     ["gemini"],
     ["azure_openai"],
+    ["fastembed"],
     ["langchain"],
     ["lmstudio"],
   ])("creates embedder for provider '%s'", (provider) => {

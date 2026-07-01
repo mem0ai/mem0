@@ -269,6 +269,38 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("mergeConfig - FastEmbed defaults", () => {
+    const baseLlm = { provider: "openai", config: { apiKey: "k" } };
+
+    it("does not inject the OpenAI default embedder model into fastembed", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "fastembed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("fastembed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+
+    it("treats FastEmbed provider casing the same way as the factory", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "FastEmbed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("FastEmbed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+  });
+
   describe("mergeConfig - LM Studio LLM config", () => {
     const baseEmbedder = { provider: "openai", config: { apiKey: "k" } };
 
@@ -572,6 +604,30 @@ describe("Memory – LM Studio end-to-end flow", () => {
     expect(mockVStore.search).toHaveBeenCalled();
     expect(result.results).toHaveLength(1);
     expect(result.results[0].memory).toBe("User likes hiking");
+  });
+
+  it("preserves the FastEmbed provider default model through the Memory config path", async () => {
+    const mem = new MemoryClass({
+      embedder: {
+        provider: "fastembed",
+        config: {},
+      },
+      vectorStore: { provider: "memory", config: { collectionName: "test" } },
+      llm: {
+        provider: "openai",
+        config: { apiKey: "test-key" },
+      },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+
+    expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
+      "fastembed",
+      expect.objectContaining({
+        model: undefined,
+      }),
+    );
   });
 
   it("add flow works with lmstudio LLM for fact extraction", async () => {

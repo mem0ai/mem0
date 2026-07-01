@@ -20,6 +20,7 @@ const external = [
   "cloudflare",
   "@cloudflare/workers-types",
   "@langchain/core",
+  "fastembed",
   "compromise",
   "natural",
 ];
