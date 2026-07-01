@@ -35,7 +35,7 @@ m = Memory.from_config(config)
 | `device` | str | "cpu" | Device to run model on ("cpu", "cuda", "mps") |
 | `batch_size` | int | 32 | Batch size for processing |
 | `max_length` | int | 512 | Maximum input sequence length |
-| `trust_remote_code` | bool | False | Allow remote code execution |
+| `normalize` | bool | True | Whether to normalize scores to [0, 1] range |
 
 ### Advanced Configuration
 
@@ -48,10 +48,7 @@ config = {
             "device": "cuda",
             "batch_size": 16,
             "max_length": 512,
-            "trust_remote_code": False,
-            "model_kwargs": {
-                "torch_dtype": "float16"
-            }
+            "normalize": True
         }
     }
 }
@@ -154,7 +151,7 @@ m.add("I enjoy reading science fiction books", user_id="alice")
 # Search with reranking
 results = m.search(
     "What outdoor activities do I enjoy?",
-    user_id="alice",
+    filters={"user_id": "alice"},
     rerank=True
 )
 
@@ -208,10 +205,7 @@ config = {
             "model": "BAAI/bge-reranker-base",
             "device": "cpu",
             "batch_size": 8,   # Smaller batch size
-            "max_length": 256, # Shorter sequences
-            "model_kwargs": {
-                "torch_dtype": "float16"  # Half precision
-            }
+            "max_length": 256  # Shorter sequences
         }
     }
 }
@@ -232,7 +226,7 @@ config = {
 try:
     results = m.search(
         "test query",
-        user_id="alice",
+        filters={"user_id": "alice"},
         rerank=True
     )
 except Exception as e:
@@ -240,7 +234,7 @@ except Exception as e:
     # Fall back to vector search only
     results = m.search(
         "test query",
-        user_id="alice",
+        filters={"user_id": "alice"},
         rerank=False
     )
 ```
@@ -251,13 +245,13 @@ except Exception as e:
 
 ```python
 # Use a private model from Hugging Face
+# Set HF_TOKEN environment variable for private model access
 config = {
     "reranker": {
         "provider": "huggingface",
         "config": {
             "model": "your-org/custom-reranker",
-            "device": "cuda",
-            "use_auth_token": "your-hf-token"
+            "device": "cuda"
         }
     }
 }
@@ -311,13 +305,13 @@ config = {
 import os
 os.environ["TRANSFORMERS_CACHE"] = "/path/to/cache"
 
-# Or use offline mode
+# Or use offline mode by setting the environment variable
+# TRANSFORMERS_OFFLINE=1 before running your script
 config = {
     "reranker": {
         "provider": "huggingface",
         "config": {
-            "model": "BAAI/bge-reranker-base",
-            "local_files_only": True
+            "model": "BAAI/bge-reranker-base"
         }
     }
 }

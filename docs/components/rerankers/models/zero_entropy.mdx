@@ -37,7 +37,7 @@ config = {
             "model": "gpt-4o-mini"
         }
     },
-    "rerank": {
+    "reranker": {
         "provider": "zero_entropy",
         "config": {
             "model": "zerank-1",  # or "zerank-1-small"
@@ -71,7 +71,7 @@ os.environ["ZERO_ENTROPY_API_KEY"] = "your-api-key"
 config = {
     "vector_store": {"provider": "chroma"},
     "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
-    "rerank": {"provider": "zero_entropy", "config": {"model": "zerank-1"}}
+    "reranker": {"provider": "zero_entropy", "config": {"model": "zerank-1"}}
 }
 
 memory = Memory.from_config(config)
@@ -86,7 +86,7 @@ messages = [
 memory.add(messages, user_id="alice")
 
 # Search with reranking
-results = memory.search("What Italian food does the user like?", filters={"user_id": "alice"})
+results = memory.search("What Italian food does the user like?", filters={"user_id": "alice"}, rerank=True)
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")

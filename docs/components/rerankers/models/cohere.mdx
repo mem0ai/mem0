@@ -74,7 +74,7 @@ os.environ["COHERE_API_KEY"] = "your-api-key"
 config = {
     "vector_store": {"provider": "chroma"},
     "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
-    "rerank": {
+    "reranker": {
         "provider": "cohere",
         "config": {
             "model": "rerank-english-v3.0",
@@ -95,7 +95,7 @@ messages = [
 memory.add(messages, user_id="bob")
 
 # Search with reranking
-results = memory.search("What is the user's profession?", filters={"user_id": "bob"})
+results = memory.search("What is the user's profession?", filters={"user_id": "bob"}, rerank=True)
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")
@@ -110,7 +110,7 @@ For multilingual applications, use the multilingual model:
 
 ```python Python
 config = {
-    "rerank": {
+    "reranker": {
         "provider": "cohere",
         "config": {
             "model": "rerank-multilingual-v3.0",
