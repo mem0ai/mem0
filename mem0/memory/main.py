@@ -53,6 +53,7 @@ from mem0.memory.notices import (
 )
 from mem0.memory.utils import (
     extract_json,
+    normalize_extracted_memories,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -934,6 +935,10 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
             extracted_memories = []
+
+        # Tolerate malformed LLM shapes (plain strings, {fact:...}, key-as-fact
+        # dicts) before downstream code calls ``.get("text")`` on each item.
+        extracted_memories = normalize_extracted_memories(extracted_memories)
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2560,6 +2565,10 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
             extracted_memories = []
+
+        # Tolerate malformed LLM shapes (plain strings, {fact:...}, key-as-fact
+        # dicts) before downstream code calls ``.get("text")`` on each item.
+        extracted_memories = normalize_extracted_memories(extracted_memories)
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
