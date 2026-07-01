@@ -71,7 +71,6 @@ Humans should follow the Quick Start below.
                  "enabled": true,
                  "tokenBudget": 1500,
                  "rerank": true,
-                 "keywordSearch": true,
                  "identityAlwaysInclude": true
                },
                "dream": { "enabled": true },
@@ -313,8 +312,8 @@ Enabled by default during `openclaw mem0 init`. `autoRecall` and `autoCapture` a
 | `skills.triage.enabled` | `boolean` | `true` | Enable fact extraction from conversations |
 | `skills.recall.enabled` | `boolean` | `true` | Enable memory recall before each turn |
 | `skills.recall.tokenBudget` | `number` | `1500` | Max tokens for injected memories |
-| `skills.recall.rerank` | `boolean` | `true` | Rerank search results for relevance |
-| `skills.recall.keywordSearch` | `boolean` | `true` | Augment with keyword-based search |
+| `skills.recall.rerank` | `boolean` | `false` | Platform mode only: apply Mem0 Advanced Retrieval reranking on top of local ranking. No effect in open-source mode. |
+| `skills.recall.keywordSearch` | `boolean` | `false` | Deprecated no-op. Mem0 v3 removed keyword search from the search API; this key is retained for backwards compatibility and has no effect. |
 | `skills.recall.identityAlwaysInclude` | `boolean` | `true` | Always include identity memories |
 | `skills.dream.enabled` | `boolean` | `true` | Enable periodic memory consolidation |
 | `skills.domain` | `string` | `"companion"` | Domain overlay for triage rules |
