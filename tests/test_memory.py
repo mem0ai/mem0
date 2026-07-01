@@ -1529,3 +1529,158 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+class TestEntityTypeMergeGate:
+    """Verify _upsert_entity refuses to merge entities with different entity_type."""
+
+    def _make_memory(self):
+        with patch.object(Memory, "__init__", return_value=None):
+            m = Memory()
+        m.embedding_model = MagicMock()
+        m.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        m._entity_store = MagicMock()
+        m._existing_entities_by_text = MagicMock(return_value={})
+        return m
+
+    def test_same_type_merges(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "language", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", "language", "mem-B", {})
+
+        m._entity_store.update.assert_called_once()
+        m._entity_store.insert.assert_not_called()
+
+    def test_different_type_creates_new(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "language", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", "animal", "mem-B", {})
+
+        m._entity_store.update.assert_not_called()
+        m._entity_store.insert.assert_called_once()
+        inserted_payload = m._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["entity_type"] == "animal"
+
+    def test_no_type_on_existing_still_merges(self):
+        """When existing entity has no entity_type, merge is allowed (backward compat)."""
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", "language", "mem-B", {})
+
+        m._entity_store.update.assert_called_once()
+        updated_payload = m._entity_store.update.call_args.kwargs["payload"]
+        assert updated_payload["entity_type"] == "language"
+
+    def test_no_type_on_new_still_merges(self):
+        """When new entity has no entity_type, merge is allowed."""
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "language", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", None, "mem-B", {})
+
+        m._entity_store.update.assert_called_once()
+        m._entity_store.insert.assert_not_called()
+
+    @patch("mem0.memory.main.extract_entities_batch")
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_phase7d_different_type_inserts_instead_of_update(
+        self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap, mock_extract
+    ):
+        """Phase 7d in _add_to_vector_store must not merge entities with different entity_type."""
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock_emb.return_value = mock_embedder
+
+        mock_vector_store = MagicMock()
+        mock_vector_store.search.return_value = []
+        mock_vs.return_value = mock_vector_store
+
+        mock_llm_inst = MagicMock()
+        mock_llm_inst.generate_response.return_value = json.dumps({
+            "memory": [{"text": "Python is a snake", "event": "ADD"}]
+        })
+        mock_llm.return_value = mock_llm_inst
+        mock_sqlite.return_value = MagicMock()
+
+        mock_extract.return_value = [
+            [("NOUN", "python")]
+        ]
+
+        config = MemoryConfig()
+        m = Memory(config)
+        entity_store = MagicMock()
+        entity_store.search_batch.return_value = [
+            [MockVectorMemory(
+                "entity-1",
+                {"data": "python", "entity_type": "PROPER", "linked_memory_ids": ["mem-A"]},
+                score=0.99,
+            )]
+        ]
+        m._entity_store = entity_store
+
+        m._add_to_vector_store(
+            messages=[{"role": "user", "content": "Python is a snake"}],
+            metadata={"user_id": "u1"},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        entity_store.update.assert_not_called()
+        entity_store.insert.assert_called_once()
+        inserted_payload = entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["entity_type"] == "NOUN"
+
+    @pytest.mark.asyncio
+    async def test_async_upsert_entity_different_type_creates_new(self):
+        """_upsert_entity_async must not merge entities with different entity_type."""
+        from mem0.memory.main import AsyncMemory
+
+        with patch.object(AsyncMemory, "__init__", return_value=None):
+            m = AsyncMemory()
+        m.embedding_model = MagicMock()
+        m.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        m._entity_store = MagicMock()
+
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "PROPER", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+        m._entity_store.update = MagicMock()
+        m._entity_store.insert = MagicMock()
+
+        await m._upsert_entity_async("python", "NOUN", "mem-B", {})
+
+        m._entity_store.update.assert_not_called()
+        m._entity_store.insert.assert_called_once()
+        inserted_payload = m._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["entity_type"] == "NOUN"
