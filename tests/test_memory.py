@@ -169,6 +169,79 @@ async def test_async_memory_reset_clears_messages_table(mock_llm_factory, mock_v
     assert hist_count == 0, "history must be empty after AsyncMemory.reset()"
 
 
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+async def test_async_memory_reset_uses_in_place_reset_when_available(
+    mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path
+):
+    """Regression for #5915: when the vector store supports ``reset``, use the
+    in-place ``VectorStoreFactory.reset()`` path and skip the more expensive
+    ``delete_col`` + recreate teardown."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    # MagicMock auto-creates a ``reset`` attribute, so hasattr(...) is True —
+    # this is the "supports reset" case.
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = AsyncMemory(config)
+
+    calls_before_reset = mock_vector_factory.call_count
+    await memory.reset()
+    calls_after_reset = mock_vector_factory.call_count
+
+    # In-place reset path was taken: VectorStoreFactory.reset was exercised
+    # through the vector store's own reset() method.
+    mock_vector_store.reset.assert_called_once()
+    # The expensive teardown was skipped entirely.
+    mock_vector_store.delete_col.assert_not_called()
+    # And no recreation via the factory during reset (whatever construction did).
+    assert calls_after_reset == calls_before_reset, (
+        "in-place reset must not recreate the vector store via VectorStoreFactory.create"
+    )
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+async def test_async_memory_reset_falls_back_to_delete_col_when_reset_unavailable(
+    mock_llm_factory, mock_vector_factory, mock_embedder_factory, tmp_path
+):
+    """Regression for #5915: when the vector store does NOT expose ``reset``,
+    fall back to the ``delete_col`` + recreate path (the legacy behaviour)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    # Simulate a vector store that does NOT support in-place reset.
+    del mock_vector_store.reset
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    config = MemoryConfig()
+    config.history_db_path = str(tmp_path / "test.db")
+    memory = AsyncMemory(config)
+
+    calls_before_reset = mock_vector_factory.call_count
+    await memory.reset()
+    calls_after_reset = mock_vector_factory.call_count
+
+    # Fallback path was taken: delete_col was called.
+    mock_vector_store.delete_col.assert_called_once()
+    # And VectorStoreFactory.create was invoked exactly once more to rebuild.
+    assert calls_after_reset == calls_before_reset + 1, (
+        "fallback reset must recreate the vector store exactly once"
+    )
+
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
