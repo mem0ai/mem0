@@ -164,6 +164,43 @@ That's the result."""
         assert json.loads(result)["memory"][0]["text"] == "ok"
         assert elapsed < 2.0
 
+    def test_truncated_key_fragments_stay_linear(self):
+        """Truncated nested-key output must not make the scan quadratic.
+
+        Regression guard: in '{"a":{"a":...' (a small model stuck repeating a
+        key fragment, then cut off by max_tokens) every '{' passes the
+        object-start prefilter, and each raw_decode scans to end-of-text before
+        failing on the unterminated string -- repeating that at every candidate
+        was O(n^2) (~seconds at 75k chars). The cumulative scan budget bounds
+        total decode work to O(n) and falls through to the naive-span fallback.
+        """
+        import time
+
+        text = '{"a":' * 15000
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        assert _first_parseable_json_object(text) is None
+        assert result == text  # no '}' anywhere, so the as-is fallback applies
+        assert elapsed < 2.0
+
+    def test_truncated_fragments_then_real_json_bounded(self):
+        """Truncated fragments before a real object: bounded time, naive-span fallback.
+
+        The scan budget is exhausted by the expensive dead-end candidates, so
+        extraction falls through to the first-'{'-to-last-'}' span -- the
+        pre-existing behavior for pathological input -- instead of spending
+        quadratic time trying every fragment.
+        """
+        import time
+
+        text = '{"a":' * 15000 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        assert elapsed < 2.0
+        assert result == text[text.find("{") : text.rfind("}") + 1]
+
 
 # --- Test remove_code_blocks ---
 

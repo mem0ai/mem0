@@ -143,11 +143,22 @@ def _first_parseable_json_object(text: str) -> Optional[str]:
     notation), only positions that can actually begin an object are decoded: the
     next non-whitespace character must be ``"`` (a key) or ``}`` (empty object).
     Runs of ``{{{...`` therefore cost O(1) each instead of a full raw_decode.
+
+    Candidates that pass the prefilter can still be expensive to reject -- an
+    unterminated string (e.g. truncated ``'{"a":{"a":...'`` output) makes
+    raw_decode scan to end-of-text before failing, and repeating that at every
+    candidate is quadratic. A cumulative scan budget of ``2 * len(text)``
+    characters (charged per failed attempt from ``JSONDecodeError.pos``) plus an
+    attempt cap bounds total work to O(n); once exhausted, this returns None and
+    ``extract_json`` falls through to its naive-span fallback, the pre-existing
+    behavior.
     """
     decoder = json.JSONDecoder(strict=False)
     length = len(text)
+    budget = 2 * length
+    attempts_left = 100
     idx = text.find("{")
-    while idx != -1:
+    while idx != -1 and budget > 0 and attempts_left > 0:
         nxt = idx + 1
         while nxt < length and text[nxt] in " \t\r\n":
             nxt += 1
@@ -155,8 +166,9 @@ def _first_parseable_json_object(text: str) -> Optional[str]:
             try:
                 _, end = decoder.raw_decode(text, idx)
                 return text[idx:end]
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as err:
+                budget -= max(err.pos - idx, 1)
+                attempts_left -= 1
         idx = text.find("{", idx + 1)
     return None
 
