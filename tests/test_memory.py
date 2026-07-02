@@ -1,6 +1,9 @@
+import builtins
 import json
+import sys
+import types
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1524,8 +1527,61 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     messages = [{"role": "user", "content": "test"}]
     metadata = {"user_id": "test_user"}
 
-    await memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
+    fake_langchain_core = types.ModuleType("langchain_core")
+    fake_langchain_core.__path__ = []
+    fake_messages = types.ModuleType("langchain_core.messages")
+    fake_messages.__path__ = []
+    fake_utils = types.ModuleType("langchain_core.messages.utils")
+    fake_utils.convert_to_messages = lambda messages: messages
+
+    with patch.dict(
+        sys.modules,
+        {
+            "langchain_core": fake_langchain_core,
+            "langchain_core.messages": fake_messages,
+            "langchain_core.messages.utils": fake_utils,
+        },
+    ):
+        await memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
 
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_default_llm_does_not_require_langchain_core(mock_llm_factory, mock_emb, mock_vs):
+    """Default async procedural memory path should not require optional langchain-core."""
+    mock_vs.create.return_value = MagicMock()
+    mock_emb.create.return_value = MagicMock()
+    mock_emb.create.return_value.embed.return_value = [0.1] * 1536
+    mock_llm = MagicMock()
+    mock_llm.generate_response.return_value = "procedural summary"
+    mock_llm_factory.create.return_value = mock_llm
+
+    from mem0.memory.main import AsyncMemory
+
+    memory = AsyncMemory(MemoryConfig())
+    memory._create_memory = AsyncMock(return_value="procedural-id")
+
+    real_import = builtins.__import__
+
+    def reject_langchain_core(name, globals=None, locals=None, fromlist=(), level=0):
+        if name.startswith("langchain_core"):
+            raise ModuleNotFoundError("No module named 'langchain_core'")
+        return real_import(name, globals, locals, fromlist, level)
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    with patch.object(builtins, "__import__", side_effect=reject_langchain_core):
+        result = await memory._create_procedural_memory(messages, metadata=metadata)
+
+    mock_llm.generate_response.assert_called_once()
+    memory._create_memory.assert_awaited_once()
+    assert result == {
+        "results": [{"id": "procedural-id", "memory": "procedural summary", "event": "ADD"}],
+    }
