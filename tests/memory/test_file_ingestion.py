@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.file_utils import _chunk_text, parse_file
 from mem0.memory.main import AsyncMemory, Memory
 
@@ -204,13 +205,19 @@ def test_add_file_passes_infer_flag(sync_memory, two_chunk_file):
 
 
 def test_add_file_and_messages_together_raises(sync_memory, two_chunk_file):
-    with pytest.raises(Exception, match="not both"):
+    with pytest.raises(Mem0ValidationError, match="not both"):
         sync_memory.add(messages="hi", file=two_chunk_file, user_id="u1")
 
 
 def test_add_without_messages_or_file_raises(sync_memory):
-    with pytest.raises(Exception, match="required"):
+    with pytest.raises(Mem0ValidationError, match="required"):
         sync_memory.add(user_id="u1")
+
+
+def test_add_file_invalid_memory_type_raises(sync_memory, two_chunk_file):
+    # memory_type is validated before the file branch, so an invalid value still raises.
+    with pytest.raises(Mem0ValidationError, match="memory_type"):
+        sync_memory.add(file=two_chunk_file, memory_type="not_a_type", user_id="u1")
 
 
 # --------------------------------------------------------------------------- #
@@ -239,5 +246,5 @@ async def test_async_add_file_calls_pipeline_per_chunk(async_memory, two_chunk_f
 
 @pytest.mark.asyncio
 async def test_async_add_file_and_messages_together_raises(async_memory, two_chunk_file):
-    with pytest.raises(ValueError, match="not both"):
+    with pytest.raises(Mem0ValidationError, match="not both"):
         await async_memory.add(messages="hi", file=two_chunk_file, user_id="u1")

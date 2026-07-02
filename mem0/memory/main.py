@@ -811,6 +811,14 @@ class Memory(MemoryBase):
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
+        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
+            raise Mem0ValidationError(
+                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
+                error_code="VALIDATION_002",
+                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
+            )
+
         if file is not None and messages is not None:
             raise Mem0ValidationError(
                 message="Pass either 'messages' or 'file', not both.",
@@ -829,14 +837,6 @@ class Memory(MemoryBase):
                 error_code="VALIDATION_005",
                 details={},
                 suggestion="Provide conversation 'messages=' or a document 'file='.",
-            )
-
-        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise Mem0ValidationError(
-                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
-                error_code="VALIDATION_002",
-                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
-                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
 
         if isinstance(messages, str):
@@ -2475,19 +2475,29 @@ class AsyncMemory(MemoryBase):
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
 
+        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
+            raise ValueError(
+                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            )
+
         if file is not None and messages is not None:
-            raise ValueError("Pass either 'messages' or 'file', not both.")
+            raise Mem0ValidationError(
+                message="Pass either 'messages' or 'file', not both.",
+                error_code="VALIDATION_004",
+                details={},
+                suggestion="Provide conversation 'messages=' or a document 'file=', not both.",
+            )
         if file is not None:
             chunks = await asyncio.to_thread(parse_file, file)
             return await self._add_file_chunks_to_vector_store(
                 chunks, get_source_name(file), processed_metadata, effective_filters, infer, prompt, temporal_usage_notice
             )
         if messages is None:
-            raise ValueError("One of 'messages' or 'file' is required.")
-
-        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise ValueError(
-                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            raise Mem0ValidationError(
+                message="One of 'messages' or 'file' is required.",
+                error_code="VALIDATION_005",
+                details={},
+                suggestion="Provide conversation 'messages=' or a document 'file='.",
             )
 
         if isinstance(messages, str):
