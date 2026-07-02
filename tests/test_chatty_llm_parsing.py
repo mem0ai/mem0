@@ -91,6 +91,34 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_chatty_with_braces_in_prose(self):
+        """Prose containing braces before the real JSON must not defeat
+        extraction (issue #5998)."""
+        text = (
+            'Based on the conversation {about travel}, here is the update: '
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_braces_in_prose_both_sides(self):
+        """Brace-containing prose on both sides of the JSON payload."""
+        text = (
+            'Context {topic: travel}: {"memory": [{"id": "1", "text": "likes hiking", '
+            '"event": "ADD"}]} -- note {end of update}.'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes hiking"
+
+    def test_brace_inside_json_string_value(self):
+        """Braces inside a JSON string literal must not break balancing."""
+        text = 'Here: {"memory": [{"id": "0", "text": "use {curly} braces", "event": "ADD"}]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "use {curly} braces"
+
 
 # --- Test remove_code_blocks ---
 

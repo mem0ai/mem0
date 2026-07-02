@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -128,17 +129,63 @@ def remove_code_blocks(content: str) -> str:
 
 
 
+def _find_balanced_json_object(text):
+    """
+    Scan ``text`` for the first brace-balanced ``{...}`` span that parses as
+    valid JSON, ignoring braces that appear inside JSON string literals.
+
+    Returns the matching substring, or ``None`` if no balanced, parseable JSON
+    object is found. This lets us recover the real payload when an LLM wraps
+    its JSON in prose that itself contains braces (issue #5998).
+    """
+    for start in range(len(text)):
+        if text[start] != "{":
+            continue
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(text)):
+            ch = text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : i + 1]
+                    try:
+                        json.loads(candidate, strict=False)
+                    except json.JSONDecodeError:
+                        break
+                    return candidate
+    return None
+
+
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
-    If that also fails, returns the text as-is.
+    If no code block is found, attempts to locate a brace-balanced JSON object;
+    prose that itself contains braces no longer defeats extraction (issue #5998).
+    As a last resort it falls back to the first '{' .. last '}' span, or the
+    text as-is.
     """
     text = text.strip()
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
+        balanced = _find_balanced_json_object(text)
+        if balanced is not None:
+            return balanced
         start_idx = text.find("{")
         end_idx = text.rfind("}")
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
