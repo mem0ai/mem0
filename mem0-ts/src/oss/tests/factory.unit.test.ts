@@ -108,6 +108,11 @@ jest.mock("../src/vector_stores/qdrant", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "qdrant", config })),
 }));
+jest.mock("../src/vector_stores/baidu", () => ({
+  BaiduDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "baidu", config })),
+}));
 jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
     .fn()
@@ -253,6 +258,7 @@ describe("VectorStoreFactory", () => {
   });
 
   test.each([
+    ["baidu"],
     ["qdrant"],
     ["redis"],
     ["supabase"],
@@ -261,9 +267,8 @@ describe("VectorStoreFactory", () => {
     ["azure-ai-search"],
     ["pgvector"],
   ])("creates vector store for provider '%s'", (provider) => {
-    expect(() =>
-      VectorStoreFactory.create(provider, dummyVSConfig),
-    ).not.toThrow();
+    const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
+    expect(result.config).toBe(dummyVSConfig);
   });
 
   test("throws for unsupported provider", () => {
