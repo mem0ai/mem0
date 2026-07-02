@@ -1,36 +1,42 @@
-import type {
-  BedrockRuntimeClient as BedrockRuntimeClientModule,
-  BedrockRuntimeClient as BedrockRuntimeClientType,
-  BedrockRuntimeClientConfig,
-  InvokeModelCommand as InvokeModelCommandType,
-} from "@aws-sdk/client-bedrock-runtime";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
 
 const DEFAULT_MODEL = "amazon.titan-embed-text-v1";
 const DEFAULT_REGION = "us-west-2";
+const BEDROCK_RUNTIME_PACKAGE = "@aws-sdk/client-bedrock-runtime";
 
 type BedrockEmbeddingResponse = {
   embedding?: number[];
   embeddings?: number[][];
 };
 
-type BedrockRuntimeModule = {
-  BedrockRuntimeClient: typeof BedrockRuntimeClientModule;
-  InvokeModelCommand: typeof InvokeModelCommandType;
-};
-
-export class AWSBedrockEmbedder implements Embedder {
-  private modulePromise?: Promise<BedrockRuntimeModule>;
-  private clientPromise?: Promise<BedrockRuntimeClientType>;
-  private model: string;
-  private region: string;
-  private embeddingDims?: number;
-  private credentials?: {
+type BedrockRuntimeClientConfig = {
+  region: string;
+  credentials?: {
     accessKeyId: string;
     secretAccessKey: string;
     sessionToken?: string;
   };
+};
+
+type BedrockRuntimeClient = {
+  send(command: unknown): Promise<{ body?: Uint8Array }>;
+};
+
+type BedrockRuntimeModule = {
+  BedrockRuntimeClient: new (
+    config: BedrockRuntimeClientConfig,
+  ) => BedrockRuntimeClient;
+  InvokeModelCommand: new (input: Record<string, unknown>) => unknown;
+};
+
+export class AWSBedrockEmbedder implements Embedder {
+  private modulePromise?: Promise<BedrockRuntimeModule>;
+  private clientPromise?: Promise<BedrockRuntimeClient>;
+  private model: string;
+  private region: string;
+  private embeddingDims?: number;
+  private credentials?: BedrockRuntimeClientConfig["credentials"];
 
   constructor(config: EmbeddingConfig) {
     this.model = config.model || DEFAULT_MODEL;
@@ -58,21 +64,21 @@ export class AWSBedrockEmbedder implements Embedder {
 
   private async loadModule(): Promise<BedrockRuntimeModule> {
     if (!this.modulePromise) {
-      this.modulePromise = import("@aws-sdk/client-bedrock-runtime").catch(
-        (error) => {
+      this.modulePromise = import(BEDROCK_RUNTIME_PACKAGE)
+        .then((runtime) => runtime as BedrockRuntimeModule)
+        .catch((error) => {
           const message =
             error instanceof Error ? error.message : String(error);
           throw new Error(
             "AWS Bedrock embeddings require @aws-sdk/client-bedrock-runtime. " +
               `Install it with \`pnpm add @aws-sdk/client-bedrock-runtime\`. ${message}`,
           );
-        },
-      );
+        });
     }
     return this.modulePromise;
   }
 
-  private async getClient(): Promise<BedrockRuntimeClientType> {
+  private async getClient(): Promise<BedrockRuntimeClient> {
     if (!this.clientPromise) {
       this.clientPromise = this.loadModule().then(
         ({ BedrockRuntimeClient }) => {

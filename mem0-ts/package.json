@@ -85,7 +85,6 @@
   "author": "Deshraj Yadav",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.883.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.6",
     "@types/uuid": "^9.0.8",

@@ -8,10 +8,14 @@ const mockInvokeModelCommand = jest.fn().mockImplementation((input) => ({
   input,
 }));
 
-jest.mock("@aws-sdk/client-bedrock-runtime", () => ({
-  BedrockRuntimeClient: mockBedrockRuntimeClient,
-  InvokeModelCommand: mockInvokeModelCommand,
-}));
+jest.mock(
+  "@aws-sdk/client-bedrock-runtime",
+  () => ({
+    BedrockRuntimeClient: mockBedrockRuntimeClient,
+    InvokeModelCommand: mockInvokeModelCommand,
+  }),
+  { virtual: true },
+);
 
 import { AWSBedrockEmbedder } from "../src/embeddings/aws_bedrock";
 
