@@ -281,19 +281,22 @@ export default class MemoryClient {
       text,
       metadata,
       timestamp,
+      expirationDate,
     }: {
       text?: string;
       metadata?: Record<string, any>;
       timestamp?: number | string;
+      expirationDate?: string | null;
     },
   ): Promise<Array<Memory>> {
     if (
       text === undefined &&
       metadata === undefined &&
-      timestamp === undefined
+      timestamp === undefined &&
+      expirationDate === undefined
     ) {
       throw new Error(
-        "At least one of text, metadata, or timestamp must be provided for update.",
+        "At least one of text, metadata, timestamp, or expirationDate must be provided for update.",
       );
     }
 
@@ -302,6 +305,7 @@ export default class MemoryClient {
     if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
     if (timestamp !== undefined) payload.timestamp = timestamp;
+    if (expirationDate !== undefined) payload.expiration_date = expirationDate;
 
     const payloadKeys = Object.keys(payload);
     this._captureEvent("update", [payloadKeys]);

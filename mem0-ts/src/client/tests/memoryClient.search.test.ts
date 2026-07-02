@@ -81,6 +81,24 @@ describe("MemoryClient - search()", () => {
     expect(getFetchBody(call!).latest_only).toBe(true);
   });
 
+  test("serializes showExpired as show_expired", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.search("test", {
+      filters: { user_id: "u1" },
+      showExpired: true,
+    });
+
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
+    expect(getFetchBody(call!).show_expired).toBe(true);
+  });
+
   test("passes complex OR filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v3/memories/search/", {
@@ -299,5 +317,23 @@ describe("MemoryClient - getAll() entity param rejection", () => {
 
     const call = findFetchCall(mock, "/v3/memories/", "POST");
     expect(getFetchBody(call!).latest_only).toBe(true);
+  });
+
+  test("serializes showExpired as show_expired", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({
+      filters: { user_id: "u1" },
+      showExpired: true,
+    });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(getFetchBody(call!).show_expired).toBe(true);
   });
 });
