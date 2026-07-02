@@ -43,14 +43,14 @@ The key architectural decision is **ADD-only extraction**. New facts are stored 
 
 ### Multi-Signal Retrieval
 
-When a query arrives, the retrieval pipeline scores candidates across three signals in parallel, then applies a temporal reranking pass:
+When a query arrives, the retrieval pipeline scores candidates across multiple signals in parallel, then applies a temporal reranking pass:
 
 1. **Semantic Search**: Vector similarity scoring against memory embeddings
 2. **Keyword Search**: Normalized term matching via BM25 with verb-form lemmatization
 3. **Entity Search**: Entity matching boosts memories linked to query entities
 4. **Temporal Reranking**: For time-sensitive queries, a recency-aware pass reranks the fused candidates so the correct dated instance surfaces. Recent memories can receive up to a 1.5x boost and stale ones are dampened toward 0.3x. It reranks rather than filters, so relevant memories are never dropped.
 
-The first three signals are fused via rank scoring, then temporal reranking is applied to produce the final top-K set. Different query types lean on different signals:
+These signals are fused via rank scoring, then temporal reranking is applied to produce the final top-K set. Different query types lean on different signals:
 
 | Query Type | Primary Signal | Example |
 |---|---|---|
