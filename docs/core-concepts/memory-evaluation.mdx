@@ -70,13 +70,13 @@ The combined score outperformed every individual signal across every category te
 
 | Category | Score |
 |---|---|
-| **Overall** | **90.2** |
+| **Overall** | **92.5** |
 | Single-hop | 91.2 |
 | Multi-hop | 91.3 |
 | Open-domain | 72.7 |
 | Temporal | 92.0 |
 
-*Mean tokens: 6,956.*
+*Mean tokens: 6,956. Retrieval budget: top_200.*
 
 Temporal reasoning is on by default and improves the time-sensitive categories the most — temporal (92.0) and multi-hop (91.3) questions, where the system has to identify which dated instance applies — while open-domain (72.7) does not benefit from temporal reranking and is actively being tuned.
 
