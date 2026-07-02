@@ -137,6 +137,33 @@ That's the result."""
         assert result == text  # falls through to the return-as-is branch
         assert elapsed < 2.0
 
+    def test_unmatched_brace_before_real_json(self):
+        """An unmatched '{' in prose must not hide a later valid object.
+
+        Regression: a single running brace-depth counter is pinned above zero
+        by one stray open brace, so the real object is never reached and
+        extract_json falls through to the naive span, reproducing #5998.
+        """
+        text = (
+            "Sure, I will fill in {the blank with details later. "
+            'Here is the extracted JSON: '
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_many_unbalanced_braces_then_real_json_stays_linear(self):
+        """Unmatched braces followed by a real object: found, and still linear."""
+        import time
+
+        text = "{" * 50000 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        assert json.loads(result)["memory"][0]["text"] == "ok"
+        assert elapsed < 2.0
+
 
 # --- Test remove_code_blocks ---
 
@@ -289,3 +316,12 @@ I hope this helps!"""
         )
         result = self._parse_with_fallback(response)
         assert result["memory"][0]["text"] == "planning a trip"
+
+    def test_unmatched_brace_before_json(self):
+        """Full chain: an unmatched '{' in prose before the real object."""
+        response = (
+            "Note: sketching {pseudocode for later. Final answer: "
+            '{"memory": [{"id": "0", "text": "Name is Alex", "event": "ADD"}]}'
+        )
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "Name is Alex"
