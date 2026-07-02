@@ -10,7 +10,8 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 from pydantic import ValidationError
 
@@ -25,6 +26,7 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
+from mem0.memory.file_utils import get_source_name, parse_file
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
@@ -714,9 +716,33 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    def _add_file_chunks_to_vector_store(
+        self, chunks, source_name, metadata, filters, infer, prompt, temporal_usage_notice
+    ):
+        """Run each chunk of an ingested document through the existing add
+        pipeline, tag every resulting memory with ``source_file``, and aggregate
+        the per-chunk results into one ``add()``-shaped response.
+        """
+        metadata = {"source_file": source_name, **metadata}
+        results = []
+        for chunk in chunks:
+            chunk_result = self._add_to_vector_store(
+                [{"role": "user", "content": chunk}], metadata, filters, infer, prompt=prompt
+            )
+            results.extend(chunk_result)
+
+        scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
+        if temporal_usage_notice:
+            display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
+        else:
+            display_first_run_notice(self, "sync", "add")
+        return {"results": results}
+
     def add(
         self,
-        messages,
+        messages=None,
         *,
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -727,6 +753,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        file: Optional[Union[str, Path]] = None,
     ):
         """
         Create a new memory.
@@ -752,6 +779,10 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            file (str or Path, optional): Path to a document (.txt, .md, .pdf, .docx) to ingest.
+                The file's text is extracted, chunked, and each chunk is stored as memories
+                tagged with a `source_file` metadata field. Pass either `messages` or `file`,
+                not both. PDF/DOCX require the optional `mem0ai[document]` dependencies.
 
 
         Returns:
@@ -779,6 +810,26 @@ class Memory(MemoryBase):
         )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
+
+        if file is not None and messages is not None:
+            raise Mem0ValidationError(
+                message="Pass either 'messages' or 'file', not both.",
+                error_code="VALIDATION_004",
+                details={},
+                suggestion="Provide conversation 'messages=' or a document 'file=', not both.",
+            )
+        if file is not None:
+            chunks = parse_file(file)
+            return self._add_file_chunks_to_vector_store(
+                chunks, get_source_name(file), processed_metadata, effective_filters, infer, prompt, temporal_usage_notice
+            )
+        if messages is None:
+            raise Mem0ValidationError(
+                message="One of 'messages' or 'file' is required.",
+                error_code="VALIDATION_005",
+                details={},
+                suggestion="Provide conversation 'messages=' or a document 'file='.",
+            )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise Mem0ValidationError(
@@ -2354,9 +2405,32 @@ class AsyncMemory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    async def _add_file_chunks_to_vector_store(
+        self, chunks, source_name, metadata, filters, infer, prompt, temporal_usage_notice
+    ):
+        """Async mirror of the sync file-chunk ingestion: run each chunk through
+        the add pipeline, tag with ``source_file``, and aggregate the results.
+        """
+        metadata = {"source_file": source_name, **metadata}
+        results = []
+        for chunk in chunks:
+            chunk_result = await self._add_to_vector_store(
+                [{"role": "user", "content": chunk}], metadata, filters, infer, prompt=prompt
+            )
+            results.extend(chunk_result)
+
+        scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
+        if temporal_usage_notice:
+            await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "add")
+        return {"results": results}
+
     async def add(
         self,
-        messages,
+        messages=None,
         *,
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -2367,6 +2441,7 @@ class AsyncMemory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        file: Optional[Union[str, Path]] = None,
         llm=None,
     ):
         """
@@ -2399,6 +2474,16 @@ class AsyncMemory(MemoryBase):
         )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
+
+        if file is not None and messages is not None:
+            raise ValueError("Pass either 'messages' or 'file', not both.")
+        if file is not None:
+            chunks = await asyncio.to_thread(parse_file, file)
+            return await self._add_file_chunks_to_vector_store(
+                chunks, get_source_name(file), processed_metadata, effective_filters, infer, prompt, temporal_usage_notice
+            )
+        if messages is None:
+            raise ValueError("One of 'messages' or 'file' is required.")
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
