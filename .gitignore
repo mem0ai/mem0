@@ -191,3 +191,4 @@ qdrant_storage/
 testing.ipynb
 .weave/
 
+uv.lock
