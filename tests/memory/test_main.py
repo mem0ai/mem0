@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -536,6 +536,169 @@ async def test_async_delete_initializes_entity_store_before_cleanup():
     assert memory.entity_store_accesses == 1
     entity_store.list.assert_called_once_with(filters={"user_id": "user-1"}, top_k=10000)
     entity_store.delete.assert_called_once_with(vector_id="entity-1")
+
+
+def test_delete_updates_entity_when_other_memories_remain():
+    """remaining>0 branch: entity keeps other linked ids, so it is re-embedded
+    and update()'d (not deleted). Covers the sibling-path gap flagged in review."""
+    stale_row = SimpleNamespace(
+        id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1", "mem-2"]}
+    )
+    entity_store = MagicMock()
+    entity_store.list.return_value = [stale_row]
+
+    memory = _ProbeMemory.__new__(_ProbeMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+    memory.embedding_model = MagicMock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+    existing_memory = SimpleNamespace(
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        }
+    )
+
+    memory._delete_memory("mem-1", existing_memory=existing_memory)
+
+    assert memory.entity_store_accesses == 1
+    entity_store.delete.assert_not_called()
+    memory.embedding_model.embed.assert_called_once_with("Paris", "update")
+    entity_store.update.assert_called_once()
+    update_kwargs = entity_store.update.call_args.kwargs
+    assert update_kwargs["vector_id"] == "entity-1"
+    assert update_kwargs["vector"] == [0.1, 0.2, 0.3]
+    assert update_kwargs["payload"]["linked_memory_ids"] == ["mem-2"]
+
+
+@pytest.mark.asyncio
+async def test_async_delete_updates_entity_when_other_memories_remain():
+    """Async remaining>0 branch: re-embed + update() rather than delete()."""
+    stale_row = SimpleNamespace(
+        id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1", "mem-2"]}
+    )
+    entity_store = MagicMock()
+    entity_store.list.return_value = [stale_row]
+
+    memory = _ProbeAsyncMemory.__new__(_ProbeAsyncMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+    memory.embedding_model = MagicMock()
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+
+    existing_memory = SimpleNamespace(
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        }
+    )
+
+    await memory._delete_memory("mem-1", existing_memory=existing_memory)
+
+    assert memory.entity_store_accesses == 1
+    entity_store.delete.assert_not_called()
+    memory.embedding_model.embed.assert_called_once_with("Paris", "update")
+    entity_store.update.assert_called_once()
+    update_kwargs = entity_store.update.call_args.kwargs
+    assert update_kwargs["payload"]["linked_memory_ids"] == ["mem-2"]
+
+
+class _FailingEntityStoreMemory(Memory):
+    @property
+    def entity_store(self):
+        self.entity_store_accesses += 1
+        raise RuntimeError("entity store init boom")
+
+
+class _FailingEntityStoreAsyncMemory(AsyncMemory):
+    @property
+    def entity_store(self):
+        self.entity_store_accesses += 1
+        raise RuntimeError("entity store init boom")
+
+
+def test_delete_survives_entity_store_init_failure():
+    """except-branch coverage: if entity_store init raises, cleanup logs and
+    returns without breaking the primary delete path."""
+    memory = _FailingEntityStoreMemory.__new__(_FailingEntityStoreMemory)
+    memory._entity_store = None
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+
+    existing_memory = SimpleNamespace(
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        }
+    )
+
+    # Should not raise despite entity-store init failure.
+    memory._delete_memory("mem-1", existing_memory=existing_memory)
+
+    assert memory.entity_store_accesses == 1
+    memory.vector_store.delete.assert_called_once_with(vector_id="mem-1")
+
+
+@pytest.mark.asyncio
+async def test_async_delete_survives_entity_store_init_failure():
+    memory = _FailingEntityStoreAsyncMemory.__new__(_FailingEntityStoreAsyncMemory)
+    memory._entity_store = None
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+
+    existing_memory = SimpleNamespace(
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        }
+    )
+
+    await memory._delete_memory("mem-1", existing_memory=existing_memory)
+
+    assert memory.entity_store_accesses == 1
+    memory.vector_store.delete.assert_called_once_with(vector_id="mem-1")
+
+
+def test_reset_initializes_entity_store_before_wipe():
+    """reset() must route through the lazy property so a fresh process still
+    wipes a persisted entity collection from a prior process."""
+    entity_store = MagicMock()
+
+    memory = _ProbeMemory.__new__(_ProbeMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+    memory.db.connection = None  # skip history-table drop path
+    memory.config = MagicMock()
+    memory.config.vector_store.provider = "dummy"
+    memory.config.vector_store.config = {}
+    memory.config.history_db_path = ":memory:"
+
+    with patch("mem0.memory.main.VectorStoreFactory") as vf, \
+         patch("mem0.memory.main.SQLiteManager"), \
+         patch("mem0.memory.main.capture_event"), \
+         patch("mem0.memory.main.display_first_run_notice"):
+        vf.reset.return_value = MagicMock()
+        memory.reset()
+
+    assert memory.entity_store_accesses == 1
+    entity_store.reset.assert_called_once()
+    assert memory._entity_store is None
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):

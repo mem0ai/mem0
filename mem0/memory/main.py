@@ -2100,13 +2100,15 @@ class Memory(MemoryBase):
             self.vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, self.config.vector_store.config
             )
-        # Reset entity store if initialized
-        if self._entity_store is not None:
-            try:
-                self._entity_store.reset()
-            except Exception as e:
-                logger.warning(f"Failed to reset entity store: {e}")
-            self._entity_store = None
+        # Reset entity store. Route through the lazy `entity_store` property so a
+        # fresh process (where `_entity_store` is still None) still wipes any
+        # persisted entity collection from a prior process, rather than skipping
+        # the reset entirely. try/except keeps reset non-fatal on init failure.
+        try:
+            self.entity_store.reset()
+        except Exception as e:
+            logger.warning(f"Failed to reset entity store: {e}")
+        self._entity_store = None
 
         capture_event("mem0.reset", self, {"sync_type": "sync"})
         display_first_run_notice(self, "sync", "reset")
@@ -3772,12 +3774,16 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
 
-        if self._entity_store is not None:
-            try:
-                await asyncio.to_thread(self._entity_store.reset)
-            except Exception as e:
-                logger.warning(f"Failed to reset entity store: {e}")
-            self._entity_store = None
+        # Reset entity store. Route through the lazy `entity_store` property so a
+        # fresh process (where `_entity_store` is still None) still wipes any
+        # persisted entity collection from a prior process. The sync reset() does
+        # this too; the async path previously skipped entity-store cleanup
+        # entirely. try/except keeps reset non-fatal on init failure.
+        try:
+            await asyncio.to_thread(self.entity_store.reset)
+        except Exception as e:
+            logger.warning(f"Failed to reset entity store (async): {e}")
+        self._entity_store = None
 
         capture_event("mem0.reset", self, {"sync_type": "async"})
         await display_first_run_notice_async(self, "async", "reset")
