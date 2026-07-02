@@ -267,6 +267,21 @@ describe("Memory - deleteAll()", () => {
     expect(remaining.results).toHaveLength(0);
   });
 
+  test("does not re-fetch memories already returned by list", async () => {
+    const scopedUserId = `deleteall_no_refetch_${Date.now()}`;
+    await memory.add("No refetch fact A", { userId: scopedUserId });
+    await memory.add("No refetch fact B", { userId: scopedUserId });
+    const vectorStore = (memory as any).vectorStore;
+    const getSpy = jest.spyOn(vectorStore, "get");
+
+    try {
+      await memory.deleteAll({ userId: scopedUserId });
+      expect(getSpy).not.toHaveBeenCalled();
+    } finally {
+      getSpy.mockRestore();
+    }
+  });
+
   test("throws when no filter is provided", async () => {
     await expect(memory.deleteAll({} as any)).rejects.toThrow(
       "At least one filter is required to delete all memories",

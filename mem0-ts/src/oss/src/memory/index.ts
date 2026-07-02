@@ -7,6 +7,7 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreResult,
 } from "../types";
 import {
   EmbedderFactory,
@@ -1619,7 +1620,7 @@ export class Memory {
 
     const [memories] = await this.vectorStore.list(filters);
     for (const memory of memories) {
-      await this.deleteMemory(memory.id);
+      await this.deleteMemory(memory.id, memory);
     }
 
     const result = { message: "Memories deleted successfully!" };
@@ -1853,8 +1854,11 @@ export class Memory {
     return memoryId;
   }
 
-  private async deleteMemory(memoryId: string): Promise<string> {
-    const existingMemory = await this.vectorStore.get(memoryId);
+  private async deleteMemory(
+    memoryId: string,
+    existingMemory?: VectorStoreResult | null,
+  ): Promise<string> {
+    existingMemory ??= await this.vectorStore.get(memoryId);
     if (!existingMemory) {
       throw new Error(`Memory with ID ${memoryId} not found`);
     }
