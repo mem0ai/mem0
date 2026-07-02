@@ -463,3 +463,25 @@ def test_init_with_placeholder_api_key(monkeypatch):
             http_client=None,
             default_headers=None,
         )
+
+
+def test_generate_response_preserves_words_containing_assistant(mock_openai_client):
+    """Words that merely contain the substring 'assistant' (e.g. 'assistance')
+    must not be corrupted by the keyword rewrite (issue #6036)."""
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "I need financial assistance."}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    sent_messages = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == "I need financial assistance."
+    # The standalone word is still rewritten.
+    messages2 = [{"role": "user", "content": "my assistant helps with assistance"}]
+    llm.generate_response(messages2)
+    sent_messages2 = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages2[-1]["content"] == "my ai helps with assistance"

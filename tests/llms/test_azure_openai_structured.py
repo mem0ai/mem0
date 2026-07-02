@@ -322,3 +322,19 @@ def test_generate_response_handles_multimodal_content(mock_azure_openai):
     assert response == "ok"
     sent_messages = mock_client.chat.completions.create.call_args[1]["messages"]
     assert sent_messages[-1]["content"] == [{"type": "text", "text": "describe my assistant"}]
+
+
+def test_rewrite_assistant_keyword_uses_word_boundaries():
+    """The keyword rewrite must not corrupt words that merely contain the
+    substring 'assistant', e.g. 'assistance' (issue #6036)."""
+    messages = [{"role": "user", "content": "I need financial assistance."}]
+    rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
+    assert rewritten[-1]["content"] == "I need financial assistance."
+    # Caller messages are not mutated.
+    assert messages[-1]["content"] == "I need financial assistance."
+
+
+def test_rewrite_assistant_keyword_still_rewrites_standalone_word():
+    messages = [{"role": "user", "content": "my assistant helps with assistance"}]
+    rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
+    assert rewritten[-1]["content"] == "my ai helps with assistance"
