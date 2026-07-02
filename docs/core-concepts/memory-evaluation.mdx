@@ -68,16 +68,17 @@ The combined score outperformed every individual signal across every category te
 
 [LoCoMo](https://github.com/snap-stanford/locomo) tests single-hop, multi-hop, open-domain, and temporal memory recall across conversational sessions.
 
-| Retrieval cutoff | Score |
+| Category | Score |
 |---|---|
-| top_10 | 87.3 |
-| top_20 | 89.3 |
-| top_50 | 91.8 |
-| **top_200** | **92.5** |
+| **Overall** | **90.2** |
+| Single-hop | 91.2 |
+| Multi-hop | 91.3 |
+| Open-domain | 72.7 |
+| Temporal | 92.0 |
 
 *Mean tokens: 6,956.*
 
-At the top_200 retrieval budget, overall LoCoMo accuracy reaches **92.5%**. Temporal reasoning is on by default and improves the time-sensitive categories the most — temporal and multi-hop questions, where the system has to identify which dated instance applies — while open-domain is the one category that does not benefit from temporal reranking and is actively being tuned.
+Temporal reasoning is on by default and improves the time-sensitive categories the most — temporal (92.0) and multi-hop (91.3) questions, where the system has to identify which dated instance applies — while open-domain (72.7) does not benefit from temporal reranking and is actively being tuned.
 
 ### LongMemEval
 
