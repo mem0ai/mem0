@@ -9,7 +9,7 @@ iconType: "solid"
 
 Most AI agent memory systems retrieve information by maximizing context window size. That works on benchmarks but not in production, where every token adds cost. **Token efficiency** means achieving high accuracy with less context per query. It is what separates benchmark performance from production viability.
 
-The new Mem0 algorithm achieves competitive accuracy on LoCoMo, LongMemEval, and BEAM while averaging **under 7,000 tokens per retrieval call**. Full-context approaches on the same benchmarks routinely consume 25,000+ tokens per query.
+Mem0's algorithm achieves competitive accuracy on LoCoMo, LongMemEval, and BEAM while averaging **under 7,000 tokens per retrieval call**. Full-context approaches on the same benchmarks routinely consume 25,000+ tokens per query. Unless noted otherwise, scores are reported at a **top_200 retrieval budget** (the 200 highest-ranked memories per query).
 
 Evaluating a memory system at scale comes down to three parameters: **accuracy** (what the benchmarks measure), **cost** (context tokens per query), and **performance** (latency). Optimizing one is easy. Balancing all three at scale is the actual problem.
 
@@ -17,17 +17,18 @@ Some benchmarks today, particularly smaller ones like LoCoMo and LongMemEval, ca
 
 ## Architecture Overview
 
-Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), with a graph memory layer (entity linking) connecting them.
+Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), connected by a graph memory layer (entity linking) and a temporal reasoning layer (time metadata written during extraction and scored during retrieval).
 
 ### Memory Extraction (Distillation)
 
-When new conversations arrive, the extraction pipeline processes them through five stages:
+When new conversations arrive, the extraction pipeline processes them through six stages:
 
 1. **Store New Memories**: Conversation enters the pipeline asynchronously (after the agent responds)
 2. **Context Lookup**: Find related existing memories to avoid duplicates
 3. **Distill Memories**: Single-pass LLM extraction produces ADD-only facts from input + context
 4. **Deduplicate + Embed**: Hash-based deduplication, then vectorize new memories
 5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
+6. **Temporal Reasoning**: A separate temporal reasoning pass reads each new memory alongside the source conversation and its date, extracting temporal metadata — when the event occurred, whether it is ongoing or completed, how precise the timing is, and the memory type (event, state, plan, preference, relationship, absence). It is independent of extraction and can run asynchronously so writes stay fast; this metadata is stored with the memory and used later at retrieval.
 
 Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
@@ -43,20 +44,21 @@ The key architectural decision is **ADD-only extraction**. New facts are stored 
 
 ### Multi-Signal Retrieval
 
-When a query arrives, the retrieval pipeline scores candidates across three signals in parallel:
+When a query arrives, the retrieval pipeline scores candidates across multiple signals in parallel:
 
 1. **Semantic Search**: Vector similarity scoring against memory embeddings
 2. **Keyword Search**: Normalized term matching via BM25 with verb-form lemmatization
 3. **Entity Search**: Entity matching boosts memories linked to query entities
+4. **Temporal Reasoning**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent.
 
-Results are fused via rank scoring into a final top-K set. Different query types lean on different signals:
+These signals are fused via rank scoring into the final top-K set. The temporal score is additive and semantic relevance always dominates — it nudges ranking toward the correct dated instance without filtering candidates out or overriding a strong semantic match, so relevant memories are never dropped. Different query types lean on different signals:
 
 | Query Type | Primary Signal | Example |
 |---|---|---|
 | Conceptual | Semantic | "What does the user think about remote work?" |
 | Factual/exact | BM25 keyword | "What meetings did I attend last week?" |
 | Entity-centric | Entity matching | "What do we know about Alice?" |
-| Temporal | Semantic + keyword | "When did the user first mention the project?" |
+| Temporal | Temporal reasoning | "When did the user first mention the project?" |
 
 The combined score outperformed every individual signal across every category tested.
 
@@ -66,37 +68,35 @@ The combined score outperformed every individual signal across every category te
 
 [LoCoMo](https://github.com/snap-stanford/locomo) tests single-hop, multi-hop, open-domain, and temporal memory recall across conversational sessions.
 
-| Category | Old Algorithm | New Algorithm | Delta |
-|---|---|---|---|
-| **Overall** | **71.4** | **91.6** | **+20.2** |
-| Single-hop | 76.6 | 92.3 | +15.7 |
-| Multi-hop | 70.2 | 93.3 | +23.1 |
-| Open-domain | 57.3 | 76.0 | +18.7 |
-| Temporal | 63.2 | 92.8 | +29.6 |
+| Category | Score |
+|---|---|
+| **Overall** | **92.5** |
+| Single-hop | 91.2 |
+| Multi-hop | 91.3 |
+| Open-domain | 72.7 |
+| Temporal | 92.0 |
 
-*Mean tokens: 6,956*
+*Mean tokens: 6,956.*
 
-The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and graph memory / entity linking (connecting facts across memories).
+Temporal reasoning is on by default and helps most on temporal (92.0) and multi-hop (91.3) questions, where the system has to identify which dated instance applies, while open-domain (72.7) does not benefit and is actively being tuned.
 
 ### LongMemEval
 
 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) evaluates memory across single-session and multi-session contexts, including knowledge updates and temporal reasoning.
 
-| Category | Old Algorithm | New Algorithm | Delta |
-|---|---|---|---|
-| **Overall** | **67.8** | **93.4** | **+25.6** |
-| Single-session (user) | 94.3 | 97.1 | +2.8 |
-| Single-session (assistant) | 46.4 | 100.0 | +53.6 |
-| Single-session (preference) | 76.7 | 96.7 | +20.0 |
-| Knowledge update | 79.5 | 96.2 | +16.7 |
-| Temporal reasoning | 51.1 | 93.2 | +42.1 |
-| Multi-session | 70.7 | 86.5 | +15.8 |
+| Category | Score |
+|---|---|
+| **Overall** | **94.4** |
+| Single-session (user) | 98.6 |
+| Single-session (assistant) | 98.2 |
+| Single-session (preference) | 96.7 |
+| Knowledge update | 93.6 |
+| Temporal reasoning | 97.0 |
+| Multi-session | 88.0 |
 
-*Mean tokens: 6,787*
+*Mean tokens: 6,787.*
 
-The biggest gain is **single-session assistant (+53.6)** because the previous algorithm had a blind spot for agent-generated facts. The new algorithm treats them as first-class memories.
-
-The **+42.1 on temporal reasoning** reflects the ADD-only architecture preserving chronological context that the previous UPDATE/DELETE model would destroy.
+Temporal reasoning is the standout at a top_200 budget, reaching **97.0** on the temporal-reasoning category, with single-session user and assistant both near-saturated (98.6 and 98.2). Knowledge update (93.6) remains the hardest category for an additive, ADD-only architecture: older facts are preserved rather than overwritten, so semantically similar prior facts can still surface alongside newer ones.
 
 ### BEAM
 
@@ -124,14 +124,14 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 
 ### Performance Summary
 
-All results use a single-pass retrieval setup: one retrieval call, one answer, no agentic loops.
+All results use a single-pass retrieval setup — one retrieval call, one answer, no agentic loops — at a top_200 retrieval budget.
 
-| Benchmark | Old Algorithm | New Algorithm | Average tokens / query |
-|---|---|---|---|
-| **LoCoMo** | 71.4 | **91.6** | 6,956 |
-| **LongMemEval** | 67.8 | **93.4** | 6,787 |
-| **BEAM (1M)** | N/A | **64.1** | 6,719 |
-| **BEAM (10M)** | N/A | **48.6** | 6,914 |
+| Benchmark | Score | Average tokens / query |
+|---|---|---|
+| **LoCoMo** | **92.5** | 6,956 |
+| **LongMemEval** | **94.4** | 6,787 |
+| **BEAM (1M)** | **64.1** | 6,719 |
+| **BEAM (10M)** | **48.6** | 6,914 |
 
 <Info>
 Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK. Open-source users should expect directionally similar gains but not identical numbers.
