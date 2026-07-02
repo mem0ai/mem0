@@ -7,6 +7,7 @@ export * from "./embeddings/ollama";
 export * from "./embeddings/lmstudio";
 export * from "./embeddings/google";
 export * from "./embeddings/azure";
+export * from "./embeddings/huggingface";
 export * from "./embeddings/langchain";
 export * from "./llms/base";
 export * from "./llms/openai";
