@@ -17,7 +17,7 @@ Some benchmarks today, particularly smaller ones like LoCoMo and LongMemEval, ca
 
 ## Architecture Overview
 
-Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), connected by a graph memory layer (entity linking) and a temporal layer (time metadata written during extraction and scored during retrieval).
+Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), connected by a graph memory layer (entity linking) and a temporal reasoning layer (time metadata written during extraction and scored during retrieval).
 
 ### Memory Extraction (Distillation)
 
@@ -28,7 +28,7 @@ When new conversations arrive, the extraction pipeline processes them through si
 3. **Distill Memories**: Single-pass LLM extraction produces ADD-only facts from input + context
 4. **Deduplicate + Embed**: Hash-based deduplication, then vectorize new memories
 5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
-6. **Temporal Enrichment**: A separate pass reads each new memory alongside the source conversation and its date, extracting temporal metadata — when the event occurred, whether it is ongoing or completed, how precise the timing is, and the memory type (event, state, plan, preference, relationship, absence). It is independent of extraction and can run asynchronously so writes stay fast; this metadata is stored with the memory and used later at retrieval.
+6. **Temporal Reasoning**: A separate temporal reasoning pass reads each new memory alongside the source conversation and its date, extracting temporal metadata — when the event occurred, whether it is ongoing or completed, how precise the timing is, and the memory type (event, state, plan, preference, relationship, absence). It is independent of extraction and can run asynchronously so writes stay fast; this metadata is stored with the memory and used later at retrieval.
 
 Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
@@ -49,7 +49,7 @@ When a query arrives, the retrieval pipeline scores candidates across multiple s
 1. **Semantic Search**: Vector similarity scoring against memory embeddings
 2. **Keyword Search**: Normalized term matching via BM25 with verb-form lemmatization
 3. **Entity Search**: Entity matching boosts memories linked to query entities
-4. **Temporal Scoring**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent.
+4. **Temporal Reasoning**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent.
 
 These signals are fused via rank scoring into the final top-K set. The temporal score is additive and semantic relevance always dominates — it nudges ranking toward the correct dated instance without filtering candidates out or overriding a strong semantic match, so relevant memories are never dropped. Different query types lean on different signals:
 
@@ -58,7 +58,7 @@ These signals are fused via rank scoring into the final top-K set. The temporal 
 | Conceptual | Semantic | "What does the user think about remote work?" |
 | Factual/exact | BM25 keyword | "What meetings did I attend last week?" |
 | Entity-centric | Entity matching | "What do we know about Alice?" |
-| Temporal | Temporal scoring | "When did the user first mention the project?" |
+| Temporal | Temporal reasoning | "When did the user first mention the project?" |
 
 The combined score outperformed every individual signal across every category tested.
 
@@ -76,9 +76,9 @@ The combined score outperformed every individual signal across every category te
 | Open-domain | 72.7 |
 | Temporal | 92.0 |
 
-*Mean tokens: 6,956. Retrieval budget: top_200.*
+*Mean tokens: 6,956.*
 
-Temporal reasoning is on by default and improves the time-sensitive categories the most — temporal (92.0) and multi-hop (91.3) questions, where the system has to identify which dated instance applies — while open-domain (72.7) does not benefit from temporal reranking and is actively being tuned.
+Temporal reasoning is on by default and helps most on temporal (92.0) and multi-hop (91.3) questions, where the system has to identify which dated instance applies, while open-domain (72.7) does not benefit and is actively being tuned.
 
 ### LongMemEval
 
@@ -94,7 +94,7 @@ Temporal reasoning is on by default and improves the time-sensitive categories t
 | Temporal reasoning | 97.0 |
 | Multi-session | 88.0 |
 
-*Mean tokens: 6,787. Retrieval budget: top_200.*
+*Mean tokens: 6,787.*
 
 Temporal reasoning is the standout at a top_200 budget, reaching **97.0** on the temporal-reasoning category, with single-session user and assistant both near-saturated (98.6 and 98.2). Knowledge update (93.6) remains the hardest category for an additive, ADD-only architecture: older facts are preserved rather than overwritten, so semantically similar prior facts can still surface alongside newer ones.
 
@@ -116,7 +116,7 @@ Temporal reasoning is the standout at a top_200 budget, reaching **97.0** on the
 | abstention | 52.5 | 40.0 |
 | contradiction_resolution | 35.7 | 32.5 |
 
-*Mean tokens (1M): 6,719. Mean tokens (10M): 6,914. Retrieval budget: top_200.*
+*Mean tokens (1M): 6,719. Mean tokens (10M): 6,914.*
 
 <Info>
 **BEAM is the most relevant benchmark here.** It operates at 1M and 10M token scales and cannot be solved by simply expanding the context window. The results at 10M reflect where memory systems actually stand at production context volumes. The system holds up well on preference following, instruction following, and knowledge updates at both scales. Weaker categories at 10M (temporal reasoning, event ordering, multi-session reasoning) are open problems across the field. They require higher-order representations of how events relate to each other across time, which is a primary focus of our ongoing research.
