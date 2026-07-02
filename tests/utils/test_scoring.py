@@ -155,6 +155,73 @@ class TestScoreAndRank:
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert "score_details" not in scored[0]
 
+    def test_newer_memory_wins_equal_score_tie(self):
+        """Time-aware tie-break: equally relevant conflicting memories prefer the latest write."""
+        results = [
+            {
+                "id": "old",
+                "score": 0.8,
+                "payload": {
+                    "data": "User prefers email notifications enabled",
+                    "created_at": "2026-06-01T00:00:00+00:00",
+                },
+            },
+            {
+                "id": "new",
+                "score": 0.8,
+                "payload": {
+                    "data": "User prefers email notifications disabled",
+                    "created_at": "2026-06-10T00:00:00+00:00",
+                },
+            },
+        ]
+
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+
+        assert [result["id"] for result in scored] == ["new", "old"]
+
+    def test_updated_at_wins_over_created_at_for_equal_score_tie(self):
+        results = [
+            {
+                "id": "created-later",
+                "score": 0.8,
+                "payload": {"created_at": "2026-06-10T00:00:00+00:00"},
+            },
+            {
+                "id": "updated-later",
+                "score": 0.8,
+                "payload": {
+                    "created_at": "2026-06-01T00:00:00+00:00",
+                    "updated_at": "2026-06-11T00:00:00+00:00",
+                },
+            },
+        ]
+
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+
+        assert [result["id"] for result in scored] == ["updated-later", "created-later"]
+
+    def test_invalid_updated_at_falls_back_to_created_at_for_equal_score_tie(self):
+        results = [
+            {
+                "id": "old",
+                "score": 0.8,
+                "payload": {"created_at": "2026-06-01T00:00:00+00:00"},
+            },
+            {
+                "id": "new-with-bad-update-time",
+                "score": 0.8,
+                "payload": {
+                    "created_at": "2026-06-10T00:00:00+00:00",
+                    "updated_at": "not-a-date",
+                },
+            },
+        ]
+
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+
+        assert [result["id"] for result in scored] == ["new-with-bad-update-time", "old"]
+
 
 class TestEntityBoostWeight:
     def test_weight_value(self):
