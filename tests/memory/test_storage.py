@@ -248,6 +248,26 @@ class TestSQLiteManager:
             result = sqlite_manager.get_history(memory_id)
             assert len(result) == 1
 
+    # ========== Message Storage Tests ==========
+
+    def test_save_messages_batch_eviction_keeps_newest(self, memory_manager):
+        """A single save_messages call beyond the cap must retain the newest 10, not the oldest."""
+        messages = [{"role": "user", "content": f"msg{i}", "name": None} for i in range(12)]
+        memory_manager.save_messages(messages, "scope-a")
+
+        kept = [m["content"] for m in memory_manager.get_last_messages("scope-a", limit=10)]
+
+        assert kept == [f"msg{i}" for i in range(2, 12)]
+
+    def test_get_last_messages_returns_insertion_order(self, memory_manager):
+        """get_last_messages must return messages in insertion order, even within one batched save."""
+        messages = [{"role": "user", "content": f"msg{i}", "name": None} for i in range(5)]
+        memory_manager.save_messages(messages, "scope-b")
+
+        order = [m["content"] for m in memory_manager.get_last_messages("scope-b", limit=10)]
+
+        assert order == [f"msg{i}" for i in range(5)]
+
     # ========== Tests for Migration, Reset, and Close ==========
 
     def test_explicit_old_schema_migration(self, temp_db_path):

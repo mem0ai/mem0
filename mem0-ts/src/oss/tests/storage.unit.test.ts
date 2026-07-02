@@ -104,6 +104,34 @@ describe("SQLiteManager", () => {
     expect(await db.getHistory("mem1")).toHaveLength(1);
     expect(await db.getHistory("mem2")).toHaveLength(1);
   });
+
+  test("saveMessages: a batched save beyond the cap keeps the newest 10", async () => {
+    const messages = Array.from({ length: 12 }, (_, i) => ({
+      role: "user",
+      content: `msg${i}`,
+    }));
+    await db.saveMessages(messages, "scope-a");
+
+    const kept = (await db.getLastMessages("scope-a", 10)).map(
+      (m) => m.content,
+    );
+
+    expect(kept).toEqual(Array.from({ length: 10 }, (_, i) => `msg${i + 2}`));
+  });
+
+  test("getLastMessages returns insertion order within a batched save", async () => {
+    const messages = Array.from({ length: 5 }, (_, i) => ({
+      role: "user",
+      content: `msg${i}`,
+    }));
+    await db.saveMessages(messages, "scope-b");
+
+    const order = (await db.getLastMessages("scope-b", 10)).map(
+      (m) => m.content,
+    );
+
+    expect(order).toEqual(Array.from({ length: 5 }, (_, i) => `msg${i}`));
+  });
 });
 
 // ─── DummyHistoryManager ────────────────────────────────
