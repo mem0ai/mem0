@@ -33,6 +33,17 @@ class TestParseMessages:
         ]
         assert parse_messages(messages) == "system: sys\nuser: u\nassistant: a\n"
 
+    def test_empty_messages_returns_empty_string(self):
+        assert parse_messages([]) == ""
+
+    def test_unknown_roles_are_ignored(self):
+        # Roles other than system/user/assistant produce no output line.
+        messages = [
+            {"role": "tool", "content": "result"},
+            {"role": "user", "content": "Continue"},
+        ]
+        assert parse_messages(messages) == "user: Continue\n"
+
 
 class TestParseVisionMessages:
     def test_skips_message_without_content_key(self):
