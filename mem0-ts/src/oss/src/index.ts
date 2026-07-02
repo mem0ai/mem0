@@ -8,6 +8,7 @@ export * from "./embeddings/lmstudio";
 export * from "./embeddings/together";
 export * from "./embeddings/google";
 export * from "./embeddings/azure";
+export * from "./embeddings/huggingface";
 export * from "./embeddings/langchain";
 export * from "./embeddings/fastembed";
 export * from "./llms/base";

@@ -45,6 +45,11 @@ jest.mock("../src/embeddings/together", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "together-embedder", config })),
 }));
+jest.mock("../src/embeddings/huggingface", () => ({
+  HuggingFaceEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "huggingface-embedder", config })),
+}));
 
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest
@@ -227,6 +232,7 @@ describe("EmbedderFactory", () => {
     ["langchain"],
     ["lmstudio"],
     ["together"],
+    ["huggingface"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
       EmbedderFactory.create(provider, dummyEmbedConfig),

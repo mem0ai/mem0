@@ -114,6 +114,7 @@
     "@cloudflare/workers-types": "^4.20250504.0",
     "@google-cloud/aiplatform": "^6.8.0",
     "@google/genai": "^1.40.0",
+    "@huggingface/inference": "^4.13.21",
     "@langchain/core": "^1.1.47",
     "@mistralai/mistralai": "^1.5.2",
     "@opensearch-project/opensearch": "^3.5.1",

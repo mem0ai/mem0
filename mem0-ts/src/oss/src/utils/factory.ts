@@ -39,6 +39,7 @@ import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
 import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { FastEmbedEmbedder } from "../embeddings/fastembed";
+import { HuggingFaceEmbedder } from "../embeddings/huggingface";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
@@ -73,6 +74,8 @@ export class EmbedderFactory {
         return new AzureOpenAIEmbedder(config);
       case "fastembed":
         return new FastEmbedEmbedder(config);
+      case "huggingface":
+        return new HuggingFaceEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
       default:
