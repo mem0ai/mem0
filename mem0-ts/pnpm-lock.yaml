@@ -44,6 +44,9 @@ importers:
       '@google/genai':
         specifier: ^1.40.0
         version: 1.52.0
+      '@huggingface/inference':
+        specifier: ^4.13.21
+        version: 4.13.21
       '@langchain/core':
         specifier: ^1.1.47
         version: 1.1.48(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
@@ -542,6 +545,17 @@ packages:
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
+
+  '@huggingface/inference@4.13.21':
+    resolution: {integrity: sha512-B2gsY92aN8mxgQ1zqibQPFyq05KOlE4sTmRj1wYEEghOo/D4n6lVkH6v/7HcMzwUvfrKzYid0Cl1Nw0tEY5xTQ==}
+    engines: {node: '>=18'}
+
+  '@huggingface/jinja@0.5.9':
+    resolution: {integrity: sha512-uWTG+l3VJRsl7EXxYizuL3P+cCPoc3cRqbWWRcQN0FhejRfbdq0RNhCmbY/YDtnTcz9icdLYuLDjsnz4d8JMuw==}
+    engines: {node: '>=18'}
+
+  '@huggingface/tasks@0.21.17':
+    resolution: {integrity: sha512-vdhQXFBb8hFm4U4KLGDT5a3C1JzSUU16Zoh4DJ1KDL3cdnIrUt+tIX+P1IxqZoXXx55PUQTJBu8iHH2HXtnBGg==}
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -3472,6 +3486,15 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  '@huggingface/inference@4.13.21':
+    dependencies:
+      '@huggingface/jinja': 0.5.9
+      '@huggingface/tasks': 0.21.17
+
+  '@huggingface/jinja@0.5.9': {}
+
+  '@huggingface/tasks@0.21.17': {}
 
   '@isaacs/cliui@8.0.2':
     dependencies:
