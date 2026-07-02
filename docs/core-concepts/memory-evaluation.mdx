@@ -49,9 +49,9 @@ When a query arrives, the retrieval pipeline scores candidates across multiple s
 1. **Semantic Search**: Vector similarity scoring against memory embeddings
 2. **Keyword Search**: Normalized term matching via BM25 with verb-form lemmatization
 3. **Entity Search**: Entity matching boosts memories linked to query entities
-4. **Temporal Scoring**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent. Recency also acts as a modifier — recent memories can receive up to a 1.5x boost and stale ones are dampened toward 0.3x.
+4. **Temporal Scoring**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent.
 
-These signals are fused via rank scoring into the final top-K set. The temporal score is additive: it nudges ranking toward the correct dated instance rather than filtering candidates out, so relevant memories are never dropped. Different query types lean on different signals:
+These signals are fused via rank scoring into the final top-K set. The temporal score is additive and semantic relevance always dominates — it nudges ranking toward the correct dated instance without filtering candidates out or overriding a strong semantic match, so relevant memories are never dropped. Different query types lean on different signals:
 
 | Query Type | Primary Signal | Example |
 |---|---|---|
