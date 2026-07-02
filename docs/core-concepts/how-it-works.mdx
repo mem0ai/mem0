@@ -59,7 +59,7 @@ When you call `search`, Mem0 ranks stored memories against your query and filter
 | **Semantic** | Vector similarity over embeddings | Conceptual questions |
 | **Keyword** | Term matching for exact words and phrases | Names, IDs, and factual lookups |
 | **Entity** | Boosts memories linked to entities in the query | Questions about a person, project, or account |
-| **Temporal** | Recency-aware reranking of the fused candidates | Time-sensitive questions ("when did...", latest state) |
+| **Temporal** | Scores candidates on time metadata extracted at write time against the query's temporal intent | Time-sensitive questions ("when did...", latest state) |
 
 Platform retrieval fuses these signals in the managed service. OSS retrieval depends on your configured vector store, optional reranker, and graph store.
 

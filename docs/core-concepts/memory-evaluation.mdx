@@ -17,17 +17,18 @@ Some benchmarks today, particularly smaller ones like LoCoMo and LongMemEval, ca
 
 ## Architecture Overview
 
-Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), with a graph memory layer (entity linking) connecting them.
+Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), connected by a graph memory layer (entity linking) and a temporal layer (time metadata written during extraction and scored during retrieval).
 
 ### Memory Extraction (Distillation)
 
-When new conversations arrive, the extraction pipeline processes them through five stages:
+When new conversations arrive, the extraction pipeline processes them through six stages:
 
 1. **Store New Memories**: Conversation enters the pipeline asynchronously (after the agent responds)
 2. **Context Lookup**: Find related existing memories to avoid duplicates
 3. **Distill Memories**: Single-pass LLM extraction produces ADD-only facts from input + context
 4. **Deduplicate + Embed**: Hash-based deduplication, then vectorize new memories
 5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
+6. **Temporal Enrichment**: A separate pass reads each new memory alongside the source conversation and its date, extracting temporal metadata — when the event occurred, whether it is ongoing or completed, how precise the timing is, and the memory type (event, state, plan, preference, relationship, absence). It is independent of extraction and can run asynchronously so writes stay fast; this metadata is stored with the memory and used later at retrieval.
 
 Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
@@ -43,21 +44,21 @@ The key architectural decision is **ADD-only extraction**. New facts are stored 
 
 ### Multi-Signal Retrieval
 
-When a query arrives, the retrieval pipeline scores candidates across multiple signals in parallel, then applies a temporal reranking pass:
+When a query arrives, the retrieval pipeline scores candidates across multiple signals in parallel:
 
 1. **Semantic Search**: Vector similarity scoring against memory embeddings
 2. **Keyword Search**: Normalized term matching via BM25 with verb-form lemmatization
 3. **Entity Search**: Entity matching boosts memories linked to query entities
-4. **Temporal Reranking**: For time-sensitive queries, a recency-aware pass reranks the fused candidates so the correct dated instance surfaces. Recent memories can receive up to a 1.5x boost and stale ones are dampened toward 0.3x. It reranks rather than filters, so relevant memories are never dropped.
+4. **Temporal Scoring**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent. Recency also acts as a modifier — recent memories can receive up to a 1.5x boost and stale ones are dampened toward 0.3x.
 
-These signals are fused via rank scoring, then temporal reranking is applied to produce the final top-K set. Different query types lean on different signals:
+These signals are fused via rank scoring into the final top-K set. The temporal score is additive: it nudges ranking toward the correct dated instance rather than filtering candidates out, so relevant memories are never dropped. Different query types lean on different signals:
 
 | Query Type | Primary Signal | Example |
 |---|---|---|
 | Conceptual | Semantic | "What does the user think about remote work?" |
 | Factual/exact | BM25 keyword | "What meetings did I attend last week?" |
 | Entity-centric | Entity matching | "What do we know about Alice?" |
-| Temporal | Temporal reranking | "When did the user first mention the project?" |
+| Temporal | Temporal scoring | "When did the user first mention the project?" |
 
 The combined score outperformed every individual signal across every category tested.
 
