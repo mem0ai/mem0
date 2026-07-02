@@ -537,6 +537,18 @@ export async function cmdDelete(
 	}
 }
 
+function deleteAllAgentData(
+	result: Record<string, unknown>,
+): Record<string, unknown> {
+	if (typeof result.message === "string") {
+		return {
+			deletion_started: true,
+			message: result.message,
+		};
+	}
+	return { deleted: true };
+}
+
 export async function cmdDeleteAll(
 	backend: Backend,
 	opts: {
@@ -603,7 +615,13 @@ export async function cmdDeleteAll(
 		if (opts.output === "agent") {
 			formatAgentEnvelope({
 				command: "delete-all",
-				data: result,
+				data: deleteAllAgentData(result),
+				scope: {
+					user_id: "*",
+					agent_id: "*",
+					app_id: "*",
+					run_id: "*",
+				},
 				durationMs: Math.round(elapsed * 1000),
 			});
 		} else if (opts.output === "json") {
@@ -684,9 +702,16 @@ export async function cmdDeleteAll(
 	const elapsed = (performance.now() - start) / 1000;
 
 	if (opts.output === "agent") {
+		const scope: Record<string, string | undefined> = {
+			user_id: opts.userId,
+			agent_id: opts.agentId,
+			app_id: opts.appId,
+			run_id: opts.runId,
+		};
 		formatAgentEnvelope({
 			command: "delete-all",
-			data: result,
+			data: deleteAllAgentData(result),
+			scope,
 			durationMs: Math.round(elapsed * 1000),
 		});
 	} else if (opts.output === "json") {
