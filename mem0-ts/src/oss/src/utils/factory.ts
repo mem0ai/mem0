@@ -24,6 +24,7 @@ import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
+import { TogetherLLM } from "../llms/together";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
@@ -91,6 +92,8 @@ export class LLMFactory {
         return new LiteLLM(config);
       case "minimax":
         return new MiniMaxLLM(config);
+      case "together":
+        return new TogetherLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
