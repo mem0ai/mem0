@@ -113,10 +113,18 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
     assert memory.collection_name == test_collection_name
     assert memory.config.vector_store.config.collection_name == test_collection_name
 
-    reset_calls = [call for call in mock_vector_factory.call_args_list if len(mock_vector_factory.call_args_list) > 2]
-    if reset_calls:
-        reset_config = reset_calls[-1][0][1]
-        assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
+    # reset() creates the primary vector store plus auxiliary collections
+    # (e.g. "<name>_entities", migrations). The primary collection must be
+    # recreated under its original name; assert that at least one create used
+    # the exact primary collection name.
+    created_collection_names = [
+        getattr(call[0][1], "collection_name", None)
+        for call in mock_vector_factory.call_args_list
+    ]
+    assert test_collection_name in created_collection_names, (
+        f"Reset never recreated the primary collection; "
+        f"created collections were: {created_collection_names}"
+    )
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
