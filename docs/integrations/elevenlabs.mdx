@@ -100,12 +100,12 @@ This section:
 Initialize both the ElevenLabs and Mem0 clients:
 
 ```python
-    # Initialize ElevenLabs client
-    client = ElevenLabs(api_key=API_KEY)
+# Initialize ElevenLabs client
+client = ElevenLabs(api_key=API_KEY)
 
-    # Initialize memory client and tools
-    client_tools = ClientTools()
-    mem0_client = AsyncMemoryClient()
+# Initialize memory client and tools
+client_tools = ClientTools()
+mem0_client = AsyncMemoryClient()
 ```
 
 Here we:
@@ -118,36 +118,36 @@ Here we:
 Define the two key memory functions that will be registered as tools:
 
 ```python
-    # Define memory-related functions for the agent
-    async def add_memories(parameters):
-        """Add a message to the memory store"""
-        message = parameters.get("message")
-        await mem0_client.add(
-            messages=message,
-            user_id=USER_ID
-        )
-        return "Memory added successfully"
+# Define memory-related functions for the agent
+async def add_memories(parameters):
+    """Add a message to the memory store"""
+    message = parameters.get("message")
+    await mem0_client.add(
+        messages=message,
+        user_id=USER_ID
+    )
+    return "Memory added successfully"
 
-    async def retrieve_memories(parameters):
-        """Retrieve relevant memories based on the input message"""
-        message = parameters.get("message")
+async def retrieve_memories(parameters):
+    """Retrieve relevant memories based on the input message"""
+    message = parameters.get("message")
 
-        # For Platform API, user_id goes in filters
-        filters = {"user_id": USER_ID}
+    # For Platform API, user_id goes in filters
+    filters = {"user_id": USER_ID}
 
-        # Search for relevant memories using the message as a query
-        results = await mem0_client.search(
-            query=message,
-            filters=filters
-        )
+    # Search for relevant memories using the message as a query
+    results = await mem0_client.search(
+        query=message,
+        filters=filters
+    )
 
-        # Extract and join the memory texts
-        memories = ' '.join([result["memory"] for result in results.get('results', [])])
-        print("[ Memories ]", memories)
+    # Extract and join the memory texts
+    memories = ' '.join([result["memory"] for result in results.get('results', [])])
+    print("[ Memories ]", memories)
 
-        if memories:
-            return memories
-        return "No memories found"
+    if memories:
+        return memories
+    return "No memories found"
 ```
 
 These functions:
@@ -171,9 +171,9 @@ These functions:
 Register the memory functions with the ElevenLabs ClientTools system:
 
 ```python
-    # Register the memory functions as tools for the agent
-    client_tools.register("addMemories", add_memories, is_async=True)
-    client_tools.register("retrieveMemories", retrieve_memories, is_async=True)
+# Register the memory functions as tools for the agent
+client_tools.register("addMemories", add_memories, is_async=True)
+client_tools.register("retrieveMemories", retrieve_memories, is_async=True)
 ```
 
 This allows the ElevenLabs agent to:
@@ -186,19 +186,19 @@ This allows the ElevenLabs agent to:
 Configure the conversation with ElevenLabs:
 
 ```python
-    # Initialize the conversation
-    conversation = Conversation(
-        client,
-        AGENT_ID,
-        # Assume auth is required when API_KEY is set
-        requires_auth=bool(API_KEY),
-        audio_interface=DefaultAudioInterface(),
-        client_tools=client_tools,
-        callback_agent_response=lambda response: print(f"Agent: {response}"),
-        callback_agent_response_correction=lambda original, corrected: print(f"Agent: {original} -> {corrected}"),
-        callback_user_transcript=lambda transcript: print(f"User: {transcript}"),
-        # callback_latency_measurement=lambda latency: print(f"Latency: {latency}ms"),
-    )
+# Initialize the conversation
+conversation = Conversation(
+    client,
+    AGENT_ID,
+    # Assume auth is required when API_KEY is set
+    requires_auth=bool(API_KEY),
+    audio_interface=DefaultAudioInterface(),
+    client_tools=client_tools,
+    callback_agent_response=lambda response: print(f"Agent: {response}"),
+    callback_agent_response_correction=lambda original, corrected: print(f"Agent: {original} -> {corrected}"),
+    callback_user_transcript=lambda transcript: print(f"User: {transcript}"),
+    # callback_latency_measurement=lambda latency: print(f"Latency: {latency}ms"),
+)
 ```
 
 This sets up the conversation with:
@@ -217,16 +217,16 @@ This sets up the conversation with:
 Start and manage the conversation:
 
 ```python
-    # Start the conversation
-    print(f"Starting conversation with user_id: {USER_ID}")
-    conversation.start_session()
+# Start the conversation
+print(f"Starting conversation with user_id: {USER_ID}")
+conversation.start_session()
 
-    # Handle Ctrl+C to gracefully end the session
-    signal.signal(signal.SIGINT, lambda sig, frame: conversation.end_session())
+# Handle Ctrl+C to gracefully end the session
+signal.signal(signal.SIGINT, lambda sig, frame: conversation.end_session())
 
-    # Wait for the conversation to end and get the conversation ID
-    conversation_id = conversation.wait_for_session_end()
-    print(f"Conversation ID: {conversation_id}")
+# Wait for the conversation to end and get the conversation ID
+conversation_id = conversation.wait_for_session_end()
+print(f"Conversation ID: {conversation_id}")
 
 
 if __name__ == '__main__':
@@ -446,3 +446,4 @@ By integrating ElevenLabs Conversational AI with Mem0, you can create voice agen
   </Card>
 </CardGroup>
 
+<Snippet file="star-on-github.mdx" />

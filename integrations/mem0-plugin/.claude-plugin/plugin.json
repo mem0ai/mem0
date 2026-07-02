@@ -1,6 +1,6 @@
 {
   "name": "mem0",
-  "version": "0.2.10",
+  "version": "0.2.12",
   "description": "Persistent memory for Claude Code. Remembers decisions, patterns, and preferences across sessions.",
   "author": {
     "name": "Mem0",

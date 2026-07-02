@@ -65,7 +65,7 @@ Patient is allergic to penicillin
 ```
 
 <Warning>
-Without custom instructions, AI assistants treat speculation as confirmed facts. "I think I might be allergic" becomes "Patient is allergic"—a dangerous transformation in sensitive domains like healthcare, legal, or financial services.
+Without custom instructions, AI assistants treat speculation as confirmed facts. "I think I might be allergic" becomes "Patient is allergic": a dangerous transformation in sensitive domains like healthcare, legal, or financial services.
 </Warning>
 
 The speculation became a confirmed fact. Let's add controls.
@@ -328,7 +328,7 @@ That “no duplicates” promise comes from the inference pipeline. Keep `infer=
 | Mode | What it does | Best for | Watch out for |
 | --- | --- | --- | --- |
 | `infer=True` *(default)* | Runs the LLM pipeline so Mem0 extracts structured facts and resolves conflicts automatically. | Daily conversations, preference tracking, anything you want deduped. | Slightly slower because inference runs on every write. |
-| `infer=False` | Stores your payload exactly as-is—no inference, no dedupe. | Bulk imports, compliance snapshots, curated facts you already trust. | Later `infer=True` calls for the same fact will create duplicates you must clean manually. |
+| `infer=False` | Stores your payload exactly as-is: no inference, no dedupe. | Bulk imports, compliance snapshots, curated facts you already trust. | Later `infer=True` calls for the same fact will create duplicates you must clean manually. |
 
 <Tip>
 Stay consistent per data source. If you need both behaviors, keep them in separate scopes (e.g., different `app_id` or `run_id`) so you always know which memories are inferred vs direct imports.
@@ -512,3 +512,5 @@ Start with conservative filters (only store confirmed facts) and iterate based o
 <Card title="Build a Mem0 Companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
   Learn core memory patterns including temporary vs permanent data handling.
 </Card>
+
+<Snippet file="star-on-github.mdx" />

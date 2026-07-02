@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from mem0.exceptions import LLMError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -78,6 +79,28 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 only makes 1 LLM call (no separate merge step)
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
+
+    def test_llm_extraction_exception_is_reraised(self, mocker, mock_memory):
+        """A provider error during fact extraction must propagate, not be swallowed.
+
+        Regression guard for the silent ``return []`` that made it impossible for
+        callers to tell "LLM unavailable" (429/5xx/timeout) from "no facts found".
+        Without the fix this raises AssertionError because the call returns [].
+        """
+
+        class _ProviderError(Exception):
+            pass
+
+        mock_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(LLMError) as exc_info:
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+        # The documented LLMError contract is honoured, and the original
+        # provider exception is preserved as the cause for debugging.
+        assert isinstance(exc_info.value.__cause__, _ProviderError)
 
 
 class TestPromptOverridesCustomInstructions:
@@ -167,6 +190,33 @@ class TestAsyncUpdate:
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
         )
 
+    @pytest.mark.asyncio
+    async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.vector_store.get = Mock(
+            return_value=Mock(
+                payload={
+                    "data": "Existing memory",
+                    "user_id": "test_user",
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "expiration_date": "2026-12-31",
+                }
+            )
+        )
+        mock_async_memory.vector_store.update = Mock()
+        mock_async_memory.db.add_history = Mock()
+        mock_async_memory._remove_memory_from_entity_store = mocker.AsyncMock()
+        mock_async_memory._link_entities_for_memory = mocker.AsyncMock()
+
+        result = await mock_async_memory.update("test_id", expiration_date="2999-01-01")
+
+        assert result["message"] == "Memory updated successfully!"
+        payload = mock_async_memory.vector_store.update.call_args.kwargs["payload"]
+        assert payload["data"] == "Existing memory"
+        assert payload["expiration_date"] == "2999-01-01"
+        mock_async_memory._remove_memory_from_entity_store.assert_not_called()
+        mock_async_memory._link_entities_for_memory.assert_not_called()
+
 
 @pytest.mark.asyncio
 class TestAsyncAddToVectorStoreErrors:
@@ -217,6 +267,29 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_llm_extraction_exception_is_reraised(self, mock_async_memory, mocker):
+        """Async counterpart of the sync re-raise guard.
+
+        A provider error during fact extraction must propagate as ``LLMError``
+        (with the original exception preserved as the cause), not be swallowed
+        into ``return []``. Without the fix a future revert of the async
+        ``raise`` back to ``return []`` would pass the suite silently.
+        """
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+
+        class _ProviderError(Exception):
+            pass
+
+        mock_async_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(LLMError) as exc_info:
+            await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+        assert isinstance(exc_info.value.__cause__, _ProviderError)
 
 
 def _build_memory_instance(mocker, memory_cls):

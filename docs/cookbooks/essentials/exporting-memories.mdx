@@ -58,6 +58,7 @@ Use `get_all()` with filters to retrieve everything for a specific user:
 ```python
 dev_memories = client.get_all(
     filters={"user_id": "dev"},
+    page=1,
     page_size=50
 )
 
@@ -75,7 +76,7 @@ First memory: Dev works at TechCorp as a senior engineer
 ```
 
 <Info>
-**Expected output:** `get_all()` retrieved Dev's complete memory record. This method returns everything matching your filters—no semantic search, no ranking, just raw retrieval. Perfect for exports and audits.
+**Expected output:** `get_all()` retrieved Dev's complete memory record. This method returns everything matching your filters: no semantic search, no ranking, just raw retrieval. Perfect for exports and audits.
 </Info>
 
 You can filter by metadata to get specific types:
@@ -127,7 +128,7 @@ Dev works at TechCorp as a senior engineer (score: 0.89)
 
 ```
 
-Search works across all memory fields and ranks by relevance. Use it when you have a specific question, use `get_all()` when you need everything.
+Search works across all memory fields and ranks by relevance. Use it when you have a specific question; use `get_all()` when you need everything.
 
 ---
 
@@ -277,7 +278,7 @@ This covers data portability, GDPR compliance, system migrations, and manual rev
 
 ## Summary
 
-Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, and **`create_memory_export()`** for structured data exports with custom schemas. Remember exports expire after 7 days—download them locally for long-term archives.
+Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, and **`create_memory_export()`** for structured data exports with custom schemas. Remember exports expire after 7 days: download them locally for long-term archives.
 
 <CardGroup cols={2}>
   <Card title="Build a Mem0 Companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
@@ -287,3 +288,5 @@ Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, a
     Ensure only verified insights make it into your export pipeline.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

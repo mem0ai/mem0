@@ -8,7 +8,7 @@ export function createMemoryUpdateTool(deps: ToolDeps) {
   return {
     name: "memory_update",
     label: "Memory Update",
-    description: "Update an existing memory's text in place. Atomic and preserves history.",
+    description: "Update an existing memory's text in place when a stored fact has changed -- requires the memory ID. Atomic and preserves the ID and history, so prefer this over deleting and re-adding.",
     parameters: Type.Object({
       memoryId: Type.String({ description: "The memory ID to update" }),
       text: Type.String({ description: "The new text (replaces old)" }),

@@ -231,7 +231,7 @@ mem0_client.add(
   <Tab title="Open Source">
 **Categories via Metadata:**
 
-In open source, model categories with a stable field in `metadata`—here we use `memory_bucket`:
+In open source, model categories with a stable field in `metadata`. This example uses `memory_bucket`:
 
 ```python
 # Add goal
@@ -289,8 +289,7 @@ print([m["memory"] for m in constraints["results"]])
 ```python
 constraints = memory.search(
     query="injury concerns",
-    user_id="max",
-    filters={"memory_bucket": {"in": ["constraints"]}},
+    filters={"user_id": "max", "memory_bucket": {"in": ["constraints"]}},
     threshold=0.0  # optional: widen recall for short phrases
 )
 print([m["memory"] for m in constraints["results"]])
@@ -327,7 +326,7 @@ print([m["memory"] for m in memories["results"]])
 </Tabs>
 
 <Warning>
-Without filters, Mem0 stores everything—greetings, filler, and casual chat. This pollutes retrieval: instead of pulling "marathon goal," you get "lol ok." Set custom instructions to keep memory clean.
+Without filters, Mem0 stores everything: greetings, filler, and casual chat. This pollutes retrieval: instead of pulling "marathon goal," you get "lol ok." Set custom instructions to keep memory clean.
 </Warning>
 
 Noise. Greetings and filler clutter the memory.
@@ -375,7 +374,7 @@ Return JSON with key "facts" as a list of strings (use [] if nothing to store).
 memory = Memory.from_config(MEMORY_CONFIG)
 ```
 
-<Note>`custom_instructions` is a top-level key in the config dictionary passed to `Memory.from_config()`. Make sure it's set before creating the Memory instance — not after.</Note>
+<Note>`custom_instructions` is a top-level key in the config dictionary passed to `Memory.from_config()`. Set it before creating the Memory instance, not after.</Note>
   </Tab>
 </Tabs>
 
@@ -405,7 +404,7 @@ print([m["memory"] for m in memories["results"]])
 </Tabs>
 
 <Info>
-**Expected output:** Only 2 memories stored—the marathon goal and trail preference. The greeting "hey how's it going" was filtered out automatically. Custom instructions are working.
+**Expected output:** Only 2 memories stored: the marathon goal and trail preference. The greeting "hey how's it going" was filtered out automatically. Custom instructions are working.
 </Info>
 
 Only meaningful facts. Filler gets dropped automatically.
@@ -736,8 +735,7 @@ mem0_client.add(messages, user_id="max", run_id="nyc-2025")
 # Retrieve only Boston memories
 boston_memories = mem0_client.search(
     "training plan",
-    user_id="max",
-    run_id="boston-2025"
+    filters={"user_id": "max", "run_id": "boston-2025"}
 )
 ```
   </Tab>
@@ -749,8 +747,7 @@ memory.add(messages, user_id="max", run_id="nyc-2025")
 # Retrieve only Boston memories
 boston_memories = memory.search(
     "training plan",
-    user_id="max",
-    run_id="boston-2025",
+    filters={"user_id": "max", "run_id": "boston-2025"},
 )
 ```
   </Tab>
@@ -846,14 +843,13 @@ Prioritize recent training over old data:
 ```python
 recent = mem0_client.search(
     "training progress",
-    user_id="max",
-    filters={"created_at": {"gte": "2025-10-01"}}
+    filters={"user_id": "max", "created_at": {"gte": "2025-10-01"}}
 )
 ```
   </Tab>
   <Tab title="Open Source">
 ```python
-# Qdrant range filters require numbers — store an epoch timestamp in metadata
+# Qdrant range filters require numbers: store an epoch timestamp in metadata
 from datetime import datetime
 
 epoch = int(datetime(2025, 10, 15).timestamp())
@@ -866,8 +862,7 @@ memory.add(
 cutoff = int(datetime(2025, 10, 1).timestamp())
 recent = memory.search(
     "training progress",
-    user_id="max",
-    filters={"logged_epoch": {"gte": cutoff}},
+    filters={"user_id": "max", "logged_epoch": {"gte": cutoff}},
 )
 ```
   </Tab>
@@ -889,8 +884,7 @@ mem0_client.add(
 # Later, find all speed workouts
 speed_sessions = mem0_client.search(
     "speed work",
-    user_id="max",
-    filters={"metadata": {"workout_type": "speed"}}
+    filters={"user_id": "max", "metadata": {"workout_type": "speed"}}
 )
 ```
   </Tab>
@@ -905,8 +899,7 @@ memory.add(
 # Later, find all speed workouts
 speed_sessions = memory.search(
     "speed work",
-    user_id="max",
-    filters={"workout_type": "speed"},
+    filters={"user_id": "max", "workout_type": "speed"},
 )
 ```
   </Tab>
@@ -980,3 +973,5 @@ Before launching:
     Organize customer context to keep assistants responsive at scale.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

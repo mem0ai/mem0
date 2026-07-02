@@ -41,6 +41,14 @@ Multimodal support lets Mem0 extract facts from images alongside regular text. A
 
 ## Configure it
 
+<Warning>
+  You must set `enable_vision: True` in your LLM config for image content to be processed. Without it, image turns are silently dropped and no vision memories are created. Example:
+  ```python
+  config = {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+  client = Memory.from_config(config)
+  ```
+</Warning>
+
 ### Add image messages from URLs
 
 <CodeGroup>
@@ -66,7 +74,7 @@ client.add(messages, user_id="alice")
 ```
 
 ```ts TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 
 const client = new Memory();
 
@@ -86,7 +94,7 @@ await client.add(messages, { userId: "alice" });
 </CodeGroup>
 
 <Info icon="check">
-  Inspect the response payload—the memories list should include entries extracted from the menu image as well as the text turns.
+  Inspect the response payload: the memories list should include entries extracted from the menu image as well as the text turns.
 </Info>
 
 ### Upload local images as base64
@@ -123,7 +131,7 @@ client.add(messages, user_id="alice")
 
 ```ts TypeScript
 import fs from "fs";
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 
 function encodeImage(imagePath: string) {
   const buffer = fs.readFileSync(imagePath);
@@ -226,7 +234,7 @@ client.add(messages, user_id="user123")
 <CodeGroup>
 ```python Python
 from mem0 import Memory
-from mem0.exceptions import InvalidImageError, FileSizeError
+from mem0.exceptions import ValidationError
 
 client = Memory()
 
@@ -242,16 +250,14 @@ try:
     client.add(messages, user_id="user123")
     print("Image processed successfully")
 
-except InvalidImageError:
-    print("Invalid image format or corrupted file")
-except FileSizeError:
-    print("Image file too large")
+except ValidationError as exc:
+    print(f"Image validation error: {exc}")
 except Exception as exc:
     print(f"Unexpected error: {exc}")
 ```
 
 ```ts TypeScript
-import { Memory } from "mem0ai";
+import { Memory } from "mem0ai/oss";
 
 const client = new Memory();
 
@@ -288,7 +294,7 @@ try {
 
 - After calling `add`, inspect the returned memories and confirm they include image-derived text (menu items, receipt totals, etc.).
 - Run a follow-up `search` for a detail from the image; the memory should surface alongside related text.
-- Monitor image upload latency—large files should still complete under your acceptable response time.
+- Monitor image upload latency: large files should still complete under your acceptable response time.
 - Log file size and URL sources to troubleshoot repeated failures.
 
 ---

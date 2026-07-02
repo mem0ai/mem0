@@ -152,7 +152,7 @@ client.delete_all(user_id="*")
 # Delete all memories across every agent in the project
 client.delete_all(agent_id="*")
 
-# Full project wipe — all four filters must be explicitly set to "*"
+# Full project wipe: all four filters must be explicitly set to "*"
 client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
 ```
 
@@ -166,7 +166,7 @@ client.deleteAll({ userId: "*" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
 
-// Full project wipe — all four filters must be explicitly set to "*"
+// Full project wipe: all four filters must be explicitly set to "*"
 client.deleteAll({ userId: "*", agentId: "*", appId: "*", runId: "*" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
@@ -191,7 +191,7 @@ memory.delete_all(user_id="alice")
 </CodeGroup>
 
 <Note>
-  The OSS JavaScript SDK does not yet expose deletion helpers—use the REST API or Python SDK when self-hosting.
+  The OSS JavaScript SDK does not yet expose deletion helpers: use the REST API or Python SDK when self-hosting.
 </Note>
 
 ## Use cases recap
@@ -216,7 +216,7 @@ memory.delete_all(user_id="alice")
 ## Put it into practice
 
 - Review the <Link href="/api-reference/memory/delete-memory">Delete Memory API reference</Link>, plus <Link href="/api-reference/memory/batch-delete">Batch Delete</Link> and <Link href="/api-reference/memory/delete-memories">Filtered Delete</Link>.
-- Pair deletes with <Link href="/platform/features/platform-overview">Expiration Policies</Link> to automate retention.
+- Pair deletes with the <Link href="/api-reference/memory/update-memory">expiration date field</Link> to automate retention.
 
 ## See it live
 
@@ -233,9 +233,9 @@ memory.delete_all(user_id="alice")
     href="/core-concepts/memory-operations/add"
   />
   <Card
-    title="Enable Expiration Policies"
-    description="Automate retention with the platform’s expiration feature."
+    title="Set an Expiration Date"
+    description="Automate retention with the expiration date field on update."
     icon="clock"
-    href="/platform/features/platform-overview"
+    href="/api-reference/memory/update-memory"
   />
 </CardGroup>
