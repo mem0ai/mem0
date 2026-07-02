@@ -756,6 +756,34 @@ describe("Vectorize – backward compat with mocked client", () => {
     await Promise.all([p1, p2]);
     // No crash = idempotent
   });
+
+  it("creates canonical and legacy scope metadata indexes", async () => {
+    const store = new VectorizeDB({
+      apiKey: "fake-token",
+      indexName: "test-index",
+      accountId: "test-account",
+      dimension: 768,
+    });
+
+    await store.initialize();
+
+    const createCalls = (store as any).client.__mockIndexes.metadataIndex.create
+      .mock.calls;
+    const propertyNames = createCalls.map(
+      ([, options]: any[]) => options.propertyName,
+    );
+
+    expect(propertyNames).toEqual(
+      expect.arrayContaining([
+        "user_id",
+        "agent_id",
+        "run_id",
+        "userId",
+        "agentId",
+        "runId",
+      ]),
+    );
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

@@ -70,6 +70,22 @@ export function buildFilterConditions(
   }
 
   for (const [key, value] of Object.entries(filters)) {
+    if (key === "$and") {
+      const andGroups: string[] = [];
+      for (const andFilter of value as Record<string, any>[]) {
+        const sub = buildFilterConditions(andFilter, paramIndex);
+        if (sub.conditions.length > 0) {
+          andGroups.push("(" + sub.conditions.join(" AND ") + ")");
+          values.push(...sub.values);
+          paramIndex = sub.paramIndex;
+        }
+      }
+      if (andGroups.length > 0) {
+        conditions.push("(" + andGroups.join(" AND ") + ")");
+      }
+      continue;
+    }
+
     if (key === "$or") {
       const orGroups: string[] = [];
       for (const orFilter of value as Record<string, any>[]) {

@@ -110,7 +110,7 @@ describe("Entity boost parallelism (#5214)", () => {
     m.vectorStore.search = jest
       .fn()
       .mockResolvedValue([
-        { id: "mem-1", score: 0.8, payload: { data: "test" } },
+        { id: "mem-1", score: 0.8, payload: { data: "test", user_id: "u1" } },
       ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
@@ -118,6 +118,253 @@ describe("Entity boost parallelism (#5214)", () => {
 
     expect(allSettledSpy).toHaveBeenCalled();
     allSettledSpy.mockRestore();
+  });
+
+  it("should scope entity boost searches with camelCase read filters", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    const mockEntityStore = {
+      search: jest.fn().mockResolvedValue([makeMatch("e1", 0.9, ["mem-1"])]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m._entityStore = mockEntityStore;
+
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-1",
+        score: 0.8,
+        payload: { data: "alice memory", user_id: "u1" },
+      },
+    ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+
+    await m.search("Alice and Bob", { filters: { userId: "u1" } });
+
+    expect(mockEntityStore.search).toHaveBeenCalledWith(mockEmbedding, 500, {
+      user_id: "u1",
+    });
+  });
+
+  it("should scope entity boost searches from nested common scope filters", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    const mockEntityStore = {
+      search: jest.fn().mockResolvedValue([makeMatch("e1", 0.9, ["mem-1"])]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m._entityStore = mockEntityStore;
+
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-1",
+        score: 0.8,
+        payload: { data: "alice travel memory", user_id: "u1" },
+      },
+    ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+
+    await m.search("Alice and Bob", {
+      filters: { AND: [{ userId: "u1" }, { topic: "travel" }] },
+    });
+
+    expect(mockEntityStore.search).toHaveBeenCalledWith(mockEmbedding, 500, {
+      user_id: "u1",
+    });
+  });
+
+  it("should skip exact entity dedupe when a capped provider returns a full page", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    m.config.vectorStore.provider = "vectorize";
+    const rows = Array.from({ length: 50 }, (_, index) => ({
+      id: `entity-${index}`,
+      payload: {
+        data: `Entity ${index}`,
+        linkedMemoryIds: [`mem-${index}`],
+        user_id: "u1",
+      },
+    }));
+    const mockEntityStore = {
+      list: jest
+        .fn()
+        .mockResolvedValueOnce([rows, rows.length])
+        .mockResolvedValueOnce([[], 0]),
+    };
+    const debugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+
+    try {
+      const exactMatches = await m._existingEntitiesByText(mockEntityStore, {
+        user_id: "u1",
+      });
+
+      expect(mockEntityStore.list).toHaveBeenNthCalledWith(
+        1,
+        { user_id: "u1" },
+        50,
+      );
+      expect(mockEntityStore.list).toHaveBeenNthCalledWith(
+        2,
+        { userId: "u1" },
+        50,
+      );
+      expect(exactMatches.size).toBe(0);
+      expect(debugSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Exact entity lookup skipped"),
+      );
+    } finally {
+      debugSpy.mockRestore();
+      m.config.vectorStore.provider = "memory";
+    }
+  });
+
+  it("should skip entity cleanup when a capped provider returns a full page", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    m.config.vectorStore.provider = "vectorize";
+    const rows = Array.from({ length: 50 }, (_, index) => ({
+      id: `entity-${index}`,
+      payload: {
+        data: `Entity ${index}`,
+        linkedMemoryIds: ["mem-1", `other-${index}`],
+        user_id: "u1",
+      },
+    }));
+    const mockEntityStore = {
+      list: jest
+        .fn()
+        .mockResolvedValueOnce([rows, rows.length])
+        .mockResolvedValueOnce([[], 0]),
+      delete: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue(undefined),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m._entityStore = mockEntityStore;
+    const debugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+
+    try {
+      await m._removeMemoryFromEntityStore("mem-1", { user_id: "u1" });
+
+      expect(mockEntityStore.list).toHaveBeenNthCalledWith(
+        1,
+        { user_id: "u1" },
+        50,
+      );
+      expect(mockEntityStore.list).toHaveBeenNthCalledWith(
+        2,
+        { userId: "u1" },
+        50,
+      );
+      expect(mockEntityStore.delete).not.toHaveBeenCalled();
+      expect(mockEntityStore.update).not.toHaveBeenCalled();
+      expect(debugSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Entity cleanup skipped"),
+      );
+    } finally {
+      debugSpy.mockRestore();
+      m._entityStore = undefined;
+      m.config.vectorStore.provider = "memory";
+    }
+  });
+
+  it("should skip entity boosts when a capped provider returns a full search page", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    m.config.vectorStore.provider = "vectorize";
+    const fullEntityPage = Array.from({ length: 50 }, (_, index) =>
+      makeMatch(`entity-${index}`, 0.9, ["mem-1"]),
+    );
+    const mockEntityStore = {
+      search: jest
+        .fn()
+        .mockResolvedValueOnce(fullEntityPage)
+        .mockResolvedValueOnce([]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m._entityStore = mockEntityStore;
+
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-1",
+        score: 0.7,
+        payload: { data: "alice memory", user_id: "u1" },
+      },
+      {
+        id: "mem-2",
+        score: 0.8,
+        payload: { data: "other memory", user_id: "u1" },
+      },
+    ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+    const debugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+
+    try {
+      const result = await m.search("Alice and Bob", {
+        filters: { user_id: "u1" },
+        threshold: 0,
+        explain: true,
+      });
+
+      expect(mockEntityStore.search).toHaveBeenNthCalledWith(
+        1,
+        mockEmbedding,
+        50,
+        {
+          user_id: "u1",
+        },
+      );
+      expect(mockEntityStore.search).toHaveBeenNthCalledWith(
+        2,
+        mockEmbedding,
+        50,
+        {
+          userId: "u1",
+        },
+      );
+      expect(debugSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Entity boost skipped"),
+      );
+      expect(result.results.map((item: any) => item.id)).toEqual([
+        "mem-2",
+        "mem-1",
+      ]);
+      expect(result.results[1].score_details.entityBoost).toBe(0);
+    } finally {
+      debugSpy.mockRestore();
+      m._entityStore = undefined;
+      m.config.vectorStore.provider = "memory";
+    }
   });
 
   it("should preserve scoring math with parallel execution", async () => {
@@ -158,8 +405,16 @@ describe("Entity boost parallelism (#5214)", () => {
 
     // Semantic results include mem-1 and mem-2
     m.vectorStore.search = jest.fn().mockResolvedValue([
-      { id: "mem-1", score: 0.85, payload: { data: "alice memory" } },
-      { id: "mem-2", score: 0.75, payload: { data: "bob memory" } },
+      {
+        id: "mem-1",
+        score: 0.85,
+        payload: { data: "alice memory", user_id: "u1" },
+      },
+      {
+        id: "mem-2",
+        score: 0.75,
+        payload: { data: "bob memory", user_id: "u1" },
+      },
     ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
@@ -202,11 +457,13 @@ describe("Entity boost parallelism (#5214)", () => {
           Promise.resolve(texts.map(() => mockEmbedding)),
         ),
     };
-    m.vectorStore.search = jest
-      .fn()
-      .mockResolvedValue([
-        { id: "mem-9", score: 0.85, payload: { data: "surviving memory" } },
-      ]);
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-9",
+        score: 0.85,
+        payload: { data: "surviving memory", user_id: "u1" },
+      },
+    ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -257,7 +514,7 @@ describe("Entity boost parallelism (#5214)", () => {
     m.vectorStore.search = jest
       .fn()
       .mockResolvedValue([
-        { id: "mem-1", score: 0.8, payload: { data: "test" } },
+        { id: "mem-1", score: 0.8, payload: { data: "test", user_id: "u1" } },
       ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 

@@ -43,7 +43,7 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movie_recom
 
 <Step title="Search memories">
 ```ts
-const results = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
+const results = await memory.search("What do you know about me?", { filters: { user_id: "alice" } });
 console.log(results);
 ```
 
@@ -58,13 +58,56 @@ console.log(results);
       "metadata": {
         "category": "movie_recommendations"
       },
-      "userId": "alice"
+      "user_id": "alice"
     }
   ]
 }
 ```
 </Step>
 </Steps>
+
+## Scoped reads and safe deletes
+
+`search()` and `getAll()` must receive scoped read filters under `filters`. Prefer the canonical snake_case keys (`user_id`, `agent_id`, `run_id`) in typed code; camelCase aliases (`userId`, `agentId`, `runId`) are accepted at runtime for compatibility. Results expose canonical top-level `user_id`, `agent_id`, and `run_id` fields.
+
+```ts
+// ✅ Scoped read
+await memory.search("What does Alice like?", {
+  filters: { user_id: "alice" },
+});
+
+await memory.getAll({
+  filters: { user_id: "alice" },
+});
+```
+
+Avoid broad scope selectors on read or delete paths. Wildcards, negative predicates, set membership, range operators, text operators, and negative logical scope filters are rejected because they can cross tenant or agent boundaries.
+
+```ts
+// ❌ Rejected: wildcard or broad scope selectors
+await memory.search("Anything?", { filters: { user_id: "*" } });
+await memory.search("Anything?", { filters: { user_id: { ne: "alice" } } });
+await memory.search("Anything?", { filters: { user_id: ["alice", "bob"] } });
+await memory.deleteAll({ userId: "*" });
+```
+
+For destructive cleanup, pass an explicit scope value to `deleteAll()`. If you intentionally want to remove the entire local collection, use `reset()` instead.
+
+```ts
+// Delete one user's memories
+await memory.deleteAll({ userId: "alice" });
+
+// Delete the whole local collection intentionally
+await memory.reset();
+```
+
+<Note>
+When using the `langchain` vector store provider, `reset()` clears Mem0 history and reinitializes the SDK, but it does not delete the underlying LangChain vector store collection.
+</Note>
+
+<Note>
+Some vector stores do not expose cursor-aware scoped reads. If Mem0 cannot prove that a full provider page contains the complete scoped result set, `search()`, `getAll()`, inferred `add()`, or `deleteAll()` can fail closed with a safety error. Narrow the scope filters, lower `topK`, or choose a provider with total-count support for large scoped reads/deletes.
+</Note>
 
 <Snippet file="star-on-github.mdx" />
 
