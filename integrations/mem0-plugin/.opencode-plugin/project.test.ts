@@ -31,15 +31,15 @@ describe("parseProjectFromRemote", () => {
 describe("selectActiveProjectPath", () => {
   test("prefers worktree over directory", () => {
     expect(selectActiveProjectPath({
-      worktree: "D:\\Repos\\active-worktree",
-      directory: "D:\\Repos\\fallback-directory",
-    })).toBe("D:\\Repos\\active-worktree");
+      worktree: "/home/user/active-worktree",
+      directory: "/home/user/fallback-directory",
+    })).toBe("/home/user/active-worktree");
   });
 
   test("uses directory when worktree is absent", () => {
     expect(selectActiveProjectPath({
-      directory: "D:\\Repos\\active-directory",
-    })).toBe("D:\\Repos\\active-directory");
+      directory: "/home/user/active-directory",
+    })).toBe("/home/user/active-directory");
   });
 
   test("falls back to process cwd", () => {

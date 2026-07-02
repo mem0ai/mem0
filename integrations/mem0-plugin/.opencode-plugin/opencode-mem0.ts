@@ -46,21 +46,16 @@ function commandInProject(command: ShellCommand, projectPath: string): ShellComm
   return command;
 }
 
-export async function getProjectId(input: ProjectContext & {$: any}): Promise<string> {
+export async function getProjectId($: any, projectPath: string): Promise<string> {
   if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
-  const projectPath = selectActiveProjectPath(input);
-  // Prefer the git remote's owner/repo — stable across clones, worktrees, and
-  // sub-directories (handles https + ssh, incl. custom host aliases).
   try {
-    const r = await commandInProject(input.$`git remote get-url origin`, projectPath).quiet();
+    const r = await commandInProject($`git remote get-url origin`, projectPath).quiet();
     const project = parseProjectFromRemote(r.stdout.toString());
     if (project) return project;
   } catch {
   }
-  // No usable remote: use the git repo ROOT dir name, not cwd (which may be a
-  // sub-directory, or your home dir if OpenCode was launched outside a repo).
   try {
-    const r = await commandInProject(input.$`git rev-parse --show-toplevel`, projectPath).quiet();
+    const r = await commandInProject($`git rev-parse --show-toplevel`, projectPath).quiet();
     const top = r.stdout.toString().trim();
     if (top) return basename(top);
   } catch {
@@ -70,9 +65,9 @@ export async function getProjectId(input: ProjectContext & {$: any}): Promise<st
   return basename(process.cwd());
 }
 
-async function getBranch($: any): Promise<string> {
+export async function getBranch($: any, projectPath: string): Promise<string> {
   try {
-    const r = await $`git branch --show-current`.quiet();
+    const r = await commandInProject($`git branch --show-current`, projectPath).quiet();
     return r.stdout.toString().trim() || "main";
   } catch {
   }
@@ -291,8 +286,9 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const mem0 = new MemoryClient({apiKey});
   const userId = await getUserId();
-  const appId = await getProjectId(ctx);
-  const branch = await getBranch($);
+  const projectPath = selectActiveProjectPath(ctx);
+  const appId = await getProjectId($, projectPath);
+  const branch = await getBranch($, projectPath);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
   const globalSearch = loadGlobalSearch();

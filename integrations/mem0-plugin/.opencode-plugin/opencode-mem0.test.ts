@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, test} from "bun:test";
-import {getProjectId} from "./opencode-mem0";
+import {getBranch, getProjectId} from "./opencode-mem0";
 
 type ShellCall = {
   command: string;
@@ -37,40 +37,35 @@ describe("getProjectId", () => {
     const calls: ShellCall[] = [];
     process.env.MEM0_APP_ID = "explicit-app";
 
-    await expect(getProjectId({
-      $: mockShell({}, calls),
-      worktree: "D:\\Repos\\selected",
-      directory: "D:\\Repos\\directory",
-    })).resolves.toBe("explicit-app");
+    await expect(getProjectId(mockShell({}, calls), "/home/user/selected")).resolves.toBe("explicit-app");
     expect(calls).toHaveLength(0);
   });
 
   test("scopes remote parsing to the OpenCode worktree", async () => {
     const calls: ShellCall[] = [];
-    const worktree = "D:\\Repos\\selected-project";
+    const worktree = "/home/user/selected-project";
 
-    await expect(getProjectId({
-      $: mockShell({
+    await expect(getProjectId(
+      mockShell({
         "git remote get-url origin": "git@github.com:mem0ai/selected-project.git",
       }, calls),
       worktree,
-      directory: "D:\\Repos\\wrong-directory",
-    })).resolves.toBe("mem0ai-selected-project");
+    )).resolves.toBe("mem0ai-selected-project");
 
     expect(calls).toEqual([{command: "git remote get-url origin", cwd: worktree}]);
   });
 
   test("uses directory before process cwd for git top-level fallback", async () => {
     const calls: ShellCall[] = [];
-    const directory = "D:\\Repos\\directory-project";
+    const directory = "/home/user/directory-project";
 
-    await expect(getProjectId({
-      $: mockShell({
+    await expect(getProjectId(
+      mockShell({
         "git remote get-url origin": new Error("no remote"),
         "git rev-parse --show-toplevel": directory,
       }, calls),
       directory,
-    })).resolves.toBe("directory-project");
+    )).resolves.toBe("directory-project");
 
     expect(calls).toEqual([
       {command: "git remote get-url origin", cwd: directory},
@@ -80,15 +75,15 @@ describe("getProjectId", () => {
 
   test("falls back to the selected project path basename before process cwd", async () => {
     const calls: ShellCall[] = [];
-    const directory = "D:\\Repos\\path-only-project";
+    const directory = "/home/user/path-only-project";
 
-    await expect(getProjectId({
-      $: mockShell({
+    await expect(getProjectId(
+      mockShell({
         "git remote get-url origin": new Error("no remote"),
         "git rev-parse --show-toplevel": new Error("no git repo"),
       }, calls),
       directory,
-    })).resolves.toBe("path-only-project");
+    )).resolves.toBe("path-only-project");
 
     expect(calls).toEqual([
       {command: "git remote get-url origin", cwd: directory},
@@ -100,13 +95,43 @@ describe("getProjectId", () => {
     const calls: ShellCall[] = [];
     const cwd = process.cwd();
 
-    await expect(getProjectId({
-      $: mockShell({
+    await expect(getProjectId(
+      mockShell({
         "git remote get-url origin": "https://github.com/mem0ai/mem0.git",
       }, calls),
-      worktree: cwd,
-    })).resolves.toBe("mem0ai-mem0");
+      cwd,
+    )).resolves.toBe("mem0ai-mem0");
 
     expect(calls).toEqual([{command: "git remote get-url origin", cwd}]);
+  });
+});
+
+describe("getBranch", () => {
+  test("scopes branch lookup to the selected OpenCode project path", async () => {
+    const calls: ShellCall[] = [];
+    const projectPath = "/home/user/selected-project";
+
+    await expect(getBranch(
+      mockShell({
+        "git branch --show-current": "feature/current-project\n",
+      }, calls),
+      projectPath,
+    )).resolves.toBe("feature/current-project");
+
+    expect(calls).toEqual([{command: "git branch --show-current", cwd: projectPath}]);
+  });
+
+  test("falls back to main when branch lookup fails", async () => {
+    const calls: ShellCall[] = [];
+    const projectPath = "/home/user/selected-project";
+
+    await expect(getBranch(
+      mockShell({
+        "git branch --show-current": new Error("no git repo"),
+      }, calls),
+      projectPath,
+    )).resolves.toBe("main");
+
+    expect(calls).toEqual([{command: "git branch --show-current", cwd: projectPath}]);
   });
 });
