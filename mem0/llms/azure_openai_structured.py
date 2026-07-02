@@ -113,6 +113,12 @@ class AzureOpenAIStructuredLLM(LLMBase):
         which makes ``add`` fail (see issue #2636). The rewrite targets that
         trigger without mutating the caller's messages and without assuming the
         content is a string, so multimodal (list) content passes through untouched.
+
+        The replacement is anchored on word boundaries so that words that
+        genuinely contain "assistant" as a substring (e.g. "assistants" or
+        "nonassistant") are left intact (see issue #6036). Note that "_" and
+        digits are word characters, so compound identifiers like "assistant_id"
+        are intentionally not rewritten.
         """
         if not messages:
             return messages

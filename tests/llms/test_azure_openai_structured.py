@@ -325,16 +325,30 @@ def test_generate_response_handles_multimodal_content(mock_azure_openai):
 
 
 def test_rewrite_assistant_keyword_uses_word_boundaries():
-    """The keyword rewrite must not corrupt words that merely contain the
-    substring 'assistant', e.g. 'assistance' (issue #6036)."""
-    messages = [{"role": "user", "content": "I need financial assistance."}]
-    rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
-    assert rewritten[-1]["content"] == "I need financial assistance."
-    # Caller messages are not mutated.
-    assert messages[-1]["content"] == "I need financial assistance."
+    """The keyword rewrite must not corrupt words that genuinely contain
+    'assistant' as a substring, e.g. the plural 'assistants' or 'nonassistant'
+    (issue #6036). These are real superstrings the old naive .replace() mangled
+    ('the ais arrived', 'nonai setups exist')."""
+    for text in ("the assistants arrived", "nonassistant setups exist", "assistantship program"):
+        messages = [{"role": "user", "content": text}]
+        rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
+        assert rewritten[-1]["content"] == text
+        # Caller messages are not mutated.
+        assert messages[-1]["content"] == text
+
+
+def test_rewrite_assistant_keyword_leaves_compound_identifiers_untouched():
+    """Word boundaries treat '_' and digits as word characters, so identifiers
+    such as 'assistant_id' or 'my_assistant' are intentionally no longer
+    rewritten (compound identifiers, not the natural-language word Azure's
+    filter targets). Documented behavior change from the old .replace()."""
+    for text in ("pass the assistant_id along", "configure my_assistant now"):
+        messages = [{"role": "user", "content": text}]
+        rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
+        assert rewritten[-1]["content"] == text
 
 
 def test_rewrite_assistant_keyword_still_rewrites_standalone_word():
-    messages = [{"role": "user", "content": "my assistant helps with assistance"}]
+    messages = [{"role": "user", "content": "my assistant helps with assistants"}]
     rewritten = AzureOpenAIStructuredLLM._rewrite_assistant_keyword(messages)
-    assert rewritten[-1]["content"] == "my ai helps with assistance"
+    assert rewritten[-1]["content"] == "my ai helps with assistants"
