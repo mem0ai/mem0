@@ -39,6 +39,7 @@ def test_parse_markdown(tmp_path):
 
 
 def test_parse_pdf():
+    pytest.importorskip("pypdf")
     chunks = parse_file(FIXTURES / "sample.pdf")
     text = "\n\n".join(chunks)
     assert "Alice lives in Paris" in text
@@ -46,6 +47,7 @@ def test_parse_pdf():
 
 
 def test_parse_docx(tmp_path):
+    pytest.importorskip("docx")
     f = tmp_path / "sample.docx"
     _write_docx(f, ["Carol is a designer.", "She lives in Tokyo."])
     text = "\n\n".join(parse_file(f))
@@ -73,6 +75,7 @@ def test_empty_document_raises(tmp_path):
 
 
 def test_corrupt_pdf_raises(tmp_path):
+    pytest.importorskip("pypdf")
     f = tmp_path / "broken.pdf"
     f.write_bytes(b"%PDF-1.4 not really a pdf at all")
     with pytest.raises(ValueError, match="Failed to read PDF"):
