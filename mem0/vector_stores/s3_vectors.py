@@ -188,7 +188,12 @@ class S3Vectors(VectorStoreBase):
             "returnData": False,
             "returnMetadata": True,
         }
-        if top_k:
+        # S3 Vectors' list_vectors has no server-side metadata filtering, so filters
+        # are applied client-side below. When filters are present we must NOT cap the
+        # server fetch with maxResults=top_k: doing so limits the *unfiltered* page,
+        # which can yield fewer than top_k matches (or none) even when more exist.
+        # Only push maxResults to the server when there is nothing to filter locally.
+        if top_k and not filters:
             params["maxResults"] = top_k
 
         paginator = self.client.get_paginator("list_vectors")

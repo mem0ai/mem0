@@ -272,3 +272,52 @@ def test_list_filters_metadata_client_side(mock_boto_client):
     [results] = store.list(filters={"user_id": "alice", "category": "work"})
 
     assert [result.id for result in results] == ["id1"]
+
+
+def test_list_with_filters_does_not_cap_server_fetch(mock_boto_client):
+    """When filters are present, top_k must not be pushed to the server as
+    maxResults: S3's list_vectors has no server-side filtering, so capping the
+    unfiltered fetch could drop matching records that appear later in the index.
+    """
+    mock_paginator = mock_boto_client.get_paginator.return_value
+    mock_paginator.paginate.return_value = [
+        {
+            "vectors": [
+                {"key": "id1", "metadata": {"user_id": "bob"}},
+                {"key": "id2", "metadata": {"user_id": "bob"}},
+                {"key": "id3", "metadata": {"user_id": "alice"}},
+            ]
+        }
+    ]
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    # Ask for a single result matching user_id=alice. The only match is the 3rd
+    # record; a naive maxResults=1 fetch would return only bob and miss it.
+    [results] = store.list(filters={"user_id": "alice"}, top_k=1)
+
+    # maxResults must NOT have been forwarded to the paginator.
+    _, paginate_kwargs = mock_paginator.paginate.call_args
+    assert "maxResults" not in paginate_kwargs
+    assert [result.id for result in results] == ["id3"]
+
+
+def test_list_without_filters_pushes_top_k_to_server(mock_boto_client):
+    """With no filters, top_k can be pushed to the server as maxResults."""
+    mock_paginator = mock_boto_client.get_paginator.return_value
+    mock_paginator.paginate.return_value = [
+        {"vectors": [{"key": "id1", "metadata": {"user_id": "alice"}}]}
+    ]
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    store.list(top_k=5)
+
+    _, paginate_kwargs = mock_paginator.paginate.call_args
+    assert paginate_kwargs["maxResults"] == 5
