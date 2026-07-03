@@ -128,6 +128,31 @@ def test_list_does_not_raise_type_error(vector_store, mock_vertex_ai):
     assert results == [[]]
 
 
+def test_list_uses_configured_embedding_dims(mock_vertex_ai):
+    """list() must size its zero-vector to the configured embedding dimension,
+    not a hardcoded 768 (which broke models like text-embedding-3-large @ 3072)."""
+    mock_vertex_ai["index_class"].return_value = mock_vertex_ai["index"]
+    mock_vertex_ai["endpoint_class"].return_value = mock_vertex_ai["endpoint"]
+    config = GoogleMatchingEngineConfig(
+        project_id="test-project",
+        project_number="123456789",
+        region="us-central1",
+        endpoint_id="test-endpoint",
+        index_id="test-index",
+        deployment_index_id="test-deployment",
+        collection_name="test-collection",
+        vector_search_api_endpoint="test.vertexai.goog",
+        embedding_model_dims=3072,
+    )
+    store = GoogleMatchingEngine(**config.model_dump())
+    mock_vertex_ai["endpoint"].find_neighbors.return_value = [[]]
+
+    store.list(filters={"user_id": "test_user"}, top_k=5)
+
+    queries = mock_vertex_ai["endpoint"].find_neighbors.call_args[1]["queries"]
+    assert queries == [[0.0] * 3072]
+
+
 def test_similarity_search_with_score_passes_embedding(vector_store, mock_vertex_ai):
     """similarity_search_with_score() must pass the embedding as `vectors`."""
     embedding = [0.1, 0.2, 0.3]
