@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from models import RequestLog, User
+from parsing import parse_generate_instructions_response
 from pydantic import BaseModel, Field
 from rate_limit import limiter
 from routers import api_keys as api_keys_router
@@ -352,12 +353,7 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
             f"TEST_MESSAGE: <your test message>\n\nUse case: {req.use_case}"
         )
         response = llm.generate_response([{"role": "user", "content": prompt}])
-        instructions = response
-        test_message = "I like to hike on weekends."
-        if "INSTRUCTIONS:" in response and "TEST_MESSAGE:" in response:
-            parts = response.split("TEST_MESSAGE:")
-            instructions = parts[0].replace("INSTRUCTIONS:", "").strip()
-            test_message = parts[1].strip()
+        instructions, test_message = parse_generate_instructions_response(response)
         return {"custom_instructions": instructions, "test_message": test_message}
     except Exception:
         raise upstream_error()
