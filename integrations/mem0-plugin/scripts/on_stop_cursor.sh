@@ -18,6 +18,8 @@ if [ -n "$AGENT_ID" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Pin platform so this hook's telemetry is attributed to cursor.
+export MEM0_PLATFORM=cursor
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
 if [ -z "${MEM0_API_KEY:-}" ]; then

@@ -8,6 +8,9 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Pin platform so the shared script's telemetry is attributed to cursor.
+export MEM0_PLATFORM=cursor
+
 TEXT=$("$SCRIPT_DIR/on_session_start.sh" 2>/dev/null || echo "")
 
 if [ -z "$TEXT" ]; then

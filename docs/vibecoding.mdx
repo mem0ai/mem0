@@ -11,20 +11,11 @@ We follow the llms.txt standard:
 
 - [llms.txt](https://docs.mem0.ai/llms.txt)
 
-<CardGroup cols={2}>
-  <Card title="Get an API Key" icon="key" href="https://app.mem0.ai/login?utm_source=oss&utm_medium=vibecoding">
-    Sign up for Mem0 Platform and start building
-  </Card>
-  <Card title="Quickstart" icon="rocket" href="/platform/quickstart">
-    Store your first memory in under 5 minutes
-  </Card>
-</CardGroup>
-
 ## Agent Skills
 
 Mem0 ships two kinds of skills for AI coding assistants. Both work with Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any assistant that supports the skills standard.
 
-### Reference skills — always on
+### Reference skills (always on)
 
 Teach your assistant Mem0's SDK surface so it writes correct code in everyday development:
 
@@ -34,11 +25,11 @@ npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
 npx skills add https://github.com/mem0ai/mem0 --skill mem0-vercel-ai-sdk
 ```
 
-- `mem0` — Python and TypeScript SDKs (Platform + OSS), plus framework integrations (LangChain, CrewAI, OpenAI Agents, LangGraph, LlamaIndex, etc.)
-- `mem0-cli` — terminal workflows for the `mem0` CLI (both Node and Python builds)
-- `mem0-vercel-ai-sdk` — `@mem0/vercel-ai-provider` and `createMem0`
+- `mem0`: Python and TypeScript SDKs (Platform + OSS), plus framework integrations (LangChain, CrewAI, OpenAI Agents, LangGraph, LlamaIndex, etc.)
+- `mem0-cli`: terminal workflows for the `mem0` CLI (both Node and Python builds)
+- `mem0-vercel-ai-sdk`: `@mem0/vercel-ai-provider` and `createMem0`
 
-### Pipeline skills — run on demand
+### Pipeline skills (run on demand)
 
 Let your assistant execute an end-to-end workflow in an existing repo. Invoked as slash commands:
 
@@ -48,9 +39,9 @@ npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
 npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
 ```
 
-- `/mem0-integrate` — wire Mem0 into an existing repository using a goal-driven, test-first pipeline. Detects the stack, asks whether to use Platform or OSS, writes failing tests first, and keeps the integration additive and feature-flagged.
-- `/mem0-test-integration` — verify what `/mem0-integrate` produced. Runs the repo's native test suite and a real end-to-end smoke flow against your API key, then produces a scorecard.
-- `/mem0-oss-to-platform` — migrate an existing project from Mem0 OSS to the hosted Platform SDK. Audits where Mem0 is used, writes a reviewable migration plan, then executes it on approval.
+- `/mem0-integrate`: wire Mem0 into an existing repository using a goal-driven, test-first pipeline. Detects the stack, asks whether to use Platform or OSS, writes failing tests first, and keeps the integration additive and feature-flagged.
+- `/mem0-test-integration`: verify what `/mem0-integrate` produced. Runs the repo's native test suite and a real end-to-end smoke flow against your API key, then produces a scorecard.
+- `/mem0-oss-to-platform`: migrate an existing project from Mem0 OSS to the hosted Platform SDK. Audits where Mem0 is used, writes a reviewable migration plan, then executes it on approval.
 
 See the [skills index](https://github.com/mem0ai/mem0/tree/main/skills) for the full catalog.
 
@@ -75,7 +66,7 @@ For per-client setup and advanced options, see [Mem0 MCP Setup](/platform/mem0-m
 Copy this into any AI tool to start building with Mem0:
 
 ```text
-I want to start building with Mem0 — a self-improving memory layer for LLM
+I want to start building with Mem0, a self-improving memory layer for LLM
 applications that gives agents persistent context across sessions.
 
 ## Mem0 Resources
@@ -95,7 +86,7 @@ applications that gives agents persistent context across sessions.
 - Cookbooks: https://docs.mem0.ai/cookbooks/overview
 
 **What Mem0 Does:**
-Mem0 is a memory layer for AI apps — managed (Mem0 Platform) or self-hosted
+Mem0 is a memory layer for AI apps, managed (Mem0 Platform) or self-hosted
 (Open Source). It stores, retrieves, and manages user memories so agents
 remember preferences, learn from interactions, and personalize over time.
 Sub-50ms retrieval. Storage: vector embeddings.

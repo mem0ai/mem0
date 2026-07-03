@@ -424,3 +424,31 @@ class TestMiniMaxProvider:
             assert msg["role"] != "system"
         # user message must be present
         assert kwargs["messages"][0]["role"] == "user"
+
+
+# ---------------------------------------------------------------------------
+# _parse_response — legacy InvokeModel provider-specific parsing
+# ---------------------------------------------------------------------------
+
+class TestParseResponseLegacy:
+    def test_ai21_missing_completions_returns_empty(self, mock_boto3):
+        """When AI21 response lacks 'completions', the fallback default must
+        be a valid dict (not a set literal), returning empty string."""
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({"not_completions": True}).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == ""
+
+    def test_ai21_normal_response(self, mock_boto3):
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "completions": [{"data": {"text": "hello from ai21"}}]
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "hello from ai21"

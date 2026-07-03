@@ -101,6 +101,67 @@ def test_search_memories_no_api_key_returns_empty():
     assert results == []
 
 
+def test_search_memories_omits_rerank_by_default():
+    """Regression for #5684: rerank must not be sent unless requested."""
+    from _search import search_memories
+
+    captured_body = {}
+
+    def mock_urlopen(req, timeout=None):
+        captured_body.update(json.loads(req.data.decode()))
+        resp = MagicMock()
+        resp.read.return_value = json.dumps({"results": []}).encode()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        search_memories("key", "user", "proj", "query")
+
+    assert "rerank" not in captured_body
+
+
+def test_search_memories_forwards_rerank_true():
+    """Regression for #5684: rerank=True must reach the request body so the
+    REST endpoint actually reranks (it does not rerank when omitted)."""
+    from _search import search_memories
+
+    captured_body = {}
+
+    def mock_urlopen(req, timeout=None):
+        captured_body.update(json.loads(req.data.decode()))
+        resp = MagicMock()
+        resp.read.return_value = json.dumps({"results": []}).encode()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        search_memories("key", "user", "proj", "query", rerank=True)
+
+    assert captured_body.get("rerank") is True
+
+
+def test_should_rerank_defaults_true(monkeypatch):
+    """Regression for #5684: auto-injection reranks by default."""
+    from _search import should_rerank
+
+    monkeypatch.delenv("MEM0_RERANK", raising=False)
+    assert should_rerank() is True
+
+
+def test_should_rerank_opt_out_values(monkeypatch):
+    from _search import should_rerank
+
+    for falsey in ("0", "false", "False", "NO", "off", ""):
+        monkeypatch.setenv("MEM0_RERANK", falsey)
+        assert should_rerank() is False, falsey
+
+    for truthy in ("1", "true", "yes", "on"):
+        monkeypatch.setenv("MEM0_RERANK", truthy)
+        assert should_rerank() is True, truthy
+
+
 def test_format_results_for_context():
     from _search import format_results_for_context
 

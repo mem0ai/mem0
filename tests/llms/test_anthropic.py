@@ -83,6 +83,39 @@ def test_both_set_prefers_temperature_over_top_p(mock_anthropic_client):
     assert "top_p" not in call_kwargs
 
 
+def test_configured_base_url_is_passed_to_client():
+    """A configured anthropic_base_url must reach the Anthropic client constructor."""
+    with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
+        config = AnthropicConfig(
+            model="claude-3-5-sonnet-20240620",
+            api_key="test-key",
+            anthropic_base_url="https://proxy.example.com",
+        )
+        AnthropicLLM(config)
+
+    assert mock_anthropic.Anthropic.call_args[1]["base_url"] == "https://proxy.example.com"
+
+
+def test_base_url_falls_back_to_env(monkeypatch):
+    """When no base_url is configured, ANTHROPIC_BASE_URL is used."""
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://env.example.com")
+    with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
+        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+        AnthropicLLM(config)
+
+    assert mock_anthropic.Anthropic.call_args[1]["base_url"] == "https://env.example.com"
+
+
+def test_base_url_omitted_when_unset(monkeypatch):
+    """With no base_url anywhere, base_url must not be forced to None on the client."""
+    monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+    with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
+        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+        AnthropicLLM(config)
+
+    assert "base_url" not in mock_anthropic.Anthropic.call_args[1]
+
+
 def test_base_config_conversion_does_not_send_both(mock_anthropic_client):
     """BaseLlmConfig defaults both temperature=0.1 and top_p=0.1; Anthropic must not send both."""
     base_config = BaseLlmConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")

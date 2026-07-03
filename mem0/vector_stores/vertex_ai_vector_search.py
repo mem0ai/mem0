@@ -487,7 +487,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             # Use a large top_k if none specified
             search_limit = top_k if top_k is not None else 10000
 
-            results = self.search(query=zero_vector, top_k=search_limit, filters=filters)
+            results = self.search(query="", vectors=zero_vector, top_k=search_limit, filters=filters)
 
             logger.debug("Found %d results", len(results))
             return [results]  # Wrap in extra array to match interface
@@ -620,7 +620,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         logger.debug("Filter: %s", filter)
 
         embedding = self.embedder.embed_query(query)
-        results = self.search(query=embedding, top_k=k, filters=filter)
+        results = self.search(query=query, vectors=embedding, top_k=k, filters=filter)
 
         docs_and_scores = [
             (Document(page_content=result.payload.get("text", ""), metadata=result.payload), result.score)

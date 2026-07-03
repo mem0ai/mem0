@@ -138,35 +138,54 @@ export function registerMemoryTool(
     name: "mem0_memory",
     label: "Mem0 Memory",
     description:
-      "Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Output is truncated to 200 lines / 50KB.",
+      "Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Use action \"search\" proactively -- before answering anything that may depend on what the user told you earlier -- and run multiple searches with different phrasings for multi-part questions. Output is truncated to 200 lines / 50KB.",
     promptSnippet: "Semantic memory search and storage via Mem0",
     promptGuidelines: [
-      'Use mem0_memory with action "search" when the user asks about past conversations, preferences, or decisions',
+      'Use mem0_memory with action "search" proactively whenever the request may depend on the user\'s past work, preferences, decisions, or environment -- not only when they explicitly mention the past',
+      'For multi-part or comparative questions, run several searches with different phrasings and combine the results before answering -- one search is rarely enough',
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
       'Use mem0_memory with action "update" to modify an existing memory — requires memory_id and content. Preserves the memory ID',
       "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only then use scope \"global\"",
       "Do NOT pass scope at all for normal queries — omitting it uses the project default automatically",
     ],
     parameters: Type.Object({
-      action: StringEnum([
-        "search",
-        "add",
-        "get_all",
-        "update",
-        "delete",
-        "delete_all",
-      ] as const),
+      action: StringEnum(
+        [
+          "search",
+          "add",
+          "get_all",
+          "update",
+          "delete",
+          "delete_all",
+        ] as const,
+        {
+          description:
+            "Memory operation to run: \"search\" (semantic recall -- use proactively before answering; run several with different phrasings for multi-part questions), \"add\" (save a new fact/preference/decision), \"get_all\" (list everything in scope, no query needed), \"update\" (replace an existing memory's text by id), \"delete\" (remove one memory by id), \"delete_all\" (wipe every memory in the scope -- destructive, only on explicit request).",
+        },
+      ),
       query: Type.Optional(
-        Type.String({ description: "Search query or memory text" }),
+        Type.String({
+          description:
+            "Search text -- required for action \"search\". Use a focused noun-phrase; for multi-part questions run several searches with different phrasings.",
+        }),
       ),
       content: Type.Optional(
-        Type.String({ description: "Memory content to store or updated text" }),
+        Type.String({
+          description:
+            "Memory text -- required for action \"add\" (the fact to store) and \"update\" (the replacement text).",
+        }),
       ),
       memory_id: Type.Optional(
-        Type.String({ description: "Memory ID for update or delete" }),
+        Type.String({
+          description:
+            "Target memory's ID -- required for \"update\" and \"delete\". Use an ID returned by a prior \"search\" or \"get_all\".",
+        }),
       ),
       scope: Type.Optional(
-        StringEnum(["project", "session", "global"] as const),
+        StringEnum(["project", "session", "global"] as const, {
+          description:
+            "Where to read/write: \"project\" (default -- this repo), \"session\" (this run only), or \"global\" (across ALL projects; only when the user explicitly wants cross-project recall). Omit for normal queries.",
+        }),
       ),
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {

@@ -169,7 +169,7 @@ class ChromaDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.collection.delete(ids=vector_id)
+        self.collection.delete(ids=[vector_id])
 
     def update(
         self,
@@ -185,9 +185,13 @@ class ChromaDB(VectorStoreBase):
             vector (Optional[List[float]], optional): Updated vector. Defaults to None.
             payload (Optional[Dict], optional): Updated payload. Defaults to None.
         """
-        self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
+        self.collection.update(
+            ids=[vector_id],
+            embeddings=[vector] if vector is not None else None,
+            metadatas=[payload] if payload is not None else None,
+        )
 
-    def get(self, vector_id: str) -> OutputData:
+    def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -195,10 +199,11 @@ class ChromaDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.collection.get(ids=[vector_id])
-        return self._parse_output(result)[0]
+        parsed = self._parse_output(result)
+        return parsed[0] if parsed else None
 
     def list_cols(self) -> List[chromadb.Collection]:
         """
@@ -257,7 +262,7 @@ class ChromaDB(VectorStoreBase):
             dict[str, any]: Properly formatted where clause for ChromaDB.
         """
         if where is None:
-            return {}
+            return None
         
         def convert_condition(key: str, value: any) -> dict:
             """Convert universal filter format to ChromaDB format."""
@@ -351,7 +356,7 @@ class ChromaDB(VectorStoreBase):
         
         # Return appropriate format based on number of conditions
         if len(processed_filters) == 0:
-            return {}
+            return None
         elif len(processed_filters) == 1:
             return processed_filters[0]
         else:

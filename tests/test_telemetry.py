@@ -70,6 +70,10 @@ class TestTelemetryEnabled:
                 with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="test-user"):
                     at = telemetry_module.AnonymousTelemetry()
                     mock_posthog.assert_called_once()
+                    assert (
+                        mock_posthog.call_args.kwargs["feature_flags_request_timeout_seconds"]
+                        == telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS
+                    )
                     assert at.posthog is not None
                     assert at.user_id == "test-user"
 
@@ -83,6 +87,22 @@ class TestTelemetryEnabled:
                 mock_memory.api_version = "v1"
                 telemetry_module.capture_event("test.event", mock_memory)
                 mock_at.capture_event.assert_called_once()
+
+    def test_anonymous_capture_event_passes_flags_to_posthog(self):
+        """capture_event() should use PostHog's event-first API and preserve flag snapshots."""
+        flags = MagicMock()
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            with patch("mem0.memory.telemetry.Posthog") as mock_posthog_cls:
+                with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="test-user"):
+                    at = telemetry_module.AnonymousTelemetry()
+                    at.capture_event("test.event", {"key": "value"}, flags=flags)
+
+        mock_posthog_cls.return_value.capture.assert_called_once()
+        args, kwargs = mock_posthog_cls.return_value.capture.call_args
+        assert args == ("test.event",)
+        assert kwargs["distinct_id"] == "test-user"
+        assert kwargs["flags"] is flags
+        assert kwargs["properties"]["key"] == "value"
 
     def test_capture_client_event_sends_when_enabled(self):
         """capture_client_event() should call client_telemetry.capture_event when enabled."""

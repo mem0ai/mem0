@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _formatting import TYPE_ICONS, format_age
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_project_id
-from _search import search_memories
+from _search import search_memories, should_rerank
 
 FILE_READ_GATE_MIN_BYTES = 1500
 MAX_RESULTS = 5
@@ -93,6 +93,7 @@ def search_file_context(
         api_key, user_id, project_id, query,
         top_k=MAX_RESULTS, threshold=0.3,
         global_search=global_search,
+        rerank=should_rerank(),
     )
 
     results = results[:MAX_RESULTS]

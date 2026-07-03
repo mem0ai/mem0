@@ -42,7 +42,7 @@ import {
   isSubagentSession,
 } from "./isolation.ts";
 import {
-  loadTriagePrompt,
+  loadCompactTriagePrompt,
   loadDreamPrompt,
   isSkillsMode,
 } from "./skill-loader.ts";
@@ -464,7 +464,7 @@ function registerHooks(
           "openclaw-mem0: skills-mode skipping recall for system/bootstrap prompt",
         );
         // Still inject the protocol, just skip recall search
-        const systemContext = loadTriagePrompt(cfg.skills ?? {});
+        const systemContext = loadCompactTriagePrompt(cfg.skills ?? {});
         return { prependSystemContext: systemContext };
       }
 
@@ -474,7 +474,7 @@ function registerHooks(
       const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
 
       // Static protocol goes in prependSystemContext (cacheable across turns)
-      let systemContext = loadTriagePrompt(cfg.skills ?? {});
+      let systemContext = loadCompactTriagePrompt(cfg.skills ?? {});
       if (isSubagent) {
         systemContext =
           "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" +

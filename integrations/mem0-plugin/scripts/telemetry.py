@@ -26,16 +26,27 @@ import sys
 import urllib.error
 import urllib.request
 
+# Each editor surface ships its own manifest with its own version line
+# (Antigravity is on 0.1.x while Claude/Cursor/Codex are on 0.2.x), so we read
+# the manifest matching the detected platform rather than a single shared one.
+_PLATFORM_MANIFESTS = {
+    "antigravity": ("..", "plugin.json"),
+    "claude-code": ("..", ".claude-plugin", "plugin.json"),
+    "cursor": ("..", ".cursor-plugin", "plugin.json"),
+    "codex": ("..", ".codex-plugin", "plugin.json"),
+}
+_DEFAULT_MANIFEST = ("..", ".claude-plugin", "plugin.json")
 
-def _load_plugin_version() -> str:
+
+def _load_plugin_version(platform_name: str = "") -> str:
+    parts = _PLATFORM_MANIFESTS.get(platform_name, _DEFAULT_MANIFEST)
     try:
-        plugin_json = os.path.join(os.path.dirname(__file__), "..", ".claude-plugin", "plugin.json")
+        plugin_json = os.path.join(os.path.dirname(__file__), *parts)
         with open(plugin_json) as f:
             return json.load(f).get("version", "unknown")
     except (OSError, json.JSONDecodeError, KeyError):
         return "unknown"
 
-PLUGIN_VERSION = _load_plugin_version()
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/"
@@ -58,6 +69,11 @@ def _distinct_id() -> str:
 
 
 def detect_platform() -> str:
+    explicit = os.environ.get("MEM0_PLATFORM")
+    if explicit:
+        return explicit
+    if os.environ.get("ANTIGRAVITY_PLUGIN_ROOT"):
+        return "antigravity"
     if os.environ.get("PLUGIN_ROOT"):
         return "codex"
     if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_PLUGIN_ROOT"):
@@ -75,6 +91,7 @@ def is_enabled() -> bool:
 
 def build_posthog_payload(event_name: str, properties: dict | None = None) -> dict:
     project_id = os.environ.get("MEM0_PROJECT_ID") or "unknown"
+    plat = detect_platform()
     return {
         "api_key": POSTHOG_API_KEY,
         "distinct_id": _distinct_id(),
@@ -82,8 +99,8 @@ def build_posthog_payload(event_name: str, properties: dict | None = None) -> di
         "properties": {
             **(properties or {}),
             "source": "plugin",
-            "platform": detect_platform(),
-            "plugin_version": PLUGIN_VERSION,
+            "platform": plat,
+            "plugin_version": _load_plugin_version(plat),
             "project_hash": _sha256(project_id),
             "os": sys.platform,
             "os_version": platform.version(),

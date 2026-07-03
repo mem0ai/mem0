@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/block_memory_write.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/block_memory_write.sh",
             "timeout": 3
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
             "timeout": 3
           }
         ]
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_file_read.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_file_read.sh",
             "timeout": 5
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_session_start.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_session_start.sh",
             "statusMessage": "Loading mem0 context..."
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_user_prompt.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_user_prompt.sh",
             "statusMessage": "Checking memory relevance...",
             "timeout": 12
           }
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
             "timeout": 3
           }
         ]
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_bash_output.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_bash_output.sh",
             "timeout": 12
           }
         ]
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_stop.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_stop.sh",
             "timeout": 30
           }
         ]
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_pre_compact.sh",
+            "command": "MEM0_PLATFORM=codex ${PLUGIN_ROOT}/scripts/on_pre_compact.sh",
             "statusMessage": "Preparing pre-compaction summary..."
           }
         ]

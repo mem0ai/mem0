@@ -6,6 +6,7 @@ onlyBuiltDependencies:
   - better-sqlite3
 
 overrides:
+  "form-data@<4.0.6": ">=4.0.6"
   "picomatch@<2.3.2": "^2.3.2"
   "picomatch@>=4.0.0 <4.0.4": "^4.0.4"
   "jws@4.0.0": "4.0.1"
@@ -22,3 +23,5 @@ overrides:
   "tar-fs@>=2.0.0 <2.1.4": "^2.1.4"
   "glob@>=10.2.0 <10.5.0": "^10.5.0"
   "@modelcontextprotocol/sdk": "^1.25.4"
+  "esbuild": ">=0.28.1"
+  "undici@<6.27.0": ">=6.27.0 <8.0.0"

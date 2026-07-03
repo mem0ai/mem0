@@ -49,6 +49,9 @@ export interface LLMConfig {
   model?: string | any;
   modelProperties?: Record<string, any>;
   timeout?: number;
+  temperature?: number;
+  topP?: number;
+  maxTokens?: number;
 }
 
 export interface MemoryConfig {
@@ -79,6 +82,7 @@ export interface MemoryItem {
   updatedAt?: string;
   score?: number;
   metadata?: Record<string, any>;
+  attributedTo?: string;
 }
 
 export interface SearchFilters {
@@ -131,6 +135,9 @@ export const MemoryConfigSchema = z.object({
       baseURL: z.string().optional(),
       url: z.string().optional(),
       timeout: z.number().optional(),
+      temperature: z.number().optional(),
+      topP: z.number().optional(),
+      maxTokens: z.number().optional(),
     }),
   }),
   historyDbPath: z.string().optional(),

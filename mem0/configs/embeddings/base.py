@@ -2,9 +2,8 @@ import os
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
-
 from mem0.configs.base import AzureConfig
+from mem0.utils.http import build_http_client
 
 
 class BaseEmbedderConfig(ABC):
@@ -39,6 +38,7 @@ class BaseEmbedderConfig(ABC):
         # AWS Bedrock specific
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
         aws_region: Optional[str] = None,
     ):
         """
@@ -80,7 +80,8 @@ class BaseEmbedderConfig(ABC):
         self.embedding_dims = embedding_dims
 
         # AzureOpenAI specific
-        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_client_proxies = http_client_proxies
+        self.http_client = build_http_client(http_client_proxies)
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
@@ -106,5 +107,5 @@ class BaseEmbedderConfig(ABC):
         # AWS Bedrock specific
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
+        self.aws_session_token = aws_session_token
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
-

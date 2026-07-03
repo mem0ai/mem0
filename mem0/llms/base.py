@@ -79,6 +79,25 @@ class LLMBase(ABC):
 
         return False
 
+    def _uses_max_completion_tokens(self, model: str) -> bool:
+        """
+        Check if the model expects ``max_completion_tokens`` instead of ``max_tokens``.
+
+        The whole GPT-5 family (gpt-5.4-mini, gpt-5.4-nano, gpt-5.5, ...) rejects the
+        legacy ``max_tokens`` parameter on the Chat Completions API and requires
+        ``max_completion_tokens``. Older models (gpt-4.x, gpt-3.5, etc.) still accept
+        ``max_tokens``.
+
+        Args:
+            model: The model name to check
+
+        Returns:
+            bool: True if the model requires ``max_completion_tokens``
+        """
+        # Strip provider prefixes (e.g. "openai/gpt-5.4-mini" -> "gpt-5.4-mini")
+        base_model = (model or "").lower().rsplit("/", 1)[-1]
+        return base_model.startswith("gpt-5")
+
     def _get_supported_params(self, **kwargs) -> Dict:
         """
         Get parameters that are supported by the current model.
@@ -141,9 +160,14 @@ class LLMBase(ABC):
         """
         params = {
             "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
+
+        model = getattr(self.config, "model", "")
+        if self._uses_max_completion_tokens(model):
+            params["max_completion_tokens"] = self.config.max_tokens
+        else:
+            params["max_tokens"] = self.config.max_tokens
 
         # Add provider-specific parameters from kwargs
         params.update(kwargs)

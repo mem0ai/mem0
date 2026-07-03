@@ -151,36 +151,13 @@ Add the following to your `.cursor/mcp.json`:
 }
 ```
 
-**Option C — Cursor Marketplace** (full plugin with hooks and skills):
-
-Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
-
 ### OpenCode
 
 ```bash
-bunx @mem0/opencode-plugin@latest install
+opencode plugin @mem0/opencode-plugin
 ```
 
-Or via OpenCode's built-in CLI: `opencode plugin @mem0/opencode-plugin`
-
-Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
-
-```json
-{
-  "mcp": {
-    "mem0": {
-      "type": "remote",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token {env:MEM0_API_KEY}"
-      },
-      "oauth": false
-    }
-  }
-}
-```
-
-Restart OpenCode. The plugin installs hooks and skills automatically. Drop the `plugin` install if you only want MCP.
+Add `--global` to install for all projects. The plugin auto-registers its native memory tools, hooks, and skills via its `config` hook — no MCP server to configure. Restart OpenCode after installing.
 
 See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for full details.
 
@@ -244,14 +221,14 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes |
-| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes |
+| Component | Claude Code / Cowork | Cursor (MCP) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
+|-----------|:--------------------:|:------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | No | Opt-in | No | Yes | No | Yes |
+| Mem0 SDK Skill | Yes | No | Yes | No | Yes | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, Cursor, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 
 ## Updating the plugin

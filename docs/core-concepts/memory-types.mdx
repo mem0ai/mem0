@@ -9,13 +9,6 @@ iconType: "solid"
 
 Mem0 separates memory into layers so agents remember the right detail at the right time. Think of it like a notebook: a sticky note for the current task, a daily journal for the session, and an archive for everything a user has shared.
 
-<Info>
-  **Why it matters**
-  - Keeps conversations coherent without repeating instructions.
-  - Lets agents personalize responses based on long-term preferences.
-  - Avoids over-fetching data by scoping memory to the correct layer.
-</Info>
-
 ## Key terms
 
 - **Conversation memory** – In-flight messages inside a single turn (what was just said).
@@ -60,7 +53,7 @@ import os
 
 from mem0 import Memory
 
-memory = Memory(api_key=os.environ["MEM0_API_KEY"])
+memory = Memory()
 
 # Sticky note: conversation memory
 memory.add(
@@ -72,8 +65,7 @@ memory.add(
 # Later in the session, pull long-term + session context
 results = memory.search(
     "Any hotel preferences?",
-    user_id="alex",
-    run_id="trip-planning-2025",
+    filters={"user_id": "alex", "run_id": "trip-planning-2025"},
 )
 ```
 
@@ -98,7 +90,7 @@ results = memory.search(
 | Org | Configured globally | Long-term | Shared knowledge | Needs owner to keep current |
 
 <Warning>
-  Avoid storing secrets or unredacted PII in user or org memories—Mem0 is retrievable by design. Encrypt or hash sensitive values first.
+  Avoid storing secrets or unredacted PII in user or org memories: Mem0 is retrievable by design. Encrypt or hash sensitive values first.
 </Warning>
 
 ## Put it into practice

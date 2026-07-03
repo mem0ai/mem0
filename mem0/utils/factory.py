@@ -1,4 +1,5 @@
 import importlib
+import inspect
 from typing import Dict, Optional, Union
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
@@ -7,6 +8,7 @@ from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
+from mem0.configs.llms.gemini import GeminiConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.minimax import MinimaxConfig
 from mem0.configs.llms.ollama import OllamaConfig
@@ -46,7 +48,7 @@ class LlmFactory:
         "openai_structured": ("mem0.llms.openai_structured.OpenAIStructuredLLM", OpenAIConfig),
         "anthropic": ("mem0.llms.anthropic.AnthropicLLM", AnthropicConfig),
         "azure_openai_structured": ("mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM", AzureOpenAIConfig),
-        "gemini": ("mem0.llms.gemini.GeminiLLM", BaseLlmConfig),
+        "gemini": ("mem0.llms.gemini.GeminiLLM", GeminiConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
         "xai": ("mem0.llms.xai.XAILLM", XAIConfig),
@@ -99,8 +101,16 @@ class LlmFactory:
                     "top_k": config.top_k,
                     "enable_vision": config.enable_vision,
                     "vision_details": config.vision_details,
-                    "http_client_proxies": config.http_client,
+                    "http_client_proxies": config.http_client_proxies,
                 }
+                # Only forward reasoning fields to provider configs that accept them
+                # (explicitly or via **kwargs); others would raise on unexpected kwargs.
+                params = inspect.signature(config_class).parameters
+                accepts_kwargs = any(p.kind == p.VAR_KEYWORD for p in params.values())
+                if accepts_kwargs or "reasoning_effort" in params:
+                    config_dict["reasoning_effort"] = config.reasoning_effort
+                if accepts_kwargs or "is_reasoning_model" in params:
+                    config_dict["is_reasoning_model"] = config.is_reasoning_model
                 config_dict.update(kwargs)
                 config = config_class(**config_dict)
             else:
