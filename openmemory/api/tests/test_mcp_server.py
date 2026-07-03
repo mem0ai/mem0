@@ -394,3 +394,106 @@ class TestRouteRegistration:
     def test_streamable_http_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
+
+
+# ---------------------------------------------------------------------------
+# Memory tools — compatibility with the mem0ai client API
+# ---------------------------------------------------------------------------
+
+class TestMemoryToolsMem0ApiCompat:
+    """Regression tests: the MCP memory tools must call the mem0 client with
+    its current API — vector_store.search() takes top_k (not limit), and
+    get_all() takes entity IDs via filters (not as top-level kwargs).
+    """
+
+    @pytest.fixture
+    def app_db(self, monkeypatch):
+        """In-memory app database so get_user_and_app can create user/app rows."""
+        import app.mcp_server as mcp_server_module
+        from app.database import Base
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(bind=engine)
+        factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        monkeypatch.setattr(mcp_server_module, "SessionLocal", factory)
+        yield factory
+        engine.dispose()
+
+    @pytest.fixture
+    def memory_client(self, monkeypatch, app_db):
+        """Memory client whose search/get_all reject outdated call conventions
+        the same way the installed mem0 package does at runtime."""
+        import inspect
+        from unittest.mock import MagicMock
+
+        import app.mcp_server as mcp_server_module
+        from mem0.vector_stores.qdrant import Qdrant
+
+        def enforce_installed_signature(func, return_value):
+            """Stub that validates calls against func's installed signature."""
+            sig = inspect.signature(func)
+
+            def stub(*args, **kwargs):
+                sig.bind(None, *args, **kwargs)  # None stands in for self
+                return return_value
+
+            return stub
+
+        def get_all_stub(*, filters=None, top_k=20, show_expired=False, **kwargs):
+            # Mirrors Memory.get_all, which rejects top-level entity kwargs
+            # with a ValueError directing callers to use filters.
+            entity_keys = {"user_id", "agent_id", "run_id"}.intersection(kwargs)
+            if entity_keys:
+                raise ValueError(
+                    f"Top-level entity parameters {entity_keys} are not supported "
+                    "in get_all(). Use filters instead."
+                )
+            return {"results": []}
+
+        client_mock = MagicMock()
+        client_mock.embedding_model.embed.return_value = [0.0] * 8
+        client_mock.vector_store.search = enforce_installed_signature(Qdrant.search, [])
+        client_mock.get_all = get_all_stub
+        monkeypatch.setattr(mcp_server_module, "get_memory_client_safe", lambda: client_mock)
+        return client_mock
+
+    async def _call_tool(self, client, name: str, arguments: dict) -> str:
+        await client.post(
+            "/mcp/testclient/http/user1",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+        resp = await client.post(
+            "/mcp/testclient/http/user1",
+            json=_jsonrpc("tools/call", {"name": name, "arguments": arguments}, req_id=2),
+            headers=MCP_HEADERS,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "result" in data, data
+        return data["result"]["content"][0]["text"]
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_top_k(self, client, memory_client):
+        """search_memory must pass top_k; limit= fails with a TypeError."""
+        import json as json_module
+
+        text = await self._call_tool(client, "search_memory", {"query": "test"})
+        assert not text.startswith("Error"), text
+        assert json_module.loads(text) == {"results": []}
+
+    @pytest.mark.asyncio
+    async def test_list_memories_uses_filters(self, client, memory_client):
+        """list_memories must pass filters={'user_id': ...}, not user_id=."""
+        import json as json_module
+
+        text = await self._call_tool(client, "list_memories", {})
+        assert not text.startswith("Error"), text
+        assert json_module.loads(text) == []
