@@ -133,6 +133,17 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
+function buildFilterExpression(filters?: SearchFilters): string {
+  const snakeFilters = filters ? toSnakeCase(filters) : undefined;
+  const clauses = snakeFilters
+    ? Object.entries(snakeFilters)
+        .filter(([_, value]) => value !== null && value !== undefined)
+        .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
+    : [];
+
+  return clauses.length ? clauses.join(" ") : "*";
+}
+
 // Utility function to convert object keys to camelCase
 function toCamelCase(obj: Record<string, any>): Record<string, any> {
   if (typeof obj !== "object" || obj === null) return obj;
@@ -390,13 +401,7 @@ export class RedisDB implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildFilterExpression(filters);
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -634,13 +639,7 @@ export class RedisDB implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildFilterExpression(filters);
 
     const searchOptions = {
       SORTBY: "created_at",

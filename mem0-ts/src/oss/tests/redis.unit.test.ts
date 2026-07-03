@@ -125,4 +125,29 @@ describe("RedisDB – entity payload handling", () => {
     expect(entry.created_at).toBeGreaterThan(0);
     expect(Number.isNaN(entry.created_at)).toBe(false);
   });
+
+  test("search uses match-all query for empty and all-null filters", async () => {
+    mockClient.ft.search.mockResolvedValue({ total: 0, documents: [] });
+
+    await store.search([0.1, 0.2, 0.3, 0.4], 5, {});
+    await store.search([0.1, 0.2, 0.3, 0.4], 5, {
+      userId: null,
+      agentId: undefined,
+    });
+
+    expect(mockClient.ft.search.mock.calls[0][1]).toBe(
+      "* =>[KNN 5 @embedding $vec AS __vector_score]",
+    );
+    expect(mockClient.ft.search.mock.calls[1][1]).toBe(
+      "* =>[KNN 5 @embedding $vec AS __vector_score]",
+    );
+  });
+
+  test("list uses match-all query for empty filters", async () => {
+    mockClient.ft.search.mockResolvedValue({ total: 0, documents: [] });
+
+    await store.list({});
+
+    expect(mockClient.ft.search.mock.calls[0][1]).toBe("*");
+  });
 });
