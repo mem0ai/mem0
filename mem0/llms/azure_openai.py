@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 from typing import Dict, List, Optional, Union
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
@@ -32,9 +33,9 @@ class AzureOpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                reasoning_effort=getattr(config, 'reasoning_effort', None),
+                reasoning_effort=getattr(config, "reasoning_effort", None),
                 http_client_proxies=config.http_client_proxies,
-                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
+                is_reasoning_model=getattr(config, "is_reasoning_model", None),
             )
 
         super().__init__(config)
@@ -87,7 +88,7 @@ class AzureOpenAILLM(LLMBase):
         messages = copy.deepcopy(messages)
         last_content = messages[-1].get("content")
         if isinstance(last_content, str):
-            messages[-1]["content"] = last_content.replace("assistant", "ai")
+            messages[-1]["content"] = re.sub(r"\bassistant\b", "ai", last_content)
         return messages
 
     def _parse_response(self, response, tools):
@@ -151,10 +152,12 @@ class AzureOpenAILLM(LLMBase):
         params = self._get_supported_params(messages=messages, **kwargs)
 
         # Add model and messages
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
 
         if response_format:
             params["response_format"] = response_format
