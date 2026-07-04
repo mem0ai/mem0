@@ -244,11 +244,8 @@ class TestStreamableHTTPProtocol:
 class TestMCPMemorySearch:
     """Verify search_memory calls the vector store through the project contract."""
 
-    @pytest.mark.asyncio
-    async def test_search_memory_uses_top_k_for_vector_store(self, monkeypatch):
-        """search_memory should pass top_k, not the unsupported limit keyword."""
-        captured = {}
-
+    @staticmethod
+    def _patch_search_dependencies(monkeypatch, captured):
         class FakeQuery:
             def filter(self, *_args, **_kwargs):
                 return self
@@ -292,6 +289,24 @@ class TestMCPMemorySearch:
         monkeypatch.setattr(mcp_server, "SessionLocal", FakeSession)
         monkeypatch.setattr(mcp_server, "get_user_and_app", lambda *_args, **_kwargs: (user, app))
 
+    @staticmethod
+    def _assert_search_uses_top_k(captured):
+        assert captured["embedding"] == ("pizza", "search")
+        assert captured["search_kwargs"] == {
+            "query": "pizza",
+            "vectors": [0.1, 0.2, 0.3],
+            "top_k": 10,
+            "filters": {"user_id": "alice"},
+        }
+        assert "limit" not in captured["search_kwargs"]
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_top_k_for_vector_store(self, monkeypatch):
+        """search_memory should pass top_k, not the unsupported limit keyword."""
+        captured = {}
+
+        self._patch_search_dependencies(monkeypatch, captured)
+
         user_token = user_id_var.set("alice")
         client_token = client_name_var.set("test-client")
         try:
@@ -301,14 +316,33 @@ class TestMCPMemorySearch:
             client_name_var.reset(client_token)
 
         assert result == '{\n  "results": []\n}'
-        assert captured["embedding"] == ("pizza", "search")
-        assert captured["search_kwargs"] == {
-            "query": "pizza",
-            "vectors": [0.1, 0.2, 0.3],
-            "top_k": 10,
-            "filters": {"user_id": "alice"},
-        }
-        assert "limit" not in captured["search_kwargs"]
+        self._assert_search_uses_top_k(captured)
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_top_k_through_streamable_http(self, client, monkeypatch):
+        """tools/call for search_memory should forward top_k through the HTTP MCP transport."""
+        captured = {}
+        self._patch_search_dependencies(monkeypatch, captured)
+
+        init_resp = await client.post(
+            "/mcp/test-client/http/alice",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+        assert init_resp.status_code == 200
+
+        resp = await client.post(
+            "/mcp/test-client/http/alice",
+            json=_jsonrpc("tools/call", {"name": "search_memory", "arguments": {"query": "pizza"}}, req_id=2),
+            headers=MCP_HEADERS,
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 2
+        assert "result" in data
+        self._assert_search_uses_top_k(captured)
 
 
 # ---------------------------------------------------------------------------
