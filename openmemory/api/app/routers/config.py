@@ -3,11 +3,23 @@ from typing import Any, Dict, Optional
 from app.database import get_db
 from app.models import Config as ConfigModel
 from app.utils.memory import reset_memory_client
+from app.utils.url_validation import UnsafeURLError, validate_public_base_url
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1/config", tags=["config"])
+
+
+def _validate_ollama_base_url(value: Optional[str]) -> Optional[str]:
+    """Reject ollama_base_url values that could enable SSRF (issue #6081)."""
+    if value is None:
+        return value
+    try:
+        return validate_public_base_url(value)
+    except UnsafeURLError as exc:
+        raise ValueError(str(exc)) from exc
+
 
 class LLMConfig(BaseModel):
     model: str = Field(..., description="LLM model name")
@@ -15,6 +27,8 @@ class LLMConfig(BaseModel):
     max_tokens: int = Field(..., description="Maximum tokens to generate")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+
+    _validate_ollama_base_url = field_validator("ollama_base_url")(_validate_ollama_base_url)
 
 class LLMProvider(BaseModel):
     provider: str = Field(..., description="LLM provider name")
@@ -24,6 +38,8 @@ class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
+
+    _validate_ollama_base_url = field_validator("ollama_base_url")(_validate_ollama_base_url)
 
 class EmbedderProvider(BaseModel):
     provider: str = Field(..., description="Embedder provider name")
