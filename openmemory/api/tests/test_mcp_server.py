@@ -14,6 +14,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app import mcp_server
 from app.mcp_server import client_name_var, mcp, mcp_router, user_id_var
 
 # MCP Streamable HTTP requires the Accept header to include application/json.
@@ -234,6 +235,80 @@ class TestStreamableHTTPProtocol:
         )
         ct = resp.headers.get("content-type", "")
         assert "application/json" in ct
+
+
+# ---------------------------------------------------------------------------
+# MCP tools — memory search behavior
+# ---------------------------------------------------------------------------
+
+class TestMCPMemorySearch:
+    """Verify search_memory calls the vector store through the project contract."""
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_top_k_for_vector_store(self, monkeypatch):
+        """search_memory should pass top_k, not the unsupported limit keyword."""
+        captured = {}
+
+        class FakeQuery:
+            def filter(self, *_args, **_kwargs):
+                return self
+
+            def all(self):
+                return []
+
+        class FakeSession:
+            def query(self, *_args, **_kwargs):
+                return FakeQuery()
+
+            def commit(self):
+                pass
+
+            def close(self):
+                pass
+
+        class FakeEmbeddingModel:
+            def embed(self, query, mode):
+                captured["embedding"] = (query, mode)
+                return [0.1, 0.2, 0.3]
+
+        class FakeVectorStore:
+            def search(self, **kwargs):
+                captured["search_kwargs"] = kwargs
+                return []
+
+        fake_memory_client = type(
+            "FakeMemoryClient",
+            (),
+            {
+                "embedding_model": FakeEmbeddingModel(),
+                "vector_store": FakeVectorStore(),
+            },
+        )()
+
+        user = type("User", (), {"id": "user-db-id"})()
+        app = type("App", (), {"id": "app-db-id"})()
+
+        monkeypatch.setattr(mcp_server, "get_memory_client_safe", lambda: fake_memory_client)
+        monkeypatch.setattr(mcp_server, "SessionLocal", FakeSession)
+        monkeypatch.setattr(mcp_server, "get_user_and_app", lambda *_args, **_kwargs: (user, app))
+
+        user_token = user_id_var.set("alice")
+        client_token = client_name_var.set("test-client")
+        try:
+            result = await mcp_server.search_memory("pizza")
+        finally:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+
+        assert result == '{\n  "results": []\n}'
+        assert captured["embedding"] == ("pizza", "search")
+        assert captured["search_kwargs"] == {
+            "query": "pizza",
+            "vectors": [0.1, 0.2, 0.3],
+            "top_k": 10,
+            "filters": {"user_id": "alice"},
+        }
+        assert "limit" not in captured["search_kwargs"]
 
 
 # ---------------------------------------------------------------------------
