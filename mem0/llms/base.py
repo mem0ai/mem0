@@ -77,6 +77,18 @@ class LLMBase(ABC):
         if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3."]):
             return True
 
+        # Match the original GPT-5 dash family (gpt-5-mini, gpt-5-nano and their
+        # dated variants like gpt-5-mini-2025-08-07). These are reasoning models
+        # that reject a non-default temperature. This must NOT match the newer
+        # dot-versioned models (gpt-5.4-mini) which support temperature, hence
+        # the explicit "gpt-5-" (dash) prefix rather than a bare "gpt-5" substring.
+        #
+        # Exclude the "gpt-5-chat" family (gpt-5-chat, gpt-5-chat-latest): these
+        # are the non-reasoning chat variants that DO accept a custom temperature,
+        # so they must stay on the temperature path.
+        if base_model.startswith("gpt-5-") and not base_model.startswith("gpt-5-chat"):
+            return True
+
         return False
 
     def _uses_max_completion_tokens(self, model: str) -> bool:
