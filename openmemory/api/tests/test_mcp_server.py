@@ -458,14 +458,14 @@ class TestStreamableHTTPResponses:
 class TestRouteRegistration:
     """Verify all expected routes are registered in the router."""
 
-    def test_sse_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+    def test_sse_route_is_registered(self):
+        routes = [r.path for r in mcp_router.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/sse/{user_id}" in routes
 
-    def test_sse_post_messages_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+    def test_sse_post_messages_route_is_registered(self):
+        routes = [r.path for r in mcp_router.routes if hasattr(r, "path")]
         assert "/mcp/messages/" in routes or "/mcp/{client_name}/sse/{user_id}/messages/" in routes
 
-    def test_streamable_http_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+    def test_streamable_http_route_is_registered(self):
+        routes = [r.path for r in mcp_router.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
