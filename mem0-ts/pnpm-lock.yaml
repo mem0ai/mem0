@@ -46,7 +46,7 @@ importers:
         version: 1.52.0
       '@langchain/core':
         specifier: ^1.1.47
-        version: 1.1.48(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
+        version: 1.1.48(openai@5.23.2(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
       '@mistralai/mistralai':
         specifier: ^1.5.2
         version: 1.15.1
@@ -84,8 +84,8 @@ importers:
         specifier: ^0.5.14
         version: 0.5.18
       openai:
-        specifier: ^4.93.0
-        version: 4.104.0(ws@8.21.0)(zod@3.25.76)
+        specifier: ^5.0.0
+        version: 5.23.2(ws@8.21.0)(zod@3.25.76)
       pg:
         specifier: 8.11.3
         version: 8.11.3
@@ -2289,8 +2289,8 @@ packages:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
     engines: {node: '>=18'}
 
-  openai@4.104.0:
-    resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
+  openai@5.23.2:
+    resolution: {integrity: sha512-MQBzmTulj+MM5O8SKEk/gL8a7s5mktS9zUtAkU257WjvobGc9nKcBuVwjyEEcb9SI8a8Y2G/mzn3vm9n1Jlleg==}
     hasBin: true
     peerDependencies:
       ws: '>=8.20.1'
@@ -3678,12 +3678,12 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@1.1.48(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)':
+  '@langchain/core@1.1.48(openai@5.23.2(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.6.3(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
+      langsmith: 0.6.3(openai@5.23.2(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 3.25.76
@@ -5216,11 +5216,11 @@ snapshots:
 
   kolorist@1.8.0: {}
 
-  langsmith@0.6.3(openai@4.104.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0):
+  langsmith@0.6.3(openai@5.23.2(ws@8.21.0)(zod@3.25.76))(ws@8.21.0):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
-      openai: 4.104.0(ws@8.21.0)(zod@3.25.76)
+      openai: 5.23.2(ws@8.21.0)(zod@3.25.76)
       ws: 8.21.0
 
   leven@3.1.0: {}
@@ -5475,20 +5475,10 @@ snapshots:
       is-inside-container: 1.0.0
       wsl-utils: 0.1.0
 
-  openai@4.104.0(ws@8.21.0)(zod@3.25.76):
-    dependencies:
-      '@types/node': 18.19.130
-      '@types/node-fetch': 2.6.13
-      abort-controller: 3.0.0
-      agentkeepalive: 4.6.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0
+  openai@5.23.2(ws@8.21.0)(zod@3.25.76):
     optionalDependencies:
       ws: 8.21.0
       zod: 3.25.76
-    transitivePeerDependencies:
-      - encoding
 
   p-finally@1.0.0: {}
 
