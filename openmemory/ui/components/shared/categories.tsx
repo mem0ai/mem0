@@ -54,7 +54,7 @@ const iconMap: Record<string, any> = {
   psychology: <Brain className="w-4 h-4 mr-2" />,
   mental: <Brain className="w-4 h-4 mr-2" />,
   social: <Users className="w-4 h-4 mr-2" />,
-  peronsal: <PersonStandingIcon className="w-4 h-4 mr-2" />,
+  personal: <PersonStandingIcon className="w-4 h-4 mr-2" />,
   life: <Heart className="w-4 h-4 mr-2" />,
 
   // Work / Career
