@@ -20,7 +20,10 @@ class QdrantConfig(BaseModel):
         None,
         description="Whether to force HTTPS on or off. Explicit schemes in url take precedence.",
     )
-    on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    on_disk: Optional[bool] = Field(
+        False,
+        description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -36,16 +39,4 @@ class QdrantConfig(BaseModel):
             raise ValueError("Either 'host' and 'port' or 'url' and 'api_key' or 'path' must be provided.")
         return values
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        input_fields = set(values.keys())
-        extra_fields = input_fields - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}"
-            )
-        return values
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")

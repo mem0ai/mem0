@@ -31,4 +31,4 @@ class UpstashVectorConfig(BaseModel):
             raise ValueError("Either a client or URL and token must be provided.")
         return values
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")

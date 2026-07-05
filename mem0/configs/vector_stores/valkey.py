@@ -1,6 +1,4 @@
-from typing import Any, Dict
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ValkeyConfig(BaseModel):
@@ -16,17 +14,4 @@ class ValkeyConfig(BaseModel):
     hnsw_ef_runtime: int = Field(10, description="HNSW: search width during queries")
     cluster_mode: bool = Field(False, description="Enable cluster mode for Valkey cluster (CME) deployments")
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        input_fields = set(values.keys())
-        extra_fields = input_fields - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. "
-                f"Please input only the following fields: {', '.join(allowed_fields)}"
-            )
-        return values
-
-    model_config = ConfigDict(arbitrary_types_allowed=False)
+    model_config = ConfigDict(arbitrary_types_allowed=False, extra="forbid")
