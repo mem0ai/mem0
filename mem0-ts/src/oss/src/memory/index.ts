@@ -74,6 +74,25 @@ import {
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
+/**
+ * Raised when the LLM extraction call itself fails (provider/transport
+ * errors: rate limits, timeouts, connection errors), as opposed to the LLM
+ * responding successfully with an empty or unparseable result. Callers can
+ * catch this to distinguish "LLM unavailable" from "no facts extracted" and
+ * implement retry/fallback logic. Mirrors the Python SDK `LLMError` (see
+ * #5903 / #5878).
+ */
+export class LLMError extends Error {
+  readonly cause?: unknown;
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = "LLMError";
+    this.cause = options.cause;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
   "user_id",
@@ -854,7 +873,7 @@ export class Memory {
       )) as string;
     } catch (e) {
       console.error("LLM extraction failed:", e);
-      return [];
+      throw new LLMError(`LLM extraction failed: ${e}`, { cause: e });
     }
 
     // Parse response
