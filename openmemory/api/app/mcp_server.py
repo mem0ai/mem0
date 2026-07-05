@@ -245,7 +245,7 @@ async def list_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get all memories
-            memories = memory_client.get_all(user_id=uid)
+            memories = memory_client.get_all(filters={"user_id": uid})
             filtered_memories = []
 
             # Filter memories based on permissions

@@ -6,6 +6,7 @@ tools/call — as well as error handling and context-variable isolation.
 """
 
 import os
+import uuid
 
 # Set dummy keys before any imports that trigger client initialization
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
@@ -394,3 +395,74 @@ class TestRouteRegistration:
     def test_streamable_http_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
+
+
+# ---------------------------------------------------------------------------
+# list_memories — get_all() call shape (regression for #6082)
+# ---------------------------------------------------------------------------
+
+class TestListMemoriesGetAllCallShape:
+    """Regression test for #6082.
+
+    The current mem0 ``Memory.get_all()`` API rejects top-level entity
+    parameters such as ``user_id`` and requires ``filters={"user_id": ...}``
+    instead.  The MCP ``list_memories`` tool used to call
+    ``get_all(user_id=uid)``, which raised at runtime and returned no
+    memories.  This test pins the corrected call shape.
+    """
+
+    @pytest.mark.asyncio
+    async def test_list_memories_calls_get_all_with_filters(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        from app import mcp_server
+
+        uid = "alice"
+        client_name = "my-app"
+        memory_id = "11111111-1111-1111-1111-111111111111"
+
+        # A get_all that mirrors the real mem0 API: reject top-level entity
+        # kwargs, only accept filters=.  The buggy user_id=uid call would
+        # raise here, exactly as it does against a live deployment.
+        def fake_get_all(*args, **kwargs):
+            if set(kwargs) - {"filters"}:
+                raise ValueError(
+                    f"Top-level entity parameters {frozenset(set(kwargs) - {'filters'})} "
+                    "are not supported in get_all(). Use filters={'user_id': '...'} instead."
+                )
+            assert kwargs.get("filters") == {"user_id": uid}
+            return {"results": [{"id": memory_id, "hash": "abc"}]}
+
+        fake_client = MagicMock()
+        fake_client.get_all.side_effect = fake_get_all
+
+        fake_user = MagicMock()
+        fake_app = MagicMock()
+        fake_app.id = "app-1"
+
+        fake_memory_row = MagicMock()
+        fake_memory_row.id = uuid.UUID(memory_id)
+
+        fake_db = MagicMock()
+        fake_db.query.return_value.filter.return_value.all.return_value = [fake_memory_row]
+
+        monkeypatch.setattr(mcp_server, "get_memory_client_safe", lambda: fake_client)
+        monkeypatch.setattr(mcp_server, "get_user_and_app", lambda db, user_id, app_id: (fake_user, fake_app))
+        monkeypatch.setattr(mcp_server, "SessionLocal", lambda: fake_db)
+        monkeypatch.setattr(mcp_server, "check_memory_access_permissions", lambda db, mem, app_id: True)
+
+        token_uid = mcp_server.user_id_var.set(uid)
+        token_cn = mcp_server.client_name_var.set(client_name)
+        try:
+            result = await mcp_server.list_memories()
+        finally:
+            mcp_server.user_id_var.reset(token_uid)
+            mcp_server.client_name_var.reset(token_cn)
+
+        # get_all must be called with filters=, never a top-level user_id.
+        _, kwargs = fake_client.get_all.call_args
+        assert kwargs == {"filters": {"user_id": uid}}
+        assert "user_id" not in kwargs
+
+        # And the memory must actually come through (no silent drop).
+        assert memory_id in result
