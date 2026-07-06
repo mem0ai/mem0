@@ -156,12 +156,16 @@ class LLMBase(ABC):
     async def agenerate_response(
         self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, tool_choice: str = "auto", **kwargs
     ):
+        call_kwargs = dict(kwargs)
+        if tools is not None:
+            call_kwargs["tools"] = tools
+            call_kwargs["tool_choice"] = tool_choice
+        elif tool_choice != "auto":
+            call_kwargs["tool_choice"] = tool_choice
         return await asyncio.to_thread(
             self.generate_response,
             messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
-            **kwargs,
+            **call_kwargs,
         )
 
     def _get_common_params(self, **kwargs) -> Dict:

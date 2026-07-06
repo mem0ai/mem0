@@ -24,6 +24,16 @@ class BoomLLM(LLMBase):
         raise RuntimeError("sync boom")
 
 
+class KwargsOnlyLLM(LLMBase):
+    def __init__(self):
+        super().__init__(BaseLlmConfig(model="demo-model"))
+        self.kwargs = None
+
+    def generate_response(self, messages, **kwargs):
+        self.kwargs = kwargs
+        return "ok"
+
+
 def test_agenerate_response_falls_back_to_sync_provider():
     llm = EchoLLM()
     messages = [{"role": "user", "content": "hello"}]
@@ -44,6 +54,16 @@ def test_agenerate_response_falls_back_to_sync_provider():
     assert result["tool_choice"] == "required"
     assert result["kwargs"] == {"response_format": {"type": "json_object"}, "retry": 1}
     assert llm.calls == [(messages, tools, "required", {"response_format": {"type": "json_object"}, "retry": 1})]
+
+
+def test_agenerate_response_does_not_inject_default_tool_kwargs():
+    llm = KwargsOnlyLLM()
+    messages = [{"role": "user", "content": "hello"}]
+
+    result = asyncio.run(llm.agenerate_response(messages, response_format={"type": "json_object"}))
+
+    assert result == "ok"
+    assert llm.kwargs == {"response_format": {"type": "json_object"}}
 
 
 def test_agenerate_response_propagates_sync_provider_errors():
