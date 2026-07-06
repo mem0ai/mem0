@@ -4,6 +4,8 @@ import { LLMResponse } from "./base";
 
 const DEFAULT_MODEL = "Qwen/Qwen2.5-32B-Instruct";
 const DEFAULT_API_KEY = "vllm-api-key";
+// Mirrors the Python provider default (mem0/configs/llms/vllm.py) and the docs table.
+const DEFAULT_BASE_URL = "http://localhost:8000/v1";
 
 export class VllmLLM extends OpenAILLM {
   constructor(config: LLMConfig) {
@@ -12,10 +14,8 @@ export class VllmLLM extends OpenAILLM {
       config.vllmBaseURL ||
       config.vllm_base_url ||
       config.url ||
-      process.env.VLLM_BASE_URL;
-    if (!baseURL) {
-      throw new Error("vLLM baseURL is required");
-    }
+      process.env.VLLM_BASE_URL ||
+      DEFAULT_BASE_URL;
 
     super({
       ...config,

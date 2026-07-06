@@ -102,6 +102,11 @@ jest.mock("../src/llms/minimax", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "minimax-llm", config })),
 }));
+jest.mock("../src/llms/vllm", () => ({
+  VllmLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vllm-llm", config })),
+}));
 
 jest.mock("../src/vector_stores/qdrant", () => ({
   Qdrant: jest
@@ -218,6 +223,7 @@ describe("LLMFactory", () => {
     ["deepseek"],
     ["litellm"],
     ["minimax"],
+    ["vllm"],
   ])("creates LLM for provider '%s'", (provider) => {
     expect(() => LLMFactory.create(provider, dummyLLMConfig)).not.toThrow();
   });

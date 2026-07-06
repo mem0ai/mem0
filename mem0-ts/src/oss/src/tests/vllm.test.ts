@@ -77,8 +77,13 @@ describe("VllmLLM", () => {
     expect(llm).toBeInstanceOf(VllmLLM);
   });
 
-  it("requires an explicit vLLM baseURL", () => {
-    expect(() => new VllmLLM({})).toThrow("vLLM baseURL is required");
+  it("defaults to the local vLLM server when no baseURL is provided", () => {
+    new VllmLLM({});
+
+    expect(MockOpenAI).toHaveBeenCalledWith({
+      apiKey: "vllm-api-key",
+      baseURL: "http://localhost:8000/v1",
+    });
   });
 
   it("uses VLLM_BASE_URL when config merging leaves baseURL unset", () => {
