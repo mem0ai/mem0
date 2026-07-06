@@ -136,6 +136,29 @@ memory = Memory.from_config_file("config.yaml")
 ## Tune component settings
 
 <AccordionGroup>
+  <Accordion title="Memory management">
+    By default, Mem0 uses ADD-only extraction to preserve the full history of stored memories.
+    If you want the LLM to resolve conflicting memories during `add()` calls, set
+    `enable_memory_management=True` in `MemoryConfig` or include `"enable_memory_management": True`
+    in your configuration dictionary.
+
+    When enabled, the extraction step can return `ADD`, `UPDATE`, `DELETE`, or `NONE` actions.
+    This lets Mem0 update or remove an existing memory when a new message contradicts, negates,
+    or supersedes it. Because this mode allows LLM-driven updates and deletes against the memory
+    store, it is opt-in and remains disabled by default.
+
+```python
+from mem0 import Memory
+
+memory = Memory.from_config({
+    "enable_memory_management": True,
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {"host": "localhost", "port": 6333},
+    },
+})
+```
+  </Accordion>
   <Accordion title="Vector store collections">
     Name collections explicitly in production (`collection_name`) to isolate tenants and enable per-tenant retention policies.
   </Accordion>

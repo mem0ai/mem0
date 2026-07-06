@@ -816,15 +816,17 @@ class Memory(MemoryBase):
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
         uuid_mapping = {}
+        existing_memory_mapping = {}
         for idx, mem in enumerate(existing_results):
             uuid_mapping[str(idx)] = mem.id
+            existing_memory_mapping[str(idx)] = mem
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        enable_memory_management = getattr(self.config, "enable_memory_management", False) is True
+        enable_memory_management = self.config.enable_memory_management
         system_prompt = MEMORY_MANAGEMENT_PROMPT if enable_memory_management else ADDITIVE_EXTRACTION_PROMPT
-        if is_agent_scoped:
+        if is_agent_scoped and not enable_memory_management:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
@@ -884,12 +886,13 @@ class Memory(MemoryBase):
             if not memory_id:
                 logger.warning("%s skipped: LLM returned unknown id %r", event, mem.get("id"))
                 continue
+            existing_memory = existing_memory_mapping.get(str(mem.get("id")))
 
             if event == "UPDATE":
                 if not text:
                     continue
-                update_embeddings = {text: self.embedding_model.embed(text, "update")}
                 try:
+                    update_embeddings = {text: self.embedding_model.embed(text, "update")}
                     self._update_memory(
                         memory_id=memory_id,
                         data=text,
@@ -909,7 +912,7 @@ class Memory(MemoryBase):
                 )
             elif event == "DELETE":
                 try:
-                    self._delete_memory(memory_id=memory_id)
+                    self._delete_memory(memory_id=memory_id, existing_memory=existing_memory)
                 except Exception as e:
                     logger.warning("DELETE failed for memory %s: %s", memory_id, e)
                     continue
@@ -2409,15 +2412,17 @@ class AsyncMemory(MemoryBase):
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
         uuid_mapping = {}
+        existing_memory_mapping = {}
         for idx, mem in enumerate(existing_results):
             uuid_mapping[str(idx)] = mem.id
+            existing_memory_mapping[str(idx)] = mem
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        enable_memory_management = getattr(self.config, "enable_memory_management", False) is True
+        enable_memory_management = self.config.enable_memory_management
         system_prompt = MEMORY_MANAGEMENT_PROMPT if enable_memory_management else ADDITIVE_EXTRACTION_PROMPT
-        if is_agent_scoped:
+        if is_agent_scoped and not enable_memory_management:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
@@ -2477,12 +2482,13 @@ class AsyncMemory(MemoryBase):
             if not memory_id:
                 logger.warning("%s skipped: LLM returned unknown id %r (async)", event, mem.get("id"))
                 continue
+            existing_memory = existing_memory_mapping.get(str(mem.get("id")))
 
             if event == "UPDATE":
                 if not text:
                     continue
-                update_embeddings = {text: await asyncio.to_thread(self.embedding_model.embed, text, "update")}
                 try:
+                    update_embeddings = {text: await asyncio.to_thread(self.embedding_model.embed, text, "update")}
                     await self._update_memory(
                         memory_id=memory_id,
                         data=text,
@@ -2502,7 +2508,7 @@ class AsyncMemory(MemoryBase):
                 )
             elif event == "DELETE":
                 try:
-                    await self._delete_memory(memory_id=memory_id)
+                    await self._delete_memory(memory_id=memory_id, existing_memory=existing_memory)
                 except Exception as e:
                     logger.warning("DELETE failed for memory %s (async): %s", memory_id, e)
                     continue
