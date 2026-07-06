@@ -600,6 +600,45 @@ describe("Supabase – backward compat with mocked client", () => {
     await Promise.all([p1, p2]);
     // No crash = idempotent (Supabase init runs test insert only once)
   });
+
+  it("constructor does not emit an unhandled rejection when init fails", async () => {
+    jest.resetModules();
+    jest.doMock("@supabase/supabase-js", () => {
+      const failing = {
+        from: jest.fn().mockReturnValue({
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({
+              error: { code: "42P01", message: "no table" },
+            }),
+          }),
+          delete: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ error: null }),
+          }),
+        }),
+      };
+      return { createClient: jest.fn().mockReturnValue(failing) };
+    });
+    const FailingSupabaseDB =
+      require("../src/vector_stores/supabase").SupabaseDB;
+
+    const rejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const store = new FailingSupabaseDB({
+        supabaseUrl: "https://example.supabase.co",
+        supabaseKey: "fake-key",
+        tableName: "memories",
+        collectionName: "test",
+      });
+      expect(store).toBeDefined();
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    } finally {
+      process.removeListener("unhandledRejection", onUnhandled);
+    }
+
+    expect(rejections).toEqual([]);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
