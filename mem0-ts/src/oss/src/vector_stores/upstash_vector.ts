@@ -169,7 +169,10 @@ export class UpstashVector implements VectorStore {
       }
 
       cursor = response.nextCursor;
-    } while (cursor !== "0" && results.length < topK);
+      // Upstash returns an empty-string cursor once the scan is exhausted (it
+      // never comes back as "0"), so "" is the termination sentinel. Checking
+      // for "0" here would re-scan from the start and return duplicates.
+    } while (cursor !== "" && results.length < topK);
 
     return [results, results.length];
   }

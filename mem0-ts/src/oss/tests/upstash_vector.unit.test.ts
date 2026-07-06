@@ -11,7 +11,7 @@ describe("UpstashVector", () => {
       update: jest.fn().mockResolvedValue({ updated: 1 }),
       delete: jest.fn().mockResolvedValue({ deleted: 1 }),
       reset: jest.fn().mockResolvedValue("Success"),
-      range: jest.fn().mockResolvedValue({ vectors: [], nextCursor: "0" }),
+      range: jest.fn().mockResolvedValue({ vectors: [], nextCursor: "" }),
       ...overrides,
     };
   }
@@ -98,7 +98,7 @@ describe("UpstashVector", () => {
         })
         .mockResolvedValueOnce({
           vectors: [{ id: "memory-3", metadata: { user_id: "user-1" } }],
-          nextCursor: "0",
+          nextCursor: "",
         }),
     });
     const store = new UpstashVector({
@@ -133,5 +133,34 @@ describe("UpstashVector", () => {
     expect(client.delete).toHaveBeenCalledWith("memory-1", { namespace });
     expect(client.reset).toHaveBeenCalledTimes(2);
     expect(client.reset).toHaveBeenCalledWith({ namespace });
+  });
+
+  it("stops paging when the cursor is exhausted instead of re-scanning", async () => {
+    // Upstash returns nextCursor "" at the end of a scan. If list() treated ""
+    // as "keep going" (e.g. by checking for "0"), it would re-fetch from the
+    // start and pile up duplicates until it hit topK. With fewer vectors than
+    // topK, a single page must end the scan: one range call, no duplicates.
+    const client = createClient({
+      range: jest.fn().mockResolvedValue({
+        vectors: [
+          { id: "memory-1", metadata: { user_id: "user-1" } },
+          { id: "memory-2", metadata: { user_id: "user-1" } },
+        ],
+        nextCursor: "",
+      }),
+    });
+    const store = new UpstashVector({
+      collectionName: namespace,
+      client: client as any,
+    });
+
+    const [rows, count] = await store.list({ user_id: "user-1" }, 100);
+
+    expect(client.range).toHaveBeenCalledTimes(1);
+    expect(rows).toEqual([
+      { id: "memory-1", payload: { user_id: "user-1" } },
+      { id: "memory-2", payload: { user_id: "user-1" } },
+    ]);
+    expect(count).toBe(2);
   });
 });
