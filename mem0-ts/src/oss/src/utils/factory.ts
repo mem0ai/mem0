@@ -112,6 +112,7 @@ export class VectorStoreFactory {
       case "pgvector":
         return new PGVector(config as any);
       case "s3-vectors":
+      case "s3_vectors":
         return new S3Vectors(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);

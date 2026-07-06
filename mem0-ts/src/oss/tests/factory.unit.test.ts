@@ -254,6 +254,7 @@ describe("VectorStoreFactory", () => {
     ["azure-ai-search"],
     ["pgvector"],
     ["s3-vectors"],
+    ["s3_vectors"],
   ])("creates vector store for provider '%s'", (provider) => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),

@@ -256,9 +256,12 @@ export class S3Vectors implements VectorStore {
 
     const filter = this.convertFilters(filters);
     const results: VectorStoreResult[] = [];
-    let total = 0;
     let nextToken: string | undefined;
 
+    // Stop paginating once we have topK matches. Both callers of list()
+    // discard the count, so scanning the whole index just to total every
+    // match is wasted round-trips (O(index size) on getAll/deleteAll).
+    // Return the page length like qdrant does.
     do {
       const response = await this.client.send(
         new ListVectorsCommand({
@@ -271,21 +274,20 @@ export class S3Vectors implements VectorStore {
       );
 
       for (const vector of response.vectors || []) {
+        if (results.length >= topK) {
+          break;
+        }
         const normalized = this.normalizeListedVector(vector);
         if (filter && !this.matchesFilter(normalized.payload, filter)) {
           continue;
         }
-
-        total += 1;
-        if (results.length < topK) {
-          results.push(normalized);
-        }
+        results.push(normalized);
       }
 
       nextToken = response.nextToken;
-    } while (nextToken);
+    } while (nextToken && results.length < topK);
 
-    return [results, total];
+    return [results, results.length];
   }
 
   async getUserId(): Promise<string> {
