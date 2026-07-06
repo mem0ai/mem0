@@ -20,6 +20,11 @@ jest.mock("../src/embeddings/google", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "google-embedder", config })),
 }));
+jest.mock("../src/embeddings/fastembed", () => ({
+  FastEmbedEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "fastembed-embedder", config })),
+}));
 jest.mock("../src/embeddings/azure", () => ({
   AzureOpenAIEmbedder: jest
     .fn()
@@ -158,6 +163,11 @@ jest.mock("../src/vector_stores/azure_mysql", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "azure_mysql", config })),
 }));
+jest.mock("../src/vector_stores/cassandra", () => ({
+  CassandraDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "cassandra", config })),
+}));
 jest.mock("../src/vector_stores/s3_vectors", () => ({
   S3Vectors: jest
     .fn()
@@ -198,6 +208,7 @@ describe("EmbedderFactory", () => {
     ["google"],
     ["gemini"],
     ["azure_openai"],
+    ["fastembed"],
     ["langchain"],
     ["lmstudio"],
     ["together"],
@@ -289,6 +300,7 @@ describe("VectorStoreFactory", () => {
     ["azure-ai-search"],
     ["pgvector"],
     ["azure_mysql"],
+    ["cassandra"],
     ["s3-vectors"],
     ["s3_vectors"],
   ])("creates vector store for provider '%s'", (provider) => {

@@ -36,12 +36,14 @@ import { GoogleEmbedder } from "../embeddings/google";
 import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
 import { AzureOpenAIEmbedder } from "../embeddings/azure";
+import { FastEmbedEmbedder } from "../embeddings/fastembed";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
 import { AzureMySQLDB } from "../vector_stores/azure_mysql";
+import { CassandraDB } from "../vector_stores/cassandra";
 import { PineconeDB } from "../vector_stores/pinecone";
 import { S3Vectors } from "../vector_stores/s3_vectors";
 
@@ -61,6 +63,8 @@ export class EmbedderFactory {
         return new GoogleEmbedder(config);
       case "azure_openai":
         return new AzureOpenAIEmbedder(config);
+      case "fastembed":
+        return new FastEmbedEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
       default:
@@ -130,6 +134,8 @@ export class VectorStoreFactory {
         return new PGVector(config as any);
       case "azure_mysql":
         return new AzureMySQLDB(config as any);
+      case "cassandra":
+        return new CassandraDB(config as any);
       case "pinecone":
         return new PineconeDB(config as any);
       case "s3-vectors":
