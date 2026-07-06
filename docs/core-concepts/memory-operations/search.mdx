@@ -9,13 +9,6 @@ iconType: "solid"
 
 Mem0's search operation lets agents ask natural-language questions and get back the memories that matter most. Like a smart librarian, it finds exactly what you need from everything you've stored.
 
-<Info>
-  **Why it matters**
-  - Retrieves the right facts without rebuilding prompts from scratch.
-  - Supports both managed Platform and OSS so you can test locally and deploy at scale.
-  - Keeps results relevant with filters, rerankers, and thresholds.
-</Info>
-
 ## Key terms
 
 - **Query** – Natural-language question or statement you pass to `search`.
@@ -70,7 +63,7 @@ m.search("What are Alice's hobbies?", filters={"user_id": "alice"})
 
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
-| **Entity IDs on search / get_all** | Inside `filters={"user_id": "alice"}` | Inside `filters={"user_id": "alice"}` (aligned with Platform in v3 — top-level kwargs raise `ValueError`) |
+| **Entity IDs on search / get_all** | Inside `filters={"user_id": "alice"}` | Inside `filters={"user_id": "alice"}` (aligned with Platform in v3: top-level kwargs raise `ValueError`) |
 | **Filter syntax** | Logical operators (`AND`, `OR`, comparisons) with field-level access | Basic field filters, extend via Python hooks |
 | **Reranking** | Toggle `rerank=True` with managed reranker catalog | Requires configuring local or third-party rerankers |
 | **Thresholds** | Request-level configuration (`threshold`, `top_k`) | Controlled via SDK parameters |
@@ -121,7 +114,7 @@ from mem0 import Memory
 
 m = Memory()
 
-# Simple search — entity IDs go in `filters`
+# Simple search: entity IDs go in `filters`
 related_memories = m.search("Should I drink coffee or tea?", filters={"user_id": "alice"})
 
 # Search with additional metadata filters (combine entity + metadata in the same dict)
@@ -136,7 +129,7 @@ import { Memory } from 'mem0ai/oss';
 
 const memory = new Memory();
 
-// Simple search — entity IDs go inside `filters`
+// Simple search: entity IDs go inside `filters`
 const relatedMemories = memory.search("Should I drink coffee or tea?", {
     filters: { userId: "alice" },
 });
@@ -203,7 +196,7 @@ client.search("query", filters={
 
 *OSS:*
 ```python
-# Get memories from a specific agent session — entity IDs combined in filters
+# Get memories from a specific agent session: entity IDs combined in filters
 m.search("query", filters={
     "user_id": "alice",
     "agent_id": "chatbot",
@@ -238,11 +231,11 @@ client.search("preferences", filters={
 - **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
 - **Scope with user ID**: Always provide `user_id` to scope search to relevant memories
   - **Platform API**: Use `filters={"user_id": "alice"}`
-  - **OSS**: Use `user_id="alice"` as parameter
+  - **OSS**: Use `filters={"user_id": "alice"}` (passing `user_id` as a top-level kwarg raises `ValueError` in v3)
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
 - **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff
-- **Enable reranking**: Use `rerank=True` (default) when you have a reranker configured
+- **Enable reranking**: Use `rerank=True` (default is `False`) when you have a reranker configured
 
 <Callout type="tip" icon="plug">
   **MCP Alternative**: With <Link href="/platform/mem0-mcp">Mem0 MCP</Link>, AI agents can search their own memories proactively when needed.

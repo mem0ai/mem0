@@ -8,7 +8,7 @@
     "light": "#8F74E0",
     "dark": "#8F74E0"
   },
-  "favicon": "/logo/favicon.png",
+  "favicon": "/logo/favicon.svg",
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
@@ -21,7 +21,7 @@
             "icon": "book-open",
             "tabs": [
               {
-                "tab": "Welcome",
+                "tab": "Get Started",
                 "groups": [
                   {
                     "group": "Start Here",
@@ -39,19 +39,20 @@
                     "group": "Getting Started",
                     "icon": "rocket",
                     "pages": [
+                      "platform/quickstart",
                       "platform/overview",
                       "platform/agent-signup",
                       "vibecoding",
-                      "platform/mem0-mcp",
                       "platform/cli",
-                      "platform/platform-vs-oss",
-                      "platform/quickstart"
+                      "platform/mem0-mcp",
+                      "platform/platform-vs-oss"
                     ]
                   },
                   {
                     "group": "Core Concepts",
                     "icon": "brain",
                     "pages": [
+                      "core-concepts/how-it-works",
                       "core-concepts/memory-types",
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
@@ -61,12 +62,11 @@
                     ]
                   },
                   {
-                    "group": "Platform Features",
+                    "group": "Features",
                     "icon": "star",
                     "pages": [
-                      "platform/features/platform-overview",
                       {
-                        "group": "Essential Features",
+                        "group": "Essentials",
                         "icon": "circle-check",
                         "pages": [
                           "platform/features/v2-memory-filters",
@@ -79,7 +79,7 @@
                         ]
                       },
                       {
-                        "group": "Advanced Features",
+                        "group": "Advanced",
                         "icon": "bolt",
                         "pages": [
                           "platform/features/advanced-retrieval",
@@ -100,52 +100,29 @@
                         ]
                       },
                       {
-                        "group": "Integration Features",
+                        "group": "Integrations",
                         "icon": "plug",
                         "pages": [
                           "platform/features/webhooks",
                           "platform/features/feedback-mechanism",
-                          "platform/features/group-chat",
-                          "platform/features/mcp-integration"
+                          "platform/features/group-chat"
                         ]
                       }
                     ]
                   },
                   {
-                    "group": "Support & Troubleshooting",
+                    "group": "Support",
                     "icon": "life-buoy",
                     "pages": [
                       "platform/faqs"
                     ]
                   },
                   {
-                    "group": "Migration Guide",
+                    "group": "Migration",
                     "icon": "arrow-right",
                     "pages": [
                       "migration/platform-v2-to-v3",
-                      "migration/oss-to-platform",
-                      "migration/api-changes"
-                    ]
-                  },
-                  {
-                    "group": "Contribute",
-                    "icon": "clipboard-list",
-                    "pages": [
-                      "platform/contribute"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "OpenClaw",
-                "groups": [
-                  {
-                    "group": "Agent Harness",
-                    "icon": "robot",
-                    "pages": [
-                      "integrations/openclaw",
-                      "integrations/hermes",
-                      "integrations/pi-agent"
+                      "migration/oss-to-platform"
                     ]
                   }
                 ]
@@ -158,14 +135,14 @@
                     "icon": "rocket",
                     "pages": [
                       "open-source/overview",
-                      "open-source/setup",
-                      "vibecoding",
                       "open-source/python-quickstart",
-                      "open-source/node-quickstart"
+                      "open-source/node-quickstart",
+                      "open-source/setup",
+                      "vibecoding"
                     ]
                   },
                   {
-                    "group": "Self-Hosting Features",
+                    "group": "Features",
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
@@ -273,7 +250,8 @@
                               "components/embedders/models/lmstudio",
                               "components/embedders/models/together",
                               "components/embedders/models/langchain",
-                              "components/embedders/models/aws_bedrock"
+                              "components/embedders/models/aws_bedrock",
+                              "components/embedders/models/fastembed"
                             ]
                           }
                         ]
@@ -314,77 +292,8 @@
                     "icon": "users",
                     "pages": [
                       "contributing/development",
-                      "contributing/documentation"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "Cookbooks",
-                "groups": [
-                  {
-                    "group": "Getting Started",
-                    "icon": "lightbulb",
-                    "pages": [
-                      "cookbooks/overview"
-                    ]
-                  },
-                  {
-                    "group": "Essentials",
-                    "icon": "flag",
-                    "pages": [
-                      "cookbooks/essentials/building-ai-companion",
-                      "cookbooks/essentials/entity-partitioning-playbook",
-                      "cookbooks/essentials/controlling-memory-ingestion",
-                      "cookbooks/essentials/tagging-and-organizing-memories",
-                      "cookbooks/essentials/exporting-memories"
-                    ]
-                  },
-                  {
-                    "group": "Companion Playbooks",
-                    "icon": "users",
-                    "pages": [
-                      "cookbooks/companions/quickstart-demo",
-                      "cookbooks/companions/nodejs-companion",
-                      "cookbooks/companions/ai-tutor",
-                      "cookbooks/companions/travel-assistant",
-                      "cookbooks/companions/youtube-research",
-                      "cookbooks/companions/voice-companion-openai",
-                      "cookbooks/companions/local-companion-ollama"
-                    ]
-                  },
-                  {
-                    "group": "Ops & Automations",
-                    "icon": "briefcase",
-                    "pages": [
-                      "cookbooks/operations/support-inbox",
-                      "cookbooks/operations/email-automation",
-                      "cookbooks/operations/content-writing",
-                      "cookbooks/operations/deep-research",
-                      "cookbooks/operations/team-task-agent"
-                    ]
-                  },
-                  {
-                    "group": "Integrations & Platforms",
-                    "icon": "plug",
-                    "pages": [
-                      "cookbooks/integrations/agents-sdk-tool",
-                      "cookbooks/integrations/openai-tool-calls",
-                      "cookbooks/integrations/mastra-agent",
-                      "cookbooks/integrations/healthcare-google-adk",
-                      "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/tavily-search"
-                    ]
-                  },
-                  {
-                    "group": "Frameworks & Multimodal",
-                    "icon": "layers",
-                    "pages": [
-                      "cookbooks/frameworks/llamaindex-react",
-                      "cookbooks/frameworks/llamaindex-multiagent",
-                      "cookbooks/frameworks/multimodal-retrieval",
-                      "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
+                      "contributing/documentation",
+                      "platform/contribute"
                     ]
                   }
                 ]
@@ -473,6 +382,76 @@
                 ]
               },
               {
+                "tab": "Cookbooks",
+                "groups": [
+                  {
+                    "group": "Getting Started",
+                    "icon": "lightbulb",
+                    "pages": [
+                      "cookbooks/overview"
+                    ]
+                  },
+                  {
+                    "group": "Essentials",
+                    "icon": "flag",
+                    "pages": [
+                      "cookbooks/essentials/building-ai-companion",
+                      "cookbooks/essentials/entity-partitioning-playbook",
+                      "cookbooks/essentials/controlling-memory-ingestion",
+                      "cookbooks/essentials/tagging-and-organizing-memories",
+                      "cookbooks/essentials/exporting-memories"
+                    ]
+                  },
+                  {
+                    "group": "Companion Playbooks",
+                    "icon": "users",
+                    "pages": [
+                      "cookbooks/companions/quickstart-demo",
+                      "cookbooks/companions/nodejs-companion",
+                      "cookbooks/companions/ai-tutor",
+                      "cookbooks/companions/travel-assistant",
+                      "cookbooks/companions/youtube-research",
+                      "cookbooks/companions/voice-companion-openai",
+                      "cookbooks/companions/local-companion-ollama"
+                    ]
+                  },
+                  {
+                    "group": "Ops & Automations",
+                    "icon": "briefcase",
+                    "pages": [
+                      "cookbooks/operations/support-inbox",
+                      "cookbooks/operations/email-automation",
+                      "cookbooks/operations/content-writing",
+                      "cookbooks/operations/deep-research",
+                      "cookbooks/operations/team-task-agent"
+                    ]
+                  },
+                  {
+                    "group": "Integrations & Platforms",
+                    "icon": "plug",
+                    "pages": [
+                      "cookbooks/integrations/agents-sdk-tool",
+                      "cookbooks/integrations/openai-tool-calls",
+                      "cookbooks/integrations/mastra-agent",
+                      "cookbooks/integrations/healthcare-google-adk",
+                      "cookbooks/integrations/aws-bedrock",
+                      "cookbooks/integrations/tavily-search"
+                    ]
+                  },
+                  {
+                    "group": "Frameworks & Multimodal",
+                    "icon": "layers",
+                    "pages": [
+                      "cookbooks/frameworks/llamaindex-react",
+                      "cookbooks/frameworks/llamaindex-multiagent",
+                      "cookbooks/frameworks/multimodal-retrieval",
+                      "cookbooks/frameworks/eliza-os-character",
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
+                    ]
+                  }
+                ]
+              },
+              {
                 "tab": "API Reference",
                 "groups": [
                   {
@@ -495,7 +474,7 @@
                     ]
                   },
                   {
-                    "group": "Memory APIs",
+                    "group": "Memory Management",
                     "icon": "sparkles",
                     "pages": [
                       "api-reference/memory/create-memory-export",
@@ -509,7 +488,7 @@
                     ]
                   },
                   {
-                    "group": "Events APIs",
+                    "group": "Events",
                     "icon": "clock",
                     "pages": [
                       "api-reference/events/get-events",
@@ -517,7 +496,7 @@
                     ]
                   },
                   {
-                    "group": "Entities APIs",
+                    "group": "Entities",
                     "icon": "users",
                     "pages": [
                       "api-reference/entities/get-users",
@@ -525,7 +504,7 @@
                     ]
                   },
                   {
-                    "group": "Organizations APIs",
+                    "group": "Organizations",
                     "icon": "building",
                     "pages": [
                       "api-reference/organization/create-org",
@@ -533,11 +512,13 @@
                       "api-reference/organization/get-org",
                       "api-reference/organization/get-org-members",
                       "api-reference/organization/add-org-member",
+                      "api-reference/organization/update-org-member",
+                      "api-reference/organization/remove-org-member",
                       "api-reference/organization/delete-org"
                     ]
                   },
                   {
-                    "group": "Project APIs",
+                    "group": "Projects",
                     "icon": "folder",
                     "pages": [
                       "api-reference/project/create-project",
@@ -545,11 +526,14 @@
                       "api-reference/project/get-project",
                       "api-reference/project/get-project-members",
                       "api-reference/project/add-project-member",
+                      "api-reference/project/update-project",
+                      "api-reference/project/update-project-member",
+                      "api-reference/project/remove-project-member",
                       "api-reference/project/delete-project"
                     ]
                   },
                   {
-                    "group": "Webhook APIs",
+                    "group": "Webhooks",
                     "icon": "webhook",
                     "pages": [
                       "api-reference/webhook/create-webhook",
@@ -569,8 +553,7 @@
                     "pages": [
                       "changelog/highlights",
                       "changelog/sdk",
-                      "changelog/platform",
-                      "changelog/openclaw"
+                      "changelog/platform"
                     ]
                   }
                 ]
@@ -625,12 +608,24 @@
   },
   "redirects": [
     {
+      "source": "/changelog/openclaw",
+      "destination": "/changelog/sdk"
+    },
+    {
+      "source": "/components/rerankers/models/llm",
+      "destination": "/components/rerankers/models/llm_reranker"
+    },
+    {
       "source": "/migration/breaking-changes",
       "destination": "/"
     },
     {
       "source": "/migration/v0-to-v1",
       "destination": "/"
+    },
+    {
+      "source": "/migration/api-changes",
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/platform/features/expiration-date",
@@ -969,16 +964,24 @@
       "destination": "/introduction"
     },
     {
+      "source": "/platform/features/mcp-integration",
+      "destination": "/platform/mem0-mcp"
+    },
+    {
+      "source": "/platform/features/platform-overview",
+      "destination": "/platform/features/v2-memory-filters"
+    },
+    {
       "source": "/features/async-client",
       "destination": "/platform/features/async-client"
     },
     {
       "source": "/features/custom-prompts",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/custom-instructions"
     },
     {
       "source": "/features/selective-memory",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/custom-instructions"
     },
     {
       "source": "/features/custom-categories",
@@ -1010,7 +1013,7 @@
     },
     {
       "source": "/features/online-memory",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/async-client"
     },
     {
       "source": "/features/multimodal",
@@ -1018,7 +1021,7 @@
     },
     {
       "source": "/features/inferences",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/features/graph-memory",
@@ -1030,7 +1033,7 @@
     },
     {
       "source": "/platform/features/online-memory",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/platform/features/async-client"
     },
     {
       "source": "/platform/features/multimodal",
@@ -1038,7 +1041,7 @@
     },
     {
       "source": "/platform/features/inferences",
-      "destination": "/platform/features/platform-overview"
+      "destination": "/core-concepts/how-it-works"
     },
     {
       "source": "/platform/features/custom-prompts",
@@ -1147,6 +1150,78 @@
     {
       "source": "/openmemory/integrations",
       "destination": "/introduction"
+    },
+    {
+      "source": "/self-hosting",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/self-hosting/:slug",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/self-hosted",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/self-hosted/:slug",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/getting-started",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/getting-started/:slug",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/deployment",
+      "destination": "/open-source/setup"
+    },
+    {
+      "source": "/deployment/:slug",
+      "destination": "/open-source/setup"
+    },
+    {
+      "source": "/configuration",
+      "destination": "/open-source/configuration"
+    },
+    {
+      "source": "/oss",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/oss/:slug",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/concepts/:slug",
+      "destination": "/core-concepts/:slug"
+    },
+    {
+      "source": "/pricing",
+      "destination": "/platform/overview"
+    },
+    {
+      "source": "/get-started/installation",
+      "destination": "/platform/quickstart"
+    },
+    {
+      "source": "/api-reference/add-memory",
+      "destination": "/api-reference/memory/add-memories"
+    },
+    {
+      "source": "/components/graph_memory/overview",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/platform/features/mcp-quickstart",
+      "destination": "/platform/mem0-mcp"
+    },
+    {
+      "source": "/open-source/features/supported-vector-dbs",
+      "destination": "/components/vectordbs/overview"
     }
   ]
 }

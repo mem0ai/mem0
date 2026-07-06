@@ -8,7 +8,7 @@ export function createMemoryDeleteTool(deps: ToolDeps) {
   return {
     name: "memory_delete",
     label: "Memory Delete",
-    description: "Delete memories. Provide memoryId, query to search-and-delete, or all:true for bulk deletion (requires confirm:true).",
+    description: "Delete memories that are wrong, obsolete, or that the user asks to forget. Provide memoryId, a query to search-and-delete, or all:true for bulk deletion (requires confirm:true). Irreversible -- never delete speculatively or wipe everything without an explicit request.",
     parameters: Type.Object({
       memoryId: Type.Optional(Type.String({ description: "Specific memory ID to delete" })),
       query: Type.Optional(Type.String({ description: "Search query to find and delete" })),
