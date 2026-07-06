@@ -238,7 +238,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Reranking](https://docs.mem0.ai/open-source/features/reranking) [OSS]: Use when configuring reranking end-to-end in OSS.
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory) [OSS]: Use when the self-hosted app needs `AsyncMemory`.
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
-- [OSS Multimodal Support](https://docs.mem0.ai/open-source/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (concept overview).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api) [OSS]: Use when exposing a self-hosted Mem0 as a FastAPI service.
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.

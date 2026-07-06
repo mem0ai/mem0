@@ -11,10 +11,10 @@ Mem0 separates memory into layers so agents remember the right detail at the rig
 
 ## Key terms
 
-- **Conversation memory** – In-flight messages inside a single turn (what was just said).
-- **Session memory** – Short-lived facts that apply for the current task or channel.
-- **User memory** – Long-lived knowledge tied to a person, account, or workspace.
-- **Organizational memory** – Shared context available to multiple agents or teams.
+- **Conversation memory**: In-flight messages inside a single turn (what was just said).
+- **Session memory**: Short-lived facts that apply for the current task or channel.
+- **User memory**: Long-lived knowledge tied to a person, account, or workspace.
+- **Organizational memory**: Shared context available to multiple agents or teams.
 
 ```mermaid
 graph LR
@@ -28,15 +28,15 @@ graph LR
 
 Short-term memory keeps the current conversation coherent. It includes:
 
-- **Conversation history** – recent turns in order so the agent remembers what was just said.
-- **Working memory** – temporary state such as tool outputs or intermediate calculations.
-- **Attention context** – the immediate focus of the assistant, similar to what a person holds in mind mid-sentence.
+- **Conversation history**: recent turns in order so the agent remembers what was just said.
+- **Working memory**: temporary state such as tool outputs or intermediate calculations.
+- **Attention context**: the immediate focus of the assistant, similar to what a person holds in mind mid-sentence.
 
 Long-term memory preserves knowledge across sessions. It captures:
 
-- **Factual memory** – user preferences, account details, and domain facts.
-- **Episodic memory** – summaries of past interactions or completed tasks.
-- **Semantic memory** – relationships between concepts so agents can reason about them later.
+- **Factual memory**: user preferences, account details, and domain facts.
+- **Episodic memory**: summaries of past interactions or completed tasks.
+- **Semantic memory**: relationships between concepts so agents can reason about them later.
 
 Mem0 maps these classic categories onto its layered storage so you can decide what should fade quickly versus what should last for months.
 
@@ -44,9 +44,9 @@ Mem0 maps these classic categories onto its layered storage so you can decide wh
 
 Mem0 stores each layer separately and merges them when you query:
 
-1. **Capture** – Messages enter the conversation layer while the turn is active.
-2. **Promote** – Relevant details persist to session or user memory based on your `user_id`, `run_id`, and metadata.
-3. **Retrieve** – The search pipeline pulls from all layers, ranking user memories first, then session notes, then raw history.
+1. **Capture**: Messages enter the conversation layer while the turn is active.
+2. **Promote**: Relevant details persist to session or user memory based on your `user_id`, `run_id`, and metadata.
+3. **Retrieve**: The search pipeline pulls from all layers, ranking user memories first, then session notes, then raw history.
 
 ```python
 import os
@@ -75,10 +75,10 @@ results = memory.search(
 
 ## When should you use each layer?
 
-- **Conversation memory** – Tool calls or chain-of-thought that only matter within the current turn.
-- **Session memory** – Multi-step tasks (onboarding flows, debugging sessions) that should reset once complete.
-- **User memory** – Personal preferences, account state, or compliance details that must persist across interactions.
-- **Organizational memory** – Shared FAQs, product catalogs, or policies that every agent should recall.
+- **Conversation memory**: Tool calls or chain-of-thought that only matter within the current turn.
+- **Session memory**: Multi-step tasks (onboarding flows, debugging sessions) that should reset once complete.
+- **User memory**: Personal preferences, account state, or compliance details that must persist across interactions.
+- **Organizational memory**: Shared FAQs, product catalogs, or policies that every agent should recall.
 
 ## How it compares
 
