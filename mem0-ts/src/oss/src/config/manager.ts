@@ -3,16 +3,22 @@ import { DEFAULT_MEMORY_CONFIG } from "./defaults";
 
 export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
+    const embedderProvider =
+      userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider;
+    const embedderProviderKey = embedderProvider.toLowerCase();
     const mergedConfig = {
       version: userConfig.version || DEFAULT_MEMORY_CONFIG.version,
       embedder: {
-        provider:
-          userConfig.embedder?.provider ||
-          DEFAULT_MEMORY_CONFIG.embedder.provider,
+        provider: embedderProvider,
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
           const userConf = userConfig.embedder?.config;
-          let finalModel: string | any = defaultConf.model;
+          // The default embedder model (OpenAI's text-embedding-3-small) only
+          // makes sense for API-based providers. FastEmbed has its own fixed
+          // model set and default, so leave the model unset here and let
+          // FastEmbedEmbedder fall back to its own default.
+          let finalModel: string | any =
+            embedderProviderKey === "fastembed" ? undefined : defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
