@@ -43,6 +43,7 @@ import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
 import { UpstashVector } from "../vector_stores/upstash_vector";
+import { AzureMySQLDB } from "../vector_stores/azure_mysql";
 import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
 import { CassandraDB } from "../vector_stores/cassandra";
 import { PineconeDB } from "../vector_stores/pinecone";
@@ -138,6 +139,8 @@ export class VectorStoreFactory {
         return new PGVector(config as any);
       case "upstash_vector":
         return new UpstashVector(config as any);
+      case "azure_mysql":
+        return new AzureMySQLDB(config as any);
       case "cassandra":
         return new CassandraDB(config as any);
       case "pinecone":

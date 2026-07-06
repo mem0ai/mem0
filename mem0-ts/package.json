@@ -133,7 +133,13 @@
     "redis": "^4.6.13",
     "iovalkey": "^0.3.3",
     "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "natural": "^8.0.1",
+    "mysql2": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mysql2": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18"
