@@ -4,6 +4,7 @@ import pkg from "./package.json";
 const external = [
   "openai",
   "@anthropic-ai/sdk",
+  "@aws-sdk/client-s3vectors",
   "groq-sdk",
   "uuid",
   "pg",

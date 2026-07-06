@@ -217,8 +217,7 @@ def apply_writing_style(original_content):
 
     results = memory.search(
         query="What are my writing style preferences?",
-        user_id=USER_ID,
-        run_id=RUN_ID,
+        filters={"user_id": USER_ID, "run_id": RUN_ID},
     )
 
     if not results:
@@ -365,3 +364,5 @@ Mem0 enables a seamless, intelligent content-writing workflow, perfect for conte
     Automate email drafting with memory-powered context and tone matching.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

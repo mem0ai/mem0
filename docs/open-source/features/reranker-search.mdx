@@ -18,7 +18,7 @@ Reranker-enhanced search adds a second scoring pass after vector retrieval so Me
 </Warning>
 
 <Note>
-  All configuration snippets translate directly to the TypeScript SDK—swap dictionaries for objects while keeping the same keys (`provider`, `config`, `rerank` flags).
+  All configuration snippets translate directly to the TypeScript SDK: swap dictionaries for objects while keeping the same keys (`provider`, `config`, `rerank` flags).
 </Note>
 
 ---
@@ -71,7 +71,7 @@ m = Memory.from_config(config)
 ```
 
 <Info icon="check">
-  Confirm `results["results"][0]["score"]` reflects the reranker output—if the field is missing, the reranker was not applied.
+  Confirm `results["results"][0]["score"]` reflects the reranker output: if the field is missing, the reranker was not applied.
 </Info>
 
 <Tip>
@@ -124,7 +124,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-openai-api-key",
             "top_k": 5
         }
@@ -150,7 +150,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4",
+            "model": "gpt-5-mini",
             "api_key": "your-openai-api-key"
         }
     },
@@ -240,7 +240,7 @@ except Exception as exc:
 ```
 
 <Warning>
-  Always fall back to vector-only search—dropped queries introduce bigger accuracy issues than slightly less relevant ordering.
+  Always fall back to vector-only search: dropped queries introduce bigger accuracy issues than slightly less relevant ordering.
 </Warning>
 
 ### Migrate from v0.x
@@ -326,7 +326,7 @@ results = m.search(
 ```
 
 <Info icon="check">
-  Verify filtered reranked searches still respect every metadata clause—reranking only reorders candidates, it never bypasses filters.
+  Verify filtered reranked searches still respect every metadata clause: reranking only reorders candidates, it never bypasses filters.
 </Info>
 
 ### Real-world playbooks
@@ -394,7 +394,7 @@ results = m.search(
 ```
 
 <Tip>
-  Reuse this pattern for other lifestyle queries—swap the filters and prompt text without changing the rerank configuration.
+  Reuse this pattern for other lifestyle queries: swap the filters and prompt text without changing the rerank configuration.
 </Tip>
 
 <Note>

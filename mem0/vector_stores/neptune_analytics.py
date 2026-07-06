@@ -1,7 +1,8 @@
 import logging
+import re
 import time
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -13,6 +14,22 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_~][a-zA-Z0-9_]*$")
+
+
+def _validate_filter(key: str, value: Any) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
+
+
+def _escape_cypher(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("'", "\\'")
 
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
@@ -403,19 +420,21 @@ class NeptuneAnalyticsVector(VectorStoreBase):
     def _get_where_clause(filters: dict):
         """
         Build WHERE clause for Cypher queries from filters.
-        
+
         Args:
             filters (dict): Filter conditions as key-value pairs.
-            
+
         Returns:
             str: Formatted WHERE clause for Cypher query.
         """
         where_clause = ""
         for i, (k, v) in enumerate(filters.items()):
+            _validate_filter(k, v)
+            escaped_v = _escape_cypher(str(v))
             if i == 0:
-                where_clause += f"WHERE n.{k} = '{v}' "
+                where_clause += f"WHERE n.{k} = '{escaped_v}' "
             else:
-                where_clause += f"AND n.{k} = '{v}' "
+                where_clause += f"AND n.{k} = '{escaped_v}' "
         return where_clause
 
     @staticmethod
@@ -434,7 +453,9 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         """
         conditions = []
         for k, v in filters.items():
-            conditions.append(f"{{equals:{{property: '{k}', value: '{v}'}}}}")
+            _validate_filter(k, v)
+            escaped_v = _escape_cypher(str(v))
+            conditions.append(f"{{equals:{{property: '{k}', value: '{escaped_v}'}}}}")
 
         if len(conditions) == 1:
             filter_clause = f", nodeFilter: {conditions[0]}"
