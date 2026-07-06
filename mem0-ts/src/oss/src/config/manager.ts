@@ -13,6 +13,10 @@ export class ConfigManager {
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
           const userConf = userConfig.embedder?.config;
+          // The default embedder model (OpenAI's text-embedding-3-small) only
+          // makes sense for API-based providers. FastEmbed has its own fixed
+          // model set and default, so leave the model unset here and let
+          // FastEmbedEmbedder fall back to its own default.
           let finalModel: string | any =
             embedderProviderKey === "fastembed" ? undefined : defaultConf.model;
 

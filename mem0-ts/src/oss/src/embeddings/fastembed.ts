@@ -5,14 +5,29 @@ import { EmbeddingConfig } from "../types";
 const DEFAULT_MODEL = EmbeddingModel.BGESmallENV15;
 type FastEmbedModel = Exclude<EmbeddingModel, EmbeddingModel.CUSTOM>;
 
+// FastEmbed only ships a fixed set of ONNX models. Keep the list handy so we can
+// reject unknown model names up front with a clear message instead of letting
+// FlagEmbedding.init fail later with an opaque download error.
+const SUPPORTED_MODELS = Object.values(EmbeddingModel).filter(
+  (model) => model !== EmbeddingModel.CUSTOM,
+) as FastEmbedModel[];
+
 export class FastEmbedEmbedder implements Embedder {
   private modelName: FastEmbedModel;
   private embeddingModel?: Promise<FlagEmbedding>;
 
   constructor(config: EmbeddingConfig) {
-    this.modelName = (
-      typeof config.model === "string" ? config.model : DEFAULT_MODEL
-    ) as FastEmbedModel;
+    if (typeof config.model === "string" && config.model.length > 0) {
+      if (!SUPPORTED_MODELS.includes(config.model as FastEmbedModel)) {
+        throw new Error(
+          `Unsupported FastEmbed model "${config.model}". ` +
+            `Supported models: ${SUPPORTED_MODELS.join(", ")}.`,
+        );
+      }
+      this.modelName = config.model as FastEmbedModel;
+    } else {
+      this.modelName = DEFAULT_MODEL;
+    }
   }
 
   private getEmbeddingModel(): Promise<FlagEmbedding> {

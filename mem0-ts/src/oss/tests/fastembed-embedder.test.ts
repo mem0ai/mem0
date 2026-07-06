@@ -113,4 +113,11 @@ describe("FastEmbedEmbedder (unit)", () => {
     expect(mockInit).toHaveBeenCalledTimes(2);
     expect(result).toEqual(mockEmbedding);
   });
+
+  it("throws a clear error for an unsupported model instead of failing at init", () => {
+    expect(
+      () => new FastEmbedEmbedder({ model: "text-embedding-3-small" }),
+    ).toThrow(/Unsupported FastEmbed model "text-embedding-3-small"/);
+    expect(mockInit).not.toHaveBeenCalled();
+  });
 });
