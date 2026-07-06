@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -16,9 +16,15 @@ class PGVectorConfig(BaseModel):
     minconn: Optional[int] = Field(1, description="Minimum number of connections in the pool")
     maxconn: Optional[int] = Field(5, description="Maximum number of connections in the pool")
     # New SSL and connection options
-    sslmode: Optional[str] = Field(None, description="SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')")
-    connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (overrides individual connection parameters)")
-    connection_pool: Optional[Any] = Field(None, description="psycopg connection pool object (overrides connection string and individual parameters)")
+    sslmode: Optional[str] = Field(
+        None, description="SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')"
+    )
+    connection_string: Optional[str] = Field(
+        None, description="PostgreSQL connection string (overrides individual connection parameters)"
+    )
+    connection_pool: Optional[Any] = Field(
+        None, description="psycopg connection pool object (overrides connection string and individual parameters)"
+    )
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
@@ -29,7 +35,7 @@ class PGVectorConfig(BaseModel):
         # If connection_string is provided, skip validation of individual connection parameters
         if values.get("connection_string") is not None:
             return values
-        
+
         # Otherwise, validate individual connection parameters
         user, password = values.get("user"), values.get("password")
         host, port = values.get("host"), values.get("port")
@@ -39,16 +45,4 @@ class PGVectorConfig(BaseModel):
             raise ValueError("Both 'host' and 'port' must be provided when not using connection_string.")
         return values
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        input_fields = set(values.keys())
-        extra_fields = input_fields - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}"
-            )
-        return values
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")

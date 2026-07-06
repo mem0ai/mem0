@@ -44,25 +44,12 @@ class ElasticsearchConfig(BaseModel):
             # Check if headers is a dictionary
             if not isinstance(headers, dict):
                 raise ValueError("headers must be a dictionary")
-            
+
             # Check if all keys and values are strings
             for key, value in headers.items():
                 if not isinstance(key, str) or not isinstance(value, str):
                     raise ValueError("All header keys and values must be strings")
-        
+
         return values
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        input_fields = set(values.keys())
-        extra_fields = input_fields - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. "
-                f"Please input only the following fields: {', '.join(allowed_fields)}"
-            )
-        return values
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")

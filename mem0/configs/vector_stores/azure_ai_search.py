@@ -1,6 +1,6 @@
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AzureAISearchConfig(BaseModel):
@@ -22,36 +22,4 @@ class AzureAISearchConfig(BaseModel):
         "preFilter", description="Mode for vector filtering. Options: 'preFilter', 'postFilter'"
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        input_fields = set(values.keys())
-        extra_fields = input_fields - allowed_fields
-
-        # Check for use_compression to provide a helpful error
-        if "use_compression" in extra_fields:
-            raise ValueError(
-                "The parameter 'use_compression' is no longer supported. "
-                "Please use 'compression_type=\"scalar\"' instead of 'use_compression=True' "
-                "or 'compression_type=None' instead of 'use_compression=False'."
-            )
-
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. "
-                f"Please input only the following fields: {', '.join(allowed_fields)}"
-            )
-
-        # Validate compression_type values
-        if "compression_type" in values and values["compression_type"] is not None:
-            valid_types = ["scalar", "binary"]
-            if values["compression_type"].lower() not in valid_types:
-                raise ValueError(
-                    f"Invalid compression_type: {values['compression_type']}. "
-                    f"Must be one of: {', '.join(valid_types)}, or None"
-                )
-
-        return values
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")

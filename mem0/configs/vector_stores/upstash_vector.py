@@ -38,4 +38,4 @@ class UpstashVectorConfig(BaseModel):
             values["token"] = token
         return values
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
