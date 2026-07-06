@@ -92,6 +92,11 @@ jest.mock("../src/llms/deepseek", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "deepseek-llm", config })),
 }));
+jest.mock("../src/llms/xai", () => ({
+  XAILLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "xai-llm", config })),
+}));
 jest.mock("../src/llms/litellm", () => ({
   LiteLLM: jest
     .fn()
@@ -216,6 +221,7 @@ describe("LLMFactory", () => {
     ["langchain"],
     ["lmstudio"],
     ["deepseek"],
+    ["xai"],
     ["litellm"],
     ["minimax"],
   ])("creates LLM for provider '%s'", (provider) => {
