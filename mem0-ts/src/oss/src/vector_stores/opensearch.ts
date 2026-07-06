@@ -80,7 +80,7 @@ export class OpenSearch implements VectorStore {
     // AWS Sigv4 signing
     if (config.awsRegion) {
       const region = config.awsRegion;
-      const service = config.awsService ?? "es";
+      const service = (config.awsService ?? "es") as "es" | "aoss";
       const signer = AwsSigv4Signer({
         region,
         service,
@@ -206,7 +206,7 @@ export class OpenSearch implements VectorStore {
         body,
       });
 
-      const hits: OpenSearchHit[] = response.hits?.hits ?? [];
+      const hits = (response.hits?.hits ?? []) as unknown as OpenSearchHit[];
       return hits.slice(0, topK).map((hit) => ({
         id: hit._source.id,
         score: hit._score,
@@ -241,7 +241,7 @@ export class OpenSearch implements VectorStore {
         body: { size: topK, query: { bool: boolQuery } },
       });
 
-      const hits: OpenSearchHit[] = response.hits?.hits ?? [];
+      const hits = (response.hits?.hits ?? []) as unknown as OpenSearchHit[];
       return hits.slice(0, topK).map((hit) => ({
         id: hit._source.id,
         score: hit._score,
@@ -259,7 +259,7 @@ export class OpenSearch implements VectorStore {
         body: { query: { term: { id: vectorId } } },
       });
 
-      const hits: OpenSearchHit[] = response.hits?.hits ?? [];
+      const hits = (response.hits?.hits ?? []) as unknown as OpenSearchHit[];
       if (hits.length === 0) return null;
 
       return {
@@ -290,7 +290,7 @@ export class OpenSearch implements VectorStore {
       body: { query: { term: { id: vectorId } } },
     });
 
-    const hits: OpenSearchHit[] = response.hits?.hits ?? [];
+    const hits = (response.hits?.hits ?? []) as unknown as OpenSearchHit[];
     if (hits.length === 0) return;
 
     await this.client.update({
@@ -311,7 +311,7 @@ export class OpenSearch implements VectorStore {
       body: { query: { term: { id: vectorId } } },
     });
 
-    const hits: OpenSearchHit[] = response.hits?.hits ?? [];
+    const hits = (response.hits?.hits ?? []) as unknown as OpenSearchHit[];
     if (hits.length === 0) return;
 
     await this.client.delete({
@@ -345,7 +345,7 @@ export class OpenSearch implements VectorStore {
         body,
       });
 
-      const hits: OpenSearchHit[] = response.hits?.hits ?? [];
+      const hits = (response.hits?.hits ?? []) as unknown as OpenSearchHit[];
       const results: VectorStoreResult[] = hits.map((hit) => ({
         id: hit._source.id,
         score: 1.0,
