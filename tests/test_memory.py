@@ -973,7 +973,13 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     """
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
-    mock_vector_factory.return_value = mock_vector_store
+    # delete_all now always routes through _bulk_clear_entity_store, which
+    # lazily creates a *separate* entity store via VectorStoreFactory.create.
+    # Hand out a distinct mock for that second create() so the primary
+    # store's delete.call_count reflects only real memory deletions.
+    mock_entity_store = MagicMock()
+    mock_entity_store.list.return_value = ([],)
+    mock_vector_factory.side_effect = [mock_vector_store, mock_entity_store]
     mock_llm_factory.return_value = MagicMock()
     mock_sqlite.return_value = MagicMock()
 
