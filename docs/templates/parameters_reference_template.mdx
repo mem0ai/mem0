@@ -10,18 +10,18 @@ Parameter references document every input/output detail for one operation after 
 
 ---
 
-## ❌ DO NOT COPY — Guidance & Constraints
+## ❌ DO NOT COPY: Guidance & Constraints
 - Frontmatter requires `title`, `description`, `icon`. Titles should mirror the operation (“Add Memories Parameters”).
 - Place canonical Python and TypeScript signatures right under the heading using `<CodeGroup>`. Mention defaults or breaking changes in an `<Info>` or `<Warning>` immediately after.
 - Parameter table must include columns: Name, Type, Required, Description, Notes. Add a Managed/OSS distinction either as a column or in Notes.
-- When updating legacy parameter sheets, keep the authoritative field lists and notes—reformat them into this structure rather than trimming details unless the schema changed.
+- When updating legacy parameter sheets, keep the authoritative field lists and notes. Reformat them into this structure rather than trimming details unless the schema changed.
 - Response table must include Field, Type, Description, Example. For nested objects, add subtables or `<CodeGroup>` JSON snippets beneath the row.
 - Examples section should show minimal Python and TypeScript calls with one-sentence explanations. If a language is missing, include a `<Note>` explaining why.
 - Finish with related operations, troubleshooting tied to parameter misuse, and a two-card CTA (operation guide on the left, cookbook/integration on the right).
 
 ---
 
-## ✅ COPY THIS — Content Skeleton
+## ✅ COPY THIS: Content Skeleton
 
 ````mdx
 ---
@@ -127,8 +127,8 @@ These snippets confirm the method returns the new `memory_id` for follow-up oper
 
 ## Troubleshooting
 
-- **`400 Missing user_id`** — Provide either `user_id` or `agent_id` in the payload.
-- **`422 Metadata too large`** — Reduce metadata size below 2KB (OSS hard limit).
+- **`400 Missing user_id`**: Provide either `user_id` or `agent_id` in the payload.
+- **`422 Metadata too large`**: Reduce metadata size below 2KB (OSS hard limit).
 
 {/* DEBUG: verify CTA targets */}
 

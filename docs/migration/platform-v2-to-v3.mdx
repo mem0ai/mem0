@@ -11,12 +11,12 @@ iconType: "solid"
 
 ## Overview
 
-The new Mem0 memory algorithm is a ground-up redesign of how memories are extracted, stored, and retrieved. It scores **91.6 on LoCoMo** and **93.4 on LongMemEval** — a +20 and +26 point improvement over the previous algorithm — while cutting extraction latency roughly in half.
+The new Mem0 memory algorithm is a ground-up redesign of how memories are extracted, stored, and retrieved. It scores **91.6 on LoCoMo** and **93.4 on LongMemEval**: a +20 and +26 point improvement over the previous algorithm: while cutting extraction latency roughly in half.
 
 | What Changed | Before | After |
 |---|---|---|
 | **Extraction** | Two LLM passes (extract + merge) | Single-pass ADD-only (one LLM call) |
-| **Memory mutations** | ADD, UPDATE, DELETE | ADD only — nothing is overwritten or deleted |
+| **Memory mutations** | ADD, UPDATE, DELETE | ADD only: nothing is overwritten or deleted |
 | **Agent-generated facts** | Often ignored | First-class, stored with equal weight |
 | **Graph memory** | External graph store (Neo4j, etc.) + manual setup | Built-in and automatic; entities extracted and linked across memories natively, no external store |
 | **Retrieval** | Semantic (vector) only | Hybrid retrieval combining multiple signals |
@@ -27,9 +27,9 @@ The new Mem0 memory algorithm is a ground-up redesign of how memories are extrac
 
 The previous algorithm could UPDATE or DELETE existing memories during extraction. The new algorithm only adds new facts. When information changes (e.g., a user moves from New York to San Francisco), both facts are preserved with temporal context. This means:
 
-- **More memories over time** — your memory count will grow rather than plateau
-- **Better temporal reasoning** — the system can distinguish "used to live in New York" from "now lives in San Francisco"
-- **No information loss** — facts that seemed contradictory but were actually complementary are preserved
+- **More memories over time**: your memory count will grow rather than plateau
+- **Better temporal reasoning**: the system can distinguish "used to live in New York" from "now lives in San Francisco"
+- **No information loss**: facts that seemed contradictory but were actually complementary are preserved
 
 <Tip>
 If your application previously relied on UPDATE/DELETE behavior to keep memory counts low, the new algorithm handles this at retrieval time instead. Multi-signal retrieval ranks the most relevant, current information higher without destroying historical context.
@@ -41,7 +41,7 @@ Previously, when an agent said something like "I've booked your flight for March
 
 ### Retrieval is hybrid now
 
-Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, entities that appear across multiple memories, and time-aware queries (via Temporal Reasoning). The response shape is unchanged:
+Search now uses hybrid retrieval, which improves ranking quality: especially for queries involving exact keywords, proper nouns, entities that appear across multiple memories, and time-aware queries (via Temporal Reasoning). The response shape is unchanged:
 
 ```json
 {
@@ -57,7 +57,7 @@ Search now uses hybrid retrieval, which improves ranking quality — especially 
 }
 ```
 
-The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Temporal signals are applied internally during ranking and are not returned as extra client-facing fields.
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed: retune any hard thresholds in your app against representative queries. Temporal signals are applied internally during ranking and are not returned as extra client-facing fields.
 
 ## API Changes
 
@@ -142,7 +142,7 @@ curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \
 
 ### Response Format
 
-**Add response** — asynchronous, returns an `event_id` for polling:
+**Add response**: asynchronous, returns an `event_id` for polling:
 
 ```json
 {
@@ -152,9 +152,9 @@ curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \
 }
 ```
 
-Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `FAILED`.
+Poll status via `GET /v1/event/{event_id}/`: status will be `SUCCEEDED` or `FAILED`.
 
-**Search response** — combined multi-signal score per result:
+**Search response**: combined multi-signal score per result:
 
 ```json
 {
@@ -172,7 +172,7 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
 }
 ```
 
-**List response** — paginated envelope (new in V3):
+**List response**: paginated envelope (new in V3):
 
 ```json
 {
@@ -215,7 +215,7 @@ client.add(messages, user_id="alice")
 # async_mode and output_format removed (async by default, v1.1 always)
 ```
 
-**Removed parameters:** `org_id`, `project_id`, `api_version`, `output_format`, `async_mode`, `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`, `org_name`, `project_name`
+**Removed parameters:** `org_id`, `project_id`, `api_version`, `output_format`, `async_mode`, `enable_graph`, `immutable`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`, `org_name`, `project_name`
 
 ### TypeScript Client SDK
 
@@ -242,7 +242,7 @@ await client.search("query", {
 });
 ```
 
-**Removed:** `OutputFormat` enum, `API_VERSION` enum, `organizationId`, `projectId`, `organizationName`, `projectName`, `enableGraph`, `asyncMode`, `outputFormat`, `immutable`, `expirationDate`, `filterMemories`, `batchSize`, `forceAddOnly`, `includes`, `excludes`, `keywordSearch`
+**Removed:** `OutputFormat` enum, `API_VERSION` enum, `organizationId`, `projectId`, `organizationName`, `projectName`, `enableGraph`, `asyncMode`, `outputFormat`, `immutable`, `filterMemories`, `batchSize`, `forceAddOnly`, `includes`, `excludes`, `keywordSearch`
 
 <Info>
 For the full list of parameter changes across all SDKs, see the [OSS migration guide](/migration/oss-v2-to-v3#removed-parameters-reference).
@@ -266,16 +266,16 @@ If your application previously read graph relations from the API response (`rela
 
 <Steps>
   <Step title="Review your search thresholds">
-    The default `threshold` is now `0.1` (previously no threshold). If your application was relying on unfiltered results, explicitly pass `threshold=0.0` in your search calls to preserve the old behavior. In most cases, the new default is better — it filters out low-relevance noise.
+    The default `threshold` is now `0.1` (previously no threshold). If your application was relying on unfiltered results, explicitly pass `threshold=0.0` in your search calls to preserve the old behavior. In most cases, the new default is better: it filters out low-relevance noise.
   </Step>
   <Step title="Review reranking usage">
     Reranking is now `false` by default. If your application depended on reranked results, add `rerank=True` to your search calls. Note that reranking adds latency (~200-400ms) but can improve ordering quality for complex queries.
   </Step>
   <Step title="Update score handling (optional)">
-    The top-level `score` field continues to work as before. It is now a combined multi-signal score (semantic + keyword + entity) rather than pure cosine similarity, so the absolute numbers will differ. Relative ranking remains comparable — if you have threshold-based filtering in your app, retune on a representative query set.
+    The top-level `score` field continues to work as before. It is now a combined multi-signal score (semantic + keyword + entity) rather than pure cosine similarity, so the absolute numbers will differ. Relative ranking remains comparable: if you have threshold-based filtering in your app, retune on a representative query set.
   </Step>
   <Step title="Adjust memory count expectations">
-    With ADD-only extraction, memory counts will grow over time rather than being consolidated. This is by design — retrieval handles relevance ranking. If you have hard limits on memory count, consider using the memory expiration feature or periodic cleanup.
+    With ADD-only extraction, memory counts will grow over time rather than being consolidated. This is by design: retrieval handles relevance ranking. If you have hard limits on memory count, consider using the memory expiration feature or periodic cleanup.
   </Step>
   <Step title="Test with representative queries">
     The biggest improvements are in temporal reasoning (+29.6 on LoCoMo), multi-hop queries (+23.1), and assistant memory recall (+53.6 on LongMemEval). Test queries in these categories to see the improvement.
@@ -297,9 +297,9 @@ If your application previously read graph relations from the API response (`rela
 | **LoCoMo Overall** | 71.4 | **91.6** (+20.2) |
 | **LongMemEval Overall** | 67.8 | **93.4** (+25.6) |
 | **Extraction latency (p50)** | ~2.0s | **~1.0s** |
-| **Mean tokens per query** | — | 6.8-7.0K (top200) |
+| **Mean tokens per query** | N/A | 6.8-7.0K (top200) |
 
-All benchmarks were run on a production-representative stack — deliberately avoiding frontier models to keep numbers representative of real production workloads.
+All benchmarks were run on a production-representative stack: deliberately avoiding frontier models to keep numbers representative of real production workloads.
 
 ## FAQ
 
@@ -308,7 +308,7 @@ All benchmarks were run on a production-representative stack — deliberately av
     No. Existing memories remain as-is. New memories added after the rollout will use the new extraction algorithm. Both old and new memories are searchable through the same retrieval pipeline.
   </Accordion>
   <Accordion title="Will my memory count increase faster now?">
-    Yes. The ADD-only approach means memories accumulate rather than being consolidated. This is intentional — the retrieval system handles ranking and relevance. If you need to manage memory volume, use the expiration date feature or the delete API.
+    Yes. The ADD-only approach means memories accumulate rather than being consolidated. This is intentional: the retrieval system handles ranking and relevance. If you need to manage memory volume, use the expiration date feature or the delete API.
   </Accordion>
   <Accordion title="Can I opt out of the new algorithm?">
     The new algorithm is the default for all platform users. If you have a specific need to use the previous extraction behavior, contact support.
