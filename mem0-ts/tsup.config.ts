@@ -17,6 +17,7 @@ const external = [
   "iovalkey",
   "ollama",
   "@google/genai",
+  "@google-cloud/aiplatform",
   "@mistralai/mistralai",
   "@supabase/supabase-js",
   "@azure/search-documents",
@@ -28,6 +29,7 @@ const external = [
   "compromise",
   "natural",
   "mysql2",
+  "@turbopuffer/turbopuffer",
 ];
 
 const define = {

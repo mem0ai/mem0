@@ -35,4 +35,5 @@ export * from "./vector_stores/pgvector";
 export * from "./vector_stores/azure_mysql";
 export * from "./vector_stores/cassandra";
 export * from "./vector_stores/s3_vectors";
+export * from "./vector_stores/vertex_ai_vector_search";
 export * from "./utils/factory";

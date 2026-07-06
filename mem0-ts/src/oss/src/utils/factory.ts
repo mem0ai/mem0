@@ -43,9 +43,11 @@ import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
 import { AzureMySQLDB } from "../vector_stores/azure_mysql";
+import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
 import { CassandraDB } from "../vector_stores/cassandra";
 import { PineconeDB } from "../vector_stores/pinecone";
 import { S3Vectors } from "../vector_stores/s3_vectors";
+import { TurbopufferDB } from "../vector_stores/turbopuffer";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -130,6 +132,8 @@ export class VectorStoreFactory {
         return new VectorizeDB(config as any);
       case "azure-ai-search":
         return new AzureAISearch(config as any);
+      case "vertex_ai_vector_search":
+        return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
       case "azure_mysql":
@@ -141,6 +145,8 @@ export class VectorStoreFactory {
       case "s3-vectors":
       case "s3_vectors":
         return new S3Vectors(config as any);
+      case "turbopuffer":
+        return new TurbopufferDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
