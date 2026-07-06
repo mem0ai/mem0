@@ -130,53 +130,71 @@ def remove_code_blocks(content: str) -> str:
 
 
 def _first_parseable_json_object(text: str) -> Optional[str]:
-    """Return the first ``{...}`` substring of ``text`` that parses as JSON.
+    """Return the outermost trailing ``{...}`` substring of ``text`` that parses as JSON.
 
-    Each candidate ``{`` is decoded with ``json.JSONDecoder.raw_decode``, which
-    consumes exactly one JSON value and fails fast on a non-JSON start. This
-    finds the real object even when earlier prose contains an unmatched or
-    otherwise invalid brace (e.g. ``"I'll fill in {the blank. JSON: {...}"``),
-    which a single running brace-depth counter cannot do -- one stray ``{`` would
-    pin the depth above zero and hide every following object.
+    Candidate ``{`` positions are tried from the end of the text backward. The
+    LLM output this helper exists for is prose-then-JSON, so the payload is
+    reached within the first few candidates no matter how expensive the junk
+    braces in the prose would be to reject -- a forward scan has to pay to
+    reject every junk brace before ever reaching the payload, and any bound on
+    that work makes it give up too early (junk braces from truncated output
+    fail at end-of-text, so a couple of attempts exhaust any linear budget).
 
-    To stay linear on long runs of braces (truncated output, ``{{ }}`` template
-    notation), only positions that can actually begin an object are decoded: the
-    next non-whitespace character must be ``"`` (a key) or ``}`` (empty object).
-    Runs of ``{{{...`` therefore cost O(1) each instead of a full raw_decode.
+    Scanning backward, the first successful parse is usually an object nested
+    inside the payload (e.g. a single memory item), so the scan keeps walking
+    left and adopts any candidate whose parse ends strictly later -- which is
+    exactly an enclosing object. Junk candidates between or before successes
+    are simply skipped, so an unparseable fragment inside a string value does
+    not stop the walk from reaching the enclosing object. The result is the
+    outermost object of the trailing JSON payload; when the text contains
+    several disjoint objects, the last one wins.
 
-    Candidates that pass the prefilter can still be expensive to reject -- an
-    unterminated string (e.g. truncated ``'{"a":{"a":...'`` output) makes
-    raw_decode scan to end-of-text before failing, and repeating that at every
-    candidate is quadratic. A cumulative scan budget of ``2 * len(text)``
-    characters (charged per failed attempt from ``JSONDecodeError.pos``) plus an
-    attempt cap bounds total work to O(n); once exhausted, this returns None and
-    ``extract_json`` falls through to its naive-span fallback, the pre-existing
-    behavior.
+    Each candidate is decoded with ``json.JSONDecoder.raw_decode``.
+    ``RecursionError`` counts as a failed candidate: a deep brace run (e.g.
+    ``'{"a":' * 15000``) blows the interpreter recursion limit inside
+    ``raw_decode`` before it can raise ``JSONDecodeError``.
+
+    Only positions whose next non-whitespace character is ``"`` (a key) or
+    ``}`` (empty object) are decoded, so runs of ``{{{...`` cost O(1) each.
+    Failed decodes charge the characters they actually scanned
+    (``JSONDecodeError.pos``; the remaining text for ``RecursionError``)
+    against a ``2 * len(text)`` budget, keeping adversarial all-junk input
+    (where every candidate fails) linear. In the realistic prose-then-JSON
+    shape the payload is adopted before the junk is ever attempted, so
+    exhausting the budget cannot lose it: the best object found is returned
+    regardless. Only with no parseable object at all does this return None,
+    and ``extract_json`` falls through to its naive-span fallback, the
+    pre-existing behavior.
     """
     decoder = json.JSONDecoder(strict=False)
     length = len(text)
     budget = 2 * length
-    attempts_left = 100
-    idx = text.find("{")
-    while idx != -1 and budget > 0 and attempts_left > 0:
+    best_start = -1
+    best_end = -1
+    idx = text.rfind("{")
+    while idx != -1 and budget > 0:
         nxt = idx + 1
         while nxt < length and text[nxt] in " \t\r\n":
             nxt += 1
         if nxt < length and text[nxt] in '"}':
             try:
                 _, end = decoder.raw_decode(text, idx)
-                return text[idx:end]
+                if end > best_end:
+                    best_start, best_end = idx, end
             except json.JSONDecodeError as err:
                 budget -= max(err.pos - idx, 1)
-                attempts_left -= 1
-        idx = text.find("{", idx + 1)
+            except RecursionError:
+                budget -= length - idx
+        idx = text.rfind("{", 0, idx)
+    if best_start != -1:
+        return text[best_start:best_end]
     return None
 
 
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, returns the first balanced ``{...}`` substring that parses as JSON, so that
+    If no code block is found, returns the outermost trailing ``{...}`` substring that parses as JSON, so that
     brace-containing prose preceding the JSON does not corrupt the result. Falls back to the span between the
     first '{' and last '}', and finally to the text as-is.
     """

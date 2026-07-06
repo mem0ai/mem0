@@ -165,14 +165,17 @@ That's the result."""
         assert elapsed < 2.0
 
     def test_truncated_key_fragments_stay_linear(self):
-        """Truncated nested-key output must not make the scan quadratic.
+        """Truncated nested-key output must not make the scan quadratic or crash.
 
         Regression guard: in '{"a":{"a":...' (a small model stuck repeating a
         key fragment, then cut off by max_tokens) every '{' passes the
-        object-start prefilter, and each raw_decode scans to end-of-text before
-        failing on the unterminated string -- repeating that at every candidate
-        was O(n^2) (~seconds at 75k chars). The cumulative scan budget bounds
-        total decode work to O(n) and falls through to the naive-span fallback.
+        object-start prefilter, and raw_decode is expensive to reject at every
+        candidate -- repeating that unboundedly was O(n^2) (~seconds at 75k
+        chars), and decoding from a candidate with thousands of nesting levels
+        after it raises RecursionError (not JSONDecodeError) on the default
+        recursion limit, which must be caught, not crash. The cumulative scan
+        budget bounds total decode work to O(n) and falls through to the
+        naive-span fallback.
         """
         import time
 
@@ -184,13 +187,14 @@ That's the result."""
         assert result == text  # no '}' anywhere, so the as-is fallback applies
         assert elapsed < 2.0
 
-    def test_truncated_fragments_then_real_json_bounded(self):
-        """Truncated fragments before a real object: bounded time, naive-span fallback.
+    def test_truncated_fragments_then_real_json_recovered(self):
+        """Truncated fragments before a real object: the object is recovered, in bounded time.
 
-        The scan budget is exhausted by the expensive dead-end candidates, so
-        extraction falls through to the first-'{'-to-last-'}' span -- the
-        pre-existing behavior for pathological input -- instead of spending
-        quadratic time trying every fragment.
+        The backward scan reaches the real object within its first few
+        candidates, before any of the expensive dead-end fragments are
+        attempted, so the payload is genuinely recovered -- not merely handed
+        to the naive-span fallback (whose span would include the fragments and
+        fail to parse, silently dropping the memories in main.py).
         """
         import time
 
@@ -199,10 +203,66 @@ That's the result."""
         result = extract_json(text)
         elapsed = time.perf_counter() - start
         assert elapsed < 2.0
-        assert result == text[text.find("{") : text.rfind("}") + 1]
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_few_truncated_fragments_then_real_json_recovered(self):
+        """A handful of truncated fragments must not exhaust the scan.
+
+        Regression: with a forward scan, each '{"a":' fragment fails only at
+        end-of-text, so just two or three fragments consumed a
+        2*len(text)-character budget and the real object right behind them was
+        never attempted -- 15 characters of junk prose defeated the whole
+        recovery path. Scanning backward, the object is found first and the
+        fragments are never even decoded.
+        """
+        text = '{"a":' * 3 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        result = extract_json(text)
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_many_cheap_decoys_then_real_json_recovered(self):
+        """Many cheap-to-reject decoys must not exhaust the scan.
+
+        Regression: a flat cap of 100 decode attempts gave up after 100 decoys
+        costing ~5 characters each, even though the total work done was tiny.
+        Work is now bounded by characters scanned, not attempts, and the
+        backward scan never reaches the decoys anyway.
+        """
+        text = '{"a"}' * 100 + ' {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        result = extract_json(text)
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_multiple_disjoint_objects_last_wins(self):
+        """With several disjoint parseable objects, the trailing one is returned.
+
+        The backward scan intentionally prefers the last object: when a chatty
+        model quotes a JSON example in its prose and then emits the actual
+        payload, the payload comes last.
+        """
+        text = (
+            'For example, {"memory": []} would mean no change. My answer: '
+            '{"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        assert json.loads(result) == {"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}
+
+    def test_brace_inside_string_value_before_nested_object(self):
+        """An unparseable '{\"' inside a string value must not hide the envelope.
+
+        Scanning backward from the nested memory item, the next candidate
+        leftward is the '{\"' inside the "note" string, which does not parse.
+        The walk must skip it and continue to the enclosing object rather than
+        stopping at the first failure and returning only the inner item.
+        """
+        text = '{"note": "see {\\" for quoting", "memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        result = extract_json(text)
+        assert json.loads(result) == {
+            "note": 'see {" for quoting',
+            "memory": [{"id": "0", "text": "ok", "event": "ADD"}],
+        }
 
 
 # --- Test remove_code_blocks ---
+
 
 class TestRemoveCodeBlocks:
     """Tests for remove_code_blocks — verify it does NOT handle chatty text."""
@@ -243,6 +303,7 @@ class TestRemoveCodeBlocks:
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+
 
 class TestFallbackChain:
     """Tests the actual fallback pattern used in _add_to_vector_store:
