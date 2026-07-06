@@ -41,44 +41,6 @@ describe("UpstashVector", () => {
     );
   });
 
-  it("uses data instead of vectors when server-side embeddings are enabled", async () => {
-    const client = createClient();
-    const store = new UpstashVector({
-      collectionName: namespace,
-      client: client as any,
-      enable_embeddings: true,
-    });
-
-    await store.insert(
-      [[0.1, 0.2]],
-      ["memory-1"],
-      [{ data: "hello", user_id: "user-1" }],
-    );
-
-    expect(client.upsert).toHaveBeenCalledWith(
-      [
-        {
-          id: "memory-1",
-          data: "hello",
-          metadata: { data: "hello", user_id: "user-1" },
-        },
-      ],
-      { namespace },
-    );
-  });
-
-  it("requires payload data in server-side embedding mode", async () => {
-    const store = new UpstashVector({
-      collectionName: namespace,
-      client: createClient() as any,
-      enable_embeddings: true,
-    });
-
-    await expect(store.insert([[0.1]], ["memory-1"], [{}])).rejects.toThrow(
-      "When embeddings are enabled",
-    );
-  });
-
   it("queries vectors with converted filters", async () => {
     const client = createClient({
       query: jest.fn().mockResolvedValue([
@@ -115,27 +77,6 @@ describe("UpstashVector", () => {
         score: 0.9,
       },
     ]);
-  });
-
-  it("queries data when server-side embeddings are enabled", async () => {
-    const client = createClient();
-    const store = new UpstashVector({
-      collectionName: namespace,
-      client: client as any,
-      enable_embeddings: true,
-    });
-
-    await store.search("hello", 2);
-
-    expect(client.query).toHaveBeenCalledWith(
-      {
-        data: "hello",
-        topK: 2,
-        filter: undefined,
-        includeMetadata: true,
-      },
-      { namespace },
-    );
   });
 
   it("fetches, updates, deletes, resets, and lists vectors in the namespace", async () => {
@@ -185,16 +126,8 @@ describe("UpstashVector", () => {
       includeMetadata: true,
       namespace,
     });
-    expect(client.update).toHaveBeenCalledWith(
-      { id: "memory-1", vector: [0.3] },
-      { namespace },
-    );
-    expect(client.update).toHaveBeenCalledWith(
-      {
-        id: "memory-1",
-        metadata: { data: "updated" },
-        metadataUpdateMode: "OVERWRITE",
-      },
+    expect(client.upsert).toHaveBeenCalledWith(
+      { id: "memory-1", vector: [0.3], metadata: { data: "updated" } },
       { namespace },
     );
     expect(client.delete).toHaveBeenCalledWith("memory-1", { namespace });

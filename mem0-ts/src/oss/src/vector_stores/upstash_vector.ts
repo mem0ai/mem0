@@ -7,7 +7,6 @@ interface UpstashVectorConfig extends VectorStoreConfig {
   url?: string;
   token?: string;
   client?: Index<Record<string, unknown>>;
-  enable_embeddings?: boolean;
 }
 
 type UpstashMetadata = Record<string, unknown>;
@@ -15,7 +14,6 @@ type UpstashMetadata = Record<string, unknown>;
 export class UpstashVector implements VectorStore {
   private readonly client: Index<UpstashMetadata>;
   private readonly collectionName: string;
-  private readonly enableEmbeddings: boolean;
 
   constructor(config: UpstashVectorConfig) {
     if (!config.collectionName) {
@@ -34,7 +32,6 @@ export class UpstashVector implements VectorStore {
     }
 
     this.collectionName = config.collectionName;
-    this.enableEmbeddings = config.enable_embeddings ?? false;
   }
 
   async initialize(): Promise<void> {
@@ -46,26 +43,6 @@ export class UpstashVector implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
-    if (this.enableEmbeddings) {
-      const upsertData = vectors.map((_, idx) => {
-        const metadata = payloads[idx] ?? {};
-        if (metadata.data === undefined || metadata.data === null) {
-          throw new Error(
-            "When embeddings are enabled, all payloads must contain a 'data' field.",
-          );
-        }
-
-        return {
-          id: ids[idx],
-          data: String(metadata.data),
-          metadata,
-        };
-      });
-
-      await this.client.upsert(upsertData, { namespace: this.collectionName });
-      return;
-    }
-
     const upsertData = vectors.map((vector, idx) => {
       return {
         id: ids[idx],
@@ -78,28 +55,19 @@ export class UpstashVector implements VectorStore {
   }
 
   async search(
-    query: number[] | string,
+    query: number[],
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    const filter = this.convertFilters(filters);
-    const queryParams = this.enableEmbeddings
-      ? {
-          data: String(query),
-          topK,
-          filter,
-          includeMetadata: true,
-        }
-      : {
-          vector: query as number[],
-          topK,
-          filter,
-          includeMetadata: true,
-        };
-
-    const response = await this.client.query<UpstashMetadata>(queryParams, {
-      namespace: this.collectionName,
-    });
+    const response = await this.client.query<UpstashMetadata>(
+      {
+        vector: query,
+        topK,
+        filter: this.convertFilters(filters),
+        includeMetadata: true,
+      },
+      { namespace: this.collectionName },
+    );
 
     return response.map((result) => this.parseResult(result));
   }
@@ -149,35 +117,14 @@ export class UpstashVector implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
-    if (this.enableEmbeddings) {
-      if (payload.data === undefined || payload.data === null) {
-        throw new Error(
-          "When embeddings are enabled, payload must contain a 'data' field.",
-        );
-      }
-
-      await this.client.update(
-        {
-          id: vectorId,
-          data: String(payload.data),
-        },
-        { namespace: this.collectionName },
-      );
-    } else {
-      await this.client.update(
-        {
-          id: vectorId,
-          vector,
-        },
-        { namespace: this.collectionName },
-      );
-    }
-
-    await this.client.update<UpstashMetadata>(
+    // Upstash's `update` can't set the vector and metadata in one call (its
+    // payload is a discriminated union of vector | data | metadata), so a
+    // single `upsert` replaces both atomically, the same way insert() writes.
+    await this.client.upsert(
       {
         id: vectorId,
+        vector,
         metadata: payload,
-        metadataUpdateMode: "OVERWRITE",
       },
       { namespace: this.collectionName },
     );
