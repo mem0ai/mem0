@@ -9,13 +9,13 @@ estimatedTime: "~2 minutes"
   **Prerequisites**
   - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Sign up here</a>)
   - API key (<a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Get one from dashboard</a>)
-  - Node.js 18+ (for npx)
+  - Node.js 14+ (for npx)
   - An MCP-compatible client (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode)
 </Info>
 
 ## What is Mem0 MCP?
 
-Mem0 MCP Server exposes Mem0's memory capabilities as MCP tools, letting AI agents decide when to save, search, or update information. The cloud-hosted MCP server requires no local installation — just connect and start using memory.
+Mem0 MCP Server exposes Mem0's memory capabilities as MCP tools, letting AI agents decide when to save, search, or update information. The cloud-hosted MCP server requires no local installation: just connect and start using memory.
 
 ## Quick Setup
 
@@ -97,7 +97,7 @@ You can also configure individual clients:
     bearer_token_env_var = "MEM0_API_KEY"
     ```
 
-    Export `MEM0_API_KEY` in the shell you launch Codex from, then restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers must be added via `config.toml` directly — or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app.
+    Export `MEM0_API_KEY` in the shell you launch Codex from, then restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers must be added via `config.toml` directly, or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app.
 
     <Note>
       Codex uses the server name `mem0` (not `mem0-mcp` like the other clients on this page) so it matches the name the bundled plugin registers if you ever sideload it later.
@@ -110,7 +110,7 @@ You can also configure individual clients:
     codex plugin marketplace add ~/codex-plugins/mem0-source
     ```
 
-    Then run `codex` and `/plugins`, browse the **Mem0 Plugins** marketplace, and install **Mem0**. Don't combine this with the Direct MCP setup above — the sideloaded plugin auto-registers `mem0` via `.codex-mcp.json`, so a manual `[mcp_servers.mem0]` block would create a duplicate.
+    Then run `codex` and `/plugins`, browse the **Mem0 Plugins** marketplace, and install **Mem0**. Don't combine this with the Direct MCP setup above; the sideloaded plugin auto-registers `mem0` via `.codex-mcp.json`, so a manual `[mcp_servers.mem0]` block would create a duplicate.
 
     See the [Codex integration guide](/integrations/codex) for full details, lifecycle-hook setup, and management commands (`codex plugin marketplace upgrade` / `remove`).
   </Accordion>
@@ -205,24 +205,8 @@ Agent: Updated your project status successfully.
 
 ---
 
-## Next Steps
+## Next steps
 
-<CardGroup cols={2}>
-  <Card
-    title="MCP Integration Feature"
-    description="Learn about MCP configuration options and advanced patterns"
-    icon="plug"
-    href="/platform/features/mcp-integration"
-  />
-  <Card
-    title="Gemini 3 with Mem0 MCP"
-    description="See how to integrate Gemini 3 with Mem0 MCP server"
-    icon="book-open"
-    href="/cookbooks/frameworks/gemini-3-with-mem0-mcp"
-  />
-</CardGroup>
-
-## Additional Resources
-
-- **[Platform Quickstart](/platform/quickstart)** - Direct API integration guide
-- **[MCP Specification](https://modelcontextprotocol.io)** - Learn about MCP protocol
+- [Platform Quickstart](/platform/quickstart) - direct SDK/API integration guide
+- [MCP Specification](https://modelcontextprotocol.io) - the Model Context Protocol standard
+- [Gemini with Mem0 MCP](/cookbooks/frameworks/gemini-3-with-mem0-mcp) - example integration cookbook

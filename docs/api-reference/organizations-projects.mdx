@@ -14,7 +14,7 @@ Organizations and projects are **optional** features. You can use Mem0 without t
 
 ## Key Capabilities
 
-- **Multi-org/project Support**: Organization and project are resolved automatically from your API key via `/v1/ping/` — no org or project params are accepted by `MemoryClient.__init__`. Use a project-specific API key to target a particular project.
+- **Multi-org/project Support**: Organization and project are resolved automatically from your API key via `/v1/ping/`: no org or project params are accepted by `MemoryClient.__init__`. Use a project-specific API key to target a particular project.
 - **Member Management**: Control access to data through organization and project membership
 - **Access Control**: Only members can access memories and data within their organization/project scope
 - **Team Isolation**: Maintain data separation between different teams and projects for secure collaboration
@@ -150,7 +150,7 @@ Pass an empty list to clear all criteria and restore default retrieval behaviour
 
 #### Toggle Memory Decay
 
-`decay` is a per-project boolean that turns on [Memory Decay](/platform/features/memory-decay) — a search-time ranking bias that reinforces recently-accessed memories and gently dampens stale ones. The flag is `false` by default; set it via the same project-update endpoint:
+`decay` is a per-project boolean that turns on [Memory Decay](/platform/features/memory-decay): a search-time ranking bias that reinforces recently-accessed memories and gently dampens stale ones. The flag is `false` by default; set it via the same project-update endpoint:
 
 ```bash cURL
 curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/ \

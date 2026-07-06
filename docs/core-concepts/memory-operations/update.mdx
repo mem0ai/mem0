@@ -9,21 +9,14 @@ iconType: "solid"
 
 Mem0’s update operation lets you fix or enrich an existing memory without deleting it. When a user changes their preference or clarifies a fact, use update to keep the knowledge base fresh.
 
-<Info>
-  **Why it matters**
-  - Corrects outdated or incorrect memories immediately.
-  - Adds new metadata so filters and rerankers stay sharp.
-  - Works for both one-off edits and large batches (up to 1000 memories).
-</Info>
-
 ## Key terms
 
-- **memory_id** – Unique identifier returned by `add` or `search` results.
-- **text** / **data** – New content that replaces the stored memory value.
-- **metadata** – Optional key-value pairs you update alongside the text.
-- **timestamp** – Unix epoch (int/float) or ISO 8601 string to override the memory's timestamp.
-- **batch_update** – Platform API that edits multiple memories in a single request.
-- **immutable** – Flagged memories that must be deleted and re-added instead of updated.
+- **memory_id**: Unique identifier returned by `add` or `search` results.
+- **text** / **data**: New content that replaces the stored memory value.
+- **metadata**: Optional key-value pairs you update alongside the text.
+- **timestamp**: Unix epoch (int/float) or ISO 8601 string to override the memory's timestamp.
+- **batch_update**: Platform API that edits multiple memories in a single request.
+- **immutable**: Flagged memories that must be deleted and re-added instead of updated.
 
 ## How the update flow works
 
@@ -127,7 +120,7 @@ memory.update(
 </CodeGroup>
 
 <Note>
-  OSS JavaScript SDK does not expose `update` yet—use the REST API or Python SDK when self-hosting.
+  OSS JavaScript SDK does not expose `update` yet: use the REST API or Python SDK when self-hosting.
 </Note>
 
 ## Tips
@@ -148,7 +141,7 @@ memory.update(
 | Update call | `client.update(memory_id, {...})` | `memory.update(memory_id, data=...)` |
 | Batch updates | `client.batch_update` (up to 1000 memories) | Script your own loop or bulk job |
 | Dashboard visibility | Inspect updates in the UI | Inspect via logs or custom tooling |
-| Immutable handling | Returns descriptive error | Raises exception—delete and re-add |
+| Immutable handling | Returns descriptive error | Raises exception: delete and re-add |
 
 ## Put it into practice
 
