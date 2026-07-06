@@ -133,7 +133,7 @@ def test_config_validation_extra_fields():
             embedding_model_dims=768,
             unknown_parameter="value",  # Extra field
         )
-    assert "Extra fields not allowed" in str(exc_info.value)
+    assert "Extra inputs are not permitted" in str(exc_info.value)
     assert "unknown_parameter" in str(exc_info.value)
 
 

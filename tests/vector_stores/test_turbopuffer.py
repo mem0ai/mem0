@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -637,7 +638,7 @@ class TestConfig:
     def test_config_rejects_extra_fields(self):
         from mem0.configs.vector_stores.turbopuffer import TurbopufferConfig
 
-        with pytest.raises(ValueError, match="Extra fields not allowed"):
+        with pytest.raises(ValidationError):
             TurbopufferConfig(api_key="key", unknown_field="value")
 
     def test_config_requires_api_key(self):

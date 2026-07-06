@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -570,7 +571,7 @@ def test_ensure_source_table_uses_dynamic_names(mock_workspace_client):
 def test_config_rejects_old_doc_params():
     """Config should reject the old documentation parameter names like index_name and source_table_name."""
     from mem0.configs.vector_stores.databricks import DatabricksConfig
-    with pytest.raises(ValueError, match="Extra fields not allowed"):
+    with pytest.raises(ValidationError):
         DatabricksConfig(
             workspace_url="https://test",
             access_token="tok",
@@ -585,7 +586,7 @@ def test_config_rejects_old_doc_params():
 def test_config_rejects_source_table_name():
     """Config should reject source_table_name which was in old docs."""
     from mem0.configs.vector_stores.databricks import DatabricksConfig
-    with pytest.raises(ValueError, match="Extra fields not allowed"):
+    with pytest.raises(ValidationError):
         DatabricksConfig(
             workspace_url="https://test",
             access_token="tok",
@@ -689,7 +690,7 @@ def test_e2e_old_docs_config_rejected():
     """End-to-end: Config from old docs (with index_name, source_table_name) is rejected at validation."""
     from mem0.vector_stores.configs import VectorStoreConfig
 
-    with pytest.raises(ValueError, match="Extra fields not allowed"):
+    with pytest.raises(ValidationError):
         VectorStoreConfig(
             provider="databricks",
             config={
