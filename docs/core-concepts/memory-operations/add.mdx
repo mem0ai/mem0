@@ -9,13 +9,6 @@ iconType: "solid"
 
 Adding memory is how Mem0 captures useful details from a conversation so your agents can reuse them later. Think of it as saving the important sentences from a chat transcript into a structured notebook your agent can search.
 
-<Info>
-  **Why it matters**
-  - Preserves user preferences, goals, and feedback across sessions.
-  - Powers personalization and decision-making in downstream conversations.
-  - Keeps context consistent between managed Platform and OSS deployments.
-</Info>
-
 ## Key terms
 
 - **Messages** – The ordered list of user/assistant turns you send to `add`.
@@ -48,7 +41,7 @@ Future searches rank the most relevant memories for the query.
 When you switch to `infer=False`, Mem0 stores your payload exactly as provided, so duplicates can land. Mixing both modes for the same fact can save it twice.
 </Warning>
 
-You trigger this pipeline with a single `add` call—no manual orchestration needed.
+You trigger this pipeline with a single `add` call: no manual orchestration needed.
 
 ## Add with Mem0 Platform
 
@@ -157,7 +150,6 @@ Add memory whenever your agent learns something useful:
 
 Storing this context allows the agent to reason better in future interactions.
 
-
 ### More Details
 
 For full list of supported fields, required formats, and advanced options, see the
@@ -169,7 +161,7 @@ For full list of supported fields, required formats, and advanced options, see t
 | --- | --- | --- |
 | Add behavior | ADD-only; memories accumulate | ADD-only; you control storage |
 | Rate limits | Managed quotas per workspace | Limited by your hardware and provider APIs |
-| Dashboard visibility | Yes — inspect memories visually | Inspect via CLI, logs, or custom UI |
+| Dashboard visibility | Yes: inspect memories visually | Inspect via CLI, logs, or custom UI |
 
 ## Put it into practice
 

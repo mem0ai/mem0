@@ -4,7 +4,7 @@
  */
 
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { SkillsConfig, CategoryConfig } from "./types.ts";
 import { readText, exists } from "./fs-safe.ts";
 
@@ -84,6 +84,14 @@ function parseSkillFile(content: string): ParsedSkill {
   };
 }
 
+/** @internal — exported for testing only */
+export function normalizeModuleUrlToPath(moduleUrl: string): string {
+  const normalizedUrl = moduleUrl.startsWith("file:")
+    ? moduleUrl
+    : pathToFileURL(moduleUrl).toString();
+  return fileURLToPath(normalizedUrl);
+}
+
 // ============================================================================
 // Skill Loader
 // ============================================================================
@@ -96,7 +104,7 @@ function resolveSkillsDir(): string {
 
   // Strategy 1: import.meta.url (works in native ESM)
   try {
-    const metaDir = path.dirname(fileURLToPath(import.meta.url));
+    const metaDir = path.dirname(normalizeModuleUrlToPath(import.meta.url));
     candidates.push(path.join(metaDir, "skills"));
     candidates.push(path.join(metaDir, "..", "skills"));
   } catch {

@@ -56,6 +56,30 @@ config = {
 }
 ```
 
+### Configuration Options
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `collection_name` | string | required | Name of the OpenSearch index |
+| `host` | string | required | OpenSearch endpoint URL |
+| `port` | int | 9200 | Port number |
+| `http_auth` | object | None | Authentication credentials (e.g., AWSV4SignerAuth) |
+| `embedding_model_dims` | int | 1536 | Dimension of embedding vectors |
+| `use_ssl` | bool | False | Enable SSL/TLS connection |
+| `verify_certs` | bool | False | Verify SSL certificates |
+| `auto_refresh` | bool | False | Automatically refresh index after insert. OpenSearch refreshes every ~1 second by default, so this is rarely needed. |
+
+<Note>
+  The defaults above match a local OpenSearch instance. The AWS OpenSearch Serverless
+  example earlier on this page intentionally overrides them with `port=443`, `use_ssl=True`,
+  and `verify_certs=True`, which are required when connecting to a Serverless collection.
+</Note>
+
+<Note>
+  For **AWS OpenSearch Serverless**, keep `auto_refresh=False` (the default).
+  The `indices.refresh()` API is not supported on Serverless collections.
+</Note>
+
 ### Add Memories
 
 ```python
