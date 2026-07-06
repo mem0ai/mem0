@@ -1222,6 +1222,10 @@
     {
       "source": "/open-source/features/supported-vector-dbs",
       "destination": "/components/vectordbs/overview"
+    },
+    {
+      "source": "/open-source/multimodal-support",
+      "destination": "/open-source/features/multimodal-support"
     }
   ]
 }
