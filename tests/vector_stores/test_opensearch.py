@@ -312,6 +312,24 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(len(result[0]), 1)
         self.assertEqual(result[0][0].id, "id1")
 
+    def test_list_without_top_k_sets_max_result_window_size(self):
+        """list() with top_k=None (as used by get_all()/delete_all()) must set an
+        explicit size, otherwise OpenSearch caps the response at 10 hits and
+        silently drops the rest."""
+        from mem0.vector_stores.opensearch import MAX_RESULT_WINDOW
+
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.os_db.list(filters={"user_id": "alice"})
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], MAX_RESULT_WINDOW)
+
+    def test_list_with_top_k_sets_requested_size(self):
+        """An explicit top_k must be honored as the query size."""
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.os_db.list(filters={"user_id": "alice"}, top_k=25)
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 25)
+
     @patch("mem0.vector_stores.opensearch.logger")
     def test_list_error_returns_nested_empty_list(self, mock_logger):
         """list() error path must return [[]] (not bare []) so callers can do
