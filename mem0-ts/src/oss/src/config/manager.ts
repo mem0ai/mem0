@@ -96,6 +96,8 @@ export class ConfigManager {
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.llm.config;
           const userConf = userConfig.llm?.config;
+          const provider =
+            userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider;
           let finalModel: string | any = defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
@@ -105,14 +107,18 @@ export class ConfigManager {
           }
 
           // Normalize snake_case keys from Python SDK / OpenClaw configs
+          const llmRaw = userConf as Record<string, unknown> | undefined;
           const llmBaseURL =
             userConf?.baseURL ??
+            userConf?.vllmBaseURL ??
+            (llmRaw?.vllm_base_url as string | undefined) ??
             ((userConf as Record<string, unknown>)?.lmstudio_base_url as
               | string
               | undefined) ??
             userConf?.url ??
-            defaultConf.baseURL;
-          const llmRaw = userConf as Record<string, unknown> | undefined;
+            (provider.toLowerCase() === "vllm"
+              ? undefined
+              : defaultConf.baseURL);
           const temperature =
             userConf?.temperature ??
             (llmRaw?.temperature as number | undefined);

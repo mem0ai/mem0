@@ -184,4 +184,45 @@ describe("GoogleLLM (unit)", () => {
     expect(response.toolCalls[0].name).toBe("add_graph_memory");
     expect(response.toolCalls[1].name).toBe("add_graph_memory");
   });
+
+  it("formats generateChat messages and joins Gemini response parts", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      candidates: [
+        {
+          content: {
+            role: "model",
+            parts: [{ text: "Hello" }, { text: ", world" }],
+          },
+        },
+      ],
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    const result = await llm.generateChat([
+      { role: "system", content: "Be concise" },
+      { role: "user", content: "Say hello" },
+    ]);
+
+    expect(mockGenerateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          { role: "model", parts: [{ text: "Be concise" }] },
+          { role: "user", parts: [{ text: "Say hello" }] },
+        ],
+      }),
+    );
+    expect(result).toEqual({ content: "Hello, world", role: "model" });
+  });
+
+  it("returns an empty assistant response when generateChat has no candidates", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      candidates: [],
+      text: "",
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    const result = await llm.generateChat([{ role: "user", content: "Hi" }]);
+
+    expect(result).toEqual({ content: "", role: "assistant" });
+  });
 });

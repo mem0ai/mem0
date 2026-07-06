@@ -26,7 +26,7 @@ Reorders results using deep semantic understanding to put the most relevant memo
 results = client.search(
     query="What are my upcoming travel plans?",
     rerank=True,
-    user_id="user123"
+    filters={"user_id": "user123"},
 )
 
 # Before reranking:        After reranking:
@@ -52,7 +52,7 @@ results = client.search(
 results = client.search(
     query="How do I like my bedroom temperature?",
     rerank=True,           # Get most recent preferences first
-    user_id="user123"
+    filters={"user_id": "user123"},
 )
 
 # Finds: "Keep bedroom at 68°F", "Too cold last night at 65°F", etc.
@@ -63,7 +63,7 @@ results = client.search(
 # Find specific product issues with high precision
 results = client.search(
     query="Problems with premium subscription billing",
-    user_id="customer456"
+    filters={"user_id": "customer456"},
 )
 
 # Returns only relevant billing problems, not general questions
@@ -75,7 +75,7 @@ results = client.search(
 results = client.search(
     query="Patient allergies and contraindications",
     rerank=True,            # Most important info first
-    user_id="patient789"
+    filters={"user_id": "patient789"},
 )
 
 # Ensures critical allergy info appears first
@@ -87,7 +87,7 @@ results = client.search(
 results = client.search(
     query="Python programming progress and difficulties",
     rerank=True,           # Recent progress first
-    user_id="student123"
+    filters={"user_id": "student123"},
 )
 
 # Gets comprehensive view of Python learning journey
@@ -105,7 +105,7 @@ results = client.search(
 def quick_search(query, user_id):
     return client.search(
         query=query,
-        user_id=user_id
+        filters={"user_id": user_id},
     )
 
 # Reranked search - good for most applications
@@ -113,7 +113,7 @@ def standard_search(query, user_id):
     return client.search(
         query=query,
         rerank=True,
-        user_id=user_id
+        filters={"user_id": user_id},
     )
 
 # Reranked search - good for critical applications
@@ -121,7 +121,7 @@ def precise_search(query, user_id):
     return client.search(
         query=query,
         rerank=True,
-        user_id=user_id
+        filters={"user_id": user_id},
     )
 ```
 
@@ -129,23 +129,23 @@ def precise_search(query, user_id):
 // Basic search - good for exploration
 function quickSearch(query, userId) {
     return client.search(query, {
-        user_id: userId
+        filters: { user_id: userId },
     });
 }
 
 // Reranked search - good for most applications
 function standardSearch(query, userId) {
     return client.search(query, {
-        user_id: userId,
-        rerank: true
+        filters: { user_id: userId },
+        rerank: true,
     });
 }
 
 // Reranked search - good for critical applications
 function preciseSearch(query, userId) {
     return client.search(query, {
-        user_id: userId,
-        rerank: true
+        filters: { user_id: userId },
+        rerank: true,
     });
 }
 ```
@@ -178,7 +178,7 @@ start_time = time.time()
 results = client.search(
     query="user preferences",
     rerank=True,         # +150ms
-    user_id="user123"
+    filters={"user_id": "user123"},
 )
 latency = time.time() - start_time
 print(f"Search completed in {latency:.2f}s")
