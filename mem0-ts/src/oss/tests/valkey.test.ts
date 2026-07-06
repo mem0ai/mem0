@@ -160,18 +160,15 @@ describe("Valkey – mocked iovalkey client", () => {
       }),
     );
 
-    mockClient.hgetall.mockResolvedValueOnce({
-      memory_id: "mem-1",
-      hash: "hash-1",
-      memory: "hello valkey",
-      created_at: "1704067200",
-      user_id: "alice",
-      metadata: "{}",
-    });
-
+    // Read back through the real stateful mock store (populated by the hset
+    // above) rather than a hand-rolled hgetall override, so the insert→get
+    // round-trip and timestamp rendering are genuinely exercised.
     const result = await store.get("mem-1");
     expect(result?.id).toBe("mem-1");
     expect(result?.payload.data).toBe("hello valkey");
+    expect(result?.payload.userId).toBe("alice");
+    // created_at is persisted as unix seconds and rendered back to its ISO instant.
+    expect(result?.payload.createdAt).toBe("2024-01-01T00:00:00.000Z");
   });
 
   it("uses Cluster client when clusterMode is enabled", async () => {
@@ -186,5 +183,94 @@ describe("Valkey – mocked iovalkey client", () => {
     const iovalkey = require("iovalkey");
     expect(iovalkey.Cluster).toHaveBeenCalledTimes(1);
     expect(iovalkey.default).not.toHaveBeenCalled();
+  });
+
+  it("passes URL credentials to Cluster via redisOptions in cluster mode", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://user:s3cret@cluster.example:6379",
+      clusterMode: true,
+    });
+    await store.initialize();
+
+    const iovalkey = require("iovalkey");
+    // Cluster ignores URL-embedded auth, so credentials must be forwarded
+    // explicitly via redisOptions — otherwise every cluster connection is
+    // silently unauthenticated.
+    expect(iovalkey.Cluster).toHaveBeenCalledWith(
+      [{ host: "cluster.example", port: 6379 }],
+      { redisOptions: { username: "user", password: "s3cret" } },
+    );
+  });
+
+  it("renders timestamps in the configured timezone", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+      timezone: "America/New_York",
+    });
+    await store.initialize();
+
+    await store.insert(
+      [[0.1, 0.2, 0.3, 0.4]],
+      ["mem-tz"],
+      [{ data: "tz", created_at: "2024-01-01T00:00:00.000Z" }],
+    );
+
+    const result = await store.get("mem-tz");
+    // 2024-01-01T00:00:00Z is 2023-12-31T19:00:00 in America/New_York (UTC-5).
+    expect(result?.payload.createdAt).toBe("2023-12-31T19:00:00-05:00");
+  });
+
+  it("escapes special characters in filter values (query-injection safety)", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    const iovalkey = require("iovalkey");
+    const mockClient = iovalkey.__mockClient;
+    await store.search([0.1, 0.2, 0.3, 0.4], 5, { user_id: "a|b c" });
+
+    const searchCall = mockClient.call.mock.calls.find(
+      (call: any[]) => call[0] === "FT.SEARCH",
+    );
+    expect(searchCall).toBeDefined();
+    // `|` and whitespace must be escaped so a filter value can't rewrite the query.
+    expect(searchCall[2]).toContain("@user_id:{a\\|b\\ c}");
+  });
+
+  it("does not raise an unhandled rejection when initialization fails", async () => {
+    const iovalkey = require("iovalkey");
+    iovalkey.__mockClient.call.mockImplementationOnce(async () => {
+      throw new Error("ERR unknown command 'FT._LIST'");
+    });
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+
+    // The constructor kicks off initialize() in a detached .catch; it must log
+    // and swallow, never re-throw — a re-throw surfaces as an unhandled promise
+    // rejection that can crash the Node process.
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+
+    await expect(store.initialize()).rejects.toThrow(/search module/i);
+
+    // Give Node a macrotask to surface any unhandled rejection from the catch.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    process.off("unhandledRejection", onUnhandled);
+
+    expect(unhandled).toHaveLength(0);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

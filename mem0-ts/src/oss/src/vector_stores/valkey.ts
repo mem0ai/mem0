@@ -85,17 +85,61 @@ function parseFtSearchResults(result: unknown[]): {
   return { total, docs };
 }
 
-function parseValkeyUrl(url: string): { host: string; port: number } {
+function parseValkeyUrl(url: string): {
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+} {
   const normalized = url.replace(/^valkey:\/\//, "redis://");
   const parsed = new URL(normalized);
   return {
     host: parsed.hostname,
     port: parsed.port ? parseInt(parsed.port, 10) : 6379,
+    username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
   };
 }
 
-function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp * 1000).toISOString();
+function formatTimestamp(timestamp: number, timezone: string = "UTC"): string {
+  const date = new Date(timestamp * 1000);
+  if (timezone === "UTC") {
+    return date.toISOString();
+  }
+  // Mirror Python's datetime.fromtimestamp(ts, tz).isoformat(): render the
+  // instant as an ISO-8601 string carrying the target IANA timezone's offset.
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? "00";
+  const yyyy = get("year");
+  const MM = get("month");
+  const dd = get("day");
+  const HH = get("hour");
+  const mm = get("minute");
+  const ss = get("second");
+  const asIfUtc = Date.UTC(
+    Number(yyyy),
+    Number(MM) - 1,
+    Number(dd),
+    Number(HH),
+    Number(mm),
+    Number(ss),
+  );
+  const offsetMinutes = Math.round((asIfUtc - date.getTime()) / 60000);
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absOffset = Math.abs(offsetMinutes);
+  const offHH = String(Math.floor(absOffset / 60)).padStart(2, "0");
+  const offMM = String(absOffset % 60).padStart(2, "0");
+  return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}${sign}${offHH}:${offMM}`;
 }
 
 async function loadIovalkey(): Promise<typeof import("iovalkey")> {
@@ -144,7 +188,6 @@ export class ValkeyDB implements VectorStore {
 
     this.initialize().catch((err) => {
       console.error("Failed to initialize Valkey:", err);
-      throw err;
     });
   }
 
@@ -263,8 +306,16 @@ export class ValkeyDB implements VectorStore {
 
     if (this.clusterMode) {
       const { Cluster } = iovalkey;
-      const { host, port } = parseValkeyUrl(this.valkeyUrl);
-      this.client = new Cluster([{ host, port }]) as unknown as ValkeyClient;
+      const { host, port, username, password } = parseValkeyUrl(this.valkeyUrl);
+      // Standalone `new Valkey(url)` keeps credentials embedded in the URL, but
+      // Cluster takes discrete nodes, so pass the parsed auth through redisOptions
+      // (mirrors Python's ValkeyCluster.from_url, which preserves URL creds).
+      const redisOptions: { username?: string; password?: string } = {};
+      if (username) redisOptions.username = username;
+      if (password) redisOptions.password = password;
+      this.client = new Cluster([{ host, port }], {
+        redisOptions,
+      }) as unknown as ValkeyClient;
     } else {
       this.client = new Valkey(this.valkeyUrl) as unknown as ValkeyClient;
     }
@@ -318,12 +369,15 @@ export class ValkeyDB implements VectorStore {
       hash: doc.hash ?? "",
       data: doc.memory ?? "",
       created_at: doc.created_at
-        ? formatTimestamp(Number(doc.created_at))
+        ? formatTimestamp(Number(doc.created_at), this.timezone)
         : undefined,
     };
 
     if (doc.updated_at) {
-      resultPayload.updated_at = formatTimestamp(Number(doc.updated_at));
+      resultPayload.updated_at = formatTimestamp(
+        Number(doc.updated_at),
+        this.timezone,
+      );
     }
     if (doc.agent_id) resultPayload.agent_id = doc.agent_id;
     if (doc.run_id) resultPayload.run_id = doc.run_id;
