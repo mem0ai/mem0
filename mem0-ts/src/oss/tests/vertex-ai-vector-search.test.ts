@@ -48,21 +48,27 @@ describe("VertexAIVectorSearch", () => {
   });
 
   it("should search vectors and return populated results", async () => {
-    const mockFindNeighbors = jest.fn().mockResolvedValue([{
-      nearestNeighbors: [{
-        neighbors: [{
-          datapoint: {
-            datapointId: "id1",
-            restricts: [{ namespace: "key", allowList: ["value"] }]
+    const mockFindNeighbors = jest.fn().mockResolvedValue([
+      {
+        nearestNeighbors: [
+          {
+            neighbors: [
+              {
+                datapoint: {
+                  datapointId: "id1",
+                  restricts: [{ namespace: "key", allowList: ["value"] }],
+                },
+                distance: 0.1,
+              },
+            ],
           },
-          distance: 0.1
-        }]
-      }]
-    }]);
+        ],
+      },
+    ]);
     (store as any).matchClient.findNeighbors = mockFindNeighbors;
-    
+
     const results = await store.search([1, 2, 3], 5, { key: "value" });
-    
+
     expect(mockFindNeighbors).toHaveBeenCalled();
     // It should map payload correctly and score should be 1.0 - distance
     expect(results).toEqual([
@@ -70,7 +76,7 @@ describe("VertexAIVectorSearch", () => {
         id: "id1",
         payload: { key: "value" },
         score: 0.9,
-      }
+      },
     ]);
   });
 

@@ -120,7 +120,9 @@ export class VertexAIVectorSearch implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     if (!this.config.vectorSearchApiEndpoint) {
-      throw new Error("vectorSearchApiEndpoint is required for search operation");
+      throw new Error(
+        "vectorSearchApiEndpoint is required for search operation",
+      );
     }
     await this.initialize();
 
@@ -176,25 +178,25 @@ export class VertexAIVectorSearch implements VectorStore {
           neighbor.datapoint?.datapointId !== "mem0-user-id-record",
       )
       .map((neighbor: any) => {
-      const payload: Record<string, any> = {};
-      if (neighbor.datapoint?.restricts) {
-        for (const restrict of neighbor.datapoint.restricts) {
-          if (restrict.allowList && restrict.allowList.length > 0) {
-            payload[restrict.namespace] = restrict.allowList[0];
+        const payload: Record<string, any> = {};
+        if (neighbor.datapoint?.restricts) {
+          for (const restrict of neighbor.datapoint.restricts) {
+            if (restrict.allowList && restrict.allowList.length > 0) {
+              payload[restrict.namespace] = restrict.allowList[0];
+            }
           }
         }
-      }
 
-      const score =
-        neighbor.distance !== undefined
-          ? Math.max(0.0, 1.0 - neighbor.distance)
-          : undefined;
-      return {
-        id: neighbor.datapoint.datapointId,
-        payload,
-        score,
-      };
-    });
+        const score =
+          neighbor.distance !== undefined
+            ? Math.max(0.0, 1.0 - neighbor.distance)
+            : undefined;
+        return {
+          id: neighbor.datapoint.datapointId,
+          payload,
+          score,
+        };
+      });
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
