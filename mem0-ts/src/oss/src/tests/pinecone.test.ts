@@ -446,26 +446,24 @@ describe("list", () => {
     );
   });
 
-  it("returns totalRecordCount from describeIndexStats (no namespace)", async () => {
-    __mocks__.describeIndexStats.mockResolvedValue({
-      totalRecordCount: 42,
-      namespaces: {},
+  it("returns the number of matches as the count", async () => {
+    __mocks__.query.mockResolvedValue({
+      matches: [
+        { id: "a", metadata: {}, score: 0 },
+        { id: "b", metadata: {}, score: 0 },
+      ],
     });
-    __mocks__.query.mockResolvedValue({ matches: [] });
     const db = await initDb();
-    const [, count] = await db.list();
-    expect(count).toBe(42);
+    const [results, count] = await db.list();
+    expect(results).toHaveLength(2);
+    expect(count).toBe(2);
   });
 
-  it("uses namespace recordCount when namespace configured", async () => {
-    __mocks__.describeIndexStats.mockResolvedValue({
-      totalRecordCount: 100,
-      namespaces: { myns: { recordCount: 7 } },
-    });
+  it("does not make an extra describeIndexStats round-trip", async () => {
     __mocks__.query.mockResolvedValue({ matches: [] });
-    const db = await initDb({ namespace: "myns" });
-    const [, count] = await db.list();
-    expect(count).toBe(7);
+    const db = await initDb();
+    await db.list();
+    expect(__mocks__.describeIndexStats).not.toHaveBeenCalled();
   });
 });
 

@@ -78,7 +78,7 @@ export class PineconeDB implements VectorStore {
 
   private async _doInitialize(): Promise<void> {
     await this._ensureIndex();
-    this._index = this.client.index(this.collectionName);
+    this._index = this.client.index({ name: this.collectionName });
   }
 
   private async _ensureIndex(): Promise<void> {
@@ -119,13 +119,13 @@ export class PineconeDB implements VectorStore {
     return this._index!;
   }
 
-  private namespacedIndex(): any {
+  private namespacedIndex(): Index {
     return this.namespace
       ? this.index().namespace(this.namespace)
       : this.index();
   }
 
-  private migrationsIndex(): any {
+  private migrationsIndex(): Index {
     return this.index().namespace(MIGRATIONS_NAMESPACE);
   }
 
@@ -319,11 +319,7 @@ export class PineconeDB implements VectorStore {
       payload: (match.metadata as Record<string, any>) || {},
       score: match.score,
     }));
-    const stats = await this.index().describeIndexStats();
-    const totalCount = this.namespace
-      ? (stats.namespaces?.[this.namespace]?.recordCount ?? 0)
-      : (stats.totalRecordCount ?? 0);
-    return [results, totalCount];
+    return [results, results.length];
   }
 
   async getUserId(): Promise<string> {
