@@ -17,6 +17,7 @@ const external = [
   "iovalkey",
   "ollama",
   "@google/genai",
+  "@google-cloud/aiplatform",
   "@mistralai/mistralai",
   "@supabase/supabase-js",
   "@upstash/vector",
@@ -28,6 +29,7 @@ const external = [
   "fastembed",
   "compromise",
   "natural",
+  "@turbopuffer/turbopuffer",
 ];
 
 const define = {
