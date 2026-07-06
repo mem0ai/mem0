@@ -4,7 +4,7 @@ description: "Add facts, messages, or metadata to a user memory store with async
 openapi: post /v3/memories/add/
 ---
 
-Extract and store memories from a conversation using the V3 additive pipeline. The endpoint uses single-pass ADD-only extraction — one LLM call, no UPDATE/DELETE. Memories accumulate over time; nothing is overwritten.
+Extract and store memories from a conversation using the V3 additive pipeline. The endpoint uses single-pass ADD-only extraction: one LLM call, no UPDATE/DELETE. Memories accumulate over time; nothing is overwritten.
 
 ## Endpoint
 
@@ -50,6 +50,7 @@ Provide conversation messages for Mem0 to extract memories from. At least one en
 | `app_id` | string | No* | Associates the memory with an app. |
 | `metadata` | object | Optional | Custom key/value metadata (e.g., `{"topic": "preferences"}`). |
 | `infer` | boolean (default `true`) | Optional | Set to `false` to skip inference and store the provided text as-is. |
+| `expiration_date` | string | Optional | Date in `YYYY-MM-DD` format. The memory is visible through this date and hidden by default after it passes. |
 
 > \* At least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`) is required.
 
@@ -82,4 +83,12 @@ The request is queued for background processing. The response contains an `event
 
 <Info>
 Poll the event status via `GET /v1/event/{event_id}/`. Status will be `SUCCEEDED` or `FAILED` once processing completes.
+</Info>
+
+<Info>
+Memories with `expiration_date` remain stored after they expire. Search and get-all hide them by default; pass `show_expired: true` to include them.
+</Info>
+
+<Info>
+Python uses `expiration_date`; TypeScript uses `expirationDate`.
 </Info>

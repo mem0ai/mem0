@@ -1,6 +1,7 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
+import { TogetherEmbedder } from "../embeddings/together";
 import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
@@ -19,9 +20,13 @@ import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
 import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
+import { ValkeyDB } from "../vector_stores/valkey";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
+import { LiteLLM } from "../llms/litellm";
+import { MiniMaxLLM } from "../llms/minimax";
+import { VllmLLM } from "../llms/vllm";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
@@ -37,6 +42,8 @@ import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
 import { UpstashVector } from "../vector_stores/upstash_vector";
+import { PineconeDB } from "../vector_stores/pinecone";
+import { S3Vectors } from "../vector_stores/s3_vectors";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -47,6 +54,8 @@ export class EmbedderFactory {
         return new OllamaEmbedder(config);
       case "lmstudio":
         return new LMStudioEmbedder(config);
+      case "together":
+        return new TogetherEmbedder(config);
       case "google":
       case "gemini":
         return new GoogleEmbedder(config);
@@ -86,6 +95,12 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "litellm":
+        return new LiteLLM(config);
+      case "minimax":
+        return new MiniMaxLLM(config);
+      case "vllm":
+        return new VllmLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
@@ -101,6 +116,8 @@ export class VectorStoreFactory {
         return new Qdrant(config as any);
       case "redis":
         return new RedisDB(config as any);
+      case "valkey":
+        return new ValkeyDB(config as any);
       case "supabase":
         return new SupabaseDB(config as any);
       case "langchain":
@@ -113,6 +130,11 @@ export class VectorStoreFactory {
         return new PGVector(config as any);
       case "upstash_vector":
         return new UpstashVector(config as any);
+      case "pinecone":
+        return new PineconeDB(config as any);
+      case "s3-vectors":
+      case "s3_vectors":
+        return new S3Vectors(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }

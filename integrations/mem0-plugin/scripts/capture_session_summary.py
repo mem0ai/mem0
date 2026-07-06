@@ -173,7 +173,7 @@ def store_summary(
     if branch:
         metadata["branch"] = branch
     if files:
-        metadata["files_touched"] = json.dumps(files[:20])
+        metadata["files_touched"] = files[:20]
 
     body = {
         "messages": [{"role": "user", "content": summary_prompt}],

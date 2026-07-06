@@ -98,7 +98,10 @@ class Qdrant(VectorStoreBase):
                 self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
                 logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
             except ImportError:
-                logger.warning("fastembed not installed — BM25 keyword search disabled. Install with: pip install fastembed")
+                logger.warning(
+                    "fastembed not installed - BM25 keyword search disabled. "
+                    'Install it with: pip install "mem0ai[extras]"'
+                )
                 self._bm25_encoder = False  # sentinel: tried and failed
             except Exception as e:
                 logger.warning(f"Failed to load BM25 encoder: {e}")
