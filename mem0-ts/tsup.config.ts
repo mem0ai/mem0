@@ -10,6 +10,7 @@ const external = [
   "pg",
   "zod",
   "better-sqlite3",
+  "cassandra-driver",
   "@pinecone-database/pinecone",
   "@qdrant/js-client-rest",
   "redis",
@@ -24,6 +25,7 @@ const external = [
   "cloudflare",
   "@cloudflare/workers-types",
   "@langchain/core",
+  "fastembed",
   "compromise",
   "natural",
 ];
