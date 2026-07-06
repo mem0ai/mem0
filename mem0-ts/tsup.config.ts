@@ -11,6 +11,7 @@ const external = [
   "zod",
   "better-sqlite3",
   "cassandra-driver",
+  "@pinecone-database/pinecone",
   "@qdrant/js-client-rest",
   "redis",
   "iovalkey",
