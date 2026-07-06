@@ -10,7 +10,7 @@ To use Together embedding models, set the `TOGETHER_API_KEY` environment variabl
 <Note> The `embedding_model_dims` parameter for `vector_store` should be set to `1024` for Together embedder. </Note>
 
 <Warning>
-**Breaking default change.** The default Together embedding model is now `intfloat/multilingual-e5-large-instruct` (**1024-dim**), replacing the previous default `togethercomputer/m2-bert-80M-8k-retrieval` (**768-dim**). If you created a self-hosted vector store with the old default, its collection is 768-dim and will reject the new 1024-dim vectors — **recreate/reindex the collection at 1024 dimensions** after upgrading. To defer the change, pin the previous values explicitly (`model="togethercomputer/m2-bert-80M-8k-retrieval"`, `embedding_dims=768`) — note Together no longer lists this model among its recommended embeddings, so reindexing at 1024 is the durable path.
+**Breaking default change.** The default Together embedding model is now `intfloat/multilingual-e5-large-instruct` (**1024-dim**), replacing the previous default `togethercomputer/m2-bert-80M-8k-retrieval` (**768-dim**). If you created a self-hosted vector store with the old default, its collection is 768-dim and will reject the new 1024-dim vectors — **recreate/reindex the collection at 1024 dimensions** after upgrading. To defer the change, pin the previous values explicitly (`model="togethercomputer/m2-bert-80M-8k-retrieval"`, `embedding_dims=768`) note Together no longer lists this model among its recommended embeddings, so reindexing at 1024 is the durable path.
 </Warning>
 
 <CodeGroup>
