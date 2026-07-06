@@ -1,7 +1,3 @@
-import {
-  AutoModelForSequenceClassification,
-  AutoTokenizer,
-} from "@huggingface/transformers";
 import { RerankerConfig } from "../types";
 import { Reranker, RerankResult } from "./base";
 
@@ -42,6 +38,13 @@ export class CrossEncoderReranker implements Reranker {
   private load() {
     if (!this.loaded) {
       this.loaded = (async () => {
+        // Lazy-load Transformers.js (and its onnxruntime native binding) only
+        // when a rerank actually runs. A static import would pull onnxruntime
+        // into every `new Memory()`, colliding on Linux with fastembed's
+        // separate onnxruntime version — see the merge with the FastEmbed
+        // embedder. Deferring it keeps memory construction free of ONNX.
+        const { AutoModelForSequenceClassification, AutoTokenizer } =
+          await import("@huggingface/transformers");
         const options: any = {};
         if (this.device) options.device = this.device;
         const model = await AutoModelForSequenceClassification.from_pretrained(
