@@ -273,7 +273,7 @@ describe("TurbopufferDB deleteCol", () => {
 });
 
 describe("TurbopufferDB list", () => {
-  it("queries with zero vector and returns [rows, count]", async () => {
+  it("lists rows ordered by id and returns [rows, count]", async () => {
     mockQuery.mockResolvedValue({
       rows: [
         { id: "r1", $dist: 0.2, val: "a" },
@@ -330,8 +330,27 @@ describe("TurbopufferDB getUserId", () => {
     expect(mockMigrationsNs.write).not.toHaveBeenCalled();
   });
 
-  it("rethrows on error", async () => {
-    mockMigrationsNs.query.mockRejectedValue(new Error("migrations error"));
+  it("creates a fresh id when the migrations namespace does not exist yet", async () => {
+    // A brand-new namespace 404s on the first read; getUserId should recover
+    // and persist a new id rather than surfacing the error.
+    mockMigrationsNs.query.mockRejectedValue(
+      Object.assign(new Error("namespace not found"), { status: 404 }),
+    );
+    const store = makeStore();
+    const id = await store.getUserId();
+    expect(typeof id).toBe("string");
+    expect(id.length).toBeGreaterThan(0);
+    expect(mockMigrationsNs.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        upsert_rows: [expect.objectContaining({ id: "1", user_id: id })],
+      }),
+    );
+  });
+
+  it("rethrows non-404 errors", async () => {
+    mockMigrationsNs.query.mockRejectedValue(
+      Object.assign(new Error("migrations error"), { status: 500 }),
+    );
     const store = makeStore();
     await expect(store.getUserId()).rejects.toThrow("migrations error");
   });

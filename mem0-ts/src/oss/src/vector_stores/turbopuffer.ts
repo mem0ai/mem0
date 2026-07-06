@@ -6,7 +6,6 @@ interface TurbopufferConfig extends VectorStoreConfig {
   apiKey?: string;
   region?: string;
   collectionName: string;
-  embeddingModelDims?: number;
   distanceMetric?: string;
   batchSize?: number;
 }
@@ -162,12 +161,20 @@ export class TurbopufferDB implements VectorStore {
 
   async getUserId(): Promise<string> {
     try {
-      const result = await this.migrationsNs.query({
-        rank_by: ["id", "asc"] as any,
-        top_k: 1,
-        include_attributes: true,
-      });
-      const rows = result.rows ?? [];
+      let rows: any[] = [];
+      try {
+        const result = await this.migrationsNs.query({
+          rank_by: ["id", "asc"] as any,
+          top_k: 1,
+          include_attributes: true,
+        });
+        rows = result.rows ?? [];
+      } catch (err: any) {
+        // The migrations namespace is created lazily on first write, so the
+        // very first read 404s. Treat that as "no id yet" and fall through to
+        // create one; surface any other error (auth, rate limit, network).
+        if (err?.status !== 404) throw err;
+      }
       if (rows.length > 0 && rows[0].user_id) {
         return String(rows[0].user_id);
       }
