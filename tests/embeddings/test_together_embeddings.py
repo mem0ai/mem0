@@ -66,8 +66,22 @@ def test_embed_batch_count_mismatch_raises(mock_together_client):
         embedder.embed_batch(["first text", "second text"])
 
 
-def test_default_config_uses_current_together_embedding_model(mock_together_client):
+def test_default_config_applies_together_defaults(mock_together_client):
     embedder = TogetherEmbedding(BaseEmbedderConfig())
 
     assert embedder.config.model == DEFAULT_MODEL
     assert embedder.config.embedding_dims == DEFAULT_EMBEDDING_DIMS
+
+
+def test_explicit_config_overrides_defaults(mock_together_client):
+    # The `config.x or default` wiring must honor user-provided values, not clobber them.
+    config = BaseEmbedderConfig(model="BAAI/bge-base-en-v1.5", embedding_dims=768)
+    embedder = TogetherEmbedding(config)
+
+    assert embedder.config.model == "BAAI/bge-base-en-v1.5"
+    assert embedder.config.embedding_dims == 768
+
+    # ...and the chosen model actually reaches the Together API call.
+    mock_together_client.embeddings.create.return_value = Mock(data=[Mock(embedding=[0.0] * 768)])
+    embedder.embed("hello")
+    mock_together_client.embeddings.create.assert_called_once_with(model="BAAI/bge-base-en-v1.5", input="hello")

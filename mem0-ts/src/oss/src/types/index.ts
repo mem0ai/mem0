@@ -21,14 +21,6 @@ export interface EmbeddingConfig {
   modelProperties?: Record<string, any>;
 }
 
-export interface TogetherEmbeddingConfig extends EmbeddingConfig {
-  apiKey?: string;
-  model?: string;
-  baseURL?: string;
-  url?: string;
-  embeddingDims?: number;
-}
-
 export interface VectorStoreConfig {
   collectionName?: string;
   dimension?: number;

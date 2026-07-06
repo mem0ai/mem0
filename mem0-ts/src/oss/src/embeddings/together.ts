@@ -1,11 +1,11 @@
 import { OpenAIEmbedder } from "./openai";
-import { TogetherEmbeddingConfig } from "../types";
+import { EmbeddingConfig } from "../types";
 
 const DEFAULT_BASE_URL = "https://api.together.ai/v1";
 const DEFAULT_MODEL = "intfloat/multilingual-e5-large-instruct";
 
 export class TogetherEmbedder extends OpenAIEmbedder {
-  constructor(config: TogetherEmbeddingConfig) {
+  constructor(config: EmbeddingConfig) {
     const openAICompatibleConfig = { ...config };
     delete openAICompatibleConfig.embeddingDims;
 
