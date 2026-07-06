@@ -126,3 +126,54 @@ describe("RedisDB – entity payload handling", () => {
     expect(Number.isNaN(entry.created_at)).toBe(false);
   });
 });
+
+describe("RedisDB – search() surfaces updated_at (parity with get()/list())", () => {
+  let store: RedisDB;
+  let mockClient: any;
+
+  beforeAll(async () => {
+    store = createStore();
+    await store.initialize();
+    mockClient = (store as any).client;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("search() requests updated_at in RETURN", async () => {
+    mockClient.ft.search.mockResolvedValue({ total: 0, documents: [] });
+
+    await store.search([0.1, 0.2, 0.3, 0.4], 5);
+
+    const options = mockClient.ft.search.mock.calls[0][2];
+    expect(options.RETURN).toContain("updated_at");
+  });
+
+  test("search() surfaces updated_at in the payload when present", async () => {
+    const now = Date.now();
+    const stored: Record<string, string> = {
+      memory_id: "m1",
+      hash: "h",
+      memory: "hello",
+      created_at: String(now - 1000),
+      updated_at: String(now),
+      metadata: "{}",
+      __vector_score: "0.1",
+    };
+    // Mimic RediSearch: only return the fields the query asked for.
+    mockClient.ft.search.mockImplementation(
+      (_index: string, _query: string, options: { RETURN: string[] }) => {
+        const requested = new Set([...options.RETURN, "memory_id"]);
+        const value = Object.fromEntries(
+          Object.entries(stored).filter(([key]) => requested.has(key)),
+        );
+        return Promise.resolve({ total: 1, documents: [{ id: "m1", value }] });
+      },
+    );
+
+    const results = await store.search([0.1, 0.2, 0.3, 0.4], 1);
+
+    expect((results[0].payload as any).updatedAt).toBeDefined();
+  });
+});
