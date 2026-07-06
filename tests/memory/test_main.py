@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -699,6 +699,63 @@ def test_reset_initializes_entity_store_before_wipe():
     assert memory.entity_store_accesses == 1
     entity_store.reset.assert_called_once()
     assert memory._entity_store is None
+
+
+@pytest.mark.asyncio
+async def test_async_reset_initializes_entity_store_before_wipe():
+    """Async reset() must also route through the lazy property so a fresh
+    process wipes a persisted entity collection from a prior process."""
+    entity_store = MagicMock()
+
+    memory = _ProbeAsyncMemory.__new__(_ProbeAsyncMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+    memory.config = MagicMock()
+    memory.config.vector_store.provider = "dummy"
+    memory.config.vector_store.config = {}
+    memory.config.history_db_path = ":memory:"
+
+    with patch("mem0.memory.main.VectorStoreFactory") as vf, \
+         patch("mem0.memory.main.SQLiteManager"), \
+         patch("mem0.memory.main.capture_event"), \
+         patch("mem0.memory.main.display_first_run_notice_async", new=AsyncMock()):
+        vf.create.return_value = MagicMock()
+        await memory.reset()
+
+    assert memory.entity_store_accesses == 1
+    entity_store.reset.assert_called_once()
+    assert memory._entity_store is None
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_initializes_entity_store_before_bulk_clear():
+    """async delete_all() deletes each memory with skip_entity_cleanup=True and
+    relies on _bulk_clear_entity_store. In a fresh process that must still route
+    through the lazy entity_store property (issue #4863 sibling path)."""
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    entity_store = MagicMock()
+    entity_store.list.return_value = [stale_row]
+
+    memory = _ProbeAsyncMemory.__new__(_ProbeAsyncMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.vector_store.list.return_value = ([SimpleNamespace(id="mem-1")], None)
+    memory.db = MagicMock()
+
+    with patch("mem0.memory.main.process_telemetry_filters", return_value=(None, None)), \
+         patch("mem0.memory.main.capture_event"), \
+         patch("mem0.memory.main.detect_decay_usage_from_delete_all", return_value=None), \
+         patch("mem0.memory.main.display_first_run_notice_async", new=AsyncMock()):
+        await memory.delete_all(user_id="user-1")
+
+    assert memory.entity_store_accesses >= 1
+    entity_store.list.assert_called_once_with(filters={"user_id": "user-1"}, top_k=10000)
+    entity_store.delete.assert_called_once_with(vector_id="entity-1")
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):

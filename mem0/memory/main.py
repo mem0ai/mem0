@@ -2277,15 +2277,18 @@ class AsyncMemory(MemoryBase):
         concurrent _delete_memory coroutines each try to read-modify-write
         the same entity rows' linked_memory_ids lists.
         """
-        if self._entity_store is None:
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Entity store initialization failed during bulk clear (async): {e}")
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            listed = await asyncio.to_thread(entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
-                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                    await asyncio.to_thread(entity_store.delete, vector_id=row.id)
                 except Exception as e:
                     logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
         except Exception as e:
@@ -3530,8 +3533,7 @@ class AsyncMemory(MemoryBase):
 
         results = await asyncio.gather(*delete_tasks, return_exceptions=True)
 
-        if self._entity_store is not None:
-            await self._bulk_clear_entity_store(filters)
+        await self._bulk_clear_entity_store(filters)
 
         errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
