@@ -40,6 +40,11 @@ jest.mock("../src/embeddings/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
 }));
+jest.mock("../src/embeddings/together", () => ({
+  TogetherEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "together-embedder", config })),
+}));
 
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest
@@ -107,6 +112,11 @@ jest.mock("../src/llms/minimax", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "minimax-llm", config })),
 }));
+jest.mock("../src/llms/vllm", () => ({
+  VllmLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vllm-llm", config })),
+}));
 
 jest.mock("../src/vector_stores/qdrant", () => ({
   Qdrant: jest
@@ -117,6 +127,11 @@ jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
     .fn()
     .mockImplementation((config) => ({ type: "redis", config })),
+}));
+jest.mock("../src/vector_stores/valkey", () => ({
+  ValkeyDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "valkey", config })),
 }));
 jest.mock("../src/vector_stores/supabase", () => ({
   SupabaseDB: jest
@@ -142,6 +157,11 @@ jest.mock("../src/vector_stores/pgvector", () => ({
   PGVector: jest
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
+}));
+jest.mock("../src/vector_stores/s3_vectors", () => ({
+  S3Vectors: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "s3-vectors", config })),
 }));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
@@ -181,6 +201,7 @@ describe("EmbedderFactory", () => {
     ["fastembed"],
     ["langchain"],
     ["lmstudio"],
+    ["together"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
       EmbedderFactory.create(provider, dummyEmbedConfig),
@@ -224,6 +245,7 @@ describe("LLMFactory", () => {
     ["deepseek"],
     ["litellm"],
     ["minimax"],
+    ["vllm"],
   ])("creates LLM for provider '%s'", (provider) => {
     expect(() => LLMFactory.create(provider, dummyLLMConfig)).not.toThrow();
   });
@@ -261,11 +283,14 @@ describe("VectorStoreFactory", () => {
   test.each([
     ["qdrant"],
     ["redis"],
+    ["valkey"],
     ["supabase"],
     ["langchain"],
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["s3-vectors"],
+    ["s3_vectors"],
   ])("creates vector store for provider '%s'", (provider) => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),

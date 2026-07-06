@@ -248,6 +248,19 @@ class FAISS(VectorStoreBase):
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
 
+    def _should_normalize(self) -> bool:
+        """Whether vectors must be L2-normalized before indexing/searching.
+
+        Cosine similarity is implemented on top of an inner-product index
+        (``IndexFlatIP``), which only equals cosine when the inputs are unit
+        vectors — so cosine *always* requires normalization. For euclidean the
+        ``normalize_L2`` flag remains an opt-in.
+        """
+        strategy = self.distance_strategy.lower()
+        if strategy == "cosine":
+            return True
+        return self.normalize_L2 and strategy == "euclidean"
+
     def _parse_output(self, scores, ids, top_k=None) -> List[OutputData]:
         """
         Parse the output data.
@@ -347,7 +360,7 @@ class FAISS(VectorStoreBase):
 
         vectors_np = np.array(vectors, dtype=np.float32)
 
-        if self.normalize_L2 and self.distance_strategy.lower() == "euclidean":
+        if self._should_normalize():
             faiss.normalize_L2(vectors_np)
 
         self.index.add(vectors_np)
@@ -384,7 +397,7 @@ class FAISS(VectorStoreBase):
         if len(query_vectors.shape) == 1:
             query_vectors = query_vectors.reshape(1, -1)
 
-        if self.normalize_L2 and self.distance_strategy.lower() == "euclidean":
+        if self._should_normalize():
             faiss.normalize_L2(query_vectors)
 
         fetch_k = top_k * 2 if filters else top_k

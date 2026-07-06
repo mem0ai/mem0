@@ -564,12 +564,20 @@ class TestUpdateMemory:
         resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
         assert resp.status_code == 200
         _, kwargs = mock_memory.update.call_args
-        assert kwargs["metadata"] is None
+        assert "metadata" not in kwargs
 
-    def test_missing_text_returns_422(self, client):
-        """text is required — omitting it should fail validation."""
-        resp = client.put("/memories/mem-1", json={"metadata": {"k": "v"}})
-        assert resp.status_code == 422
+    def test_expiration_date_forwarded_without_text(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"expiration_date": "2999-01-01"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["expiration_date"] == "2999-01-01"
+        assert "data" not in kwargs
+
+    def test_null_expiration_date_forwarded_for_clear(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"expiration_date": None})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["expiration_date"] is None
 
     def test_dict_not_passed_as_data(self, client, mock_memory):
         """Regression test for #3933: the entire dict must NOT be passed as data."""
