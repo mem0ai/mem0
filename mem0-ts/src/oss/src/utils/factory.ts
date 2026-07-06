@@ -42,6 +42,7 @@ import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
 import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
+import { PineconeDB } from "../vector_stores/pinecone";
 import { S3Vectors } from "../vector_stores/s3_vectors";
 
 export class EmbedderFactory {
@@ -129,6 +130,8 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "pinecone":
+        return new PineconeDB(config as any);
       case "s3-vectors":
       case "s3_vectors":
         return new S3Vectors(config as any);

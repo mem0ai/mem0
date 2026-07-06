@@ -10,6 +10,7 @@ const external = [
   "pg",
   "zod",
   "better-sqlite3",
+  "@pinecone-database/pinecone",
   "@qdrant/js-client-rest",
   "redis",
   "iovalkey",
