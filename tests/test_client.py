@@ -51,6 +51,20 @@ class TestSearchEntityParamRejection:
             json={"query": "test query", "filters": {"user_id": "u1"}},
         )
 
+    def test_search_passes_show_expired(self, mock_memory_client):
+        """search() should pass show_expired to the API."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.search("test query", filters={"user_id": "u1"}, show_expired=True)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/search/",
+            json={"query": "test query", "filters": {"user_id": "u1"}, "show_expired": True},
+        )
+
     def test_search_rejects_user_id_kwarg(self, mock_memory_client):
         """search() should reject user_id as top-level kwarg."""
         with pytest.raises(ValueError, match=r"user_id"):
@@ -99,6 +113,39 @@ class TestGetAllEntityParamRejection:
         """get_all() should reject run_id as top-level kwarg."""
         with pytest.raises(ValueError, match=r"run_id"):
             mock_memory_client.get_all(run_id="r1")
+
+    def test_get_all_passes_show_expired(self, mock_memory_client):
+        """get_all() should pass show_expired to the API."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, show_expired=True)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}, "show_expired": True},
+        )
+
+
+class TestUpdateExpirationDate:
+    """Tests for update expiration_date payload handling."""
+
+    def test_update_preserves_null_expiration_date(self, mock_memory_client):
+        """update() should send expiration_date=None so the API can clear it."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "mem_1", "expiration_date": None}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.put.return_value = mock_response
+
+        mock_memory_client.update("mem_1", expiration_date=None)
+
+        mock_memory_client.client.put.assert_called_once_with(
+            "/v1/memories/mem_1/",
+            json={"expiration_date": None},
+            params={},
+        )
 
 
 class TestFilterOperatorPassthrough:

@@ -9,6 +9,18 @@ Mem0 rerankers rescore vector search hits so your agents surface the most releva
 Reranking trades extra latency for better precision. Start once you have baseline search working and measure before/after relevance.
 </Info>
 
+## Supported Rerankers
+
+<CardGroup cols={3}>
+  <Card title="Cohere" icon="/images/provider-icons/cohere.svg" href="/components/rerankers/models/cohere" />
+  <Card title="Sentence Transformers" icon="vector-square" href="/components/rerankers/models/sentence_transformer" />
+  <Card title="Hugging Face" icon="/images/provider-icons/huggingface.svg" href="/components/rerankers/models/huggingface" />
+  <Card title="LLM Reranker" icon="wand-magic-sparkles" href="/components/rerankers/models/llm_reranker" />
+  <Card title="Zero Entropy" icon="/images/provider-icons/zeroentropy.svg" href="/components/rerankers/models/zero_entropy" />
+</CardGroup>
+
+## Reranking Workflow
+
 <CardGroup cols={3}>
   <Card
     title="Understand Reranking"
@@ -19,13 +31,13 @@ Reranking trades extra latency for better precision. Start once you have baselin
   <Card
     title="Configure Providers"
     description="Add reranker blocks to your memory configuration."
-    icon="settings"
+    icon="gear"
     href="/components/rerankers/config"
   />
   <Card
     title="Optimize Performance"
     description="Balance relevance, latency, and cost with tuning tactics."
-    icon="speedometer"
+    icon="gauge"
     href="/components/rerankers/optimization"
   />
   <Card
@@ -43,7 +55,7 @@ Reranking trades extra latency for better precision. Start once you have baselin
   <Card
     title="Sentence Transformers"
     description="Keep reranking on-device with cross-encoder models."
-    icon="cpu"
+    icon="microchip"
     href="/components/rerankers/models/sentence_transformer"
   />
 </CardGroup>
@@ -66,7 +78,7 @@ Reranking trades extra latency for better precision. Start once you have baselin
   <Card
     title="Set Up Reranking"
     description="Walk through the configuration fields and defaults."
-    icon="settings"
+    icon="gear"
     href="/components/rerankers/config"
   />
   <Card
