@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, List, Optional
+import math
+from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -161,6 +162,37 @@ class ChromaDB(VectorStoreBase):
         results = self.collection.query(query_embeddings=vectors, where=where_clause, n_results=top_k)
         final_results = self._parse_output(results)
         return final_results
+
+    def keyword_search(self, query: str, top_k: int = 5, filters: Optional[Dict] = None) -> List[OutputData]:
+        """
+        Keyword (BM25) search over stored memories.
+
+        ChromaDB has no native BM25 ranking, so candidates are pulled with any
+        metadata filters applied and scored client-side. The lemmatized text is
+        read from each record's ``text_lemmatized`` metadata (written on insert),
+        matching the query text that mem0 also lemmatizes before calling this.
+
+        Args:
+            query (str): Lemmatized query text.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (Optional[Dict], optional): Metadata filters. Defaults to None.
+
+        Returns:
+            List[OutputData]: Results with raw BM25 scores, highest first.
+        """
+        where_clause = self._generate_where_clause(filters) if filters else None
+        records = self.collection.get(where=where_clause, include=["metadatas"])
+
+        ids = records.get("ids") or []
+        metadatas = records.get("metadatas") or []
+
+        candidates: List[Tuple[str, Dict, List[str]]] = []
+        for idx, mem_id in enumerate(ids):
+            payload = metadatas[idx] if idx < len(metadatas) and metadatas[idx] else {}
+            text = payload.get("text_lemmatized") or payload.get("data") or ""
+            candidates.append((mem_id, payload, text.lower().split()))
+
+        return self._bm25_rank(candidates, query.lower().split(), top_k)
 
     def delete(self, vector_id: str):
         """
@@ -361,3 +393,60 @@ class ChromaDB(VectorStoreBase):
             return processed_filters[0]
         else:
             return {"$and": processed_filters}
+
+    @staticmethod
+    def _bm25_rank(
+        candidates: List[Tuple[str, Dict, List[str]]],
+        query_tokens: List[str],
+        top_k: int,
+        k1: float = 1.5,
+        b: float = 0.75,
+    ) -> List[OutputData]:
+        """
+        Rank candidates with Okapi BM25.
+
+        Corpus statistics (IDF and average document length) are computed over the
+        candidate set, so this is a self-contained scorer. Scores are raw BM25
+        values; mem0 normalizes them downstream. Parameters and formula match the
+        TypeScript SDK's shared bm25 helper for cross-SDK parity.
+
+        Args:
+            candidates: Tuples of (id, payload, tokens) to rank.
+            query_tokens: Tokenized (already lemmatized) query terms.
+            top_k: Maximum number of results to return.
+            k1: Term-frequency saturation parameter.
+            b: Length-normalization parameter.
+
+        Returns:
+            List[OutputData]: Candidates with a positive score, highest first.
+        """
+        num_docs = len(candidates)
+        if num_docs == 0 or not query_tokens:
+            return []
+
+        avg_doc_length = sum(len(tokens) for _, _, tokens in candidates) / num_docs
+        if avg_doc_length == 0:
+            return []
+
+        # Inverse document frequency per unique query term.
+        idf: Dict[str, float] = {}
+        for term in query_tokens:
+            if term in idf:
+                continue
+            doc_freq = sum(1 for _, _, tokens in candidates if term in tokens)
+            idf[term] = math.log((num_docs - doc_freq + 0.5) / (doc_freq + 0.5) + 1)
+
+        scored: List[OutputData] = []
+        for mem_id, payload, tokens in candidates:
+            doc_length = len(tokens)
+            score = 0.0
+            for term in query_tokens:
+                tf = tokens.count(term)
+                score += (idf.get(term, 0.0) * tf * (k1 + 1)) / (
+                    tf + k1 * (1 - b + b * doc_length / avg_doc_length)
+                )
+            if score > 0:
+                scored.append(OutputData(id=mem_id, score=score, payload=payload))
+
+        scored.sort(key=lambda entry: entry.score, reverse=True)
+        return scored[:top_k]

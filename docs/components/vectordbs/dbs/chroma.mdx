@@ -100,3 +100,9 @@ Here are the parameters available for configuring Chroma:
 | `database` | ChromaDB Cloud database name (for cloud usage) | `mem0` |
 </Tab>
 </Tabs>
+
+### Hybrid search
+
+Chroma supports hybrid search in the open-source SDK. When you call `search()`, Mem0 blends semantic (vector) similarity with BM25 keyword scoring and entity signals, then ranks the results together. Chroma has no native BM25 ranking, so Mem0 fetches the matching records and scores them by keyword relevance in the client. This works automatically with no extra configuration, in both the Python and TypeScript SDKs.
+
+Pass `explain=True` (Python) or `explain: true` (TypeScript) to `search()` to inspect the semantic, BM25, and entity components behind each result. See [Search](/core-concepts/memory-operations/search) for how the scores are combined.

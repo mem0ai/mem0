@@ -1,64 +1,84 @@
-export class BM25 {
-  private documents: string[][];
-  private k1: number;
-  private b: number;
-  private avgDocLength: number;
-  private docFreq: Map<string, number>;
-  private docLengths: number[];
-  private idf: Map<string, number>;
+import { VectorStoreResult } from "../types";
 
-  constructor(documents: string[][], k1 = 1.5, b = 0.75) {
-    this.documents = documents;
-    this.k1 = k1;
-    this.b = b;
-    this.docLengths = documents.map((doc) => doc.length);
-    this.avgDocLength =
-      this.docLengths.reduce((a, b) => a + b, 0) / documents.length;
-    this.docFreq = new Map();
-    this.idf = new Map();
-    this.computeIdf();
+export interface Bm25Candidate {
+  id: string;
+  payload: Record<string, any>;
+  tokens: string[];
+}
+
+/**
+ * Split already-lemmatized text into BM25 tokens.
+ *
+ * The input is expected to be the output of lemmatizeForBm25 (lowercased,
+ * space-joined stems), so tokenization is a simple whitespace split.
+ */
+export function tokenizeBm25(text: string): string[] {
+  return text.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Rank candidates against a tokenized query using Okapi BM25.
+ *
+ * Corpus statistics (IDF and average document length) are computed over the
+ * supplied candidate set, so this is a self-contained scorer for vector stores
+ * that have no native lexical ranking (the in-memory store and Chroma). Scores
+ * are raw BM25 values; the caller normalizes them (see utils/scoring.ts).
+ *
+ * @param candidates - Documents to rank, each pre-tokenized.
+ * @param queryTokens - Tokenized (and lemmatized) query terms.
+ * @param topK - Maximum number of results to return.
+ * @param k1 - Term-frequency saturation parameter.
+ * @param b - Length-normalization parameter.
+ * @returns Candidates with a positive score, highest first, capped at topK.
+ */
+export function bm25Score(
+  candidates: Bm25Candidate[],
+  queryTokens: string[],
+  topK: number,
+  k1 = 1.5,
+  b = 0.75,
+): VectorStoreResult[] {
+  const N = candidates.length;
+  if (N === 0 || queryTokens.length === 0) {
+    return [];
   }
 
-  private computeIdf() {
-    const N = this.documents.length;
+  const avgDocLength =
+    candidates.reduce((sum, c) => sum + c.tokens.length, 0) / N;
+  if (avgDocLength === 0) {
+    return [];
+  }
 
-    // Count document frequency for each term
-    for (const doc of this.documents) {
-      const terms = new Set(doc);
-      for (const term of terms) {
-        this.docFreq.set(term, (this.docFreq.get(term) || 0) + 1);
+  // Inverse document frequency per unique query term.
+  const idf = new Map<string, number>();
+  for (const term of queryTokens) {
+    if (idf.has(term)) {
+      continue;
+    }
+    let df = 0;
+    for (const candidate of candidates) {
+      if (candidate.tokens.includes(term)) {
+        df++;
       }
     }
-
-    // Compute IDF for each term
-    for (const [term, freq] of this.docFreq) {
-      this.idf.set(term, Math.log((N - freq + 0.5) / (freq + 0.5) + 1));
-    }
+    idf.set(term, Math.log((N - df + 0.5) / (df + 0.5) + 1));
   }
 
-  private score(query: string[], doc: string[], index: number): number {
+  const scored = candidates.map((candidate) => {
+    const docLength = candidate.tokens.length;
     let score = 0;
-    const docLength = this.docLengths[index];
-
-    for (const term of query) {
-      const tf = doc.filter((t) => t === term).length;
-      const idf = this.idf.get(term) || 0;
-
+    for (const term of queryTokens) {
+      const tf = candidate.tokens.filter((t) => t === term).length;
+      const termIdf = idf.get(term) ?? 0;
       score +=
-        (idf * tf * (this.k1 + 1)) /
-        (tf +
-          this.k1 * (1 - this.b + (this.b * docLength) / this.avgDocLength));
+        (termIdf * tf * (k1 + 1)) /
+        (tf + k1 * (1 - b + (b * docLength) / avgDocLength));
     }
+    return { id: candidate.id, payload: candidate.payload, score };
+  });
 
-    return score;
-  }
-
-  search(query: string[]): string[][] {
-    const scores = this.documents.map((doc, idx) => ({
-      doc,
-      score: this.score(query, doc, idx),
-    }));
-
-    return scores.sort((a, b) => b.score - a.score).map((item) => item.doc);
-  }
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
 }

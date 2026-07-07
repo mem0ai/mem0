@@ -1,11 +1,12 @@
 import { ChromaClient, CloudClient } from "chromadb";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { bm25Score, tokenizeBm25 } from "../utils/bm25";
 
 interface ChromaConfig extends VectorStoreConfig {
   /** Pre-configured ChromaDB client instance. */
   client?: ChromaClient | CloudClient;
-  collectionName: string;
+  collectionName?: string;
   /** Host address for a ChromaDB server (defaults to the client default). */
   host?: string;
   /** Port for a ChromaDB server. */
@@ -23,6 +24,7 @@ interface ChromaConfig extends VectorStoreConfig {
 }
 
 const MIGRATIONS_COLLECTION = "memory_migrations";
+const DEFAULT_COLLECTION_NAME = "mem0";
 
 /**
  * ChromaDB vector store provider.
@@ -55,8 +57,14 @@ export class ChromaDB implements VectorStore {
       this.client = new ChromaClient(params as any);
     }
 
-    this.collectionName = config.collectionName;
-    this.initialize().catch(console.error);
+    this.collectionName = config.collectionName || DEFAULT_COLLECTION_NAME;
+    // Warm up the collection handles in the background. Errors are cached on
+    // the collection promises and re-surface on the first real operation, so we
+    // only log here -- rethrowing would raise an unhandled rejection off this
+    // floating promise.
+    this.initialize().catch((err) => {
+      console.error("Failed to initialize ChromaDB:", err);
+    });
   }
 
   private async getCollection(): Promise<any> {
@@ -125,9 +133,39 @@ export class ChromaDB implements VectorStore {
     });
   }
 
-  async keywordSearch(): Promise<null> {
-    return null;
+    async keywordSearch(
+    query: string,
+    topK: number = 10,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    try {
+      const collection = await this.getCollection();
+      const where = filters ? ChromaDB.generateWhereClause(filters) : undefined;
+
+      // Chroma has no native BM25 ranking, so pull the filter-matched rows and
+      // score them client-side (same approach as the in-memory store). The
+      // lemmatized text lives in each row's metadata, written on insert/update.
+      const result = await collection.get({ where, include: ["metadatas"] });
+      const ids: string[] = Array.isArray(result.ids) ? result.ids : [];
+      const metadatas: (Record<string, any> | null)[] = Array.isArray(
+        result.metadatas,
+      )
+        ? result.metadatas
+        : [];
+
+      const candidates = ids.map((id, idx) => {
+        const payload = (metadatas[idx] || {}) as Record<string, any>;
+        const text = String(payload.textLemmatized ?? payload.data ?? "");
+        return { id, payload, tokens: tokenizeBm25(text) };
+      });
+
+      return bm25Score(candidates, tokenizeBm25(query), topK);
+    } catch (error) {
+      console.error("Error during Chroma keyword search:", error);
+      return null;
+    }
   }
+
 
   async search(
     query: number[],

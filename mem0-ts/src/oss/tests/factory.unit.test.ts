@@ -183,6 +183,11 @@ jest.mock("../src/vector_stores/pgvector", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
 }));
+jest.mock("../src/vector_stores/chroma", () => ({
+  ChromaDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "chroma", config })),
+}));
 jest.mock("../src/vector_stores/databricks", () => ({
   DatabricksVectorStore: jest
     .fn()
@@ -360,6 +365,7 @@ describe("VectorStoreFactory", () => {
     ["s3-vectors"],
     ["s3_vectors"],
     ["weaviate"],
+    ["chroma"],
   ])("creates vector store for provider '%s'", (provider) => {
     const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
     expect(result.config).toBe(dummyVSConfig);

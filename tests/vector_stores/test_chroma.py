@@ -334,6 +334,74 @@ def test_generate_where_clause_not_combined_with_other_filters():
     assert result == {"$and": [{"user_id": {"$eq": "alice"}}, {"status": {"$ne": "archived"}}]}
 
 
+def test_keyword_search_ranks_by_lemmatized_text(chromadb_instance):
+    """keyword_search pulls candidates and ranks them by BM25 over text_lemmatized."""
+    chromadb_instance.collection.get.return_value = {
+        "ids": ["a", "b", "c"],
+        "metadatas": [
+            {"text_lemmatized": "python memori layer agent"},
+            {"text_lemmatized": "weather forecast today"},
+            {"text_lemmatized": "python agent memori"},
+        ],
+    }
+
+    results = chromadb_instance.keyword_search(query="python memori", top_k=5)
+
+    chromadb_instance.collection.get.assert_called_once_with(where=None, include=["metadatas"])
+    ids = [r.id for r in results]
+    assert "a" in ids and "c" in ids
+    # "weather" doc shares no query terms -> filtered out.
+    assert "b" not in ids
+    assert all(r.score > 0 for r in results)
+    # Sorted highest score first.
+    assert [r.score for r in results] == sorted((r.score for r in results), reverse=True)
+
+
+def test_keyword_search_falls_back_to_data_field(chromadb_instance):
+    """When text_lemmatized is absent, keyword_search scores the raw data field."""
+    chromadb_instance.collection.get.return_value = {
+        "ids": ["a"],
+        "metadatas": [{"data": "python agent"}],
+    }
+
+    results = chromadb_instance.keyword_search(query="python", top_k=5)
+    assert [r.id for r in results] == ["a"]
+
+
+def test_keyword_search_passes_where_clause(chromadb_instance):
+    """Metadata filters are translated to a Chroma where clause before fetching."""
+    chromadb_instance.collection.get.return_value = {"ids": [], "metadatas": []}
+
+    chromadb_instance.keyword_search(query="python", top_k=5, filters={"user_id": "alice"})
+
+    chromadb_instance.collection.get.assert_called_once_with(
+        where={"user_id": {"$eq": "alice"}}, include=["metadatas"]
+    )
+
+
+def test_bm25_rank_empty_inputs():
+    """No candidates or no query terms yields no results (no ZeroDivisionError)."""
+    assert ChromaDB._bm25_rank([], ["python"], 5) == []
+    assert ChromaDB._bm25_rank([("a", {}, ["python"])], [], 5) == []
+
+
+def test_bm25_rank_all_empty_documents():
+    """All-empty docs give avg length 0 and must return [] rather than divide by zero."""
+    candidates = [("x", {}, []), ("y", {}, [])]
+    assert ChromaDB._bm25_rank(candidates, ["python"], 5) == []
+
+
+def test_bm25_rank_respects_top_k():
+    """Only the top_k highest-scoring candidates are returned."""
+    candidates = [
+        ("a", {}, ["python", "agent"]),
+        ("b", {}, ["python"]),
+        ("c", {}, ["python", "python", "agent"]),
+    ]
+    results = ChromaDB._bm25_rank(candidates, ["python", "agent"], 1)
+    assert len(results) == 1
+
+
 def test_chroma_config_accepts_default_tmp_path():
     """Test that ChromaDbConfig accepts the default /tmp/chroma path."""
     config = ChromaDbConfig(path="/tmp/chroma")
