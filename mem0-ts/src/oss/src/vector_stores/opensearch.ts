@@ -88,7 +88,9 @@ export class OpenSearchDB implements VectorStore {
         node: `${useSSL ? "https" : "http"}://${host}:${port}`,
         auth: this.normalizeAuth(auth),
         ssl: {
-          rejectUnauthorized: config.verifyCerts ?? true,
+          // Default false to match the Python SDK: self-hosted OpenSearch
+          // commonly uses self-signed certs, so verification is opt-in.
+          rejectUnauthorized: config.verifyCerts ?? false,
         },
       });
     }
@@ -143,15 +145,11 @@ export class OpenSearchDB implements VectorStore {
       body: {
         settings: {
           index: {
-            number_of_replicas: 1,
-            number_of_shards: 5,
-            refresh_interval: "10s",
             knn: true,
           },
         },
         mappings: {
           properties: {
-            text: { type: "text" },
             vector_field: {
               type: "knn_vector",
               dimension: vectorSize,
@@ -161,22 +159,13 @@ export class OpenSearchDB implements VectorStore {
                 space_type: "cosinesimil",
               },
             },
-            payload: {
-              type: "object",
-              properties: {
-                user_id: { type: "keyword" },
-                agent_id: { type: "keyword" },
-                run_id: { type: "keyword" },
-              },
-            },
-            metadata: {
-              type: "object",
-              properties: {
-                user_id: { type: "keyword" },
-                agent_id: { type: "keyword" },
-                run_id: { type: "keyword" },
-              },
-            },
+            // payload is a dynamic object so that string sub-fields (user_id,
+            // agent_id, run_id, and any user metadata) each get an automatic
+            // `.keyword` sub-field, which the filter builder queries for exact
+            // match term/terms clauses. Mapping these as explicit `keyword`
+            // fields would remove the `.keyword` sub-field and make every
+            // scoped filter silently match nothing.
+            payload: { type: "object" },
             id: { type: "keyword" },
           },
         },
@@ -230,8 +219,6 @@ export class OpenSearchDB implements VectorStore {
         {
           vector_field: vector,
           payload: payloads[index] || {},
-          metadata: payloads[index] || {},
-          text: payloads[index]?.data || payloads[index]?.text || "",
           id,
         },
       ];
@@ -366,11 +353,7 @@ export class OpenSearchDB implements VectorStore {
       body: {
         doc: {
           ...(vector && { vector_field: vector }),
-          ...(payload && {
-            payload,
-            metadata: payload,
-            text: payload.data || payload.text || "",
-          }),
+          ...(payload && { payload }),
           id: vectorId,
         },
       },
@@ -523,6 +506,7 @@ export class OpenSearchDB implements VectorStore {
     }
 
     if (Array.isArray(value)) {
+      value.forEach((item) => this.assertScalarValue(key, item));
       return { terms: { [this.payloadField(key, true)]: value } };
     }
 
@@ -542,6 +526,7 @@ export class OpenSearchDB implements VectorStore {
     const clauses = Object.entries(value).map(([operator, operatorValue]) => {
       switch (operator) {
         case "eq":
+          this.assertScalarValue(key, operatorValue);
           return {
             term: {
               [this.payloadField(key, typeof operatorValue === "string")]:
@@ -549,6 +534,7 @@ export class OpenSearchDB implements VectorStore {
             },
           };
         case "ne":
+          this.assertScalarValue(key, operatorValue);
           return {
             bool: {
               must_not: [
@@ -562,8 +548,10 @@ export class OpenSearchDB implements VectorStore {
             },
           };
         case "in":
+          this.assertScalarArray(key, operatorValue);
           return { terms: { [this.payloadField(key, true)]: operatorValue } };
         case "nin":
+          this.assertScalarArray(key, operatorValue);
           return {
             bool: {
               must_not: [
@@ -575,6 +563,7 @@ export class OpenSearchDB implements VectorStore {
         case "gte":
         case "lt":
         case "lte":
+          this.assertScalarValue(key, operatorValue);
           return {
             range: {
               [this.payloadField(key, false)]: {
@@ -584,6 +573,7 @@ export class OpenSearchDB implements VectorStore {
           };
         case "contains":
         case "icontains":
+          this.assertScalarValue(key, operatorValue);
           return {
             wildcard: {
               [this.payloadField(key, true)]: {
@@ -607,5 +597,25 @@ export class OpenSearchDB implements VectorStore {
 
     const field = `payload.${key}`;
     return keyword ? `${field}.keyword` : field;
+  }
+
+  // Filter values become OpenSearch term/terms/range/wildcard leaves. Allowing
+  // an object here lets a caller inject raw query parameters (e.g. a `term`
+  // object form with `boost`/`case_insensitive`), so reject non-scalar leaves.
+  // Mirrors the Python SDK's `_validate_filter` scalar allow-list (PR #5986).
+  private assertScalarValue(key: string, value: any): void {
+    if (value !== null && typeof value === "object") {
+      throw new Error(
+        `Filter value for '${key}' must be a string, number, or boolean, got ` +
+          `${Array.isArray(value) ? "an array" : "an object"}.`,
+      );
+    }
+  }
+
+  private assertScalarArray(key: string, value: any): void {
+    if (!Array.isArray(value)) {
+      throw new Error(`Filter value for '${key}' must be an array.`);
+    }
+    value.forEach((item) => this.assertScalarValue(key, item));
   }
 }
