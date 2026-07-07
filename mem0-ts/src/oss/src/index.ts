@@ -42,4 +42,5 @@ export * from "./vector_stores/pinecone";
 export * from "./vector_stores/turbopuffer";
 export * from "./vector_stores/mongodb";
 export * from "./vector_stores/opensearch";
+export * from "./vector_stores/chroma";
 export * from "./utils/factory";

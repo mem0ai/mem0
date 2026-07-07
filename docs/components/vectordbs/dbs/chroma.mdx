@@ -2,6 +2,7 @@
 title: "Chroma"
 description: "Use Chroma as a vector database in Mem0 for local or cloud-hosted vector storage with built-in embedding support."
 ---
+
 [Chroma](https://www.trychroma.com/) is an AI-native open-source vector database that simplifies building LLM apps by providing tools for storing, embedding, and searching embeddings with a focus on simplicity and speed. It supports both local deployment and cloud hosting through ChromaDB Cloud.
 
 ### Usage
@@ -37,16 +38,68 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+#### TypeScript OSS
+
+Install Chroma alongside the TypeScript SDK when using the OSS vector store:
+
+```bash
+pnpm add chromadb
+```
+
+```ts
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  version: "v1.1",
+  embedder: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: "text-embedding-3-small",
+    },
+  },
+  vectorStore: {
+    provider: "chroma",
+    config: {
+      collectionName: "memories",
+      host: "localhost",
+      port: 8000,
+    },
+  },
+  llm: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: "gpt-4o-mini",
+    },
+  },
+});
+```
+
 ### Config
 
 Here are the parameters available for configuring Chroma:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `collection_name` | The name of the collection | `mem0` |
-| `client` | Custom client for Chroma | `None` |
-| `path` | Path for the Chroma database | `db` |
-| `host` | The host where the Chroma server is running | `None` |
-| `port` | The port where the Chroma server is running | `None` |
-| `api_key` | ChromaDB Cloud API key (for cloud usage) | `None` |
-| `tenant` | ChromaDB Cloud tenant ID (for cloud usage) | `None` |
+| Parameter         | Description                                 | Default Value |
+| ----------------- | ------------------------------------------- | ------------- |
+| `collection_name` | The name of the collection                  | `mem0`        |
+| `client`          | Custom client for Chroma                    | `None`        |
+| `path`            | Path for the Chroma database                | `db`          |
+| `host`            | The host where the Chroma server is running | `None`        |
+| `port`            | The port where the Chroma server is running | `None`        |
+| `api_key`         | ChromaDB Cloud API key (for cloud usage)    | `None`        |
+| `tenant`          | ChromaDB Cloud tenant ID (for cloud usage)  | `None`        |
+
+For the TypeScript OSS SDK, use camelCase config keys where applicable:
+
+| Parameter        | Description                                 | Default Value |
+| ---------------- | ------------------------------------------- | ------------- |
+| `collectionName` | The name of the collection                  | `memories`    |
+| `client`         | Custom Chroma client instance               | `None`        |
+| `host`           | The host where the Chroma server is running | `None`        |
+| `port`           | The port where the Chroma server is running | `None`        |
+| `ssl`            | Whether to connect over HTTPS               | `false`       |
+| `path`           | Deprecated Chroma client path option        | `None`        |
+| `apiKey`         | Chroma Cloud API key                        | `None`        |
+| `tenant`         | Chroma Cloud tenant ID                      | `None`        |
+| `database`       | Chroma Cloud database name                  | `mem0`        |
