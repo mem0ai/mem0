@@ -14,7 +14,6 @@ describe("tsup.config.ts externals", () => {
   beforeAll(() => {
     const pkgPath = path.resolve(__dirname, "../../../package.json");
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    // Filter out @types/* packages — they are type-only and not bundled at runtime
     peerDeps = Object.keys(pkg.peerDependencies || {}).filter(
       (dep) => !dep.startsWith("@types/"),
     );
@@ -22,16 +21,16 @@ describe("tsup.config.ts externals", () => {
 
     const tsupConfigPath = path.resolve(__dirname, "../../../tsup.config.ts");
     const tsupContent = fs.readFileSync(tsupConfigPath, "utf-8");
-
-    // Extract strings from the external array (supports double, single, and backtick quotes)
     const externalMatch = tsupContent.match(
       /const external\s*=\s*\[([\s\S]*?)\];/,
     );
+
     if (!externalMatch) {
       throw new Error("Could not find external array in tsup.config.ts");
     }
+
     const matches = externalMatch[1].match(/["'`]([^"'`]+)["'`]/g);
-    externalDeps = (matches || []).map((m) => m.replace(/["'`]/g, ""));
+    externalDeps = (matches || []).map((value) => value.replace(/["'`]/g, ""));
   });
 
   it("should have every peerDependency in the external array", () => {

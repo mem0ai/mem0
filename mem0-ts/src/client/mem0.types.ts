@@ -13,6 +13,7 @@ export interface AddMemoryOptions extends EntityOptions {
   customCategories?: custom_categories[];
   customInstructions?: string;
   timestamp?: number;
+  expirationDate?: string;
   structuredDataSchema?: Record<string, any>;
 }
 
@@ -25,6 +26,7 @@ export interface SearchMemoryOptions {
   latestOnly?: boolean;
   fields?: string[];
   categories?: string[];
+  showExpired?: boolean;
 }
 
 export interface GetAllMemoryOptions {
@@ -35,6 +37,7 @@ export interface GetAllMemoryOptions {
   endDate?: string;
   latestOnly?: boolean;
   categories?: string[];
+  showExpired?: boolean;
 }
 
 export interface DeleteAllMemoryOptions extends EntityOptions {}
@@ -119,6 +122,7 @@ export interface Memory {
   memoryType?: string;
   score?: number;
   metadata?: any | null;
+  expirationDate?: string | null;
   owner?: string | null;
   agentId?: string | null;
   appId?: string | null;

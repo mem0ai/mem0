@@ -687,3 +687,35 @@ def test_init_calls_create_col_if_collection_missing(mock_clients):
         embedding_model_dims=16,
     )
     mock_index_client.create_or_update_index.assert_called_once()
+
+
+def test_build_filter_rejects_dict_value(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    with pytest.raises(ValueError):
+        instance._build_filter_expression({"user_id": {"$ne": ""}})
+
+
+def test_build_filter_rejects_list_value(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    with pytest.raises(ValueError):
+        instance._build_filter_expression({"user_id": ["alice", "bob"]})
+
+
+def test_build_filter_accepts_scalars(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    expr = instance._build_filter_expression({
+        "user_id": "alice",
+        "count": 42,
+        "score": 0.95,
+        "active": True,
+    })
+    assert "user_id eq 'alice'" in expr
+    assert "count eq 42" in expr
+    assert "score eq 0.95" in expr
+    assert "active eq true" in expr
+
+
+def test_build_filter_escapes_quotes(azure_ai_search_instance):
+    instance, _, _ = azure_ai_search_instance
+    expr = instance._build_filter_expression({"name": "O'Brien"})
+    assert "name eq 'O''Brien'" in expr
