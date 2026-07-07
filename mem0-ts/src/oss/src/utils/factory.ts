@@ -53,6 +53,7 @@ import { PineconeDB } from "../vector_stores/pinecone";
 import { S3Vectors } from "../vector_stores/s3_vectors";
 import { TurbopufferDB } from "../vector_stores/turbopuffer";
 import { MongoDB } from "../vector_stores/mongodb";
+import { ChromaDB } from "../vector_stores/chroma";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -162,6 +163,8 @@ export class VectorStoreFactory {
         return new TurbopufferDB(config as any);
       case "mongodb":
         return new MongoDB(config as any);
+      case "chroma":
+        return new ChromaDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }

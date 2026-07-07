@@ -8,7 +8,8 @@ description: "Use Chroma as a vector database in Mem0 for local or cloud-hosted 
 
 #### Local Installation
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -37,16 +38,65 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+  vectorStore: {
+    provider: "chroma",
+    config: {
+      collectionName: "test",
+      host: "localhost",
+      port: 8000,
+      // Optional: ChromaDB Cloud configuration
+      // apiKey: "your-chroma-cloud-api-key",
+      // tenant: "your-chroma-cloud-tenant-id",
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+const messages = [
+  {
+    role: "user",
+    content: "I'm planning to watch a movie tonight. Any recommendations?",
+  },
+  {
+    role: "assistant",
+    content: "How about thriller movies? They can be quite engaging.",
+  },
+  {
+    role: "user",
+    content: "I’m not a big fan of thriller movies but I love sci-fi movies.",
+  },
+  {
+    role: "assistant",
+    content:
+      "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+  },
+];
+
+await memory.add(messages, {
+  userId: "alice",
+  metadata: {
+    category: "movies",
+  },
+});
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Chroma:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `collection_name` | The name of the collection | `mem0` |
-| `client` | Custom client for Chroma | `None` |
-| `path` | Path for the Chroma database | `db` |
-| `host` | The host where the Chroma server is running | `None` |
-| `port` | The port where the Chroma server is running | `None` |
-| `api_key` | ChromaDB Cloud API key (for cloud usage) | `None` |
-| `tenant` | ChromaDB Cloud tenant ID (for cloud usage) | `None` |
+| Python | TypeScript | Description | Default Value |
+| --- | --- | --- | --- |
+| `collection_name` | `collectionName` | The name of the collection | `mem0` |
+| `client` | `client` | Custom client for Chroma | `None` |
+| `path` | — | Path for the local Chroma database (Python only; the TS client always connects over HTTP) | `db` |
+| `host` | `host` | The host where the Chroma server is running | `None` |
+| `port` | `port` | The port where the Chroma server is running | `None` |
+| `api_key` | `apiKey` | ChromaDB Cloud API key (for cloud usage) | `None` |
+| `tenant` | `tenant` | ChromaDB Cloud tenant ID (for cloud usage) | `None` |
+| — | `embeddingModelDims` | Dimensions of the embedding vectors, used for the internal migrations record (TypeScript only) | `1536` |
