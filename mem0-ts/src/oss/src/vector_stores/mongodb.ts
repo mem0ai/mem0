@@ -22,7 +22,7 @@ export class MongoDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: MongoDBConfig) {
-    this.collectionName = config.collectionName || "mem0_vectors";
+    this.collectionName = config.collectionName || "mem0";
     this.dbName = config.dbName || "mem0_db";
     this.embeddingModelDims =
       config.embeddingModelDims || config.dimension || 1536;
@@ -36,7 +36,6 @@ export class MongoDB implements VectorStore {
     }
 
     this.db = this.client.db(this.dbName);
-    this.initialize().catch(console.error);
   }
 
   async initialize(): Promise<void> {

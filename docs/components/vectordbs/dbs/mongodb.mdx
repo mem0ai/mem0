@@ -7,7 +7,7 @@ description: "Use MongoDB as a vector database in Mem0 with built-in vector sear
 
 [MongoDB](https://www.mongodb.com/) is a versatile document database that supports vector search capabilities, allowing for efficient high-dimensional similarity searches over large datasets with robust scalability and performance.
 
-> **Note**: MongoDB Vector Search requires a MongoDB Atlas cluster. The `$vectorSearch` aggregation stage and `createSearchIndex()` API are not available on a standard self-hosted MongoDB deployment.
+> **Note**: MongoDB Vector Search requires a MongoDB Atlas cluster (v6.0.11+) or a self-managed MongoDB Community/Enterprise deployment running v8.2+ (Enterprise also needs the MongoDB Kubernetes Operator). The `$vectorSearch`/`$search` aggregation stages and the `createSearchIndex()` API are not available on self-managed deployments older than v8.2.
 
 ## Usage
 
@@ -106,10 +106,8 @@ Here are the parameters available for configuring MongoDB:
 | Python | TypeScript | Description | Default Value |
 | --- | --- | --- | --- |
 | db_name | dbName | Name of the MongoDB database | "mem0_db" |
-| collection_name | collectionName | Name of the MongoDB collection | "mem0_collection" |
+| collection_name | collectionName | Name of the MongoDB collection | "mem0" |
 | embedding_model_dims | embeddingModelDims | Dimensions of the embedding vectors | 1536 |
 | mongo_uri | url | The MongoDB URI connection string | mongodb://localhost:27017 |
 
-> **Note**: 
-> If `mongo_uri` (Python) or `url` (TypeScript) is not provided, it will default to `mongodb://localhost:27017`.
-> MongoDB Vector Search requires either a MongoDB Atlas cluster (v6.0.11+) or a self-managed MongoDB Community/Enterprise deployment running v8.2+. Self-hosted versions older than 8.2 do not support $vectorSearch or createSearchIndex().
+> **Note**: If `mongo_uri` (Python) or `url` (TypeScript) is not provided, it defaults to `mongodb://localhost:27017`. A local instance must be running MongoDB v8.2+ for vector search to work (see the version requirement above).
