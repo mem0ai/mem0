@@ -11,10 +11,9 @@ class TogetherEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "togethercomputer/m2-bert-80M-8k-retrieval"
+        self.config.model = self.config.model or "intfloat/multilingual-e5-large-instruct"
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
-        # TODO: check if this is correct
-        self.config.embedding_dims = self.config.embedding_dims or 768
+        self.config.embedding_dims = self.config.embedding_dims or 1024
         self.client = Together(api_key=api_key)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):

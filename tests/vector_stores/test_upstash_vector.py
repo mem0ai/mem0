@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from mem0.configs.vector_stores.upstash_vector import UpstashVectorConfig
 from mem0.vector_stores.upstash_vector import UpstashVector
 
 
@@ -393,3 +394,27 @@ def test_search_vectors_multi_query_namespace_at_top_level(upstash_instance):
     assert [r.id for r in results] == ["id1", "id2", "id3"]
     assert results[0].score == 0.9
     assert results[1].payload == {"name": "vector2"}
+
+
+def test_env_var_only_config_builds_provider(monkeypatch):
+    """Regression: an env-var-only config (no url/token/client) must build.
+
+    VectorStoreFactory does ``UpstashVector(**config.model_dump())``. The config
+    validator read ``UPSTASH_VECTOR_REST_URL``/``UPSTASH_VECTOR_REST_TOKEN`` only
+    to pass its presence check, then returned the config unchanged, so
+    ``model_dump()`` still carried ``url=token=None`` and construction raised
+    "Either a client or URL and token must be provided." — even though the docs
+    advertise env-var setup. The resolved credentials must reach the ctor.
+    """
+    monkeypatch.setenv("UPSTASH_VECTOR_REST_URL", "https://example.upstash.io")
+    monkeypatch.setenv("UPSTASH_VECTOR_REST_TOKEN", "tok_123")
+
+    dumped = UpstashVectorConfig(collection_name="mem0").model_dump()
+    assert dumped["url"] == "https://example.upstash.io"
+    assert dumped["token"] == "tok_123"
+
+    # Mirrors VectorStoreFactory.create: instance(**config.model_dump()).
+    with patch("mem0.vector_stores.upstash_vector.Index") as mock_index:
+        UpstashVector(**dumped)
+
+    mock_index.assert_called_once_with("https://example.upstash.io", "tok_123")
