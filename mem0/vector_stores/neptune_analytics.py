@@ -16,6 +16,7 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 
 _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_~][a-zA-Z0-9_]*$")
+_VALID_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _validate_filter(key: str, value: Any) -> None:
@@ -72,6 +73,12 @@ class NeptuneAnalyticsVector(VectorStoreBase):
 
         if not endpoint.startswith("neptune-graph://"):
             raise ValueError("Please provide 'endpoint' with the format as 'neptune-graph://<graphid>'.")
+
+        if not _VALID_IDENTIFIER.match(collection_name):
+            raise ValueError(
+                f"Invalid collection_name: {collection_name!r}. Must start with a letter or underscore and "
+                "contain only letters, digits, and underscores."
+            )
 
         graph_id = endpoint.replace("neptune-graph://", "")
         self.graph = NeptuneAnalyticsGraph(graph_id)
