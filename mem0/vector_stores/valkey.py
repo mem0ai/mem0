@@ -223,12 +223,19 @@ class ValkeyDB(VectorStoreBase):
 
         # Check if the index already exists
         try:
-            self.client.ft(self.collection_name).info()
-            return
+            existing_info = self.client.ft(self.collection_name).info()
         except ResponseError as e:
             if "not found" not in str(e).lower():
                 logger.exception(f"Error checking index existence: {e}")
                 raise
+            # Index doesn't exist yet -> fall through and create it below.
+        else:
+            # Index already exists. If it predates the trailing-colon fix (#5680),
+            # its prefix is the bare "mem0:{collection}", which also matches sibling
+            # collections such as "{collection}_entities" in the same DB. We can't
+            # rebuild it in place without dropping it, so surface the remediation.
+            self._warn_if_legacy_prefix(existing_info)
+            return
 
         # Build and execute the index creation command
         cmd = self._build_index_schema(
@@ -244,6 +251,35 @@ class ValkeyDB(VectorStoreBase):
         except Exception as e:
             logger.exception(f"Error creating index {self.collection_name}: {e}")
             raise
+
+    def _warn_if_legacy_prefix(self, index_info):
+        """Warn if an existing index uses the pre-#5680 colon-less key prefix.
+
+        Such an index (prefix ``mem0:{collection}``) also matches sibling collections
+        like ``{collection}_entities`` stored in the same Valkey DB, leaking their keys
+        into search results. Existing indexes are not rebuilt automatically; recreate
+        the index (``reset()`` or ``FT.DROPINDEX`` + recreate) to apply the fix.
+
+        Best-effort: never raises, so index initialization is unaffected even if the
+        FT.INFO response shape changes across client/server versions.
+        """
+        try:
+            definition = (index_info or {}).get("index_definition") or []
+            kv = dict(zip(definition[::2], definition[1::2]))
+            prefixes = kv.get(b"prefixes") or kv.get("prefixes") or []
+            for prefix in prefixes:
+                prefix = prefix.decode() if isinstance(prefix, bytes) else prefix
+                if prefix and not prefix.endswith(":"):
+                    logger.warning(
+                        f"Valkey index '{self.collection_name}' uses a legacy key prefix '{prefix}' "
+                        f"without a trailing colon; it can over-match sibling collections such as "
+                        f"'{self.collection_name}_entities' in the same database (issue #5680). "
+                        f"Existing indexes are not migrated automatically — call reset() "
+                        f"(or FT.DROPINDEX + recreate) to rebuild the index with the corrected prefix."
+                    )
+                    return
+        except Exception as e:
+            logger.debug(f"Could not inspect existing Valkey index prefix: {e}")
 
     def create_col(self, name=None, vector_size=None, distance=None):
         """

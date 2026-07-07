@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -1100,3 +1101,37 @@ def test_build_index_schema_prefix_has_trailing_colon(valkey_db):
     assert not "mem0:my-memories_entities:".startswith(actual_prefix), (
         "The index prefix must NOT be a string-prefix of the entity collection key namespace"
     )
+
+
+# Warning for pre-existing indexes that predate the trailing-colon fix (#5680)
+
+
+def _ft_info_with_prefix(prefix):
+    """Mimic valkey-py FT.INFO: string top-level keys, byte nested keys/values."""
+    return {
+        "index_name": "test_collection",
+        "index_definition": [b"key_type", b"HASH", b"prefixes", [prefix.encode()], b"default_score", b"1"],
+    }
+
+
+def test_warn_if_legacy_prefix_warns_on_colonless(valkey_db, caplog):
+    """An existing index whose PREFIX lacks a trailing colon (pre-#5680) must warn,
+    since it silently over-matches the sibling `_entities` collection."""
+    with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.valkey"):
+        valkey_db._warn_if_legacy_prefix(_ft_info_with_prefix("mem0:test_collection"))
+    messages = [r.message for r in caplog.records]
+    assert any("legacy key prefix" in m for m in messages), messages
+    assert any("_entities" in m for m in messages), messages
+
+
+def test_warn_if_legacy_prefix_silent_on_fixed(valkey_db, caplog):
+    """An index already using the colon-terminated PREFIX must NOT warn."""
+    with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.valkey"):
+        valkey_db._warn_if_legacy_prefix(_ft_info_with_prefix("mem0:test_collection:"))
+    assert not any("legacy key prefix" in r.message for r in caplog.records)
+
+
+def test_warn_if_legacy_prefix_never_raises(valkey_db):
+    """The check is best-effort: malformed FT.INFO must not break index init."""
+    for bad in (None, {}, {"index_definition": None}, {"index_definition": [b"prefixes"]}):
+        valkey_db._warn_if_legacy_prefix(bad)  # must not raise

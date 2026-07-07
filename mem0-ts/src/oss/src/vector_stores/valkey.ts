@@ -237,7 +237,10 @@ export class ValkeyDB implements VectorStore {
       "HASH",
       "PREFIX",
       "1",
-      prefix,
+      // Terminate the prefix with ':' so the index matches only this collection's
+      // keys (mem0:{col}:{id}) and not sibling collections like "{col}_entities",
+      // whose keys (mem0:{col}_entities:{id}) also start with the bare prefix. #5680
+      `${prefix.replace(/:+$/, "")}:`,
       "SCHEMA",
       "memory_id",
       "TAG",
@@ -279,7 +282,15 @@ export class ValkeyDB implements VectorStore {
     await this.ensureSearchModule();
 
     try {
-      await this.client.call("FT.INFO", this.collectionName);
+      const existingInfo = await this.client.call(
+        "FT.INFO",
+        this.collectionName,
+      );
+      // Index already exists. If it predates the trailing-colon fix (#5680), its
+      // prefix is the bare "mem0:{collection}" and over-matches sibling collections
+      // like "{collection}_entities" in the same DB. We can't rebuild it in place, so
+      // surface the remediation instead of silently leaving it broken.
+      this.warnIfLegacyPrefix(existingInfo);
       return;
     } catch (error: any) {
       const message = String(error?.message ?? error).toLowerCase();
@@ -298,6 +309,43 @@ export class ValkeyDB implements VectorStore {
       this.indexPrefix,
     );
     await this.client.call(...cmd);
+  }
+
+  /**
+   * Warn if an existing index uses the pre-#5680 colon-less key prefix. FT.INFO
+   * comes back as a flat [key, value, ...] array; index_definition is itself a
+   * flat array whose "prefixes" value is a list of prefix strings. Best-effort:
+   * never throws, so a parsing change in a future Valkey release can't break init.
+   */
+  private warnIfLegacyPrefix(indexInfo: unknown): void {
+    try {
+      if (!Array.isArray(indexInfo)) return;
+      const valueAfter = (arr: unknown[], key: string): unknown => {
+        for (let i = 0; i + 1 < arr.length; i += 2) {
+          if (String(arr[i]) === key) return arr[i + 1];
+        }
+        return undefined;
+      };
+      const definition = valueAfter(indexInfo, "index_definition");
+      if (!Array.isArray(definition)) return;
+      const prefixes = valueAfter(definition, "prefixes");
+      if (!Array.isArray(prefixes)) return;
+      for (const raw of prefixes) {
+        const prefix = String(raw);
+        if (prefix && !prefix.endsWith(":")) {
+          console.warn(
+            `Valkey index '${this.collectionName}' uses a legacy key prefix '${prefix}' ` +
+              `without a trailing colon; it can over-match sibling collections such as ` +
+              `'${this.collectionName}_entities' in the same database (issue #5680). ` +
+              `Existing indexes are not migrated automatically — drop and recreate the index ` +
+              `(FT.DROPINDEX + recreate) to rebuild it with the corrected prefix.`,
+          );
+          return;
+        }
+      }
+    } catch {
+      // best-effort: never let the legacy-prefix check break index initialization
+    }
   }
 
   private async connectClient(): Promise<void> {
