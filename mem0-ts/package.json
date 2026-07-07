@@ -143,6 +143,9 @@
   "peerDependenciesMeta": {
     "mysql2": {
       "optional": true
+    },
+    "@zilliz/milvus2-sdk-node": {
+      "optional": true
     }
   },
   "engines": {
@@ -177,11 +180,6 @@
       "@modelcontextprotocol/sdk": "^1.25.4",
       "esbuild": ">=0.28.1",
       "undici@<6.27.0": ">=6.27.0 <8.0.0"
-    }
-  },
-  "peerDependenciesMeta": {
-    "@zilliz/milvus2-sdk-node": {
-      "optional": true
     }
   }
 }

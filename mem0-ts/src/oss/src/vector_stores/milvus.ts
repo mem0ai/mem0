@@ -243,7 +243,7 @@ export class Milvus implements VectorStore {
     const res = await this.client.get({
       collection_name: this.collectionName,
       ids: [vectorId],
-      output_fields: ["*"],
+      output_fields: ["id", "metadata"],
     });
     const rows = res?.data || [];
     if (!rows.length) return null;
@@ -286,7 +286,7 @@ export class Milvus implements VectorStore {
       collection_name: this.collectionName,
       filter: filter ?? "",
       limit: topK,
-      output_fields: ["*"],
+      output_fields: ["id", "metadata"],
     });
     const rows = res?.data || [];
     const results: VectorStoreResult[] = rows.map((row: any) => ({

@@ -196,6 +196,24 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     expect(missing).toBeNull();
   });
 
+  it("updates a record in place via upsert", async () => {
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    const store = makeStore(client);
+    await store.initialize();
+    await store.insert([[1, 0, 0]], ["a"], [{ data: "old" }]);
+
+    await store.update("a", [0, 1, 0], { data: "new" });
+
+    const upsertCall = client.calls.find((c) => c.method === "upsert")!;
+    expect(upsertCall.args.data[0]).toEqual({
+      id: "a",
+      vectors: [0, 1, 0],
+      metadata: { data: "new" },
+    });
+    const got = await store.get("a");
+    expect(got!.payload).toEqual({ data: "new" });
+  });
+
   it("builds an AND-combined equality filter expression for search", async () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     client.searchResponse = {
