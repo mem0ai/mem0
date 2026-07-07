@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Any, Union
 import numpy as np
 
@@ -6,10 +7,12 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import CrossEncoder
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class SentenceTransformerReranker(BaseReranker):
@@ -41,7 +44,7 @@ class SentenceTransformerReranker(BaseReranker):
             )
 
         self.config = config
-        self.model = SentenceTransformer(self.config.model, device=self.config.device)
+        self.model = CrossEncoder(self.config.model, device=self.config.device)
         
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
@@ -74,8 +77,11 @@ class SentenceTransformerReranker(BaseReranker):
             # Create query-document pairs
             pairs = [[query, doc_text] for doc_text in doc_texts]
             
-            # Get similarity scores
-            scores = self.model.predict(pairs)
+            scores = self.model.predict(
+                pairs,
+                batch_size=self.config.batch_size,
+                show_progress_bar=self.config.show_progress_bar,
+            )
             if isinstance(scores, np.ndarray):
                 scores = scores.tolist()
             
@@ -99,8 +105,9 @@ class SentenceTransformerReranker(BaseReranker):
                 
             return reranked_docs
 
-        except Exception:
+        except Exception as e:
             # Fallback to original order if reranking fails
+            logger.warning("SentenceTransformer reranking failed, falling back to original order: %s", e)
             for doc in documents:
                 doc['rerank_score'] = 0.0
             final_top_k = top_k or self.config.top_k

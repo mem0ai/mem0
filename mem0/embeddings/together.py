@@ -11,10 +11,9 @@ class TogetherEmbedding(EmbeddingBase):
     def __init__(self, config: Optional[BaseEmbedderConfig] = None):
         super().__init__(config)
 
-        self.config.model = self.config.model or "togethercomputer/m2-bert-80M-8k-retrieval"
+        self.config.model = self.config.model or "intfloat/multilingual-e5-large-instruct"
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
-        # TODO: check if this is correct
-        self.config.embedding_dims = self.config.embedding_dims or 768
+        self.config.embedding_dims = self.config.embedding_dims or 1024
         self.client = Together(api_key=api_key)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
@@ -29,3 +28,16 @@ class TogetherEmbedding(EmbeddingBase):
         """
 
         return self.client.embeddings.create(model=self.config.model, input=text).data[0].embedding
+
+    def embed_batch(self, texts, memory_action="add"):
+        if not texts:
+            return []
+        response = self.client.embeddings.create(model=self.config.model, input=texts)
+        sorted_data = sorted(response.data, key=lambda x: x.index)
+        embeddings = [item.embedding for item in sorted_data]
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"Together embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
+        return embeddings

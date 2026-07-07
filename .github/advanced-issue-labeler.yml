@@ -1,0 +1,18 @@
+# Maps dropdown selections to GitHub labels
+# Used by the advanced-issue-labeler GitHub Action
+
+component:
+  - label: "sdk-python"
+    matcher: "Core / Python SDK"
+  - label: "sdk-typescript"
+    matcher: "TypeScript SDK"
+  - label: "vector-store"
+    matcher: "Vector Store"
+  - label: "graph-memory"
+    matcher: "Graph Memory"
+  - label: "ollama"
+    matcher: "Ollama"
+  - label: "openclaw"
+    matcher: "OpenClaw"
+  - label: "rest-api"
+    matcher: "REST API"

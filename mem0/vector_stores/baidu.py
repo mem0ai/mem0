@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from typing import Dict, Optional
 
@@ -27,6 +28,7 @@ try:
         VectorIndex,
     )
     from pymochow.model.table import (
+        BM25SearchRequest,
         FloatVector,
         Partition,
         Row,
@@ -46,6 +48,8 @@ class OutputData(BaseModel):
 
 
 class BaiduDB(VectorStoreBase):
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
     def __init__(
         self,
         endpoint: str,
@@ -185,14 +189,14 @@ class BaiduDB(VectorStoreBase):
             row = Row(id=idx, vector=vector, metadata=metadata)
             self._table.upsert(rows=[row])
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None) -> list:
         """
         Search for similar vectors.
 
         Args:
             query (str): Query string.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -207,7 +211,7 @@ class BaiduDB(VectorStoreBase):
         request = VectorTopkSearchRequest(
             vector_field="vector",
             vector=FloatVector(vectors),
-            limit=limit,
+            limit=top_k,
             filter=search_filter,
             config=VectorSearchConfig(ef=200),
         )
@@ -226,6 +230,48 @@ class BaiduDB(VectorStoreBase):
             output.append(output_data)
 
         return output
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Perform keyword-based search using Baidu Mochow's BM25 search.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            list: Search results, or None if the table lacks an inverted index.
+        """
+        try:
+            search_filter = None
+            if filters:
+                search_filter = self._create_filter(filters)
+
+            request = BM25SearchRequest(
+                index_name="data_bm25_idx",
+                search_text=query,
+                limit=top_k,
+                filter=search_filter,
+            )
+
+            projections = ["id", "metadata"]
+            res = self._table.bm25_search(request=request, projections=projections)
+
+            output = []
+            for row in res.rows:
+                row_data = row.get("row", {})
+                output_data = OutputData(
+                    id=row_data.get("id"),
+                    score=row.get("score", 0.0),
+                    payload=row_data.get("metadata", {}),
+                )
+                output.append(output_data)
+
+            return output
+        except Exception as e:
+            logger.error(f"Error during keyword search for query '{query}': {e}")
+            return None
 
     def delete(self, vector_id):
         """
@@ -313,20 +359,20 @@ class BaiduDB(VectorStoreBase):
         """
         return self._table.stats()
 
-    def list(self, filters: dict = None, limit: int = 100) -> list:
+    def list(self, filters: dict = None, top_k: int = 100) -> list:
         """
         List all vectors in the table.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
         """
         projections = ["id", "metadata"]
         list_filter = self._create_filter(filters) if filters else None
-        result = self._table.select(filter=list_filter, projections=projections, limit=limit)
+        result = self._table.select(filter=list_filter, projections=projections, limit=top_k)
 
         memories = []
         for row in result.rows:
@@ -361,8 +407,16 @@ class BaiduDB(VectorStoreBase):
         """
         conditions = []
         for key, value in filters.items():
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
             if isinstance(value, str):
-                conditions.append(f'metadata["{key}"] = "{value}"')
-            else:
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                conditions.append(f'metadata["{key}"] = "{escaped}"')
+            elif isinstance(value, (int, float, bool)):
                 conditions.append(f'metadata["{key}"] = {value}')
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
         return " AND ".join(conditions)

@@ -1,6 +1,6 @@
 ---
 title: Python SDK Quickstart
-description: "Get started with Mem0 quickly!"
+description: "Install the Mem0 Python SDK, configure your environment, and store your first memory in under five minutes."
 icon: "snake"
 ---
 
@@ -76,34 +76,33 @@ print(results)
 </Step>
 </Steps>
 
+<Snippet file="star-on-github.mdx" />
 
 <Note>
 By default `Memory()` wires up:
-- OpenAI `gpt-4.1-nano-2025-04-14` for fact extraction and updates
+- OpenAI `gpt-5-mini` for fact extraction and updates
 - OpenAI `text-embedding-3-small` embeddings (1536 dimensions)
 - Qdrant vector store with on-disk data at `/tmp/qdrant`
 - SQLite history at `~/.mem0/history.db`
 - No reranker (add one in the config when you need it)
 </Note>
 
-## What's Next?
+## What's next?
 
 <CardGroup cols={3}>
-<Card title="Memory Operations" icon="database" href="/core-concepts/memory-operations/add">
-Learn how to search, update, and manage memories with full CRUD operations
+<Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
+Search, update, and manage memories with the full CRUD API.
 </Card>
 
-<Card title="Configuration" icon="sliders" href="/open-source/configuration">
-  Customize Mem0 with different LLMs, vector stores, and embedders for production use
+<Card title="Configure for production" icon="sliders" href="/open-source/configuration">
+Swap in your own LLM, embedder, and vector store.
 </Card>
 
-<Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">
-Explore async support, graph memory, and multi-agent memory organization
+<Card title="Add to your framework" icon="plug" href="/integrations">
+Wire Mem0 into LangChain, CrewAI, LangGraph, and 20+ more.
 </Card>
 </CardGroup>
 
-## Additional Resources
+If you have any questions, please feel free to reach out:
 
-- **[OpenAI Compatibility](/open-source/features/openai_compatibility)** - Use Mem0 with OpenAI-compatible chat completions
-- **[Contributing Guide](/contributing/development)** - Learn how to contribute to Mem0
-- **[Examples](/cookbooks/companions/local-companion-ollama)** - See Mem0 in action with Ollama and other integrations
+<Snippet file="get-help.mdx" />

@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
-from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData, _validate_filter
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -96,6 +96,10 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(mappings["vector"]["index"], True)
         self.assertEqual(mappings["vector"]["similarity"], "cosine")
         self.assertEqual(mappings["metadata"]["type"], "object")
+        metadata_props = mappings["metadata"]["properties"]
+        self.assertEqual(metadata_props["user_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["agent_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["run_id"]["type"], "keyword")
 
         # Reset mocks for next test
         self.client_mock.reset_mock()
@@ -189,7 +193,7 @@ class TestElasticsearchDB(unittest.TestCase):
 
         # Perform search
         vectors = [[0.1] * 1536]
-        results = self.es_db.search(query="", vectors=vectors, limit=5)
+        results = self.es_db.search(query="", vectors=vectors, top_k=5)
 
         # Verify search call
         self.client_mock.search.assert_called_once()
@@ -221,7 +225,7 @@ class TestElasticsearchDB(unittest.TestCase):
         vectors = [[0.1] * 1536]
         limit = 5
         filters = {"key1": "value1"}
-        self.es_db.search(query="", vectors=vectors, limit=limit, filters=filters)
+        self.es_db.search(query="", vectors=vectors, top_k=limit, filters=filters)
 
         # Verify custom search query function was called
         self.es_db.custom_search_query.assert_called_once_with(vectors, limit, filters)
@@ -272,7 +276,7 @@ class TestElasticsearchDB(unittest.TestCase):
         self.client_mock.search.return_value = mock_response
 
         # Perform list operation
-        results = self.es_db.list(limit=10)
+        results = self.es_db.list(top_k=10)
 
         # Verify search call
         self.client_mock.search.assert_called_once()
@@ -356,3 +360,33 @@ class TestElasticsearchDB(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config = {**base_config, "headers": headers}
                 ElasticsearchConfig(**config)
+
+    def test_filter_rejects_dict_value(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id", {"value": "alice", "boost": 0})
+
+    def test_filter_rejects_list_value(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id", ["alice", "bob"])
+
+    def test_filter_rejects_invalid_key(self):
+        with self.assertRaises(ValueError):
+            _validate_filter("user_id; DROP", "alice")
+
+    def test_filter_accepts_scalar_values(self):
+        _validate_filter("user_id", "alice")
+        _validate_filter("count", 42)
+        _validate_filter("score", 0.95)
+        _validate_filter("active", True)
+
+    def test_search_with_dict_filter_raises(self):
+        with self.assertRaises(ValueError):
+            self.es_db.search(
+                query="test",
+                vectors=[0.1] * 1536,
+                filters={"user_id": {"value": "*", "case_insensitive": True}},
+            )
+
+    def test_list_with_dict_filter_raises(self):
+        with self.assertRaises(ValueError):
+            self.es_db.list(filters={"user_id": {"$ne": ""}})

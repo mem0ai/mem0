@@ -42,7 +42,7 @@ You can retrieve memories using the `search` method.
 <CodeGroup>
 
 ```python Python
-client.search("What is Alice's favorite sport?", user_id="alice")
+client.search("What is Alice's favorite sport?", filters={"user_id": "alice"})
 ```
 
 ```json Output

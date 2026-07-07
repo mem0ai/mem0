@@ -1,0 +1,126 @@
+---
+title: Cursor
+description: "Add persistent memory to Cursor with the Mem0 MCP server for context-aware coding."
+---
+
+Add persistent memory to [**Cursor**](https://cursor.com) with the Mem0 MCP server. Your AI assistant forgets everything between sessions. Mem0 fixes that by connecting Cursor to Mem0's cloud memory layer via MCP so you can save and retrieve relevant context during coding sessions.
+
+## Prerequisites
+
+Before setting up Mem0 with Cursor, ensure you have:
+
+1. A Mem0 Platform account and API key:
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-cursor" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-cursor" rel="nofollow">Get your API key</a> (starts with `m0-`)
+
+2. Cursor installed ([cursor.com](https://cursor.com))
+
+3. Your API key added to your shell profile (persists across sessions):
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+</CodeGroup>
+
+<Warning>
+  Already have `mem0` configured as an MCP server in Cursor? Remove the existing entry from your Cursor MCP settings before installing to avoid duplicate tools.
+</Warning>
+
+## Installation
+
+### Option A: One-Click Deeplink (MCP Only)
+
+The fastest way to get started. Click the link below to install the Mem0 MCP server directly in Cursor:
+
+[Install Mem0 MCP in Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=mem0&config=eyJtY3BTZXJ2ZXJzIjp7Im1lbTAiOnsidXJsIjoiaHR0cHM6Ly9tY3AubWVtMC5haS9tY3AvIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiVG9rZW4gJHtlbnY6TUVNMF9BUElfS0VZfSJ9fX19)
+
+### Option B: npx (MCP Only)
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp/" \
+  --clients "cursor"
+```
+
+### Option C: Manual Configuration (MCP Only)
+
+Add the following to your `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token ${env:MEM0_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+<Info icon="check">
+  Start a new Cursor session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+</Info>
+
+
+## Available MCP Tools
+
+Once installed, the following tools are available in every Cursor session:
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Example Workflow
+
+```text
+# Session 1: Debugging a performance issue
+You: The API endpoint /users is taking 3 seconds. Help me optimize it.
+
+# Cursor agent searches memories, proceeds with investigation.
+# After completing the task, Mem0 stores:
+#   - Learning: "N+1 query in UserService.getAll(): fixed with eager loading"
+#   - Decision: "Added database index on users.email column"
+#   - Preference: "User prefers query-level fixes over caching"
+
+# Session 2 (next week): Similar issue
+You: The /orders endpoint is also slow, same pattern as before.
+
+# Agent searches memories, retrieves the optimization learnings.
+# Immediately checks for N+1 queries and missing indexes.
+```
+
+## Troubleshooting
+
+- **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
+- **Duplicate tools**: If you had a previous MCP config for `mem0`, remove it before installing the plugin
+- **No tools appearing**: Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Claude Code Integration" icon="/images/provider-icons/anthropic.svg" href="/integrations/claude-code">
+    Add Mem0 memory to Claude Code workflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

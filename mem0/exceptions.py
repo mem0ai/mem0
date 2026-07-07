@@ -321,24 +321,6 @@ class VectorStoreError(MemoryError):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
 
-class GraphStoreError(MemoryError):
-    """Raised when graph store operations fail.
-    
-    This exception is raised when graph store operations fail,
-    such as relationship creation, entity management, or graph queries.
-    
-    Example:
-        raise GraphStoreError(
-            message="Graph store operation failed",
-            error_code="GRAPH_001",
-            details={"operation": "create_relationship", "entity": "user_123"},
-            suggestion="Please check your graph store configuration and connection"
-        )
-    """
-    def __init__(self, message: str, error_code: str = "GRAPH_001", details: dict = None, 
-                 suggestion: str = "Please check your graph store configuration and connection", 
-                 debug_info: dict = None):
-        super().__init__(message, error_code, details, suggestion, debug_info)
 
 
 class EmbeddingError(MemoryError):

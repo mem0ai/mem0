@@ -1,5 +1,7 @@
 # OpenMemory
 
+> **⚠️ Sunsetting Notice:** OpenMemory is being sunset. For local self-hosted memory with a dashboard, please use the [Mem0 self-hosted server](https://docs.mem0.ai/open-source/overview) instead. Get started with `cd server && make bootstrap`. See the [self-hosted docs](https://docs.mem0.ai/open-source/setup) for configuration details.
+
 OpenMemory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
 
 ![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
@@ -66,7 +68,39 @@ You can do this in one of the following ways:
 
 ```env
 OPENAI_API_KEY=sk-xxx
-USER=<user-id> # The User Id you want to associate the memories with 
+USER=<user-id> # The User Id you want to associate the memories with
+```
+
+- #### LLM Configuration (optional)
+
+By default, OpenMemory uses OpenAI (`gpt-4o-mini`) for the LLM and embedder. You can configure a different provider using these environment variables in `/api/.env`:
+
+| Variable | Description | Default |
+|---|---|---|
+| `LLM_PROVIDER` | LLM provider (`openai`, `ollama`, `anthropic`, `groq`, `together`, `deepseek`, etc.) | `openai` |
+| `LLM_MODEL` | Model name for the LLM provider | `gpt-4o-mini` (OpenAI) / `llama3.1:latest` (Ollama) |
+| `LLM_API_KEY` | API key for the LLM provider | `OPENAI_API_KEY` env var |
+| `LLM_BASE_URL` | Custom base URL for the LLM API | Provider default |
+| `OLLAMA_BASE_URL` | Ollama-specific base URL (takes precedence over `LLM_BASE_URL` for Ollama) | `http://localhost:11434` |
+| `EMBEDDER_PROVIDER` | Embedder provider (defaults to `ollama` when LLM is Ollama, otherwise `openai`) | `openai` |
+| `EMBEDDER_MODEL` | Model name for the embedder | `text-embedding-3-small` (OpenAI) / `nomic-embed-text` (Ollama) |
+| `EMBEDDER_API_KEY` | API key for the embedder provider | `OPENAI_API_KEY` env var |
+| `EMBEDDER_BASE_URL` | Custom base URL for the embedder API | Provider default |
+
+**Example: Using Ollama (fully local)**
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.1:latest
+EMBEDDER_PROVIDER=ollama
+EMBEDDER_MODEL=nomic-embed-text
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+**Example: Using Anthropic**
+```env
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-sonnet-4-20250514
+LLM_API_KEY=sk-ant-xxx
 ```
 - #### Example `/ui/.env`
 

@@ -1,3 +1,5 @@
+import copy
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -6,6 +8,7 @@ from openai import AzureOpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 SCOPE = "https://cognitiveservices.azure.com/.default"
 
@@ -16,7 +19,7 @@ class AzureOpenAIStructuredLLM(LLMBase):
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-5-mini"
 
         api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
@@ -64,28 +67,87 @@ class AzureOpenAIStructuredLLM(LLMBase):
             str: The generated response.
         """
 
-        user_prompt = messages[-1]["content"]
+        # Azure's "Indirect Attacks" content filter can flag the literal word
+        # "assistant" in the prompt, so it is rewritten to "ai" before the request.
+        # Work on a copy so the caller's messages are left untouched and string-only
+        # content is handled without breaking multimodal (list) content.
+        messages = self._rewrite_assistant_keyword(messages)
 
-        user_prompt = user_prompt.replace("assistant", "ai")
-
-        messages[-1]["content"] = user_prompt
-
+        is_reasoning = self._is_reasoning_model(self.config.model)
         params = {
             "model": self.config.model,
             "messages": messages,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
         }
+        # Reasoning models (o1/o3/GPT-5 series) reject temperature/top_p; only
+        # forward the sampling params for non-reasoning models. Mirrors the
+        # reasoning-aware handling of OpenAIStructuredLLM (#5458).
+        if not is_reasoning:
+            params["temperature"] = self.config.temperature
+            params["top_p"] = self.config.top_p
+        # Reasoning models require max_completion_tokens rather than max_tokens.
+        if is_reasoning or self._uses_max_completion_tokens(self.config.model):
+            params["max_completion_tokens"] = self.config.max_tokens
+        else:
+            params["max_tokens"] = self.config.max_tokens
+        if is_reasoning:
+            reasoning_effort = getattr(self.config, "reasoning_effort", None)
+            if reasoning_effort:
+                params["reasoning_effort"] = reasoning_effort
         if response_format:
             params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        if tools:
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
-
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)
+
+    @staticmethod
+    def _rewrite_assistant_keyword(messages):
+        """
+        Return a copy of ``messages`` with the word "assistant" replaced by "ai"
+        in the last message's textual content.
+
+        Azure's content management policy can flag the literal word "assistant",
+        which makes ``add`` fail (see issue #2636). The rewrite targets that
+        trigger without mutating the caller's messages and without assuming the
+        content is a string, so multimodal (list) content passes through untouched.
+        """
+        if not messages:
+            return messages
+
+        messages = copy.deepcopy(messages)
+        last_content = messages[-1].get("content")
+        if isinstance(last_content, str):
+            messages[-1]["content"] = last_content.replace("assistant", "ai")
+        return messages
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content

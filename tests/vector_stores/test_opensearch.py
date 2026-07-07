@@ -18,25 +18,25 @@ from mem0.vector_stores.opensearch import OpenSearchDB
 # Mock classes for testing OpenSearch with AWS authentication
 class MockFieldInfo:
     """Mock pydantic field info."""
+
     def __init__(self, default=None):
         self.default = default
 
 
 class MockOpenSearchConfig:
-    
     model_fields = {
-        'collection_name': MockFieldInfo(default="default_collection"),
-        'host': MockFieldInfo(default="localhost"),
-        'port': MockFieldInfo(default=9200),
-        'embedding_model_dims': MockFieldInfo(default=1536),
-        'http_auth': MockFieldInfo(default=None),
-        'auth': MockFieldInfo(default=None),
-        'credentials': MockFieldInfo(default=None),
-        'connection_class': MockFieldInfo(default=None),
-        'use_ssl': MockFieldInfo(default=False),
-        'verify_certs': MockFieldInfo(default=False),
+        "collection_name": MockFieldInfo(default="default_collection"),
+        "host": MockFieldInfo(default="localhost"),
+        "port": MockFieldInfo(default=9200),
+        "embedding_model_dims": MockFieldInfo(default=1536),
+        "http_auth": MockFieldInfo(default=None),
+        "auth": MockFieldInfo(default=None),
+        "credentials": MockFieldInfo(default=None),
+        "connection_class": MockFieldInfo(default=None),
+        "use_ssl": MockFieldInfo(default=False),
+        "verify_certs": MockFieldInfo(default=False),
     }
-    
+
     def __init__(self, collection_name="test_collection", include_auth=True, **kwargs):
         self.collection_name = collection_name
         self.host = kwargs.get("host", "localhost")
@@ -44,7 +44,7 @@ class MockOpenSearchConfig:
         self.embedding_model_dims = kwargs.get("embedding_model_dims", 1536)
         self.use_ssl = kwargs.get("use_ssl", True)
         self.verify_certs = kwargs.get("verify_certs", True)
-        
+
         if any(field in kwargs for field in ["http_auth", "auth", "credentials", "connection_class"]):
             self.http_auth = kwargs.get("http_auth")
             self.auth = kwargs.get("auth")
@@ -63,20 +63,18 @@ class MockOpenSearchConfig:
 
 
 class MockAWSAuth:
-    
     def __init__(self):
         self._lock = threading.Lock()
         self.region = "us-east-1"
-    
+
     def __deepcopy__(self, memo):
         raise TypeError("cannot pickle '_thread.lock' object")
 
 
 class MockConnectionClass:
-    
     def __init__(self):
         self._state = {"connected": False}
-    
+
     def __deepcopy__(self, memo):
         raise TypeError("cannot pickle connection state")
 
@@ -144,10 +142,63 @@ class TestOpenSearchDB(unittest.TestCase):
         mappings = create_args["body"]["mappings"]["properties"]
         self.assertEqual(mappings["vector_field"]["type"], "knn_vector")
         self.assertEqual(mappings["vector_field"]["dimension"], 1536)
+        metadata_props = mappings["metadata"]["properties"]
+        self.assertEqual(metadata_props["user_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["agent_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["run_id"]["type"], "keyword")
         self.client_mock.reset_mock()
         self.client_mock.indices.exists.return_value = True
         self.os_db.create_index()
         self.client_mock.indices.create.assert_not_called()
+
+    def test_auto_refresh_disabled_by_default(self):
+        """Test that auto_refresh is disabled by default (Issue #3739).
+
+        This ensures OpenSearch Serverless compatibility out-of-the-box since
+        the indices.refresh() API is not supported in serverless mode.
+        """
+        # Default instance should have auto_refresh=False
+        self.assertFalse(self.os_db.auto_refresh)
+        self.client_mock.reset_mock()
+
+        vectors = [[0.1] * 1536]
+        payloads = [{"key1": "value1"}]
+        ids = ["id1"]
+
+        self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # Verify index was called but refresh was NOT called (default behavior)
+        self.assertEqual(self.client_mock.index.call_count, 1)
+        self.client_mock.indices.refresh.assert_not_called()
+
+    def test_auto_refresh_enabled(self):
+        """Test that refresh is called once per batch (not per document) when auto_refresh=True."""
+        with patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock):
+            auto_refresh_db = OpenSearchDB(
+                host="localhost",
+                port=9200,
+                collection_name="test_auto_refresh",
+                embedding_model_dims=1536,
+                auto_refresh=True,  # Enable auto-refresh
+            )
+
+        self.assertTrue(auto_refresh_db.auto_refresh)
+        # auto_refresh_db reuses self.client_mock (patched above), so reset to drop
+        # the index calls made during construction before asserting on insert().
+        self.client_mock.reset_mock()
+
+        # Insert a batch of 3 vectors to verify the refresh is hoisted out of the
+        # per-document loop: index() is called once per document, but refresh()
+        # must fire exactly once for the whole batch.
+        vectors = [[0.1] * 1536, [0.2] * 1536, [0.3] * 1536]
+        payloads = [{"key1": "value1"}, {"key2": "value2"}, {"key3": "value3"}]
+        ids = ["id1", "id2", "id3"]
+
+        auto_refresh_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # index() once per document, but refresh() only once for the batch
+        self.assertEqual(self.client_mock.index.call_count, 3)
+        self.assertEqual(self.client_mock.indices.refresh.call_count, 1)
 
     def test_insert(self):
         vectors = [[0.1] * 1536, [0.2] * 1536]
@@ -231,7 +282,7 @@ class TestOpenSearchDB(unittest.TestCase):
         }
         self.client_mock.search.return_value = mock_response
         vectors = [[0.1] * 1536]
-        results = self.os_db.search(query="", vectors=vectors, limit=5)
+        results = self.os_db.search(query="", vectors=vectors, top_k=5)
         self.client_mock.search.assert_called_once()
         search_args = self.client_mock.search.call_args[1]
         self.assertEqual(search_args["index"], "test_collection")
@@ -245,6 +296,34 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
 
+    def test_list_returns_nested_list(self):
+        mock_response = {
+            "hits": {
+                "hits": [
+                    {"_source": {"id": "id1", "payload": {"key1": "value1"}}},
+                ]
+            }
+        }
+        self.client_mock.search.return_value = mock_response
+        result = self.os_db.list(filters={"user_id": "alice"})
+        # Contract is List[List[OutputData]] so callers can do result[0].
+        self.assertIsInstance(result, list)
+        self.assertIsInstance(result[0], list)
+        self.assertEqual(len(result[0]), 1)
+        self.assertEqual(result[0][0].id, "id1")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_list_error_returns_nested_empty_list(self, mock_logger):
+        """list() error path must return [[]] (not bare []) so callers can do
+        result[0]; e.g. Memory.delete_all() does list(filters=...)[0]."""
+        self.client_mock.search.side_effect = Exception("Listing failed")
+        result = self.os_db.list(filters={"user_id": "alice"})
+        self.assertEqual(result, [[]])
+        self.assertEqual(result[0], [])
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
     def test_delete(self):
         mock_search_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
         self.client_mock.search.return_value = mock_search_response
@@ -254,6 +333,104 @@ class TestOpenSearchDB(unittest.TestCase):
     def test_delete_col(self):
         self.os_db.delete_col()
         self.client_mock.indices.delete.assert_called_once_with(index="test_collection")
+
+    def test_insert_rejects_null_vectors(self):
+        """Vectors that are None should raise ValueError before hitting OpenSearch."""
+        vectors = [None]
+        payloads = [{"key": "value"}]
+        ids = ["id1"]
+
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        self.assertIn("null", str(ctx.exception).lower())
+        self.client_mock.index.assert_not_called()
+
+    def test_insert_rejects_empty_vectors(self):
+        """Empty vector lists should raise ValueError."""
+        vectors = [[]]
+        payloads = [{"key": "value"}]
+        ids = ["id1"]
+
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        self.assertIn("empty", str(ctx.exception).lower())
+        self.client_mock.index.assert_not_called()
+
+    def test_insert_rejects_dimension_mismatch(self):
+        """Vectors with wrong dimensions should raise ValueError with a clear message."""
+        vectors = [[0.1] * 768]
+        payloads = [{"key": "value"}]
+        ids = ["id1"]
+
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        error_msg = str(ctx.exception)
+        self.assertIn("768", error_msg)
+        self.assertIn("1536", error_msg)
+        self.client_mock.index.assert_not_called()
+
+    def test_update_rejects_empty_vector(self):
+        """Update with an empty vector should raise ValueError."""
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.update("id1", vector=[], payload={"key": "value"})
+
+        self.assertIn("empty", str(ctx.exception).lower())
+        self.client_mock.search.assert_not_called()
+
+    def test_update_rejects_dimension_mismatch(self):
+        """Update with wrong vector dimensions should raise ValueError."""
+        vector = [0.1] * 768
+        payload = {"key": "value"}
+
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.update("id1", vector=vector, payload=payload)
+
+        error_msg = str(ctx.exception)
+        self.assertIn("768", error_msg)
+        self.assertIn("1536", error_msg)
+        self.client_mock.search.assert_not_called()
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_update_error_logs_with_exc_info(self, mock_logger):
+        """Update errors should log with exc_info and re-raise."""
+        mock_search_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
+        self.client_mock.search.return_value = mock_search_response
+        self.client_mock.update.side_effect = Exception("Update failed")
+
+        with self.assertRaises(Exception):
+            self.os_db.update("id1", vector=[0.1] * 1536, payload={"key": "value"})
+
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_insert_error_logs_with_exc_info(self, mock_logger):
+        """Error logging should include exc_info for full stack trace."""
+        vectors = [[0.1] * 1536]
+        payloads = [{"key": "value"}]
+        ids = ["id1"]
+        self.client_mock.index.side_effect = Exception("Connection refused")
+
+        with self.assertRaises(Exception):
+            self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_search_error_logs_with_exc_info(self, mock_logger):
+        """Search error logging should include exc_info for full stack trace."""
+        self.client_mock.search.side_effect = Exception("Search failed")
+        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
+        self.assertEqual(results, [])
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
 
     def test_init_with_http_auth(self):
         mock_credentials = MagicMock()
@@ -282,11 +459,13 @@ class TestOpenSearchDB(unittest.TestCase):
 
 
 # Tests for OpenSearch config deepcopy with AWS authentication (Issue #3464)
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_safe_deepcopy_config_handles_opensearch_auth(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Test that _safe_deepcopy_config handles OpenSearch configs with AWS auth objects gracefully."""
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
@@ -295,16 +474,18 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import _safe_deepcopy_config
-    
+
     config_with_auth = MockOpenSearchConfig(collection_name="opensearch_test", include_auth=True)
-    
+
     safe_config = _safe_deepcopy_config(config_with_auth)
-    
-    assert safe_config.http_auth is None
-    assert safe_config.auth is None
+
+    # Runtime auth objects must be preserved (Issue #3580)
+    assert safe_config.http_auth is not None
+    assert safe_config.auth is not None
+    assert safe_config.connection_class is not None
+    # Credentials dict is a sensitive secret and should be redacted
     assert safe_config.credentials is None
-    assert safe_config.connection_class is None
-    
+
     assert safe_config.collection_name == "opensearch_test"
     assert safe_config.host == "localhost"
     assert safe_config.port == 9200
@@ -313,10 +494,10 @@ def test_safe_deepcopy_config_handles_opensearch_auth(mock_sqlite, mock_llm_fact
     assert safe_config.verify_certs is True
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create') 
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_safe_deepcopy_config_normal_configs(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that _safe_deepcopy_config handles normal OpenSearch configs without auth."""
     mock_embedder_factory.return_value = MagicMock()
@@ -326,12 +507,12 @@ def test_safe_deepcopy_config_normal_configs(mock_sqlite, mock_llm_factory, mock
     mock_sqlite.return_value = MagicMock()
 
     from mem0.memory.main import _safe_deepcopy_config
-    
+
     config_without_auth = MockOpenSearchConfig(collection_name="normal_test", include_auth=False)
-    
+
     safe_config = _safe_deepcopy_config(config_without_auth)
-    
-    assert safe_config.collection_name == "normal_test" 
+
+    assert safe_config.collection_name == "normal_test"
     assert safe_config.host == "localhost"
     assert safe_config.port == 9200
     assert safe_config.embedding_model_dims == 1536
@@ -339,13 +520,15 @@ def test_safe_deepcopy_config_normal_configs(mock_sqlite, mock_llm_factory, mock
     assert safe_config.verify_certs is True
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
-def test_memory_initialization_opensearch_aws_auth(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_memory_initialization_opensearch_aws_auth(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
     """Test that Memory initialization works with OpenSearch configs containing AWS auth."""
-    
+
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
     mock_vector_factory.return_value = mock_vector_store
@@ -362,3 +545,52 @@ def test_memory_initialization_opensearch_aws_auth(mock_sqlite, mock_llm_factory
     assert memory.config.vector_store.provider == "opensearch"
 
     assert mock_vector_factory.call_count >= 2
+
+
+class TestOpenSearchFilterValidation(unittest.TestCase):
+    """Validate that non-scalar filter values are rejected to prevent term injection."""
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=OpenSearch)
+        self.client_mock.indices = MagicMock()
+        self.client_mock.indices.exists = MagicMock(return_value=False)
+        self.client_mock.indices.create = MagicMock()
+        self.client_mock.search = MagicMock()
+
+        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
+        self.mock_os = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.os_db = OpenSearchDB(
+            host="localhost",
+            port=9200,
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            verify_certs=False,
+            use_ssl=False,
+        )
+        self.client_mock.reset_mock()
+
+    def test_search_rejects_dict_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": {"$ne": ""}})
+
+    def test_search_rejects_list_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": ["alice", "bob"]})
+
+    def test_list_rejects_dict_filter_value(self):
+        result = self.os_db.list(filters={"user_id": {"$ne": ""}})
+        self.assertEqual(result, [[]])
+        self.client_mock.search.assert_not_called()
+
+    def test_keyword_search_rejects_dict_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.keyword_search(query="test", filters={"user_id": {"$ne": ""}})
+
+    def test_search_accepts_string_filter(self):
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+        results = self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice"})
+        self.assertEqual(results, [])
+        self.client_mock.search.assert_called_once()

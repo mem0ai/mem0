@@ -1,5 +1,6 @@
 ---
 title: Groq
+description: "Configure Groq as an LLM provider in Mem0 for high-speed inference using LPU-powered language models."
 ---
 
 [Groq](https://groq.com/) is the creator of the world's first Language Processing Unit (LPU), providing exceptional speed performance for AI workloads running on their LPU Inference Engine.
@@ -20,7 +21,7 @@ config = {
     "llm": {
         "provider": "groq",
         "config": {
-            "model": "mixtral-8x7b-32768",
+            "model": "llama-3.3-70b-versatile",
             "temperature": 0.1,
             "max_tokens": 2000,
         }
@@ -45,7 +46,7 @@ const config = {
     provider: 'groq',
     config: {
       apiKey: process.env.GROQ_API_KEY || '',
-      model: 'mixtral-8x7b-32768',
+      model: 'llama3-70b-8192',
       temperature: 0.1,
       maxTokens: 1000,
     },

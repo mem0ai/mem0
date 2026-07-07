@@ -76,7 +76,7 @@ const unixTimestamp = Math.floor(fiveDaysAgo.getTime() / 1000);
 const messages = [
     {"role": "user", "content": "I'm travelling to SF"}
 ]
-client.add(messages, { user_id: "user1", timestamp: unixTimestamp })
+client.add(messages, { userId: "user1", timestamp: unixTimestamp })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
@@ -131,7 +131,7 @@ const january2023Timestamp = 1672531200;  // Unix timestamp for 2023-01-01 00:00
 const messages = [
     {"role": "user", "content": "I'm travelling to SF"}
 ]
-client.add(messages, { user_id: "user1", timestamp: january2023Timestamp })
+client.add(messages, { userId: "user1", timestamp: january2023Timestamp })
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```

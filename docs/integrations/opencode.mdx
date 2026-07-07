@@ -1,0 +1,156 @@
+---
+title: OpenCode
+description: "Add persistent memory to OpenCode with the Mem0 plugin: native SDK-backed memory tools, lifecycle hooks, and skills."
+---
+
+Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
+
+## Prerequisites
+
+1. A Mem0 API key (starts with `m0-`):
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">Get your API key</a> (free sign-up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">app.mem0.ai</a>)
+
+2. Add it to your shell profile so it persists across sessions:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc && source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
+```
+</CodeGroup>
+
+## Installation
+
+### Option A: Plugin Install (Recommended)
+
+```bash
+opencode plugin @mem0/opencode-plugin
+```
+
+**Or let your agent do it**: paste this into OpenCode:
+
+```
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
+```
+
+This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode. You get the native memory tools, lifecycle hooks, and all `/mem0-*` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK. No MCP server to configure.
+
+### Option B: Standalone MCP Server
+
+If you only need the memory tools without the plugin's hooks or skills, point OpenCode at Mem0's hosted MCP server directly. Add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "mem0": {
+      "type": "remote",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token {env:MEM0_API_KEY}"
+      },
+      "oauth": false
+    }
+  }
+}
+```
+
+## What's Included
+
+| Component | Plugin (A) | Standalone MCP (B) |
+|-----------|:----------:|:------------------:|
+| 9 memory tools | Native (SDK) | Remote MCP server |
+| Lifecycle Hooks | Yes | No |
+| 9 Skills | Yes | No |
+
+## Available Memory Tools
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Memory scope
+
+`search_memories`, `get_memories`, `add_memory`, and `delete_all_memories` accept an optional **`scope`** that controls how widely they read or write:
+
+| Scope | Reads | Writes |
+|-------|-------|--------|
+| `project` *(default)* | this repo (`user_id` + `app_id`) | this repo |
+| `session` | this run only (`+ run_id`) | this run |
+| `global` | **all your projects in the workspace** (`app_id: "*"`) | user-wide |
+
+Ask naturally, for example, *"search my memories across all my projects"*. The agent passes `scope: "global"`. For normal questions it stays scoped to the current project automatically.
+
+To change the **default** scope (used when no scope is passed), run the `/mem0-scope` skill:
+
+```
+/mem0-scope            # show the current default scope + identity
+/mem0-scope global     # save & search across all your projects by default
+/mem0-scope project    # back to repo-only (the default)
+```
+
+The default persists in `~/.mem0/settings.json` (`default_scope`) and is read fresh on each memory operation, so a change applies immediately. No restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
+
+The project id (`app_id`) is derived from your git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory. Launch OpenCode from inside your repo so memories scope to the project rather than your home directory.
+
+## Lifecycle Hooks
+
+The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly. It is pure TypeScript, no Python, no shell scripts.
+
+| OpenCode Event | Hook | What happens |
+|----------------|------|-------------|
+| `config` | **Config** | Registers the `/mem0-*` slash commands (`config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for in-place skill discovery (no copying) |
+| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
+| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
+| `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |
+| `experimental.chat.messages.transform` | **Messages transform** | Injects memory context (session memories, search results, error lookups) into the prompt |
+| `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
+| `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
+
+## Auto-dream (memory consolidation)
+
+The plugin can automatically consolidate stored memories by merging duplicates, dropping stale/sensitive entries, and rewriting vague ones. This keeps your memory set clean over time. It runs at most once per session, and only when **all** gates pass:
+
+- **Time**: at least `minHours` (default 24) since the last consolidation
+- **Sessions**: at least `minSessions` (default 5) sessions since then
+- **Memories**: at least `minMemories` (default 20) stored for the project
+
+A filesystem lock (`~/.mem0/mem0-dream.lock`) keeps two sessions from consolidating at once. Tune the thresholds with a `dream` block in `~/.mem0/settings.json`, or disable entirely with `MEM0_DREAM=false`:
+
+```json
+{
+  "dream": { "enabled": true, "auto": true, "minHours": 24, "minSessions": 5, "minMemories": 20 }
+}
+```
+
+If auto-dream hasn't run yet, it's almost always because a gate hasn't been met (most often too few memories). Run `/mem0-status` to see the exact gate progress (e.g. `sessions 2/5, memories 3/20`), `/mem0-dream` to consolidate **now** regardless of the gates, or lower the thresholds above.
+
+## Troubleshooting
+
+- **No tools appearing**: Restart OpenCode after installing
+- **"Connection failed"**: Verify your key is set: `echo $MEM0_API_KEY`
+- **Plugin not loading**: Run `opencode plugin @mem0/opencode-plugin` again, then restart
+- **Hooks not firing**: Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
+- **Auto-dream never runs**: It's gated (time + sessions + memories). Run `/mem0-status` to see which gate is blocking, or `/mem0-dream` to consolidate now.
+- **Wrong project name / memories not found**: The project id comes from your git remote; launch OpenCode from inside the repo (not your home directory). Check the resolved id with `/mem0-status`.
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Antigravity Integration" icon="google" href="/integrations/antigravity">
+    Add Mem0 memory to Google Antigravity
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

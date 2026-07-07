@@ -33,7 +33,7 @@ Extract only health and wellness information:
 Exclude: Personal identifiers, financial data
 `;
 
-await client.project.update({ custom_instructions: prompt });
+await client.project.update({ customInstructions: prompt });
 ```
 </CodeGroup>
 
@@ -60,11 +60,11 @@ print(response["custom_instructions"])
 
 ```javascript JavaScript
 // Set instructions for your project
-await client.project.update({ custom_instructions: "Your guidelines here..." });
+await client.project.update({ customInstructions: "Your guidelines here..." });
 
 // Retrieve current instructions
-const response = await client.project.get({ fields: ["custom_instructions"] });
-console.log(response.custom_instructions);
+const response = await client.project.get({ fields: ["customInstructions"] });
+console.log(response.customInstructions);
 ```
 </CodeGroup>
 
@@ -145,7 +145,7 @@ Extract customer service information for better support:
 Exclude: Payment card numbers, passwords, personal identifiers.
 `;
 
-await client.project.update({ custom_instructions: instructions });
+await client.project.update({ customInstructions: instructions });
 ```
 </CodeGroup>
   </Tab>
@@ -198,7 +198,7 @@ Extract learning-related information for personalized education:
 Exclude: Specific grades, personal identifiers, financial information.
 `;
 
-await client.project.update({ custom_instructions: educationPrompt });
+await client.project.update({ customInstructions: educationPrompt });
 ```
 </CodeGroup>
   </Tab>
@@ -251,7 +251,7 @@ Extract financial planning information for advisory services:
 Exclude: Account numbers, SSNs, passwords, specific financial amounts.
 `;
 
-await client.project.update({ custom_instructions: financePrompt });
+await client.project.update({ customInstructions: financePrompt });
 ```
 </CodeGroup>
   </Tab>

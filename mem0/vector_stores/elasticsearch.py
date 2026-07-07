@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 try:
@@ -21,6 +22,19 @@ class OutputData(BaseModel):
     payload: Dict
 
 
+_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _validate_filter(key: str, value: Any) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
+
+
 class ElasticsearchDB(VectorStoreBase):
     def __init__(self, **kwargs):
         config = ElasticsearchConfig(**kwargs)
@@ -31,6 +45,7 @@ class ElasticsearchDB(VectorStoreBase):
                 cloud_id=config.cloud_id,
                 api_key=config.api_key,
                 verify_certs=config.verify_certs,
+                ca_certs=config.ca_certs,
                 headers= config.headers or {},
             )
         else:
@@ -38,6 +53,7 @@ class ElasticsearchDB(VectorStoreBase):
                 hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
                 basic_auth=(config.user, config.password) if (config.user and config.password) else None,
                 verify_certs=config.verify_certs,
+                ca_certs=config.ca_certs,
                 headers= config.headers or {},
             )
 
@@ -66,7 +82,14 @@ class ElasticsearchDB(VectorStoreBase):
                         "index": True,
                         "similarity": "cosine",
                     },
-                    "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
+                    "metadata": {
+                        "type": "object",
+                        "properties": {
+                            "user_id": {"type": "keyword"},
+                            "agent_id": {"type": "keyword"},
+                            "run_id": {"type": "keyword"},
+                        },
+                    },
                 }
             },
         }
@@ -129,7 +152,7 @@ class ElasticsearchDB(VectorStoreBase):
         return results
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search with two options:
@@ -137,16 +160,61 @@ class ElasticsearchDB(VectorStoreBase):
         2. Use KNN search on vectors with pre-filtering if no custom search query is provided
         """
         if self.custom_search_query:
-            search_query = self.custom_search_query(vectors, limit, filters)
+            search_query = self.custom_search_query(vectors, top_k, filters)
         else:
             search_query = {
-                "knn": {"field": "vector", "query_vector": vectors, "k": limit, "num_candidates": limit * 2}
+                "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2}
             }
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
+                    _validate_filter(key, value)
                     filter_conditions.append({"term": {f"metadata.{key}": value}})
                 search_query["knn"]["filter"] = {"bool": {"must": filter_conditions}}
+
+        response = self.client.search(index=self.collection_name, body=search_query)
+
+        results = []
+        for hit in response["hits"]["hits"]:
+            results.append(
+                OutputData(id=hit["_id"], score=hit["_score"], payload=hit.get("_source", {}).get("metadata", {}))
+            )
+
+        return results
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """Search for memories using BM25 keyword matching.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int): Maximum number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results with id, score, and payload.
+        """
+        # Build a multi_match query across text fields in metadata
+        should_clauses = [
+            {"match": {"metadata.data": query}},
+            {"match": {"metadata.text_lemmatized": query}},
+        ]
+
+        bool_query = {
+            "should": should_clauses,
+            "minimum_should_match": 1,
+        }
+
+        if filters:
+            filter_conditions = []
+            for key, value in filters.items():
+                _validate_filter(key, value)
+                filter_conditions.append({"term": {f"metadata.{key}": value}})
+            bool_query["filter"] = filter_conditions
+
+        search_query = {
+            "size": top_k,
+            "query": {"bool": bool_query},
+        }
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
@@ -203,18 +271,19 @@ class ElasticsearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[List[OutputData]]:
         """List all memories."""
         query: Dict[str, Any] = {"query": {"match_all": {}}}
 
         if filters:
             filter_conditions = []
             for key, value in filters.items():
+                _validate_filter(key, value)
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             query["query"] = {"bool": {"must": filter_conditions}}
 
-        if limit:
-            query["size"] = limit
+        if top_k:
+            query["size"] = top_k
 
         response = self.client.search(index=self.collection_name, body=query)
 

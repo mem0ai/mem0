@@ -18,7 +18,7 @@ export class AzureOpenAILLM implements LLM {
       endpoint: endpoint as string,
       ...rest,
     });
-    this.model = config.model || "gpt-4";
+    this.model = config.model || "gpt-5-mini";
   }
 
   async generateResponse(

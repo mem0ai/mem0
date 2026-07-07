@@ -1,5 +1,6 @@
 ---
 title: LangChain
+description: "Use LangChain as an LLM provider in Mem0 to integrate with various chat models through a unified interface."
 ---
 
 
@@ -20,7 +21,7 @@ os.environ["OPENAI_API_KEY"] = "your-api-key"
 
 # Initialize a LangChain model directly
 openai_model = ChatOpenAI(
-    model="gpt-4.1-nano-2025-04-14",
+    model="gpt-5-mini",
     temperature=0.2,
     max_tokens=2000
 )

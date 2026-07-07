@@ -101,7 +101,7 @@ messages = [
 memory.add(messages, user_id="charlie")
 
 # Search with local reranking
-results = memory.search("What books does the user like?", user_id="charlie")
+results = memory.search("What books does the user like?", filters={"user_id": "charlie"})
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")

@@ -48,7 +48,7 @@ def test_search_vectors(langchain_instance):
 
     # Test search without filters
     vectors = [[0.1, 0.2, 0.3]]
-    results = langchain_instance.search(query="", vectors=vectors, limit=2)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2)
 
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(embedding=vectors, k=2)
 
@@ -57,10 +57,13 @@ def test_search_vectors(langchain_instance):
     assert results[0].payload == {"name": "vector1"}
     assert results[1].id == "id2"
     assert results[1].payload == {"name": "vector2"}
+    # scores must never be None — score_and_rank crashes on None < threshold
+    assert results[0].score == 1.0
+    assert results[1].score == 1.0
 
     # Test search with filters
     filters = {"name": "vector1"}
-    langchain_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    langchain_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
     langchain_instance.client.similarity_search_by_vector.assert_called_with(embedding=vectors, k=2, filter=filters)
 
 
@@ -75,7 +78,7 @@ def test_search_vectors_with_agent_id_run_id_filters(langchain_instance):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that filters were passed to the underlying vector store
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
@@ -96,7 +99,7 @@ def test_search_vectors_with_single_filter(langchain_instance):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice"}
-    results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that filters were passed to the underlying vector store
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
@@ -114,7 +117,7 @@ def test_search_vectors_with_no_filters(langchain_instance):
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
     vectors = [[0.1, 0.2, 0.3]]
-    results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=None)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=None)
 
     # Verify that no filters were passed to the underlying vector store
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
@@ -155,7 +158,7 @@ def test_list_with_filters(langchain_instance):
     langchain_instance.client._collection = mock_collection
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = langchain_instance.list(filters=filters, limit=10)
+    results = langchain_instance.list(filters=filters, top_k=10)
 
     # Verify that the collection.get method was called with the correct filters
     mock_collection.get.assert_called_once_with(where=filters, limit=10)
@@ -180,7 +183,7 @@ def test_list_with_single_filter(langchain_instance):
     langchain_instance.client._collection = mock_collection
 
     filters = {"user_id": "alice"}
-    results = langchain_instance.list(filters=filters, limit=10)
+    results = langchain_instance.list(filters=filters, top_k=10)
 
     # Verify that the collection.get method was called with the correct filter
     mock_collection.get.assert_called_once_with(where=filters, limit=10)
@@ -202,7 +205,7 @@ def test_list_with_no_filters(langchain_instance):
     }
     langchain_instance.client._collection = mock_collection
 
-    results = langchain_instance.list(filters=None, limit=10)
+    results = langchain_instance.list(filters=None, top_k=10)
 
     # Verify that the collection.get method was called with no filters
     mock_collection.get.assert_called_once_with(where=None, limit=10)
@@ -220,7 +223,78 @@ def test_list_with_exception(langchain_instance):
     mock_collection.get.side_effect = Exception("Test exception")
     langchain_instance.client._collection = mock_collection
 
-    results = langchain_instance.list(filters={"user_id": "alice"}, limit=10)
+    results = langchain_instance.list(filters={"user_id": "alice"}, top_k=10)
 
     # Verify that an empty list is returned when an exception occurs
     assert results == []
+
+
+def test_search_score_is_never_none(langchain_instance):
+    """Regression: similarity_search_by_vector returns Documents with no scores.
+    search() must not propagate None — score_and_rank crashes on None < threshold."""
+    from mem0.utils.scoring import score_and_rank
+
+    mock_docs = [Mock(metadata={"data": "mem A"}, id="id1"), Mock(metadata={"data": "mem B"}, id="id2")]
+    langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    assert all(r.score is not None for r in results), "score must never be None"
+    # Fallback path: no scored method available, so 1.0 is assigned.
+    assert all(r.score == 1.0 for r in results)
+
+    # Verify the full pipeline does not raise TypeError
+    candidates = [{"id": r.id, "score": r.score, "payload": r.payload} for r in results]
+    ranked = score_and_rank(candidates, {}, {}, threshold=0.1, top_k=5)
+    assert len(ranked) == 2
+
+
+def test_search_uses_scored_method_when_available(langchain_instance):
+    """When a scored-by-vector method exists on the client, use it to get real scores."""
+    mock_docs = [Mock(metadata={"data": "mem A"}, id="id1"), Mock(metadata={"data": "mem B"}, id="id2")]
+    # Inject a non-spec method that returns (Document, float) pairs
+    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(
+        return_value=[(mock_docs[0], 0.95), (mock_docs[1], 0.42)]
+    )
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    langchain_instance.client.similarity_search_by_vector_with_relevance_scores.assert_called_once()
+    langchain_instance.client.similarity_search_by_vector.assert_not_called()
+    assert results[0].score == pytest.approx(0.95)
+    assert results[1].score == pytest.approx(0.42)
+
+
+def test_search_falls_back_when_scored_method_raises_not_implemented(langchain_instance):
+    """If the scored method raises NotImplementedError, fall back to score=1.0."""
+    mock_docs = [Mock(metadata={"data": "mem A"}, id="id1")]
+    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(
+        side_effect=NotImplementedError
+    )
+    langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
+
+    results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
+
+    langchain_instance.client.similarity_search_by_vector.assert_called_once()
+    assert results[0].score == 1.0
+
+
+def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
+    """Regression test for Langchain update() type mismatch.
+
+    update() must wrap vector and payload in lists before calling insert(),
+    which expects List[List[float]] and List[Dict] respectively.
+    """
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_embeddings = Mock()
+
+    vector = [0.1, 0.2, 0.3]
+    payload = {"data": "updated text", "name": "updated"}
+    vector_id = "id1"
+
+    langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
+
+    langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
+    langchain_instance.client.add_embeddings.assert_called_once_with(
+        embeddings=[vector], metadatas=[payload], ids=[vector_id]
+    )

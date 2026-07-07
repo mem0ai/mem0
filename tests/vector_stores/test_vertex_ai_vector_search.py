@@ -100,7 +100,7 @@ def test_search_vectors(vector_store, mock_vertex_ai):
 
     mock_vertex_ai["endpoint"].find_neighbors.return_value = [[mock_neighbor]]
 
-    results = vector_store.search(query="", vectors=vectors, filters=filters, limit=1)
+    results = vector_store.search(query="", vectors=vectors, filters=filters, top_k=1)
 
     mock_vertex_ai["endpoint"].find_neighbors.assert_called_once_with(
         deployed_index_id=vector_store.deployment_index_id,
@@ -112,8 +112,34 @@ def test_search_vectors(vector_store, mock_vertex_ai):
 
     assert len(results) == 1
     assert results[0].id == "test-id"
-    assert results[0].score == 0.1
+    assert results[0].score == 0.9
     assert results[0].payload == {"user_id": "test_user"}
+
+
+def test_list_does_not_raise_type_error(vector_store, mock_vertex_ai):
+    """list() must call search() with the required positional `vectors` arg."""
+    mock_vertex_ai["endpoint"].find_neighbors.return_value = [[]]
+
+    results = vector_store.list(filters={"user_id": "test_user"}, top_k=5)
+
+    mock_vertex_ai["endpoint"].find_neighbors.assert_called_once()
+    queries = mock_vertex_ai["endpoint"].find_neighbors.call_args[1]["queries"]
+    assert queries == [[0.0] * 768]
+    assert results == [[]]
+
+
+def test_similarity_search_with_score_passes_embedding(vector_store, mock_vertex_ai):
+    """similarity_search_with_score() must pass the embedding as `vectors`."""
+    embedding = [0.1, 0.2, 0.3]
+    vector_store.embedder = Mock()
+    vector_store.embedder.embed_query.return_value = embedding
+    mock_vertex_ai["endpoint"].find_neighbors.return_value = [[]]
+
+    vector_store.similarity_search_with_score(query="hello", k=3)
+
+    mock_vertex_ai["endpoint"].find_neighbors.assert_called_once()
+    queries = mock_vertex_ai["endpoint"].find_neighbors.call_args[1]["queries"]
+    assert queries == [embedding]
 
 
 def test_delete(vector_store, mock_vertex_ai):

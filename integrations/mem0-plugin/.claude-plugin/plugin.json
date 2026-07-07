@@ -1,0 +1,22 @@
+{
+  "name": "mem0",
+  "version": "0.2.12",
+  "description": "Persistent memory for Claude Code. Remembers decisions, patterns, and preferences across sessions.",
+  "author": {
+    "name": "Mem0",
+    "email": "support@mem0.ai"
+  },
+  "homepage": "https://mem0.ai",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "personalization", "mcp", "semantic-search"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Mem0 API Key",
+      "description": "Your Mem0 Platform API key (starts with m0-). Get one at https://app.mem0.ai/dashboard/api-keys",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

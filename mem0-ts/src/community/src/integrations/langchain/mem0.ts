@@ -1,5 +1,10 @@
 import { MemoryClient } from "mem0ai";
-import type { Memory, MemoryOptions, SearchOptions } from "mem0ai";
+import type {
+  Memory,
+  AddMemoryOptions,
+  SearchMemoryOptions,
+  GetAllMemoryOptions,
+} from "mem0ai";
 
 import {
   InputValues,
@@ -102,10 +107,6 @@ export const mem0MemoryToMessages = (memories: Memory[]): BaseMessage[] => {
 export interface ClientOptions {
   apiKey: string;
   host?: string;
-  organizationName?: string;
-  projectName?: string;
-  organizationId?: string;
-  projectId?: string;
 }
 
 /**
@@ -117,7 +118,7 @@ export interface Mem0MemoryInput extends BaseChatMemoryInput {
   apiKey: string;
   humanPrefix?: string;
   aiPrefix?: string;
-  memoryOptions?: MemoryOptions | SearchOptions;
+  memoryOptions?: AddMemoryOptions | SearchMemoryOptions | GetAllMemoryOptions;
   mem0Options?: ClientOptions;
   separateMessages?: boolean;
 }
@@ -160,7 +161,7 @@ export class Mem0Memory extends BaseChatMemory implements Mem0MemoryInput {
 
   mem0Client: InstanceType<typeof MemoryClient>;
 
-  memoryOptions: MemoryOptions | SearchOptions;
+  memoryOptions: AddMemoryOptions | SearchMemoryOptions | GetAllMemoryOptions;
 
   mem0Options: ClientOptions;
 

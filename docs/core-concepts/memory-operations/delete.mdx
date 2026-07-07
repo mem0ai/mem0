@@ -18,10 +18,10 @@ Deleting memories is how you honor compliance requests, undo bad data, or clean 
 
 ## Key terms
 
-- **memory_id** – Unique ID returned by `add`/`search` identifying the record to delete.
-- **batch_delete** – API call that removes up to 1000 memories in one request.
-- **delete_all** – Filter-based deletion by user, agent, run, or metadata.
-- **immutable** – Flagged memories that cannot be updated; delete + re-add instead.
+- **memory_id**: Unique ID returned by `add`/`search` identifying the record to delete.
+- **batch_delete**: API call that removes up to 1000 memories in one request.
+- **delete_all**: Filter-based deletion by user, agent, run, or metadata.
+- **immutable**: Flagged memories that cannot be updated; delete + re-add instead.
 
 ## How the delete flow works
 
@@ -107,6 +107,12 @@ client = MemoryClient(api_key="your-api-key")
 
 # Delete all memories for a specific user
 client.delete_all(user_id="alice")
+
+# Delete all memories for a specific agent
+client.delete_all(agent_id="support-bot")
+
+# Delete all memories for a specific run
+client.delete_all(run_id="session-xyz")
 ```
 
 ```javascript JavaScript
@@ -114,7 +120,7 @@ import MemoryClient from 'mem0ai';
 
 const client = new MemoryClient({ apiKey: "your-api-key" });
 
-client.deleteAll({ user_id: "alice" })
+client.deleteAll({ userId: "alice" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
 ```
@@ -127,7 +133,48 @@ You can also filter by other parameters such as:
 - `metadata` (as JSON string)
 
 <Warning>
-  `delete_all` requires at least one filter (user, agent, run, or metadata). Calling it with no filters raises an error to prevent accidental data loss.
+  **Breaking change:** `delete_all` previously wiped all project memories when called with no filters. It now **raises an error** if no filters are provided. Use `"*"` wildcards for intentional bulk deletion (see below).
+</Warning>
+
+### Wildcard deletes
+
+Setting a filter to `"*"` deletes **all memories** for that entity type across the entire project. This is an intentionally explicit opt-in to bulk deletion.
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Delete all memories across every user in the project
+client.delete_all(user_id="*")
+
+# Delete all memories across every agent in the project
+client.delete_all(agent_id="*")
+
+# Full project wipe: all four filters must be explicitly set to "*"
+client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+// Delete all memories across every user in the project
+client.deleteAll({ userId: "*" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+
+// Full project wipe: all four filters must be explicitly set to "*"
+client.deleteAll({ userId: "*", agentId: "*", appId: "*", runId: "*" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+<Warning>
+  A full project wipe requires **all four** filters set to `"*"`. Setting only some to `"*"` deletes memories only for those entity types, not the entire project.
 </Warning>
 
 ## Delete with Mem0 OSS
@@ -144,7 +191,7 @@ memory.delete_all(user_id="alice")
 </CodeGroup>
 
 <Note>
-  The OSS JavaScript SDK does not yet expose deletion helpers—use the REST API or Python SDK when self-hosting.
+  The OSS JavaScript SDK does not yet expose deletion helpers: use the REST API or Python SDK when self-hosting.
 </Note>
 
 ## Use cases recap
@@ -169,7 +216,7 @@ memory.delete_all(user_id="alice")
 ## Put it into practice
 
 - Review the <Link href="/api-reference/memory/delete-memory">Delete Memory API reference</Link>, plus <Link href="/api-reference/memory/batch-delete">Batch Delete</Link> and <Link href="/api-reference/memory/delete-memories">Filtered Delete</Link>.
-- Pair deletes with <Link href="/platform/features/expiration-date">Expiration Policies</Link> to automate retention.
+- Pair deletes with the <Link href="/api-reference/memory/update-memory">expiration date field</Link> to automate retention.
 
 ## See it live
 
@@ -186,9 +233,9 @@ memory.delete_all(user_id="alice")
     href="/core-concepts/memory-operations/add"
   />
   <Card
-    title="Enable Expiration Policies"
-    description="Automate retention with the platform’s expiration feature."
+    title="Set an Expiration Date"
+    description="Automate retention with the expiration date field on update."
     icon="clock"
-    href="/platform/features/expiration-date"
+    href="/api-reference/memory/update-memory"
   />
 </CardGroup>

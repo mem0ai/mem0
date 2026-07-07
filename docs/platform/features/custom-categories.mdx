@@ -1,6 +1,6 @@
 ---
 title: Custom Categories
-description: "Teach Mem0 the labels that matter to your team."
+description: "Replace default memory tags with custom category labels that match your product terminology at the project level."
 ---
 
 # Custom Categories
@@ -25,9 +25,9 @@ Mem0 automatically tags every memory, but the default labels (travel, sports, mu
 
 ## How it works
 
-- **Default list** — Each project starts with 15 broad categories like `travel`, `sports`, and `music`.
-- **Project override** — When you call `project.update(custom_categories=[...])`, that list replaces the defaults for future memories.
-- **Automatic tags** — As new memories come in, Mem0 picks the closest matches from your list and saves them in the `categories` field.
+- **Default list**: Each project starts with 15 broad categories like `travel`, `sports`, and `music`.
+- **Project override**: When you call `project.update(custom_categories=[...])`, that list replaces the defaults for future memories.
+- **Automatic tags**: As new memories come in, Mem0 picks the closest matches from your list and saves them in the `categories` field.
 
 <Note>
   Default catalog: `personal_details`, `family`, `professional_details`, `sports`, `travel`, `food`, `music`, `health`, `technology`, `hobbies`, `fashion`, `entertainment`, `milestones`, `user_preferences`, `misc`.
@@ -98,7 +98,7 @@ messages = [
 ]
 
 # Add memories with project-level custom categories
-client.add(messages, user_id="alice", async_mode=False)
+client.add(messages, user_id="alice")
 ```
 </CodeGroup>
 
@@ -187,10 +187,10 @@ messages = [
 ]
 
 # Add memories with default categories
-client.add(messages, user_id='alice', async_mode=False)
+client.add(messages, user_id='alice')
 ```
 
-```python Memories with categories
+```text Memories with categories
 # Following categories will be created for the memories added
 Sometimes draws and sketches in free time (hobbies)
 Is quite athletic (sports)
