@@ -43,6 +43,7 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { OpenSearchDB } from "../vector_stores/opensearch";
 import { UpstashVector } from "../vector_stores/upstash_vector";
 import { AzureMySQLDB } from "../vector_stores/azure_mysql";
 import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
@@ -141,6 +142,8 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "opensearch":
+        return new OpenSearchDB(config as any);
       case "upstash_vector":
         return new UpstashVector(config as any);
       case "azure_mysql":
