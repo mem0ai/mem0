@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List, Dict, Any
 
@@ -8,6 +9,8 @@ try:
     ZERO_ENTROPY_AVAILABLE = True
 except ImportError:
     ZERO_ENTROPY_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class ZeroEntropyReranker(BaseReranker):
@@ -89,8 +92,10 @@ class ZeroEntropyReranker(BaseReranker):
                 
             return reranked_docs
 
-        except Exception:
+        except Exception as e:
             # Fallback to original order if reranking fails
+            logger.warning("Zero Entropy reranking failed, falling back to original order: %s", e)
             for doc in documents:
                 doc['rerank_score'] = 0.0
-            return documents[:top_k] if top_k else documents
+            final_top_k = top_k or self.config.top_k
+            return documents[:final_top_k] if final_top_k else documents

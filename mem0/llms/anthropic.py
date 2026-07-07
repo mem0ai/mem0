@@ -29,16 +29,20 @@ class AnthropicLLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
             )
 
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "claude-3-5-sonnet-20240620"
+            self.config.model = "claude-sonnet-4-6"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        base_url = self.config.anthropic_base_url or os.getenv("ANTHROPIC_BASE_URL")
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self.client = anthropic.Anthropic(**client_kwargs)
 
     def _get_common_params(self, **kwargs) -> Dict:
         """Get common parameters, avoiding sending both temperature and top_p together.
@@ -106,7 +110,20 @@ class AnthropicLLM(LLMBase):
 
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            params["tool_choice"] = {"type": tool_choice}
 
         response = self.client.messages.create(**params)
+        return self._parse_response(response, tools)
+
+    def _parse_response(self, response, tools):
+        if tools:
+            result = {"content": None, "tool_calls": []}
+            for block in response.content:
+                if block.type == "text":
+                    result["content"] = block.text
+                elif block.type == "tool_use":
+                    result["tool_calls"].append(
+                        {"name": block.name, "arguments": block.input}
+                    )
+            return result
         return response.content[0].text

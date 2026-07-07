@@ -1,3 +1,4 @@
+import inspect
 from unittest.mock import Mock, patch
 
 import pytest
@@ -98,3 +99,42 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
     assert call_args["messages"][0]["content"] == "You are a helpful assistant."
+
+
+def test_completions_create_messages_default_does_not_leak_between_calls(mock_memory_client, mock_litellm):
+    """Regression test for the B006 mutable-default bug in Completions.create.
+
+    Before the fix, `messages: List = []` made every call that didn't pass
+    `messages` share the same module-level list. A previous call could mutate
+    that list (e.g. via `_prepare_messages`) and subsequent calls would observe
+    the leaked state instead of an empty list.
+
+    After the fix, `messages` defaults to `None` and is normalized to a fresh
+    `[]` inside the function on each call, isolating call N from call N-1.
+    """
+    completions = Completions(mock_memory_client)
+    mock_litellm.supports_function_calling.return_value = True
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_memory_client.search.return_value = []
+
+    # Each call passes a fresh list — confirms the public happy path stays green.
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "first"}],
+        user_id="user_a",
+    )
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "second"}],
+        user_id="user_b",
+    )
+
+    # The Completions.create signature must not bind a mutable container as
+    # the default for `messages`. This is what B006 lints against and what the
+    # historical default `messages: List = []` violated.
+    sig = inspect.signature(Completions.create)
+    messages_default = sig.parameters["messages"].default
+    assert messages_default is None, (
+        f"Completions.create(messages=...) must default to None to avoid the "
+        f"B006 shared-default-list bug; got {messages_default!r}."
+    )

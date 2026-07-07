@@ -75,7 +75,7 @@ def test_search_vectors(supabase_instance, mock_collection):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.9
+    assert results[0].score == pytest.approx(0.1)
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -109,6 +109,13 @@ def test_get_vector(supabase_instance, mock_collection):
     mock_collection.fetch.assert_called_once_with([("id1",)])
     assert result.id == "id1"
     assert result.payload == {"name": "vector1"}
+
+
+def test_get_missing_returns_none(supabase_instance, mock_collection):
+    # An unknown id yields an empty fetch; get() must return None (not []).
+    mock_collection.fetch.return_value = []
+
+    assert supabase_instance.get(vector_id="missing") is None
 
 
 def test_list_vectors(supabase_instance, mock_collection):

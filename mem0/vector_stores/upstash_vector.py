@@ -132,11 +132,10 @@ class UpstashVector(VectorStoreBase):
                     "top_k": top_k,
                     "filter": filters_str or "",
                     "include_metadata": True,
-                    "namespace": self.collection_name,
                 }
                 for v in vectors
             ]
-            responses = self.client.query_many(queries=queries)
+            responses = self.client.query_many(queries=queries, namespace=self.collection_name)
             # flatten
             response = [res for res_list in responses for res in res_list]
 

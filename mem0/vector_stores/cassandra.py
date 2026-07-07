@@ -258,10 +258,8 @@ class CassandraDB(VectorStoreBase):
                     continue
 
                 vec = np.array(row.vector)
-                
-                # Cosine similarity
-                similarity = np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec))
-                distance = 1 - similarity
+
+                similarity = float(np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec)))
 
                 # Apply filters if provided
                 if filters:
@@ -273,10 +271,9 @@ class CassandraDB(VectorStoreBase):
                     except json.JSONDecodeError:
                         continue
 
-                scored_results.append((row.id, distance, row.payload))
+                scored_results.append((row.id, similarity, row.payload))
 
-            # Sort by distance and apply limit
-            scored_results.sort(key=lambda x: x[1])
+            scored_results.sort(key=lambda x: x[1], reverse=True)
             scored_results = scored_results[:top_k]
 
             return [

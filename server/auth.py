@@ -3,15 +3,14 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from db import get_db
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from models import APIKey, RefreshTokenJti, User
 from passlib.context import CryptContext
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
-
-from db import get_db
-from models import APIKey, RefreshTokenJti, User
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
@@ -183,4 +182,34 @@ async def require_auth(
             if default_user is not None:
                 return default_user
         raise HTTPException(status_code=401, detail="Authentication required.")
+    return user
+
+
+_BOOTSTRAP_ADMIN = User(
+    id=uuid.UUID(int=0), name="admin_api_key", email="", password_hash="", role="admin", created_at=datetime.min.replace(tzinfo=timezone.utc),
+)
+
+
+async def require_admin(
+    request: Request,
+    user: User | None = Depends(verify_auth),
+    db: Session = Depends(get_db),
+) -> User:
+    """Like require_auth but also enforces admin role.
+
+    ADMIN_API_KEY and AUTH_DISABLED callers are treated as admin even when
+    the users table is empty (fresh-deploy bootstrap).
+    """
+    auth_type = getattr(request.state, "auth_type", "none")
+    if user is None:
+        if auth_type in {"admin_api_key", "disabled"}:
+            default_user = _get_default_user(db)
+            if default_user is not None:
+                if default_user.role != "admin":
+                    raise HTTPException(status_code=403, detail="Admin role required.")
+                return default_user
+            return _BOOTSTRAP_ADMIN
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required.")
     return user

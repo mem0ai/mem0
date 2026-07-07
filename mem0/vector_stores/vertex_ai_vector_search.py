@@ -114,10 +114,12 @@ class GoogleMatchingEngine(VectorStoreBase):
         results = data.get("nearestNeighbors", {}).get("neighbors", [])
         output_data = []
         for result in results:
+            raw_distance = result.get("distance")
+            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
             output_data.append(
                 OutputData(
                     id=result.get("datapoint").get("datapointId"),
-                    score=result.get("distance"),
+                    score=score,
                     payload=result.get("datapoint").get("metadata"),
                 )
             )
@@ -264,7 +266,8 @@ class GoogleMatchingEngine(VectorStoreBase):
                             logger.debug("Adding %s: %s", restrict.name, restrict.allow_tokens[0])
                             payload[restrict.name] = restrict.allow_tokens[0]
 
-                output_data = OutputData(id=neighbor.id, score=neighbor.distance, payload=payload)
+                score = max(0.0, 1.0 - neighbor.distance) if neighbor.distance is not None else None
+                output_data = OutputData(id=neighbor.id, score=score, payload=payload)
                 results.append(output_data)
 
             logger.debug("Returning %d results", len(results))
@@ -413,7 +416,8 @@ class GoogleMatchingEngine(VectorStoreBase):
                                 if restrict.allow_list:
                                     payload[restrict.namespace] = restrict.allow_list[0]
 
-                        return OutputData(id=neighbor.datapoint.datapoint_id, score=neighbor.distance, payload=payload)
+                        score = max(0.0, 1.0 - neighbor.distance) if neighbor.distance is not None else None
+                        return OutputData(id=neighbor.datapoint.datapoint_id, score=score, payload=payload)
 
                 logger.debug("No results found")
                 return None
@@ -483,7 +487,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             # Use a large top_k if none specified
             search_limit = top_k if top_k is not None else 10000
 
-            results = self.search(query=zero_vector, top_k=search_limit, filters=filters)
+            results = self.search(query="", vectors=zero_vector, top_k=search_limit, filters=filters)
 
             logger.debug("Found %d results", len(results))
             return [results]  # Wrap in extra array to match interface
@@ -616,7 +620,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         logger.debug("Filter: %s", filter)
 
         embedding = self.embedder.embed_query(query)
-        results = self.search(query=embedding, top_k=k, filters=filter)
+        results = self.search(query=query, vectors=embedding, top_k=k, filters=filter)
 
         docs_and_scores = [
             (Document(page_content=result.payload.get("text", ""), metadata=result.payload), result.score)

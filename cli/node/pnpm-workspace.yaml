@@ -1,0 +1,14 @@
+packages:
+  - '.'
+
+onlyBuiltDependencies:
+  - "@biomejs/biome"
+  - esbuild
+
+overrides:
+  jws@4.0.0: 4.0.1
+  langsmith@<0.6.0: ^0.6.0
+  tar-fs@>=2.0.0 <2.1.4: ^2.1.4
+  picomatch@<2.3.2: ^2.3.2
+  "postcss@<8.5.10": ">=8.5.10"
+  "esbuild": ">=0.28.1"

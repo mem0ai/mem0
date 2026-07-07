@@ -36,11 +36,8 @@ class OpenAIStructuredLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": self.config.temperature,
-        }
+        params = self._get_supported_params(messages=messages)
+        params["model"] = self.config.model
 
         if response_format:
             params["response_format"] = response_format

@@ -1,7 +1,9 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import Any, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from pydantic import BaseModel
 
@@ -30,6 +32,105 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+OPERATOR_SQL_MAP = {
+    "eq": ("payload->>%s = %s", False),
+    "ne": ("payload->>%s != %s", False),
+    "gt": ("(payload->>%s)::numeric > %s", True),
+    "gte": ("(payload->>%s)::numeric >= %s", True),
+    "lt": ("(payload->>%s)::numeric < %s", True),
+    "lte": ("(payload->>%s)::numeric <= %s", True),
+    "in": ("payload->>%s = ANY(%s)", False),
+    "nin": ("NOT (payload->>%s = ANY(%s))", False),
+    "contains": ("payload->>%s LIKE %s", False),
+    "icontains": ("payload->>%s ILIKE %s", False),
+}
+
+
+def _build_filter_conditions(filters):
+    """Translate a processed filter dict into SQL WHERE fragments and parameter list."""
+    conditions = []
+    params = []
+
+    if not filters:
+        return conditions, params
+
+    for key, value in filters.items():
+        if key == "$or":
+            or_groups = []
+            for or_filter in value:
+                sub_conds, sub_params = _build_filter_conditions(or_filter)
+                if sub_conds:
+                    or_groups.append("(" + " AND ".join(sub_conds) + ")")
+                    params.extend(sub_params)
+            if or_groups:
+                conditions.append("(" + " OR ".join(or_groups) + ")")
+            continue
+
+        if key == "$not":
+            not_groups = []
+            for not_filter in value:
+                sub_conds, sub_params = _build_filter_conditions(not_filter)
+                if sub_conds:
+                    not_groups.append("(" + " AND ".join(sub_conds) + ")")
+                    params.extend(sub_params)
+            if not_groups:
+                conditions.append("NOT (" + " OR ".join(not_groups) + ")")
+            continue
+
+        if value == "*":
+            conditions.append("payload ? %s")
+            params.append(key)
+            continue
+
+        if isinstance(value, dict):
+            for op, op_value in value.items():
+                if op not in OPERATOR_SQL_MAP:
+                    raise ValueError(f"Unsupported filter operator: {op}")
+                template, is_numeric = OPERATOR_SQL_MAP[op]
+                if op in ("in", "nin"):
+                    str_list = [str(v) for v in op_value]
+                    conditions.append(template)
+                    params.extend([key, str_list])
+                elif op in ("contains", "icontains"):
+                    escaped = str(op_value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                    conditions.append(template + " ESCAPE '\\'")
+                    params.extend([key, f"%{escaped}%"])
+                else:
+                    conditions.append(template)
+                    if is_numeric:
+                        params.extend([key, float(op_value)])
+                    else:
+                        params.extend([key, str(op_value)])
+        elif isinstance(value, list):
+            conditions.append("payload->>%s = ANY(%s)")
+            params.extend([key, [str(v) for v in value]])
+        else:
+            conditions.append("payload->>%s = %s")
+            if isinstance(value, bool):
+                params.extend([key, json.dumps(value)])
+            else:
+                params.extend([key, str(value)])
+
+    return conditions, params
+
+
+def _with_sslmode(connection_string: str, sslmode: str) -> str:
+    """Add or replace sslmode in URI and keyword conninfo strings.
+
+    Keyword conninfo values are assumed not to contain nested ``sslmode=``
+    substrings, such as inside an ``options`` value.
+    """
+    if "://" in connection_string:
+        parsed = urlsplit(connection_string)
+        query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != "sslmode"]
+        query.append(("sslmode", sslmode))
+        return parsed._replace(query=urlencode(query)).geturl()
+
+    if re.search(r"(^|\s)sslmode=", connection_string):
+        return re.sub(r"(^|\s)sslmode=\S+", lambda match: f"{match.group(1)}sslmode={sslmode}", connection_string)
+
+    return f"{connection_string} sslmode={sslmode}"
 
 
 class OutputData(BaseModel):
@@ -80,6 +181,7 @@ class PGVector(VectorStoreBase):
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
         self.connection_pool = None
+        self._collection_ensured = False
 
         # Connection setup with priority: connection_pool > connection_string > individual parameters
         if connection_pool is not None:
@@ -87,30 +189,33 @@ class PGVector(VectorStoreBase):
             self.connection_pool = connection_pool
         elif connection_string:
             if sslmode:
-                # Append sslmode to connection string if provided
-                if 'sslmode=' in connection_string:
-                    # Replace existing sslmode
-                    import re
-                    connection_string = re.sub(r'sslmode=[^ ]*', f'sslmode={sslmode}', connection_string)
-                else:
-                    # Add sslmode to connection string
-                    connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = _with_sslmode(connection_string, sslmode)
         else:
             connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
             if sslmode:
-                connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = _with_sslmode(connection_string, sslmode)
         
         if self.connection_pool is None:
             if PSYCOPG_VERSION == 3:
-                # psycopg3 ConnectionPool
-                self.connection_pool = ConnectionPool(conninfo=connection_string, min_size=minconn, max_size=maxconn, open=True)
+                # open=False avoids blocking when DB DNS is not yet resolvable (e.g. Docker startup)
+                self.connection_pool = ConnectionPool(
+                    conninfo=connection_string,
+                    min_size=minconn,
+                    max_size=maxconn,
+                    open=False,
+                )
+                self.connection_pool.open(wait=False)
             else:
                 # psycopg2 ThreadedConnectionPool
                 self.connection_pool = ConnectionPool(minconn=minconn, maxconn=maxconn, dsn=connection_string)
 
+    def _ensure_collection(self):
+        if self._collection_ensured:
+            return
         collections = self.list_cols()
-        if collection_name not in collections:
+        if self.collection_name not in collections:
             self.create_col()
+        self._collection_ensured = True
 
     @contextmanager
     def _get_cursor(self, commit: bool = False):
@@ -200,6 +305,7 @@ class PGVector(VectorStoreBase):
             )
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
+        self._ensure_collection()
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
         json_payloads = [json.dumps(payload) for payload in payloads]
 
@@ -237,14 +343,8 @@ class PGVector(VectorStoreBase):
         Returns:
             list: Search results.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
-
+        self._ensure_collection()
+        filter_conditions, filter_params = _build_filter_conditions(filters)
         filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
@@ -260,7 +360,7 @@ class PGVector(VectorStoreBase):
             )
 
             results = cur.fetchall()
-        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        return [OutputData(id=str(r[0]), score=max(0.0, 1.0 - float(r[1])), payload=r[2]) for r in results]
 
     def keyword_search(self, query, top_k=5, filters=None):
         """
@@ -274,14 +374,8 @@ class PGVector(VectorStoreBase):
         Returns:
             List[OutputData]: Search results ranked by text relevance.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
-
+        self._ensure_collection()
+        filter_conditions, filter_params = _build_filter_conditions(filters)
         filter_clause = sql.SQL("AND " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         try:
@@ -311,6 +405,7 @@ class PGVector(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
+        self._ensure_collection()
         with self._get_cursor(commit=True) as cur:
             cur.execute(sql.SQL("DELETE FROM {} WHERE id = %s").format(self._col()), (vector_id,))
 
@@ -328,13 +423,14 @@ class PGVector(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
+        self._ensure_collection()
         with self._get_cursor(commit=True) as cur:
-            if vector:
+            if vector is not None:
                cur.execute(
                     sql.SQL("UPDATE {} SET vector = %s WHERE id = %s").format(self._col()),
                     (vector, vector_id),
                 )
-            if payload:
+            if payload is not None:
                 # Handle JSON serialization based on psycopg version
                 if PSYCOPG_VERSION == 3:
                     # psycopg3 uses psycopg.types.json.Json
@@ -360,6 +456,7 @@ class PGVector(VectorStoreBase):
         Returns:
             OutputData: Retrieved vector.
         """
+        self._ensure_collection()
         with self._get_cursor() as cur:
             cur.execute(
                 sql.SQL("SELECT id, vector, payload FROM {} WHERE id = %s").format(self._col()),
@@ -393,6 +490,7 @@ class PGVector(VectorStoreBase):
         Returns:
             Dict[str, Any]: Collection information.
         """
+        self._ensure_collection()
         with self._get_cursor() as cur:
             cur.execute(
                 sql.SQL("""
@@ -423,14 +521,8 @@ class PGVector(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
-
+        self._ensure_collection()
+        filter_conditions, filter_params = _build_filter_conditions(filters)
         filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
@@ -461,6 +553,7 @@ class PGVector(VectorStoreBase):
 
     def reset(self) -> None:
         """Reset the index by deleting and recreating it."""
+        self._ensure_collection()
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
         self.create_col()

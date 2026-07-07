@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 try:
     from google import genai
@@ -8,18 +8,39 @@ except ImportError:
     raise ImportError("The 'google-genai' library is required. Please install it using 'pip install google-genai'.")
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.gemini import GeminiConfig
 from mem0.llms.base import LLMBase
 
 
 class GeminiLLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, GeminiConfig, Dict]] = None):
+        # Convert to GeminiConfig if needed
+        if config is None:
+            config = GeminiConfig()
+        elif isinstance(config, dict):
+            config = GeminiConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, GeminiConfig):
+            config = GeminiConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+            )
+
         super().__init__(config)
 
         if not self.config.model:
             self.config.model = "gemini-2.0-flash"
 
-        api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
-        self.client = genai.Client(api_key=api_key)
+        if self.config.vertexai:
+            self.client = genai.Client(vertexai=True, project=self.config.project, location=self.config.location)
+        else:
+            api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
+            self.client = genai.Client(api_key=api_key)
 
     def _parse_response(self, response, tools):
         """
@@ -157,12 +178,15 @@ class GeminiLLM(LLMBase):
         # Extract system instruction and reformat messages
         system_instruction, contents = self._reformat_messages(messages)
 
-        # Prepare generation config
-        config_params = {
-            "temperature": self.config.temperature,
-            "max_output_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
+        # Prepare generation config — only include non-None values so the
+        # Gemini SDK uses its own defaults instead of rejecting None.
+        config_params = {}
+        if self.config.temperature is not None:
+            config_params["temperature"] = self.config.temperature
+        if self.config.max_tokens is not None:
+            config_params["max_output_tokens"] = self.config.max_tokens
+        if self.config.top_p is not None:
+            config_params["top_p"] = self.config.top_p
 
         # Add system instruction to config if present
         if system_instruction:

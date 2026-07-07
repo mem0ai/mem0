@@ -97,9 +97,11 @@ class ChromaDB(VectorStoreBase):
 
         result = []
         for i in range(max_length):
+            raw_distance = distances[i] if isinstance(distances, list) and distances and i < len(distances) else None
+            score = 1.0 / (1.0 + raw_distance) if raw_distance is not None else None
             entry = OutputData(
                 id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
-                score=(distances[i] if isinstance(distances, list) and distances and i < len(distances) else None),
+                score=score,
                 payload=(metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None),
             )
             result.append(entry)
@@ -167,7 +169,7 @@ class ChromaDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.collection.delete(ids=vector_id)
+        self.collection.delete(ids=[vector_id])
 
     def update(
         self,
@@ -183,9 +185,13 @@ class ChromaDB(VectorStoreBase):
             vector (Optional[List[float]], optional): Updated vector. Defaults to None.
             payload (Optional[Dict], optional): Updated payload. Defaults to None.
         """
-        self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
+        self.collection.update(
+            ids=[vector_id],
+            embeddings=[vector] if vector is not None else None,
+            metadatas=[payload] if payload is not None else None,
+        )
 
-    def get(self, vector_id: str) -> OutputData:
+    def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -193,10 +199,11 @@ class ChromaDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.collection.get(ids=[vector_id])
-        return self._parse_output(result)[0]
+        parsed = self._parse_output(result)
+        return parsed[0] if parsed else None
 
     def list_cols(self) -> List[chromadb.Collection]:
         """
@@ -255,7 +262,7 @@ class ChromaDB(VectorStoreBase):
             dict[str, any]: Properly formatted where clause for ChromaDB.
         """
         if where is None:
-            return {}
+            return None
         
         def convert_condition(key: str, value: any) -> dict:
             """Convert universal filter format to ChromaDB format."""
@@ -314,8 +321,32 @@ class ChromaDB(VectorStoreBase):
                     processed_filters.append(or_conditions[0])
             
             elif key == "$not":
-                # Handle NOT conditions - ChromaDB doesn't have direct NOT, so we'll skip for now
-                continue
+                negate_op = {
+                    "eq": "$ne", "ne": "$eq",
+                    "gt": "$lte", "gte": "$lt",
+                    "lt": "$gte", "lte": "$gt",
+                    "in": "$nin", "nin": "$in",
+                }
+                negated_per_group = []
+                for condition in value:
+                    negated_fields = []
+                    for sub_key, sub_value in condition.items():
+                        if isinstance(sub_value, dict):
+                            for op, val in sub_value.items():
+                                neg = negate_op.get(op)
+                                if neg:
+                                    negated_fields.append({sub_key: {neg: val}})
+                        else:
+                            negated_fields.append({sub_key: {"$ne": sub_value}})
+                    if len(negated_fields) > 1:
+                        negated_per_group.append({"$or": negated_fields})
+                    elif len(negated_fields) == 1:
+                        negated_per_group.append(negated_fields[0])
+
+                if len(negated_per_group) > 1:
+                    processed_filters.append({"$and": negated_per_group})
+                elif len(negated_per_group) == 1:
+                    processed_filters.append(negated_per_group[0])
                 
             else:
                 # Regular condition
@@ -325,7 +356,7 @@ class ChromaDB(VectorStoreBase):
         
         # Return appropriate format based on number of conditions
         if len(processed_filters) == 0:
-            return {}
+            return None
         elif len(processed_filters) == 1:
             return processed_filters[0]
         else:

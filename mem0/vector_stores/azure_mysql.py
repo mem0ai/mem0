@@ -37,6 +37,10 @@ def _validate_identifier(name: str, label: str = "identifier") -> str:
         )
     return name
 
+# Filter keys are interpolated into `JSON_EXTRACT(payload, '$.<key>')` strings,
+# so we whitelist identifier-safe keys and skip anything else (logged as a warning).
+_VALID_FILTER_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -290,6 +294,9 @@ class AzureMySQL(VectorStoreBase):
 
         if filters:
             for k, v in filters.items():
+                if not _VALID_FILTER_KEY.match(k):
+                    logger.warning("Skipping invalid filter key: %r", k)
+                    continue
                 filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
                 filter_params.extend([f"$.{k}", json.dumps(v)])
 
@@ -313,13 +320,10 @@ class AzureMySQL(VectorStoreBase):
 
         for row in results:
             vec = np.array(json.loads(row['vector']))
-            # Cosine similarity
-            similarity = np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec))
-            distance = 1 - similarity
-            scored_results.append((row['id'], distance, row['payload']))
+            similarity = float(np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec)))
+            scored_results.append((row['id'], similarity, row['payload']))
 
-        # Sort by distance and apply limit
-        scored_results.sort(key=lambda x: x[1])
+        scored_results.sort(key=lambda x: x[1], reverse=True)
         scored_results = scored_results[:top_k]
 
         return [
@@ -349,6 +353,9 @@ class AzureMySQL(VectorStoreBase):
 
             if filters:
                 for k, v in filters.items():
+                    if not _VALID_FILTER_KEY.match(k):
+                        logger.warning("Skipping invalid filter key: %r", k)
+                        continue
                     filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
                     filter_params.extend([f"$.{k}", json.dumps(v)])
 
@@ -505,6 +512,9 @@ class AzureMySQL(VectorStoreBase):
 
         if filters:
             for k, v in filters.items():
+                if not _VALID_FILTER_KEY.match(k):
+                    logger.warning("Skipping invalid filter key: %r", k)
+                    continue
                 filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
                 filter_params.extend([f"$.{k}", json.dumps(v)])
 

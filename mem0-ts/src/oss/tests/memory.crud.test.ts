@@ -191,6 +191,21 @@ describe("Memory - update()", () => {
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.hash).not.toBe(before!.hash);
   });
+
+  test("preserves custom metadata fields after update", async () => {
+    const addResult: SearchResult = await memory.add("Original text", {
+      userId,
+      metadata: { category: "hobbies", priority: "high" },
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+    await memory.update(id, "Updated text");
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Updated text");
+    expect(after!.metadata).toEqual(
+      expect.objectContaining({ category: "hobbies", priority: "high" }),
+    );
+  });
 });
 
 // ─── delete() ────────────────────────────────────────────
@@ -343,6 +358,45 @@ describe("Memory - search()", () => {
       filters: { user_id: "empty_user" },
     });
     expect(result.results).toHaveLength(0);
+  });
+});
+
+// ─── attributedTo (#5666) ────────────────────────────────
+
+describe("Memory - attributedTo round-trip (#5666)", () => {
+  let memory: Memory;
+  const userId = `attributed_test_${Date.now()}`;
+  let id: string;
+
+  beforeAll(async () => {
+    memory = createMemory();
+    // The mocked LLM tags every extracted fact with attributed_to: "user".
+    const addResult: SearchResult = await memory.add("I love AI", { userId });
+    id = addResult.results[0].id;
+  });
+
+  afterAll(async () => {
+    await memory.reset();
+  });
+
+  test("get() surfaces attributedTo", async () => {
+    const item: MemoryItem | null = await memory.get(id);
+    expect(item!.attributedTo).toBe("user");
+  });
+
+  test("getAll() surfaces attributedTo", async () => {
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
+    expect(result.results[0].attributedTo).toBe("user");
+  });
+
+  test("search() surfaces attributedTo", async () => {
+    const result: SearchResult = await memory.search("AI", {
+      filters: { user_id: userId },
+    });
+    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.results[0].attributedTo).toBe("user");
   });
 });
 

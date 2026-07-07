@@ -8,8 +8,8 @@ from io import StringIO
 from unittest.mock import patch
 
 import pytest
-from click.exceptions import Exit as ClickExit
 from rich.console import Console
+from typer import Exit as TyperExit
 
 from mem0_cli.commands.config_cmd import (
     cmd_config_get,
@@ -181,7 +181,7 @@ class TestAddCommand:
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
             patch("mem0_cli.commands.memory._stdin_is_piped", return_value=False),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_add(
                 mock_backend,
@@ -206,7 +206,7 @@ class TestAddCommand:
         with (
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_add(
                 mock_backend,
@@ -764,7 +764,7 @@ class TestImportCommand:
         with (
             patch("mem0_cli.commands.utils.console", console),
             patch("mem0_cli.commands.utils.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_import(mock_backend, "/nonexistent/file.json", user_id=None, agent_id=None)
 
@@ -801,7 +801,7 @@ class TestEntitiesListCommand:
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_entities_list(mock_backend, "invalid", output="table")
 
@@ -944,7 +944,7 @@ class TestEntitiesDeleteCommand:
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_entities_delete(
                 mock_backend,
@@ -1308,7 +1308,7 @@ class TestAgentMode:
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
             patch("sys.stdout", captured_stdout),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_get(mock_backend, "bad-id", output="text")
 
