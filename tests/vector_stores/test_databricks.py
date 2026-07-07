@@ -538,6 +538,23 @@ def test_list_memories_default_limit(db_instance_delta, mock_workspace_client):
     assert call_kwargs["num_results"] == 100
 
 
+def test_list_memories_row_without_memory_column(db_instance_delta, mock_workspace_client):
+    """list() must not KeyError when a row lacks the 'memory' column.
+
+    search() and get() already guard this with payload.get("memory", ""),
+    but list() previously did payload['memory'] and crashed on any index
+    whose schema/row omits that column.
+    """
+    # Simulate an index whose returned columns do not include 'memory'.
+    db_instance_delta.column_names = ["memory_id", "hash", "metadata"]
+    mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
+        result=SimpleNamespace(data_array=[["id-1", "h", None]])
+    )
+    res = db_instance_delta.list(top_k=1)
+    assert res[0][0].id == "id-1"
+    assert res[0][0].payload["data"] == ""
+
+
 # ---------------------- Table Creation Tests ---------------------- #
 
 

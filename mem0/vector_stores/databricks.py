@@ -828,7 +828,7 @@ class Databricks(VectorStoreBase):
                     except Exception:
                         pass
                 memory_id = row_dict.get("memory_id") or row_dict.get("id")
-                payload['data'] = payload['memory']
+                payload["data"] = payload.get("memory", "")
                 memory_results.append(MemoryResult(id=memory_id, payload=payload))
             return [memory_results]
         except Exception as e:
