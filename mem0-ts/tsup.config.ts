@@ -33,6 +33,7 @@ const external = [
   "mysql2",
   "@turbopuffer/turbopuffer",
   "@opensearch-project/opensearch",
+  "@elastic/elasticsearch",
 ];
 
 const define = {

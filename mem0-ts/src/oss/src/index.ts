@@ -32,6 +32,7 @@ export * from "./vector_stores/langchain";
 export * from "./vector_stores/vectorize";
 export * from "./vector_stores/azure_ai_search";
 export * from "./vector_stores/pgvector";
+export * from "./vector_stores/elasticsearch";
 export * from "./vector_stores/upstash_vector";
 export * from "./vector_stores/azure_mysql";
 export * from "./vector_stores/cassandra";
