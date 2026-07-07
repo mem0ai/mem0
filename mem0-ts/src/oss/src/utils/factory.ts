@@ -24,6 +24,7 @@ import { ValkeyDB } from "../vector_stores/valkey";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
+import { XAILLM } from "../llms/xai";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { VllmLLM } from "../llms/vllm";
@@ -42,6 +43,7 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { OpenSearchDB } from "../vector_stores/opensearch";
 import { UpstashVector } from "../vector_stores/upstash_vector";
 import { AzureMySQLDB } from "../vector_stores/azure_mysql";
 import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
@@ -103,6 +105,8 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "xai":
+        return new XAILLM(config);
       case "litellm":
         return new LiteLLM(config);
       case "minimax":
@@ -138,6 +142,8 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "opensearch":
+        return new OpenSearchDB(config as any);
       case "upstash_vector":
         return new UpstashVector(config as any);
       case "azure_mysql":
