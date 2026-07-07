@@ -30,6 +30,7 @@ import { ValkeyDB } from "../vector_stores/valkey";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
+import { XAILLM } from "../llms/xai";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { VllmLLM } from "../llms/vllm";
@@ -48,6 +49,8 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { ElasticsearchDB } from "../vector_stores/elasticsearch";
+import { OpenSearchDB } from "../vector_stores/opensearch";
 import { UpstashVector } from "../vector_stores/upstash_vector";
 import { AzureMySQLDB } from "../vector_stores/azure_mysql";
 import { VertexAIVectorSearch } from "../vector_stores/vertex_ai_vector_search";
@@ -55,6 +58,7 @@ import { CassandraDB } from "../vector_stores/cassandra";
 import { PineconeDB } from "../vector_stores/pinecone";
 import { S3Vectors } from "../vector_stores/s3_vectors";
 import { TurbopufferDB } from "../vector_stores/turbopuffer";
+import { MongoDB } from "../vector_stores/mongodb";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -108,6 +112,8 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "xai":
+        return new XAILLM(config);
       case "litellm":
         return new LiteLLM(config);
       case "minimax":
@@ -143,6 +149,10 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "elasticsearch":
+        return new ElasticsearchDB(config as any);
+      case "opensearch":
+        return new OpenSearchDB(config as any);
       case "upstash_vector":
         return new UpstashVector(config as any);
       case "azure_mysql":
@@ -156,6 +166,8 @@ export class VectorStoreFactory {
         return new S3Vectors(config as any);
       case "turbopuffer":
         return new TurbopufferDB(config as any);
+      case "mongodb":
+        return new MongoDB(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }

@@ -34,6 +34,9 @@ const external = [
   "natural",
   "mysql2",
   "@turbopuffer/turbopuffer",
+  "mongodb",
+  "@opensearch-project/opensearch",
+  "@elastic/elasticsearch",
 ];
 
 const define = {
