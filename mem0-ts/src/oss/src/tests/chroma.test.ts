@@ -163,6 +163,28 @@ describe("ChromaDB", () => {
     ]);
   });
 
+  it("translates logical filters and skips wildcard filters", async () => {
+    const db = await initDb();
+
+    await db.search([1, 2, 3, 4], 5, {
+      AND: [{ user_id: "alice" }, { tag: "*" }],
+      OR: [{ score: { gte: 0.5 } }, { topic: ["a", "b"] }],
+    });
+
+    expect(__mocks__.query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          $and: [
+            { user_id: { $eq: "alice" } },
+            {
+              $or: [{ score: { $gte: 0.5 } }, { topic: { $in: ["a", "b"] } }],
+            },
+          ],
+        },
+      }),
+    );
+  });
+
   it("retrieves one vector by id", async () => {
     __mocks__.get.mockResolvedValue({
       ids: ["vec-1"],
