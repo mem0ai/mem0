@@ -463,10 +463,7 @@ describe("ElasticsearchDB", () => {
       expect(mockIndex_).toHaveBeenCalledWith(
         expect.objectContaining({
           index: "memory_migrations",
-          document: expect.objectContaining({
-            vector: [0],
-            metadata: { user_id: expect.any(String) },
-          }),
+          document: { metadata: { user_id: expect.any(String) } },
         }),
       );
       expect(userId).toBeTruthy();
@@ -506,7 +503,7 @@ describe("ElasticsearchDB", () => {
       expect(mockIndex_).toHaveBeenCalledWith(
         expect.objectContaining({
           index: "memory_migrations",
-          document: { vector: [0], metadata: { user_id: "custom-user" } },
+          document: { metadata: { user_id: "custom-user" } },
         }),
       );
     });

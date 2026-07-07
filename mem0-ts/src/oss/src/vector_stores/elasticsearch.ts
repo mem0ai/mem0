@@ -291,10 +291,13 @@ export class ElasticsearchDB implements VectorStore {
         Math.random().toString(36).substring(2, 15) +
         Math.random().toString(36).substring(2, 15);
 
+      // memory_migrations is only ever read via match_all, never by vector,
+      // so store no vector. A zero vector would be rejected by the cosine
+      // dense_vector mapping ("does not support vectors with zero magnitude").
       await this.client.index({
         index: "memory_migrations",
         id: this.generateUUID(),
-        document: { vector: [0], metadata: { user_id: randomUserId } },
+        document: { metadata: { user_id: randomUserId } },
       });
 
       return randomUserId;
@@ -320,7 +323,7 @@ export class ElasticsearchDB implements VectorStore {
       await this.client.index({
         index: "memory_migrations",
         id: docId,
-        document: { vector: [0], metadata: { user_id: userId } },
+        document: { metadata: { user_id: userId } },
       });
     } catch (error) {
       console.error("Error setting user ID:", error);
