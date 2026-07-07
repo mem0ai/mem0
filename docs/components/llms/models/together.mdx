@@ -3,8 +3,8 @@ title: Together
 description: "Configure Together AI as an LLM provider in Mem0 with API key setup and optional custom endpoint configuration."
 ---
 
-To use Together LLM models, you have to set the `TOGETHER_API_KEY` environment variable. You can obtain the Together API key from their [Account settings page](https://api.together.xyz/settings/api-keys).
-In the TypeScript SDK, you can optionally set `TOGETHER_API_BASE` or pass `baseURL` in the config (defaults to `https://api.together.xyz/v1`).
+To use Together LLM models, you have to set the `TOGETHER_API_KEY` environment variable. You can obtain the Together API key from their [Account settings page](https://api.together.ai/settings/projects/~current/api-keys).
+In the TypeScript SDK, you can optionally set `TOGETHER_API_BASE` or pass `baseURL` in the config (defaults to `https://api.together.ai/v1`).
 
 ## Usage
 
@@ -20,7 +20,7 @@ config = {
     "llm": {
         "provider": "together",
         "config": {
-            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "model": "MiniMaxAI/MiniMax-M3",
             "temperature": 0.2,
             "max_tokens": 2000,
         }
@@ -45,7 +45,7 @@ const config = {
     provider: 'together',
     config: {
       apiKey: process.env.TOGETHER_API_KEY || '',
-      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      model: 'MiniMaxAI/MiniMax-M3',
       temperature: 0.2,
       maxTokens: 2000,
     },
@@ -71,7 +71,7 @@ config = {
     "llm": {
         "provider": "together",
         "config": {
-            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "model": "MiniMaxAI/MiniMax-M3",
             "api_key": "your-api-key"
         }
     }
@@ -83,8 +83,8 @@ const config = {
   llm: {
     provider: "together",
     config: {
-      model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-      baseURL: "https://api.together.xyz/v1",
+      model: "MiniMaxAI/MiniMax-M3",
+      baseURL: "https://api.together.ai/v1",
       apiKey: "your-api-key",
     },
   },

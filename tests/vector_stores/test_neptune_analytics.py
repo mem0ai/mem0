@@ -4,7 +4,9 @@ import sys
 
 import pytest
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
+from mem0.configs.vector_stores.neptune import NeptuneAnalyticsConfig
 from mem0.utils.factory import VectorStoreFactory
 from mem0.vector_stores.neptune_analytics import (
     NeptuneAnalyticsVector,
@@ -236,4 +238,46 @@ class TestNeptuneFilterValidation:
         with pytest.raises(ValueError):
             NeptuneAnalyticsVector._get_node_filter_clause(
                 {"user_id": {"$ne": ""}}
+            )
+
+INJECTION_PAYLOADS = [
+    "memories; DROP TABLE users; --",
+    "memories` OR 1=1; --",
+    "memories:Label {prop: 'val'}) DELETE n; --",
+    "valid_name OR 1=1",
+    "1_starts_with_digit",
+    "has space",
+    "",
+]
+
+class TestNeptuneAnalyticsConfigCollectionNameValidation:
+    def test_accepts_valid_identifier(self):
+        config = NeptuneAnalyticsConfig(collection_name="valid_name")
+        assert config.collection_name == "valid_name"
+
+    @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+    def test_rejects_injection_payload(self, payload):
+        with pytest.raises(ValidationError, match="Invalid collection_name"):
+            NeptuneAnalyticsConfig(collection_name=payload)
+
+class TestNeptuneAnalyticsVectorInitValidation:
+    def test_accepts_valid_identifier(self, monkeypatch):
+        from mem0.vector_stores.neptune_analytics import NeptuneAnalyticsVector
+        monkeypatch.setattr("mem0.vector_stores.neptune_analytics.NeptuneAnalyticsGraph", lambda *args, **kwargs: None)
+        
+        vec = NeptuneAnalyticsVector(
+            endpoint="neptune-graph://test",
+            collection_name="valid_name"
+        )
+        assert vec.collection_name.endswith("valid_name")
+
+    @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+    def test_rejects_injection_payload_in_init(self, payload, monkeypatch):
+        from mem0.vector_stores.neptune_analytics import NeptuneAnalyticsVector
+        monkeypatch.setattr("mem0.vector_stores.neptune_analytics.NeptuneAnalyticsGraph", lambda *args, **kwargs: None)
+        
+        with pytest.raises(ValueError, match="Invalid collection_name"):
+            NeptuneAnalyticsVector(
+                endpoint="neptune-graph://test",
+                collection_name=payload
             )
