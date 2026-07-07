@@ -545,3 +545,52 @@ def test_memory_initialization_opensearch_aws_auth(
     assert memory.config.vector_store.provider == "opensearch"
 
     assert mock_vector_factory.call_count >= 2
+
+
+class TestOpenSearchFilterValidation(unittest.TestCase):
+    """Validate that non-scalar filter values are rejected to prevent term injection."""
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=OpenSearch)
+        self.client_mock.indices = MagicMock()
+        self.client_mock.indices.exists = MagicMock(return_value=False)
+        self.client_mock.indices.create = MagicMock()
+        self.client_mock.search = MagicMock()
+
+        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
+        self.mock_os = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.os_db = OpenSearchDB(
+            host="localhost",
+            port=9200,
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            verify_certs=False,
+            use_ssl=False,
+        )
+        self.client_mock.reset_mock()
+
+    def test_search_rejects_dict_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": {"$ne": ""}})
+
+    def test_search_rejects_list_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": ["alice", "bob"]})
+
+    def test_list_rejects_dict_filter_value(self):
+        result = self.os_db.list(filters={"user_id": {"$ne": ""}})
+        self.assertEqual(result, [[]])
+        self.client_mock.search.assert_not_called()
+
+    def test_keyword_search_rejects_dict_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.keyword_search(query="test", filters={"user_id": {"$ne": ""}})
+
+    def test_search_accepts_string_filter(self):
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+        results = self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice"})
+        self.assertEqual(results, [])
+        self.client_mock.search.assert_called_once()

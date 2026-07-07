@@ -7,7 +7,7 @@ description: "Use Weaviate as an open-source vector search engine in Mem0 for st
 
 ### Installation
 ```bash
-pip install weaviate weaviate-client
+pip install weaviate-client
 ```
 
 ### Usage
@@ -49,3 +49,4 @@ Here are the parameters available for configuring Weaviate:
 | `embedding_model_dims` | Dimensions of the embedding model | `1536` |
 | `cluster_url` | URL for the Weaviate server | `None` |
 | `auth_client_secret` | API key for Weaviate authentication | `None` |
+| `additional_headers` | Additional headers to include in requests (`Dict[str, str]`) | `None` |

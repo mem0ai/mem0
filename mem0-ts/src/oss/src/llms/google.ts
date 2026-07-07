@@ -11,12 +11,8 @@ export class GoogleLLM implements LLM {
     this.model = config.model || "gemini-2.0-flash";
   }
 
-  async generateResponse(
-    messages: Message[],
-    responseFormat?: { type: string },
-    tools?: any[],
-  ): Promise<string | LLMResponse> {
-    const contents = messages.map((msg) => ({
+  private formatContents(messages: Message[]) {
+    return messages.map((msg) => ({
       parts: [
         {
           text:
@@ -27,6 +23,14 @@ export class GoogleLLM implements LLM {
       ],
       role: msg.role === "system" ? "model" : "user",
     }));
+  }
+
+  async generateResponse(
+    messages: Message[],
+    responseFormat?: { type: string },
+    tools?: any[],
+  ): Promise<string | LLMResponse> {
+    const contents = this.formatContents(messages);
 
     // Build config with tools if provided
     const config: Record<string, any> = {};
@@ -69,13 +73,18 @@ export class GoogleLLM implements LLM {
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     const completion = await this.google.models.generateContent({
-      contents: messages,
+      contents: this.formatContents(messages),
       model: this.model,
     });
-    const response = completion.candidates![0].content;
+    const response = completion.candidates?.[0]?.content;
+    const content =
+      response?.parts?.map((part) => part.text || "").join("") ||
+      completion.text ||
+      "";
+
     return {
-      content: response!.parts![0].text || "",
-      role: response!.role!,
+      content,
+      role: response?.role || "assistant",
     };
   }
 }

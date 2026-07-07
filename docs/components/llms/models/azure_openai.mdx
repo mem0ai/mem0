@@ -5,7 +5,7 @@ description: "Configure Azure OpenAI as an LLM provider in Mem0 with Azure Ident
 
 <Note> Mem0 Now Supports Azure OpenAI Models in TypeScript SDK </Note>
 
-To use Azure OpenAI models, you have to set the `LLM_AZURE_OPENAI_API_KEY`, `LLM_AZURE_ENDPOINT`, `LLM_AZURE_DEPLOYMENT` and `LLM_AZURE_API_VERSION` environment variables. You can obtain the Azure API key from the [Azure](https://azure.microsoft.com/).
+To use Azure OpenAI models, you have to set the `LLM_AZURE_OPENAI_API_KEY`, `LLM_AZURE_ENDPOINT`, `LLM_AZURE_DEPLOYMENT` and `LLM_AZURE_API_VERSION` environment variables. You can obtain the Azure API key from the [Azure Portal](https://azure.microsoft.com/).
 
 Optionally, you can use Azure Identity to authenticate with Azure OpenAI, which allows you to use managed identities or service principals for production and Azure CLI login for development instead of an API key. If an Azure Identity is to be used, ***do not*** set the `LLM_AZURE_OPENAI_API_KEY` environment variable or the api_key in the config dictionary.
 
