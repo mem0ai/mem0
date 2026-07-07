@@ -9,9 +9,8 @@ description: "Use MongoDB as a vector database in Mem0 with built-in vector sear
 
 ## Usage
 
-### Python
-
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -51,9 +50,7 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
-### TypeScript
-
-```typescript
+```typescript TypeScript
 import { Memory } from "mem0ai/oss";
 
 const config = {
@@ -96,6 +93,7 @@ await memory.add(messages, {
   },
 });
 ```
+</CodeGroup>
 
 ## Config
 
@@ -108,6 +106,6 @@ Here are the parameters available for configuring MongoDB:
 | embedding_model_dims | embeddingModelDims | Dimensions of the embedding vectors | 1536 |
 | mongo_uri | url | The MongoDB URI connection string | mongodb://localhost:27017 |
 
-> **Note**: If `mongo_uri` (Python) or `url` (TypeScript) is not provided, it defaults to `mongodb://localhost:27017`. A local instance must be running MongoDB v8.2+ for vector search to work (see the version requirement above).
+> **Note**: If `mongo_uri` (Python) or `url` (TypeScript) is not provided, it defaults to `mongodb://localhost:27017`. A local instance must be running MongoDB v8.2+ for vector search to work.
 
 > **Note**: The vector search index builds asynchronously after the first write. A search issued right after the first `add()` may return no results (and log an "index not initialized" message) until the index finishes building. This takes a few seconds on a local deployment and up to about a minute on Atlas. This is expected; the search returns results once the index is ready.
