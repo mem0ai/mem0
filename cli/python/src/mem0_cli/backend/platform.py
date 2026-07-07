@@ -12,7 +12,7 @@ from mem0_cli.backend.base import Backend
 from mem0_cli.config import PlatformConfig
 
 
-def _encode_path_segment(value: str) -> str:
+def _encode_path_segment(value: Any) -> str:
     return quote(str(value), safe="")
 
 
