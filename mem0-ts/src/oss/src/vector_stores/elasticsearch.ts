@@ -20,6 +20,26 @@ interface ElasticsearchConfig extends VectorStoreConfig {
   headers?: Record<string, string>;
 }
 
+const SAFE_FILTER_KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+// Mirrors the Python provider's _validate_filter. Filter keys are interpolated
+// into `metadata.${key}` field paths, so reject anything that is not a plain
+// identifier and reject non-scalar values before they reach the query.
+function validateFilter(key: string, value: unknown): void {
+  if (typeof key !== "string" || !SAFE_FILTER_KEY.test(key)) {
+    throw new Error(`Invalid filter key: ${JSON.stringify(key)}`);
+  }
+  if (
+    typeof value !== "string" &&
+    typeof value !== "number" &&
+    typeof value !== "boolean"
+  ) {
+    throw new Error(
+      `Filter value for ${JSON.stringify(key)} must be string, number, or boolean`,
+    );
+  }
+}
+
 export class ElasticsearchDB implements VectorStore {
   private client: Client;
   private readonly collectionName: string;
@@ -155,15 +175,16 @@ export class ElasticsearchDB implements VectorStore {
     };
 
     if (filters && Object.keys(filters).length > 0) {
-      const filterConditions = Object.entries(filters).map(([key, value]) => ({
-        term: { [`metadata.${key}`]: value },
-      }));
+      const filterConditions = Object.entries(filters).map(([key, value]) => {
+        validateFilter(key, value);
+        return { term: { [`metadata.${key}`]: value } };
+      });
       searchBody.knn.filter = { bool: { must: filterConditions } };
     }
 
     const response = await this.client.search({
       index: this.collectionName,
-      body: searchBody,
+      ...searchBody,
     });
 
     return response.hits.hits.map((hit: any) => ({
@@ -223,9 +244,10 @@ export class ElasticsearchDB implements VectorStore {
     const query: Record<string, any> = { query: { match_all: {} } };
 
     if (filters && Object.keys(filters).length > 0) {
-      const filterConditions = Object.entries(filters).map(([key, value]) => ({
-        term: { [`metadata.${key}`]: value },
-      }));
+      const filterConditions = Object.entries(filters).map(([key, value]) => {
+        validateFilter(key, value);
+        return { term: { [`metadata.${key}`]: value } };
+      });
       query.query = { bool: { must: filterConditions } };
     }
 
@@ -233,7 +255,7 @@ export class ElasticsearchDB implements VectorStore {
 
     const response = await this.client.search({
       index: this.collectionName,
-      body: query,
+      ...query,
     });
 
     const results = response.hits.hits.map((hit: any) => ({
@@ -256,7 +278,8 @@ export class ElasticsearchDB implements VectorStore {
     try {
       const response = await this.client.search({
         index: "memory_migrations",
-        body: { query: { match_all: {} }, size: 1 },
+        query: { match_all: {} },
+        size: 1,
       });
 
       if (response.hits.hits.length > 0) {
@@ -271,7 +294,7 @@ export class ElasticsearchDB implements VectorStore {
       await this.client.index({
         index: "memory_migrations",
         id: this.generateUUID(),
-        body: { vector: [0], metadata: { user_id: randomUserId } },
+        document: { vector: [0], metadata: { user_id: randomUserId } },
       });
 
       return randomUserId;
@@ -285,7 +308,8 @@ export class ElasticsearchDB implements VectorStore {
     try {
       const response = await this.client.search({
         index: "memory_migrations",
-        body: { query: { match_all: {} }, size: 1 },
+        query: { match_all: {} },
+        size: 1,
       });
 
       const docId =
@@ -296,7 +320,7 @@ export class ElasticsearchDB implements VectorStore {
       await this.client.index({
         index: "memory_migrations",
         id: docId,
-        body: { vector: [0], metadata: { user_id: userId } },
+        document: { vector: [0], metadata: { user_id: userId } },
       });
     } catch (error) {
       console.error("Error setting user ID:", error);

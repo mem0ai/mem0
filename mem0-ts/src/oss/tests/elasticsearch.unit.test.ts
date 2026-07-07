@@ -264,13 +264,11 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "mem0",
-        body: {
-          knn: {
-            field: "vector",
-            query_vector: [0.1, 0.2, 0.3, 0.4],
-            k: 3,
-            num_candidates: 6,
-          },
+        knn: {
+          field: "vector",
+          query_vector: [0.1, 0.2, 0.3, 0.4],
+          k: 3,
+          num_candidates: 6,
         },
       });
       expect(results).toEqual([
@@ -292,23 +290,37 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "mem0",
-        body: {
-          knn: {
-            field: "vector",
-            query_vector: [0.1, 0.2, 0.3, 0.4],
-            k: 5,
-            num_candidates: 10,
-            filter: {
-              bool: {
-                must: [
-                  { term: { "metadata.user_id": "u1" } },
-                  { term: { "metadata.agent_id": "a1" } },
-                ],
-              },
+        knn: {
+          field: "vector",
+          query_vector: [0.1, 0.2, 0.3, 0.4],
+          k: 5,
+          num_candidates: 10,
+          filter: {
+            bool: {
+              must: [
+                { term: { "metadata.user_id": "u1" } },
+                { term: { "metadata.agent_id": "a1" } },
+              ],
             },
           },
         },
       });
+    });
+
+    it("rejects filter keys and values that are not safe scalars", async () => {
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      await expect(
+        store.search([0.1, 0.2, 0.3, 0.4], 5, { "bad.key": "x" }),
+      ).rejects.toThrow(/Invalid filter key/);
+      await expect(
+        store.search([0.1, 0.2, 0.3, 0.4], 5, { user_id: { $ne: null } }),
+      ).rejects.toThrow(/must be string, number, or boolean/);
+      expect(mockSearch).not.toHaveBeenCalled();
     });
   });
 
@@ -407,7 +419,8 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "mem0",
-        body: { query: { match_all: {} }, size: 100 },
+        query: { match_all: {} },
+        size: 100,
       });
       expect(results).toHaveLength(2);
       expect(count).toBe(2);
@@ -424,10 +437,8 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "mem0",
-        body: {
-          query: { bool: { must: [{ term: { "metadata.user_id": "u1" } }] } },
-          size: 10,
-        },
+        query: { bool: { must: [{ term: { "metadata.user_id": "u1" } }] } },
+        size: 10,
       });
     });
   });
@@ -446,12 +457,13 @@ describe("ElasticsearchDB", () => {
 
       expect(mockSearch).toHaveBeenCalledWith({
         index: "memory_migrations",
-        body: { query: { match_all: {} }, size: 1 },
+        query: { match_all: {} },
+        size: 1,
       });
       expect(mockIndex_).toHaveBeenCalledWith(
         expect.objectContaining({
           index: "memory_migrations",
-          body: expect.objectContaining({
+          document: expect.objectContaining({
             vector: [0],
             metadata: { user_id: expect.any(String) },
           }),
@@ -494,7 +506,7 @@ describe("ElasticsearchDB", () => {
       expect(mockIndex_).toHaveBeenCalledWith(
         expect.objectContaining({
           index: "memory_migrations",
-          body: { vector: [0], metadata: { user_id: "custom-user" } },
+          document: { vector: [0], metadata: { user_id: "custom-user" } },
         }),
       );
     });
