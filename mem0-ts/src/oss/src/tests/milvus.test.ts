@@ -111,8 +111,8 @@ describe("Milvus vector store (TS OSS SDK)", () => {
       (f: any) => f.name === "vectors",
     );
     expect(vectorField.dim).toBe(3);
-    // AUTOINDEX dense index with the configured (default COSINE) metric.
-    expect(created!.args.index_params[0].metric_type).toBe("COSINE");
+    // AUTOINDEX dense index with the default metric (L2, matching the Python provider).
+    expect(created!.args.index_params[0].metric_type).toBe("L2");
   });
 
   it("does not recreate an existing collection", async () => {
@@ -170,7 +170,8 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     client.searchResponse = {
       results: [{ id: "a", score: 0.9, metadata: { data: "first" } }],
     };
-    const store = makeStore(client);
+    // Pin a non-L2 metric so the raw score passes through unnormalised.
+    const store = makeStore(client, { metricType: "COSINE" });
     await store.initialize();
 
     const res = await store.search([0.1, 0.2, 0.3], 5, {
@@ -212,6 +213,26 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     expect(queryCall.args.filter).toBe('(metadata["data"] == "a\\"b")');
   });
 
+  it("escapes backslashes in string filter values", async () => {
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    const store = makeStore(client);
+    await store.initialize();
+    // Value is a\b (one backslash); it must be doubled so the expression
+    // stays well-formed and the backslash can't escape the closing quote.
+    await store.list({ data: "a\\b" });
+    const queryCall = client.calls.filter((c) => c.method === "query").pop()!;
+    expect(queryCall.args.filter).toBe('(metadata["data"] == "a\\\\b")');
+  });
+
+  it("rejects filter keys that are not safe identifiers", async () => {
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    const store = makeStore(client);
+    await store.initialize();
+    await expect(
+      store.list({ 'x"] or true or ["y': "z" } as any),
+    ).rejects.toThrow(/Invalid filter key/);
+  });
+
   it("lists records and returns the count", async () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     const store = makeStore(client);
@@ -251,6 +272,24 @@ describe("Milvus vector store (TS OSS SDK)", () => {
 
     const readBack = await store.getUserId();
     expect(readBack).toBe(created);
+  });
+
+  it("setUserId overwrites in place instead of appending rows", async () => {
+    const client = new FakeMilvusClient();
+    const store = makeStore(client);
+    await store.initialize();
+
+    await store.setUserId("user-1");
+    await store.setUserId("user-2");
+
+    // A fresh insert per call would leave two rows; the reuse-id upsert keeps one.
+    const all = await client.query({
+      collection_name: "memory_migrations",
+      limit: 100,
+    });
+    expect(all.data).toHaveLength(1);
+    expect(all.data[0].user_id).toBe("user-2");
+    expect(await store.getUserId()).toBe("user-2");
   });
 
   it("keywordSearch returns null (BM25 not implemented in TS provider)", async () => {

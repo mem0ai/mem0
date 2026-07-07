@@ -22,7 +22,7 @@ export interface MilvusConfig extends VectorStoreConfig {
   /** Embedding dimensionality. Defaults to 1536 (OpenAI). */
   embeddingModelDims?: number;
   dimension?: number;
-  /** Similarity metric. Defaults to `COSINE`. */
+  /** Similarity metric. Defaults to `L2` (matches the Python provider). */
   metricType?: MilvusMetricType;
   /**
    * Pre-constructed `MilvusClient` instance. When provided, `url`/`token`/`dbName`
@@ -36,7 +36,7 @@ export interface MilvusConfig extends VectorStoreConfig {
  *
  * Mirrors the Python provider in `mem0/vector_stores/milvus.py`, scoped to the
  * dense-vector CRUD surface the TS `VectorStore` interface requires
- * (insert / search / get / update / delete / list / reset + user-id helpers).
+ * (insert / search / get / update / delete / list + user-id helpers).
  *
  * The `@zilliz/milvus2-sdk-node` dependency is lazily required so the package
  * remains optional — importing this module never forces the SDK to be installed
@@ -54,7 +54,7 @@ export class Milvus implements VectorStore {
   constructor(config: MilvusConfig) {
     this.collectionName = config.collectionName || "mem0";
     this.dimension = config.embeddingModelDims || config.dimension || 1536;
-    this.metricType = config.metricType || "COSINE";
+    this.metricType = config.metricType || "L2";
 
     if (config.client) {
       this.client = config.client;
@@ -153,20 +153,36 @@ export class Milvus implements VectorStore {
   }
 
   /**
+   * Filter keys are interpolated straight into the expression, so restrict them
+   * to safe identifiers (same rule as the Python provider) to block injection.
+   */
+  private static readonly SAFE_FILTER_KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+  /**
    * Build a Milvus boolean filter expression from a flat filters object.
-   * Mirrors the Python `_create_filter` (equality only, AND-combined).
+   * Mirrors the Python `_create_filter` (equality only, AND-combined): validate
+   * each key, escape string values (backslash first, then double-quote), and
+   * reject value types Milvus can't compare against a scalar field.
    */
   private createFilter(filters?: SearchFilters): string | undefined {
     if (!filters || Object.keys(filters).length === 0) return undefined;
     const operands: string[] = [];
     for (const [key, value] of Object.entries(filters)) {
       if (value === undefined || value === null) continue;
+      if (!Milvus.SAFE_FILTER_KEY.test(key)) {
+        throw new Error(`Invalid filter key: ${JSON.stringify(key)}`);
+      }
       if (typeof value === "string") {
-        // Escape embedded double quotes to keep the expression well-formed.
-        const escaped = value.replace(/"/g, '\\"');
+        // Escape backslashes before quotes so a value can't break out of the
+        // string literal (order matters, exactly as in the Python provider).
+        const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
         operands.push(`(metadata["${key}"] == "${escaped}")`);
-      } else {
+      } else if (typeof value === "number" || typeof value === "boolean") {
         operands.push(`(metadata["${key}"] == ${value})`);
+      } else {
+        throw new Error(
+          `Filter value for ${JSON.stringify(key)} must be a string, number, or boolean, got ${typeof value}`,
+        );
       }
     }
     return operands.length > 0 ? operands.join(" and ") : undefined;
@@ -311,7 +327,9 @@ export class Milvus implements VectorStore {
         {
           field_name: "vectors",
           index_type: "AUTOINDEX",
-          metric_type: this.metricType,
+          // Fixed metric: this helper collection is never vector-searched, and a
+          // zero vector has no direction, so COSINE would be degenerate here.
+          metric_type: "L2",
           index_name: "vector_index",
         },
       ],
@@ -343,9 +361,21 @@ export class Milvus implements VectorStore {
 
   async setUserId(userId: string): Promise<void> {
     await this.ensureMigrationsCol();
-    await this.client.insert({
+    // Keep a single row: reuse the existing row's id when present so the upsert
+    // overwrites it in place instead of appending a new row on every call
+    // (mirrors the qdrant provider's single-row telemetry id).
+    const existing = await this.client.query({
       collection_name: "memory_migrations",
-      data: [{ id: this.generateUUID(), vectors: [0], user_id: userId }],
+      filter: "",
+      limit: 1,
+      output_fields: ["id"],
+    });
+    const rows = existing?.data || [];
+    const id =
+      rows.length > 0 && rows[0].id ? String(rows[0].id) : this.generateUUID();
+    await this.client.upsert({
+      collection_name: "memory_migrations",
+      data: [{ id, vectors: [0], user_id: userId }],
     });
   }
 }
