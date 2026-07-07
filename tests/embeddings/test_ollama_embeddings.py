@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -94,3 +96,32 @@ def test_embed_batch_count_mismatch_raises(mock_ollama_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_missing_ollama_raises_import_error_without_prompting():
+    """Missing the optional 'ollama' dependency must raise ImportError, not
+    block on input() or kill the process with sys.exit().
+
+    Regression test for https://github.com/mem0ai/mem0/issues/6118: input()
+    hangs any non-interactive host (pytest, a FastAPI server), and sys.exit(1)
+    takes the whole process down instead of letting the caller handle it.
+
+    Runs the import in a fresh subprocess (rather than reloading the module
+    in-process) so a real missing dependency is simulated without leaving
+    mem0.embeddings.ollama's classes in an inconsistent state for other tests.
+    """
+    code = "import sys; sys.modules['ollama'] = None; import mem0.embeddings.ollama"
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        stdin=subprocess.DEVNULL,
+    )
+    assert result.returncode != 0
+    # EOFError would mean input() was actually invoked (stdin is closed);
+    # SystemExit would mean sys.exit() ran. Neither should appear.
+    assert "EOFError" not in result.stderr
+    assert "SystemExit" not in result.stderr
+    assert "ImportError" in result.stderr
+    assert "pip install ollama" in result.stderr

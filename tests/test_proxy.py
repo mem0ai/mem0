@@ -1,4 +1,6 @@
 import inspect
+import subprocess
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -34,6 +36,32 @@ def mock_openai_llm_client():
 def mock_litellm():
     with patch("mem0.proxy.main.litellm") as mock:
         yield mock
+
+
+def test_missing_litellm_raises_import_error_without_exiting():
+    """Missing the optional 'litellm' dependency must raise ImportError, not
+    silently pip-install it or kill the process with sys.exit().
+
+    Regression test for https://github.com/mem0ai/mem0/issues/6118: sys.exit(1)
+    takes down the whole host process (e.g. a FastAPI server) instead of
+    letting the caller handle a missing optional dependency.
+
+    Runs the import in a fresh subprocess (rather than reloading the module
+    in-process) so a real missing dependency is simulated without leaving
+    mem0.proxy.main's classes in an inconsistent state for other tests.
+    """
+    code = "import sys; sys.modules['litellm'] = None; import mem0.proxy.main"
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        stdin=subprocess.DEVNULL,
+    )
+    assert result.returncode != 0
+    assert "SystemExit" not in result.stderr
+    assert "ImportError" in result.stderr
+    assert "pip install litellm" in result.stderr
 
 
 def test_mem0_initialization_with_api_key(mock_openai_embedding_client, mock_openai_llm_client):
