@@ -188,11 +188,16 @@ memory = Memory()
 memory.delete(memory_id="mem_123")
 memory.delete_all(user_id="alice")
 ```
-</CodeGroup>
 
-<Note>
-  The OSS JavaScript SDK does not yet expose deletion helpers: use the REST API or Python SDK when self-hosting.
-</Note>
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory();
+
+await memory.delete("mem_123");
+await memory.deleteAll({ userId: "alice" });
+```
+</CodeGroup>
 
 ## Use cases recap
 
