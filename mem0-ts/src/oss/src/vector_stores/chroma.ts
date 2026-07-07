@@ -6,7 +6,7 @@ const MIGRATIONS_COLLECTION = "__mem0_migrations__";
 const MIGRATIONS_RECORD_ID = "mem0-user-id";
 
 interface ChromaDBConfig extends VectorStoreConfig {
-  collectionName: string;
+  collectionName?: string;
   client?: ChromaClientType;
   host?: string;
   port?: number;
@@ -55,7 +55,7 @@ export class ChromaDB implements VectorStore {
       });
     }
 
-    this.collectionName = config.collectionName;
+    this.collectionName = config.collectionName || "memories";
     this.dimension = config.embeddingModelDims || config.dimension || 1536;
     this.initialize().catch(console.error);
   }

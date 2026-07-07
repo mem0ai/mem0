@@ -110,6 +110,16 @@ describe("ChromaDB", () => {
     });
   });
 
+  it("defaults the collection name when omitted", async () => {
+    const db = new ChromaDB({ dimension: 4 } as any);
+    await db.initialize();
+
+    expect(__mocks__.getOrCreateCollection).toHaveBeenCalledWith({
+      name: "memories",
+      embeddingFunction: null,
+    });
+  });
+
   it("uses CloudClient when apiKey is configured", async () => {
     await initDb({ apiKey: "chroma-key", tenant: "tenant-a" });
 
