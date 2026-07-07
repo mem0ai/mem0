@@ -34,7 +34,7 @@ describe("TogetherLLM (unit)", () => {
 
     expect(capturedConstructorArgs).toMatchObject({
       apiKey: "test-key",
-      baseURL: "https://api.together.xyz/v1",
+      baseURL: "https://api.together.ai/v1",
     });
   });
 
@@ -86,7 +86,7 @@ describe("TogetherLLM (unit)", () => {
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        model: "MiniMaxAI/MiniMax-M3",
       }),
     );
     expect(result).toBe("Hello from Together");

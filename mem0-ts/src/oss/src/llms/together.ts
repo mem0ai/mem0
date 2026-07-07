@@ -14,8 +14,8 @@ export class TogetherLLM extends OpenAILLM {
       baseURL:
         config.baseURL ||
         process.env.TOGETHER_API_BASE ||
-        "https://api.together.xyz/v1",
-      model: config.model || "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "https://api.together.ai/v1",
+      model: config.model || "MiniMaxAI/MiniMax-M3",
     });
   }
 
