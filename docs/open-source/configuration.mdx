@@ -97,6 +97,34 @@ export COHERE_API_KEY="..."   # Python reranker only
   The TypeScript OSS SDK configures the LLM, embedder, vector store, and history store. Reranker and graph memory are Python-only today.
 </Note>
 
+## History store lifecycle
+
+The history store is separate from the vector store. It records add, update, and delete events so you can audit changes with `memory.history(memory_id=...)`.
+
+| Setting | Python | TypeScript |
+| --- | --- | --- |
+| Default path | `~/.mem0/history.db` | `~/.mem0/history.db` |
+| Override | `history_db_path` in config | `historyStore.config.historyDbPath` |
+| Base directory | Set `MEM0_DIR` to relocate all default Mem0 files | Same |
+
+<CodeGroup>
+```python Python
+config = {
+    "history_db_path": "/var/mem0/history.db",
+    "vector_store": {"provider": "qdrant", "config": {"host": "localhost", "port": 6333}},
+}
+memory = Memory.from_config(config)
+```
+
+```ts Node.js
+const memory = new Memory({
+  historyStore: { provider: "sqlite", config: { historyDbPath: "/var/mem0/history.db" } },
+});
+```
+</CodeGroup>
+
+The SQLite file is created on first use. Removing the file clears the audit trail only—it does **not** delete vectors. Use `delete` or `delete_all` to purge stored memories.
+
 Prefer a config file? Load YAML into Python's `from_config`:
 
 ```python
