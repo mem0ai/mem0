@@ -192,17 +192,23 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(content, list):
-            if llm is None:
+            has_image = any(
+                isinstance(part, dict) and part.get("type") == "image_url" for part in content
+            )
+            # Only route to the vision LLM when an image is actually present; a
+            # text-only list would otherwise be sent to the vision model
+            # (prompted to describe an image), discarding the real text.
+            if llm is not None and has_image:
+                description = get_image_description(msg, llm, vision_details)
+                returned_messages.append({"role": role, "content": description})
+            else:
                 text_parts = [
-                    part["text"] for part in msg["content"]
+                    part["text"] for part in content
                     if isinstance(part, dict) and part.get("type") == "text"
                 ]
                 if not text_parts:
                     continue
                 returned_messages.append({"role": role, "content": " ".join(text_parts)})
-            else:
-                description = get_image_description(msg, llm, vision_details)
-                returned_messages.append({"role": role, "content": description})
         elif isinstance(content, dict) and content.get("type") == "image_url":
             if llm is None:
                 continue
