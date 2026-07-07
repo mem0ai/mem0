@@ -4,16 +4,121 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-06-27" description="SDK memory expiration">
+
+**SDK Memory Expiration: Expiring Memories Across Python and TypeScript**
+
+The latest SDK releases add first-class expiration controls to memory writes, updates, and reads, plus new TypeScript provider coverage for production deployments.
+
+- **Python client updates:** `MemoryClient.update()` and `AsyncMemoryClient.update()` now accept `expiration_date`, including `None` to clear an existing expiration.
+- **TypeScript client updates:** `AddMemoryOptions`, `update()`, and `Memory` now support `expirationDate`; `search()` and `getAll()` can include expired memories with `showExpired`.
+- **New TypeScript LLM providers:** `MiniMaxLLM` and `LiteLLM` are now available for OpenAI-compatible MiniMax and LiteLLM proxy deployments.
+- **PGVector deployment flexibility:** TypeScript PGVector config now supports `connectionString` and `ssl`, so apps can use a managed Postgres URI instead of separate connection fields.
+
+See [SDK & Tools](/changelog/sdk) for version details and PR links.
+
+</Update>
+
+<Update label="2026-06-25" description="Mem0 Plugin v0.2.11">
+
+**Mem0 Plugin: Shared Memory for Claude Code, Cursor, Codex, and Antigravity**
+
+The shared Mem0 editor plugin is current through v0.2.11:
+
+- **Automatic context injection:** File reads, bash errors, session resume prompts, and startup timelines can retrieve relevant memories automatically.
+- **Project and global scopes:** Project-scoped memories remain the default, while `global_search` supports team-wide recall across users and app scopes.
+- **Coding categories:** A 17-category coding taxonomy installs in the background and is cached per Mem0 account.
+- **Reliable capture:** Auto-capture, compaction summaries, session summaries, and metadata defaults keep memories scoped and readable.
+- **Editor correctness:** Telemetry now reports Claude Code, Cursor, Codex, and Antigravity separately with each editor's real plugin version.
+
+</Update>
+
+<Update label="2026-06-25" description="Antigravity Plugin v0.1.3">
+
+**Antigravity Plugin: Mem0 for Google Antigravity**
+
+Antigravity support in the shared Mem0 editor plugin family is current through v0.1.3:
+
+- **Self-contained plugin:** Includes its own plugin manifest, MCP config, hooks, shared scripts, and skills.
+- **AGENTS.md convention:** Uses Antigravity's `contextFileName: "AGENTS.md"` convention.
+- **Lifecycle hooks:** Wires session start, prompt recall, file-read context, memory-tool metadata enforcement, bash-error lookup, post-tool tracking, and stop summaries.
+- **Shared memory layer:** Reuses the Mem0 Platform MCP tools and the shared 16-skill command bundle.
+- **Better automatic recall:** v0.1.3 adds reranked injected context and clean `files_touched` metadata in session summaries.
+- **Telemetry correctness:** v0.1.2 reports Antigravity as `antigravity` with the plugin's own version.
+
+</Update>
+
+<Update label="2026-06-22" description="OpenCode Plugin v0.2.0">
+
+**OpenCode Plugin: Native SDK Memory Tools for OpenCode**
+
+`@mem0/opencode-plugin` adds memory to OpenCode and is current through v0.2.0:
+
+- **Native SDK tools:** Memory tools register through `@opencode-ai/plugin` and call the `mem0ai` SDK directly, so the plugin no longer depends on `mcp.mem0.ai`.
+- **Memory scopes:** Operations support `project`, `session`, and `global` scope, with `/mem0-scope` to change the default.
+- **Automatic context:** File-context injection, structured compaction summaries, and a recent-activity timeline surface relevant memories without manual recall.
+- **Auto-dream consolidation:** Gated consolidation merges duplicates, drops stale or sensitive entries, and rewrites vague memories.
+- **Skills load in place:** The `config` hook adds bundled skills to `skills.paths` instead of copying them into user config directories.
+- **Safety controls:** Blocks `MEMORY.md` writes and redacts secrets before storing memories.
+
+</Update>
+
+<Update label="2026-06-12" description="Pi Agent Plugin v0.1.2">
+
+**Pi Agent Plugin: Persistent Memory for Pi Agent**
+
+`@mem0/pi-agent-plugin` adds semantic memory to Pi Agent and has been updated through v0.1.2:
+
+- **Agent memory tool:** Registers `mem0_memory` for scoped search, add, get, delete, and delete-all operations.
+- **Slash commands:** Adds `/mem0-remember`, `/mem0-search`, `/mem0-forget`, `/mem0-tour`, `/mem0-dream`, `/mem0-pin`, `/mem0-scope`, and `/mem0-status`.
+- **Auto-capture:** Stores user and assistant memories after agent turns.
+- **Dream consolidation:** Merges duplicates, resolves contradictions, and prunes stale memories behind session, time, and memory-count gates.
+- **Project scoping:** Uses git-root detection for stable `app_id` values across monorepos.
+- **Relevant command results:** v0.1.2 adds visible command feedback and thresholded, reranked search for search, forget, and pin commands.
+
+</Update>
+
+<Update label="2026-06-12" description="OpenClaw v1.0.13">
+
+**OpenClaw Plugin: Current Memory Backend for OpenClaw**
+
+`@mem0/openclaw-mem0` is current through v1.0.13, with the original production-ready memory backend plus newer setup, security, and runtime work:
+
+- **Skills-based memory architecture:** Triage, recall, and dream skills handle extraction, recall, consolidation, and tool guidance.
+- **Chat and CLI setup:** Supports chat-based platform setup, `openclaw mem0 init`, direct API keys, email OTP, autonomous agent setup, and OSS onboarding.
+- **Platform and OSS modes:** Works with Mem0 Platform or self-hosted OSS providers including OpenAI, Anthropic, Ollama, Qdrant, and PGVector.
+- **Agent-friendly CLI:** All 16 CLI commands support `--json` for machine-driven setup and diagnostics.
+- **Runtime integration:** Exposes OpenClaw memory capability APIs for search manager and backend config status.
+- **Security and compliance:** Added path containment checks, sensitive config metadata, dependency overrides, telemetry hashing, and metadata-only registration safety.
+
+</Update>
+
+<Update label="2026-06-10" description="Vercel AI SDK Provider v3.0.0">
+
+**Vercel AI SDK Provider: Memory-Augmented Generation for AI SDK v6**
+
+The Vercel AI SDK provider moved to the v6 provider contract and Mem0 v3 APIs:
+
+- **AI SDK v6 support:** Migrated to `LanguageModelV3` / `ProviderV3`, including v3 stream lifecycle events and content arrays.
+- **Mem0 v3 API support:** Memory writes and searches now use `/v3/memories/add/` and `/v3/memories/search/`.
+- **Mem0 sources in responses:** `generateText` and `streamText` responses include memories as sources with `providerMetadata.mem0.memories`.
+- **Safer prompt handling:** Prompts are cloned before memory injection, avoiding caller-side mutation.
+- **Async storage fix:** `addMemories` is awaited so generated memories are not silently dropped.
+- **Raw memory utilities:** Exports `searchMemories`, `retrieveMemories`, `getMemories`, and `addMemories` for apps that need direct memory control.
+- **Deployment controls:** Per-request `mem0ApiKey` and `host` support Mem0 Platform, custom API keys, and self-hosted API endpoints.
+
+</Update>
+
 <Update label="2026-05-13" description="Temporal Reasoning for Mem0 Platform v3">
 
-**Temporal Reasoning — Time-Aware Retrieval for Platform v3**
+**Temporal Reasoning: Time-Aware Retrieval for Platform v3**
 
 Mem0 Platform v3 can now interpret time-aware memories and queries so assistants retrieve the right information for questions about the past, upcoming plans, and current state.
 
-- **Time-aware search intent** — Queries like `last week`, `upcoming`, `right now`, and `as of March 2025` return contextually appropriate results automatically
-- **Enabled by default** — No per-request toggle required for v3 writes or searches
-- **Anchored relative queries** — `reference_date` anchors relative search phrases for tests, backfills, and reproducible demos
-- **Normal response shape** — Temporal reasoning affects ranking while preserving existing client response patterns
+- **Search intent parsing:** Queries like `last week`, `upcoming`, `right now`, and `as of March 2025` now resolve against memory timestamps automatically.
+- **Default v3 behavior:** No per-request toggle is needed for v3 writes or searches.
+- **Deterministic testing:** Pass `reference_date` to anchor relative phrases in tests, backfills, and demos.
+- **Stable API shape:** Temporal reasoning changes ranking, not the client response contract.
 
 See [Temporal Reasoning](/platform/features/temporal-reasoning) for usage details.
 
@@ -21,11 +126,11 @@ See [Temporal Reasoning](/platform/features/temporal-reasoning) for usage detail
 
 <Update label="2026-05-08" description="Memory Decay">
 
-**Memory Decay — Recently-Used Memories Surface Higher, Automatically**
+**Memory Decay: Recently-Used Memories Surface Higher**
 
 Per-project search-time ranking bias that boosts recently-touched memories and gently dampens stale ones. Off by default; opt in per project via the `decay` field on the project endpoint, or via `client.project.update(decay=True)` in the SDKs (Python `v2.0.2` / TypeScript `v3.0.3`).
 
-- **Soft bias, never a filter.** The scaling factor stays in `0.3×–1.5×`. Decay can reorder candidates but never zeros them out — anything that surfaced before decay can still surface after.
+- **Soft bias, never a filter.** The scaling factor stays in `0.3×–1.5×`. Decay can reorder candidates but never removes them; anything that surfaced before decay can still surface after.
 - **Reinforcement loop.** Every memory returned in a search has its access history updated, so frequently-used facts naturally float to the top over time.
 - **Public score still clamped to `[0, 1]`.** Existing API contract preserved; no client-side changes needed.
 - **v3 search only**, fully reversible. See [Memory Decay docs](/platform/features/memory-decay).
@@ -34,18 +139,18 @@ Per-project search-time ranking bias that boosts recently-touched memories and g
 
 <Update label="2026-04-14" description="Mem0 SDK v2.0.0 / v3.0.0">
 
-**New Memory Algorithm — State-of-the-Art Accuracy at ~3-4x Lower Cost**
+**New Memory Algorithm: State-of-the-Art Accuracy at ~3-4x Lower Cost**
 
 Ground-up rewrite of the memory pipeline with 20+ point benchmark improvements:
 
-- **LoCoMo:** 71.4 → **91.6** (+20) — multi-turn conversation recall
-- **LongMemEval:** 67.8 → **93.4** (+26) — long-term memory across sessions
-- **BEAM (1M tokens):** **64.1** — production-scale memory evaluation
-- **Agent memories are first-class** — Previous algorithm: 46% on assistant recall. New: **100%**
-- **Temporal reasoning works** — "Where did I live before SF?" Previous: 51%. New: **93%**
-- **~3-4x fewer tokens** — Under 7K tokens per retrieval vs 25K+ for full-context approaches
-- **ADD-only extraction** — Memories accumulate; nothing is overwritten or deleted
-- **Hybrid retrieval** — Semantic + BM25 keyword + entity boost, scored in parallel
+- **LoCoMo:** 71.4 → **91.6** (+20) for multi-turn conversation recall.
+- **LongMemEval:** 67.8 → **93.4** (+26) for long-term memory across sessions.
+- **BEAM (1M tokens):** **64.1** on production-scale memory evaluation.
+- **Agent memories:** Assistant recall moves from 46% to **100%**.
+- **Temporal reasoning:** "Where did I live before SF?" improves from 51% to **93%**.
+- **Lower token use:** Retrieval stays under 7K tokens versus 25K+ for full-context approaches.
+- **ADD-only extraction:** Memories accumulate; nothing is overwritten or deleted.
+- **Hybrid retrieval:** Semantic search, BM25 keyword search, and entity boost are scored in parallel.
 - **Graph memory (built-in)**: entities extracted, embedded, and linked across memories, with no external graph store required
 
 Breaking changes: external graph stores removed from OSS (replaced by built-in graph memory), `search()` defaults changed, deprecated params removed. See [migration guide](/migration/oss-v2-to-v3).
@@ -54,56 +159,28 @@ Breaking changes: external graph stores removed from OSS (replaced by built-in g
 
 <Update label="2026-04-06" description="Mem0 Skill Graph">
 
-**Mem0 Skill Graph — In-Context Documentation for AI Agents**
+**Mem0 Skill Graph: In-Context Documentation for AI Agents**
 
-AI coding agents in Claude Code, Cursor, and Codex can now access Mem0 knowledge directly in their workflow — no doc searching required. Three interconnected skills launched:
+AI coding agents in Claude Code, Cursor, and Codex can now access Mem0 knowledge directly in their workflow without leaving the editor. Three interconnected skills launched:
 
-- **mem0 Core Skill** — Complete Python and TypeScript SDK reference, REST API patterns, and integration guides for LangChain, CrewAI, Autogen, and more
-- **mem0-cli Skill** — Terminal command reference, configuration walkthroughs, and CI/CD recipes
-- **mem0-vercel-ai-sdk Skill** — Vercel AI SDK provider API, memory-augmented generation patterns, and multi-provider setup
+- **mem0 Core Skill:** Python and TypeScript SDK reference, REST API patterns, and integration guides for LangChain, CrewAI, Autogen, and more.
+- **mem0-cli Skill:** Terminal command reference, configuration walkthroughs, and CI/CD recipes.
+- **mem0-vercel-ai-sdk Skill:** Vercel AI SDK provider API, memory-augmented generation patterns, and multi-provider setup.
 
 </Update>
 
 <Update label="2026-04-06" description="Mem0 CLI v0.2.2">
 
-**Official Mem0 CLI — Now on PyPI and npm**
+**Official Mem0 CLI: Now on PyPI and npm**
 
 A full-featured command-line interface for Mem0, available in both Python and Node.js:
 
 - **Install:** `pip install mem0-cli` or `npm install -g @mem0/cli`
-- **Full command suite** — `add`, `search`, `list`, `get`, `update`, `delete`, `import`, `config`, `init`, `status`, `entity`, `event`
-- **Interactive setup** — `mem0 init` with email verification or direct API key entry
-- **Works everywhere** — Platform (Mem0 Cloud) and self-hosted OSS modes
-- **Scriptable** — `--json` flag for CI/CD pipelines and automation
-- **Dual SDK** — Same commands, same experience across Python and Node.js
-
-</Update>
-
-<Update label="2026-04-06" description="OpenClaw v1.0.4">
-
-**OpenClaw Plugin — Production-Ready**
-
-The OpenClaw Mem0 plugin went from initial release to production-ready in one week (v1.0.0 → v1.0.4):
-
-- **Skills-based memory architecture** — New extraction pipeline with skill-loader, batched extraction, and domain-aware memory triage
-- **Dream gate** — Automatic memory consolidation during idle periods for higher-quality long-term recall
-- **Interactive CLI** — `openclaw mem0 init`, `status`, `config`, `import`, and `event` commands
-- **Unified tool naming** — `memory_add` and `memory_delete` replace 4 legacy tools, matching the platform API
-- **Security hardened** — Path traversal protection, pinned dependencies, 329 tests across 10 files
-
-</Update>
-
-<Update label="2026-04-02" description="Mem0 Plugin for AI Editors">
-
-**Mem0 Plugin for Claude Code, Cursor, and Codex**
-
-Launched a unified Mem0 plugin across three major AI development environments — Claude Code and Cursor first (March 25), then Codex (April 2):
-
-- **9 MCP memory tools** — add, search, get, update, delete, bulk delete, entity management via `mcp.mem0.ai`
-- **Lifecycle hooks** — Automatic memory capture at session start, context compaction, task completion, and session end
-- **Cloud MCP server** — Managed endpoint replaces local MCP and Smithery setup
-- **Streamable HTTP transport** — New MCP transport protocol for real-time streaming
-- **Codex-specific skill** — Dedicated skill in `mem0-plugin/skills/mem0-codex` for Codex workflows
+- **Full command suite:** `add`, `search`, `list`, `get`, `update`, `delete`, `import`, `config`, `init`, `status`, `entity`, `event`.
+- **Interactive setup:** `mem0 init` supports email verification and direct API key entry.
+- **Runtime coverage:** Works with Mem0 Platform and self-hosted OSS modes.
+- **Automation support:** Use `--json` for CI/CD pipelines and agent workflows.
+- **Dual implementation:** Same commands and behavior across Python and Node.js.
 
 </Update>
 
@@ -113,11 +190,11 @@ Launched a unified Mem0 plugin across three major AI development environments �
 
 Major expansion of the provider ecosystem:
 
-- **Apache AGE** — New graph store support, bringing the total to 4 graph store backends (Neo4j, Memgraph, Kuzu, Apache AGE). **Note:** All external graph store backends (Neo4j, Memgraph, Kuzu, Apache AGE) were subsequently removed in v2.0.0 (2026-04-14). Graph memory is now built-in entity linking with no external graph store required; see the [v2.0.0 entry above](#mem0-sdk-v2-0-0-v3-0-0).
-- **Turbopuffer** — New vector database provider for Python SDK
-- **MiniMax** — New LLM provider with dedicated AWS Bedrock support
-- **pgvector for Node.js** — PostgreSQL vector support added to the TypeScript OSS SDK
-- **Reasoning models** — `reasoning_effort` parameter for OpenAI o1/o3-style models
+- **Apache AGE:** New graph store support, bringing the total to 4 graph store backends (Neo4j, Memgraph, Kuzu, Apache AGE). **Note:** All external graph store backends (Neo4j, Memgraph, Kuzu, Apache AGE) were subsequently removed in v2.0.0 (2026-04-14). Graph memory is now built-in entity linking with no external graph store required; see the [v2.0.0 entry above](#mem0-sdk-v2-0-0-v3-0-0).
+- **Turbopuffer:** New vector database provider for Python SDK.
+- **MiniMax:** New LLM provider with dedicated AWS Bedrock support.
+- **pgvector for Node.js:** PostgreSQL vector support added to the TypeScript OSS SDK.
+- **Reasoning models:** `reasoning_effort` parameter for OpenAI o1/o3-style models.
 
 </Update>
 
@@ -125,6 +202,6 @@ Major expansion of the provider ecosystem:
 
 **Mem0 Platform Skill on skills.sh**
 
-First skill launch — a dedicated Mem0 skill providing platform API reference, quickstart patterns, and integration examples directly inside agent sessions. Available on [skills.sh](https://skills.sh) for any compatible AI coding agent.
+First skill launch: a dedicated Mem0 skill providing platform API reference, quickstart patterns, and integration examples directly inside agent sessions. Available on [skills.sh](https://skills.sh) for any compatible AI coding agent.
 
 </Update>

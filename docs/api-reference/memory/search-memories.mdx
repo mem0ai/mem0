@@ -4,9 +4,9 @@ description: "Search memories with hybrid retrieval (semantic + BM25 + entity ma
 openapi: post /v3/memories/search/
 ---
 
-Relevance-ranked hybrid search across stored memories. V3 uses multi-signal retrieval — semantic, BM25 keyword, and entity matching scored in parallel and fused. The returned `score` is a combined `[0, 1]` value.
+Relevance-ranked hybrid search across stored memories. V3 uses multi-signal retrieval: semantic, BM25 keyword, and entity matching scored in parallel and fused. The returned `score` is a combined `[0, 1]` value.
 
-Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object — top-level entity IDs are rejected with 400. At least one entity ID is required.
+Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object: top-level entity IDs are rejected with 400. At least one entity ID is required.
 
 Expired memories are hidden by default. Pass `show_expired: true` to include memories whose `expiration_date` has passed.
 
