@@ -15,6 +15,11 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+# Elasticsearch's own default for `index.max_result_window`. Used as the query
+# size when no top_k is given, so unbounded list() calls (e.g. get_all(),
+# delete_all()) aren't silently capped at Elasticsearch's search-API default of 10.
+_DEFAULT_MAX_RESULT_WINDOW = 10000
+
 
 class OutputData(BaseModel):
     id: str
@@ -282,8 +287,7 @@ class ElasticsearchDB(VectorStoreBase):
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             query["query"] = {"bool": {"must": filter_conditions}}
 
-        if top_k:
-            query["size"] = top_k
+        query["size"] = top_k if top_k else _DEFAULT_MAX_RESULT_WINDOW
 
         response = self.client.search(index=self.collection_name, body=query)
 
