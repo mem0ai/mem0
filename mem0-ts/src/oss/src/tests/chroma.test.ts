@@ -241,4 +241,19 @@ describe("ChromaDB", () => {
       metadatas: [{ user_id: "user-123" }],
     });
   });
+
+  it("upserts a generated user id when migrations record is missing", async () => {
+    __mocks__.get.mockResolvedValue({ ids: [], metadatas: [] });
+    const db = await initDb();
+
+    const userId = await db.getUserId();
+
+    expect(typeof userId).toBe("string");
+    expect(userId.length).toBeGreaterThan(0);
+    expect(__mocks__.upsert).toHaveBeenCalledWith({
+      ids: ["mem0-user-id"],
+      embeddings: [[0, 0, 0, 0]],
+      metadatas: [{ user_id: userId }],
+    });
+  });
 });

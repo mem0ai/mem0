@@ -360,7 +360,7 @@ export class ChromaDB implements VectorStore {
     const randomUserId =
       Math.random().toString(36).substring(2, 15) +
       Math.random().toString(36).substring(2, 15);
-    await collection.add({
+    await collection.upsert({
       ids: [MIGRATIONS_RECORD_ID],
       embeddings: [new Array(this.dimension).fill(0)],
       metadatas: [{ user_id: randomUserId }],
