@@ -107,6 +107,11 @@ jest.mock("../src/llms/xai", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "xai-llm", config })),
 }));
+jest.mock("../src/llms/sarvam", () => ({
+  SarvamLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "sarvam-llm", config })),
+}));
 jest.mock("../src/llms/litellm", () => ({
   LiteLLM: jest
     .fn()
@@ -264,6 +269,7 @@ describe("LLMFactory", () => {
     ["lmstudio"],
     ["deepseek"],
     ["xai"],
+    ["sarvam"],
     ["litellm"],
     ["minimax"],
     ["vllm"],
