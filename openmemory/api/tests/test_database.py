@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 import sqlalchemy
+from sqlalchemy import text
 
 
 API_ROOT = Path(__file__).resolve().parents[1]
@@ -53,3 +54,20 @@ def test_non_sqlite_database_url_does_not_get_sqlite_connect_arg(monkeypatch):
 
     assert captured["url"] == "postgresql+psycopg2://user:pass@localhost:5432/openmemory"
     assert "connect_args" not in captured["kwargs"]
+
+
+def test_sqlite_database_url_creates_working_engine_and_session(monkeypatch, tmp_path):
+    sys.modules.pop("app.database", None)
+    database_url = f"sqlite:///{tmp_path / 'openmemory.db'}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+
+    database = importlib.import_module("app.database")
+    try:
+        with database.SessionLocal() as session:
+            assert session.execute(text("SELECT 1")).scalar_one() == 1
+
+        assert database.engine.url.drivername == "sqlite"
+        assert database.get_engine_kwargs(database_url) == {"connect_args": {"check_same_thread": False}}
+    finally:
+        database.engine.dispose()
+        sys.modules.pop("app.database", None)
