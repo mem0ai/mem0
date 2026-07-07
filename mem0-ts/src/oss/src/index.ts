@@ -39,4 +39,5 @@ export * from "./vector_stores/s3_vectors";
 export * from "./vector_stores/vertex_ai_vector_search";
 export * from "./vector_stores/pinecone";
 export * from "./vector_stores/turbopuffer";
+export * from "./vector_stores/opensearch";
 export * from "./utils/factory";
