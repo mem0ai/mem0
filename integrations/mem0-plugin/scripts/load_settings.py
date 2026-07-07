@@ -14,6 +14,7 @@ DEFAULTS = {
     "auto_save": True,
     "auto_search": True,
     "search_limit": 10,
+    "prefetch_top_k": 5,
     "retention_session_days": 90,
     "confidence_threshold": 0.3,
     "global_search": False,
