@@ -10,6 +10,8 @@ class FakeMilvusClient {
   private collections = new Set<string>();
   // collection -> id -> row
   private store: Record<string, Record<string, any>> = {};
+  // collection -> declared vector dimension (recorded from createCollection)
+  private dims: Record<string, number> = {};
 
   // Allow tests to script search responses.
   public searchResponse: any = { results: [] };
@@ -28,8 +30,35 @@ class FakeMilvusClient {
 
   async createCollection(args: any) {
     this.calls.push({ method: "createCollection", args });
+    // Mirror Milvus's real server constraint: a FloatVector field's dim must be
+    // in [2, 32768]. Vector fields are the ones carrying a numeric `dim`.
+    for (const f of args.fields || []) {
+      if (typeof f.dim === "number" && (f.dim < 2 || f.dim > 32768)) {
+        throw new Error(
+          `invalid dimension: ${f.dim}. should be in range 2 ~ 32768`,
+        );
+      }
+    }
+    const vectorField = (args.fields || []).find(
+      (f: any) => typeof f.dim === "number",
+    );
+    if (vectorField) this.dims[args.collection_name] = vectorField.dim;
     this.collections.add(args.collection_name);
     this.store[args.collection_name] = this.store[args.collection_name] || {};
+  }
+
+  // Reject rows whose vector length disagrees with the collection's declared
+  // dim, exactly as the real server would.
+  private checkDims(collection: string, data: any[]) {
+    const dim = this.dims[collection];
+    if (dim == null) return; // pre-seeded collection: dim not tracked
+    for (const row of data || []) {
+      if (Array.isArray(row.vectors) && row.vectors.length !== dim) {
+        throw new Error(
+          `vector dimension mismatch: expected ${dim}, got ${row.vectors.length}`,
+        );
+      }
+    }
   }
 
   async loadCollection(args: any) {
@@ -44,6 +73,7 @@ class FakeMilvusClient {
 
   async insert(args: any) {
     this.calls.push({ method: "insert", args });
+    this.checkDims(args.collection_name, args.data);
     const col = (this.store[args.collection_name] =
       this.store[args.collection_name] || {});
     for (const row of args.data) col[String(row.id)] = row;
@@ -51,6 +81,7 @@ class FakeMilvusClient {
 
   async upsert(args: any) {
     this.calls.push({ method: "upsert", args });
+    this.checkDims(args.collection_name, args.data);
     const col = (this.store[args.collection_name] =
       this.store[args.collection_name] || {});
     for (const row of args.data) col[String(row.id)] = row;
@@ -290,6 +321,28 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     expect(all.data).toHaveLength(1);
     expect(all.data[0].user_id).toBe("user-2");
     expect(await store.getUserId()).toBe("user-2");
+  });
+
+  it("creates the telemetry collection with a Milvus-valid vector dim (>= 2)", async () => {
+    // Regression: the helper collection previously used dim 1, which a real
+    // Milvus server rejects (valid range is 2~32768), silently breaking
+    // getUserId/setUserId. The fake now enforces the same bound, so a dim < 2
+    // would throw here instead of passing as it did against the old mock.
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    const store = makeStore(client);
+    await store.initialize();
+    await store.getUserId();
+
+    const migCreate = client.calls.find(
+      (c) =>
+        c.method === "createCollection" &&
+        c.args.collection_name === "memory_migrations",
+    )!;
+    expect(migCreate).toBeDefined();
+    const vectorField = migCreate.args.fields.find(
+      (f: any) => f.name === "vectors",
+    );
+    expect(vectorField.dim).toBeGreaterThanOrEqual(2);
   });
 
   it("keywordSearch returns null (BM25 not implemented in TS provider)", async () => {

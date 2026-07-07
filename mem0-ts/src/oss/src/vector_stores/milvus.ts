@@ -320,7 +320,10 @@ export class Milvus implements VectorStore {
           is_primary_key: true,
           max_length: 512,
         },
-        { name: "vectors", data_type: DataType.FloatVector, dim: 1 },
+        // Milvus rejects a FloatVector with dim < 2, so use the minimum (2). This
+        // helper collection is never vector-searched; the vector is a fixed
+        // placeholder that exists only to satisfy the required-vector-field schema.
+        { name: "vectors", data_type: DataType.FloatVector, dim: 2 },
         { name: "user_id", data_type: DataType.VarChar, max_length: 512 },
       ],
       index_params: [
@@ -354,7 +357,9 @@ export class Milvus implements VectorStore {
       Math.random().toString(36).substring(2, 15);
     await this.client.insert({
       collection_name: "memory_migrations",
-      data: [{ id: this.generateUUID(), vectors: [0], user_id: randomUserId }],
+      data: [
+        { id: this.generateUUID(), vectors: [0, 0], user_id: randomUserId },
+      ],
     });
     return randomUserId;
   }
@@ -375,7 +380,7 @@ export class Milvus implements VectorStore {
       rows.length > 0 && rows[0].id ? String(rows[0].id) : this.generateUUID();
     await this.client.upsert({
       collection_name: "memory_migrations",
-      data: [{ id, vectors: [0], user_id: userId }],
+      data: [{ id, vectors: [0, 0], user_id: userId }],
     });
   }
 }
