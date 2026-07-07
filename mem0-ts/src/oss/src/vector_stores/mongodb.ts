@@ -235,7 +235,14 @@ export class MongoDB implements VectorStore {
         payload: doc.payload || {},
       }));
     } catch (error) {
-      console.error("Error during vector search:", error);
+      // The vector index builds asynchronously after creation; a search issued
+      // before it is queryable throws "Index not initialized". Log the message
+      // (matching the Python provider) rather than the full error object, and
+      // return no results until the index finishes building.
+      console.error(
+        "Error during vector search:",
+        error instanceof Error ? error.message : error,
+      );
       return [];
     }
   }
@@ -289,7 +296,10 @@ export class MongoDB implements VectorStore {
         payload: doc.payload || {},
       }));
     } catch (error) {
-      console.error("Error during keyword search:", error);
+      console.error(
+        "Error during keyword search:",
+        error instanceof Error ? error.message : error,
+      );
       return null;
     }
   }

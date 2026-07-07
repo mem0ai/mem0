@@ -9,6 +9,28 @@ description: "Use MongoDB as a vector database in Mem0 with built-in vector sear
 
 > **Note**: MongoDB Vector Search requires a MongoDB Atlas cluster (v6.0.11+) or a self-managed MongoDB Community/Enterprise deployment running v8.2+ (Enterprise also needs the MongoDB Kubernetes Operator). The `$vectorSearch`/`$search` aggregation stages and the `createSearchIndex()` API are not available on self-managed deployments older than v8.2.
 
+## Setup
+
+MongoDB vector search runs on either a local deployment or MongoDB Atlas (cloud).
+
+**Local (development).** The [MongoDB Atlas Local](https://hub.docker.com/r/mongodb/mongodb-atlas-local) Docker image ships with vector search enabled, so it works for local development with no extra setup:
+
+```bash
+docker run -p 27017:27017 mongodb/mongodb-atlas-local
+```
+
+Then connect with the default local URI (no username or password):
+
+```
+mongodb://localhost:27017
+```
+
+**Atlas (production).** Copy the SRV connection string from your Atlas cluster and replace the placeholders with your own values:
+
+```
+mongodb+srv://<username>:<password>@<your-cluster>.mongodb.net/
+```
+
 ## Usage
 
 ### Python
@@ -25,7 +47,7 @@ config = {
         "config": {
             "db_name": "mem0-db",
             "collection_name": "mem0-collection",
-            "mongo_uri": "mongodb+srv://username:password@cluster.mongodb.net/"
+            "mongo_uri": "mongodb://localhost:27017"  # local; swap in your mongodb+srv://... string for Atlas
         }
     }
 }
@@ -64,7 +86,7 @@ const config = {
     config: {
       dbName: "mem0-db",
       collectionName: "mem0-collection",
-      url: "mongodb+srv://username:password@cluster.mongodb.net/",
+      url: "mongodb://localhost:27017", // local; swap in your mongodb+srv://... string for Atlas
     },
   },
 };
@@ -111,3 +133,5 @@ Here are the parameters available for configuring MongoDB:
 | mongo_uri | url | The MongoDB URI connection string | mongodb://localhost:27017 |
 
 > **Note**: If `mongo_uri` (Python) or `url` (TypeScript) is not provided, it defaults to `mongodb://localhost:27017`. A local instance must be running MongoDB v8.2+ for vector search to work (see the version requirement above).
+
+> **Note**: The vector search index builds asynchronously after the first write. A search issued right after the first `add()` may return no results (and log an "index not initialized" message) until the index finishes building. This takes a few seconds on a local deployment and up to about a minute on Atlas. This is expected; the search returns results once the index is ready.
