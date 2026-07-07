@@ -22,6 +22,18 @@ function escapeRedisTagValue(value: unknown): string {
   );
 }
 
+function buildRedisFilterExpr(
+  snakeFilters?: Record<string, unknown>,
+): string {
+  if (!snakeFilters) {
+    return "*";
+  }
+  const clauses = Object.entries(snakeFilters)
+    .filter(([_, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
+  return clauses.length > 0 ? clauses.join(" ") : "*";
+}
+
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
   collectionName: string;
@@ -389,13 +401,7 @@ export class RedisDB implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildRedisFilterExpr(filters ? toSnakeCase(filters) : undefined);
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -633,13 +639,7 @@ export class RedisDB implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildRedisFilterExpr(filters ? toSnakeCase(filters) : undefined);
 
     const searchOptions = {
       SORTBY: "created_at",
