@@ -353,6 +353,9 @@ class AzureMySQL(VectorStoreBase):
 
             if filters:
                 for k, v in filters.items():
+                    if not _VALID_FILTER_KEY.match(k):
+                        logger.warning("Skipping invalid filter key: %r", k)
+                        continue
                     filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
                     filter_params.extend([f"$.{k}", json.dumps(v)])
 
