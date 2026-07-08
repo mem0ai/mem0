@@ -39,6 +39,7 @@ const external = [
   "@opensearch-project/opensearch",
   "@elastic/elasticsearch",
   "chromadb",
+  "weaviate-client",
 ];
 
 const define = {

@@ -44,6 +44,7 @@ export * from "./vector_stores/turbopuffer";
 export * from "./vector_stores/milvus";
 export * from "./vector_stores/mongodb";
 export * from "./vector_stores/opensearch";
+export * from "./vector_stores/weaviate";
 export * from "./rerankers/base";
 export * from "./rerankers/cohere";
 export * from "./rerankers/llm";
