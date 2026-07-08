@@ -20,6 +20,10 @@ _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
 # OpenSearch's own default for `index.max_result_window`. Used as the query
 # size when no top_k is given, so unbounded list() calls (e.g. get_all(),
 # delete_all()) aren't silently capped at OpenSearch's search-API default of 10.
+# This is itself a ceiling, not true unboundedness: collections with more than
+# this many matching docs will still be truncated on get_all()/delete_all().
+# Paginating with search_after (or a PIT/scroll) would be needed to remove the
+# cap entirely; 10000 matches mem0's existing "give me everything" convention.
 _DEFAULT_MAX_RESULT_WINDOW = 10000
 
 
