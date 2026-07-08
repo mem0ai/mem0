@@ -629,7 +629,10 @@ describe("Memory – LM Studio end-to-end flow", () => {
       filters: { user_id: "u1" },
     });
 
-    expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");
+    expect(mockEmbedder.embed).toHaveBeenCalledWith(
+      "What does the user like?",
+      "search",
+    );
     expect(mockVStore.search).toHaveBeenCalled();
     expect(result.results).toHaveLength(1);
     expect(result.results[0].memory).toBe("User likes hiking");

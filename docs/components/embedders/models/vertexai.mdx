@@ -75,7 +75,7 @@ The embedding types can be one of the following:
 Check out the [Vertex AI documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/task-types#supported_task_types) for more information.
 
 <Note>
-In the current TypeScript SDK, `memoryAddEmbeddingType` is applied when memories are embedded in bulk on `add`. Search queries and single-item updates fall back to the model's default task type (`SEMANTIC_SIMILARITY`). Set all three for parity with the Python SDK; full per-action routing across the TypeScript pipeline is planned as a follow-up.
+These embedding types map to the add, update, and search memory actions in both the Python and TypeScript SDKs. Stored memories use the add or update type, and searches use the search type.
 </Note>
 
 ### Config
