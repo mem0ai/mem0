@@ -54,7 +54,7 @@ export class WeaviateDB implements VectorStore {
       });
     } else if (apiKey) {
       this._client = await weaviate.connectToWeaviateCloud(clusterUrl!, {
-        authCredentials: weaviate.ApiKey(apiKey),
+        authCredentials: new weaviate.ApiKey(apiKey),
         headers: additionalHeaders,
       });
     } else {
