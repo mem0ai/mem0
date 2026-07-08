@@ -1,0 +1,73 @@
+---
+title: "Overview"
+description: "Self-host Mem0 with full control over your infrastructure and data"
+icon: "house"
+---
+
+Mem0 Open Source is the same memory engine as the Platform, running on your own infrastructure. You own the stack, the data, and every component, and you choose where each one runs.
+
+Run it two ways:
+
+- **As a library** in your app. `pip install mem0ai` (or `npm install mem0ai`), call `Memory()`, and you have memory in a few lines.
+- **As a self-hosted server.** A Docker stack with a dashboard, per-user API keys, and a request audit log.
+
+## Get started
+
+<CardGroup cols={3}>
+  <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
+    Install the SDK and verify the add/search loop in a few lines.
+  </Card>
+  <Card title="Node.js Quickstart" icon="node" href="/open-source/node-quickstart">
+    Install the TypeScript SDK and run the starter script.
+  </Card>
+  <Card title="Self-hosted server" icon="rocket-launch" href="/open-source/setup">
+    Run `make bootstrap` to launch the server, dashboard, and your first API key.
+  </Card>
+</CardGroup>
+
+## Go further
+
+<CardGroup cols={3}>
+  <Card title="Configure components" icon="sliders" href="/open-source/configuration">
+    Set your LLM, embedder, vector store, and reranker.
+  </Card>
+  <Card title="Self-hosting features" icon="server" href="/open-source/features/overview">
+    Async memory, metadata filters, reranker search, multimodal, and more.
+  </Card>
+  <Card title="Build with cookbooks" icon="book-open" href="/cookbooks/overview">
+    End-to-end examples: companions, agents, and integrations.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Need a managed alternative? Compare hosting models in the <Link href="/platform/platform-vs-oss">Platform vs OSS guide</Link> or switch tabs to the Platform documentation.
+</Tip>
+
+## Default components
+
+Mem0 runs out of the box with the defaults below. Override any of them through [configuration](/open-source/configuration).
+
+**As a library** (you `import` Mem0 and call `Memory()`):
+
+| Component | Default |
+|---|---|
+| LLM | OpenAI `gpt-5-mini` (set `OPENAI_API_KEY`) |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| Vector store | Local Qdrant at `/tmp/qdrant` |
+| History store | SQLite at `~/.mem0/history.db` |
+| Reranker | Disabled until configured |
+
+Override any component with [`Memory.from_config`](/open-source/configuration).
+
+**As a self-hosted server** (the `server/` Docker Compose stack):
+
+| Component | Default |
+|---|---|
+| LLM | OpenAI `gpt-5-mini` (override with `MEM0_DEFAULT_LLM_MODEL`) |
+| Embeddings | OpenAI `text-embedding-3-small` (override with `MEM0_DEFAULT_EMBEDDER_MODEL`) |
+| Vector store | Postgres + pgvector |
+| Bundled providers | `openai`, `anthropic`, `gemini` (switch on the Configuration page) |
+
+See [Self-Hosted Setup](/open-source/setup#supported-providers) for the full provider list and how to extend it.
+
+<Snippet file="star-on-github.mdx" />

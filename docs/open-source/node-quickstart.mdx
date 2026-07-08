@@ -1,0 +1,116 @@
+---
+title: Node SDK Quickstart
+description: "Store and search Mem0 memories from a TypeScript or JavaScript app in minutes."
+icon: "js"
+---
+
+Spin up Mem0 with the Node SDK in just a few steps. You'll install the package, initialize the client, add a memory, and confirm retrieval with a single search.
+
+## Prerequisites
+
+- Node.js 18 or higher
+- (Optional) OpenAI API key stored in your environment when you want to customize providers
+
+## Install and run your first memory
+
+<Steps>
+<Step title="Install the SDK">
+```bash
+npm install mem0ai
+```
+</Step>
+
+<Step title="Initialize the client">
+```ts
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory();
+```
+</Step>
+
+<Step title="Add a memory">
+```ts
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." }
+];
+
+await memory.add(messages, { userId: "alice", metadata: { category: "movie_recommendations" } });
+```
+</Step>
+
+<Step title="Search memories">
+```ts
+const results = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
+console.log(results);
+```
+
+**Output**
+```json
+{
+  "results": [
+    {
+      "id": "892db2ae-06d9-49e5-8b3e-585ef9b85b8e",
+      "memory": "User is planning to watch a movie tonight.",
+      "score": 0.38920719231944799,
+      "metadata": {
+        "category": "movie_recommendations"
+      },
+      "userId": "alice"
+    }
+  ]
+}
+```
+</Step>
+</Steps>
+
+<Snippet file="star-on-github.mdx" />
+
+<Note>
+By default the Node SDK uses local-friendly settings (OpenAI `gpt-5-mini`, `text-embedding-3-small`, in-memory vector store, and SQLite history). Pass a config to swap any of them.
+</Note>
+
+## Configure providers
+
+Pass a config object to `new Memory()` to use your own LLM, embedder, and vector store:
+
+```ts
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  llm: {
+    provider: "openai",
+    config: { apiKey: process.env.OPENAI_API_KEY || "", model: "gpt-4-turbo-preview" }
+  },
+  embedder: {
+    provider: "openai",
+    config: { apiKey: process.env.OPENAI_API_KEY || "", model: "text-embedding-3-small" }
+  },
+  vectorStore: {
+    provider: "memory",
+    config: { collectionName: "memories", dimension: 1536 }
+  }
+});
+```
+
+For the full provider catalog, history stores, and every config option, see [Configuration](/open-source/configuration).
+
+## What's next?
+
+<CardGroup cols={3}>
+  <Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
+    Search, update, and manage memories with the full CRUD API.
+  </Card>
+  <Card title="Configure for production" icon="sliders" href="/open-source/configuration">
+    Swap in your own LLM, embedder, and vector store.
+  </Card>
+  <Card title="Add to your framework" icon="plug" href="/integrations">
+    Wire Mem0 into LangChain, CrewAI, LangGraph, and 20+ more.
+  </Card>
+</CardGroup>
+
+If you have any questions, please feel free to reach out:
+
+<Snippet file="get-help.mdx" />

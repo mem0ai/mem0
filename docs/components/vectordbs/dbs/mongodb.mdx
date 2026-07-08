@@ -1,0 +1,111 @@
+---
+title: "MongoDB"
+description: "Use MongoDB as a vector database in Mem0 with built-in vector search for high-dimensional similarity queries."
+---
+
+# MongoDB
+
+[MongoDB](https://www.mongodb.com/) is a versatile document database that supports vector search capabilities, allowing for efficient high-dimensional similarity searches over large datasets with robust scalability and performance.
+
+## Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "mongodb",
+        "config": {
+            "db_name": "mem0-db",
+            "collection_name": "mem0-collection",
+            "mongo_uri": "mongodb://username:password@localhost:27017"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {
+        "role": "user",
+        "content": "I'm planning to watch a movie tonight. Any recommendations?",
+    },
+    {
+        "role": "assistant",
+        "content": "How about thriller movies? They can be quite engaging.",
+    },
+    {
+        "role": "user",
+        "content": "I’m not a big fan of thriller movies but I love sci-fi movies.",
+    },
+    {
+        "role": "assistant",
+        "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+    },
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+  vectorStore: {
+    provider: "mongodb",
+    config: {
+      dbName: "mem0-db",
+      collectionName: "mem0-collection",
+      url: "mongodb://username:password@localhost:27017",
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+const messages = [
+  {
+    role: "user",
+    content: "I'm planning to watch a movie tonight. Any recommendations?",
+  },
+  {
+    role: "assistant",
+    content: "How about thriller movies? They can be quite engaging.",
+  },
+  {
+    role: "user",
+    content: "I’m not a big fan of thriller movies but I love sci-fi movies.",
+  },
+  {
+    role: "assistant",
+    content:
+      "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+  },
+];
+
+await memory.add(messages, {
+  userId: "alice",
+  metadata: {
+    category: "movies",
+  },
+});
+```
+</CodeGroup>
+
+## Config
+
+Here are the parameters available for configuring MongoDB:
+
+| Python | TypeScript | Description | Default Value |
+| --- | --- | --- | --- |
+| db_name | dbName | Name of the MongoDB database | "mem0_db" |
+| collection_name | collectionName | Name of the MongoDB collection | "mem0" |
+| embedding_model_dims | embeddingModelDims | Dimensions of the embedding vectors | 1536 |
+| mongo_uri | url | The MongoDB URI connection string | mongodb://localhost:27017 |
+
+> **Note**: If `mongo_uri` (Python) or `url` (TypeScript) is not provided, it defaults to `mongodb://localhost:27017`. A local instance must be running MongoDB v8.2+ for vector search to work.
+
+> **Note**: The vector search index builds asynchronously after the first write. A search issued right after the first `add()` may return no results (and log an "index not initialized" message) until the index finishes building. This takes a few seconds on a local deployment and up to about a minute on Atlas. This is expected; the search returns results once the index is ready.

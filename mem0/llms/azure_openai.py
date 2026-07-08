@@ -1,0 +1,166 @@
+import copy
+import json
+import os
+from typing import Dict, List, Optional, Union
+
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import AzureOpenAI
+
+from mem0.configs.llms.azure import AzureOpenAIConfig
+from mem0.configs.llms.base import BaseLlmConfig
+from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
+
+SCOPE = "https://cognitiveservices.azure.com/.default"
+
+
+class AzureOpenAILLM(LLMBase):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, AzureOpenAIConfig, Dict]] = None):
+        # Convert to AzureOpenAIConfig if needed
+        if config is None:
+            config = AzureOpenAIConfig()
+        elif isinstance(config, dict):
+            config = AzureOpenAIConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, AzureOpenAIConfig):
+            # Convert BaseLlmConfig to AzureOpenAIConfig
+            config = AzureOpenAIConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+                reasoning_effort=getattr(config, 'reasoning_effort', None),
+                http_client_proxies=config.http_client_proxies,
+                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
+            )
+
+        super().__init__(config)
+
+        # Model name should match the custom deployment name chosen for it.
+        if not self.config.model:
+            self.config.model = "gpt-5-mini"
+
+        api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
+        azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
+        azure_endpoint = self.config.azure_kwargs.azure_endpoint or os.getenv("LLM_AZURE_ENDPOINT")
+        api_version = self.config.azure_kwargs.api_version or os.getenv("LLM_AZURE_API_VERSION")
+        default_headers = self.config.azure_kwargs.default_headers
+
+        # If the API key is not provided or is a placeholder, use DefaultAzureCredential.
+        if api_key is None or api_key == "" or api_key == "your-api-key":
+            self.credential = DefaultAzureCredential()
+            azure_ad_token_provider = get_bearer_token_provider(
+                self.credential,
+                SCOPE,
+            )
+            api_key = None
+        else:
+            azure_ad_token_provider = None
+
+        self.client = AzureOpenAI(
+            azure_deployment=azure_deployment,
+            azure_endpoint=azure_endpoint,
+            azure_ad_token_provider=azure_ad_token_provider,
+            api_version=api_version,
+            api_key=api_key,
+            http_client=self.config.http_client,
+            default_headers=default_headers,
+        )
+
+    @staticmethod
+    def _rewrite_assistant_keyword(messages):
+        """
+        Return a copy of ``messages`` with the word "assistant" replaced by "ai"
+        in the last message's textual content.
+
+        Azure's content management policy can flag the literal word "assistant",
+        which makes ``add`` fail (see issue #2636). The rewrite targets that
+        trigger without mutating the caller's messages and without assuming the
+        content is a string, so multimodal (list) content passes through untouched.
+        """
+        if not messages:
+            return messages
+
+        messages = copy.deepcopy(messages)
+        last_content = messages[-1].get("content")
+        if isinstance(last_content, str):
+            messages[-1]["content"] = last_content.replace("assistant", "ai")
+        return messages
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content
+
+    def generate_response(
+        self,
+        messages: List[Dict[str, str]],
+        response_format=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+        **kwargs,
+    ):
+        """
+        Generate a response based on the given messages using Azure OpenAI.
+
+        Args:
+            messages (list): List of message dicts containing 'role' and 'content'.
+            response_format (str or object, optional): Format of the response. Defaults to "text".
+            tools (list, optional): List of tools that the model can call. Defaults to None.
+            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional Azure OpenAI-specific parameters.
+
+        Returns:
+            str: The generated response.
+        """
+
+        # Azure's "Indirect Attacks" content filter can flag the literal word
+        # "assistant" in the prompt, so it is rewritten to "ai" before the request.
+        # Work on a copy so the caller's messages are left untouched and string-only
+        # content is handled without breaking multimodal (list) content.
+        messages = self._rewrite_assistant_keyword(messages)
+
+        params = self._get_supported_params(messages=messages, **kwargs)
+
+        # Add model and messages
+        params.update({
+            "model": self.config.model,
+            "messages": messages,
+        })
+
+        if response_format:
+            params["response_format"] = response_format
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
+        response = self.client.chat.completions.create(**params)
+        return self._parse_response(response, tools)

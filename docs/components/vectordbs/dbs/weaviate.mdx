@@ -1,0 +1,112 @@
+---
+title: "Weaviate"
+description: "Use Weaviate as an open-source vector search engine in Mem0 for storing and retrieving vector embeddings."
+---
+[Weaviate](https://weaviate.io/) is an open-source vector search engine. It allows efficient storage and retrieval of high-dimensional vector embeddings, enabling powerful search and retrieval capabilities.
+
+### Installation
+
+<CodeGroup>
+```bash Python
+pip install weaviate-client
+```
+
+```bash TypeScript
+npm install weaviate-client
+```
+</CodeGroup>
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "weaviate",
+        "config": {
+            "collection_name": "test",
+            "cluster_url": "http://localhost:8080",
+            "auth_client_secret": None,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+  vectorStore: {
+    provider: "weaviate",
+    config: {
+      collectionName: "test",
+      embeddingModelDims: 1536,
+      clusterUrl: "http://localhost:8080",
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+const messages = [
+  {
+    role: "user",
+    content: "I'm planning to watch a movie tonight. Any recommendations?",
+  },
+  {
+    role: "assistant",
+    content: "How about a thriller movie? They can be quite engaging.",
+  },
+  {
+    role: "user",
+    content: "I'm not a big fan of thriller movies but I love sci-fi movies.",
+  },
+  {
+    role: "assistant",
+    content:
+      "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+  },
+];
+
+await memory.add(messages, {
+  userId: "alice",
+  metadata: {
+    category: "movies",
+  },
+});
+```
+</CodeGroup>
+
+The TypeScript SDK picks the connection mode from the config you pass:
+
+- `clusterUrl` pointing at `localhost` connects to a local instance.
+- `clusterUrl` plus `apiKey` connects to a Weaviate Cloud cluster (for example `https://my-cluster.weaviate.cloud`).
+- Any other `clusterUrl` without an `apiKey` connects to a custom deployment, using the host and port from the URL.
+
+You can also pass a pre-configured `client` (a `WeaviateClient` instance) to reuse an existing connection.
+
+### Config
+
+Here are the parameters available for configuring Weaviate:
+
+| Python | TypeScript | Description | Default Value |
+| --- | --- | --- | --- |
+| `collection_name` | `collectionName` | The name of the collection to store the vectors | `mem0` |
+| `embedding_model_dims` | `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `cluster_url` | `clusterUrl` | URL for the Weaviate server | `None` |
+| `auth_client_secret` | `apiKey` | API key for Weaviate authentication | `None` |
+| `additional_headers` | `additionalHeaders` | Additional headers to include in requests | `None` |

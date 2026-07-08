@@ -1,0 +1,264 @@
+---
+title: Apache Cassandra
+description: "Use Apache Cassandra as a distributed vector store in Mem0 with semantic search over large-scale datasets."
+---
+
+[Apache Cassandra](https://cassandra.apache.org/) is a highly scalable, distributed NoSQL database designed for handling large amounts of data across many commodity servers with no single point of failure. It supports vector storage for semantic search capabilities in AI applications and can scale to massive datasets with linear performance improvements.
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "cassandra",
+        "config": {
+            "contact_points": ["127.0.0.1"],
+            "port": 9042,
+            "username": "cassandra",
+            "password": "cassandra",
+            "keyspace": "mem0",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// Set OPENAI_API_KEY in your environment for the default embedder
+
+const config = {
+  vectorStore: {
+    provider: 'cassandra',
+    config: {
+      contactPoints: ['127.0.0.1'],
+      localDataCenter: 'datacenter1', // required with contactPoints; "datacenter1" is the default for a single-node cluster
+      port: 9042,
+      username: 'cassandra',
+      password: 'cassandra',
+      keyspace: 'mem0',
+      collectionName: 'memories',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+#### Using DataStax Astra DB
+
+For managed Cassandra with DataStax Astra DB:
+
+<CodeGroup>
+```python Python
+config = {
+    "vector_store": {
+        "provider": "cassandra",
+        "config": {
+            "contact_points": ["dummy"],  # Not used with secure connect bundle
+            "username": "token",
+            "password": "AstraCS:...",  # Your Astra DB application token
+            "keyspace": "mem0",
+            "collection_name": "memories",
+            "secure_connect_bundle": "/path/to/secure-connect-bundle.zip"
+        }
+    }
+}
+```
+
+```typescript TypeScript
+const config = {
+  vectorStore: {
+    provider: 'cassandra',
+    config: {
+      username: 'token',
+      password: 'AstraCS:...', // Your Astra DB application token
+      keyspace: 'mem0',
+      collectionName: 'memories',
+      secureConnectBundle: '/path/to/secure-connect-bundle.zip',
+    },
+  },
+};
+```
+</CodeGroup>
+
+<Note>
+When using DataStax Astra DB, provide the secure connect bundle path. Contact points and `localDataCenter` are not needed when a secure connect bundle is provided.
+</Note>
+
+### Config
+
+Here are the parameters available for configuring Apache Cassandra:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `contact_points` | List of contact point IP addresses | Required |
+| `port` | Cassandra port | `9042` |
+| `username` | Database username | `None` |
+| `password` | Database password | `None` |
+| `keyspace` | Keyspace name | `"mem0"` |
+| `collection_name` | Table name for storing vectors | `"memories"` |
+| `embedding_model_dims` | Dimensions of embedding vectors | `1536` |
+| `secure_connect_bundle` | Path to Astra DB secure connect bundle | `None` |
+| `protocol_version` | CQL protocol version | `4` |
+| `load_balancing_policy` | Custom load balancing policy | `None` |
+
+<Note>
+The TypeScript SDK uses camelCase keys: `contactPoints`, `collectionName`, `embeddingModelDims`, `secureConnectBundle`, `protocolVersion`, and `loadBalancingPolicy`. It also requires `localDataCenter` (for example, `datacenter1`) when you connect with `contactPoints` instead of a secure connect bundle. The Node.js driver needs this to route queries; it has no default.
+</Note>
+
+### Setup
+
+#### Option 1: Local Cassandra Setup using Docker:
+
+```bash
+# Pull and run Cassandra container
+docker run --name mem0-cassandra \
+    -p 9042:9042 \
+    -e CASSANDRA_CLUSTER_NAME="Mem0Cluster" \
+    -d cassandra:latest
+
+# Wait for Cassandra to start (may take 1-2 minutes)
+docker exec -it mem0-cassandra cqlsh
+
+# Create keyspace
+CREATE KEYSPACE IF NOT EXISTS mem0
+WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+```
+
+#### Option 2: DataStax Astra DB (Managed Cloud):
+
+1. Sign up at [DataStax Astra](https://astra.datastax.com/)
+2. Create a new database
+3. Download the secure connect bundle
+4. Generate an application token
+
+<Tip>
+For production deployments, use DataStax Astra DB for fully managed Cassandra with automatic scaling, backups, and security.
+</Tip>
+
+#### Option 3: Install Cassandra Locally:
+
+**Ubuntu/Debian:**
+```bash
+# Add Apache Cassandra repository
+echo "deb https://downloads.apache.org/cassandra/debian 40x main" | sudo tee -a /etc/apt/sources.list.d/cassandra.sources.list
+curl https://downloads.apache.org/cassandra/KEYS | sudo apt-key add -
+
+# Install Cassandra
+sudo apt-get update
+sudo apt-get install cassandra
+
+# Start Cassandra
+sudo systemctl start cassandra
+
+# Verify installation
+nodetool status
+```
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install cassandra
+
+# Start Cassandra
+brew services start cassandra
+
+# Connect to CQL shell
+cqlsh
+```
+
+### Client Installation
+
+Install the driver for your SDK:
+
+<CodeGroup>
+```bash Python
+pip install cassandra-driver
+```
+
+```bash TypeScript
+npm install cassandra-driver
+```
+</CodeGroup>
+
+### Performance Considerations
+
+- **Replication Factor**: For production, use replication factor of at least 3
+- **Consistency Level**: Balance between consistency and performance (QUORUM recommended)
+- **Partitioning**: Cassandra automatically distributes data across nodes
+- **Scaling**: Add nodes to linearly increase capacity and performance
+
+### Advanced Configuration
+
+<CodeGroup>
+```python Python
+from cassandra.policies import DCAwareRoundRobinPolicy
+
+config = {
+    "vector_store": {
+        "provider": "cassandra",
+        "config": {
+            "contact_points": ["node1.example.com", "node2.example.com", "node3.example.com"],
+            "port": 9042,
+            "username": "mem0_user",
+            "password": "secure_password",
+            "keyspace": "mem0_prod",
+            "collection_name": "memories",
+            "protocol_version": 4,
+            "load_balancing_policy": DCAwareRoundRobinPolicy(local_dc='DC1')
+        }
+    }
+}
+```
+
+```typescript TypeScript
+// The Node.js driver routes to localDataCenter by default, so set it to your
+// primary DC for datacenter-aware routing. Pass loadBalancingPolicy only when
+// you need a custom policy from the cassandra-driver package.
+const config = {
+  vectorStore: {
+    provider: 'cassandra',
+    config: {
+      contactPoints: ['node1.example.com', 'node2.example.com', 'node3.example.com'],
+      localDataCenter: 'DC1',
+      port: 9042,
+      username: 'mem0_user',
+      password: 'secure_password',
+      keyspace: 'mem0_prod',
+      collectionName: 'memories',
+      protocolVersion: 4,
+    },
+  },
+};
+```
+</CodeGroup>
+
+<Warning>
+For production use, configure appropriate replication strategies and consistency levels based on your availability and consistency requirements.
+</Warning>
+

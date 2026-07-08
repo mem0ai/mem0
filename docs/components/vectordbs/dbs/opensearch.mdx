@@ -1,0 +1,168 @@
+---
+title: "OpenSearch"
+description: "Use OpenSearch as a vector database in Mem0 with k-NN search support via AWS OpenSearch Service serverless collections."
+---
+[OpenSearch](https://opensearch.org/) is an enterprise-grade search and observability suite that brings order to unstructured data at scale. OpenSearch supports k-NN (k-Nearest Neighbors) and allows you to store and retrieve high-dimensional vector embeddings efficiently.
+
+### Installation
+
+OpenSearch support requires an additional client library. Install the one for your SDK:
+
+<CodeGroup>
+```bash Python
+pip install opensearch-py
+```
+
+```bash TypeScript
+npm install @opensearch-project/opensearch
+```
+</CodeGroup>
+
+### Prerequisites
+
+Before using OpenSearch with Mem0, you need to set up a collection in AWS OpenSearch Service.
+
+#### AWS OpenSearch Service
+You can create a collection through the AWS Console:
+- Navigate to [OpenSearch Service Console](https://console.aws.amazon.com/aos/home)
+- Click "Create collection"
+- Select "Serverless collection" and then enable "Vector search" capabilities
+- Once created, note the endpoint URL (host) for your configuration
+
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+import boto3
+from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth
+
+# For AWS OpenSearch Service with IAM authentication
+region = 'us-west-2'
+service = 'aoss'
+credentials = boto3.Session().get_credentials()
+auth = AWSV4SignerAuth(credentials, region, service)
+
+config = {
+    "vector_store": {
+        "provider": "opensearch",
+        "config": {
+            "collection_name": "mem0",
+            "host": "your-domain.us-west-2.aoss.amazonaws.com",
+            "port": 443,
+            "http_auth": auth,
+            "embedding_model_dims": 1024,
+            "connection_class": RequestsHttpConnection,
+            "pool_maxsize": 20,
+            "use_ssl": True,
+            "verify_certs": True
+        }
+    }
+}
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// Basic self-hosted OpenSearch. For AWS OpenSearch Serverless, build an
+// @opensearch-project/opensearch Client with AwsSigv4Signer and pass it as
+// `client` instead of host/port/user/password.
+const config = {
+  vectorStore: {
+    provider: 'opensearch',
+    config: {
+      collectionName: 'mem0',
+      embeddingModelDims: 1024,
+      host: 'localhost',
+      port: 9200,
+      user: 'admin',
+      password: 'admin',
+      useSSL: false,
+      verifyCerts: false,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+### Configuration Options
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `collection_name` | string | required | Name of the OpenSearch index |
+| `host` | string | required | OpenSearch endpoint URL |
+| `port` | int | 9200 | Port number |
+| `http_auth` | object | None | Authentication credentials (e.g., AWSV4SignerAuth) |
+| `embedding_model_dims` | int | 1536 | Dimension of embedding vectors |
+| `use_ssl` | bool | False | Enable SSL/TLS connection |
+| `verify_certs` | bool | False | Verify SSL certificates |
+| `auto_refresh` | bool | False | Automatically refresh index after insert. OpenSearch refreshes every ~1 second by default, so this is rarely needed. |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `collectionName` | string | required | Name of the OpenSearch index |
+| `embeddingModelDims` | number | 1536 | Dimension of embedding vectors |
+| `host` | string | `localhost` | OpenSearch endpoint host |
+| `port` | number | 9200 | Port number |
+| `httpAuth` | object | None | Authentication credentials, an object or `[user, password]` tuple |
+| `user` | string | None | Username for basic auth (used together with `password`) |
+| `password` | string | None | Password for basic auth (used together with `user`) |
+| `useSSL` | boolean | false | Enable SSL/TLS connection |
+| `verifyCerts` | boolean | false | Verify SSL certificates |
+| `autoRefresh` | boolean | false | Refresh the index after each write so new memories are searchable immediately. Not supported on AWS Serverless. |
+| `client` | object | None | Preconfigured OpenSearch client, e.g. one built with AwsSigv4Signer for AWS auth |
+</Tab>
+</Tabs>
+
+<Note>
+  The defaults above match a local OpenSearch instance. The AWS OpenSearch Serverless
+  example earlier on this page intentionally overrides them with `port=443`, `use_ssl=True`,
+  and `verify_certs=True`, which are required when connecting to a Serverless collection.
+</Note>
+
+<Note>
+  For **AWS OpenSearch Serverless**, keep `auto_refresh=False` (the default).
+  The `indices.refresh()` API is not supported on Serverless collections.
+</Note>
+
+### Add Memories
+
+```python
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Search Memories
+
+```python
+results = m.search("What kind of movies does Alice like?", filters={"user_id": "alice"})
+```
+
+### Features
+
+- Fast and Efficient Vector Search
+- Can be deployed on-premises, in containers, or on cloud platforms like AWS OpenSearch Service
+- Multiple authentication and security methods (Basic Authentication, API Keys, LDAP, SAML, and OpenID Connect)
+- Automatic index creation with optimized mappings for vector search
+- Memory optimization through disk-based vector search and quantization
+- Real-time analytics and observability

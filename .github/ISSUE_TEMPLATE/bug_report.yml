@@ -1,0 +1,55 @@
+name: Bug Report
+description: Report a bug in mem0
+labels: ["bug"]
+
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of mem0 is affected?
+      options:
+        - Core / Python SDK
+        - TypeScript SDK
+        - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
+        - Graph Memory (Neo4j, Memgraph, etc.)
+        - Ollama / Local Models
+        - OpenClaw
+        - REST API
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      value: |
+        ### Summary
+
+        A clear summary of the bug.
+
+        ### Steps to Reproduce
+
+        ```python
+        from mem0 import Memory
+
+        m = Memory()
+        # Your code here...
+        ```
+
+        ### Expected Behavior
+
+        What you expected to happen.
+
+        ### Actual Behavior
+
+        What actually happened. Paste the full error traceback if applicable.
+
+        ### Environment
+
+        - mem0 version:
+        - Python/Node version:
+        - OS:
+    validations:
+      required: true

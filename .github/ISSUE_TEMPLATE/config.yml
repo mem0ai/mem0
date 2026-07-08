@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Discord Community
+    url: https://discord.gg/6PzXDgEjG5
+    about: Ask questions and discuss with the community
+  - name: Documentation
+    url: https://docs.mem0.ai
+    about: Read the official mem0 documentation

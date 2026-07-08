@@ -1,0 +1,41 @@
+name: Feature Request
+description: Suggest a new feature or improvement for mem0
+labels: ["enhancement"]
+
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of mem0 does this relate to?
+      options:
+        - Core / Python SDK
+        - TypeScript SDK
+        - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
+        - Graph Memory (Neo4j, Memgraph, etc.)
+        - Ollama / Local Models
+        - OpenClaw
+        - REST API
+        - Benchmarks / Evals
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      value: |
+        ### Use Case
+
+        What problem are you trying to solve?
+
+        ### Proposed Solution
+
+        How should this work? Include API examples or pseudocode if helpful.
+
+        ### Alternatives Considered
+
+        Any workarounds you've tried or other approaches considered.
+    validations:
+      required: true

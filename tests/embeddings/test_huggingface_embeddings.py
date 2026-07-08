@@ -1,0 +1,171 @@
+from unittest.mock import Mock, patch
+
+import numpy as np
+import pytest
+
+from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.huggingface import HuggingFaceEmbedding
+
+
+@pytest.fixture
+def mock_sentence_transformer():
+    with patch("mem0.embeddings.huggingface.SentenceTransformer") as mock_transformer:
+        mock_model = Mock()
+        mock_transformer.return_value = mock_model
+        yield mock_model
+
+
+def test_embed_default_model(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([0.1, 0.2, 0.3])
+    result = embedder.embed("Hello world")
+
+    mock_sentence_transformer.encode.assert_called_once_with("Hello world", convert_to_numpy=True)
+    assert result == [0.1, 0.2, 0.3]
+
+
+def test_embed_custom_model(mock_sentence_transformer):
+    config = BaseEmbedderConfig(model="paraphrase-MiniLM-L6-v2")
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([0.4, 0.5, 0.6])
+    result = embedder.embed("Custom model test")
+
+    mock_sentence_transformer.encode.assert_called_once_with("Custom model test", convert_to_numpy=True)
+    assert result == [0.4, 0.5, 0.6]
+
+
+def test_embed_with_model_kwargs(mock_sentence_transformer):
+    config = BaseEmbedderConfig(model="all-MiniLM-L6-v2", model_kwargs={"device": "cuda"})
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([0.7, 0.8, 0.9])
+    result = embedder.embed("Test with device")
+
+    mock_sentence_transformer.encode.assert_called_once_with("Test with device", convert_to_numpy=True)
+    assert result == [0.7, 0.8, 0.9]
+
+
+def test_embed_sets_embedding_dims(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+
+    mock_sentence_transformer.get_sentence_embedding_dimension.return_value = 384
+    embedder = HuggingFaceEmbedding(config)
+
+    assert embedder.config.embedding_dims == 384
+    mock_sentence_transformer.get_sentence_embedding_dimension.assert_called_once()
+
+
+def test_embed_with_custom_embedding_dims(mock_sentence_transformer):
+    config = BaseEmbedderConfig(model="all-mpnet-base-v2", embedding_dims=768)
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([1.0, 1.1, 1.2])
+    result = embedder.embed("Custom embedding dims")
+
+    mock_sentence_transformer.encode.assert_called_once_with("Custom embedding dims", convert_to_numpy=True)
+
+    assert embedder.config.embedding_dims == 768
+
+    assert result == [1.0, 1.1, 1.2]
+
+
+def test_embed_with_huggingface_base_url():
+    config = BaseEmbedderConfig(
+        huggingface_base_url="http://localhost:8080",
+        model="my-custom-model",
+        model_kwargs={"truncate": True},
+    )
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+        
+        # Create a mock for the response object and its attributes
+        mock_embedding_response = Mock()
+        mock_embedding_response.embedding = [0.1, 0.2, 0.3]
+        
+        mock_create_response = Mock()
+        mock_create_response.data = [mock_embedding_response]
+        
+        mock_client.embeddings.create.return_value = mock_create_response
+
+        embedder = HuggingFaceEmbedding(config)
+        result = embedder.embed("Hello from custom endpoint")
+
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080")
+        mock_client.embeddings.create.assert_called_once_with(
+            input="Hello from custom endpoint",
+            model="my-custom-model",
+            truncate=True,
+        )
+        assert result == [0.1, 0.2, 0.3]
+
+
+def test_embed_batch_sentence_transformer(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+
+    texts = ["First text.", "Second text."]
+    result = embedder.embed_batch(texts)
+
+    mock_sentence_transformer.encode.assert_called_once_with(texts, convert_to_numpy=True)
+    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_empty_list_sentence_transformer(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    result = embedder.embed_batch([])
+
+    assert result == []
+    mock_sentence_transformer.encode.assert_not_called()
+
+
+def test_embed_batch_base_url():
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080", model="my-custom-model")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+
+        mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
+        mock_item1 = Mock(index=1, embedding=[0.4, 0.5, 0.6])
+        mock_client.embeddings.create.return_value = Mock(data=[mock_item0, mock_item1])
+
+        embedder = HuggingFaceEmbedding(config)
+        texts = ["First text.", "Second text."]
+        result = embedder.embed_batch(texts)
+
+        mock_client.embeddings.create.assert_called_once_with(
+            input=texts, model="my-custom-model"
+        )
+        assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_count_mismatch_raises_base_url():
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080", model="my-custom-model")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+
+        mock_item0 = Mock(index=0, embedding=[0.1, 0.2, 0.3])
+        mock_client.embeddings.create.return_value = Mock(data=[mock_item0])
+
+        embedder = HuggingFaceEmbedding(config)
+
+        with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+            embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_batch_count_mismatch_raises_sentence_transformer(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array([[0.1, 0.2, 0.3]])
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["first text", "second text"])

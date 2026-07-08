@@ -1,0 +1,10 @@
+---
+title: 'Add Member'
+description: "Add a new member to a project with a specified role such as READER or OWNER access level."
+openapi: post /api/v1/orgs/organizations/{org_id}/projects/{project_id}/members/
+---
+
+The API provides two roles for project members:
+
+- `READER`: Allows viewing of project resources.
+- `OWNER`: Grants full administrative access to manage the project and its resources.

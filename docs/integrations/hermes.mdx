@@ -1,0 +1,235 @@
+---
+title: Hermes Agent
+description: "Add long-term memory to Hermes agents with Mem0, on managed Mem0 Cloud or fully self-hosted (OSS), with automatic background sync and zero-latency prefetch."
+---
+
+Add long-term memory to [Hermes Agent](https://github.com/NousResearch/hermes-agent), a self-improving AI agent CLI by Nous Research. Hermes has a pluggable memory system, and Mem0 is one of the supported providers. Once enabled, Mem0 learns facts from your conversations and surfaces relevant ones before each turn, without slowing down the chat.
+
+You can run Mem0 in two ways:
+
+- **Platform mode** (default): managed Mem0 Cloud. Add your API key and you are ready.
+- **OSS mode**: fully self-hosted with your own LLM, embedder, and vector store. No data leaves your machine.
+
+## How It Works
+
+Hermes runs a built-in memory system (file-based `MEMORY.md` and `USER.md`) alongside one external provider. When Mem0 is active, it works additively with the built-in system at three points in every conversation turn.
+
+### 1. Before the agent responds (prefetch)
+
+When you send a message, Hermes checks for cached Mem0 search results from the previous turn. If they exist, those memories are injected into the system prompt so the model can see them. This is zero-latency, with no waiting on an API call.
+
+### 2. After the agent responds (sync)
+
+Once the model finishes, Hermes sends the `(user message, assistant response)` pair to Mem0 in a background thread. Mem0 extracts facts automatically (for example, "user prefers Python" or "user works at Acme Corp"), so you never have to tell it what to remember. Each write is tagged with the gateway channel it came from.
+
+### 3. Background prefetch for the next turn
+
+At the same time, Hermes runs a background search to pre-load relevant memories for your next message. By the time you type, the results are already cached.
+
+## Agent Tools
+
+When Mem0 is active, the model gets five tools it can call during a conversation:
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `mem0_list` | List all stored memories, for a full overview | `page`, `page_size` (default 100, max 200) |
+| `mem0_search` | Semantic search by meaning, ranked by relevance | `query` (required), `top_k` (default 10, max 50), `rerank` (default `true`, Platform mode only) |
+| `mem0_add` | Store a fact verbatim, with no LLM extraction | `content` (required) |
+| `mem0_update` | Update a memory's text by ID | `memory_id`, `text` (both required) |
+| `mem0_delete` | Delete a memory by ID | `memory_id` (required) |
+
+## Installation
+
+Install Hermes Agent:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+source ~/.bashrc
+```
+
+The `mem0ai` package is installed automatically when you enable the Mem0 provider, so there is no manual pip step. OSS providers may need extra packages (for example `qdrant-client`, `psycopg2-binary`, or `ollama`), which the setup flow installs for you when you pick them.
+
+## Platform Setup
+
+Platform mode uses managed Mem0 Cloud and is the fastest way to start.
+
+### Option 1: Interactive wizard (recommended)
+
+```bash
+hermes memory setup
+```
+
+Select **mem0**, choose **Platform**, and paste your API key when prompted. The wizard writes the non-secret settings to `~/.hermes/mem0.json` and keeps the key in `~/.hermes/.env`.
+
+<Note>Get your API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-hermes" rel="nofollow">app.mem0.ai</a>.</Note>
+
+### Option 2: Manual Configuration
+
+```bash
+hermes config set memory.provider mem0
+echo "MEM0_API_KEY=your-api-key" >> ~/.hermes/.env
+```
+
+Then in your `config.yaml`:
+
+```yaml
+memory:
+  provider: mem0
+```
+
+That's it. Mem0 runs automatically from here.
+
+## OSS (Self-Hosted) Setup
+
+OSS mode runs Mem0 entirely on your own infrastructure: your LLM, your embedder, and your vector store. No data is sent to Mem0 Cloud, and no Mem0 API key is required.
+
+### Interactive
+
+```bash
+hermes memory setup
+# Select "mem0", then "Open Source (self-hosted)"
+# Follow the prompts for LLM, embedder, and vector store
+```
+
+### With flags
+
+```bash
+hermes memory setup mem0 --mode oss \
+  --oss-llm openai --oss-llm-key sk-... \
+  --oss-vector qdrant
+```
+
+### Supported providers
+
+| Component | Providers |
+|-----------|-----------|
+| LLM | `openai` (default model `gpt-5-mini`), `ollama` (local, default `llama3.1:8b`) |
+| Embedder | `openai` (default `text-embedding-3-small`), `ollama` (local, default `nomic-embed-text`) |
+| Vector store | `qdrant` (local path or server), `pgvector` |
+
+### Flag reference
+
+| Flag | Description |
+|------|-------------|
+| `--mode` | `platform` or `oss` |
+| `--oss-llm` | LLM provider (`openai` or `ollama`, default `openai`) |
+| `--oss-llm-key` | LLM API key (for `openai`) |
+| `--oss-llm-model` | Override the LLM model |
+| `--oss-llm-url` | LLM base URL (for `ollama` or a custom endpoint) |
+| `--oss-embedder` | Embedder provider (default `openai`) |
+| `--oss-embedder-key` | Embedder API key |
+| `--oss-vector` | Vector store (`qdrant` or `pgvector`, default `qdrant`) |
+| `--oss-vector-path` | Local Qdrant storage path |
+| `--oss-vector-host`, `--oss-vector-port` | PGVector or remote Qdrant host and port |
+| `--oss-vector-user`, `--oss-vector-password`, `--oss-vector-dbname` | PGVector connection details |
+| `--user-id` | Canonical user identifier |
+| `--dry-run` | Preview the resolved config without writing it |
+
+## Switching Modes
+
+You can move between Platform and OSS at any time. Run the setup command again, or edit `~/.hermes/mem0.json` directly.
+
+```bash
+# Platform to OSS
+hermes memory setup mem0 --mode oss --oss-llm-key sk-...
+
+# OSS to Platform
+hermes memory setup mem0 --mode platform --api-key sk-...
+
+# Preview without writing anything
+hermes memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
+```
+
+A self-hosted `~/.hermes/mem0.json` looks like this:
+
+```json
+{
+  "mode": "oss",
+  "oss": {
+    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
+    "embedder": {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
+    "vector_store": {"provider": "qdrant", "config": {"path": "~/.hermes/mem0_qdrant"}}
+  }
+}
+```
+
+## Configuration
+
+Behavioral settings live in `~/.hermes/mem0.json` and are written for you by `hermes memory setup`. Only the secret `MEM0_API_KEY` belongs in `~/.hermes/.env`.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-hosted) |
+| `api_key` | none | Mem0 Platform API key, required in Platform mode. Stored in `.env` as `MEM0_API_KEY` |
+| `user_id` | `hermes-user` | Identifier that scopes memories. See cross-channel behavior below |
+| `agent_id` | `hermes` | Agent identifier attached to writes |
+| `rerank` | `true` | Rerank search results for relevance (Platform mode only) |
+
+### Cross-channel memories
+
+Hermes can run from the CLI and from gateways like Telegram, Slack, and Discord. The `user_id` setting controls how memories are scoped across them:
+
+- **Set a `user_id`** and it applies to every gateway, so one person gets a single merged memory store no matter where they talk to the agent.
+- **Leave it unset** (or at the default `hermes-user`) and each gateway uses its own native id, keeping per-platform memories separate.
+
+Either way, every write is tagged with `metadata.channel` (for example `telegram` or `cli`), so per-channel views are still possible at query time.
+
+
+## Reliability
+
+- **Circuit breaker**: if Mem0 fails five times in a row, Hermes pauses calls for two minutes, then retries. The agent keeps working without memory during that window. Expected client errors, like a 404 on a missing memory id, do not count toward tripping the breaker.
+- **Non-blocking**: every Mem0 call runs in a background daemon thread, so a slow or failed call never blocks your conversation.
+- **Thread-safe**: the client uses lazy initialization with locking, and the background sync and prefetch threads are guarded so concurrent gateway messages cannot produce duplicate memories.
+
+## Troubleshooting
+
+### "Mem0 temporarily unavailable"
+
+The circuit breaker tripped after five consecutive failures and resets after two minutes.
+
+- **Platform mode**: check your API key and internet connection.
+- **OSS mode**: make sure your vector store (Qdrant or PGVector) is running and reachable.
+
+### OSS: vector store connection refused
+
+```bash
+# Local Qdrant: confirm the storage path is writable
+ls -la ~/.hermes/mem0_qdrant
+
+# Qdrant server: confirm it is reachable
+curl http://localhost:6333/healthz
+
+# PGVector: confirm PostgreSQL is accepting connections
+pg_isready -h localhost -p 5432
+```
+
+### OSS: Ollama not reachable
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+### Memories not appearing
+
+- `mem0_add` stores text verbatim with no extraction. Ordinary conversation turns are extracted automatically by the background sync.
+- Search is semantic, so try a broader query.
+- Confirm `user_id` is the same across sessions (check `~/.hermes/mem0.json`).
+
+## Key Features
+
+1. **Two ways to run**: managed Platform or fully self-hosted OSS, switchable at any time.
+2. **Zero-latency recall**: memories are prefetched in the background and cached before you type.
+3. **Automatic extraction**: Mem0 extracts and deduplicates facts from each exchange for you.
+4. **Non-blocking and fault tolerant**: background threads plus a circuit breaker keep the agent responsive even when Mem0 is unreachable.
+5. **Additive memory**: works alongside Hermes' built-in file memory (`MEMORY.md`, `USER.md`).
+
+<CardGroup cols={2}>
+  <Card title="OpenClaw Integration" icon="/images/provider-icons/openclaw.svg" href="/integrations/openclaw">
+    Add memory to OpenClaw agents with auto-recall and auto-capture
+  </Card>
+  <Card title="Mem0 Platform" icon="rocket" href="/platform/overview">
+    Get your API key and explore the Mem0 dashboard
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

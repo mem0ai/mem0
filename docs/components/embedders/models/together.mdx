@@ -1,0 +1,83 @@
+---
+title: Together
+description: "Configure Together AI as an embedding provider in Mem0 with support for 1024-dimensional embedding models."
+---
+
+To use Together embedding models, set the `TOGETHER_API_KEY` environment variable. You can obtain the Together API key from the [Together Platform](https://api.together.ai/settings/projects/~current/api-keys).
+
+### Usage
+
+<Note> The `embedding_model_dims` parameter for `vector_store` should be set to `1024` for Together embedder. </Note>
+
+<Warning>
+**Breaking default change.** The default Together embedding model is now `intfloat/multilingual-e5-large-instruct` (**1024-dim**), replacing the previous default `togethercomputer/m2-bert-80M-8k-retrieval` (**768-dim**). If you created a self-hosted vector store with the old default, its collection is 768-dim and will reject the new 1024-dim vectors **recreate/reindex the collection at 1024 dimensions** after upgrading. To defer the change, pin the previous values explicitly (`model="togethercomputer/m2-bert-80M-8k-retrieval"`, `embedding_dims=768`) note Together no longer lists this model among its recommended embeddings, so reindexing at 1024 is the durable path.
+</Warning>
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["TOGETHER_API_KEY"] = "your_api_key"
+os.environ["OPENAI_API_KEY"] = "your_api_key" # For LLM
+
+config = {
+    "embedder": {
+        "provider": "together",
+        "config": {
+            "model": "intfloat/multilingual-e5-large-instruct"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  embedder: {
+    provider: 'together',
+    config: {
+      apiKey: process.env.TOGETHER_API_KEY || '',
+      model: 'intfloat/multilingual-e5-large-instruct',
+      embeddingDims: 1024,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("I'm visiting Paris", { userId: "john" });
+```
+
+</CodeGroup>
+
+### Config
+
+Here are the parameters available for configuring Together embedder:
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `intfloat/multilingual-e5-large-instruct` |
+| `embedding_dims` | Dimensions of the embedding model | `1024` |
+| `api_key` | The Together API key | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `intfloat/multilingual-e5-large-instruct` |
+| `embeddingDims` | Dimensions of the embedding model for vector store configuration | `1024` |
+| `apiKey` | The Together API key | `TOGETHER_API_KEY` |
+| `baseURL` | Base URL for an OpenAI-compatible Together endpoint | `https://api.together.ai/v1` |
+</Tab>
+</Tabs>

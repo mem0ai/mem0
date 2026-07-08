@@ -1,0 +1,331 @@
+---
+title: Multimodal Support
+description: Capture and recall memories from both text and images.
+icon: "image"
+---
+
+Multimodal support lets Mem0 extract facts from images alongside regular text. Add screenshots, receipts, or product photos and Mem0 will store the insights as searchable memories so agents can recall them later.
+
+<Info>
+  **You’ll use this when…**
+  - Users share screenshots, menus, or documents and you want the details to become memories.
+  - You already collect text conversations but need visual context for better answers.
+  - You want a single workflow that handles both URLs and local image files.
+</Info>
+
+<Warning>
+  Mem0 passes images straight to your configured vision model, so per-image size and resolution limits come from that provider (for example, OpenAI caps images at 20 MB). Compress or resize large files to stay within your provider's limits and keep processing fast.
+</Warning>
+
+---
+
+## Feature anatomy
+
+- **Vision processing:** Mem0 runs the image through a vision model that extracts text and key details.
+- **Memory creation:** Extracted information is stored as standard memories so search, filters, and analytics continue to work.
+- **Context linking:** Visual and textual turns in the same conversation stay linked, giving agents richer context.
+- **Flexible inputs:** Accept publicly accessible URLs or base64-encoded local files in both Python and JavaScript SDKs.
+
+<AccordionGroup>
+  <Accordion title="Supported formats">
+    | Format | Used for | Notes |
+    | --- | --- | --- |
+    | JPEG / JPG | Photos and screenshots | Default option for camera captures. |
+    | PNG | Images with transparency | Keeps sharp text and UI elements crisp. |
+    | WebP | Web-optimized images | Smaller payloads for faster uploads. |
+    | GIF | Static or animated graphics | Works for simple graphics and short loops. |
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Configure it
+
+<Warning>
+  You must set `enable_vision: True` in your LLM config for image content to be processed. Without it, image turns are silently dropped and no vision memories are created. Example:
+  ```python
+  config = {"llm": {"provider": "openai", "config": {"enable_vision": True, "vision_details": "auto"}}}
+  client = Memory.from_config(config)
+  ```
+</Warning>
+
+<Note>
+  `vision_details` maps to the vision model's image `detail` setting and accepts `"auto"` (the default), `"low"`, or `"high"`. Use `"high"` for dense images like receipts or documents; `"low"` is faster and cheaper for simple photos.
+</Note>
+
+### Add image messages from URLs
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+client = Memory()
+
+messages = [
+    {"role": "user", "content": "Hi, my name is Alice."},
+    {
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://example.com/menu.jpg"
+            }
+        }
+    }
+]
+
+client.add(messages, user_id="alice")
+```
+
+```ts TypeScript
+import { Memory } from "mem0ai/oss";
+
+const client = new Memory();
+
+const messages = [
+  { role: "user", content: "Hi, my name is Alice." },
+  {
+    role: "user",
+    content: {
+      type: "image_url",
+      image_url: { url: "https://example.com/menu.jpg" }
+    }
+  }
+];
+
+await client.add(messages, { userId: "alice" });
+```
+</CodeGroup>
+
+<Info icon="check">
+  Inspect the response payload: the memories list should include entries extracted from the menu image as well as the text turns.
+</Info>
+
+### Upload local images as base64
+
+<CodeGroup>
+```python Python
+import base64
+from mem0 import Memory
+
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+client = Memory()
+base64_image = encode_image("path/to/your/image.jpg")
+
+messages = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "What's in this image?"},
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}"
+                }
+            }
+        ]
+    }
+]
+
+client.add(messages, user_id="alice")
+```
+
+```ts TypeScript
+import fs from "fs";
+import { Memory } from "mem0ai/oss";
+
+function encodeImage(imagePath: string) {
+  const buffer = fs.readFileSync(imagePath);
+  return buffer.toString("base64");
+}
+
+const client = new Memory();
+const base64Image = encodeImage("path/to/your/image.jpg");
+
+const messages = [
+  {
+    role: "user",
+    content: [
+      { type: "text", text: "What's in this image?" },
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:image/jpeg;base64,${base64Image}`
+        }
+      }
+    ]
+  }
+];
+
+await client.add(messages, { userId: "alice" });
+```
+</CodeGroup>
+
+<Tip>
+  Smaller images upload and process faster. Compress or resize before encoding to base64, and check your vision provider's per-image size limit for large files.
+</Tip>
+
+---
+
+## See it in action
+
+### Restaurant menu memory
+
+```python
+from mem0 import Memory
+
+client = Memory()
+
+messages = [
+    {
+        "role": "user",
+        "content": "Help me remember which dishes I liked."
+    },
+    {
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://example.com/restaurant-menu.jpg"
+            }
+        }
+    },
+    {
+        "role": "user",
+        "content": "I’m allergic to peanuts and prefer vegetarian meals."
+    }
+]
+
+result = client.add(messages, user_id="user123")
+print(result)
+```
+
+<Info icon="check">
+  The response should capture both the allergy note and menu items extracted from the photo so future searches can combine them.
+</Info>
+
+### Document capture
+
+```python
+messages = [
+    {
+        "role": "user",
+        "content": "Store this receipt information for expenses."
+    },
+    {
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://example.com/receipt.jpg"
+            }
+        }
+    }
+]
+
+client.add(messages, user_id="user123")
+```
+
+<Tip>
+  Combine the receipt upload with structured metadata (tags, categories) if you need to filter expenses later.
+</Tip>
+
+### Error handling
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+client = Memory()
+
+try:
+    messages = [{
+        "role": "user",
+        "content": {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/image.jpg"}
+        }
+    }]
+
+    client.add(messages, user_id="user123")
+    print("Image processed successfully")
+
+except ValueError as exc:
+    # Raised when an image_url part is missing its url
+    print(f"Invalid image message: {exc}")
+except Exception as exc:
+    # Raised when the image can't be downloaded or the vision model call fails
+    print(f"Could not process image: {exc}")
+```
+
+```ts TypeScript
+import { Memory } from "mem0ai/oss";
+
+const client = new Memory();
+
+try {
+  const messages = [{
+    role: "user",
+    content: {
+      type: "image_url",
+      image_url: { url: "https://example.com/image.jpg" }
+    }
+  }];
+
+  await client.add(messages, { userId: "user123" });
+  console.log("Image processed successfully");
+} catch (error: any) {
+  // A missing image_url, a failed download, or a vision model error surfaces here
+  console.log(`Could not process image: ${error.message}`);
+}
+```
+</CodeGroup>
+
+<Warning>
+  Fail fast on invalid formats so you can prompt users to re-upload before losing their context.
+</Warning>
+
+---
+
+## Verify the feature is working
+
+- After calling `add`, inspect the returned memories and confirm they include image-derived text (menu items, receipt totals, etc.).
+- Run a follow-up `search` for a detail from the image; the memory should surface alongside related text.
+- Monitor image upload latency: large files should still complete under your acceptable response time.
+- Log file size and URL sources to troubleshoot repeated failures.
+
+---
+
+## Best practices
+
+1. **Ask for intent:** Prompt users to explain why they sent an image so the memory includes the right context.
+2. **Keep images readable:** Encourage clear photos without heavy filters or shadows for better extraction.
+3. **Split bulk uploads:** Send multiple images as separate `add` calls to isolate failures and improve reliability.
+4. **Watch privacy:** Avoid uploading sensitive documents unless your environment is secured for that data.
+5. **Validate file size early:** Check file size before encoding to save bandwidth and time.
+
+---
+
+## Troubleshooting
+
+| Issue | Cause | Fix |
+| --- | --- | --- |
+| Upload rejected | Image exceeds your vision provider's size limit | Compress or resize before sending. |
+| Memory missing image data | Low-quality or blurry image | Retake the photo with better lighting. |
+| Invalid format error | Unsupported file type | Convert to JPEG or PNG first. |
+| Slow processing | High-resolution images | Downscale or compress to under 5 MB. |
+| Base64 errors | Incorrect prefix or encoding | Ensure `data:image/<type>;base64,` is present and the string is valid. |
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Connect Vision Models" icon="circle-dot" href="/components/llms/models/openai">
+    Review supported vision-capable models and configuration details.
+  </Card>
+  <Card title="Build Multimodal Retrieval" icon="image" href="/cookbooks/frameworks/multimodal-retrieval">
+    Follow an end-to-end workflow pairing text and image memories.
+  </Card>
+</CardGroup>

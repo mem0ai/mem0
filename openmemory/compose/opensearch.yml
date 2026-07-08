@@ -1,0 +1,19 @@
+services:
+  mem0_store:
+    image: opensearchproject/opensearch:2.13.0
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Openmemory123!
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile:  { soft: 65536, hard: 65536 }
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - mem0_storage:/usr/share/opensearch/data

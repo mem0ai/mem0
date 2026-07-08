@@ -1,0 +1,108 @@
+---
+title: Python SDK Quickstart
+description: "Install the Mem0 Python SDK, configure your environment, and store your first memory in under five minutes."
+icon: "snake"
+---
+
+Get started with Mem0's Python SDK in under 5 minutes. This guide shows you how to install Mem0 and store your first memory.
+
+## Prerequisites
+
+- Python 3.10 or higher
+- OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+
+Set your OpenAI API key:
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+```
+
+<Note>
+Uses OpenAI by default. Want to use Ollama, Anthropic, or local models? See [Configuration](/open-source/configuration).
+</Note>
+
+## Installation
+
+<Steps>
+<Step title="Install via pip">
+```bash
+pip install mem0ai
+```
+</Step>
+
+<Step title="Initialize Memory">
+```python
+from mem0 import Memory
+
+m = Memory()
+
+````
+</Step>
+
+<Step title="Add a memory">
+```python
+messages = [
+    {"role": "user", "content": "Hi, I'm Alex. I love basketball and gaming."},
+    {"role": "assistant", "content": "Hey Alex! I'll remember your interests."}
+]
+m.add(messages, user_id="alex")
+````
+
+</Step>
+
+<Step title="Search memories">
+```python
+results = m.search("What do you know about me?", filters={"user_id": "alex"})
+print(results)
+```
+
+**Output:**
+
+```json
+{
+  "results": [
+    {
+      "id": "mem_123abc",
+      "memory": "Name is Alex. Enjoys basketball and gaming.",
+      "user_id": "alex",
+      "categories": ["personal_info"],
+      "created_at": "2025-10-22T04:40:22.864647-07:00",
+      "score": 0.89
+    }
+  ]
+}
+```
+
+</Step>
+</Steps>
+
+<Snippet file="star-on-github.mdx" />
+
+<Note>
+By default `Memory()` wires up:
+- OpenAI `gpt-5-mini` for fact extraction and updates
+- OpenAI `text-embedding-3-small` embeddings (1536 dimensions)
+- Qdrant vector store with on-disk data at `/tmp/qdrant`
+- SQLite history at `~/.mem0/history.db`
+- No reranker (add one in the config when you need it)
+</Note>
+
+## What's next?
+
+<CardGroup cols={3}>
+<Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
+Search, update, and manage memories with the full CRUD API.
+</Card>
+
+<Card title="Configure for production" icon="sliders" href="/open-source/configuration">
+Swap in your own LLM, embedder, and vector store.
+</Card>
+
+<Card title="Add to your framework" icon="plug" href="/integrations">
+Wire Mem0 into LangChain, CrewAI, LangGraph, and 20+ more.
+</Card>
+</CardGroup>
+
+If you have any questions, please feel free to reach out:
+
+<Snippet file="get-help.mdx" />
