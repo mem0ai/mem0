@@ -47,12 +47,39 @@ function isAlreadyExistsError(error: unknown): boolean {
     err.code === 409 ||
     err.status === 409 ||
     (typeof err.message === "string" &&
-      /already exists|exists/i.test(err.message))
+      /already exists|already exist|entity already exists/i.test(err.message))
+  );
+}
+
+function isNotFoundError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const err = error as { code?: unknown; status?: unknown; message?: unknown };
+  return (
+    err.code === 404 ||
+    err.status === 404 ||
+    (typeof err.message === "string" &&
+      /does not exist|not exist|not found/i.test(err.message))
   );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function hasSchemaField(
+  fields: unknown[],
+  fieldName: string,
+  types?: readonly string[],
+): boolean {
+  return fields.some(
+    (field) =>
+      isRecord(field) &&
+      field.name === fieldName &&
+      (types ? types.includes(String(field.type)) : true),
+  );
 }
 
 function toRow(value: unknown): BaiduRow | null {
@@ -93,6 +120,10 @@ function normalizeRows(result: BaiduSearchResult): BaiduSearchItem[] {
     return result;
   }
 
+  if (result.row) {
+    return [result.row];
+  }
+
   const rows = result.rows ?? result.points ?? result.items ?? result.data;
   return Array.isArray(rows) ? rows : [];
 }
@@ -129,12 +160,8 @@ function isUnsupportedKeywordSearchError(error: unknown): boolean {
   const err = error as { code?: unknown; status?: unknown; message?: unknown };
   const message = typeof err.message === "string" ? err.message : "";
 
-  return (
-    err.code === 400 ||
-    err.status === 400 ||
-    /bm25|inverted index|keyword search|search unavailable|not supported/i.test(
-      message,
-    )
+  return /bm25|inverted index|keyword search|search unavailable|not supported/i.test(
+    message,
   );
 }
 
@@ -171,6 +198,7 @@ export class BaiduDB implements VectorStore {
   private readonly tableName: string;
   private readonly embeddingModelDims: number;
   private readonly metricType: string;
+  private supportsKeywordSearch = true;
   private storeUserId = "anonymous-baidu-user";
   private _initPromise?: Promise<void>;
 
@@ -181,7 +209,7 @@ export class BaiduDB implements VectorStore {
     this.databaseName = config.databaseName;
     this.tableName = config.tableName;
     this.embeddingModelDims = config.embeddingModelDims;
-    this.metricType = config.metricType || "COSINE";
+    this.metricType = config.metricType || "L2";
     this.client = config.client || null;
 
     const requiredFields: Array<
@@ -212,7 +240,14 @@ export class BaiduDB implements VectorStore {
   }
 
   private async loadSdkClient(): Promise<BaiduClient> {
-    const sdkModule = (await import("@baiducloud/sdk")) as BaiduSdkModule;
+    let sdkModule: BaiduSdkModule;
+    try {
+      sdkModule = (await import("@baiducloud/sdk")) as BaiduSdkModule;
+    } catch (error) {
+      throw new Error(
+        "The @baiducloud/sdk package is required for the Baidu vector store when no client is injected.",
+      );
+    }
     // Baidu's SDK surface has shipped in multiple export shapes, so accept both
     // the direct module and a default wrapper.
     const sdk = sdkModule.default ?? sdkModule;
@@ -485,30 +520,38 @@ export class BaiduDB implements VectorStore {
     }
 
     const database = await this.ensureDatabase();
+    let table: BaiduTable | undefined;
 
     try {
-      this.table = await this.createTable(database);
+      table = await this.createTable(database);
     } catch (error) {
       if (!isAlreadyExistsError(error)) {
         throw error;
       }
-      this.table = await this.getExistingTable(database);
+      table = await this.getExistingTable(database);
     }
 
-    if (!this.table) {
-      this.table = await this.getExistingTable(database);
-    }
+    const resolvedTable = table ?? (await this.getExistingTable(database));
 
-    await this.validateExistingTableSchema(this.table);
-
-    return this.table;
+    await this.validateExistingTableSchema(resolvedTable);
+    this.table = resolvedTable;
+    return resolvedTable;
   }
 
   private async validateExistingTableSchema(table: BaiduTable): Promise<void> {
-    const statsMethod = getMethod<() => Promise<unknown> | unknown>(table, [
-      "stats",
-    ]);
-    const stats = await statsMethod.call(table);
+    let stats: unknown;
+    try {
+      const statsMethod = getMethod<() => Promise<unknown> | unknown>(table, [
+        "stats",
+      ]);
+      stats = await statsMethod.call(table);
+    } catch (error) {
+      console.warn(
+        "Baidu table schema introspection is unavailable. keywordSearch() will stay best-effort.",
+        error,
+      );
+      return;
+    }
 
     if (!isRecord(stats) || !isRecord(stats.schema)) {
       return;
@@ -521,6 +564,9 @@ export class BaiduDB implements VectorStore {
       ? stats.schema.indexes
       : [];
 
+    const hasIdField = hasSchemaField(fields, "id", ["STRING"]);
+    const hasVectorField = hasSchemaField(fields, "vector", ["FLOAT_VECTOR"]);
+    const hasMetadataField = hasSchemaField(fields, "metadata", ["JSON"]);
     const hasDataField = fields.some((field) =>
       isOptionalTextField(field, "data"),
     );
@@ -534,16 +580,31 @@ export class BaiduDB implements VectorStore {
           index.index_name === "data_bm25_idx"),
     );
 
-    if (!hasDataField || !hasTextLemmatizedField || !hasBm25Index) {
+    if (!hasIdField || !hasVectorField || !hasMetadataField) {
       throw new Error(
-        "Baidu table exists but is missing the BM25 text fields or inverted index. Recreate the table so keywordSearch() can work.",
+        "Baidu table exists but is missing the core id/vector/metadata schema.",
       );
     }
+
+    if (!hasDataField || !hasTextLemmatizedField || !hasBm25Index) {
+      this.supportsKeywordSearch = false;
+      console.warn(
+        "Baidu table exists without BM25 fields or index. keywordSearch() will return null until the table is recreated with BM25 support.",
+      );
+      return;
+    }
+
+    this.supportsKeywordSearch = true;
   }
 
   async initialize(): Promise<void> {
     if (!this._initPromise) {
-      this._initPromise = this.ensureTable().then(() => undefined);
+      this._initPromise = this.ensureTable()
+        .then(() => undefined)
+        .catch((error) => {
+          this._initPromise = undefined;
+          throw error;
+        });
     }
 
     return this._initPromise;
@@ -554,14 +615,26 @@ export class BaiduDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     const table = await this.ensureTable();
 
-    for (const [index, vector] of vectors.entries()) {
+    const rowCount = Math.min(vectors.length, ids.length, payloads.length);
+    if (
+      rowCount !== vectors.length ||
+      rowCount !== ids.length ||
+      rowCount !== payloads.length
+    ) {
+      console.warn(
+        `Baidu insert received mismatched batch lengths; truncating to ${rowCount} row(s).`,
+      );
+    }
+
+    for (let index = 0; index < rowCount; index++) {
       await table.upsert({
         rows: [
           {
             id: ids[index],
-            vector,
+            vector: vectors[index],
             ...buildSearchTextFields(payloads[index] || {}),
             metadata: payloads[index] || {},
           },
@@ -575,6 +648,12 @@ export class BaiduDB implements VectorStore {
     topK = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.initialize();
+
+    if (!this.supportsKeywordSearch) {
+      return null;
+    }
+
     try {
       const table = await this.ensureTable();
       const filter =
@@ -603,6 +682,7 @@ export class BaiduDB implements VectorStore {
     topK = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const table = await this.ensureTable();
     const filter =
       filters && Object.keys(filters).length > 0
@@ -621,6 +701,7 @@ export class BaiduDB implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     const table = await this.ensureTable();
     const result = await table.query({
       primaryKey: { id: vectorId },
@@ -644,6 +725,7 @@ export class BaiduDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     const table = await this.ensureTable();
     await table.upsert({
       rows: [
@@ -658,6 +740,7 @@ export class BaiduDB implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     const table = await this.ensureTable();
     await table.delete({
       primaryKey: { id: vectorId },
@@ -666,20 +749,39 @@ export class BaiduDB implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
-    const database = await this.ensureDatabase();
-    await this.dropTable(database);
+    if (!this.database && !this.table && !this._initPromise) {
+      return;
+    }
+
+    let database = this.database;
+    if (!database) {
+      const client = await this.ensureClient();
+      database = await this.getDatabase(client);
+      this.database = database;
+    }
+
+    try {
+      await this.dropTable(database);
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+    }
     this.table = null;
+    this._initPromise = undefined;
+    this.supportsKeywordSearch = true;
   }
 
   async reset(): Promise<void> {
     await this.deleteCol();
-    await this.ensureTable();
+    await this.initialize();
   }
 
   async list(
     filters?: SearchFilters,
     topK = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const table = await this.ensureTable();
     const filter =
       filters && Object.keys(filters).length > 0

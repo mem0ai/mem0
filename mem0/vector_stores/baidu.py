@@ -272,7 +272,6 @@ class BaiduDB(VectorStoreBase):
         except Exception as e:
             logger.error(f"Error during keyword search for query '{query}': {e}")
             return None
-
     def delete(self, vector_id):
         """
         Delete a vector by ID.

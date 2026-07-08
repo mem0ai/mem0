@@ -151,6 +151,11 @@
       "optional": true
     }
   },
+  "peerDependenciesMeta": {
+    "@baiducloud/sdk": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">=18"
   },

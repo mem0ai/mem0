@@ -73,15 +73,15 @@ const memory = new Memory({
 
 Here are the parameters available for configuring Baidu VectorDB:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `endpoint` | Endpoint URL for your Baidu VectorDB instance | Required |
-| `account` | Baidu VectorDB account name | `root` |
-| `api_key` | API key for accessing Baidu VectorDB | Required |
-| `database_name` | Name of the database | `mem0` |
-| `table_name` | Name of the table | `mem0_table` |
-| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
-| `metric_type` | Distance metric for similarity search | `L2` (Python SDK default) |
+| Parameter              | Description                                   | Default Value |
+| ---------------------- | --------------------------------------------- | ------------- |
+| `endpoint`             | Endpoint URL for your Baidu VectorDB instance | Required      |
+| `account`              | Baidu VectorDB account name                   | `root`        |
+| `api_key`              | API key for accessing Baidu VectorDB          | Required      |
+| `database_name`        | Name of the database                          | `mem0`        |
+| `table_name`           | Name of the table                             | `mem0_table`  |
+| `embedding_model_dims` | Dimensions of the embedding model             | `1536`        |
+| `metric_type`          | Distance metric for similarity search         | `L2`          |
 
 For the TypeScript OSS SDK, use the camelCase equivalents:
 
@@ -90,7 +90,7 @@ For the TypeScript OSS SDK, use the camelCase equivalents:
 - `embeddingModelDims`
 - `metricType`
 
-For OSS TS usage, `endpoint`, `account`, `apiKey`, `databaseName`, `tableName`, and `embeddingModelDims` are required unless you inject a prebuilt client. The TS provider overrides `metricType` to `COSINE`.
+For OSS TS usage, `endpoint`, `account`, `apiKey`, `databaseName`, `tableName`, and `embeddingModelDims` are required unless you inject a prebuilt client. `metricType` defaults to `L2`, matching the Python SDK.
 
 ### Distance Metrics
 
