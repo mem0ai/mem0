@@ -18,6 +18,7 @@ import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
+import { ChromaDB } from "../vector_stores/chroma";
 import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { ValkeyDB } from "../vector_stores/valkey";
@@ -130,6 +131,8 @@ export class VectorStoreFactory {
         return new MemoryVectorStore(config);
       case "qdrant":
         return new Qdrant(config as any);
+      case "chroma":
+        return new ChromaDB(config as any);
       case "redis":
         return new RedisDB(config as any);
       case "valkey":
