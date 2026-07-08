@@ -1650,6 +1650,66 @@ describe("Databricks – backward compat with mocked clients", () => {
     await store.setUserId("custom-user");
     expect(await store.getUserId()).toBe("custom-user");
   });
+
+  it("escapes backslashes and quotes in SQL string literals (injection-safe)", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    // The id/user_id carry a single quote and a backslash. Databricks SQL treats
+    // "\" as an escape char, so without doubling it, "\'" would break out of the
+    // literal (injection) and any backslash would be dropped on write.
+    await store.insert([[1, 0, 0]], ["a'b\\c"], [{ user_id: "x'y\\z" }]);
+
+    const session = databricksSql.__mockSession;
+    const insertSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0])
+      .find((sql: string) => sql.includes("INSERT INTO main.default.memories"));
+
+    expect(insertSql).toBeDefined();
+    // Backslash doubled AND quote doubled: 'a''b\\c'
+    expect(insertSql).toContain("'a''b\\\\c'");
+    // The un-escaped single-backslash form (the breakout vector) must be absent.
+    expect(insertSql).not.toContain("'a''b\\c'");
+  });
+
+  it("pushes session filters into the SQL WHERE clause when listing", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.list({ user_id: "u1" }, 10);
+
+    const listSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+
+    expect(listSql).toBeDefined();
+    expect(listSql).toContain("WHERE user_id = 'u1'");
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

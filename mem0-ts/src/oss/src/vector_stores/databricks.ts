@@ -9,7 +9,7 @@ const MAX_QUERY_RESULTS = 10_000;
 const MAX_FULL_TEXT_RESULTS = 200;
 const DEFAULT_SYNC_POLL_INTERVAL_MS = 1000;
 const DEFAULT_SYNC_TIMEOUT_MS = 5 * 60 * 1000;
-const DATBRICKS_SERVER_FILTER_KEYS = new Set([
+const DATABRICKS_SERVER_FILTER_KEYS = new Set([
   "memory_id",
   "user_id",
   "agent_id",
@@ -137,7 +137,12 @@ function formatSqlValue(value: any): string {
   }
   const json =
     typeof value === "string" ? value : JSON.stringify(value ?? {}) || "{}";
-  return `'${json.replace(/'/g, "''")}'`;
+  // Databricks/Spark SQL treats backslash as an escape char in string literals,
+  // so a trailing "\" would consume the closing quote (breaking out of the
+  // literal) and any backslash would be dropped on write. Escape backslashes
+  // before doubling quotes so the literal is injection-safe and round-trips.
+  const escaped = json.replace(/\\/g, "\\\\").replace(/'/g, "''");
+  return `'${escaped}'`;
 }
 
 function extractRowValue(row: Record<string, any>, keys: string[]): any {
@@ -165,7 +170,7 @@ function normalizeFilterValue(value: any): any {
 }
 
 function isDatabricksServerFilterKey(key: string): boolean {
-  return DATBRICKS_SERVER_FILTER_KEYS.has(key);
+  return DATABRICKS_SERVER_FILTER_KEYS.has(key);
 }
 
 function mergeDatabricksFilters(
@@ -230,41 +235,6 @@ function buildSimpleDatabricksFilter(
     default:
       return null;
   }
-}
-
-function buildDatabricksFilters(
-  filters?: SearchFilters,
-): Record<string, any> | undefined {
-  if (!filters || Object.keys(filters).length === 0) {
-    return undefined;
-  }
-
-  const result: Record<string, any> = {};
-
-  for (const [key, value] of Object.entries(filters)) {
-    if (key === "$and") {
-      if (!Array.isArray(value)) {
-        return undefined;
-      }
-      for (const entry of value) {
-        if (!isPlainObject(entry)) {
-          return undefined;
-        }
-        const nested = buildDatabricksFilters(entry as SearchFilters);
-        if (!nested || !mergeDatabricksFilters(result, nested)) {
-          return undefined;
-        }
-      }
-      continue;
-    }
-
-    const converted = buildSimpleDatabricksFilter(key, value);
-    if (!converted || !mergeDatabricksFilters(result, converted)) {
-      return undefined;
-    }
-  }
-
-  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function buildStandardDatabricksFiltersFromClauses(
@@ -679,9 +649,22 @@ export class DatabricksVectorStore implements VectorStore {
   ): Promise<[VectorStoreResult[], number]> {
     await this.initialize();
 
+    // Push the SQL-translatable conjunctive filters (session keys) into a WHERE
+    // clause so a filtered list does not pull the whole table to the client.
+    // filterVector below still enforces the complete filter, so this clause is a
+    // best-effort narrowing: untranslatable filters ($or/$not/metadata) yield an
+    // empty clause and fall back to the prior full-scan + local filtering.
+    const whereClause = collectConjunctiveDatabricksFilters(filters)
+      .map(([key, value]) =>
+        buildStorageOptimizedDatabricksFilterClause(key, value),
+      )
+      .filter((clause): clause is string => Boolean(clause))
+      .join(" AND ");
+
     const rows = await this.executeSql(`
       SELECT memory_id, payload
       FROM ${this.fullTableName}
+      ${whereClause ? `WHERE ${whereClause}` : ""}
     `);
     const results: VectorStoreResult[] = [];
 
