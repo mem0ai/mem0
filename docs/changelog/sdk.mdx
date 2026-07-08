@@ -7,6 +7,21 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-07-01" description="v2.0.11">
+
+**Bug Fixes:**
+- **Embeddings:** Guard against an `embed_batch` count mismatch in the OpenAI and Azure OpenAI embedders ([#5966](https://github.com/mem0ai/mem0/pull/5966))
+- **Memory:** Re-raise LLM extraction failures instead of silently returning `[]` ([#5878](https://github.com/mem0ai/mem0/pull/5878))
+- **Vector Stores:** Normalize vectors for the cosine distance strategy in FAISS ([#5960](https://github.com/mem0ai/mem0/pull/5960))
+
+**Security:**
+- **Vector Stores:** Validate OpenSearch filter values to prevent term query injection ([#5986](https://github.com/mem0ai/mem0/pull/5986))
+- **Vector Stores:** Validate value types and escape quotes in Azure AI Search OData filters ([#5983](https://github.com/mem0ai/mem0/pull/5983))
+- **Vector Stores:** Validate Databricks catalog/schema/table identifiers to prevent SQL injection ([#5988](https://github.com/mem0ai/mem0/pull/5988))
+- **Graph:** Escape Neptune filter values in openCypher queries to prevent injection ([#5982](https://github.com/mem0ai/mem0/pull/5982))
+
+</Update>
+
 <Update label="2026-06-27" description="v2.0.10">
 
 **New Features:**
@@ -1090,6 +1105,10 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 **New Features:**
 - **Embeddings:** Add `HuggingFaceEmbedder` provider for the TypeScript SDK, backed by the HuggingFace Inference API ([#6027](https://github.com/mem0ai/mem0/pull/6027))
 
+**Bug Fixes:**
+- **Embeddings:** Guard against an `embed_batch` count mismatch in the OpenAI and Azure OpenAI embedders ([#5966](https://github.com/mem0ai/mem0/pull/5966))
+- **LLMs:** Handle empty Google chat candidates without crashing ([#5817](https://github.com/mem0ai/mem0/pull/5817))
+
 </Update>
 
 <Update label="2026-06-27" description="v3.0.12">
@@ -1590,6 +1609,15 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-07-01" description="Python v0.2.9 / Node v0.2.10">
+
+**Bug Fixes:**
+- **`entity delete`:** Keep every deleted entity in the result output instead of only the last one (Python [#5936](https://github.com/mem0ai/mem0/pull/5936), Node [#5970](https://github.com/mem0ai/mem0/pull/5970))
+- **Output formatters (Python):** Handle null memory fields in the output formatters instead of erroring ([#5957](https://github.com/mem0ai/mem0/pull/5957))
+- **Config (Python):** Reject invalid integer config values with a clean error instead of a traceback ([#5956](https://github.com/mem0ai/mem0/pull/5956))
+
+</Update>
+
 <Update label="2026-06-19" description="Python v0.2.8 / Node v0.2.9">
 
 **Security:**
@@ -1738,6 +1766,16 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 <Tabs>
 <Tab title="Mem0 Plugin">
+
+<Update label="2026-06-30" description="mem0-plugin v0.2.12">
+
+**New Features:**
+- **Query-driven prefetch:** The `UserPromptSubmit` hook now searches Mem0 with the current prompt and injects the top matches, so relevant memories are guaranteed in context instead of relying on the agent to search for them. Opt out with `MEM0_PREFETCH=false`.
+
+**Improvements:**
+- **Multi-hop guidance:** The decision rubric now tells the agent to run follow-up searches for multi-part or comparative questions instead of stopping after one. Tool descriptions for every memory tool were sharpened with clearer "what + when to use" guidance.
+
+</Update>
 
 <Update label="2026-06-25" description="mem0-plugin v0.2.11">
 
@@ -1979,6 +2017,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="OpenCode">
 
+<Update label="2026-06-30" description="OpenCode plugin v0.2.1">
+
+**Improvements:**
+- **Sharper tool descriptions:** Every memory tool (`get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, `get_event_status`) now states what it does and when to use it. `search_memories` nudges proactive, multi-hop retrieval and the destructive tools carry explicit irreversible-action warnings.
+
+</Update>
+
 <Update label="2026-06-22" description="OpenCode plugin v0.2.0">
 
 **Breaking Changes:**
@@ -2045,6 +2090,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-06-30" description="Antigravity plugin v0.1.4">
+
+**New Features:**
+- **Query-driven prefetch:** The user-prompt hook now searches Mem0 with the current prompt and injects the top matches, so relevant memories are guaranteed in context instead of relying on the agent to search for them. Opt out with `MEM0_PREFETCH=false`.
+
+**Improvements:**
+- **Multi-hop guidance:** The decision rubric now tells the agent to run follow-up searches for multi-part or comparative questions instead of stopping after one.
+
+</Update>
+
 <Update label="2026-06-25" description="Antigravity plugin v0.1.3">
 
 **Fixes:**
@@ -2081,6 +2136,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-06-30" description="openclaw-mem0 v1.0.14">
+
+**Improvements:**
+- **Sharper tool descriptions:** Every memory tool (`memory_search`, `memory_get`, `memory_list`, `memory_add`, `memory_update`, `memory_delete`) now states what it does and when to use it. `memory_search` nudges proactive, multi-hop retrieval; `memory_add` nudges proactive saves; and the delete tools carry explicit irreversible-action warnings.
+
+</Update>
 
 <Update label="2026-06-12" description="openclaw-mem0 v1.0.13">
 
@@ -2327,6 +2389,17 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="Pi Agent">
+
+<Update label="2026-06-30" description="Pi Agent plugin v0.1.3">
+
+**New Features:**
+- **Guaranteed retrieval:** Memories relevant to each prompt are now prefetched and injected as a `<mem0-relevant-memories>` block before the agent runs, so context no longer depends on the agent remembering to search. Context injection is on by default; set `contextInjection: false` to disable.
+
+**Improvements:**
+- **Multi-hop retrieval:** The memory policy and the `mem0_memory` tool description now push proactive, multi-hop search -- several queries with different phrasings instead of stopping after one.
+- **Clearer tool schema:** The `mem0_memory` action and parameter descriptions (`action`, `query`, `content`, `memory_id`, `scope`) now explain each action and scope.
+
+</Update>
 
 <Update label="2026-06-12" description="Pi Agent plugin v0.1.2">
 
