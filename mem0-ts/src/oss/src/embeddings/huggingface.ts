@@ -11,7 +11,7 @@ import { EmbeddingConfig } from "../types";
  * exposes a `/v1/embeddings` route, so this embedder reuses the existing
  * `openai` client pointed at that base URL. No new dependency is required.
  *
- * A base URL is required — the Python provider's alternative local
+ * A base URL is required. The Python provider's alternative local
  * `sentence-transformers` path has no lightweight TypeScript equivalent, so
  * hosted inference is the supported TS mode.
  */
@@ -37,7 +37,7 @@ export class HuggingFaceEmbedder implements Embedder {
 
     this.openai = new OpenAI({
       apiKey: config.apiKey || process.env.HUGGINGFACE_API_KEY || "hf",
-      baseURL: String(baseURL),
+      baseURL,
     });
     // TEI ignores the model field; default mirrors the Python provider.
     this.model = config.model || "tei";
@@ -48,6 +48,11 @@ export class HuggingFaceEmbedder implements Embedder {
       model: this.model,
       input: text,
     });
+    if (!response.data || response.data.length === 0) {
+      throw new Error(
+        `HuggingFace embed() returned no embeddings for model '${this.model}'`,
+      );
+    }
     return response.data[0].embedding;
   }
 

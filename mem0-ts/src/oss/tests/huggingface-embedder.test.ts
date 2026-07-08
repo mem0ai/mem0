@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 /**
- * HuggingFace Embedder — unit tests (mocked OpenAI client).
+ * HuggingFace Embedder unit tests (mocked OpenAI client).
  * The TS provider targets a HuggingFace TEI / OpenAI-compatible inference
  * endpoint, so it reuses the `openai` client with a HuggingFace baseURL.
  * These tests verify the required base URL, request shape, and batch ordering.
@@ -135,6 +135,14 @@ describe("HuggingFaceEmbedder (unit)", () => {
       const embedder = new HuggingFaceEmbedder(cfg);
       await expect(embedder.embedBatch(["a", "b"])).rejects.toThrow(
         /returned 1 embeddings for 2 texts/,
+      );
+    });
+
+    it("embed() throws when the endpoint returns no embeddings", async () => {
+      mockEmbeddingsCreate.mockResolvedValue({ data: [] });
+      const embedder = new HuggingFaceEmbedder(cfg);
+      await expect(embedder.embed("hello")).rejects.toThrow(
+        /returned no embeddings/,
       );
     });
   });
