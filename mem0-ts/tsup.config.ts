@@ -35,6 +35,7 @@ const external = [
   "mongodb",
   "@opensearch-project/opensearch",
   "@elastic/elasticsearch",
+  "chromadb",
 ];
 
 const define = {
