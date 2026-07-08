@@ -318,8 +318,12 @@ export class ChromaDB implements VectorStore {
           processed.push(orConditions[0]);
         }
       } else if (key === "$not" || key === "NOT") {
-        const negated: any[] = [];
+        // De Morgan: NOT(a AND b) is (NOT a) OR (NOT b), so the negated fields
+        // within one condition are combined with $or, and separate conditions
+        // are combined with $and. This mirrors the Python SDK's ChromaDB port.
+        const negatedPerGroup: any[] = [];
         for (const condition of value as any[]) {
+          const negatedFields: any[] = [];
           for (const [subKey, subValue] of Object.entries(condition)) {
             if (subValue !== null && typeof subValue === "object") {
               for (const [op, val] of Object.entries(subValue as any)) {
@@ -328,21 +332,26 @@ export class ChromaDB implements VectorStore {
                   const converted = ChromaDB.convertCondition(subKey, {
                     [neg]: val,
                   });
-                  if (converted) negated.push(converted);
+                  if (converted) negatedFields.push(converted);
                 }
               }
             } else {
               const converted = ChromaDB.convertCondition(subKey, {
                 ne: subValue,
               });
-              if (converted) negated.push(converted);
+              if (converted) negatedFields.push(converted);
             }
           }
+          if (negatedFields.length > 1) {
+            negatedPerGroup.push({ $or: negatedFields });
+          } else if (negatedFields.length === 1) {
+            negatedPerGroup.push(negatedFields[0]);
+          }
         }
-        if (negated.length > 1) {
-          processed.push({ $and: negated });
-        } else if (negated.length === 1) {
-          processed.push(negated[0]);
+        if (negatedPerGroup.length > 1) {
+          processed.push({ $and: negatedPerGroup });
+        } else if (negatedPerGroup.length === 1) {
+          processed.push(negatedPerGroup[0]);
         }
       } else {
         const converted = ChromaDB.convertCondition(key, value);
