@@ -114,7 +114,6 @@ You only need to provide API keys - all other settings are optional.
 - `search(query: string, userId?: string, ...): Promise<SearchResult>`
 - `get(memoryId: string): Promise<MemoryItem | null>`
 - `update(memoryId: string, text: string, metadata?: Record<string, any>, expirationDate?: string | null): Promise<{ message: string }>`
-  - Also accepts an options object: `update(memoryId, { text, metadata?, expirationDate? })`. `text` is optional here — pass only `metadata`/`expirationDate` to update those and keep the stored content (at least one field is required). `data` is a deprecated alias for `text` (logs a warning).
 - `delete(memoryId: string): Promise<{ message: string }>`
 - `deleteAll(userId?: string, ...): Promise<{ message: string }>`
 - `history(memoryId: string): Promise<any[]>`

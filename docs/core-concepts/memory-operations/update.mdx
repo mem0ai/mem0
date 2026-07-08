@@ -12,7 +12,7 @@ Mem0’s update operation lets you fix or enrich an existing memory without dele
 ## Key terms
 
 - **memory_id**: Unique identifier returned by `add` or `search` results.
-- **text**: New content that replaces the stored memory value. In the OSS SDKs, `data` is a deprecated alias for `text`.
+- **text**: New content that replaces the stored memory value. In the Python OSS SDK, `data` is a deprecated alias for `text`.
 - **metadata**: Optional key-value pairs you update alongside the text.
 - **timestamp**: Unix epoch (int/float) or ISO 8601 string to override the memory's timestamp.
 - **batch_update**: Platform API that edits multiple memories in a single request.
@@ -134,20 +134,21 @@ const memory = new Memory();
 await memory.update("mem_123", "Alex now prefers decaf coffee");
 
 // Update content plus metadata and an expiration date (null clears it)
-await memory.update("mem_123", {
-  text: "Alex now prefers decaf coffee",
-  metadata: { category: "preferences" },
-  expirationDate: "2030-01-31",
-});
+await memory.update(
+  "mem_123",
+  "Alex now prefers decaf coffee",
+  { category: "preferences" },
+  "2030-01-31",
+);
 ```
 </CodeGroup>
 
 <Note>
-  In the OSS SDKs `text` is optional — pass only `metadata` and/or `expiration_date` (`expirationDate` in JavaScript) to update those while keeping the existing content. At least one of the three must be provided.
+  In the Python OSS SDK, `text` is optional — pass only `metadata` and/or `expiration_date` to update those while keeping the existing content (at least one of the three must be provided). The JavaScript OSS SDK takes the content as a required positional argument: `update(memoryId, text, metadata?, expirationDate?)`.
 </Note>
 
 <Note>
-  `data` is a deprecated alias for `text` in the OSS SDKs — Python `data=` and JavaScript `{ data }`. It still works but logs a warning; prefer `text`.
+  In the Python OSS SDK, `data=` is a deprecated alias for `text` — it still works but logs a warning; prefer `text`.
 </Note>
 
 ## Tips

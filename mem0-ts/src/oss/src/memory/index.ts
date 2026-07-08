@@ -1570,80 +1570,16 @@ export class Memory {
     return result;
   }
 
-  /**
-   * Update a memory's content, and optionally its metadata and expiration date.
-   *
-   * @param memoryId - ID of the memory to update.
-   * @param text - New content for the memory.
-   * @param metadata - Optional metadata to merge into the stored memory.
-   * @param expirationDate - Optional expiration date (YYYY-MM-DD), or null to clear it.
-   */
   async update(
     memoryId: string,
     text: string,
     metadata?: Record<string, any>,
     expirationDate?: string | null,
-  ): Promise<{ message: string }>;
-  /**
-   * Update a memory using an options object.
-   *
-   * @param memoryId - ID of the memory to update.
-   * @param options - New content plus optional metadata and expiration date.
-   *   Provide the content as `text`; `data` is a deprecated alias for `text`.
-   */
-  async update(
-    memoryId: string,
-    options: {
-      text?: string;
-      /** @deprecated Use `text` instead. Will be removed in a future release. */
-      data?: string;
-      metadata?: Record<string, any>;
-      expirationDate?: string | null;
-    },
-  ): Promise<{ message: string }>;
-  async update(
-    memoryId: string,
-    textOrOptions:
-      | string
-      | {
-          text?: string;
-          data?: string;
-          metadata?: Record<string, any>;
-          expirationDate?: string | null;
-        },
-    metadata?: Record<string, any>,
-    expirationDate?: string | null,
   ): Promise<{ message: string }> {
-    let text: string | undefined;
-    if (typeof textOrOptions === "string") {
-      text = textOrOptions;
-    } else {
-      if (textOrOptions.data !== undefined) {
-        console.warn(
-          "Memory.update(): `data` is deprecated and will be removed in a future release. Use `text` instead.",
-        );
-      }
-      text = textOrOptions.text ?? textOrOptions.data;
-      metadata = textOrOptions.metadata;
-      expirationDate = textOrOptions.expirationDate;
-    }
-    // Match Python OSS: at least one of text / metadata / expirationDate is
-    // required. A metadata-only or expiration-only update keeps the stored text.
-    if (text == null && metadata == null && expirationDate === undefined) {
-      throw new Error(
-        "Memory.update() requires at least one of `text`, `metadata`, or `expirationDate`.",
-      );
-    }
-
     await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
 
-    // Only embed when new content is provided; a metadata-only update reuses
-    // the stored text (re-embedded inside updateMemory).
-    const existingEmbeddings: Record<string, number[]> = {};
-    if (text != null) {
-      existingEmbeddings[text] = await this.embedder.embed(text);
-    }
+    const existingEmbeddings = { [text]: await this.embedder.embed(text) };
 
     const updateMetadata: Record<string, any> = { ...(metadata ?? {}) };
     if (expirationDate !== undefined) {
@@ -1654,12 +1590,7 @@ export class Memory {
           : this.normalizeExpirationDate(expirationDate);
     }
 
-    await this.updateMemory(
-      memoryId,
-      text ?? undefined,
-      existingEmbeddings,
-      updateMetadata,
-    );
+    await this.updateMemory(memoryId, text, existingEmbeddings, updateMetadata);
     const result = { message: "Memory updated successfully!" };
     await this._displayFirstRunNotice("update");
     return result;
