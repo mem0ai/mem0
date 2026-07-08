@@ -192,7 +192,16 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(content, list):
-            if llm is None:
+            has_image = any(
+                isinstance(part, dict) and part.get("type") == "image_url"
+                for part in content
+            )
+            if llm is None or not has_image:
+                # No vision model available, or the list carries no image part:
+                # extract the text parts instead of routing to the vision LLM.
+                # Routing a text-only list to get_image_description would prompt
+                # the model for an image that does not exist and discard the
+                # user's real text (see issue #6129).
                 text_parts = [
                     part["text"] for part in msg["content"]
                     if isinstance(part, dict) and part.get("type") == "text"
