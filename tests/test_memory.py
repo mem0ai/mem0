@@ -1570,3 +1570,87 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
 
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_handles_empty_and_block_content(
+    mock_llm_factory, mock_emb, mock_vs, llm_response, expected_memory
+):
+    mock_vs.create.return_value = MagicMock()
+    mock_emb.create.return_value = MagicMock()
+    mock_emb.create.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.create.return_value = MagicMock()
+    mock_llm_factory.create.return_value.generate_response.return_value = llm_response
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    result = await memory._create_procedural_memory(
+        [{"role": "user", "content": "test"}],
+        metadata={"user_id": "test_user"},
+    )
+
+    assert result["results"][0]["memory"] == expected_memory
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_langchain_handles_empty_and_block_content(
+    mock_llm_factory, mock_emb, mock_vs, response_content, expected_memory
+):
+    mock_vs.create.return_value = MagicMock()
+    mock_emb.create.return_value = MagicMock()
+    mock_emb.create.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.create.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = response_content
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    result = await memory._create_procedural_memory(
+        [{"role": "user", "content": "test"}],
+        metadata={"user_id": "test_user"},
+        llm=mock_langchain_llm,
+    )
+
+    assert result["results"][0]["memory"] == expected_memory
+
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+def test_sync_procedural_memory_handles_empty_and_block_content(
+    mock_llm_factory, mock_emb, mock_vs, llm_response, expected_memory
+):
+    mock_vs.create.return_value = MagicMock()
+    mock_emb.create.return_value = MagicMock()
+    mock_emb.create.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.create.return_value = MagicMock()
+    mock_llm_factory.create.return_value.generate_response.return_value = llm_response
+
+    from mem0.memory.main import Memory
+
+    config = MemoryConfig()
+    memory = Memory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    result = memory._create_procedural_memory(
+        [{"role": "user", "content": "test"}],
+        metadata={"user_id": "test_user"},
+    )
+
+    assert result["results"][0]["memory"] == expected_memory
+

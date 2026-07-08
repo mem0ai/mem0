@@ -103,6 +103,22 @@ class TestRemoveCodeBlocks:
         parsed = json.loads(result)
         assert parsed == {"memory": []}
 
+    def test_none_content_returns_empty_string(self):
+        assert remove_code_blocks(None) == ""
+
+    def test_string_list_content_is_joined(self):
+        assert remove_code_blocks(["hello ", "world"]) == "hello world"
+
+    def test_langchain_text_blocks_are_joined(self):
+        content = [{"type": "text", "text": "hello"}, {"type": "text", "text": " world"}]
+        assert remove_code_blocks(content) == "hello world"
+
+    def test_plain_string_code_block_still_strips_markers(self):
+        assert remove_code_blocks("```python\ncode\n```") == "code"
+
+    def test_plain_string_without_code_block_is_stripped(self):
+        assert remove_code_blocks("  hello world  ") == "hello world"
+
     def test_no_code_block(self):
         """Without code blocks, returns content as-is (may not be valid JSON)."""
         text = 'Here is the result: {"memory": []}'
