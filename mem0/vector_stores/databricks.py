@@ -38,8 +38,14 @@ class MemoryResult(BaseModel):
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
 
-# Pattern for valid SQL identifiers to prevent column name injection
+# Pattern for valid SQL identifiers to prevent column name / table name injection
 _VALID_SQL_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    if not isinstance(name, str) or not _VALID_SQL_IDENTIFIER.match(name):
+        raise ValueError(f"Invalid {label}: {name!r}")
+    return name
 
 
 class Databricks(VectorStoreBase):
@@ -90,11 +96,11 @@ class Databricks(VectorStoreBase):
         # Basic identifiers
         self.workspace_url = workspace_url
         self.endpoint_name = endpoint_name
-        self.catalog = catalog
-        self.schema = schema
-        self.table_name = table_name
+        self.catalog = _validate_identifier(catalog, "catalog")
+        self.schema = _validate_identifier(schema, "schema")
+        self.table_name = _validate_identifier(table_name, "table_name")
         self.fully_qualified_table_name = f"{self.catalog}.{self.schema}.{self.table_name}"
-        self.index_name = collection_name
+        self.index_name = _validate_identifier(collection_name, "collection_name")
         self.fully_qualified_index_name = f"{self.catalog}.{self.schema}.{self.index_name}"
 
         # Configuration

@@ -64,10 +64,15 @@ export class WeaviateDB implements VectorStore {
         );
       }
       const parsed = new URL(clusterUrl);
+      const httpSecure = parsed.protocol === "https:";
       this._client = await weaviate.connectToCustom({
         httpHost: parsed.hostname,
-        httpPort: parsed.port ? parseInt(parsed.port) : 80,
-        httpSecure: parsed.protocol === "https:",
+        httpPort: parsed.port
+          ? parseInt(parsed.port, 10)
+          : httpSecure
+            ? 443
+            : 8080,
+        httpSecure,
         grpcHost: parsed.hostname,
         grpcPort: 50051,
         grpcSecure: false,

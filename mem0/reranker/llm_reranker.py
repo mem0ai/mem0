@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any, Dict, List, Union
 
@@ -5,6 +6,8 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
 from mem0.reranker.base import BaseReranker
 from mem0.utils.factory import LlmFactory
+
+logger = logging.getLogger(__name__)
 
 
 class LLMReranker(BaseReranker):
@@ -151,8 +154,9 @@ class LLMReranker(BaseReranker):
                 scored_doc['rerank_score'] = score
                 scored_docs.append(scored_doc)
 
-            except Exception:
+            except Exception as e:
                 # Fallback: assign neutral score if scoring fails
+                logger.warning("LLM reranking failed for a document, assigning neutral score: %s", e)
                 scored_doc = doc.copy()
                 scored_doc['rerank_score'] = 0.5
                 scored_docs.append(scored_doc)

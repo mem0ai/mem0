@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Any, Union
 import numpy as np
 
@@ -11,6 +12,8 @@ try:
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 class HuggingFaceReranker(BaseReranker):
@@ -55,6 +58,26 @@ class HuggingFaceReranker(BaseReranker):
         self.model = AutoModelForSequenceClassification.from_pretrained(self.config.model)
         self.model.to(self.device)
         self.model.eval()
+
+    @staticmethod
+    def _normalize_scores(scores: List[float]) -> List[float]:
+        """Map raw cross-encoder logits into the [0, 1] range via a sigmoid.
+
+        Cross-encoder rerankers (e.g. ``BAAI/bge-reranker-*``) emit unbounded
+        logits; the documented way to obtain an interpretable [0, 1] relevance
+        score is a per-document sigmoid (``1 / (1 + e^-x)``), which preserves the
+        ranking order.
+
+        This replaces the previous min-max scaling, which produced *set-relative*
+        scores: the lowest-ranked document was always forced to 0.0, and a single
+        document (or any set of tied scores) collapsed to 0.0 — wrongly reporting
+        a result as completely irrelevant. Sigmoid scores each document on its own
+        merit, so those cases are handled naturally.
+        """
+        if not scores:
+            return []
+        arr = np.asarray(scores, dtype=float)
+        return (1.0 / (1.0 + np.exp(-arr))).tolist()
 
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
@@ -115,9 +138,7 @@ class HuggingFaceReranker(BaseReranker):
 
             # Normalize scores if requested
             if self.config.normalize:
-                scores = np.array(scores)
-                scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
-                scores = scores.tolist()
+                scores = self._normalize_scores(scores)
 
             # Combine documents with scores
             doc_score_pairs = list(zip(documents, scores))
@@ -139,8 +160,9 @@ class HuggingFaceReranker(BaseReranker):
 
             return reranked_docs
 
-        except Exception:
+        except Exception as e:
             # Fallback to original order if reranking fails
+            logger.warning("HuggingFace reranking failed, falling back to original order: %s", e)
             for doc in documents:
                 doc['rerank_score'] = 0.0
             final_top_k = top_k or self.config.top_k

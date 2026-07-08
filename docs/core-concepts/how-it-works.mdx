@@ -1,0 +1,101 @@
+---
+title: "How Mem0 Works"
+description: "What happens when you add, store, and search memories with Mem0."
+icon: "diagram-project"
+---
+
+Mem0 sits between your application and your model. You send conversation turns to `add`, then call `search` before the next model request to fetch relevant context. Your app decides which returned memories to include in the prompt.
+
+Use Mem0 when you want agents to remember useful facts across turns, sessions, or users without replaying the full transcript every time.
+
+<Frame caption="Memory extraction: Mem0 turns messages into stored facts with metadata, embeddings, and optional entity relationships.">
+  <img src="/images/memory-extraction.png" alt="Mem0 memory extraction pipeline: store new memories after the response, context lookup to find related memories, extract memories (ADD only) from input and context, deduplicate and embed, entity linking, written to a SQL database (facts and metadata), vector database (embeddings and similarity), and entity store (entities and relationships)." />
+</Frame>
+
+## The mental model
+
+| Without a memory layer | With Mem0 |
+|---|---|
+| Keep appending chat history to the prompt | Store facts once, then retrieve them by query |
+| Make the model re-read old turns | Give the model only the relevant memories |
+| Lose context when a session ends | Scope memory by `user_id`, `agent_id`, `run_id`, and metadata |
+
+## Messages vs memories
+
+You send Mem0 messages. By default, Mem0 stores extracted memories, not a verbatim transcript.
+
+| Input | Stored memory |
+|---|---|
+| `"I prefer aisle seats"` | `User prefers aisle seats` |
+| `"Let's use Postgres for this project"` | `Project decision: use Postgres` |
+| Message metadata | Filterable fields such as category, app, user, or run |
+
+Use `infer=False` when you need to store raw content exactly as provided. Otherwise, keep inference enabled so retrieval works on clean, deduplicated facts.
+
+## Two phases: extraction and retrieval
+
+Most applications use Mem0 in two places:
+
+1. **After a useful interaction**, call `add` to store what should be remembered.
+2. **Before a model call**, call `search` and pass the best results into your prompt.
+
+### 1. Extraction (writing memory)
+
+When new messages arrive, Mem0 extracts durable facts and stores them with the identifiers and metadata you provide.
+
+1. **Context lookup.** Mem0 checks related existing memories so it can avoid storing the same fact again.
+2. **Fact extraction.** An LLM extracts preferences, decisions, plans, and other details your agent can reuse.
+3. **Deduplication and embedding.** Redundant facts are removed, then each memory is embedded for semantic search.
+4. **Entity linking.** When configured, Mem0 links people, places, organizations, and concepts across memories.
+
+The automatic extraction path is additive. If a user says, "I moved from Austin to Seattle," Mem0 can store the new fact without silently rewriting the old one. Use explicit `update` or `delete` operations when your application needs to correct or remove a memory.
+
+### 2. Retrieval (reading memory)
+
+When you call `search`, Mem0 ranks stored memories against your query and filters.
+
+| Signal | What it does | Best for |
+|---|---|---|
+| **Semantic** | Vector similarity over embeddings | Conceptual questions |
+| **Keyword** | Term matching for exact words and phrases | Names, IDs, and factual lookups |
+| **Entity** | Boosts memories linked to entities in the query | Questions about a person, project, or account |
+| **Temporal** | Scores candidates on time metadata extracted at write time against the query's temporal intent | Temporal questions ("when did...", current state, recency) |
+
+Platform retrieval fuses these signals in the managed service. OSS retrieval depends on your configured vector store, optional reranker, and graph store.
+
+<Note>
+  Always scope searches with filters such as `user_id`, `agent_id`, or `run_id`. This keeps memories from different users, agents, or sessions from mixing.
+</Note>
+
+## Where memories live
+
+Mem0 stores different parts of a memory in stores built for different lookup patterns:
+
+| Store | Holds | Purpose |
+|---|---|---|
+| **SQL database** | Facts and metadata | The source of truth for each memory |
+| **Vector database** | Embeddings | Semantic similarity search |
+| **Entity or graph store** | Entities and relationships | Relationship-aware retrieval when graph memory is enabled |
+
+On Mem0 Platform, these stores are managed for you. In OSS, you choose and operate the backing stores through your configuration.
+
+## Build against this flow
+
+- Call `add` only for information worth reusing later: preferences, decisions, account facts, goals, and durable feedback.
+- Call `search` before the model response, then include only the returned memories that help answer the current request.
+- Use metadata for filters your product already cares about, such as workspace, feature area, tenant, or data source.
+- Avoid storing secrets, raw credentials, or unredacted sensitive data. Mem0 is designed to retrieve stored context.
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Memory types" icon="brain" href="/core-concepts/memory-types">
+    Choose the right scope for user, agent, run, and session memory.
+  </Card>
+  <Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
+    Add, search, update, and delete memories from your app.
+  </Card>
+  <Card title="See the benchmarks" icon="chart-line" href="/core-concepts/memory-evaluation">
+    Review the evaluation setup and benchmark results.
+  </Card>
+</CardGroup>

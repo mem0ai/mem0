@@ -96,7 +96,6 @@ export class SupabaseDB implements VectorStore {
 
     this.initialize().catch((err) => {
       console.error("Failed to initialize Supabase:", err);
-      throw err;
     });
   }
 
