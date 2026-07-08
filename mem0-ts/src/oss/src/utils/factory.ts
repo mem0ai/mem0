@@ -43,6 +43,7 @@ import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { FastEmbedEmbedder } from "../embeddings/fastembed";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
+import { HuggingFaceEmbedder } from "../embeddings/huggingface";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
@@ -78,6 +79,8 @@ export class EmbedderFactory {
         return new FastEmbedEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "huggingface":
+        return new HuggingFaceEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
