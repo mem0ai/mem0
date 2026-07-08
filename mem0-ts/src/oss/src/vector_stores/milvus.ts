@@ -34,12 +34,14 @@ export interface MilvusConfig extends VectorStoreConfig {
 /**
  * Milvus vector store provider for the TypeScript OSS SDK.
  *
- * Mirrors the Python provider in `mem0/vector_stores/milvus.py`, scoped to the
- * dense-vector CRUD surface the TS `VectorStore` interface requires
- * (insert / search / get / update / delete / list + user-id helpers).
+ * Mirrors the Python provider in `mem0/vector_stores/milvus.py`: dense-vector
+ * CRUD (insert / search / get / update / delete / list + user-id helpers) plus
+ * BM25 hybrid keyword search. New collections are created with a `text` +
+ * `sparse` field pair and a BM25 function so `keywordSearch` can run full-text
+ * search; collections created before BM25 support keep working with it disabled.
  *
  * The `@zilliz/milvus2-sdk-node` dependency is lazily required so the package
- * remains optional — importing this module never forces the SDK to be installed
+ * remains optional. Importing this module never forces the SDK to be installed
  * until a Milvus store is actually constructed.
  */
 export class Milvus implements VectorStore {
@@ -48,8 +50,13 @@ export class Milvus implements VectorStore {
   private readonly dimension: number;
   private readonly metricType: MilvusMetricType;
   private _initPromise?: Promise<void>;
-  // Lazily-resolved DataType enum from the SDK (set during client construction).
+  // Lazily-resolved SDK enums (set during client construction).
   private DataType: any;
+  private FunctionType: any;
+  // Whether this collection has the `text` + `sparse` fields for BM25 hybrid
+  // search. Collections created before BM25 support lack them, so writing a
+  // top-level `text` field or passing a sparse anns_field would be rejected.
+  private hasBm25Schema = false;
 
   constructor(config: MilvusConfig) {
     this.collectionName = config.collectionName || "mem0";
@@ -58,21 +65,27 @@ export class Milvus implements VectorStore {
 
     if (config.client) {
       this.client = config.client;
-      // Best-effort DataType resolution for an injected client.
+      // Best-effort SDK enum resolution for an injected client (undefined when
+      // the SDK isn't installed, e.g. unit tests that pass a fake client).
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        this.DataType = require("@zilliz/milvus2-sdk-node").DataType;
+        const sdk = require("@zilliz/milvus2-sdk-node");
+        this.DataType = sdk.DataType;
+        this.FunctionType = sdk.FunctionType;
       } catch (_) {
         this.DataType = undefined;
+        this.FunctionType = undefined;
       }
     } else {
       let MilvusClient: any;
       let DataType: any;
+      let FunctionType: any;
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const sdk = require("@zilliz/milvus2-sdk-node");
         MilvusClient = sdk.MilvusClient;
         DataType = sdk.DataType;
+        FunctionType = sdk.FunctionType;
       } catch (_) {
         throw new Error(
           "The '@zilliz/milvus2-sdk-node' package is required to use the Milvus vector store. " +
@@ -80,6 +93,7 @@ export class Milvus implements VectorStore {
         );
       }
       this.DataType = DataType;
+      this.FunctionType = FunctionType;
       this.client = new MilvusClient({
         address: config.url || "http://localhost:19530",
         token: config.token,
@@ -100,8 +114,11 @@ export class Milvus implements VectorStore {
   }
 
   /**
-   * Create the collection with an AUTOINDEX dense-vector index if it does not
-   * already exist. Idempotent — mirrors the Python `create_col`.
+   * Create the collection if it does not already exist, with an AUTOINDEX
+   * dense-vector index plus a BM25 `text` -> `sparse` full-text index. Idempotent
+   * (mirrors the Python `create_col`). When the collection already exists, detect
+   * whether the BM25 `text`/`sparse` fields are present so keyword search
+   * degrades gracefully on collections created before BM25 support.
    */
   private async createCol(
     collectionName: string,
@@ -113,6 +130,23 @@ export class Milvus implements VectorStore {
     // milvus2-sdk-node returns { value: boolean } for hasCollection.
     const exists = typeof has === "object" && has !== null ? has.value : has;
     if (exists) {
+      // A pre-existing collection may predate BM25 support. Inspect its schema
+      // so insert/search/keywordSearch know whether the text + sparse fields
+      // exist instead of assuming and getting rejected by the server.
+      const desc = await this.client.describeCollection({
+        collection_name: collectionName,
+      });
+      const names = new Set(
+        (desc?.schema?.fields || []).map((f: any) => f.name),
+      );
+      this.hasBm25Schema = names.has("text") && names.has("sparse");
+      if (!this.hasBm25Schema) {
+        console.warn(
+          `Milvus collection '${collectionName}' predates BM25 hybrid search ` +
+            "(no 'text'/'sparse' fields). Keyword scoring is disabled for it; " +
+            "semantic search still works. Use a fresh collection to enable it.",
+        );
+      }
       return;
     }
 
@@ -133,12 +167,34 @@ export class Milvus implements VectorStore {
         name: "metadata",
         data_type: DataType.JSON,
       },
+      // Analyzer-enabled text field that feeds the BM25 function below.
+      {
+        name: "text",
+        data_type: DataType.VarChar,
+        max_length: 65535,
+        enable_analyzer: true,
+      },
+      // Sparse vectors are generated automatically by the BM25 function.
+      {
+        name: "sparse",
+        data_type: DataType.SparseFloatVector,
+      },
     ];
 
     await this.client.createCollection({
       collection_name: collectionName,
       fields,
       enable_dynamic_field: true,
+      // BM25 turns the `text` field into `sparse` vectors for full-text search.
+      functions: [
+        {
+          name: "bm25",
+          type: this.FunctionType?.BM25,
+          input_field_names: ["text"],
+          output_field_names: ["sparse"],
+          params: {},
+        },
+      ],
       index_params: [
         {
           field_name: "vectors",
@@ -146,10 +202,17 @@ export class Milvus implements VectorStore {
           metric_type: this.metricType,
           index_name: "vector_index",
         },
+        {
+          field_name: "sparse",
+          index_type: "SPARSE_INVERTED_INDEX",
+          metric_type: "BM25",
+          index_name: "sparse_index",
+        },
       ],
     });
 
     await this.client.loadCollection({ collection_name: collectionName });
+    this.hasBm25Schema = true;
   }
 
   /**
@@ -188,46 +251,51 @@ export class Milvus implements VectorStore {
     return operands.length > 0 ? operands.join(" and ") : undefined;
   }
 
+  /**
+   * Text fed to the BM25 sparse index for a payload. Prefers the lemmatized
+   * text, falls back to the raw memory `data`, and truncates to the VarChar
+   * limit (mirrors the Python provider).
+   */
+  private bm25Text(payload?: Record<string, any>): string {
+    if (!payload) return "";
+    const raw = payload.text_lemmatized || payload.data || "";
+    return String(raw).slice(0, 65535);
+  }
+
   async insert(
     vectors: number[][],
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
-    const data = vectors.map((vector, idx) => ({
-      id: ids[idx],
-      vectors: vector,
-      metadata: payloads[idx] || {},
-    }));
+    const data = vectors.map((vector, idx) => {
+      const metadata = payloads[idx] || {};
+      const row: Record<string, any> = {
+        id: ids[idx],
+        vectors: vector,
+        metadata,
+      };
+      // Only write `text` when the collection has the BM25 schema; legacy
+      // collections reject an unknown top-level field.
+      if (this.hasBm25Schema) row.text = this.bm25Text(metadata);
+      return row;
+    });
     await this.client.insert({
       collection_name: this.collectionName,
       data,
     });
   }
 
-  async keywordSearch(): Promise<null> {
-    // BM25 / sparse hybrid search is not implemented in the TS provider yet.
-    return null;
-  }
-
-  async search(
-    query: number[],
-    topK: number = 5,
-    filters?: SearchFilters,
-  ): Promise<VectorStoreResult[]> {
-    const filter = this.createFilter(filters);
-    const res = await this.client.search({
-      collection_name: this.collectionName,
-      data: [query],
-      limit: topK,
-      filter,
-      output_fields: ["*"],
-    });
-    const hits = res?.results || [];
+  /**
+   * Map raw Milvus search hits to VectorStoreResult. For the L2 metric,
+   * distances are unbounded and smaller-is-better, so normalise them to a 0..1
+   * similarity; every other metric passes the raw score through. Shared by
+   * search and keywordSearch so both match the Python provider's `_parse_output`
+   * (which likewise normalises by metric type regardless of dense vs BM25 score).
+   */
+  private parseHits(hits: any[]): VectorStoreResult[] {
     return hits.map((hit: any) => {
       const rawDistance = hit.score ?? hit.distance;
       let score = rawDistance;
-      // L2 distances are unbounded and smaller-is-better; normalise to a
-      // 0..1 similarity so consumers can treat all metrics uniformly.
       if (rawDistance != null && this.metricType === "L2") {
         score = 1.0 / (1.0 + rawDistance);
       }
@@ -237,6 +305,56 @@ export class Milvus implements VectorStore {
         score,
       } as VectorStoreResult;
     });
+  }
+
+  async search(
+    query: number[],
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    const filter = this.createFilter(filters);
+    const req: Record<string, any> = {
+      collection_name: this.collectionName,
+      data: [query],
+      limit: topK,
+      filter,
+      output_fields: ["*"],
+    };
+    // A BM25 collection has both a dense `vectors` and a sparse `sparse` field,
+    // so anns_field is ambiguous unless we name the dense one explicitly.
+    if (this.hasBm25Schema) req.anns_field = "vectors";
+    const res = await this.client.search(req);
+    return this.parseHits(res?.results || []);
+  }
+
+  /**
+   * BM25 full-text keyword search over the sparse field. Milvus tokenizes the
+   * raw query string via the collection's BM25 function. Returns null when the
+   * collection has no BM25 schema so callers fall back to dense search only
+   * (mirrors the Python provider).
+   */
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    if (!this.hasBm25Schema) return null;
+    try {
+      const filter = this.createFilter(filters);
+      const res = await this.client.search({
+        collection_name: this.collectionName,
+        data: [query],
+        anns_field: "sparse",
+        limit: topK,
+        filter,
+        output_fields: ["*"],
+      });
+      return this.parseHits(res?.results || []);
+    } catch (_) {
+      // Keyword search is best-effort; degrade to null rather than failing the
+      // whole retrieval path.
+      return null;
+    }
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
@@ -258,9 +376,15 @@ export class Milvus implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    const row: Record<string, any> = {
+      id: vectorId,
+      vectors: vector,
+      metadata: payload,
+    };
+    if (this.hasBm25Schema) row.text = this.bm25Text(payload);
     await this.client.upsert({
       collection_name: this.collectionName,
-      data: [{ id: vectorId, vectors: vector, metadata: payload }],
+      data: [row],
     });
   }
 

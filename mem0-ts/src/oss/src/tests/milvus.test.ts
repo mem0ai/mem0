@@ -12,14 +12,24 @@ class FakeMilvusClient {
   private store: Record<string, Record<string, any>> = {};
   // collection -> declared vector dimension (recorded from createCollection)
   private dims: Record<string, number> = {};
+  // collection -> declared field names (surfaced via describeCollection)
+  private fieldNames: Record<string, string[]> = {};
 
   // Allow tests to script search responses.
   public searchResponse: any = { results: [] };
 
-  constructor(opts?: { existing?: string[] }) {
+  constructor(opts?: { existing?: string[]; bm25?: string[] }) {
+    // Legacy dense-only collections: no text/sparse fields.
     for (const c of opts?.existing || []) {
       this.collections.add(c);
       this.store[c] = {};
+      this.fieldNames[c] = ["id", "vectors", "metadata"];
+    }
+    // Pre-existing collections that already carry the BM25 schema.
+    for (const c of opts?.bm25 || []) {
+      this.collections.add(c);
+      this.store[c] = {};
+      this.fieldNames[c] = ["id", "vectors", "metadata", "text", "sparse"];
     }
   }
 
@@ -43,8 +53,22 @@ class FakeMilvusClient {
       (f: any) => typeof f.dim === "number",
     );
     if (vectorField) this.dims[args.collection_name] = vectorField.dim;
+    this.fieldNames[args.collection_name] = (args.fields || []).map(
+      (f: any) => f.name,
+    );
     this.collections.add(args.collection_name);
     this.store[args.collection_name] = this.store[args.collection_name] || {};
+  }
+
+  async describeCollection({ collection_name }: any) {
+    this.calls.push({
+      method: "describeCollection",
+      args: { collection_name },
+    });
+    const fields = (this.fieldNames[collection_name] || []).map((name) => ({
+      name,
+    }));
+    return { schema: { fields } };
   }
 
   // Reject rows whose vector length disagrees with the collection's declared
@@ -112,12 +136,15 @@ class FakeMilvusClient {
   }
 }
 
-// Suppress the constructor's fire-and-forget initialize() console noise.
+// Suppress the constructor's fire-and-forget initialize() console noise and the
+// legacy-collection BM25 warning.
 beforeAll(() => {
   jest.spyOn(console, "error").mockImplementation(() => {});
+  jest.spyOn(console, "warn").mockImplementation(() => {});
 });
 afterAll(() => {
   (console.error as jest.Mock).mockRestore?.();
+  (console.warn as jest.Mock).mockRestore?.();
 });
 
 describe("Milvus vector store (TS OSS SDK)", () => {
@@ -363,10 +390,128 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     expect(vectorField.dim).toBeGreaterThanOrEqual(2);
   });
 
-  it("keywordSearch returns null (BM25 not implemented in TS provider)", async () => {
+  it("keywordSearch returns null on a collection without the BM25 schema", async () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     const store = makeStore(client);
     await store.initialize();
-    expect(await store.keywordSearch()).toBeNull();
+    expect(await store.keywordSearch("hello")).toBeNull();
+  });
+
+  it("creates a BM25 hybrid schema on a fresh collection", async () => {
+    const client = new FakeMilvusClient();
+    const store = makeStore(client);
+    await store.initialize();
+
+    const created = client.calls.find((c) => c.method === "createCollection")!;
+    const fieldNames = created.args.fields.map((f: any) => f.name);
+    expect(fieldNames).toEqual(
+      expect.arrayContaining(["id", "vectors", "metadata", "text", "sparse"]),
+    );
+    // The text field must have the analyzer enabled for BM25 tokenization.
+    const textField = created.args.fields.find((f: any) => f.name === "text");
+    expect(textField.enable_analyzer).toBe(true);
+    // BM25 function maps text -> sparse.
+    expect(created.args.functions[0].input_field_names).toEqual(["text"]);
+    expect(created.args.functions[0].output_field_names).toEqual(["sparse"]);
+    // Sparse BM25 index sits alongside the dense vector index.
+    const sparseIdx = created.args.index_params.find(
+      (i: any) => i.field_name === "sparse",
+    );
+    expect(sparseIdx.index_type).toBe("SPARSE_INVERTED_INDEX");
+    expect(sparseIdx.metric_type).toBe("BM25");
+  });
+
+  it("populates the BM25 text field from payload on a fresh collection", async () => {
+    const client = new FakeMilvusClient();
+    const store = makeStore(client);
+    await store.initialize();
+
+    // Prefers the lemmatized text when present.
+    await store.insert(
+      [[0.1, 0.2, 0.3]],
+      ["a"],
+      [{ data: "hello world", text_lemmatized: "hello world lemma" }],
+    );
+    // Falls back to raw data when there is no lemmatized text.
+    await store.insert([[0.4, 0.5, 0.6]], ["b"], [{ data: "just data" }]);
+
+    const insertCalls = client.calls.filter((c) => c.method === "insert");
+    expect(insertCalls[0].args.data[0].text).toBe("hello world lemma");
+    expect(insertCalls[1].args.data[0].text).toBe("just data");
+  });
+
+  it("writes the BM25 text field on update for a BM25 collection", async () => {
+    const client = new FakeMilvusClient();
+    const store = makeStore(client);
+    await store.initialize();
+    await store.insert([[1, 0, 0]], ["a"], [{ data: "old" }]);
+
+    await store.update("a", [0, 1, 0], { data: "new" });
+
+    const upsertCall = client.calls.filter((c) => c.method === "upsert").pop()!;
+    expect(upsertCall.args.data[0].text).toBe("new");
+    expect(upsertCall.args.data[0].metadata).toEqual({ data: "new" });
+  });
+
+  it("names the dense anns_field when searching a BM25 collection", async () => {
+    const client = new FakeMilvusClient();
+    client.searchResponse = {
+      results: [{ id: "a", score: 0.5, metadata: {} }],
+    };
+    const store = makeStore(client, { metricType: "COSINE" });
+    await store.initialize();
+
+    await store.search([0.1, 0.2, 0.3], 3);
+    const searchCall = client.calls.find((c) => c.method === "search")!;
+    expect(searchCall.args.anns_field).toBe("vectors");
+  });
+
+  it("omits anns_field when searching a legacy dense-only collection", async () => {
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    client.searchResponse = { results: [] };
+    const store = makeStore(client, { metricType: "COSINE" });
+    await store.initialize();
+
+    await store.search([0.1, 0.2, 0.3], 3);
+    const searchCall = client.calls.find((c) => c.method === "search")!;
+    expect(searchCall.args.anns_field).toBeUndefined();
+  });
+
+  it("runs a BM25 keyword search over the sparse field and parses hits", async () => {
+    const client = new FakeMilvusClient();
+    client.searchResponse = {
+      results: [{ id: "a", score: 4.2, metadata: { data: "kw hit" } }],
+    };
+    // COSINE so the BM25 score passes through unnormalised for a clean assert.
+    const store = makeStore(client, { metricType: "COSINE" });
+    await store.initialize();
+
+    const res = await store.keywordSearch("hello", 7, { user_id: "u1" });
+
+    const searchCall = client.calls.filter((c) => c.method === "search").pop()!;
+    expect(searchCall.args.data).toEqual(["hello"]); // raw text, not a vector
+    expect(searchCall.args.anns_field).toBe("sparse");
+    expect(searchCall.args.limit).toBe(7);
+    expect(searchCall.args.filter).toBe('(metadata["user_id"] == "u1")');
+    expect(res).not.toBeNull();
+    expect(res![0]).toEqual({
+      id: "a",
+      payload: { data: "kw hit" },
+      score: 4.2,
+    });
+  });
+
+  it("detects the BM25 schema on a pre-existing collection via describeCollection", async () => {
+    const client = new FakeMilvusClient({ bm25: ["mem0"] });
+    client.searchResponse = { results: [] };
+    const store = makeStore(client, { metricType: "COSINE" });
+    await store.initialize();
+
+    // Detected as BM25: keywordSearch runs (returns []) instead of null, and
+    // insert writes the text field.
+    expect(await store.keywordSearch("q")).not.toBeNull();
+    await store.insert([[1, 2, 3]], ["a"], [{ data: "d" }]);
+    const insertCall = client.calls.find((c) => c.method === "insert")!;
+    expect(insertCall.args.data[0].text).toBe("d");
   });
 });
