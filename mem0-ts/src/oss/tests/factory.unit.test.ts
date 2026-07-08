@@ -107,6 +107,11 @@ jest.mock("../src/llms/xai", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "xai-llm", config })),
 }));
+jest.mock("../src/llms/sarvam", () => ({
+  SarvamLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "sarvam-llm", config })),
+}));
 jest.mock("../src/llms/litellm", () => ({
   LiteLLM: jest
     .fn()
@@ -116,6 +121,11 @@ jest.mock("../src/llms/minimax", () => ({
   MiniMaxLLM: jest
     .fn()
     .mockImplementation((config) => ({ type: "minimax-llm", config })),
+}));
+jest.mock("../src/llms/together", () => ({
+  TogetherLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "together-llm", config })),
 }));
 jest.mock("../src/llms/vllm", () => ({
   VllmLLM: jest
@@ -264,8 +274,10 @@ describe("LLMFactory", () => {
     ["lmstudio"],
     ["deepseek"],
     ["xai"],
+    ["sarvam"],
     ["litellm"],
     ["minimax"],
+    ["together"],
     ["vllm"],
   ])("creates LLM for provider '%s'", (provider) => {
     expect(() => LLMFactory.create(provider, dummyLLMConfig)).not.toThrow();
@@ -297,6 +309,7 @@ describe("VectorStoreFactory", () => {
       VectorStoreFactory.create("memory", {
         collectionName: "test",
         dimension: 4,
+        dbPath: ":memory:",
       }),
     ).not.toThrow();
   });

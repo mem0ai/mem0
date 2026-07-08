@@ -24,6 +24,7 @@ import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
+import { ChromaDB } from "../vector_stores/chroma";
 import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { ValkeyDB } from "../vector_stores/valkey";
@@ -31,8 +32,10 @@ import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
 import { XAILLM } from "../llms/xai";
+import { SarvamLLM } from "../llms/sarvam";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
+import { TogetherLLM } from "../llms/together";
 import { VllmLLM } from "../llms/vllm";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
@@ -46,6 +49,7 @@ import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { FastEmbedEmbedder } from "../embeddings/fastembed";
 import { LangchainLLM } from "../llms/langchain";
 import { LangchainEmbedder } from "../embeddings/langchain";
+import { HuggingFaceEmbedder } from "../embeddings/huggingface";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
@@ -58,6 +62,7 @@ import { CassandraDB } from "../vector_stores/cassandra";
 import { PineconeDB } from "../vector_stores/pinecone";
 import { S3Vectors } from "../vector_stores/s3_vectors";
 import { TurbopufferDB } from "../vector_stores/turbopuffer";
+import { Milvus } from "../vector_stores/milvus";
 import { MongoDB } from "../vector_stores/mongodb";
 
 export class EmbedderFactory {
@@ -80,6 +85,8 @@ export class EmbedderFactory {
         return new FastEmbedEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "huggingface":
+        return new HuggingFaceEmbedder(config);
       default:
         throw new Error(`Unsupported embedder provider: ${provider}`);
     }
@@ -114,10 +121,14 @@ export class LLMFactory {
         return new DeepSeekLLM(config);
       case "xai":
         return new XAILLM(config);
+      case "sarvam":
+        return new SarvamLLM(config);
       case "litellm":
         return new LiteLLM(config);
       case "minimax":
         return new MiniMaxLLM(config);
+      case "together":
+        return new TogetherLLM(config);
       case "vllm":
         return new VllmLLM(config);
       default:
@@ -133,6 +144,8 @@ export class VectorStoreFactory {
         return new MemoryVectorStore(config);
       case "qdrant":
         return new Qdrant(config as any);
+      case "chroma":
+        return new ChromaDB(config as any);
       case "redis":
         return new RedisDB(config as any);
       case "valkey":
@@ -166,6 +179,8 @@ export class VectorStoreFactory {
         return new S3Vectors(config as any);
       case "turbopuffer":
         return new TurbopufferDB(config as any);
+      case "milvus":
+        return new Milvus(config as any);
       case "mongodb":
         return new MongoDB(config as any);
       default:

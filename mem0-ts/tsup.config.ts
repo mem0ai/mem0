@@ -24,6 +24,7 @@ const external = [
   "@mistralai/mistralai",
   "@supabase/supabase-js",
   "@upstash/vector",
+  "@zilliz/milvus2-sdk-node",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",
@@ -37,6 +38,7 @@ const external = [
   "mongodb",
   "@opensearch-project/opensearch",
   "@elastic/elasticsearch",
+  "chromadb",
 ];
 
 const define = {
