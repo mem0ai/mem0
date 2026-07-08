@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
 from mem0_cli import __version__
 from mem0_cli.backend.base import Backend
 from mem0_cli.config import PlatformConfig
+
+
+def _encode_path_segment(value: Any) -> str:
+    return quote(str(value), safe="")
 
 
 class PlatformBackend(Backend):
@@ -196,7 +201,11 @@ class PlatformBackend(Backend):
         )
 
     def get(self, memory_id: str) -> dict:
-        return self._request("GET", f"/v1/memories/{memory_id}/", params={"source": "CLI"})
+        return self._request(
+            "GET",
+            f"/v1/memories/{_encode_path_segment(memory_id)}/",
+            params={"source": "CLI"},
+        )
 
     def list_memories(
         self,
@@ -250,7 +259,11 @@ class PlatformBackend(Backend):
         if metadata:
             payload["metadata"] = metadata
         payload["source"] = "CLI"
-        return self._request("PUT", f"/v1/memories/{memory_id}/", json=payload)
+        return self._request(
+            "PUT",
+            f"/v1/memories/{_encode_path_segment(memory_id)}/",
+            json=payload,
+        )
 
     def delete(
         self,
@@ -274,7 +287,11 @@ class PlatformBackend(Backend):
                 params["run_id"] = run_id
             return self._request("DELETE", "/v1/memories/", params=params)
         elif memory_id:
-            return self._request("DELETE", f"/v1/memories/{memory_id}/", params={"source": "CLI"})
+            return self._request(
+                "DELETE",
+                f"/v1/memories/{_encode_path_segment(memory_id)}/",
+                params={"source": "CLI"},
+            )
         else:
             raise ValueError("Either memory_id or --all is required")
 
@@ -296,13 +313,17 @@ class PlatformBackend(Backend):
         entities = {t: v for t, v in type_map.items() if v}
         if not entities:
             raise ValueError("At least one entity ID is required for delete_entities.")
-        # Delete each provided entity via the v2 path-based endpoint
-        result: dict = {}
+        # Delete each provided entity via the v2 path-based endpoint. Key each
+        # response by entity type so a multi-entity delete (e.g. --user-id and
+        # --agent-id together) doesn't discard everything but the last result.
+        results: dict = {}
         for entity_type, entity_id in entities.items():
-            result = self._request(
-                "DELETE", f"/v2/entities/{entity_type}/{entity_id}/", params={"source": "CLI"}
+            results[entity_type] = self._request(
+                "DELETE",
+                f"/v2/entities/{_encode_path_segment(entity_type)}/{_encode_path_segment(entity_id)}/",
+                params={"source": "CLI"},
             )
-        return result
+        return results
 
     def ping(self, timeout: float | None = None) -> dict:
         """Call the ping endpoint and return the raw response.
@@ -346,7 +367,7 @@ class PlatformBackend(Backend):
         return result if isinstance(result, list) else result.get("results", [])
 
     def get_event(self, event_id: str) -> dict:
-        return self._request("GET", f"/v1/event/{event_id}/")
+        return self._request("GET", f"/v1/event/{_encode_path_segment(event_id)}/")
 
 
 class AuthError(Exception):

@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import MemoryClient from "mem0ai";
 import { loadConfig, CONFIG_DIR } from "./config/index.ts";
 import { detectAppId, detectRunId, resolveSearchFilters } from "./memory/scoping.ts";
+import { formatMemoryList } from "./memory/formatting.ts";
 import { registerMemoryTool } from "./memory/tools.ts";
 import { registerCommands } from "./commands.ts";
 import { setupAutoCapture } from "./capture/index.ts";
@@ -24,6 +25,31 @@ export function resolveUserId(configUserId: string): string {
   if (process.env.USER) return process.env.USER;
   if (process.env.USERNAME) return process.env.USERNAME;
   try { return os.userInfo().username; } catch { return "default"; }
+}
+
+/**
+ * Build the auto-recall context block for a turn: search memory with the user's
+ * prompt and format the top matches so they are guaranteed in context instead of
+ * relying on the agent to call the tool. Best-effort — returns "" when disabled,
+ * the prompt is blank, nothing matches, or the search fails; it must never block
+ * the turn.
+ */
+export async function buildRecallContext(
+  prompt: string,
+  enabled: boolean,
+  search: (query: string) => Promise<{ results?: unknown[] }>,
+): Promise<string> {
+  if (!enabled) return "";
+  const q = prompt.trim();
+  if (!q) return "";
+  try {
+    const res = await search(q);
+    const memories = (res.results ?? []) as Parameters<typeof formatMemoryList>[0];
+    if (memories.length === 0) return "";
+    return `<mem0-relevant-memories>\nRetrieved automatically for the current request. This is a shallow first pass — search mem0_memory for more if you need it.\n${formatMemoryList(memories)}\n</mem0-relevant-memories>`;
+  } catch {
+    return "";
+  }
 }
 
 export default function mem0Extension(pi: ExtensionAPI): void {
@@ -83,6 +109,15 @@ export default function mem0Extension(pi: ExtensionAPI): void {
 
   pi.on("before_agent_start", async (event, _ctx) => {
     let extra = MEMORY_POLICY;
+
+    // Guaranteed retrieval: prefetch memories relevant to this prompt so the
+    // agent always has them, rather than depending on it to call the tool.
+    const recall = await buildRecallContext(
+      event.prompt ?? "",
+      config.contextInjection,
+      (q) => mem0.search(q, { filters: resolveSearchFilters("project", scopeCtx) }),
+    );
+    if (recall) extra += "\n\n" + recall;
 
     if (config.dream.enabled && config.dream.auto && !dreamTriggered && !dreamChecked) {
       const gates = checkCheapGates(CONFIG_DIR, config.dream);
