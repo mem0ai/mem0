@@ -108,6 +108,7 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
+    "@aws-sdk/client-neptune-graph": "3.966.0",
     "@aws-sdk/client-s3vectors": "3.967.0",
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",

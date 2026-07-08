@@ -1531,6 +1531,8 @@ describe("S3 Vectors – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// 6. Neptune Analytics — mock NeptuneGraph client, test interface + init
+// ───────────────────────────────────────────────────────────────────────────
 // 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
