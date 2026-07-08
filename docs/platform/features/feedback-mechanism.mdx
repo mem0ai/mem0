@@ -150,7 +150,7 @@ Handle potential errors when submitting feedback:
 
 ```python Python
 from mem0 import MemoryClient
-from mem0.exceptions import MemoryNotFoundError, APIError
+from mem0.exceptions import MemoryNotFoundError, NetworkError
 
 client = MemoryClient(api_key="your_api_key")
 
@@ -163,8 +163,8 @@ try:
     print("Feedback submitted successfully")
 except MemoryNotFoundError:
     print("Memory not found")
-except APIError as e:
-    print(f"API error: {e}")
+except NetworkError as e:
+    print(f"Network error: {e}")
 except Exception as e:
     print(f"Unexpected error: {e}")
 ```

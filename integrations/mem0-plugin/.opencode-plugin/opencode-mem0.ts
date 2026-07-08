@@ -463,7 +463,7 @@ Identity context (resolved at plugin startup):
       }),
 
       search_memories: tool({
-        description: "Search through stored memories.",
+        description: "Search stored memories by semantic meaning. Use this proactively before answering when the request may depend on the user's past work, preferences, decisions, or environment -- relevant memories are not always auto-injected. For multi-part or comparative questions, run several searches with different phrasings and combine the results rather than stopping after one (multi-hop).",
         args: {
           query: tool.schema.string().describe("Search query"),
           user_id: tool.schema.string().optional().describe("User ID"),
@@ -489,7 +489,7 @@ Identity context (resolved at plugin startup):
       }),
 
       get_memories: tool({
-        description: "List all memories in the memory store, optionally filtered.",
+        description: "List or browse stored memories without a search query -- useful for auditing what is remembered or paging through everything in a scope. To find memories relevant to a question, use search_memories instead (it ranks by semantic relevance).",
         args: {
           user_id: tool.schema.string().optional().describe("User ID"),
           app_id: tool.schema.string().optional().describe("App/Project ID"),
@@ -513,7 +513,7 @@ Identity context (resolved at plugin startup):
       }),
 
       get_memory: tool({
-        description: "Retrieve a specific memory by its ID.",
+        description: "Fetch one memory by its exact ID (e.g. an ID returned by search_memories or get_memories) to read its full content and metadata.",
         args: {
           id: tool.schema.string().describe("The ID of the memory to retrieve"),
         },
@@ -525,7 +525,7 @@ Identity context (resolved at plugin startup):
       }),
 
       update_memory: tool({
-        description: "Update the content or metadata of a specific memory.",
+        description: "Update an existing memory in place when a stored fact has changed -- requires the memory ID. Preserves the ID and history, so prefer this over deleting and re-adding.",
         args: {
           id: tool.schema.string().describe("The ID of the memory to update"),
           text: tool.schema.string().optional().describe("New text content for the memory"),
@@ -542,7 +542,7 @@ Identity context (resolved at plugin startup):
       }),
 
       delete_memory: tool({
-        description: "Delete specific memories by their ID.",
+        description: "Delete one or more memories by ID when they are wrong, obsolete, or the user asks to forget them. Irreversible -- only delete what is clearly no longer wanted.",
         args: {
           id: tool.schema.string().describe("The ID of the memory to delete"),
         },
@@ -555,7 +555,7 @@ Identity context (resolved at plugin startup):
       }),
 
       delete_all_memories: tool({
-        description: "Delete all memories.",
+        description: "Delete ALL memories in the given scope. Destructive and irreversible -- only use when the user explicitly asks to wipe their memory. Never call speculatively.",
         args: {
           user_id: tool.schema.string().optional().describe("User ID whose memories to delete"),
           app_id: tool.schema.string().optional().describe("App ID whose memories to delete"),
@@ -577,7 +577,7 @@ Identity context (resolved at plugin startup):
       }),
 
       delete_entities: tool({
-        description: "Delete user/agent/app/run entities and all their associated memories.",
+        description: "Delete entire user/agent/app/run entities and every memory attached to them. Destructive and irreversible -- only on explicit user request to remove a whole user, agent, or project.",
         args: {
           user_id: tool.schema.string().optional().describe("User ID of the entity to delete"),
           agent_id: tool.schema.string().optional().describe("Agent ID of the entity to delete"),
@@ -597,7 +597,7 @@ Identity context (resolved at plugin startup):
       }),
 
       list_entities: tool({
-        description: "List all user/agent/app/run entities.",
+        description: "List the user/agent/app/run entities that have memories. Use to discover which scopes exist before searching, listing, or deleting within a specific one.",
         args: {
           page: tool.schema.number().optional().describe("Page number"),
           page_size: tool.schema.number().optional().describe("Page size"),
@@ -613,7 +613,7 @@ Identity context (resolved at plugin startup):
       }),
 
       get_event_status: tool({
-        description: "Check the status of an asynchronous memory operation by event_id.",
+        description: "Check whether an asynchronous memory write (add/update/delete) finished, using the event_id that call returned. Poll this when you need to confirm a write was persisted before relying on it.",
         args: {
           event_id: tool.schema.string().describe("The ID of the event/async operation to check"),
         },

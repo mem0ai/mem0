@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +14,18 @@ from mem0.configs.vector_stores.opensearch import OpenSearchConfig
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
+
+
+def _validate_filter(key: str, value) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
 
 
 class OutputData(BaseModel):
@@ -196,6 +209,7 @@ class OpenSearchDB(VectorStoreBase):
             for key in ["user_id", "run_id", "agent_id"]:
                 value = filters.get(key)
                 if value:
+                    _validate_filter(key, value)
                     filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
 
         # Combine knn with filters if needed
@@ -246,6 +260,7 @@ class OpenSearchDB(VectorStoreBase):
             for key in ["user_id", "run_id", "agent_id"]:
                 value = filters.get(key)
                 if value:
+                    _validate_filter(key, value)
                     filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
 
         if filter_clauses:
@@ -360,6 +375,7 @@ class OpenSearchDB(VectorStoreBase):
                 for key in ["user_id", "run_id", "agent_id"]:
                     value = filters.get(key)
                     if value:
+                        _validate_filter(key, value)
                         filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
 
             if filter_clauses:

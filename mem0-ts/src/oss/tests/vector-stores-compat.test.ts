@@ -600,6 +600,45 @@ describe("Supabase – backward compat with mocked client", () => {
     await Promise.all([p1, p2]);
     // No crash = idempotent (Supabase init runs test insert only once)
   });
+
+  it("constructor does not emit an unhandled rejection when init fails", async () => {
+    jest.resetModules();
+    jest.doMock("@supabase/supabase-js", () => {
+      const failing = {
+        from: jest.fn().mockReturnValue({
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({
+              error: { code: "42P01", message: "no table" },
+            }),
+          }),
+          delete: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ error: null }),
+          }),
+        }),
+      };
+      return { createClient: jest.fn().mockReturnValue(failing) };
+    });
+    const FailingSupabaseDB =
+      require("../src/vector_stores/supabase").SupabaseDB;
+
+    const rejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const store = new FailingSupabaseDB({
+        supabaseUrl: "https://example.supabase.co",
+        supabaseKey: "fake-key",
+        tableName: "memories",
+        collectionName: "test",
+      });
+      expect(store).toBeDefined();
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    } finally {
+      process.removeListener("unhandledRejection", onUnhandled);
+    }
+
+    expect(rejections).toEqual([]);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -681,7 +720,818 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6. Vectorize — mock Cloudflare client, test idempotent init
+// Cassandra — mock client, test interface + idempotent init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Cassandra – backward compat with mocked client", () => {
+  let CassandraDB: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    jest.doMock("cassandra-driver", () => {
+      const rows = new Map<
+        string,
+        { id: string; vector: number[]; payload: string }
+      >();
+      const memoryRows = () =>
+        Array.from(rows.entries())
+          .filter(([key]) => key.startsWith("memories:"))
+          .map(([, row]) => row);
+
+      class MockClient {
+        connect = jest.fn().mockResolvedValue(undefined);
+
+        execute = jest
+          .fn()
+          .mockImplementation(
+            async (
+              query: string,
+              params: any[] = [],
+              options: Record<string, any> = {},
+            ) => {
+              const normalized = query.replace(/\s+/g, " ").trim();
+
+              if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+                return { rows: [] };
+              }
+
+              if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "INSERT INTO mem0.memories (id, vector, payload) VALUES (?, ?, ?)",
+                )
+              ) {
+                rows.set(`memories:${params[0]}`, {
+                  id: params[0],
+                  vector: params[1],
+                  payload: params[2],
+                });
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT id, payload FROM mem0.memories WHERE id = ?",
+                )
+              ) {
+                const row = rows.get(`memories:${params[0]}`);
+                return {
+                  rows: row ? [{ id: row.id, payload: row.payload }] : [],
+                };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT id, vector, payload FROM mem0.memories",
+                )
+              ) {
+                return {
+                  rows: memoryRows().map((row) => ({
+                    ...row,
+                  })),
+                };
+              }
+
+              if (
+                normalized.startsWith("SELECT id, payload FROM mem0.memories")
+              ) {
+                return {
+                  rows: memoryRows().map((row) => ({
+                    id: row.id,
+                    payload: row.payload,
+                  })),
+                };
+              }
+
+              if (normalized.startsWith("DROP TABLE IF EXISTS mem0.memories")) {
+                for (const key of Array.from(rows.keys())) {
+                  if (key.startsWith("memories:")) {
+                    rows.delete(key);
+                  }
+                }
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith("DELETE FROM mem0.memories WHERE id = ?")
+              ) {
+                rows.delete(`memories:${params[0]}`);
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "INSERT INTO mem0.memory_migrations (id, user_id) VALUES (?, ?)",
+                )
+              ) {
+                rows.set(`migrations:${params[0]}`, {
+                  id: params[0],
+                  vector: [0],
+                  payload: JSON.stringify({ user_id: params[1] }),
+                });
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+                )
+              ) {
+                const row = rows.get(`migrations:${params[0]}`);
+                if (!row) {
+                  return { rows: [] };
+                }
+                return {
+                  rows: [{ user_id: JSON.parse(row.payload).user_id }],
+                };
+              }
+
+              throw new Error(
+                `Unexpected Cassandra query: ${normalized} prepare=${options.prepare}`,
+              );
+            },
+          );
+      }
+
+      return {
+        __esModule: true,
+        default: {
+          Client: jest.fn().mockImplementation(() => new MockClient()),
+          auth: {
+            PlainTextAuthProvider: jest
+              .fn()
+              .mockImplementation((username: string, password: string) => ({
+                username,
+                password,
+              })),
+          },
+        },
+      };
+    });
+
+    CassandraDB = require("../src/vector_stores/cassandra").CassandraDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new CassandraDB({
+      client: {
+        execute: jest.fn().mockResolvedValue({ rows: [] }),
+      },
+      collectionName: "memories",
+      dimension: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const cassandraDriver = require("cassandra-driver");
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    const clientInstance = cassandraDriver.default.Client.mock.results[0].value;
+    expect(clientInstance.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("shapes Cassandra writes and normalizes search results", async () => {
+    const cassandraDriver = require("cassandra-driver");
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const clientInstance = cassandraDriver.default.Client.mock.results[0].value;
+    expect(clientInstance.execute).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "INSERT INTO mem0.memories (id, vector, payload)",
+      ),
+      ["id-1", [1, 0, 0], JSON.stringify({ user_id: "u1", topic: "alpha" })],
+      { prepare: true },
+    );
+
+    const results = await store.search([1, 0, 0], 5, { user_id: "u1" });
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+    ]);
+  });
+
+  it("roundtrips migration user ids", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+  });
+
+  it("supports get, update, delete, and list", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 0, 0],
+        [0, 1, 0],
+      ],
+      ["id-1", "id-2"],
+      [
+        { user_id: "u1", topic: "alpha" },
+        { user_id: "u2", topic: "beta" },
+      ],
+    );
+
+    expect(await store.get("missing")).toBeNull();
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "alpha" },
+    });
+
+    await store.update("id-1", [0, 0, 1], {
+      user_id: "u1",
+      topic: "gamma",
+    });
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "gamma" },
+    });
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 10);
+    expect(count).toBe(1);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "gamma" },
+      },
+    ]);
+
+    await store.delete("id-2");
+    expect(await store.get("id-2")).toBeNull();
+
+    await store.deleteCol();
+    const [afterDrop, afterDropCount] = await store.list(undefined, 10);
+    expect(afterDrop).toEqual([]);
+    expect(afterDropCount).toBe(0);
+  });
+
+  it("scans paged search and list results", async () => {
+    const execute = jest
+      .fn()
+      .mockImplementation(
+        async (
+          query: string,
+          _params: any[] = [],
+          options: Record<string, any> = {},
+        ) => {
+          const normalized = query.replace(/\s+/g, " ").trim();
+
+          if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT id, vector, payload FROM mem0.memories",
+            )
+          ) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    vector: [1, 0, 0],
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  vector: [0, 1, 0],
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (normalized.startsWith("SELECT id, payload FROM mem0.memories")) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+            )
+          ) {
+            return { rows: [] };
+          }
+
+          throw new Error(`Unexpected Cassandra query: ${normalized}`);
+        },
+      );
+    const store = new CassandraDB({
+      client: { execute },
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const searchResults = await store.search([1, 0, 0], 5);
+    expect(searchResults).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+        score: 0,
+      },
+    ]);
+
+    const [listed, count] = await store.list(undefined, 10);
+    expect(count).toBe(2);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+      },
+    ]);
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: undefined,
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+  });
+
+  it("rejects unsafe identifiers", () => {
+    expect(
+      () =>
+        new CassandraDB({
+          client: {
+            execute: jest.fn().mockResolvedValue({ rows: [] }),
+          },
+          keyspace: "bad-name",
+          collectionName: "memories",
+          dimension: 3,
+        }),
+    ).toThrow("Invalid keyspace");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 6. S3 Vectors — mock AWS client, test interface + init
+// ───────────────────────────────────────────────────────────────────────────
+describe("S3 Vectors – backward compat with mocked client", () => {
+  function createMockS3VectorsClient(options?: {
+    queryDistance?: number;
+    queryDistanceMetric?: "cosine" | "euclidean";
+  }) {
+    const buckets = new Set<string>();
+    const indexes = new Map<
+      string,
+      {
+        dimension: number;
+        distanceMetric: string;
+      }
+    >();
+    const vectors = new Map<
+      string,
+      {
+        key: string;
+        data: { float32: number[] };
+        metadata: Record<string, any>;
+      }
+    >();
+
+    const vectorMapKey = (indexName: string, key: string) =>
+      `${indexName}:${key}`;
+
+    return {
+      send: jest.fn().mockImplementation(async (command: any) => {
+        const name = command.constructor.name;
+        const input = command.input;
+
+        switch (name) {
+          case "GetVectorBucketCommand":
+            if (!buckets.has(input.vectorBucketName)) {
+              const error: any = new Error("Bucket not found");
+              error.name = "NotFoundException";
+              throw error;
+            }
+            return {};
+          case "CreateVectorBucketCommand":
+            if (buckets.has(input.vectorBucketName)) {
+              const error: any = new Error("Bucket exists");
+              error.name = "ConflictException";
+              throw error;
+            }
+            buckets.add(input.vectorBucketName);
+            return {};
+          case "GetIndexCommand":
+            if (!indexes.has(input.indexName)) {
+              const error: any = new Error("Index not found");
+              error.name = "NotFoundException";
+              throw error;
+            }
+            return {};
+          case "CreateIndexCommand":
+            if (indexes.has(input.indexName)) {
+              const error: any = new Error("Index exists");
+              error.name = "ConflictException";
+              throw error;
+            }
+            indexes.set(input.indexName, {
+              dimension: input.dimension,
+              distanceMetric: input.distanceMetric,
+            });
+            return {};
+          case "PutVectorsCommand":
+            for (const vector of input.vectors || []) {
+              vectors.set(vectorMapKey(input.indexName, vector.key), {
+                key: vector.key,
+                data: vector.data,
+                metadata: vector.metadata || {},
+              });
+            }
+            return {};
+          case "QueryVectorsCommand":
+            return {
+              distanceMetric: options?.queryDistanceMetric ?? "cosine",
+              vectors: [
+                {
+                  key: "doc-1",
+                  metadata: { user_id: "u1", topic: "alpha" },
+                  distance: options?.queryDistance ?? 0.25,
+                },
+              ],
+            };
+          case "GetVectorsCommand":
+            return {
+              vectors: (input.keys || [])
+                .map((key: string) =>
+                  vectors.get(vectorMapKey(input.indexName, key)),
+                )
+                .filter(Boolean),
+            };
+          case "DeleteVectorsCommand":
+            for (const key of input.keys || []) {
+              vectors.delete(vectorMapKey(input.indexName, key));
+            }
+            return {};
+          case "DeleteIndexCommand":
+            indexes.delete(input.indexName);
+            for (const key of Array.from(vectors.keys())) {
+              if (key.startsWith(`${input.indexName}:`)) {
+                vectors.delete(key);
+              }
+            }
+            return {};
+          case "ListVectorsCommand":
+            return {
+              vectors: Array.from(vectors.values())
+                .filter((entry) =>
+                  vectorMapKey(input.indexName, entry.key).startsWith(
+                    `${input.indexName}:`,
+                  ),
+                )
+                .map((entry) => ({
+                  key: entry.key,
+                  metadata: entry.metadata,
+                })),
+            };
+          default:
+            throw new Error(`Unexpected S3Vectors command: ${name}`);
+        }
+      }),
+    };
+  }
+
+  function findCommandInput(
+    client: { send: jest.Mock },
+    commandName: string,
+  ): Record<string, any> | undefined {
+    const match = client.send.mock.calls.find(
+      ([command]) => command.constructor.name === commandName,
+    );
+    return match?.[0]?.input;
+  }
+
+  it("implements full VectorStore interface", () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const store = new S3Vectors({
+      client: createMockS3VectorsClient(),
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+
+    await Promise.all([p1, p2, p3]);
+
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "CreateVectorBucketCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "CreateIndexCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "GetVectorBucketCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "GetIndexCommand",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("shapes S3 write requests and normalizes search results", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[0.1, 0.2, 0.3]],
+      ["doc-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const putInput = findCommandInput(mockClient, "PutVectorsCommand");
+    expect(putInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      vectors: [
+        {
+          key: "doc-1",
+          data: { float32: [0.1, 0.2, 0.3] },
+          metadata: { user_id: "u1", topic: "alpha" },
+        },
+      ],
+    });
+
+    const results = await store.search([0.1, 0.2, 0.3], 5, { user_id: "u1" });
+
+    const queryInput = findCommandInput(mockClient, "QueryVectorsCommand");
+    expect(queryInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      queryVector: { float32: [0.1, 0.2, 0.3] },
+      topK: 5,
+      filter: { user_id: { $eq: "u1" } },
+      returnMetadata: true,
+      returnDistance: true,
+    });
+    expect(results).toEqual([
+      {
+        id: "doc-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.75,
+      },
+    ]);
+  });
+
+  it("normalizes euclidean distances without collapsing scores to zero", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const store = new S3Vectors({
+      client: createMockS3VectorsClient({
+        queryDistance: 1.5,
+        queryDistanceMetric: "euclidean",
+      }),
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+      distanceMetric: "cosine",
+    });
+
+    const [result] = await store.search([0.1, 0.2, 0.3], 1);
+
+    expect(result).toEqual({
+      id: "doc-1",
+      payload: { user_id: "u1", topic: "alpha" },
+      score: 0.4,
+    });
+  });
+
+  it("normalizes empty in and nin operands before search hits AWS", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    const baselineQueryCalls = mockClient.send.mock.calls.filter(
+      ([command]) => command.constructor.name === "QueryVectorsCommand",
+    ).length;
+    const emptyInResults = await store.search([0.1, 0.2, 0.3], 5, {
+      topic: { in: [] },
+    });
+    expect(emptyInResults).toEqual([]);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "QueryVectorsCommand",
+      ),
+    ).toHaveLength(baselineQueryCalls);
+
+    await store.search([0.1, 0.2, 0.3], 5, {
+      topic: { nin: [] },
+    });
+
+    const queryInput = findCommandInput(mockClient, "QueryVectorsCommand");
+    expect(queryInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      queryVector: { float32: [0.1, 0.2, 0.3] },
+      topK: 5,
+      returnMetadata: true,
+      returnDistance: true,
+    });
+    expect(queryInput.filter).toBeUndefined();
+  });
+  it("applies client-side list filters, including empty $nin operands", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [
+        [0.1, 0.2, 0.3],
+        [0.3, 0.2, 0.1],
+      ],
+      ["doc-1", "doc-2"],
+      [
+        { user_id: "u1", topic: "alpha", tags: ["keep"] },
+        { user_id: "u2", topic: "beta", tags: ["skip"] },
+      ],
+    );
+
+    const [allRows, allCount] = await store.list({ topic: { nin: [] } }, 10);
+    expect(allCount).toBe(2);
+    expect(allRows.map((row) => row.id)).toEqual(["doc-1", "doc-2"]);
+
+    const [filteredRows, filteredCount] = await store.list(
+      {
+        $and: [{ topic: { nin: ["beta"] } }, { tags: { in: ["keep"] } }],
+      },
+      10,
+    );
+
+    expect(filteredCount).toBe(1);
+    expect(filteredRows).toEqual([
+      {
+        id: "doc-1",
+        payload: { user_id: "u1", topic: "alpha", tags: ["keep"] },
+      },
+    ]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;
@@ -866,7 +1716,302 @@ describe("LangchainVectorStore – backward compat", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 8. Memory class — ensure it works with each provider via mocked factories
+// 8. AzureMySQL — mock mysql2 pool, test interface + idempotent init + CRUD
+// ───────────────────────────────────────────────────────────────────────────
+describe("AzureMySQL – backward compat with mocked client", () => {
+  let AzureMySQLDB: any;
+  let mockPool: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    const rows = new Map<
+      string,
+      { id: string; vector: string; payload: string }
+    >();
+    let userId: string | null = null;
+
+    mockPool = {
+      execute: jest
+        .fn()
+        .mockImplementation(async (sql: string, params?: any[]) => {
+          const q = sql.trim().toUpperCase();
+
+          if (
+            q.startsWith("CREATE TABLE") ||
+            q.startsWith("CREATE FULLTEXT") ||
+            q.startsWith("DROP TABLE")
+          ) {
+            return [{ affectedRows: 0 }, []];
+          }
+
+          // INSERT into main table (ON DUPLICATE KEY)
+          if (q.startsWith("INSERT INTO `") && q.includes("ON DUPLICATE KEY")) {
+            const [id, vector, payload] = params!;
+            rows.set(id, { id, vector, payload });
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // INSERT into memory_migrations
+          if (q.startsWith("INSERT INTO MEMORY_MIGRATIONS")) {
+            userId = params![0];
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // SELECT id, payload FROM table WHERE id = ? (single-row get by PK)
+          if (
+            q.startsWith("SELECT ID, PAYLOAD FROM") &&
+            q.includes("WHERE ID = ?")
+          ) {
+            const row = rows.get(params![0]);
+            return [row ? [row] : [], []];
+          }
+
+          // SELECT id, vector, payload FROM table (search with optional filters)
+          if (q.startsWith("SELECT ID, VECTOR, PAYLOAD FROM")) {
+            return [[...rows.values()], []];
+          }
+
+          if (q.includes("MATCH(TEXT_LEMMATIZED) AGAINST")) {
+            const term = String(params?.[0] ?? "").toLowerCase();
+            const limit = Number(params?.[params!.length - 1] ?? rows.size);
+            const matched = [...rows.values()]
+              .filter((row) => {
+                const payload = JSON.parse(row.payload);
+                return String(payload.textLemmatized ?? "")
+                  .toLowerCase()
+                  .includes(term);
+              })
+              .slice(0, limit)
+              .map((row) => ({ ...row, score: 1 }));
+            return [matched, []];
+          }
+
+          // SELECT id, payload FROM table (list with LIMIT)
+          if (q.startsWith("SELECT ID, PAYLOAD FROM")) {
+            return [
+              [...rows.values()].slice(0, params![params!.length - 1]),
+              [],
+            ];
+          }
+
+          // SELECT COUNT(*)
+          if (q.startsWith("SELECT COUNT(*)")) {
+            return [[{ cnt: rows.size }], []];
+          }
+
+          // UPDATE
+          if (q.startsWith("UPDATE `")) {
+            const [vector, payload, id] = params!;
+            if (rows.has(id)) {
+              rows.set(id, { id, vector, payload });
+            }
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // DELETE
+          if (q.startsWith("DELETE FROM `")) {
+            rows.delete(params![0]);
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // SELECT user_id FROM memory_migrations
+          if (q.startsWith("SELECT USER_ID FROM MEMORY_MIGRATIONS")) {
+            return [userId ? [{ user_id: userId }] : [], []];
+          }
+
+          return [[], []];
+        }),
+      getConnection: jest.fn().mockImplementation(async () => ({
+        beginTransaction: jest.fn().mockResolvedValue(undefined),
+        execute: jest
+          .fn()
+          .mockImplementation(async (sql: string, params?: any[]) => {
+            return mockPool.execute(sql, params);
+          }),
+        commit: jest.fn().mockResolvedValue(undefined),
+        rollback: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn(),
+      })),
+      end: jest.fn().mockResolvedValue(undefined),
+    };
+
+    jest.doMock("mysql2/promise", () => ({
+      createPool: jest.fn().mockReturnValue(mockPool),
+    }));
+
+    AzureMySQLDB = require("../src/vector_stores/azure_mysql").AzureMySQLDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.keywordSearch).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent", async () => {
+    const mysql2 = require("mysql2/promise");
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    // createPool called only once despite 3 initialize() calls
+    expect(mysql2.createPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("full CRUD cycle", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    const vec1 = [1, 0, 0, 0];
+    const vec2 = [0, 1, 0, 0];
+
+    // Insert
+    await store.insert(
+      [vec1, vec2],
+      ["id-1", "id-2"],
+      [{ data: "alpha" }, { data: "beta" }],
+    );
+
+    // Get
+    const item = await store.get("id-1");
+    expect(item).not.toBeNull();
+    expect(item!.id).toBe("id-1");
+
+    // Search — vec1 should rank first
+    const results = await store.search(vec1, 2);
+    expect(results.length).toBeGreaterThan(0);
+
+    // Update
+    await store.update("id-1", [0, 0, 1, 0], { data: "updated" });
+
+    // List
+    const [listed, count] = await store.list();
+    expect(listed.length).toBeGreaterThan(0);
+    expect(count).toBeGreaterThan(0);
+
+    // Delete
+    await store.delete("id-2");
+
+    // DeleteCol
+    await store.deleteCol();
+  });
+
+  it("keywordSearch matches textLemmatized payloads", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    await store.insert(
+      [[1, 0, 0, 0]],
+      ["id-1"],
+      [
+        {
+          data: "alpha",
+          textLemmatized: "alpha normalized",
+        },
+      ],
+    );
+
+    const results = await store.keywordSearch("normalized", 5);
+    expect(results).not.toBeNull();
+    expect(results![0].id).toBe("id-1");
+  });
+
+  it("getUserId and setUserId roundtrip", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    await store.setUserId("custom-user");
+    const retrieved = await store.getUserId();
+    expect(retrieved).toBe("custom-user");
+  });
+
+  it("uses mysql_clear_password semantics for Azure tokens", async () => {
+    jest.doMock("@azure/identity", () => ({
+      DefaultAzureCredential: jest.fn().mockImplementation(() => ({
+        getToken: jest.fn().mockResolvedValue({ token: "aad-token" }),
+      })),
+    }));
+
+    const mysql2 = require("mysql2/promise");
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+      useAzureCredential: true,
+    });
+    await store.initialize();
+
+    const poolConfig = mysql2.createPool.mock.calls[0][0];
+    const plugin = poolConfig.authPlugins.mysql_clear_password();
+    expect(plugin()).toEqual(Buffer.from("aad-token\0"));
+  });
+
+  it("rejects invalid collectionName at construction", () => {
+    expect(
+      () =>
+        new AzureMySQLDB({
+          host: "localhost",
+          user: "test",
+          database: "testdb",
+          collectionName: "drop--table",
+          embeddingModelDims: 4,
+        }),
+    ).toThrow("Invalid collectionName");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 9. Memory class — ensure it works with each provider via mocked factories
 // ───────────────────────────────────────────────────────────────────────────
 describe("Memory class – backward compat with all providers", () => {
   function createMockEmbedder(dims: number) {
@@ -1134,5 +2279,154 @@ describe("Memory class – backward compat with all providers", () => {
     );
 
     consoleSpy.mockRestore();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// WeaviateDB — mock client, behavioral surface checks
+// ───────────────────────────────────────────────────────────────────────────
+describe("WeaviateDB – backward compat with mocked client", () => {
+  let WeaviateDB: any;
+  let mockClient: any;
+  let mockCol: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    mockCol = {
+      data: {
+        insertMany: jest.fn().mockResolvedValue({}),
+        deleteById: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      query: {
+        nearVector: jest.fn().mockResolvedValue({ objects: [] }),
+        bm25: jest.fn().mockResolvedValue({ objects: [] }),
+        fetchObjectById: jest.fn().mockResolvedValue(null),
+        fetchObjects: jest.fn().mockResolvedValue({ objects: [] }),
+      },
+      filter: {
+        byProperty: jest
+          .fn()
+          .mockReturnValue({ equal: jest.fn().mockReturnValue({}) }),
+      },
+    };
+
+    mockClient = {
+      collections: {
+        exists: jest.fn().mockResolvedValue(false),
+        create: jest.fn().mockResolvedValue({}),
+        get: jest.fn().mockReturnValue(mockCol),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    jest.doMock("weaviate-client", () => ({
+      default: {
+        connectToLocal: jest.fn().mockResolvedValue(mockClient),
+        connectToWeaviateCloud: jest.fn().mockResolvedValue(mockClient),
+        connectToCustom: jest.fn().mockResolvedValue(mockClient),
+        ApiKey: jest.fn().mockReturnValue({}),
+        configure: {
+          vectorizer: { none: jest.fn().mockReturnValue({}) },
+          vectorIndex: { hnsw: jest.fn().mockReturnValue({}) },
+        },
+      },
+      Filters: { and: jest.fn().mockReturnValue({ __mock: "filter" }) },
+      __esModule: true,
+    }));
+
+    WeaviateDB = require("../src/vector_stores/weaviate").WeaviateDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.keywordSearch).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+    expect(mockClient.collections.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("insert shapes insertMany request correctly", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    await store.insert([[0.1, 0.2, 0.3]], ["id-1"], [{ data: "hello" }]);
+    expect(mockCol.data.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "id-1",
+          properties: { data: "hello" },
+          vectors: [0.1, 0.2, 0.3],
+        }),
+      ]),
+    );
+  });
+
+  it("search normalizes nearVector result to id/payload/score", async () => {
+    mockCol.query.nearVector.mockResolvedValue({
+      objects: [
+        {
+          uuid: "id-1",
+          properties: { data: "x" },
+          metadata: { distance: 0.2 },
+        },
+      ],
+    });
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    const results = await store.search([0.1, 0.2, 0.3], 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      id: "id-1",
+      payload: { data: "x" },
+      score: 0.8,
+    });
+  });
+
+  it("getUserId / setUserId roundtrip", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
   });
 });
