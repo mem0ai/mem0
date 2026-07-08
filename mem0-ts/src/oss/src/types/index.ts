@@ -140,21 +140,29 @@ export const MemoryConfigSchema = z.object({
       })
       .passthrough(),
   }),
+
   llm: z.object({
     provider: z.string(),
-    config: z.object({
-      apiKey: z.string().optional(),
-      model: z.union([z.string(), z.any()]).optional(),
-      modelProperties: z.record(z.string(), z.any()).optional(),
-      baseURL: z.string().optional(),
-      vllmBaseURL: z.string().optional(),
-      vllm_base_url: z.string().optional(),
-      url: z.string().optional(),
-      timeout: z.number().optional(),
-      temperature: z.number().optional(),
-      topP: z.number().optional(),
-      maxTokens: z.number().optional(),
-    }),
+    config: z
+      .object({
+        apiKey: z.string().optional(),
+        model: z.union([z.string(), z.any()]).optional(),
+        modelProperties: z.record(z.string(), z.any()).optional(),
+        baseURL: z.string().optional(),
+        vllmBaseURL: z.string().optional(),
+        vllm_base_url: z.string().optional(),
+        url: z.string().optional(),
+        timeout: z.number().optional(),
+        temperature: z.number().optional(),
+        topP: z.number().optional(),
+        maxTokens: z.number().optional(),
+        awsRegion: z.string().optional(),
+        awsAccessKeyId: z.string().optional(),
+        awsSecretAccessKey: z.string().optional(),
+        awsSessionToken: z.string().optional(),
+        client: z.any().optional(),
+      })
+      .passthrough(),
   }),
   historyDbPath: z.string().optional(),
   customInstructions: z.string().optional(),
