@@ -44,6 +44,7 @@ jest.mock("../src/embeddings/vertexai", () => ({
   VertexAIEmbedder: jest
     .fn()
     .mockImplementation((config) => ({ type: "vertexai-embedder", config })),
+}));
 jest.mock("../src/embeddings/together", () => ({
   TogetherEmbedder: jest
     .fn()

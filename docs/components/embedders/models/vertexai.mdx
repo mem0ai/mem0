@@ -4,11 +4,12 @@ description: "Configure Google Cloud Vertex AI as an embedding provider in Mem0 
 ---
 ### Vertex AI
 
-To use Google Cloud's Vertex AI for text embedding models, set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to point to the path of your service account's credentials JSON file. These credentials can be created in the [Google Cloud Console](https://console.cloud.google.com/).
+To use Google Cloud's Vertex AI for text embedding models, authenticate with a service account. In Python, set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of your credentials JSON file. In TypeScript, pass the project ID and credentials through the embedder config (or the `GCP_PROJECT_ID` / `GOOGLE_APPLICATION_CREDENTIALS` environment variables). These credentials can be created in the [Google Cloud Console](https://console.cloud.google.com/).
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -32,28 +33,77 @@ m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="john")
 ```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+  embedder: {
+    provider: "vertexai",
+    config: {
+      model: "gemini-embedding-001",
+      // Project ID falls back to GCP_PROJECT_ID / GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT.
+      googleProjectId: process.env.GCP_PROJECT_ID,
+      location: "us-central1",
+      // Path to a service account key file, or pass the JSON inline via googleServiceAccountJson.
+      vertexCredentialsJson: "/path/to/your/credentials.json",
+      embeddingDims: 256,
+      memoryAddEmbeddingType: "RETRIEVAL_DOCUMENT",
+      memoryUpdateEmbeddingType: "RETRIEVAL_DOCUMENT",
+      memorySearchEmbeddingType: "RETRIEVAL_QUERY",
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("I love sci-fi movies but not thrillers", { userId: "john" });
+```
+</CodeGroup>
+
 The embedding types can be one of the following:
 - SEMANTIC_SIMILARITY
 - CLASSIFICATION
 - CLUSTERING
 - RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, QUESTION_ANSWERING, FACT_VERIFICATION
-- CODE_RETRIEVAL_QUERY  
-Check out the [Vertex AI documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/task-types#supported_task_types) for more information.  
-  
+- CODE_RETRIEVAL_QUERY
+
+Check out the [Vertex AI documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/task-types#supported_task_types) for more information.
+
+<Note>
+In the current TypeScript SDK, `memoryAddEmbeddingType` is applied when memories are embedded in bulk on `add`. Search queries and single-item updates fall back to the model's default task type (`SEMANTIC_SIMILARITY`). Set all three for parity with the Python SDK; full per-action routing across the TypeScript pipeline is planned as a follow-up.
+</Note>
+
 ### Config
 
 Here are the parameters available for configuring the Vertex AI embedder:
 
-| Parameter                 | Description                                      | Default Value        |
-| ------------------------- | ------------------------------------------------ | -------------------- |
-| `model`                   | The name of the Vertex AI embedding model to use | `gemini-embedding-001` |
-| `vertex_credentials_json` | Path to the Google Cloud credentials JSON file   | `None`               |
-| `embedding_dims`          | Dimensions of the embedding model                | `256`                |
-| `memory_add_embedding_type` | The type of embedding to use for the add memory action | `RETRIEVAL_DOCUMENT` |
-| `memory_update_embedding_type` | The type of embedding to use for the update memory action | `RETRIEVAL_DOCUMENT` |
-| `memory_search_embedding_type` | The type of embedding to use for the search memory action | `RETRIEVAL_QUERY` |
+<Tabs>
+<Tab title="Python">
+| Parameter                        | Description                                                | Default Value          |
+| -------------------------------- | ---------------------------------------------------------- | ---------------------- |
+| `model`                          | The name of the Vertex AI embedding model to use           | `gemini-embedding-001` |
+| `vertex_credentials_json`        | Path to the Google Cloud credentials JSON file             | `None`                 |
+| `embedding_dims`                 | Dimensions of the embedding model                          | `256`                  |
+| `memory_add_embedding_type`      | The embedding type to use for the add memory action        | `RETRIEVAL_DOCUMENT`   |
+| `memory_update_embedding_type`   | The embedding type to use for the update memory action     | `RETRIEVAL_DOCUMENT`   |
+| `memory_search_embedding_type`   | The embedding type to use for the search memory action     | `RETRIEVAL_QUERY`      |
+</Tab>
+<Tab title="TypeScript">
+| Parameter                     | Description                                                                 | Default Value          |
+| ----------------------------- | -------------------------------------------------------------------------- | ---------------------- |
+| `model`                       | The name of the Vertex AI embedding model to use                           | `gemini-embedding-001` |
+| `googleProjectId`             | Google Cloud project ID (falls back to `GCP_PROJECT_ID` env var)           | `None`                 |
+| `location`                    | Google Cloud region (falls back to `GCP_LOCATION` env var)                 | `us-central1`          |
+| `vertexCredentialsJson`       | Path to the Google Cloud credentials JSON file                             | `None`                 |
+| `googleServiceAccountJson`    | Service account credentials as a JSON string or object                     | `None`                 |
+| `embeddingDims`               | Dimensions of the embedding model                                          | `256`                  |
+| `memoryAddEmbeddingType`      | The embedding type to use for the add memory action                        | `RETRIEVAL_DOCUMENT`   |
+| `memoryUpdateEmbeddingType`   | The embedding type to use for the update memory action                     | `RETRIEVAL_DOCUMENT`   |
+| `memorySearchEmbeddingType`   | The embedding type to use for the search memory action                     | `RETRIEVAL_QUERY`      |
+</Tab>
+</Tabs>

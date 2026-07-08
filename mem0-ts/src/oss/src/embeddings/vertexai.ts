@@ -50,7 +50,7 @@ export class VertexAIEmbedder implements Embedder {
 
     if (!this.projectId) {
       throw new Error(
-        "Vertex AI requires a Google Cloud project ID. Set googleProjectId in config or the GOOGLE_CLOUD_PROJECT/GCLOUD_PROJECT env var.",
+        "Vertex AI requires a Google Cloud project ID. Set googleProjectId in config or one of the GCP_PROJECT_ID / GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT env vars.",
       );
     }
 
@@ -95,9 +95,14 @@ export class VertexAIEmbedder implements Embedder {
     }
   }
 
-  private formatInstance(text: string) {
+  private formatInstance(text: string, taskType: string) {
+    // task_type must live on the instance (snake_case), not in `parameters`.
+    // Vertex silently ignores an unknown `parameters.taskType`, which would
+    // fall back to the model's default task type. This mirrors the Python SDK's
+    // TextEmbeddingInput(text=..., task_type=...).
     return {
       content: text,
+      task_type: taskType,
     };
   }
 
@@ -119,9 +124,8 @@ export class VertexAIEmbedder implements Embedder {
     }
 
     const endpointName = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${this.model}`;
-    const instance = this.formatInstance(text);
+    const instance = this.formatInstance(text, embeddingType);
     const parameters = {
-      taskType: embeddingType,
       outputDimensionality: this.embeddingDims,
     };
 
@@ -171,10 +175,10 @@ export class VertexAIEmbedder implements Embedder {
     for (let i = 0; i < texts.length; i += batchSize) {
       const chunk = texts.slice(i, i + batchSize);
       const instances = chunk.map(
-        (text) => this.helpers.toValue(this.formatInstance(text)) as any,
+        (text) =>
+          this.helpers.toValue(this.formatInstance(text, embeddingType)) as any,
       );
       const parameters = {
-        taskType: embeddingType,
         outputDimensionality: this.embeddingDims,
       };
 

@@ -49,11 +49,12 @@ describe("VertexAIEmbedder", () => {
       expect(callArgs.endpoint).toBe(
         "projects/test-project/locations/us-central1/publishers/google/models/gemini-embedding-001",
       );
-      expect(callArgs.instances).toEqual([{ content: "hello" }]);
-      expect(callArgs.parameters).toEqual({
-        taskType: "SEMANTIC_SIMILARITY",
-        outputDimensionality: 256,
-      });
+      // task_type belongs on the instance (snake_case), parameters carries
+      // only outputDimensionality.
+      expect(callArgs.instances).toEqual([
+        { content: "hello", task_type: "SEMANTIC_SIMILARITY" },
+      ]);
+      expect(callArgs.parameters).toEqual({ outputDimensionality: 256 });
     });
 
     it("embed() with memory action search uses RETRIEVAL_QUERY", async () => {
@@ -63,7 +64,7 @@ describe("VertexAIEmbedder", () => {
 
       await embedder.embed("hello", "search");
       const callArgs = mockPredict.mock.calls[0][0];
-      expect(callArgs.parameters.taskType).toBe("RETRIEVAL_QUERY");
+      expect(callArgs.instances[0].task_type).toBe("RETRIEVAL_QUERY");
     });
 
     it("embed() with memory action add uses RETRIEVAL_DOCUMENT", async () => {
@@ -73,7 +74,7 @@ describe("VertexAIEmbedder", () => {
 
       await embedder.embed("hello", "add");
       const callArgs = mockPredict.mock.calls[0][0];
-      expect(callArgs.parameters.taskType).toBe("RETRIEVAL_DOCUMENT");
+      expect(callArgs.instances[0].task_type).toBe("RETRIEVAL_DOCUMENT");
     });
 
     it("embedBatch() chunking and sequential loops", async () => {
@@ -98,6 +99,9 @@ describe("VertexAIEmbedder", () => {
 
       const firstCallArgs = mockPredict.mock.calls[0][0];
       expect(firstCallArgs.instances.length).toBe(250);
+      // batch defaults to the "add" action -> RETRIEVAL_DOCUMENT on every instance
+      expect(firstCallArgs.instances[0].task_type).toBe("RETRIEVAL_DOCUMENT");
+      expect(firstCallArgs.parameters).toEqual({ outputDimensionality: 256 });
 
       const secondCallArgs = mockPredict.mock.calls[1][0];
       expect(secondCallArgs.instances.length).toBe(5);
