@@ -334,6 +334,7 @@ describe("VectorStoreFactory", () => {
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["neptune"],
     ["neptune-analytics"],
     ["upstash_vector"],
     ["azure_mysql"],
@@ -345,6 +346,30 @@ describe("VectorStoreFactory", () => {
     expect(() =>
       VectorStoreFactory.create(provider, dummyVSConfig),
     ).not.toThrow();
+  });
+
+  test("passes Neptune endpoint URI config through the factory", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune", config) as any;
+
+    expect(store.config).toEqual(config);
+  });
+
+  test("keeps neptune-analytics as a compatibility alias", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune-analytics", config) as any;
+
+    expect(store.config).toEqual(config);
   });
 
   test("throws for unsupported provider", () => {

@@ -158,6 +158,7 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "neptune":
       case "neptune-analytics":
         return new NeptuneAnalyticsVectorStore(config as any);
       case "elasticsearch":
