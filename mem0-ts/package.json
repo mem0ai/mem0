@@ -109,6 +109,7 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
+    "@aws-sdk/client-bedrock-runtime": "3.967.0",
     "@aws-sdk/client-s3vectors": "3.967.0",
     "@mochow/mochow-sdk-node": "^2.1.5",
     "@azure/identity": "^4.0.0",
@@ -148,6 +149,9 @@
     "@zilliz/milvus2-sdk-node": "^2.4.0 || ^3.0.0"
   },
   "peerDependenciesMeta": {
+    "@aws-sdk/client-bedrock-runtime": {
+      "optional": true
+    },
     "mysql2": {
       "optional": true
     },

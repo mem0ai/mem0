@@ -38,6 +38,7 @@ import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { TogetherLLM } from "../llms/together";
 import { VllmLLM } from "../llms/vllm";
+import { AWSBedrockLLM } from "../llms/aws_bedrock";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
@@ -136,6 +137,9 @@ export class LLMFactory {
         return new TogetherLLM(config);
       case "vllm":
         return new VllmLLM(config);
+      case "aws_bedrock":
+      case "bedrock":
+        return new AWSBedrockLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }

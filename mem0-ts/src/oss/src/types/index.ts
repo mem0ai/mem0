@@ -69,6 +69,17 @@ export interface LLMConfig {
   maxTokens?: number;
 }
 
+export interface AWSBedrockConfig extends LLMConfig {
+  /** AWS region for the Bedrock runtime endpoint. Falls back to `AWS_REGION`. */
+  awsRegion?: string;
+  /** Optional explicit access key. Falls back to the AWS credential chain. */
+  awsAccessKeyId?: string;
+  /** Optional explicit secret key. Falls back to the AWS credential chain. */
+  awsSecretAccessKey?: string;
+  /** Optional session token for temporary credentials. */
+  awsSessionToken?: string;
+}
+
 export interface RerankerConfig {
   apiKey?: string;
   /** The reranker model to use. Default varies by provider. */
@@ -217,6 +228,10 @@ export const MemoryConfigSchema = z.object({
       temperature: z.number().optional(),
       topP: z.number().optional(),
       maxTokens: z.number().optional(),
+      awsRegion: z.string().optional(),
+      awsAccessKeyId: z.string().optional(),
+      awsSecretAccessKey: z.string().optional(),
+      awsSessionToken: z.string().optional(),
     }),
   }),
   historyDbPath: z.string().optional(),
