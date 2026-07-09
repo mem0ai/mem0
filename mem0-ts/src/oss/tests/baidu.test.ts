@@ -489,6 +489,17 @@ describe("BaiduDB reads", () => {
     );
   });
 
+  // The server signals a missing primary key with code 101; pymochow and mochow-sdk-go both
+  // name it (ROW_KEY_NOT_FOUND / RowKeyNotFound). The Node SDK's ServerErrCode stops at 100,
+  // so it has to be spelled out. Memory.get()/update()/delete() all branch on a null here.
+  it("returns null when the server reports the row key is missing", async () => {
+    const client = fakeClient();
+    const store = makeStore(client);
+
+    client.query.mockResolvedValue({ code: 101, msg: "row key not found" });
+    await expect(store.get("nope")).resolves.toBeNull();
+  });
+
   it("lists flat select rows and reports how many came back", async () => {
     const client = fakeClient();
     client.select.mockResolvedValue({

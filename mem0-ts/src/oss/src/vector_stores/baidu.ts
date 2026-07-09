@@ -37,6 +37,11 @@ const TABLE_POLL_ATTEMPTS = 60;
 // (pymochow 2.4.1 ships FieldType.JSON == "JSON"). The wire value is the bare string.
 const JSON_FIELD_TYPE = "JSON" as unknown as FieldType;
 
+// Querying a primary key that isn't there answers with this code, not an empty row. The Node
+// SDK's ServerErrCode stops at 100, but its siblings against the same server name it:
+// pymochow ROW_KEY_NOT_FOUND = 101, mochow-sdk-go RowKeyNotFound = 101.
+const ROW_KEY_NOT_FOUND = 101;
+
 const SAFE_FILTER_KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 function escapeFilterString(value: string): string {
@@ -490,7 +495,7 @@ export class BaiduDB implements VectorStore {
       primaryKey: { id: vectorId },
       projections: PROJECTIONS,
     });
-    check(response, `query '${vectorId}'`);
+    check(response, `query '${vectorId}'`, ROW_KEY_NOT_FOUND);
 
     if (!response.row || response.row.id === undefined) {
       return null;
