@@ -61,7 +61,7 @@ client.get_all(user_id="alice")
 client.get(memory_id="<id>")
 
 # Update
-client.update(memory_id="<id>", data="Alice loves mountain hiking")
+client.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 client.delete(memory_id="<id>")
@@ -118,7 +118,7 @@ m.get_all(user_id="alice")
 m.get(memory_id="<id>")
 
 # Update
-m.update(memory_id="<id>", data="Alice loves mountain hiking")
+m.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 m.delete(memory_id="<id>")
@@ -501,5 +501,6 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Custom Reranker Prompts](https://docs.mem0.ai/components/rerankers/custom-prompts) [OSS]: Use when rewriting reranker prompts.
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
 - [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
-- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
+- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
+- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.

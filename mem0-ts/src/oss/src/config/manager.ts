@@ -40,6 +40,10 @@ export class ConfigManager {
               | undefined);
 
           return {
+            // Spread first so provider-specific keys (e.g. the Vertex AI
+            // project/location/credentials) survive the merge, while the
+            // normalized values below still win.
+            ...userConf,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey
@@ -177,6 +181,7 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
+      reranker: userConfig.reranker,
     };
 
     // Validate the merged config

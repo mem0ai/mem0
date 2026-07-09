@@ -12,11 +12,18 @@ import {
   EmbeddingConfig,
   HistoryStoreConfig,
   LLMConfig,
+  RerankerConfig,
   VectorStoreConfig,
 } from "../types";
+import { Reranker } from "../rerankers/base";
+import { CohereReranker } from "../rerankers/cohere";
+import { LLMReranker } from "../rerankers/llm";
+import { ZeroEntropyReranker } from "../rerankers/zeroentropy";
+import { CrossEncoderReranker } from "../rerankers/cross_encoder";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
+import { BaiduDB } from "../vector_stores/baidu";
 import { Qdrant } from "../vector_stores/qdrant";
 import { ChromaDB } from "../vector_stores/chroma";
 import { VectorizeDB } from "../vector_stores/vectorize";
@@ -48,6 +55,7 @@ import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
 import { NeptuneAnalyticsVectorStore } from "../vector_stores/neptune_analytics";
+import { VertexAIEmbedder } from "../embeddings/vertexai";
 import { ElasticsearchDB } from "../vector_stores/elasticsearch";
 import { OpenSearchDB } from "../vector_stores/opensearch";
 import { UpstashVector } from "../vector_stores/upstash_vector";
@@ -81,6 +89,8 @@ export class EmbedderFactory {
         return new FastEmbedEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "vertexai":
+        return new VertexAIEmbedder(config);
       case "huggingface":
         return new HuggingFaceEmbedder(config);
       default:
@@ -138,6 +148,8 @@ export class VectorStoreFactory {
     switch (provider.toLowerCase()) {
       case "memory":
         return new MemoryVectorStore(config);
+      case "baidu":
+        return new BaiduDB(config as any);
       case "qdrant":
         return new Qdrant(config as any);
       case "chroma":
@@ -187,6 +199,69 @@ export class VectorStoreFactory {
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
+  }
+}
+
+export class RerankerFactory {
+  static create(provider: string, config: RerankerConfig): Reranker {
+    switch (provider.toLowerCase()) {
+      case "cohere":
+        return new CohereReranker(config);
+      case "zero_entropy":
+        return new ZeroEntropyReranker(config);
+      case "sentence_transformer":
+        return new CrossEncoderReranker(
+          config,
+          "Xenova/ms-marco-MiniLM-L-6-v2",
+        );
+      case "huggingface":
+        return new CrossEncoderReranker(
+          config,
+          "Xenova/bge-reranker-base",
+          512,
+        );
+      case "llm_reranker": {
+        const llm = RerankerFactory.buildLLMRerankerLLM(config);
+        return new LLMReranker(config, llm);
+      }
+      default:
+        throw new Error(`Unsupported reranker provider: ${provider}`);
+    }
+  }
+
+  private static buildLLMRerankerLLM(config: RerankerConfig): LLM {
+    const nested = config.llm;
+    let llmProvider: string;
+    let llmConfig: LLMConfig;
+
+    if (nested) {
+      llmProvider = nested.provider || config.provider || "openai";
+      llmConfig = { ...(nested.config || {}) };
+      if (llmConfig.model === undefined) {
+        llmConfig.model = config.model ?? "gpt-4o-mini";
+      }
+      if (llmConfig.temperature === undefined) {
+        llmConfig.temperature = config.temperature ?? 0.0;
+      }
+      if (llmConfig.maxTokens === undefined) {
+        llmConfig.maxTokens = config.maxTokens ?? 100;
+      }
+      if (config.apiKey && llmConfig.apiKey === undefined) {
+        llmConfig.apiKey = config.apiKey;
+      }
+    } else {
+      llmProvider = config.provider || "openai";
+      llmConfig = {
+        model: config.model ?? "gpt-4o-mini",
+        temperature: config.temperature ?? 0.0,
+        maxTokens: config.maxTokens ?? 100,
+      };
+      if (config.apiKey) {
+        llmConfig.apiKey = config.apiKey;
+      }
+    }
+
+    return LLMFactory.create(llmProvider, llmConfig);
   }
 }
 

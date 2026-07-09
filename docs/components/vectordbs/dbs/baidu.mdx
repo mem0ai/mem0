@@ -5,10 +5,22 @@ description: "Use Baidu Mochow as an enterprise vector database in Mem0 for high
 
 [Baidu VectorDB](https://cloud.baidu.com/doc/VDB/index.html) is an enterprise-level distributed vector database service developed by Baidu Intelligent Cloud. It is powered by Baidu's proprietary "Mochow" vector database kernel, providing high performance, availability, and security for vector search.
 
+### Installation
+
+<CodeGroup>
+```bash Python
+pip install pymochow
+```
+
+```bash TypeScript
+npm install @mochow/mochow-sdk-node
+```
+
+</CodeGroup>
+
 ### Usage
 
 ```python
-import os
 from mem0 import Memory
 
 config = {
@@ -36,19 +48,63 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  embedder: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: "text-embedding-3-small",
+      embeddingDims: 1536,
+    },
+  },
+  vectorStore: {
+    provider: "baidu",
+    config: {
+      endpoint: process.env.BAIDU_ENDPOINT || "",
+      account: process.env.BAIDU_ACCOUNT || "root",
+      apiKey: process.env.BAIDU_API_KEY || "",
+      databaseName: "mem0",
+      tableName: "mem0_table",
+      embeddingModelDims: 1536,
+      metricType: "COSINE",
+    },
+  },
+  llm: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: "gpt-5-mini",
+    },
+  },
+});
+```
+
 ### Config
 
 Here are the parameters available for configuring Baidu VectorDB:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `endpoint` | Endpoint URL for your Baidu VectorDB instance | Required |
-| `account` | Baidu VectorDB account name | `root` |
-| `api_key` | API key for accessing Baidu VectorDB | Required |
-| `database_name` | Name of the database | `mem0` |
-| `table_name` | Name of the table | `mem0` |
-| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
-| `metric_type` | Distance metric for similarity search | `L2` |
+| Parameter              | Description                                   | Default Value |
+| ---------------------- | --------------------------------------------- | ------------- |
+| `endpoint`             | Endpoint URL for your Baidu VectorDB instance | Required      |
+| `account`              | Baidu VectorDB account name                   | `root`        |
+| `api_key`              | API key for accessing Baidu VectorDB          | Required      |
+| `database_name`        | Name of the database                          | `mem0`        |
+| `table_name`           | Name of the table                             | `mem0`        |
+| `embedding_model_dims` | Dimensions of the embedding model             | `1536`        |
+| `metric_type`          | Distance metric for similarity search         | `L2`          |
+| `client`               | Prebuilt Mochow client (TypeScript SDK only)  | `None`        |
+
+For the TypeScript OSS SDK, use the camelCase equivalents:
+
+- `databaseName`
+- `tableName`
+- `embeddingModelDims`
+- `metricType`
+
+For OSS TS usage, `endpoint`, `account`, `apiKey`, `databaseName`, `tableName`, and `embeddingModelDims` are required unless you inject a prebuilt client. `metricType` defaults to `L2`, matching the Python SDK.
 
 ### Distance Metrics
 
@@ -66,3 +122,5 @@ The vector index is automatically configured with the following HNSW parameters:
 - `efconstruction`: 200 (size of the dynamic candidate list)
 - `auto_build`: true (automatically build index)
 - `auto_build_index_policy`: Incremental build with 10000 rows increment
+
+The TypeScript provider also creates a BM25 inverted index over a `textLemmatized` column so `keywordSearch()` runs against a real full-text index. Mem0 lemmatizes the query before it reaches the vector store, so only the lemmatized form of each memory is indexed. If you point `tableName` at a table created before this index existed, `keywordSearch()` returns `null` and search falls back to vector similarity alone; recreate the table to enable it.
