@@ -14,15 +14,13 @@ from unittest.mock import MagicMock
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "mem0"))
 
-from mem0 import Memory
-from mem0.configs.base import MemoryConfig, CompactionConfig
+from mem0 import Memory  # noqa: E402
+from mem0.configs.base import CompactionConfig, MemoryConfig  # noqa: E402
 
 
 def build_mock_memory():
     """Create a mocked Memory for demonstration purposes."""
-    cfg = MemoryConfig(
-        compaction=CompactionConfig(enabled=True, similarity_threshold=0.75)
-    )
+    cfg = MemoryConfig(compaction=CompactionConfig(enabled=True, similarity_threshold=0.75))
 
     mem = Memory.__new__(Memory)
     mem.config = cfg
@@ -51,7 +49,9 @@ def build_mock_memory():
         user_content = messages[-1]["content"] if messages else ""
         if "pizza" in user_content.lower():
             return '{"memory": "User loves pizza, especially authentic Italian pizza from local restaurants.", "confidence": 0.93, "reason": "Merged variations about pizza preference"}'
-        return '{"memory": "User enjoys coffee in the morning.", "confidence": 0.8, "reason": "Consolidated coffee facts"}'
+        return (
+            '{"memory": "User enjoys coffee in the morning.", "confidence": 0.8, "reason": "Consolidated coffee facts"}'
+        )
 
     mock_llm = MagicMock()
     mock_llm.generate_response.side_effect = fake_llm
@@ -70,8 +70,10 @@ def build_mock_memory():
             # Return objects that mimic real vector results
             results = []
             for vid, item in list(self._store.items())[: (top_k or 10000)]:
+
                 class R:
                     pass
+
                 r = R()
                 r.id = vid
                 r.payload = item["payload"]
@@ -90,7 +92,10 @@ def build_mock_memory():
         def get(self, vid):
             item = self._store.get(vid)
             if item:
-                class G: pass
+
+                class G:
+                    pass
+
                 g = G()
                 g.id = vid
                 g.payload = item["payload"]
@@ -98,11 +103,20 @@ def build_mock_memory():
             return None
 
         # other required
-        def create_col(self, *a, **k): pass
-        def col_info(self): return {}
-        def list_cols(self): return []
-        def delete_col(self): pass
-        def reset(self): self._store.clear()
+        def create_col(self, *a, **k):
+            pass
+
+        def col_info(self):
+            return {}
+
+        def list_cols(self):
+            return []
+
+        def delete_col(self):
+            pass
+
+        def reset(self):
+            self._store.clear()
 
     mem.vector_store = FakeVectorStore()
     mem.db = MagicMock()  # history not critical for demo
@@ -115,6 +129,7 @@ def build_mock_memory():
 
     # Attach compactor manually (demo bypasses normal __init__)
     from mem0.memory.compaction import MemoryCompactor
+
     mem.compactor = MemoryCompactor(mem, cfg.compaction)
 
     # Seed some realistic bloat (variations of same facts)
@@ -161,6 +176,7 @@ def main():
 
     print("\nCompaction report:")
     import json
+
     print(json.dumps(result, indent=2))
 
     print("\nAfter compaction:")

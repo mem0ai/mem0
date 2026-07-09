@@ -134,15 +134,17 @@ class MemoryCompactor:
             meta = self._build_consolidated_metadata(cluster, cons)
 
             if dry_run:
-                details.append({
-                    "size": len(cluster),
-                    "consolidated": new_text[:100],
-                })
+                details.append(
+                    {
+                        "size": len(cluster),
+                        "consolidated": new_text[:100],
+                    }
+                )
                 merges += 1
                 continue
 
             try:
-                new_id = self._insert_consolidated(new_text, meta, filters)
+                new_id = self._insert_consolidated(new_text, meta)
                 added.append(new_id)
                 for m in cluster:
                     mid = _get_memory_id(m)
@@ -187,12 +189,14 @@ class MemoryCompactor:
             text = _get_memory_text(item)
             if not text:
                 continue
-            normalized.append({
-                "id": mid or str(uuid.uuid4()),
-                "memory": text,
-                "payload": payload,
-                "_raw": item,
-            })
+            normalized.append(
+                {
+                    "id": mid or str(uuid.uuid4()),
+                    "memory": text,
+                    "payload": payload,
+                    "_raw": item,
+                }
+            )
         return normalized
 
     def _embed_texts(self, texts: List[str]) -> List[List[float]]:
@@ -288,9 +292,7 @@ class MemoryCompactor:
             consolidated = consolidated[:597] + "..."
         return {"memory": consolidated, "confidence": 0.6, "reason": "fallback concatenation"}
 
-    def _build_consolidated_metadata(
-        self, cluster_mems: List[Dict], consolidated_info: Dict
-    ) -> Dict[str, Any]:
+    def _build_consolidated_metadata(self, cluster_mems: List[Dict], consolidated_info: Dict) -> Dict[str, Any]:
         """Craft good metadata for the new memory."""
         now = datetime.now(timezone.utc).isoformat()
         source_count = len(cluster_mems)
@@ -333,25 +335,14 @@ class MemoryCompactor:
 
         return meta
 
-    def _insert_consolidated(
-        self, text: str, metadata: Dict[str, Any], filters: Dict[str, Any]
-    ) -> str:
-        """Insert the new consolidated memory using the same path as normal adds where possible."""
+    def _insert_consolidated(self, text: str, metadata: Dict[str, Any]) -> str:
+        """Insert a consolidated memory without risking deletion on a failed write."""
         mem_id = str(uuid.uuid4())
-        try:
-            # Best path: use the embedder + vector_store.insert directly
-            emb = self.embedder.embed(text, "add") if self.embedder else None
-            if emb is not None:
-                payload = dict(metadata)
-                payload.setdefault("data", text)
-                self.vector_store.insert(vectors=[emb], ids=[mem_id], payloads=[payload])
-            else:
-                # Extremely defensive fallback — let the normal add path handle a raw insert
-                # (rare)
-                self.memory.add([{"role": "user", "content": text}], **{k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id")})
-                # We won't have the exact id here; return a placeholder
-                return mem_id
-        except Exception:
-            # Last resort: try normal add path
-            self.memory.add([{"role": "user", "content": text}], **{k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id")})
+        if self.embedder is None:
+            raise RuntimeError("Memory compaction requires a configured embedder")
+
+        embedding = self.embedder.embed(text, "add")
+        payload = dict(metadata)
+        payload.setdefault("data", text)
+        self.vector_store.insert(vectors=[embedding], ids=[mem_id], payloads=[payload])
         return mem_id
