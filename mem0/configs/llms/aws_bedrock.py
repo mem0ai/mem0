@@ -24,6 +24,9 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
+        read_timeout: Optional[float] = None,
+        connect_timeout: Optional[float] = None,
+        boto_client_config: Optional[Any] = None,
         **kwargs,
     ):
         """
@@ -42,6 +45,12 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
             model_kwargs: Additional model-specific parameters
+            read_timeout: Optional boto3 client read timeout in seconds. When unset,
+                botocore's default applies (opt-in; no behavior change).
+            connect_timeout: Optional boto3 client connect timeout in seconds.
+            boto_client_config: Optional botocore.config.Config (or a dict of its kwargs,
+                e.g. retries/pooling) merged into the Bedrock client. Explicit
+                read_timeout/connect_timeout override the same keys here.
             **kwargs: Additional arguments passed to base class
         """
         super().__init__(
@@ -59,6 +68,11 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
         self.model_kwargs = model_kwargs or {}
+        # boto3/botocore client tuning (opt-in). boto_client_config is a
+        # botocore.config.Config or a dict of Config kwargs; scalars override it.
+        self.read_timeout = read_timeout
+        self.connect_timeout = connect_timeout
+        self.boto_client_config = boto_client_config
 
     @property
     def provider(self) -> str:

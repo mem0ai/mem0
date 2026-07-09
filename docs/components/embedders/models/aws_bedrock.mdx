@@ -59,6 +59,9 @@ Here are the parameters available for configuring AWS Bedrock embedder:
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `model` | The name of the embedding model to use | `amazon.titan-embed-text-v1` |
+| `read_timeout` | boto3 client read timeout in seconds (opt-in) | `None` (botocore default) |
+| `connect_timeout` | boto3 client connect timeout in seconds (opt-in) | `None` (botocore default) |
+| `boto_client_config` | A `botocore.config.Config` or dict of its kwargs (retries, pooling). Scalars above override matching keys. | `None` |
 | `aws_region` | AWS region for the Bedrock client | `us-west-2` |
 | `aws_access_key_id` | AWS access key ID for authentication | `None` |
 | `aws_secret_access_key` | AWS secret access key for authentication | `None` |

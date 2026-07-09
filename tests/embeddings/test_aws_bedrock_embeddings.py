@@ -5,6 +5,7 @@ import pytest
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.aws_bedrock import AWSBedrockEmbedding
+from mem0.utils.factory import EmbedderFactory
 
 
 @pytest.fixture
@@ -105,3 +106,48 @@ def test_titan_v1_ignores_embedding_dims(mock_boto3_client):
         body = _captured_request_body(mock_boto3_client, config)
 
     assert "dimensions" not in body
+
+
+def test_embedder_config_timeout_fields_default_none():
+    config = BaseEmbedderConfig(model="amazon.titan-embed-text-v2:0")
+    assert config.read_timeout is None
+    assert config.connect_timeout is None
+    assert config.boto_client_config is None
+
+
+def test_embedder_factory_accepts_timeout_fields():
+    # EmbedderFactory.create does BaseEmbedderConfig(**config); a fixed signature
+    # without these params would raise TypeError on these keys.
+    with patch("mem0.embeddings.aws_bedrock.boto3.client") as mock_client:
+        mock_client.return_value = Mock()
+        EmbedderFactory.create(
+            "aws_bedrock",
+            {
+                "model": "amazon.titan-embed-text-v2:0",
+                "read_timeout": 300,
+                "connect_timeout": 10,
+            },
+            None,
+        )
+    assert mock_client.called
+
+
+def test_embedder_no_config_passes_no_config_kwarg(mock_boto3_client):
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        config = BaseEmbedderConfig(model="amazon.titan-embed-text-v2:0")
+        AWSBedrockEmbedding(config)
+    _, kwargs = mock_boto3_client.call_args
+    assert "config" not in kwargs
+
+
+def test_embedder_timeouts_pass_config(mock_boto3_client):
+    with patch("mem0.embeddings.aws_bedrock.os.environ", {}):
+        config = BaseEmbedderConfig(
+            model="amazon.titan-embed-text-v2:0",
+            read_timeout=300,
+            connect_timeout=10,
+        )
+        AWSBedrockEmbedding(config)
+    _, kwargs = mock_boto3_client.call_args
+    assert kwargs["config"].read_timeout == 300
+    assert kwargs["config"].connect_timeout == 10

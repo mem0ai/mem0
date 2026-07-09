@@ -1,6 +1,6 @@
 import os
 from abc import ABC
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from mem0.configs.base import AzureConfig
 from mem0.utils.http import build_http_client
@@ -40,6 +40,10 @@ class BaseEmbedderConfig(ABC):
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
         aws_region: Optional[str] = None,
+        # AWS Bedrock boto3/botocore client tuning (opt-in)
+        read_timeout: Optional[float] = None,
+        connect_timeout: Optional[float] = None,
+        boto_client_config: Optional[Any] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -109,3 +113,6 @@ class BaseEmbedderConfig(ABC):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
+        self.read_timeout = read_timeout
+        self.connect_timeout = connect_timeout
+        self.boto_client_config = boto_client_config

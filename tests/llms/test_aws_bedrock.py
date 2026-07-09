@@ -114,6 +114,23 @@ class TestAWSBedrockConfig:
         )
         assert config.aws_region == "us-east-2"
 
+    def test_timeout_fields_default_none(self):
+        config = AWSBedrockConfig(model="anthropic.claude-3-5-sonnet-20240620-v1:0")
+        assert config.read_timeout is None
+        assert config.connect_timeout is None
+        assert config.boto_client_config is None
+
+    def test_timeout_fields_stored(self):
+        config = AWSBedrockConfig(
+            model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            read_timeout=300,
+            connect_timeout=10,
+            boto_client_config={"retries": {"mode": "adaptive"}},
+        )
+        assert config.read_timeout == 300
+        assert config.connect_timeout == 10
+        assert config.boto_client_config == {"retries": {"mode": "adaptive"}}
+
 
 # ---------------------------------------------------------------------------
 # LlmFactory
@@ -452,3 +469,100 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+
+class TestBotoClientConfig:
+    @pytest.fixture
+    def mock_boto3_module(self):
+        """Expose the patched boto3 module so we can inspect client(...) calls."""
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            bedrock_client = MagicMock()
+            bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+            mock_b3.client.side_effect = lambda service, **kw: (
+                MagicMock() if service == "bedrock-runtime" else bedrock_client
+            )
+            yield mock_b3
+
+    def _runtime_call_kwargs(self, mock_b3):
+        for call in mock_b3.client.call_args_list:
+            if call.args and call.args[0] == "bedrock-runtime":
+                return call.kwargs
+        raise AssertionError("bedrock-runtime client was never created")
+
+    def _control_plane_call_kwargs(self, mock_b3):
+        for call in mock_b3.client.call_args_list:
+            if call.args and call.args[0] == "bedrock":
+                return call.kwargs
+        raise AssertionError("control-plane bedrock client was never created")
+
+    def test_no_config_passes_no_config_kwarg(self, mock_boto3_module):
+        AWSBedrockLLM(AWSBedrockConfig(model="anthropic.claude-3-5-sonnet-20240620-v1:0"))
+        assert "config" not in self._runtime_call_kwargs(mock_boto3_module)
+
+    def test_timeouts_pass_config_to_runtime_client(self, mock_boto3_module):
+        AWSBedrockLLM(AWSBedrockConfig(
+            model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            read_timeout=300,
+        ))
+        cfg = self._runtime_call_kwargs(mock_boto3_module)["config"]
+        assert cfg.read_timeout == 300
+
+    def test_test_connection_client_uses_same_config(self, mock_boto3_module):
+        AWSBedrockLLM(AWSBedrockConfig(
+            model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            read_timeout=300,
+        ))
+        cfg = self._control_plane_call_kwargs(mock_boto3_module)["config"]
+        assert cfg.read_timeout == 300
+
+    def test_list_available_models_uses_same_config(self, mock_boto3_module):
+        llm = AWSBedrockLLM(AWSBedrockConfig(
+            model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            read_timeout=300,
+        ))
+        # Drop the bedrock client call made by _test_connection during construction,
+        # so we assert on the client built by list_available_models() specifically.
+        mock_boto3_module.client.reset_mock()
+        llm.list_available_models()
+        cfg = self._control_plane_call_kwargs(mock_boto3_module)["config"]
+        assert cfg.read_timeout == 300
+
+    def test_list_available_models_no_config_when_unset(self, mock_boto3_module):
+        llm = AWSBedrockLLM(AWSBedrockConfig(model="anthropic.claude-3-5-sonnet-20240620-v1:0"))
+        mock_boto3_module.client.reset_mock()
+        llm.list_available_models()
+        assert "config" not in self._control_plane_call_kwargs(mock_boto3_module)
+
+    def test_dict_config_flows_through_init(self, mock_boto3_module):
+        AWSBedrockLLM({
+            "model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+            "read_timeout": 300,
+        })
+        cfg = self._runtime_call_kwargs(mock_boto3_module)["config"]
+        assert cfg.read_timeout == 300
+
+    def test_config_object_survives_to_runtime_client(self, mock_boto3_module):
+        from botocore.config import Config
+
+        sentinel = Config(read_timeout=42, retries={"mode": "standard"})
+        AWSBedrockLLM(AWSBedrockConfig(
+            model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            boto_client_config=sentinel,
+        ))
+        cfg = self._runtime_call_kwargs(mock_boto3_module)["config"]
+        # The base Config's values are preserved end-to-end (read_timeout 42, retries).
+        assert cfg.read_timeout == 42
+        assert cfg.retries == {"mode": "standard"}
+
+    def test_scalar_overrides_boto_client_config_end_to_end(self, mock_boto3_module):
+        # Precedence contract at the layer users actually configure: when a scalar
+        # and boto_client_config set the same key, the scalar wins; the base's other
+        # keys survive (and an unset scalar never clobbers a base value to None).
+        AWSBedrockLLM(AWSBedrockConfig(
+            model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+            read_timeout=120,
+            boto_client_config={"read_timeout": 999, "max_pool_connections": 20},
+        ))
+        cfg = self._runtime_call_kwargs(mock_boto3_module)["config"]
+        assert cfg.read_timeout == 120
+        assert cfg.max_pool_connections == 20
