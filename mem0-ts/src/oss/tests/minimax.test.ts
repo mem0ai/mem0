@@ -85,7 +85,7 @@ describe("MiniMaxLLM (unit)", () => {
     ]);
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "MiniMax-M2.7" }),
+      expect.objectContaining({ model: "MiniMax-M3" }),
     );
     expect(result).toBe("Hello from MiniMax");
   });
