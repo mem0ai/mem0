@@ -2,24 +2,22 @@ import { RerankerConfig } from "../types";
 import { LLM, LLMResponse } from "../llms/base";
 import { Reranker, RerankResult } from "./base";
 
-const SYSTEM_PROMPT =
-  "You are a relevance scoring assistant. " +
-  "Given a query and a document, score how relevant the document is to the query.\n\n" +
-  "Score the relevance on a scale from 0.0 to 1.0, where:\n" +
-  "- 1.0 = Perfectly relevant and directly answers the query\n" +
-  "- 0.8-0.9 = Highly relevant with good information\n" +
-  "- 0.6-0.7 = Moderately relevant with some useful information\n" +
-  "- 0.4-0.5 = Slightly relevant with limited useful information\n" +
-  "- 0.0-0.3 = Not relevant or no useful information\n\n" +
-  "Respond with only a single numerical score between 0.0 and 1.0. " +
-  "Do not include any explanation or additional text.";
+const SYSTEM_PROMPT = `You are a relevance scoring assistant. Given a query and a document, score how relevant the document is to the query.
+
+Score the relevance on a scale from 0.0 to 1.0, where:
+- 1.0 = Perfectly relevant and directly answers the query
+- 0.8-0.9 = Highly relevant with good information
+- 0.6-0.7 = Moderately relevant with some useful information
+- 0.4-0.5 = Slightly relevant with limited useful information
+- 0.0-0.3 = Not relevant or no useful information
+
+Respond with only a single numerical score between 0.0 and 1.0. Do not include any explanation or additional text.`;
 
 const MAX_INPUT_LEN = 4000;
 
 export class LLMReranker implements Reranker {
   private llm: LLM;
   private topK?: number;
-  private systemPrompt: string;
 
   constructor(config: RerankerConfig, llm: LLM) {
     if (!llm) {
@@ -29,16 +27,6 @@ export class LLMReranker implements Reranker {
     }
     this.llm = llm;
     this.topK = config.topK;
-
-    if (config.scoringPrompt) {
-      console.warn(
-        "RerankerConfig.scoringPrompt is deprecated and will be removed in a future version. " +
-          "The prompt is now used as the system message.",
-      );
-      this.systemPrompt = config.scoringPrompt;
-    } else {
-      this.systemPrompt = SYSTEM_PROMPT;
-    }
   }
 
   async rerank(
@@ -73,7 +61,7 @@ export class LLMReranker implements Reranker {
     const userMessage = `Query: ${safeQuery}\n\nDocument: ${safeDoc}`;
 
     const response = await this.llm.generateResponse([
-      { role: "system", content: this.systemPrompt },
+      { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ]);
 

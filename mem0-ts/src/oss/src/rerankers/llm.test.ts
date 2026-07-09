@@ -2,17 +2,16 @@ import { LLM } from "../llms/base";
 import { LLMReranker } from "./llm";
 
 // Duplicated rather than imported from ./llm.ts so this test catches drift.
-const EXPECTED_SYSTEM_PROMPT =
-  "You are a relevance scoring assistant. " +
-  "Given a query and a document, score how relevant the document is to the query.\n\n" +
-  "Score the relevance on a scale from 0.0 to 1.0, where:\n" +
-  "- 1.0 = Perfectly relevant and directly answers the query\n" +
-  "- 0.8-0.9 = Highly relevant with good information\n" +
-  "- 0.6-0.7 = Moderately relevant with some useful information\n" +
-  "- 0.4-0.5 = Slightly relevant with limited useful information\n" +
-  "- 0.0-0.3 = Not relevant or no useful information\n\n" +
-  "Respond with only a single numerical score between 0.0 and 1.0. " +
-  "Do not include any explanation or additional text.";
+const EXPECTED_SYSTEM_PROMPT = `You are a relevance scoring assistant. Given a query and a document, score how relevant the document is to the query.
+
+Score the relevance on a scale from 0.0 to 1.0, where:
+- 1.0 = Perfectly relevant and directly answers the query
+- 0.8-0.9 = Highly relevant with good information
+- 0.6-0.7 = Moderately relevant with some useful information
+- 0.4-0.5 = Slightly relevant with limited useful information
+- 0.0-0.3 = Not relevant or no useful information
+
+Respond with only a single numerical score between 0.0 and 1.0. Do not include any explanation or additional text.`;
 
 /**
  * Fake LLM that scores a document by looking up the document text inside the
@@ -167,25 +166,6 @@ describe("LLMReranker", () => {
     const sentDoc = userMessage.content.match(/Document: (d+)/)[1];
     expect(sentQuery).toHaveLength(4000);
     expect(sentDoc).toHaveLength(4000);
-  });
-
-  it("honors a custom scoringPrompt as the system message and warns that it is deprecated", async () => {
-    const generateResponse = jest.fn().mockResolvedValue("0.5");
-    const llm: LLM = {
-      generateResponse,
-      generateChat: async () => ({ content: "", role: "assistant" }),
-    };
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-
-    const reranker = new LLMReranker({ scoringPrompt: "Custom prompt" }, llm);
-    await reranker.rerank("q", ["doc"]);
-
-    expect(generateResponse).toHaveBeenCalledWith(
-      expect.arrayContaining([{ role: "system", content: "Custom prompt" }]),
-    );
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/deprecated/i));
-
-    warnSpy.mockRestore();
   });
 
   it("throws when no LLM is provided", () => {

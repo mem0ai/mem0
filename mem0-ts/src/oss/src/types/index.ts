@@ -96,11 +96,6 @@ export interface RerankerConfig {
   /** `llm_reranker` only. Maximum tokens for the LLM response. Default: `100`. */
   maxTokens?: number;
   /**
-   * `llm_reranker` only. Overrides the default scoring system prompt.
-   * @deprecated Configure the system message directly; setting this warns.
-   */
-  scoringPrompt?: string;
-  /**
    * `llm_reranker` only. Nested LLM configuration. When set, it overrides the
    * top-level `provider`/`model`/`temperature`/`maxTokens`/`apiKey`, which
    * then only act as defaults for fields missing from `llm.config`.
