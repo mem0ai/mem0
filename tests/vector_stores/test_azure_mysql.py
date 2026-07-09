@@ -330,3 +330,51 @@ class TestAzureMySQLFilterKeySanitization:
         azure_mysql_instance.list(filters=self._FILTERS)
         blob = self._executed_blob(azure_mysql_instance)
         assert "$.user_id" in blob and "OR '1'='1" not in blob
+
+
+def test_search_binds_native_filter_values(azure_mysql_instance, mock_connection_pool):
+    """Regression for #6178: filters must not use json.dumps (double-quoted string RHS)."""
+    conn = mock_connection_pool.connection.return_value
+    cursor = conn.cursor.return_value
+    cursor.fetchall.return_value = []
+    cursor.execute.reset_mock()
+
+    azure_mysql_instance.search(
+        query="",
+        vectors=[0.1] * 128,
+        top_k=5,
+        filters={"user_id": "alice", "priority": 1},
+    )
+
+    # Find the SELECT that applies filters (not CREATE TABLE setup calls).
+    select_calls = [
+        c for c in cursor.execute.call_args_list
+        if c.args and isinstance(c.args[0], str) and "SELECT id, vector, payload" in c.args[0]
+    ]
+    assert select_calls, "expected a SELECT for search candidates"
+    sql, params = select_calls[0].args[0], select_calls[0].args[1]
+    assert "JSON_UNQUOTE(JSON_EXTRACT(payload, %s)) = %s" in sql
+    # Bound values must be native scalars, not json.dumps()'d strings.
+    assert "$.user_id" in params
+    assert "alice" in params
+    assert '"alice"' not in [p for p in params if isinstance(p, str)]
+    assert 1 in params
+
+
+def test_list_binds_native_filter_values(azure_mysql_instance, mock_connection_pool):
+    """list() shares the same filter binding path as search() (#6178)."""
+    conn = mock_connection_pool.connection.return_value
+    cursor = conn.cursor.return_value
+    cursor.fetchall.return_value = []
+    cursor.execute.reset_mock()
+
+    azure_mysql_instance.list(filters={"user_id": "bob"}, top_k=10)
+
+    select_calls = [
+        c for c in cursor.execute.call_args_list
+        if c.args and isinstance(c.args[0], str) and "SELECT id, vector, payload" in c.args[0]
+    ]
+    assert select_calls
+    sql, params = select_calls[0].args[0], select_calls[0].args[1]
+    assert "JSON_UNQUOTE(JSON_EXTRACT(payload, %s)) = %s" in sql
+    assert params == ("$.user_id", "bob", 10)
