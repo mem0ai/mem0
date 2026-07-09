@@ -192,7 +192,6 @@ export class Memory {
       this.reranker = RerankerFactory.create(
         this.config.reranker.provider,
         this.config.reranker.config,
-        this.llm,
       );
     }
     if (this.config.disableHistory) {
@@ -1538,17 +1537,23 @@ export class Memory {
 
     // Step 10: Optionally re-rank with the configured reranker. Opt-in per
     // search via `rerank: true`; a no-op when no reranker is configured.
+    // Mirrors mem0/memory/main.py's search(): the reranker only adds a
+    // `rerank_score` field (Python: `doc['rerank_score'] = ...`), it never
+    // overwrites the vector-store `score`.
+    const invokeReranker = Boolean(
+      config.rerank && this.reranker && results.length > 0,
+    );
     let finalResults = results;
-    if (config.rerank && this.reranker && results.length > 0) {
+    if (invokeReranker) {
       try {
-        const ranked = await this.reranker.rerank(
+        const ranked = await this.reranker!.rerank(
           query,
           results.map((r) => r.memory),
           topK,
         );
         finalResults = ranked.map((r) => ({
           ...results[r.index],
-          score: r.relevanceScore,
+          rerank_score: r.rerankScore,
         }));
       } catch (e) {
         console.warn(`Reranking failed, using original results: ${e}`);

@@ -37,9 +37,9 @@ describe("CrossEncoderReranker", () => {
 
     // sigmoid: b(2.0)=0.88 > a(0.0)=0.5 > c(-1.0)=0.27
     expect(results.map((r) => r.index)).toEqual([1, 0, 2]);
-    expect(results[0].relevanceScore).toBeCloseTo(sigmoid(2.0), 5);
-    expect(results[1].relevanceScore).toBeCloseTo(sigmoid(0.0), 5);
-    expect(results[2].relevanceScore).toBeCloseTo(sigmoid(-1.0), 5);
+    expect(results[0].rerankScore).toBeCloseTo(sigmoid(2.0), 5);
+    expect(results[1].rerankScore).toBeCloseTo(sigmoid(0.0), 5);
+    expect(results[2].rerankScore).toBeCloseTo(sigmoid(-1.0), 5);
   });
 
   it("pairs the query with each document via text_pair when tokenizing", async () => {
@@ -62,7 +62,7 @@ describe("CrossEncoderReranker", () => {
     );
   });
 
-  it("applies the topN limit", async () => {
+  it("applies the topK limit", async () => {
     setupModel([[0.0], [2.0], [-1.0]]);
     const reranker = new CrossEncoderReranker({}, "default-model");
 
@@ -70,6 +70,16 @@ describe("CrossEncoderReranker", () => {
 
     expect(results).toHaveLength(2);
     expect(results.map((r) => r.index)).toEqual([1, 0]);
+  });
+
+  it("falls back to config.topK when the rerank() call omits one", async () => {
+    setupModel([[0.0], [2.0], [-1.0]]);
+    const reranker = new CrossEncoderReranker({ topK: 1 }, "default-model");
+
+    const results = await reranker.rerank("q", ["a", "b", "c"]);
+
+    expect(results).toHaveLength(1);
+    expect(results.map((r) => r.index)).toEqual([1]);
   });
 
   it("returns [] without loading the model when there are no documents", async () => {
@@ -92,8 +102,8 @@ describe("CrossEncoderReranker", () => {
     const results = await reranker.rerank("q", ["a", "b"]);
 
     expect(results.map((r) => r.index)).toEqual([0, 1]);
-    expect(results[0].relevanceScore).toBe(2.0);
-    expect(results[1].relevanceScore).toBe(0.0);
+    expect(results[0].rerankScore).toBe(2.0);
+    expect(results[1].rerankScore).toBe(0.0);
   });
 
   it("loads the model and tokenizer only once across multiple rerank calls", async () => {
@@ -126,5 +136,54 @@ describe("CrossEncoderReranker", () => {
       "custom/model",
       expect.any(Object),
     );
+  });
+
+  it("applies a default maxLength (as the huggingface provider passes 512) when config omits one", async () => {
+    const { tokenizer } = setupModel([[0.5]]);
+    const reranker = new CrossEncoderReranker({}, "default-model", 512);
+
+    await reranker.rerank("q", ["a"]);
+
+    expect(tokenizer).toHaveBeenCalledWith(
+      ["q"],
+      expect.objectContaining({ max_length: 512 }),
+    );
+  });
+
+  it("falls back to the original order with rerankScore 0.0 when the model fails to load", async () => {
+    mockModelFromPretrained.mockResolvedValue(jest.fn());
+    mockTokenizerFromPretrained.mockRejectedValue(
+      new Error("model download failed"),
+    );
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reranker = new CrossEncoderReranker({}, "default-model");
+
+    const results = await reranker.rerank("q", ["a", "b", "c"]);
+
+    expect(results).toEqual([
+      { index: 0, rerankScore: 0.0 },
+      { index: 1, rerankScore: 0.0 },
+      { index: 2, rerankScore: 0.0 },
+    ]);
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("falls back to the original order with rerankScore 0.0, sliced by topK, when scoring fails", async () => {
+    const tokenizer = jest.fn().mockReturnValue({ input_ids: [] });
+    mockTokenizerFromPretrained.mockResolvedValue(tokenizer);
+    mockModelFromPretrained.mockResolvedValue(
+      jest.fn().mockRejectedValue(new Error("forward pass failed")),
+    );
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reranker = new CrossEncoderReranker({}, "default-model");
+
+    const results = await reranker.rerank("q", ["a", "b"], 1);
+
+    expect(results).toEqual([{ index: 0, rerankScore: 0.0 }]);
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
   });
 });

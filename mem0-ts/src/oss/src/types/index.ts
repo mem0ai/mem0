@@ -62,35 +62,78 @@ export interface LLMConfig {
 
 export interface RerankerConfig {
   apiKey?: string;
+  /** The reranker model to use. Default varies by provider (see each provider's docs). */
   model?: string;
-  /** Cap on how many reranked results to return. */
-  topN?: number;
+  /** Maximum number of documents to return after reranking (BaseRerankerConfig.top_k). Default: unset (return all). */
+  topK?: number;
+  /**
+   * `cohere` reranker only. Whether to return the document texts in the
+   * response (CohereRerankerConfig.return_documents). Default: `false`.
+   */
+  returnDocuments?: boolean;
+  /**
+   * `cohere` reranker only. Maximum number of chunks per document
+   * (CohereRerankerConfig.max_chunks_per_doc). Default: unset.
+   */
+  maxChunksPerDoc?: number;
   /**
    * Local cross-encoder rerankers (`sentence_transformer`, `huggingface`) only.
-   * Transformers.js device, e.g. `"cpu"`, `"wasm"`, `"webgpu"`. Defaults to
-   * Transformers.js auto-detection when omitted.
+   * Transformers.js device, e.g. `"cpu"`, `"wasm"`, `"webgpu"`. Python's
+   * device auto-detects `cuda`/`cpu`; Transformers.js auto-detects similarly
+   * when omitted (SentenceTransformerRerankerConfig.device / HuggingFaceRerankerConfig.device). Default: unset (auto-detect).
    */
   device?: string;
   /**
-   * Local cross-encoder rerankers: max token length per query-document pair.
-   * Defaults to the model's own maximum when omitted.
+   * `huggingface` reranker only. Max token length per query-document pair
+   * (HuggingFaceRerankerConfig.max_length). Default: `512`.
    */
   maxLength?: number;
   /**
-   * Local cross-encoder rerankers: sigmoid-normalize raw logits to `[0, 1]`.
-   * Defaults to `true`; set `false` to surface raw cross-encoder logits.
+   * Local cross-encoder rerankers: sigmoid-normalize raw logits to `[0, 1]`
+   * (HuggingFaceRerankerConfig.normalize). Default: `true`; set `false` to
+   * surface raw cross-encoder logits.
    */
   normalize?: boolean;
   /**
-   * Accepted for parity with the Python SDK's local cross-encoder rerankers,
-   * but no-ops in this runtime (a memory search reranks a small candidate set
-   * in a single in-process forward pass).
+   * Accepted for parity with the Python SDK's local cross-encoder rerankers'
+   * `batch_size` (SentenceTransformerRerankerConfig.batch_size /
+   * HuggingFaceRerankerConfig.batch_size, default `32`), but a no-op in this
+   * runtime (a memory search reranks a small candidate set in a single
+   * in-process forward pass).
    */
   batchSize?: number;
+  /**
+   * `sentence_transformer` reranker only. Accepted for parity with
+   * SentenceTransformerRerankerConfig.show_progress_bar (default `false`),
+   * but a no-op in this runtime.
+   */
   showProgressBar?: boolean;
   /**
-   * LLM reranker only. If omitted, the LLM reranker reuses the Memory's main
-   * `llm`, so no duplicate LLM config is needed for the common case.
+   * `llm_reranker` only. LLM provider used to build the scoring LLM when
+   * `llm` is not set (LLMRerankerConfig.provider). Default: `"openai"`.
+   */
+  provider?: string;
+  /**
+   * `llm_reranker` only. Temperature for LLM generation
+   * (LLMRerankerConfig.temperature). Default: `0.0`.
+   */
+  temperature?: number;
+  /**
+   * `llm_reranker` only. Maximum tokens for the LLM response
+   * (LLMRerankerConfig.max_tokens). Default: `100`.
+   */
+  maxTokens?: number;
+  /**
+   * `llm_reranker` only. Overrides the default scoring system prompt
+   * (LLMRerankerConfig.scoring_prompt). Deprecated in the Python SDK in favor
+   * of configuring the system message directly; setting this logs a warning.
+   */
+  scoringPrompt?: string;
+  /**
+   * `llm_reranker` only. Nested LLM configuration with `provider` and
+   * `config` keys (LLMRerankerConfig.llm). When set, it overrides the
+   * top-level `provider`/`model`/`temperature`/`maxTokens`/`apiKey` (which
+   * only act as defaults for fields missing from `llm.config`).
    */
   llm?: {
     provider: string;
@@ -130,6 +173,8 @@ export interface MemoryItem {
   createdAt?: string;
   updatedAt?: string;
   score?: number;
+  /** Relevance score added by the reranker, alongside (not replacing) `score`. */
+  rerank_score?: number;
   metadata?: Record<string, any>;
   attributedTo?: string;
 }

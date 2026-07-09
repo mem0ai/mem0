@@ -9,14 +9,18 @@ import { CohereReranker } from "../rerankers/cohere";
 import { LLMReranker } from "../rerankers/llm";
 import { ZeroEntropyReranker } from "../rerankers/zeroentropy";
 import { CrossEncoderReranker } from "../rerankers/cross_encoder";
-import { LLM } from "../llms/base";
-
-const fakeLLM: LLM = {
-  generateResponse: async () => "0.5",
-  generateChat: async () => ({ content: "", role: "assistant" }),
-};
 
 describe("RerankerFactory", () => {
+  const originalOpenAiKey = process.env.OPENAI_API_KEY;
+
+  afterEach(() => {
+    if (originalOpenAiKey === undefined) {
+      delete process.env.OPENAI_API_KEY;
+    } else {
+      process.env.OPENAI_API_KEY = originalOpenAiKey;
+    }
+  });
+
   it("creates a CohereReranker for provider 'cohere'", () => {
     const reranker = RerankerFactory.create("cohere", { apiKey: "key" });
     expect(reranker).toBeInstanceOf(CohereReranker);
@@ -27,8 +31,10 @@ describe("RerankerFactory", () => {
     expect(reranker).toBeInstanceOf(CohereReranker);
   });
 
-  it("creates a ZeroEntropyReranker for provider 'zeroentropy'", () => {
-    const reranker = RerankerFactory.create("zeroentropy", { apiKey: "key" });
+  it("creates a ZeroEntropyReranker for provider 'zero_entropy'", () => {
+    const reranker = RerankerFactory.create("zero_entropy", {
+      apiKey: "key",
+    });
     expect(reranker).toBeInstanceOf(ZeroEntropyReranker);
   });
 
@@ -42,20 +48,34 @@ describe("RerankerFactory", () => {
     expect(reranker).toBeInstanceOf(CrossEncoderReranker);
   });
 
-  it("creates an LLMReranker using the default LLM when config.llm is omitted", () => {
-    const reranker = RerankerFactory.create("llm", {}, fakeLLM);
+  it("creates an LLMReranker for provider 'llm_reranker', building a default openai LLM from top-level config", () => {
+    const reranker = RerankerFactory.create("llm_reranker", {
+      apiKey: "key",
+    });
     expect(reranker).toBeInstanceOf(LLMReranker);
   });
 
-  it("creates an LLMReranker that builds its own LLM from config.llm", () => {
-    const reranker = RerankerFactory.create("llm", {
+  it("creates an LLMReranker that builds its own LLM from a nested config.llm", () => {
+    const reranker = RerankerFactory.create("llm_reranker", {
       llm: { provider: "openai", config: { apiKey: "x" } },
     });
     expect(reranker).toBeInstanceOf(LLMReranker);
   });
 
-  it("throws for the 'llm' provider when no LLM is available", () => {
-    expect(() => RerankerFactory.create("llm", {})).toThrow();
+  it("prefers the nested llm.provider over the top-level provider when building the llm_reranker's LLM", () => {
+    // If the top-level `provider` were used instead of the nested one, this
+    // would throw ("Unsupported LLM provider: not-a-real-provider").
+    const reranker = RerankerFactory.create("llm_reranker", {
+      provider: "not-a-real-provider",
+      llm: { provider: "openai", config: { apiKey: "key" } },
+    });
+    expect(reranker).toBeInstanceOf(LLMReranker);
+  });
+
+  it("throws for the 'llm_reranker' provider when the default LLM has no API key available", () => {
+    delete process.env.OPENAI_API_KEY;
+
+    expect(() => RerankerFactory.create("llm_reranker", {})).toThrow();
   });
 
   it("throws for an unsupported provider", () => {

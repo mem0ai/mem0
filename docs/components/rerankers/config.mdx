@@ -106,23 +106,23 @@ config = {
 
 ## TypeScript SDK
 
-The self-hosted [TypeScript SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) supports the same five providers. Config keys are camelCase (`apiKey`, `topN`, `maxLength`) and each provider's SDK is a peer dependency you install per reranker.
+The self-hosted [TypeScript SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) supports the same five providers. Config keys are camelCase (`apiKey`, `topK`, `maxLength`) and each provider's SDK is a peer dependency you install per reranker.
 
 | Provider | Install | Default model | Key config fields |
 | --- | --- | --- | --- |
-| `cohere` | `pnpm add cohere-ai` | `rerank-v3.5` | `apiKey`, `model`, `topN` |
-| `zeroentropy` | `pnpm add zeroentropy` | `zerank-1` | `apiKey`, `model`, `topN` |
-| `sentence_transformer` | `pnpm add @huggingface/transformers` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topN` |
-| `huggingface` | `pnpm add @huggingface/transformers` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topN` |
-| `llm` | — (reuses your `llm`) | reuses the Memory's `llm` | `llm` (optional dedicated provider), `topN` |
+| `cohere` | `pnpm add cohere-ai` | `rerank-english-v3.0` | `apiKey`, `model`, `topK` |
+| `zero_entropy` | `pnpm add zeroentropy` | `zerank-1` | `apiKey`, `model`, `topK` |
+| `sentence_transformer` | `pnpm add @huggingface/transformers` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `huggingface` | `pnpm add @huggingface/transformers` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `llm_reranker` | — (uses your LLM provider's own SDK) | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
 
 ```typescript
 import { Memory } from "mem0ai/oss";
 
 const memory = new Memory({
   reranker: {
-    provider: "zeroentropy",
-    config: { apiKey: process.env.ZEROENTROPY_API_KEY, topN: 5 },
+    provider: "zero_entropy",
+    config: { apiKey: process.env.ZERO_ENTROPY_API_KEY, topK: 5 },
   },
 });
 ```

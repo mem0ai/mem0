@@ -55,7 +55,7 @@ memory = Memory.from_config(config)
 
 ## TypeScript (self-hosted)
 
-The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the Cohere reranker. Config keys are camelCase, it defaults to the `rerank-v3.5` model, and you opt in per search with `rerank: true`.
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the Cohere reranker. Config keys are camelCase, it defaults to the `rerank-english-v3.0` model, and you opt in per search with `rerank: true`.
 
 ```bash
 pnpm add cohere-ai
@@ -69,8 +69,8 @@ const memory = new Memory({
     provider: "cohere",
     config: {
       apiKey: process.env.COHERE_API_KEY, // or set COHERE_API_KEY
-      // model: "rerank-v3.5",             // default
-      topN: 5,
+      // model: "rerank-english-v3.0",     // default
+      topK: 5,
     },
   },
 });

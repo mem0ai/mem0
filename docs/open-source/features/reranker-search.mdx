@@ -31,19 +31,20 @@ Provider SDKs are peer dependencies — install the one your reranker needs:
 
 ```bash
 pnpm add cohere-ai          # cohere
-pnpm add zeroentropy        # zeroentropy
+pnpm add zeroentropy        # zero_entropy
 pnpm add @huggingface/transformers   # sentence_transformer, huggingface
-# llm reuses your configured LLM provider — no extra install
+# llm_reranker defaults to openai (already a core dependency) — install another
+# provider's SDK only if you nest a different one under config.llm
 ```
 
 ### Hosted rerankers (Cohere, Zero Entropy)
 
-Both call a hosted API and read their key from config or the provider's environment variable (`COHERE_API_KEY`, `ZEROENTROPY_API_KEY`).
+Both call a hosted API and read their key from config or the provider's environment variable (`COHERE_API_KEY`, `ZERO_ENTROPY_API_KEY`).
 
 ```typescript
 import { Memory } from "mem0ai/oss";
 
-// Cohere reranker (defaults to the rerank-v3.5 model)
+// Cohere reranker (defaults to the rerank-english-v3.0 model)
 const memory = new Memory({
   reranker: {
     provider: "cohere",
@@ -61,8 +62,8 @@ const results = await memory.search("What are my food preferences?", {
 // Zero Entropy reranker (defaults to the zerank-1 model)
 const memory = new Memory({
   reranker: {
-    provider: "zeroentropy",
-    config: { apiKey: process.env.ZEROENTROPY_API_KEY },
+    provider: "zero_entropy",
+    config: { apiKey: process.env.ZERO_ENTROPY_API_KEY },
   },
 });
 ```
@@ -96,16 +97,13 @@ const results = await memory.search("What movies do I like?", {
 
 ### LLM reranker
 
-To score with an LLM instead of a dedicated reranker, use the `llm` provider. It reuses the Memory's main `llm` unless you name a dedicated one:
+To score with an LLM instead of a dedicated reranker, use the `llm_reranker` provider. It builds its own LLM from the reranker's config — defaulting to `openai` / `gpt-4o-mini` — rather than reusing the Memory's main `llm`:
 
 ```typescript
 const memory = new Memory({
-  llm: { provider: "openai", config: { apiKey: process.env.OPENAI_API_KEY } },
   reranker: {
-    provider: "llm",
-    // Reuses the `llm` above. To override, pass a dedicated one:
-    // config: { llm: { provider: "openai", config: { model: "gpt-5-mini", apiKey: "..." } } }
-    config: {},
+    provider: "llm_reranker",
+    config: { apiKey: process.env.OPENAI_API_KEY },
   },
 });
 
@@ -115,15 +113,31 @@ const results = await memory.search("What movies do I like?", {
 });
 ```
 
+Nest a different provider under `config.llm` to override the default:
+
+```typescript
+const memory = new Memory({
+  reranker: {
+    provider: "llm_reranker",
+    config: {
+      llm: {
+        provider: "anthropic",
+        config: { apiKey: process.env.ANTHROPIC_API_KEY },
+      },
+    },
+  },
+});
+```
+
 ### Config reference
 
 | Provider | Default model | Key config fields |
 | --- | --- | --- |
-| `cohere` | `rerank-v3.5` | `apiKey`, `model`, `topN` |
-| `zeroentropy` | `zerank-1` | `apiKey`, `model`, `topN` |
-| `sentence_transformer` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topN` |
-| `huggingface` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topN` |
-| `llm` | reuses the Memory's `llm` | `llm` (optional dedicated provider), `topN` |
+| `cohere` | `rerank-english-v3.0` | `apiKey`, `model`, `topK` |
+| `zero_entropy` | `zerank-1` | `apiKey`, `model`, `topK` |
+| `sentence_transformer` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `huggingface` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `llm_reranker` | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
 
 <Note>
   `rerank` is opt-in per search and a no-op when no `reranker` is configured. If the reranker call fails, Mem0 logs a warning and returns the original vector-ranked results.

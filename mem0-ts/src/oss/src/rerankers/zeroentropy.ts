@@ -5,43 +5,63 @@ import { Reranker, RerankResult } from "./base";
 const DEFAULT_MODEL = "zerank-1";
 
 /**
- * Reranker backed by ZeroEntropy's `/models/rerank` endpoint. ZeroEntropy
- * returns relevance scores already normalized to `[0, 1]`, ordered
- * most-relevant first, so results pass straight through.
+ * Reranker backed by ZeroEntropy's `/models/rerank` endpoint, mirroring
+ * Python's `ZeroEntropyReranker` (mem0/reranker/zero_entropy_reranker.py).
  *
- * The API key is read from `config.apiKey`, falling back to the SDK-native
- * `ZEROENTROPY_API_KEY` or the Python-SDK `ZERO_ENTROPY_API_KEY` env var.
+ * Matching Python, the request is sent without `top_n`: results are fetched in
+ * full, sorted descending client-side, and only then sliced to `topK`.
  */
 export class ZeroEntropyReranker implements Reranker {
   private client: ZeroEntropy;
   private model: string;
+  private topK?: number;
 
   constructor(config: RerankerConfig) {
-    const apiKey =
-      config.apiKey ??
-      process.env.ZEROENTROPY_API_KEY ??
-      process.env.ZERO_ENTROPY_API_KEY;
+    const apiKey = config.apiKey || process.env.ZERO_ENTROPY_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Zero Entropy API key is required. Set ZERO_ENTROPY_API_KEY environment variable or pass apiKey in config.",
+      );
+    }
     this.client = new ZeroEntropy({ apiKey });
     this.model = config.model || DEFAULT_MODEL;
+    this.topK = config.topK;
   }
 
   async rerank(
     query: string,
     documents: string[],
-    topN?: number,
+    topK?: number,
   ): Promise<RerankResult[]> {
     if (documents.length === 0) return [];
 
-    const response = await this.client.models.rerank({
-      model: this.model,
-      query,
-      documents,
-      top_n: topN,
-    });
+    try {
+      // The API accepts `top_n`, but Python does not send it — it reranks the
+      // full set and slices client-side below. Kept identical for parity.
+      const response = await this.client.models.rerank({
+        model: this.model,
+        query,
+        documents,
+      });
 
-    return response.results.map((result) => ({
-      index: result.index,
-      relevanceScore: result.relevance_score,
-    }));
+      const scored = response.results.map((result) => ({
+        index: result.index,
+        rerankScore: result.relevance_score,
+      }));
+      scored.sort((a, b) => b.rerankScore - a.rerankScore);
+
+      const finalTopK = topK || this.topK;
+      return finalTopK ? scored.slice(0, finalTopK) : scored;
+    } catch (e) {
+      console.warn(
+        `Zero Entropy reranking failed, falling back to original order: ${e}`,
+      );
+      const scored = documents.map((_, index) => ({
+        index,
+        rerankScore: 0.0,
+      }));
+      const finalTopK = topK || this.topK;
+      return finalTopK ? scored.slice(0, finalTopK) : scored;
+    }
   }
 }

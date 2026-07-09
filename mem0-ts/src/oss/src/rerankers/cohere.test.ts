@@ -1,18 +1,27 @@
 const mockRerank = jest.fn();
 
 jest.mock("cohere-ai", () => ({
-  CohereClientV2: jest.fn().mockImplementation(() => ({
+  CohereClient: jest.fn().mockImplementation(() => ({
     rerank: mockRerank,
   })),
 }));
 
-import { CohereClientV2 } from "cohere-ai";
+import { CohereClient } from "cohere-ai";
 import { CohereReranker } from "./cohere";
 
 describe("CohereReranker", () => {
   beforeEach(() => {
     mockRerank.mockReset();
-    (CohereClientV2 as jest.Mock).mockClear();
+    (CohereClient as unknown as jest.Mock).mockClear();
+  });
+
+  it("throws when no API key is provided or configured", () => {
+    const originalEnv = process.env.COHERE_API_KEY;
+    delete process.env.COHERE_API_KEY;
+
+    expect(() => new CohereReranker({})).toThrow(/Cohere API key is required/);
+
+    if (originalEnv !== undefined) process.env.COHERE_API_KEY = originalEnv;
   });
 
   it("sends the query, documents, topN, and default model to Cohere", async () => {
@@ -22,14 +31,42 @@ describe("CohereReranker", () => {
     await reranker.rerank("capital of US?", ["a", "b", "c"], 2);
 
     expect(mockRerank).toHaveBeenCalledWith({
-      model: "rerank-v3.5",
+      model: "rerank-english-v3.0",
       query: "capital of US?",
       documents: ["a", "b", "c"],
       topN: 2,
+      returnDocuments: false,
+      maxChunksPerDoc: undefined,
     });
   });
 
-  it("returns Cohere's ranked results as {index, relevanceScore}", async () => {
+  it("defaults topN to documents.length when neither the call nor config sets a top_k", async () => {
+    mockRerank.mockResolvedValue({ results: [] });
+    const reranker = new CohereReranker({ apiKey: "key" });
+
+    await reranker.rerank("q", ["a", "b", "c"]);
+
+    expect(mockRerank).toHaveBeenCalledWith(
+      expect.objectContaining({ topN: 3 }),
+    );
+  });
+
+  it("forwards returnDocuments and maxChunksPerDoc from config", async () => {
+    mockRerank.mockResolvedValue({ results: [] });
+    const reranker = new CohereReranker({
+      apiKey: "key",
+      returnDocuments: true,
+      maxChunksPerDoc: 5,
+    });
+
+    await reranker.rerank("q", ["a"]);
+
+    expect(mockRerank).toHaveBeenCalledWith(
+      expect.objectContaining({ returnDocuments: true, maxChunksPerDoc: 5 }),
+    );
+  });
+
+  it("returns Cohere's ranked results as {index, rerankScore}", async () => {
     mockRerank.mockResolvedValue({
       results: [
         { index: 2, relevanceScore: 0.9 },
@@ -41,8 +78,8 @@ describe("CohereReranker", () => {
     const results = await reranker.rerank("q", ["x", "y", "z"]);
 
     expect(results).toEqual([
-      { index: 2, relevanceScore: 0.9 },
-      { index: 0, relevanceScore: 0.31 },
+      { index: 2, rerankScore: 0.9 },
+      { index: 0, rerankScore: 0.31 },
     ]);
   });
 
@@ -67,5 +104,37 @@ describe("CohereReranker", () => {
 
     expect(results).toEqual([]);
     expect(mockRerank).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the original order with rerankScore 0.0 when the Cohere API call fails", async () => {
+    mockRerank.mockRejectedValue(new Error("cohere is down"));
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reranker = new CohereReranker({ apiKey: "key" });
+
+    const results = await reranker.rerank("q", ["a", "b", "c"]);
+
+    expect(results).toEqual([
+      { index: 0, rerankScore: 0.0 },
+      { index: 1, rerankScore: 0.0 },
+      { index: 2, rerankScore: 0.0 },
+    ]);
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("slices the fallback results by topK when the Cohere API call fails", async () => {
+    mockRerank.mockRejectedValue(new Error("cohere is down"));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reranker = new CohereReranker({ apiKey: "key", topK: 2 });
+
+    const results = await reranker.rerank("q", ["a", "b", "c"]);
+
+    expect(results).toEqual([
+      { index: 0, rerankScore: 0.0 },
+      { index: 1, rerankScore: 0.0 },
+    ]);
+
+    (console.warn as jest.Mock).mockRestore();
   });
 });

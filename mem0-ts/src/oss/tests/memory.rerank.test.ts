@@ -75,7 +75,7 @@ async function primeSearch(m: any) {
 }
 
 describe("Memory.search reranking", () => {
-  it("reorders results by the reranker when rerank:true", async () => {
+  it("reorders results by the reranker when rerank:true, adding rerank_score while preserving the original vector score", async () => {
     const memory = createMemory();
     const m = memory as any;
     await primeSearch(m);
@@ -83,8 +83,8 @@ describe("Memory.search reranking", () => {
     const rerank = jest
       .fn<Promise<RerankResult[]>, [string, string[], number?]>()
       .mockResolvedValue([
-        { index: 1, relevanceScore: 0.99 },
-        { index: 0, relevanceScore: 0.4 },
+        { index: 1, rerankScore: 0.99 }, // bravo
+        { index: 0, rerankScore: 0.4 }, // alpha
       ]);
     m.reranker = { rerank };
 
@@ -102,8 +102,13 @@ describe("Memory.search reranking", () => {
       "bravo",
       "alpha",
     ]);
-    expect(result.results[0].score).toBe(0.99);
-    expect(result.results[1].score).toBe(0.4);
+    // rerank_score comes from the reranker...
+    expect(result.results[0].rerank_score).toBe(0.99);
+    expect(result.results[1].rerank_score).toBe(0.4);
+    // ...but the original vector similarity `score` is preserved, not
+    // clobbered by the reranker's score.
+    expect(result.results[0].score).toBe(0.8); // bravo's original vector score
+    expect(result.results[1].score).toBe(0.9); // alpha's original vector score
 
     await memory.reset();
   });
@@ -124,6 +129,7 @@ describe("Memory.search reranking", () => {
       "alpha",
       "bravo",
     ]);
+    expect(result.results[0].rerank_score).toBeUndefined();
 
     await memory.reset();
   });

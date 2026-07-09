@@ -76,7 +76,7 @@ const memory = new Memory({
       device: "cpu", // "cpu" | "wasm" | "webgpu"
       maxLength: 512, // max tokens per query-document pair
       normalize: true, // sigmoid-normalize logits to [0, 1] (default)
-      topN: 5,
+      topK: 5,
     },
   },
 });

@@ -193,15 +193,11 @@ export class VectorStoreFactory {
 }
 
 export class RerankerFactory {
-  static create(
-    provider: string,
-    config: RerankerConfig,
-    defaultLLM?: LLM,
-  ): Reranker {
+  static create(provider: string, config: RerankerConfig): Reranker {
     switch (provider.toLowerCase()) {
       case "cohere":
         return new CohereReranker(config);
-      case "zeroentropy":
+      case "zero_entropy":
         return new ZeroEntropyReranker(config);
       case "sentence_transformer":
         return new CrossEncoderReranker(
@@ -209,18 +205,63 @@ export class RerankerFactory {
           "Xenova/ms-marco-MiniLM-L-6-v2",
         );
       case "huggingface":
-        return new CrossEncoderReranker(config, "Xenova/bge-reranker-base");
-      case "llm": {
-        // Use a dedicated LLM if the reranker config names one, otherwise fall
-        // back to the Memory's main LLM.
-        const llm = config.llm
-          ? LLMFactory.create(config.llm.provider, config.llm.config)
-          : defaultLLM;
+        return new CrossEncoderReranker(
+          config,
+          "Xenova/bge-reranker-base",
+          512,
+        );
+      case "llm_reranker": {
+        const llm = RerankerFactory.buildLLMRerankerLLM(config);
         return new LLMReranker(config, llm);
       }
       default:
         throw new Error(`Unsupported reranker provider: ${provider}`);
     }
+  }
+
+  /**
+   * Builds the LLM used by the `llm_reranker` provider, mirroring Python's
+   * `LLMReranker.__init__` (mem0/reranker/llm_reranker.py): a nested
+   * `config.llm` dict, when present, selects the LLM provider/config
+   * entirely, with the reranker's own `provider`/`model`/`temperature`/
+   * `maxTokens`/`apiKey` only filling in fields missing from `llm.config`.
+   * Without a nested `llm`, those top-level fields build the LLM config
+   * directly. Defaults (`provider: "openai"`, `model: "gpt-4o-mini"`,
+   * `temperature: 0.0`, `maxTokens: 100`) match `LLMRerankerConfig`.
+   */
+  private static buildLLMRerankerLLM(config: RerankerConfig): LLM {
+    const nested = config.llm;
+    let llmProvider: string;
+    let llmConfig: LLMConfig;
+
+    if (nested) {
+      llmProvider = nested.provider || config.provider || "openai";
+      llmConfig = { ...(nested.config || {}) };
+      if (llmConfig.model === undefined) {
+        llmConfig.model = config.model ?? "gpt-4o-mini";
+      }
+      if (llmConfig.temperature === undefined) {
+        llmConfig.temperature = config.temperature ?? 0.0;
+      }
+      if (llmConfig.maxTokens === undefined) {
+        llmConfig.maxTokens = config.maxTokens ?? 100;
+      }
+      if (config.apiKey && llmConfig.apiKey === undefined) {
+        llmConfig.apiKey = config.apiKey;
+      }
+    } else {
+      llmProvider = config.provider || "openai";
+      llmConfig = {
+        model: config.model ?? "gpt-4o-mini",
+        temperature: config.temperature ?? 0.0,
+        maxTokens: config.maxTokens ?? 100,
+      };
+      if (config.apiKey) {
+        llmConfig.apiKey = config.apiKey;
+      }
+    }
+
+    return LLMFactory.create(llmProvider, llmConfig);
   }
 }
 
