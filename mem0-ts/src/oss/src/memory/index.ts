@@ -741,6 +741,12 @@ export class Memory {
       metadata.expiration_date = normalizeExpirationDate(config.expirationDate);
     }
 
+    // Ensure entity IDs already in filters (passed directly via config.filters)
+    // are also mirrored into metadata so the infer:false path persists them.
+    if (filters.user_id && !metadata.user_id) metadata.user_id = filters.user_id;
+    if (filters.agent_id && !metadata.agent_id) metadata.agent_id = filters.agent_id;
+    if (filters.run_id && !metadata.run_id) metadata.run_id = filters.run_id;
+
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
         "One of the filters: userId, agentId or runId is required!",
