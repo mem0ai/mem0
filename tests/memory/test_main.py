@@ -191,6 +191,28 @@ class TestAsyncUpdate:
         )
 
     @pytest.mark.asyncio
+    async def test_async_update_data_is_deprecated_alias_for_text(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        # `data=` still works but emits a deprecation warning
+        with caplog.at_level(logging.WARNING):
+            await mock_async_memory.update("test_id", data="via data")
+
+        assert any("deprecated" in record.message for record in caplog.records)
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "via data", {"via data": [0.1, 0.2, 0.3]}, None
+        )
+
+        # `text` takes precedence when both are passed
+        mock_async_memory._update_memory.reset_mock()
+        await mock_async_memory.update("test_id", text="preferred", data="ignored")
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "preferred", {"preferred": [0.1, 0.2, 0.3]}, None
+        )
+
+    @pytest.mark.asyncio
     async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory.vector_store.get = Mock(

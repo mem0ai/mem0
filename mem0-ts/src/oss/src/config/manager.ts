@@ -177,6 +177,7 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
+      reranker: userConfig.reranker,
     };
 
     // Validate the merged config
