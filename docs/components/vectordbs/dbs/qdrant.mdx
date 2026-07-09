@@ -42,7 +42,7 @@ const config = {
     provider: 'qdrant',
     config: {
       collectionName: 'memories',
-      embeddingModelDims: 1536,
+      dimension: 1536,
       host: 'localhost',
       port: 6333,
     },
@@ -83,7 +83,7 @@ Let's see the available parameters for the `qdrant` config:
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collectionName` | The name of the collection to store the vectors | `mem0` |
-| `embeddingModelDims` | Dimensions of the embedding model | `1536` |
+| `dimension` | Dimensions of the embedding model | `1536` |
 | `host` | The host where the Qdrant server is running | `None` |
 | `port` | The port where the Qdrant server is running | `None` |
 | `path` | Path for the Qdrant database | `/tmp/qdrant` |
