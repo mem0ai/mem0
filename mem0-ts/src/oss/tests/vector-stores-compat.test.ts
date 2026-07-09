@@ -2154,12 +2154,13 @@ describe("Memory class – backward compat with all providers", () => {
   });
 
   it("all public methods work after initialization", async () => {
+    const memoryId = "3f0d5b6a-9c1e-4a2b-8d7f-1e2c3a4b5c6d";
     const mockVStore = createMockVectorStore();
     mockVStore.search.mockResolvedValue([
-      { id: "id-1", payload: { memory: "test", hash: "h" }, score: 0.9 },
+      { id: memoryId, payload: { memory: "test", hash: "h" }, score: 0.9 },
     ]);
     mockVStore.get.mockResolvedValue({
-      id: "id-1",
+      id: memoryId,
       payload: {
         memory: "test",
         hash: "h",
@@ -2170,7 +2171,7 @@ describe("Memory class – backward compat with all providers", () => {
     mockVStore.list.mockResolvedValue([
       [
         {
-          id: "id-1",
+          id: memoryId,
           payload: {
             memory: "test",
             hash: "h",
@@ -2204,15 +2205,15 @@ describe("Memory class – backward compat with all providers", () => {
     expect(searchResult).toBeDefined();
 
     // get
-    const item = await mem.get("id-1");
+    const item = await mem.get(memoryId);
     expect(item).toBeDefined();
 
     // update
-    const updateResult = await mem.update("id-1", "new data");
+    const updateResult = await mem.update(memoryId, { text: "new data" });
     expect(updateResult.message).toBe("Memory updated successfully!");
 
     // delete
-    const deleteResult = await mem.delete("id-1");
+    const deleteResult = await mem.delete(memoryId);
     expect(deleteResult.message).toBe("Memory deleted successfully!");
 
     // deleteAll
@@ -2220,7 +2221,7 @@ describe("Memory class – backward compat with all providers", () => {
     expect(deleteAllResult.message).toBe("Memories deleted successfully!");
 
     // history
-    const history = await mem.history("id-1");
+    const history = await mem.history(memoryId);
     expect(Array.isArray(history)).toBe(true);
   });
 

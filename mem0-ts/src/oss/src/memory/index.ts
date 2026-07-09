@@ -38,6 +38,7 @@ import {
   SearchMemoryOptions,
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
+  UpdateMemoryOptions,
   UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
@@ -74,6 +75,8 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
+import { logger } from "../utils/logger";
+import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
@@ -722,6 +725,11 @@ export class Memory {
     if (agentId) filters.agent_id = metadata.agent_id = agentId;
     if (runId) filters.run_id = metadata.run_id = runId;
 
+    // Normalize expiration date into the stored metadata (round-trips via get()).
+    if (config.expirationDate != null) {
+      metadata.expiration_date = normalizeExpirationDate(config.expirationDate);
+    }
+
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
         "One of the filters: userId, agentId or runId is required!",
@@ -1316,7 +1324,12 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 20, threshold = 0.1, explain = false } = config;
+    const {
+      topK = 20,
+      threshold = 0.1,
+      explain = false,
+      showExpired = false,
+    } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1484,11 +1497,13 @@ export class Memory {
     }
 
     // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults.map((mem) => ({
-      id: String(mem.id),
-      score: mem.score ?? 0,
-      payload: mem.payload || {},
-    }));
+    const candidates = semanticResults
+      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
+      .map((mem) => ({
+        id: String(mem.id),
+        score: mem.score ?? 0,
+        payload: mem.payload || {},
+      }));
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
@@ -1594,11 +1609,49 @@ export class Memory {
     return result;
   }
 
-  async update(memoryId: string, data: string): Promise<{ message: string }> {
+  async update(
+    memoryId: string,
+    config: string | UpdateMemoryOptions,
+  ): Promise<{ message: string }> {
     await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
-    const embedding = await this.embedder.embed(data);
-    await this.updateMemory(memoryId, data, { [data]: embedding });
+
+    const options: UpdateMemoryOptions =
+      typeof config === "string" ? { text: config } : config;
+
+    const { data, metadata, expirationDate } = options;
+    let text = options.text;
+
+    if (data != null) {
+      logger.warn(
+        "The `data` option of update() is deprecated and will be removed in " +
+          "the next major release. Use `text` instead.",
+      );
+      if (text == null) {
+        text = data;
+      }
+    }
+
+    if (text == null && metadata == null && expirationDate === undefined) {
+      throw new Error(
+        "At least one of text, metadata, or expirationDate must be provided.",
+      );
+    }
+
+    const updateMetadata: Record<string, any> = { ...metadata };
+    if (expirationDate !== undefined) {
+      updateMetadata.expiration_date =
+        expirationDate === null
+          ? null
+          : normalizeExpirationDate(expirationDate);
+    }
+
+    const existingEmbeddings: Record<string, number[]> = {};
+    if (text != null) {
+      existingEmbeddings[text] = await this.embedder.embed(text);
+    }
+
+    await this.updateMemory(memoryId, text, existingEmbeddings, updateMetadata);
     const result = { message: "Memory updated successfully!" };
     await this._displayFirstRunNotice("update");
     return result;
@@ -1735,7 +1788,7 @@ export class Memory {
 
     await this._ensureInitialized();
 
-    const { topK = 20 } = config;
+    const { topK = 20, showExpired = false } = config;
 
     // Validate and trim entity IDs in filters. Drop keys that resolve to
     // undefined so downstream vector stores don't receive
@@ -1764,7 +1817,13 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters, topK);
+    // Over-fetch so expired memories dropped below still leave topK survivors.
+    const fetchLimit = showExpired ? topK : Math.max(topK * 4, 60);
+    const [memories] = await this.vectorStore.list(filters, fetchLimit);
+
+    const visibleMemories = showExpired
+      ? memories
+      : memories.filter((mem) => !payloadIsExpired(mem.payload));
 
     const excludedKeys = new Set([
       "user_id",
@@ -1777,7 +1836,7 @@ export class Memory {
       "textLemmatized",
       "attributedTo",
     ]);
-    const results = memories.map((mem) => ({
+    const results = visibleMemories.slice(0, topK).map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
       hash: mem.payload.hash,
@@ -1838,7 +1897,7 @@ export class Memory {
 
   private async updateMemory(
     memoryId: string,
-    data: string,
+    data: string | undefined,
     existingEmbeddings: Record<string, number[]>,
     metadata: Record<string, any> = {},
   ): Promise<string> {
@@ -1848,15 +1907,24 @@ export class Memory {
     }
 
     const prevValue = existingMemory.payload.data;
+    // Metadata-only update: fall back to the stored text so we can re-index it.
+    const newData = data ?? prevValue;
+    if (typeof newData !== "string") {
+      throw new Error(
+        `Memory with ID ${memoryId} does not have text content to update`,
+      );
+    }
+    const textChanged = newData !== prevValue;
+
     const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data));
+      existingEmbeddings[newData] || (await this.embedder.embed(newData));
 
     const newMetadata = {
       ...existingMemory.payload,
       ...metadata,
-      data,
-      hash: createHash("md5").update(data).digest("hex"),
-      textLemmatized: lemmatizeForBm25(data),
+      data: newData,
+      hash: createHash("md5").update(newData).digest("hex"),
+      textLemmatized: lemmatizeForBm25(newData),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
     };
@@ -1865,20 +1933,22 @@ export class Memory {
     await this.db.addHistory(
       memoryId,
       prevValue,
-      data,
+      newData,
       "UPDATE",
       newMetadata.createdAt,
       newMetadata.updatedAt,
     );
 
-    // Entity-store cleanup: strip this memory's id from old-text entities,
-    // then re-extract entities from the new text and link them back.
-    try {
-      const sessionFilters = this._sessionFiltersFromPayload(newMetadata);
-      await this._removeMemoryFromEntityStore(memoryId, sessionFilters);
-      await this._linkEntitiesForMemory(memoryId, data, sessionFilters);
-    } catch (e) {
-      console.warn(`Entity store cleanup/link failed during update: ${e}`);
+    // Entity-store cleanup only when the text changed: strip this memory's id
+    // from old-text entities, then re-extract from the new text and link back.
+    if (textChanged) {
+      try {
+        const sessionFilters = this._sessionFiltersFromPayload(newMetadata);
+        await this._removeMemoryFromEntityStore(memoryId, sessionFilters);
+        await this._linkEntitiesForMemory(memoryId, newData, sessionFilters);
+      } catch (e) {
+        console.warn(`Entity store cleanup/link failed during update: ${e}`);
+      }
     }
 
     return memoryId;

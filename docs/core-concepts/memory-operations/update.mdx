@@ -12,7 +12,7 @@ Mem0’s update operation lets you fix or enrich an existing memory without dele
 ## Key terms
 
 - **memory_id**: Unique identifier returned by `add` or `search` results.
-- **text** / **data**: New content that replaces the stored memory value.
+- **text**: New content that replaces the stored memory value. In the Python OSS SDK, `data` is a deprecated alias for `text`.
 - **metadata**: Optional key-value pairs you update alongside the text.
 - **timestamp**: Unix epoch (int/float) or ISO 8601 string to override the memory's timestamp.
 - **batch_update**: Platform API that edits multiple memories in a single request.
@@ -110,17 +110,47 @@ from mem0 import Memory
 
 memory = Memory()
 
+# Replace the content
 memory.update(
     memory_id="mem_123",
-    data="Alex now prefers decaf coffee",
+    text="Alex now prefers decaf coffee",
+)
+
+# Update content plus metadata and an expiration date (None clears it)
+memory.update(
+    memory_id="mem_123",
+    text="Alex now prefers decaf coffee",
+    metadata={"category": "preferences"},
+    expiration_date="2030-01-31",
 )
 ```
-```
+
+```javascript JavaScript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory();
+
+// Replace the content
+await memory.update("mem_123", { text: "Alex now prefers decaf coffee" });
+
+// Update content plus metadata and an expiration date (null clears it)
+await memory.update("mem_123", {
+  text: "Alex now prefers decaf coffee",
+  metadata: { category: "preferences" },
+  expirationDate: "2030-01-31",
+});
+
+// Update metadata only, leaving the stored text untouched
+await memory.update("mem_123", { metadata: { category: "preferences" } });
 ```
 </CodeGroup>
 
 <Note>
-  OSS JavaScript SDK does not expose `update` yet: use the REST API or Python SDK when self-hosting.
+  In both OSS SDKs the content is optional — pass only `metadata` and/or an expiration date to update those while keeping the existing content. At least one of the three must be provided, otherwise the call raises.
+</Note>
+
+<Note>
+  `data` is a deprecated alias for `text` in both OSS SDKs (`data=` in Python, `{ data: ... }` in JavaScript). It still works but logs a warning; prefer `text`. In JavaScript, passing a bare string is shorthand for `{ text }`, so `update(memoryId, "new text")` also still works.
 </Note>
 
 ## Tips
@@ -138,7 +168,7 @@ memory.update(
 
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
-| Update call | `client.update(memory_id, {...})` | `memory.update(memory_id, data=...)` |
+| Update call | `client.update(memory_id, {...})` | `memory.update(memory_id, text=...)` |
 | Batch updates | `client.batch_update` (up to 1000 memories) | Script your own loop or bulk job |
 | Dashboard visibility | Inspect updates in the UI | Inspect via logs or custom tooling |
 | Immutable handling | Returns descriptive error | Raises exception: delete and re-add |

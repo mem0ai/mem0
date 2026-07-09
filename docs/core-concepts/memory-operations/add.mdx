@@ -15,6 +15,7 @@ Adding memory is how Mem0 captures useful details from a conversation so your ag
 - **Infer**: Controls whether Mem0 extracts structured memories (`infer=True`, default) or stores raw messages.
 - **Metadata**: Optional filters (e.g., `{"category": "movie_recommendations"}`) that improve retrieval later.
 - **User / Session identifiers**: `user_id`, `agent_id`, `app_id`, or `run_id` that scope the memory for future searches.
+- **expiration_date**: Optional `YYYY-MM-DD` date after which the memory is treated as expired. Use `expirationDate` in the JavaScript SDKs. Expired memories are hidden from `search` and `get_all` unless you pass `show_expired` (`showExpired` in JavaScript); fetching by ID still returns them.
 
 ## How does it work?
 
@@ -105,6 +106,9 @@ result = m.add(messages, user_id="alice", metadata={"category": "movie_recommend
 
 # Optionally store raw messages without inference
 result = m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"}, infer=False)
+
+# Optionally set an expiration date (YYYY-MM-DD)
+result = m.add(messages, user_id="alice", expiration_date="2030-01-31")
 ```
 
 ```javascript JavaScript
@@ -122,6 +126,12 @@ const messages = [
 const result = memory.add(messages, {
   userId: "alice",
   metadata: { category: "preferences" }
+});
+
+// Optionally set an expiration date (YYYY-MM-DD)
+const expiring = memory.add(messages, {
+  userId: "alice",
+  expirationDate: "2030-01-31",
 });
 ```
 </CodeGroup>
