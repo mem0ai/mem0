@@ -54,17 +54,6 @@ import { Memory } from "mem0ai/oss";
 const memory = new Memory();
 await memory.add(messages, { userId: "alice", expirationDate: "2030-01-31" });
 ```
-
-```bash cURL
-curl -X POST "https://api.mem0.ai/v3/memories/add/" \
-     -H "Authorization: Token your-api-key" \
-     -H "Content-Type: application/json" \
-     -d '{
-         "messages": [{"role": "user", "content": "My Pro trial ends soon."}],
-         "user_id": "alice",
-         "expiration_date": "2030-01-31"
-     }'
-```
 </CodeGroup>
 
 Or attach it to a memory that already exists, using `update()`:
@@ -78,13 +67,6 @@ memory.update("mem_123", expiration_date="2030-01-31")   # OSS
 ```javascript JavaScript
 await client.update("mem_123", { expirationDate: "2030-01-31" });   // Platform
 await memory.update("mem_123", { expirationDate: "2030-01-31" });   // OSS
-```
-
-```bash cURL
-curl -X PUT "https://api.mem0.ai/v1/memories/mem_123/" \
-     -H "Authorization: Token your-api-key" \
-     -H "Content-Type: application/json" \
-     -d '{"expiration_date": "2030-01-31"}'
 ```
 </CodeGroup>
 
@@ -107,17 +89,6 @@ await client.search("What plan is Alice on?", {
   showExpired: true,
 });
 ```
-
-```bash cURL
-curl -X POST "https://api.mem0.ai/v3/memories/search/" \
-     -H "Authorization: Token your-api-key" \
-     -H "Content-Type: application/json" \
-     -d '{
-         "query": "What plan is Alice on?",
-         "filters": {"user_id": "alice"},
-         "show_expired": true
-     }'
-```
 </CodeGroup>
 
 The same parameter and spelling work on the OSS `Memory` class. See <Link href="/api-reference/memory/search-memories">Search Memories</Link> and <Link href="/api-reference/memory/get-memories">Get Memories</Link>.
@@ -139,13 +110,6 @@ memory.update("mem_123", expiration_date=None)   # OSS
 ```javascript JavaScript
 await client.update("mem_123", { expirationDate: null });   // Platform
 await memory.update("mem_123", { expirationDate: null });   // OSS
-```
-
-```bash cURL
-curl -X PUT "https://api.mem0.ai/v1/memories/mem_123/" \
-     -H "Authorization: Token your-api-key" \
-     -H "Content-Type: application/json" \
-     -d '{"expiration_date": null}'
 ```
 </CodeGroup>
 
