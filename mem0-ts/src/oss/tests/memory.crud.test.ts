@@ -401,6 +401,21 @@ describe("Memory - update() text/data aliasing", () => {
     );
   });
 
+  // Python raises on `metadata=None` but not on `metadata={}`.
+  test("throws when metadata is explicitly null", async () => {
+    const id = await seed("Null metadata");
+    await expect(memory.update(id, { metadata: null } as any)).rejects.toThrow(
+      "At least one of text, metadata, or expirationDate must be provided.",
+    );
+  });
+
+  test("accepts empty metadata as an updatable field", async () => {
+    const id = await seed("Empty metadata");
+    await expect(memory.update(id, { metadata: {} })).resolves.toEqual({
+      message: "Memory updated successfully!",
+    });
+  });
+
   test("still accepts a bare text string, as on main", async () => {
     const id = await seed("Positional before");
     await memory.update(id, "Positional after");

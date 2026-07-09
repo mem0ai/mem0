@@ -1631,21 +1631,20 @@ export class Memory {
     const options: UpdateMemoryOptions =
       typeof config === "string" ? { text: config } : config;
 
-    const { metadata, expirationDate } = options;
+    const { data, metadata, expirationDate } = options;
     let text = options.text;
-    if (options.data != null) {
+
+    if (data != null) {
       logger.warn(
         "The `data` option of update() is deprecated and will be removed in " +
           "the next major release. Use `text` instead.",
       );
-      text ??= options.data;
+      if (text == null) {
+        text = data;
+      }
     }
 
-    if (
-      text == null &&
-      metadata === undefined &&
-      expirationDate === undefined
-    ) {
+    if (text == null && metadata == null && expirationDate === undefined) {
       throw new Error(
         "At least one of text, metadata, or expirationDate must be provided.",
       );
