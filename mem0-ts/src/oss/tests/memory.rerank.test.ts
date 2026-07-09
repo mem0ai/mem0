@@ -75,7 +75,7 @@ async function primeSearch(m: any) {
 }
 
 describe("Memory.search reranking", () => {
-  it("reorders results by the reranker when rerank:true, adding rerank_score while preserving the original vector score", async () => {
+  it("reorders results by the reranker when rerank:true, adding rerankScore while preserving the original vector score", async () => {
     const memory = createMemory();
     const m = memory as any;
     await primeSearch(m);
@@ -102,11 +102,9 @@ describe("Memory.search reranking", () => {
       "bravo",
       "alpha",
     ]);
-    // rerank_score comes from the reranker...
-    expect(result.results[0].rerank_score).toBe(0.99);
-    expect(result.results[1].rerank_score).toBe(0.4);
-    // ...but the original vector similarity `score` is preserved, not
-    // clobbered by the reranker's score.
+    expect(result.results[0].rerankScore).toBe(0.99);
+    expect(result.results[1].rerankScore).toBe(0.4);
+    // The original vector similarity `score` must survive reranking.
     expect(result.results[0].score).toBe(0.8); // bravo's original vector score
     expect(result.results[1].score).toBe(0.9); // alpha's original vector score
 
@@ -129,7 +127,7 @@ describe("Memory.search reranking", () => {
       "alpha",
       "bravo",
     ]);
-    expect(result.results[0].rerank_score).toBeUndefined();
+    expect(result.results[0].rerankScore).toBeUndefined();
 
     await memory.reset();
   });

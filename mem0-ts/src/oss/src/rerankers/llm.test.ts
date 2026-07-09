@@ -1,10 +1,7 @@
 import { LLM } from "../llms/base";
 import { LLMReranker } from "./llm";
 
-// Same text as the module-level `SYSTEM_PROMPT` in ./llm.ts, which itself is
-// copied character-for-character from Python's `LLMReranker._SYSTEM_PROMPT`
-// (mem0/reranker/llm_reranker.py). Duplicated here (rather than exported) so
-// this test also catches any accidental drift in the prompt text.
+// Duplicated rather than imported from ./llm.ts so this test catches drift.
 const EXPECTED_SYSTEM_PROMPT =
   "You are a relevance scoring assistant. " +
   "Given a query and a document, score how relevant the document is to the query.\n\n" +
@@ -19,11 +16,9 @@ const EXPECTED_SYSTEM_PROMPT =
 
 /**
  * Fake LLM that scores a document by looking up the document text inside the
- * prompt. Returns the score as a plain string, mirroring how the OSS LLMs'
- * `generateResponse` returns `response.content` for a plain chat completion.
- *
- * Test document tokens must be distinct and must not be substrings of the
- * prompt boilerplate (e.g. avoid "a"/"b"), or the lookup resolves the wrong doc.
+ * prompt. Test document tokens must be distinct and must not be substrings of
+ * the prompt boilerplate (e.g. avoid "a"/"b"), or the lookup resolves the
+ * wrong doc.
  */
 function makeLLM(scoreByDoc: Record<string, string>): LLM {
   return {
@@ -108,8 +103,6 @@ describe("LLMReranker", () => {
 
     const results = await reranker.rerank("q", ["item"]);
 
-    // A bare integer like "1" is parsed and clamped to 1.0, mirroring
-    // Python's `_extract_score` integer fallback.
     expect(results[0].rerankScore).toBe(1);
   });
 

@@ -26,7 +26,7 @@ All rerankers share these common configuration parameters:
 
 | Parameter            | Description                                  | Type   | Default                 |
 | -------------------- | -------------------------------------------- | ------ | ----------------------- |
-| `model`              | Cohere rerank model                          | `str`  | `"rerank-english-v3.0"` |
+| `model`              | Cohere rerank model                          | `str`  | `"rerank-v3.5"` |
 | `api_key`            | Cohere API key                               | `str`  | `None`                  |
 | `return_documents`   | Whether to return document texts in response | `bool` | `False`                 |
 | `max_chunks_per_doc` | Maximum chunks per document                  | `int`  | `None`                  |
@@ -110,7 +110,7 @@ The self-hosted [TypeScript SDK](/open-source/features/reranker-search#typescrip
 
 | Provider | Install | Default model | Key config fields |
 | --- | --- | --- | --- |
-| `cohere` | `pnpm add cohere-ai` | `rerank-english-v3.0` | `apiKey`, `model`, `topK` |
+| `cohere` | `pnpm add cohere-ai` | `rerank-v3.5` | `apiKey`, `model`, `topK` |
 | `zero_entropy` | `pnpm add zeroentropy` | `zerank-1` | `apiKey`, `model`, `topK` |
 | `sentence_transformer` | `pnpm add @huggingface/transformers` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
 | `huggingface` | `pnpm add @huggingface/transformers` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |

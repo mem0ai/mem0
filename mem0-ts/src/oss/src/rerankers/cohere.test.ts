@@ -31,7 +31,7 @@ describe("CohereReranker", () => {
     await reranker.rerank("capital of US?", ["a", "b", "c"], 2);
 
     expect(mockRerank).toHaveBeenCalledWith({
-      model: "rerank-english-v3.0",
+      model: "rerank-v3.5",
       query: "capital of US?",
       documents: ["a", "b", "c"],
       topN: 2,

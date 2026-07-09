@@ -219,16 +219,6 @@ export class RerankerFactory {
     }
   }
 
-  /**
-   * Builds the LLM used by the `llm_reranker` provider, mirroring Python's
-   * `LLMReranker.__init__` (mem0/reranker/llm_reranker.py): a nested
-   * `config.llm` dict, when present, selects the LLM provider/config
-   * entirely, with the reranker's own `provider`/`model`/`temperature`/
-   * `maxTokens`/`apiKey` only filling in fields missing from `llm.config`.
-   * Without a nested `llm`, those top-level fields build the LLM config
-   * directly. Defaults (`provider: "openai"`, `model: "gpt-4o-mini"`,
-   * `temperature: 0.0`, `maxTokens: 100`) match `LLMRerankerConfig`.
-   */
   private static buildLLMRerankerLLM(config: RerankerConfig): LLM {
     const nested = config.llm;
     let llmProvider: string;

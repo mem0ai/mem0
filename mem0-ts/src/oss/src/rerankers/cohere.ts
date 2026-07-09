@@ -2,18 +2,8 @@ import { CohereClient } from "cohere-ai";
 import { RerankerConfig } from "../types";
 import { Reranker, RerankResult } from "./base";
 
-const DEFAULT_MODEL = "rerank-english-v3.0";
+const DEFAULT_MODEL = "rerank-v3.5";
 
-/**
- * Reranker backed by Cohere's `/v1/rerank` endpoint, mirroring Python's
- * `CohereReranker` (mem0/reranker/cohere_reranker.py). Cohere returns
- * relevance scores already normalized to `[0, 1]`, ordered most-relevant
- * first, so successful results pass straight through.
- *
- * Uses the v1 `CohereClient` (not `CohereClientV2`): only v1's `.rerank()`
- * supports `returnDocuments`/`maxChunksPerDoc`, matching Python's
- * `cohere.Client`.
- */
 export class CohereReranker implements Reranker {
   private client: CohereClient;
   private model: string;
@@ -47,8 +37,6 @@ export class CohereReranker implements Reranker {
         model: this.model,
         query,
         documents,
-        // `top_n or self.config.top_k or len(documents)` in Python: `||`, not
-        // `??`, so an explicit `0` falls through like Python's falsy `or`.
         topN: topK || this.topK || documents.length,
         returnDocuments: this.returnDocuments,
         maxChunksPerDoc: this.maxChunksPerDoc,

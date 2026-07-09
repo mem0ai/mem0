@@ -33,8 +33,6 @@ describe("ZeroEntropyReranker", () => {
 
     await reranker.rerank("capital of US?", ["a", "b", "c"], 2);
 
-    // Unlike Cohere, the ZeroEntropy API has no top_n/limit parameter: Python
-    // always reranks the full set and slices client-side (see below).
     expect(mockRerank).toHaveBeenCalledWith({
       model: "zerank-1",
       query: "capital of US?",

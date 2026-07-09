@@ -3,25 +3,6 @@ import { Reranker, RerankResult } from "./base";
 
 const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
 
-/**
- * Local cross-encoder reranker running fully in-process via Transformers.js
- * (ONNX). Backs both the `sentence_transformer` and `huggingface` providers,
- * mirroring Python's `SentenceTransformerReranker` and `HuggingFaceReranker`
- * (mem0/reranker/sentence_transformer_reranker.py,
- * mem0/reranker/huggingface_reranker.py) — they differ only in their default
- * model, and (`huggingface` only) a default max token length of 512:
- *
- *   - `sentence_transformer` → `Xenova/ms-marco-MiniLM-L-6-v2`
- *   - `huggingface`          → `Xenova/bge-reranker-base`, maxLength 512
- *
- * (the Transformers.js ONNX mirrors of the Python SDK's default cross-encoders).
- * The model is downloaded from the HF Hub on first use and cached in-process.
- *
- * Cross-encoders emit a single unbounded logit per query-document pair; a
- * per-document sigmoid maps it to an interpretable `[0, 1]` relevance score
- * (order-preserving), mirroring HuggingFaceReranker._normalize_scores. Set
- * `config.normalize = false` to surface raw logits.
- */
 export class CrossEncoderReranker implements Reranker {
   private modelId: string;
   private device?: string;
@@ -78,7 +59,6 @@ export class CrossEncoderReranker implements Reranker {
     try {
       const { model, tokenizer } = await this.load();
 
-      // Cross-encoder input: the query paired with each document via `text_pair`.
       const inputs = tokenizer(
         documents.map(() => query),
         {

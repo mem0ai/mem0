@@ -1537,9 +1537,6 @@ export class Memory {
 
     // Step 10: Optionally re-rank with the configured reranker. Opt-in per
     // search via `rerank: true`; a no-op when no reranker is configured.
-    // Mirrors mem0/memory/main.py's search(): the reranker only adds a
-    // `rerank_score` field (Python: `doc['rerank_score'] = ...`), it never
-    // overwrites the vector-store `score`.
     const invokeReranker = Boolean(
       config.rerank && this.reranker && results.length > 0,
     );
@@ -1553,7 +1550,7 @@ export class Memory {
         );
         finalResults = ranked.map((r) => ({
           ...results[r.index],
-          rerank_score: r.rerankScore,
+          rerankScore: r.rerankScore,
         }));
       } catch (e) {
         console.warn(`Reranking failed, using original results: ${e}`);

@@ -44,7 +44,7 @@ Both call a hosted API and read their key from config or the provider's environm
 ```typescript
 import { Memory } from "mem0ai/oss";
 
-// Cohere reranker (defaults to the rerank-english-v3.0 model)
+// Cohere reranker (defaults to the rerank-v3.5 model)
 const memory = new Memory({
   reranker: {
     provider: "cohere",
@@ -133,7 +133,7 @@ const memory = new Memory({
 
 | Provider | Default model | Key config fields |
 | --- | --- | --- |
-| `cohere` | `rerank-english-v3.0` | `apiKey`, `model`, `topK` |
+| `cohere` | `rerank-v3.5` | `apiKey`, `model`, `topK` |
 | `zero_entropy` | `zerank-1` | `apiKey`, `model`, `topK` |
 | `sentence_transformer` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
 | `huggingface` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
@@ -183,7 +183,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key"
         }
     }
@@ -208,7 +208,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key",
             "top_k": 10,
             "return_documents": True
@@ -286,7 +286,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key",
             "top_k": 15,
             "return_documents": True
@@ -460,7 +460,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key"
         }
     }
