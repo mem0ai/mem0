@@ -88,7 +88,8 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     const insertQuery = `
       UNWIND $rows AS row
       MERGE (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
-      CALL neptune.algo.vectors.upsert(n, row.embedding)
+      WITH n, row.embedding AS embedding
+      CALL neptune.algo.vectors.upsert(n, embedding)
       YIELD success
       RETURN success
     `;
