@@ -24,6 +24,7 @@ const normalTable = (schema: unknown = { fields: [], indexes: [] }) => ({
 
 const CORE_FIELDS = [
   { fieldName: "id", fieldType: FieldType.String },
+  { fieldName: "data", fieldType: FieldType.Text },
   { fieldName: "vector", fieldType: FieldType.FloatVector, dimension: DIMS },
   { fieldName: "metadata", fieldType: "JSON" },
 ];
@@ -125,6 +126,7 @@ describe("BaiduDB table provisioning", () => {
     ]);
     expect(fields).toEqual([
       ["id", FieldType.String],
+      ["data", FieldType.Text],
       ["vector", FieldType.FloatVector],
       ["textLemmatized", FieldType.Text],
       ["metadata", "JSON"],
@@ -134,7 +136,7 @@ describe("BaiduDB table provisioning", () => {
       partitionKey: true,
       notNull: true,
     });
-    expect(spec.schema.fields[1].dimension).toBe(DIMS);
+    expect(spec.schema.fields[2].dimension).toBe(DIMS);
   });
 
   it("builds a vector index with a genuine row-count-increment auto-build policy", async () => {
@@ -241,12 +243,13 @@ describe("BaiduDB table provisioning", () => {
         normalTable({
           fields: [
             CORE_FIELDS[0],
+            CORE_FIELDS[1],
             {
               fieldName: "vector",
               fieldType: FieldType.FloatVector,
               dimension: 768,
             },
-            CORE_FIELDS[2],
+            CORE_FIELDS[3],
           ],
           indexes: [],
         }),
@@ -266,7 +269,7 @@ describe("BaiduDB table provisioning", () => {
         normalTable({ fields: [CORE_FIELDS[0]], indexes: [] }),
     });
     await expect(makeStore(client).initialize()).rejects.toThrow(
-      /missing the id\/vector\/metadata schema/,
+      /missing the id\/data\/vector\/metadata schema/,
     );
   });
 });
@@ -312,7 +315,7 @@ describe("BaiduDB keyword search support detection", () => {
     client.bm25Search.mockResolvedValue({
       ...OK,
       rows: [
-        { row: { id: "m1", metadata: { data: "loves pizza" } }, score: 3.5 },
+        { row: { id: "m1", data: "loves pizza", metadata: {} }, score: 3.5 },
       ],
     });
 
@@ -355,16 +358,18 @@ describe("BaiduDB writes", () => {
       rows: [
         {
           id: "a",
+          data: "loves pizza",
           vector: [1, 2],
           textLemmatized: "love pizza",
-          metadata: { data: "loves pizza", textLemmatized: "love pizza" },
+          metadata: {},
         },
         // Falls back to `data` when the caller did not lemmatize.
         {
           id: "b",
+          data: "runs daily",
           vector: [3, 4],
           textLemmatized: "runs daily",
-          metadata: { data: "runs daily" },
+          metadata: {},
         },
       ],
     });
@@ -384,9 +389,10 @@ describe("BaiduDB writes", () => {
     expect(client.upsert.mock.calls[0][0].rows).toEqual([
       {
         id: "m1",
+        data: "new",
         vector: [9],
         textLemmatized: "new",
-        metadata: { data: "new" },
+        metadata: {},
       },
     ]);
 
@@ -415,7 +421,7 @@ describe("BaiduDB reads", () => {
       ...OK,
       rows: [
         {
-          row: { id: "m1", metadata: { data: "x" } },
+          row: { id: "m1", data: "x", metadata: {} },
           distance: 0.2,
           score: 0.8,
         },
@@ -432,7 +438,7 @@ describe("BaiduDB reads", () => {
     expect(request.vector).toEqual({ vector: [1, 2, 3] });
     expect(request.limit).toBe(5);
     expect(request.filter).toBe('metadata["userId"] = "alice"');
-    expect(request.projections).toEqual(["id", "metadata"]);
+    expect(request.projections).toEqual(["id", "data", "metadata"]);
     expect(request.config.params).toEqual({ ef: 200 });
   });
 
@@ -470,11 +476,11 @@ describe("BaiduDB reads", () => {
 
     client.query.mockResolvedValue({
       ...OK,
-      row: { id: "m1", metadata: { a: 1 } },
+      row: { id: "m1", data: "stored text", metadata: { a: 1 } },
     });
     await expect(store.get("m1")).resolves.toEqual({
       id: "m1",
-      payload: { a: 1 },
+      payload: { a: 1, data: "stored text" },
     });
 
     client.query.mockResolvedValue({ code: 2, msg: "invalid parameter" });
@@ -489,7 +495,7 @@ describe("BaiduDB reads", () => {
       ...OK,
       isTruncated: false,
       nextMarker: "",
-      rows: [{ id: "m1", metadata: { data: "x" } }, { id: "m2" }],
+      rows: [{ id: "m1", data: "x", metadata: {} }, { id: "m2" }],
     });
 
     await expect(
@@ -505,7 +511,7 @@ describe("BaiduDB reads", () => {
       database: "mem0_db",
       table: "mem0",
       filter: 'metadata["userId"] = "alice"',
-      projections: ["id", "metadata"],
+      projections: ["id", "data", "metadata"],
       limit: 50,
     });
   });

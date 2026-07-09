@@ -29,7 +29,7 @@ export interface BaiduConfig extends VectorStoreConfig {
 const VECTOR_INDEX = "vector_idx";
 const FILTERING_INDEX = "metadata_filtering_idx";
 const BM25_INDEX = "data_bm25_idx";
-const PROJECTIONS = ["id", "metadata"];
+const PROJECTIONS = ["id", "data", "metadata"];
 const TABLE_POLL_INTERVAL_MS = 2000;
 const TABLE_POLL_ATTEMPTS = 60;
 
@@ -69,6 +69,22 @@ function lemmatizedText(payload: Record<string, any>): string {
     payload.textLemmatized.length > 0
     ? payload.textLemmatized
     : data;
+}
+
+function memoryData(payload: Record<string, any>): string {
+  return typeof payload.data === "string" ? payload.data : "";
+}
+
+function metadataPayload(payload: Record<string, any>): Record<string, any> {
+  const { data: _data, textLemmatized: _textLemmatized, ...metadata } = payload;
+  return metadata;
+}
+
+function resultPayload(row: Record<string, any>): Record<string, any> {
+  return {
+    ...(row.metadata || {}),
+    ...(typeof row.data === "string" ? { data: row.data } : {}),
+  };
 }
 
 export class BaiduDB implements VectorStore {
@@ -199,12 +215,16 @@ export class BaiduDB implements VectorStore {
           notNull: true,
         },
         {
+          fieldName: "data",
+          fieldType: FieldType.Text,
+        },
+        {
           fieldName: "vector",
           fieldType: FieldType.FloatVector,
           notNull: true,
           dimension: this.embeddingModelDims,
         },
-        // Duplicated out of `metadata` because Mochow cannot build an inverted index on a
+        // Stored outside `metadata` because Mochow cannot build an inverted index on a
         // field inside a JSON column. Memory.search() passes an already-lemmatized query,
         // so only the lemmatized form is worth indexing.
         { fieldName: "textLemmatized", fieldType: FieldType.Text },
@@ -336,11 +356,12 @@ export class BaiduDB implements VectorStore {
 
     if (
       typeOf("id") !== "STRING" ||
+      !typeOf("data").startsWith("TEXT") ||
       typeOf("vector") !== "FLOAT_VECTOR" ||
       typeOf("metadata") !== "JSON"
     ) {
       throw new Error(
-        `Baidu Mochow table '${label}' exists but is missing the id/vector/metadata schema mem0 requires. Drop it, or point 'tableName' at an unused table.`,
+        `Baidu Mochow table '${label}' exists but is missing the id/data/vector/metadata schema mem0 requires. Drop it, or point 'tableName' at an unused table.`,
       );
     }
 
@@ -388,9 +409,10 @@ export class BaiduDB implements VectorStore {
 
     const rows = vectors.map((vector, index) => ({
       id: ids[index],
+      data: memoryData(payloads[index] || {}),
       vector,
       textLemmatized: lemmatizedText(payloads[index] || {}),
-      metadata: payloads[index] || {},
+      metadata: metadataPayload(payloads[index] || {}),
     }));
 
     check(await client.upsert({ ...this.ns, rows }), "upsert");
@@ -423,7 +445,7 @@ export class BaiduDB implements VectorStore {
 
     return (response.rows ?? []).map((result) => ({
       id: String(result.row.id),
-      payload: result.row.metadata || {},
+      payload: resultPayload(result.row),
       score: result.score,
     }));
   }
@@ -455,7 +477,7 @@ export class BaiduDB implements VectorStore {
 
     return (response.rows ?? []).map((result) => ({
       id: String(result.row.id),
-      payload: result.row.metadata || {},
+      payload: resultPayload(result.row),
       score: result.score,
     }));
   }
@@ -463,8 +485,6 @@ export class BaiduDB implements VectorStore {
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     const { client } = await this.ready();
 
-    // ponytail: ServerErrCode has no row-not-found member, so a missing id comes back as an
-    // empty row rather than a distinguishable code. Any non-zero code is a real failure.
     const response: QueryResponse = await client.query({
       ...this.ns,
       primaryKey: { id: vectorId },
@@ -478,7 +498,7 @@ export class BaiduDB implements VectorStore {
 
     return {
       id: String(response.row.id),
-      payload: response.row.metadata || {},
+      payload: resultPayload(response.row),
     };
   }
 
@@ -495,9 +515,10 @@ export class BaiduDB implements VectorStore {
         rows: [
           {
             id: vectorId,
+            data: memoryData(payload),
             vector,
             textLemmatized: lemmatizedText(payload),
-            metadata: payload,
+            metadata: metadataPayload(payload),
           },
         ],
       }),
@@ -568,7 +589,7 @@ export class BaiduDB implements VectorStore {
 
     const memories = (response.rows ?? []).map((row) => ({
       id: String(row.id),
-      payload: row.metadata || {},
+      payload: resultPayload(row),
     }));
     return [memories, memories.length];
   }
