@@ -160,6 +160,7 @@ class MilvusDB(VectorStoreBase):
             if not self._SAFE_FILTER_KEY.match(key):
                 raise ValueError(f"Invalid filter key: {key!r}")
             if value == "*":
+                # Wildcard - match any value (MilvusDB doesn't have direct wildcard, so we skip this filter)
                 continue
             elif isinstance(value, str):
                 escaped = value.replace("\\", "\\\\").replace('"', '\\"')
