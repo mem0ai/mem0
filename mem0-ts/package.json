@@ -149,9 +149,7 @@
     },
     "@zilliz/milvus2-sdk-node": {
       "optional": true
-    }
-  },
-  "peerDependenciesMeta": {
+    },
     "@baiducloud/sdk": {
       "optional": true
     }
