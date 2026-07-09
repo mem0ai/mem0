@@ -36,6 +36,7 @@ import {
   SearchMemoryOptions,
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
+  UpdateMemoryOptions,
   UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
@@ -72,7 +73,52 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
+import { logger } from "../utils/logger";
 import { getOrCreateMem0UserId } from "../../../client/config";
+
+const EXPIRATION_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Normalize a user-supplied expiration date to a YYYY-MM-DD string.
+ *
+ * Deliberately stricter than `new Date(value)`, which accepts formats the
+ * Python SDK rejects ("12/31/2099", "2099") and resolves them against the
+ * local timezone, shifting the calendar day. It also silently rolls invalid
+ * dates over — `new Date("2099-02-30T00:00:00Z")` yields March 2nd.
+ */
+function normalizeExpirationDate(value: string): string {
+  const match = EXPIRATION_DATE_PATTERN.exec(value);
+  if (match) {
+    const [, year, month, day] = match;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    if (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.getUTCFullYear() === Number(year) &&
+      parsed.getUTCMonth() === Number(month) - 1 &&
+      parsed.getUTCDate() === Number(day)
+    ) {
+      return value;
+    }
+  }
+  throw new Error("expirationDate must be a valid date in YYYY-MM-DD format.");
+}
+
+/** True when the payload carries an expiration date strictly before today (UTC). */
+function payloadIsExpired(payload: Record<string, any> | null | undefined) {
+  const raw = payload?.expiration_date;
+  if (!raw) return false;
+  try {
+    // YYYY-MM-DD sorts lexicographically the same way it sorts chronologically.
+    return normalizeExpirationDate(String(raw)) < todayUtc();
+  } catch {
+    // Unparseable stored value: treat as non-expiring rather than hiding data.
+    return false;
+  }
+}
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -715,9 +761,7 @@ export class Memory {
 
     // Normalize expiration date into the stored metadata (round-trips via get()).
     if (config.expirationDate != null) {
-      metadata.expiration_date = this.normalizeExpirationDate(
-        config.expirationDate,
-      );
+      metadata.expiration_date = normalizeExpirationDate(config.expirationDate);
     }
 
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
@@ -1314,7 +1358,12 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 20, threshold = 0.1, explain = false } = config;
+    const {
+      topK = 20,
+      threshold = 0.1,
+      explain = false,
+      showExpired = false,
+    } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1482,11 +1531,13 @@ export class Memory {
     }
 
     // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults.map((mem) => ({
-      id: String(mem.id),
-      score: mem.score ?? 0,
-      payload: mem.payload || {},
-    }));
+    const candidates = semanticResults
+      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
+      .map((mem) => ({
+        id: String(mem.id),
+        score: mem.score ?? 0,
+        payload: mem.payload || {},
+      }));
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
@@ -1572,22 +1623,57 @@ export class Memory {
 
   async update(
     memoryId: string,
+    options: UpdateMemoryOptions,
+  ): Promise<{ message: string }>;
+  async update(
+    memoryId: string,
     text: string,
     metadata?: Record<string, any>,
     expirationDate?: string | null,
+  ): Promise<{ message: string }>;
+  async update(
+    memoryId: string,
+    textOrOptions?: string | UpdateMemoryOptions,
+    metadata?: Record<string, any>,
+    expirationDate?: string | null,
   ): Promise<{ message: string }> {
+    const options: UpdateMemoryOptions =
+      typeof textOrOptions === "object" && textOrOptions !== null
+        ? textOrOptions
+        : { text: textOrOptions, metadata, expirationDate };
+
     await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
 
-    const existingEmbeddings = { [text]: await this.embedder.embed(text) };
+    let text = options.text;
+    if (options.data != null) {
+      logger.warn(
+        "The `data` option of update() is deprecated and will be removed in " +
+          "the next major release. Use `text` instead.",
+      );
+      text ??= options.data;
+    }
 
-    const updateMetadata: Record<string, any> = { ...(metadata ?? {}) };
-    if (expirationDate !== undefined) {
-      // null clears an existing expiration; a string is normalized to YYYY-MM-DD.
+    // `expirationDate: undefined` means "leave it alone"; `null` means "clear it".
+    const hasExpiration = options.expirationDate !== undefined;
+    if (text == null && options.metadata === undefined && !hasExpiration) {
+      throw new Error(
+        "At least one of text, metadata, or expirationDate must be provided.",
+      );
+    }
+
+    const updateMetadata: Record<string, any> = { ...(options.metadata ?? {}) };
+    if (hasExpiration) {
       updateMetadata.expiration_date =
-        expirationDate === null
+        options.expirationDate === null
           ? null
-          : this.normalizeExpirationDate(expirationDate);
+          : normalizeExpirationDate(options.expirationDate!);
+    }
+
+    // Metadata-only updates skip embedding; updateMemory re-indexes the stored text.
+    const existingEmbeddings: Record<string, number[]> = {};
+    if (text != null) {
+      existingEmbeddings[text] = await this.embedder.embed(text);
     }
 
     await this.updateMemory(memoryId, text, existingEmbeddings, updateMetadata);
@@ -1727,7 +1813,7 @@ export class Memory {
 
     await this._ensureInitialized();
 
-    const { topK = 20 } = config;
+    const { topK = 20, showExpired = false } = config;
 
     // Validate and trim entity IDs in filters. Drop keys that resolve to
     // undefined so downstream vector stores don't receive
@@ -1756,7 +1842,13 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters, topK);
+    // Over-fetch so expired memories dropped below still leave topK survivors.
+    const fetchLimit = showExpired ? topK : Math.max(topK * 4, 60);
+    const [memories] = await this.vectorStore.list(filters, fetchLimit);
+
+    const visibleMemories = showExpired
+      ? memories
+      : memories.filter((mem) => !payloadIsExpired(mem.payload));
 
     const excludedKeys = new Set([
       "user_id",
@@ -1769,7 +1861,7 @@ export class Memory {
       "textLemmatized",
       "attributedTo",
     ]);
-    const results = memories.map((mem) => ({
+    const results = visibleMemories.slice(0, topK).map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
       hash: mem.payload.hash,
@@ -1797,17 +1889,6 @@ export class Memory {
       await this._displayFirstRunNotice("get_all");
     }
     return result;
-  }
-
-  // Normalize a user-supplied expiration date to a YYYY-MM-DD string.
-  private normalizeExpirationDate(value: string): string {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new Error(
-        "expirationDate must be a valid date in YYYY-MM-DD format.",
-      );
-    }
-    return parsed.toISOString().slice(0, 10);
   }
 
   private async createMemory(

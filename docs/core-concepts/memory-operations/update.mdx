@@ -131,24 +131,26 @@ import { Memory } from "mem0ai/oss";
 const memory = new Memory();
 
 // Replace the content
-await memory.update("mem_123", "Alex now prefers decaf coffee");
+await memory.update("mem_123", { text: "Alex now prefers decaf coffee" });
 
 // Update content plus metadata and an expiration date (null clears it)
-await memory.update(
-  "mem_123",
-  "Alex now prefers decaf coffee",
-  { category: "preferences" },
-  "2030-01-31",
-);
+await memory.update("mem_123", {
+  text: "Alex now prefers decaf coffee",
+  metadata: { category: "preferences" },
+  expirationDate: "2030-01-31",
+});
+
+// Update metadata only, leaving the stored text untouched
+await memory.update("mem_123", { metadata: { category: "preferences" } });
 ```
 </CodeGroup>
 
 <Note>
-  In the Python OSS SDK, `text` is optional — pass only `metadata` and/or `expiration_date` to update those while keeping the existing content (at least one of the three must be provided). The JavaScript OSS SDK takes the content as a required positional argument: `update(memoryId, text, metadata?, expirationDate?)`.
+  In both OSS SDKs the content is optional — pass only `metadata` and/or an expiration date to update those while keeping the existing content. At least one of the three must be provided, otherwise the call raises.
 </Note>
 
 <Note>
-  In the Python OSS SDK, `data=` is a deprecated alias for `text` — it still works but logs a warning; prefer `text`.
+  `data` is a deprecated alias for `text` in both OSS SDKs (`data=` in Python, `{ data: ... }` in JavaScript). It still works but logs a warning; prefer `text`. The JavaScript positional form `update(memoryId, text, metadata?, expirationDate?)` also still works.
 </Note>
 
 ## Tips

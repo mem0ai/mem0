@@ -5,6 +5,7 @@
 /// <reference types="jest" />
 import { Memory } from "../src/memory";
 import type { MemoryItem, SearchResult } from "../src/types";
+import { logger } from "../src/utils/logger";
 
 jest.setTimeout(30000);
 
@@ -293,6 +294,330 @@ describe("Memory - update()", () => {
         category: "work",
         expiration_date: "2099-01-01",
       }),
+    );
+  });
+});
+
+// ─── update() text/data aliasing ─────────────────────────
+
+describe("Memory - update() text/data aliasing", () => {
+  let memory: Memory;
+  let warnSpy: jest.SpyInstance;
+  const userId = `alias_test_${Date.now()}`;
+
+  beforeAll(async () => {
+    memory = createMemory();
+  });
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(logger, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  afterAll(async () => {
+    await memory.reset();
+  });
+
+  async function seed(text: string): Promise<string> {
+    const addResult: SearchResult = await memory.add(text, {
+      userId,
+      infer: false,
+    });
+    return addResult.results[0].id;
+  }
+
+  test("accepts an options object with text", async () => {
+    const id = await seed("Options object before");
+    await memory.update(id, { text: "Options object after" });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Options object after");
+  });
+
+  test("accepts the deprecated data alias and warns", async () => {
+    const id = await seed("Alias before");
+    await memory.update(id, { data: "Alias after" });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Alias after");
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("deprecated"));
+  });
+
+  test("prefers text over data when both are provided", async () => {
+    const id = await seed("Both before");
+    await memory.update(id, { text: "From text", data: "From data" });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("From text");
+  });
+
+  test("does not warn when only text is provided", async () => {
+    const id = await seed("No warn before");
+    await memory.update(id, { text: "No warn after" });
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("updates metadata without touching the stored text", async () => {
+    const id = await seed("Metadata only");
+    await memory.update(id, { metadata: { category: "solo" } });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Metadata only");
+    expect(after!.metadata).toEqual(
+      expect.objectContaining({ category: "solo" }),
+    );
+  });
+
+  test("sets an expiration date without touching the stored text", async () => {
+    const id = await seed("Expiry only");
+    await memory.update(id, { expirationDate: "2099-12-31" });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Expiry only");
+    expect(after!.metadata).toEqual(
+      expect.objectContaining({ expiration_date: "2099-12-31" }),
+    );
+  });
+
+  test("clears an existing expiration date with null", async () => {
+    const addResult: SearchResult = await memory.add("Clear expiry", {
+      userId,
+      infer: false,
+      expirationDate: "2099-12-31",
+    });
+    const id = addResult.results[0].id;
+    await memory.update(id, { expirationDate: null });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.metadata!.expiration_date).toBeNull();
+  });
+
+  test("throws when no updatable field is provided", async () => {
+    const id = await seed("Nothing to update");
+    await expect(memory.update(id, {})).rejects.toThrow(
+      "At least one of text, metadata, or expirationDate must be provided.",
+    );
+  });
+
+  test("still accepts the positional text form", async () => {
+    const id = await seed("Positional before");
+    await memory.update(id, "Positional after", { category: "legacy" });
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Positional after");
+    expect(after!.metadata).toEqual(
+      expect.objectContaining({ category: "legacy" }),
+    );
+  });
+});
+
+// ─── expiration date parsing ─────────────────────────────
+
+describe("Memory - expiration date parsing", () => {
+  let memory: Memory;
+  const userId = `expiry_parse_test_${Date.now()}`;
+
+  beforeAll(async () => {
+    memory = createMemory();
+  });
+
+  afterAll(async () => {
+    await memory.reset();
+  });
+
+  // `new Date(...)` happily parses all of these; Python's date.fromisoformat
+  // rejects them. Some also shift the day by one depending on the local
+  // timezone, e.g. "12/31/2099" -> "2099-12-30" east of UTC.
+  const rejected = [
+    "12/31/2099",
+    "Jan 15, 2025",
+    "2099",
+    "2099-12-31T23:00:00",
+    "2099-02-30", // rolls over to 2099-03-02
+    "2100-02-29", // 2100 is not a leap year
+    "not-a-date",
+  ];
+
+  test.each(rejected)("add() rejects %p", async (value) => {
+    await expect(
+      memory.add("Bad expiry", { userId, infer: false, expirationDate: value }),
+    ).rejects.toThrow("YYYY-MM-DD");
+  });
+
+  test.each(rejected)("update() rejects %p", async (value) => {
+    const addResult: SearchResult = await memory.add("Good", {
+      userId,
+      infer: false,
+    });
+    await expect(
+      memory.update(addResult.results[0].id, { expirationDate: value }),
+    ).rejects.toThrow("YYYY-MM-DD");
+  });
+
+  test.each(["2099-12-31", "2096-02-29", "2020-01-01"])(
+    "stores %p verbatim",
+    async (value) => {
+      const addResult: SearchResult = await memory.add("Good expiry", {
+        userId,
+        infer: false,
+        expirationDate: value,
+      });
+      const item: MemoryItem | null = await memory.get(addResult.results[0].id);
+      expect(item!.metadata!.expiration_date).toBe(value);
+    },
+  );
+});
+
+// ─── expired memories are hidden on read ─────────────────
+
+describe("Memory - expired memories", () => {
+  let memory: Memory;
+  const userId = `expired_test_${Date.now()}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  beforeAll(async () => {
+    memory = createMemory();
+  });
+
+  afterAll(async () => {
+    await memory.reset();
+  });
+
+  async function seed(text: string, expirationDate?: string): Promise<string> {
+    const addResult: SearchResult = await memory.add(text, {
+      userId,
+      infer: false,
+      ...(expirationDate ? { expirationDate } : {}),
+    });
+    return addResult.results[0].id;
+  }
+
+  test("getAll() hides expired memories by default", async () => {
+    const scopedUser = `${userId}_getall`;
+    await memory.add("Live memory", { userId: scopedUser, infer: false });
+    await memory.add("Dead memory", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: "2020-01-01",
+    });
+
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+    });
+    expect(result.results.map((r) => r.memory)).toEqual(["Live memory"]);
+  });
+
+  test("getAll() includes expired memories with showExpired", async () => {
+    const scopedUser = `${userId}_getall_show`;
+    await memory.add("Live memory", { userId: scopedUser, infer: false });
+    await memory.add("Dead memory", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: "2020-01-01",
+    });
+
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+      showExpired: true,
+    });
+    expect(result.results.map((r) => r.memory).sort()).toEqual([
+      "Dead memory",
+      "Live memory",
+    ]);
+  });
+
+  test("search() hides expired memories by default", async () => {
+    const scopedUser = `${userId}_search`;
+    await memory.add("Live memory", { userId: scopedUser, infer: false });
+    await memory.add("Dead memory", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: "2020-01-01",
+    });
+
+    const result: SearchResult = await memory.search("memory", {
+      filters: { user_id: scopedUser },
+    });
+    expect(result.results.map((r) => r.memory)).toEqual(["Live memory"]);
+  });
+
+  test("search() includes expired memories with showExpired", async () => {
+    const scopedUser = `${userId}_search_show`;
+    await memory.add("Live memory", { userId: scopedUser, infer: false });
+    await memory.add("Dead memory", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: "2020-01-01",
+    });
+
+    const result: SearchResult = await memory.search("memory", {
+      filters: { user_id: scopedUser },
+      showExpired: true,
+    });
+    expect(result.results.map((r) => r.memory).sort()).toEqual([
+      "Dead memory",
+      "Live memory",
+    ]);
+  });
+
+  test("a memory expiring today is not yet expired", async () => {
+    const scopedUser = `${userId}_today`;
+    await memory.add("Expires today", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: today,
+    });
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+    });
+    expect(result.results).toHaveLength(1);
+  });
+
+  test("get() still returns an expired memory by ID", async () => {
+    const id = await seed("Fetch by id", "2020-01-01");
+    const item: MemoryItem | null = await memory.get(id);
+    expect(item).not.toBeNull();
+    expect(item!.memory).toBe("Fetch by id");
+  });
+
+  test("clearing the expiration date makes a memory visible again", async () => {
+    const scopedUser = `${userId}_revive`;
+    const addResult: SearchResult = await memory.add("Revived", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: "2020-01-01",
+    });
+    const id = addResult.results[0].id;
+
+    const before: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+    });
+    expect(before.results).toHaveLength(0);
+
+    await memory.update(id, { expirationDate: null });
+
+    const after: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+    });
+    expect(after.results.map((r) => r.memory)).toEqual(["Revived"]);
+  });
+
+  test("getAll() still fills topK when expired memories are present", async () => {
+    const scopedUser = `${userId}_topk`;
+    for (let i = 0; i < 3; i++) {
+      await memory.add(`Dead ${i}`, {
+        userId: scopedUser,
+        infer: false,
+        expirationDate: "2020-01-01",
+      });
+    }
+    for (let i = 0; i < 3; i++) {
+      await memory.add(`Live ${i}`, { userId: scopedUser, infer: false });
+    }
+
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: scopedUser },
+      topK: 3,
+    });
+    expect(result.results).toHaveLength(3);
+    expect(result.results.every((r) => r.memory!.startsWith("Live"))).toBe(
+      true,
     );
   });
 });
