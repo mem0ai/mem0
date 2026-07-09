@@ -912,7 +912,7 @@ export class Memory {
       .filter((t) => t.length > 0);
     let embedMap: Record<string, number[]> = {};
     try {
-      const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
+      const memEmbeddingsList = await this.embedder.embedBatch(memTexts, "add");
       for (let i = 0; i < memTexts.length; i++) {
         embedMap[memTexts[i]] = memEmbeddingsList[i];
       }
@@ -1098,7 +1098,7 @@ export class Memory {
         // 7b: Single batch embed for all unique entities
         let entityEmbeddings: (number[] | null)[];
         try {
-          entityEmbeddings = await this.embedder.embedBatch(entityTexts);
+          entityEmbeddings = await this.embedder.embedBatch(entityTexts, "add");
         } catch {
           // Fallback: embed individually
           entityEmbeddings = [];

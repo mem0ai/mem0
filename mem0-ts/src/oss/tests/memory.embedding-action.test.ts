@@ -17,13 +17,15 @@ const mockEmbedBatch = jest
     Promise.resolve(texts.map(() => mockEmbedding)),
   );
 
+const mockGenerateResponse = jest
+  .fn()
+  .mockResolvedValue(JSON.stringify({ memory: [] }));
+
 jest.mock("../src/embeddings/google", () => ({ GoogleEmbedder: jest.fn() }));
 jest.mock("../src/llms/google", () => ({ GoogleLLM: jest.fn() }));
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest.fn().mockImplementation(() => ({
-    generateResponse: jest
-      .fn()
-      .mockResolvedValue(JSON.stringify({ memory: [] })),
+    generateResponse: mockGenerateResponse,
   })),
 }));
 jest.mock("../src/embeddings/openai", () => ({
@@ -64,6 +66,7 @@ describe("embedder memory-action threading", () => {
     memory = createMemory();
     mockEmbed.mockClear();
     mockEmbedBatch.mockClear();
+    mockGenerateResponse.mockResolvedValue(JSON.stringify({ memory: [] }));
   });
 
   afterEach(async () => {
@@ -79,5 +82,34 @@ describe("embedder memory-action threading", () => {
     // Missing id: update embeds the value before it throws on the absent row.
     await memory.update("missing-id", "new value").catch(() => {});
     expect(mockEmbed).toHaveBeenCalledWith("new value", "update");
+  });
+
+  test("add() batch-embeds extracted memories and entities with the 'add' action", async () => {
+    mockGenerateResponse.mockResolvedValue(
+      JSON.stringify({
+        memory: [
+          { id: "1", text: "John loves sci-fi movies", attributed_to: "user" },
+        ],
+      }),
+    );
+
+    await memory.add("I love sci-fi movies", { userId: "u1" });
+
+    // Phase 1 retrieval embeds the incoming turn as a query.
+    expect(mockEmbed).toHaveBeenCalledWith(
+      expect.stringContaining("I love sci-fi movies"),
+      "search",
+    );
+    // Phase 3 (extracted memories) and phase 7 (linked entities) both batch
+    // embed as documents. Without an explicit action, a task-type-aware
+    // embedder falls back to its own default and silently mis-embeds.
+    expect(mockEmbedBatch).toHaveBeenCalledWith(
+      ["John loves sci-fi movies"],
+      "add",
+    );
+    expect(mockEmbedBatch.mock.calls.length).toBeGreaterThan(0);
+    for (const call of mockEmbedBatch.mock.calls) {
+      expect(call[1]).toBe("add");
+    }
   });
 });

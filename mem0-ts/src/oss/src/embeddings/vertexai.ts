@@ -2,10 +2,26 @@ import type { PredictionServiceClient } from "@google-cloud/aiplatform";
 import { Embedder } from "./base";
 import { VertexAIConfig } from "../types";
 
+type AIPlatform = typeof import("@google-cloud/aiplatform");
+type ClientOptions = NonNullable<
+  ConstructorParameters<AIPlatform["PredictionServiceClient"]>[0]
+>;
+
 interface EmbeddingResponse {
   embeddings: {
     values: number[];
   };
+}
+
+/**
+ * Vertex AI caps how many input texts one `predict()` call may carry, and the
+ * cap depends on the model family. `gemini-embedding-*` accepts exactly one
+ * text per request; the older `text-embedding-*` / `text-multilingual-*`
+ * models accept up to 250.
+ * https://cloud.google.com/vertex-ai/generative-ai/docs/embeddings/get-text-embeddings
+ */
+function maxInstancesPerRequest(model: string): number {
+  return model.startsWith("gemini-embedding") ? 1 : 250;
 }
 
 function isValidEmbedding(value: unknown): value is EmbeddingResponse {
@@ -23,8 +39,9 @@ function isValidEmbedding(value: unknown): value is EmbeddingResponse {
 
 export class VertexAIEmbedder implements Embedder {
   private client: PredictionServiceClient | undefined;
-  private helpers: any;
-  private clientOptions: any;
+  private helpers: AIPlatform["helpers"] | undefined;
+  private initPromise: Promise<void> | undefined;
+  private clientOptions: ClientOptions;
   private model: string;
   private embeddingDims: number;
   private location: string;
@@ -41,18 +58,14 @@ export class VertexAIEmbedder implements Embedder {
     this.location =
       config.location || process.env.GCP_LOCATION || "us-central1";
 
+    // Left empty when unset: initClient() resolves it from Application Default
+    // Credentials or the service account key file, the way the Python SDK does.
     this.projectId =
       config.googleProjectId ||
       process.env.GCP_PROJECT_ID ||
       process.env.GOOGLE_CLOUD_PROJECT ||
       process.env.GCLOUD_PROJECT ||
       "";
-
-    if (!this.projectId) {
-      throw new Error(
-        "Vertex AI requires a Google Cloud project ID. Set googleProjectId in config or one of the GCP_PROJECT_ID / GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT env vars.",
-      );
-    }
 
     this.embeddingTypes = {
       add: config.memoryAddEmbeddingType || "RETRIEVAL_DOCUMENT",
@@ -80,19 +93,49 @@ export class VertexAIEmbedder implements Embedder {
   }
 
   private async initClient(): Promise<void> {
-    if (this.client) {
-      return;
+    // Memoized so concurrent embed() calls share one client instead of each
+    // racing to build (and leak) their own gRPC channel.
+    if (!this.initPromise) {
+      this.initPromise = this.createClient().catch((err) => {
+        this.initPromise = undefined;
+        throw err;
+      });
     }
+    await this.initPromise;
+  }
+
+  private async createClient(): Promise<void> {
+    let aiplatform: AIPlatform;
     try {
-      const aiplatform = await import("@google-cloud/aiplatform");
-      this.client = new aiplatform.PredictionServiceClient(this.clientOptions);
-      this.helpers = aiplatform.helpers;
+      aiplatform = await import("@google-cloud/aiplatform");
     } catch (err) {
       throw new Error(
         "Failed to import '@google-cloud/aiplatform'. Please install it to use the Vertex AI embedding provider: " +
           (err as Error).message,
       );
     }
+
+    const client = new aiplatform.PredictionServiceClient(this.clientOptions);
+
+    if (!this.projectId) {
+      try {
+        this.projectId = await client.getProjectId();
+      } catch (err) {
+        throw new Error(
+          "Vertex AI could not determine a Google Cloud project ID. Set googleProjectId in config, " +
+            "one of the GCP_PROJECT_ID / GOOGLE_CLOUD_PROJECT / GCLOUD_PROJECT env vars, or configure " +
+            "Application Default Credentials: " +
+            (err as Error).message,
+        );
+      }
+    }
+
+    this.client = client;
+    this.helpers = aiplatform.helpers;
+  }
+
+  private endpoint(): string {
+    return `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${this.model}`;
   }
 
   private formatInstance(text: string, taskType: string) {
@@ -123,14 +166,13 @@ export class VertexAIEmbedder implements Embedder {
       embeddingType = this.embeddingTypes[memoryAction];
     }
 
-    const endpointName = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${this.model}`;
     const instance = this.formatInstance(text, embeddingType);
     const parameters = {
       outputDimensionality: this.embeddingDims,
     };
 
     const [response] = await this.client.predict({
-      endpoint: endpointName,
+      endpoint: this.endpoint(),
       instances: [this.helpers.toValue(instance) as any],
       parameters: this.helpers.toValue(parameters) as any,
     });
@@ -160,30 +202,28 @@ export class VertexAIEmbedder implements Embedder {
       throw new Error("Client not initialized");
     }
 
-    let embeddingType = "SEMANTIC_SIMILARITY";
-    if (memoryAction !== undefined) {
-      if (!(memoryAction in this.embeddingTypes)) {
-        throw new Error(`Invalid memory action: ${memoryAction}`);
-      }
-      embeddingType = this.embeddingTypes[memoryAction];
+    if (!(memoryAction in this.embeddingTypes)) {
+      throw new Error(`Invalid memory action: ${memoryAction}`);
     }
+    const embeddingType = this.embeddingTypes[memoryAction];
 
-    const endpointName = `projects/${this.projectId}/locations/${this.location}/publishers/google/models/${this.model}`;
     const allEmbeddings: number[][] = [];
-    const batchSize = 250;
+    const batchSize = maxInstancesPerRequest(this.model);
 
     for (let i = 0; i < texts.length; i += batchSize) {
       const chunk = texts.slice(i, i + batchSize);
       const instances = chunk.map(
         (text) =>
-          this.helpers.toValue(this.formatInstance(text, embeddingType)) as any,
+          this.helpers!.toValue(
+            this.formatInstance(text, embeddingType),
+          ) as any,
       );
       const parameters = {
         outputDimensionality: this.embeddingDims,
       };
 
       const [response] = await this.client.predict({
-        endpoint: endpointName,
+        endpoint: this.endpoint(),
         instances,
         parameters: this.helpers.toValue(parameters) as any,
       });
@@ -205,7 +245,7 @@ export class VertexAIEmbedder implements Embedder {
 
     if (allEmbeddings.length !== texts.length) {
       throw new Error(
-        `Vertex AI embedBatch() returned ${allEmbeddings.length} embeddings for ${texts.length} texts`,
+        `Vertex AI embedBatch() returned ${allEmbeddings.length} embeddings for ${texts.length} texts using model '${this.model}'`,
       );
     }
 

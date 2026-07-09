@@ -129,7 +129,9 @@ export const MemoryConfigSchema = z.object({
       embeddingDims: z.number().optional(),
       url: z.string().optional(),
       vertexCredentialsJson: z.string().optional(),
-      googleServiceAccountJson: z.union([z.string(), z.any()]).optional(),
+      googleServiceAccountJson: z
+        .union([z.string(), z.record(z.string(), z.any())])
+        .optional(),
       googleProjectId: z.string().optional(),
       location: z.string().optional(),
       memoryAddEmbeddingType: z.string().optional(),
