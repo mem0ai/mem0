@@ -107,6 +107,15 @@ class TestMilvusDB:
         assert 'metadata["category"] == "work"' in filter_str
         assert ' and ' in filter_str
 
+    def test_create_filter_asterisk_conditions(self, milvus_db):
+        """Test filter creation with asterisk conditions."""
+        filters = {"user_id": "alice", "run_id": "*"}
+        filter_str = milvus_db._create_filter(filters)
+
+        # Should join with 'and'
+        assert 'metadata["user_id"] == "alice"' in filter_str
+        assert 'metadata["run_id"] == "*"' not in filter_str
+
     def test_search_with_filters(self, milvus_db, mock_milvus_client):
         """Test search with metadata filters (reproduces user's bug scenario)."""
         # Setup mock return value
