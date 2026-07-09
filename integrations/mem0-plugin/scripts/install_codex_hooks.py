@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import platform
+import shutil
 import sys
 from pathlib import Path
 
@@ -127,14 +127,16 @@ def main() -> int:
         print(f"Removed Mem0 hooks from {HOOKS_FILE}")
         return 0
 
-    # Codex lifecycle hooks register .sh paths directly in ~/.codex/hooks.json.
-    # On native Windows .sh has no default handler, so Codex spawning a hook
-    # triggers "Open With" dialogs (one OpenWith.exe per event). See #5243.
-    if platform.system() == "Windows":
+    # Hook commands are wrapped in `bash -c "..."` (see hooks/codex-hooks.json)
+    # so they run the same way under cmd/PowerShell as under a POSIX shell.
+    # That still requires a bash interpreter to be resolvable on PATH — Git
+    # Bash or WSL on Windows. See #5243, #6181.
+    if shutil.which("bash") is None:
         print(
-            "Codex lifecycle hooks register .sh scripts directly, which Windows\n"
-            "cannot execute without a bash interpreter on PATH. Re-run this\n"
-            "installer from WSL or Git Bash, or use Mem0 via MCP / Direct tools\n",
+            "No `bash` interpreter found on PATH. Mem0's Codex lifecycle hooks\n"
+            "are shell scripts and require one. Install Git Bash or WSL, ensure\n"
+            "`bash` is on PATH, and re-run this installer, or use Mem0 via\n"
+            "MCP / Direct tools only.\n",
             file=sys.stderr,
         )
         return 2
