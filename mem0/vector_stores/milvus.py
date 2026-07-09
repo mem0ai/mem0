@@ -89,39 +89,64 @@ class MilvusDB(VectorStoreBase):
                     "To enable hybrid search, use a fresh collection."
                 )
         else:
-            fields = [
-                FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
-                FieldSchema(name="vectors", dtype=DataType.FLOAT_VECTOR, dim=vector_size),
-                FieldSchema(name="metadata", dtype=DataType.JSON),
-                # Text field for BM25 full-text search (auto-tokenized by Milvus analyzer)
-                FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535, enable_analyzer=True),
-                # Sparse vector field populated automatically by the BM25 function below
-                FieldSchema(name="sparse", dtype=DataType.SPARSE_FLOAT_VECTOR),
-            ]
+            try:
+                #  Milvus 2.5+only supports BM25 mixed search
+                fields = [
+                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
+                    FieldSchema(name="vectors", dtype=DataType.FLOAT_VECTOR, dim=vector_size),
+                    FieldSchema(name="metadata", dtype=DataType.JSON),
+                    # Text field for BM25 full-text search (auto-tokenized by Milvus analyzer)
+                    FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535, enable_analyzer=True),
+                    # Sparse vector field populated automatically by the BM25 function below
+                    FieldSchema(name="sparse", dtype=DataType.SPARSE_FLOAT_VECTOR),
+                ]
 
-            schema = CollectionSchema(fields, enable_dynamic_field=True)
+                schema = CollectionSchema(fields, enable_dynamic_field=True)
 
-            # Add BM25 function so Milvus auto-generates sparse vectors from the text field
-            bm25_function = Function(
-                name="bm25",
-                input_field_names=["text"],
-                output_field_names=["sparse"],
-                function_type=FunctionType.BM25,
-            )
-            schema.add_function(bm25_function)
+                # Add BM25 function so Milvus auto-generates sparse vectors from the text field
+                bm25_function = Function(
+                    name="bm25",
+                    input_field_names=["text"],
+                    output_field_names=["sparse"],
+                    function_type=FunctionType.BM25,
+                )
+                schema.add_function(bm25_function)
 
-            index_params = self.client.prepare_index_params()
-            index_params.add_index(
-                field_name="vectors", metric_type=metric_type, index_type="AUTOINDEX", index_name="vector_index"
-            )
-            index_params.add_index(
-                field_name="sparse",
-                index_type="SPARSE_INVERTED_INDEX",
-                metric_type="BM25",
-                index_name="sparse_index",
-            )
-            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
-            self._has_bm25_schema = True
+                index_params = self.client.prepare_index_params()
+                index_params.add_index(
+                    field_name="vectors", metric_type=metric_type, index_type="AUTOINDEX", index_name="vector_index"
+                )
+                index_params.add_index(
+                    field_name="sparse",
+                    index_type="SPARSE_INVERTED_INDEX",
+                    metric_type="BM25",
+                    index_name="sparse_index",
+                )
+                self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+                self._has_bm25_schema = True
+            except Exception as e:
+                # If the server version is low and the creation fails,
+                # an exception will be caught and
+                # the creation of a classic pure dense vector collection will be downgraded
+                logger.warning(
+                    f"Failed to create collection with BM25 hybrid search schema: {e}. "
+                    "Falling back to standard collection without sparse vectors."
+                )
+                if self.client.has_collection(collection_name):
+                    self.client.drop_collection(collection_name)
+
+                fields = [
+                    FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
+                    FieldSchema(name="vectors", dtype=DataType.FLOAT_VECTOR, dim=vector_size),
+                    FieldSchema(name="metadata", dtype=DataType.JSON),
+                ]
+                schema = CollectionSchema(fields, enable_dynamic_field=True)
+                index_params = self.client.prepare_index_params()
+                index_params.add_index(
+                    field_name="vectors", metric_type=metric_type, index_type="AUTOINDEX", index_name="vector_index"
+                )
+                self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+                self._has_bm25_schema = False
 
     def insert(self, ids, vectors, payloads, **kwargs: Optional[dict[str, any]]):
         """Insert vectors into a collection.
