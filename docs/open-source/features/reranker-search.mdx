@@ -18,7 +18,7 @@ Reranker-enhanced search adds a second scoring pass after vector retrieval so Me
 </Warning>
 
 <Note>
-  The `Configure it` and `See it in action` snippets below use the Python SDK. The self-hosted **TypeScript SDK** supports the Cohere, Zero Entropy, Sentence Transformer, Hugging Face, and LLM rerankers — see [TypeScript SDK](#typescript-sdk).
+  The `Configure it` and `See it in action` snippets below use the Python SDK. The self-hosted **TypeScript SDK** supports the Cohere, Zero Entropy, Sentence Transformer, Hugging Face, and LLM rerankers; see [TypeScript SDK](#typescript-sdk).
 </Note>
 
 ---
@@ -27,13 +27,13 @@ Reranker-enhanced search adds a second scoring pass after vector retrieval so Me
 
 The self-hosted TypeScript SDK (`mem0ai/oss`) ships five rerankers: **Cohere**, **Zero Entropy**, **Sentence Transformer**, **Hugging Face**, and the **LLM reranker**. Configure one under `reranker`, then opt in per search with `rerank: true`. Keys are camelCase (`apiKey`, not `api_key`).
 
-Provider SDKs are peer dependencies — install the one your reranker needs:
+Provider SDKs are peer dependencies. Install the one your reranker needs:
 
 ```bash
 pnpm add cohere-ai          # cohere
 pnpm add zeroentropy        # zero_entropy
 pnpm add @huggingface/transformers   # sentence_transformer, huggingface
-# llm_reranker defaults to openai (already a core dependency) — install another
+# llm_reranker defaults to openai (already a core dependency); install another
 # provider's SDK only if you nest a different one under config.llm
 ```
 
@@ -70,7 +70,7 @@ const memory = new Memory({
 
 ### Local cross-encoders (Sentence Transformer, Hugging Face)
 
-Both run a cross-encoder locally with [Transformers.js](https://huggingface.co/docs/transformers.js) — no API key, no network at inference time. Because Transformers.js runs ONNX weights, the default models are the ONNX mirrors of the Python SDK's defaults (`sentence_transformer` → `Xenova/ms-marco-MiniLM-L-6-v2`, `huggingface` → `Xenova/bge-reranker-base`). Point `model` at any ONNX-exported cross-encoder on the Hub to override.
+Both run a cross-encoder locally with [Transformers.js](https://huggingface.co/docs/transformers.js): no API key, no network at inference time. Because Transformers.js runs ONNX weights, the default models are the ONNX mirrors of the Python SDK's defaults (`sentence_transformer` → `Xenova/ms-marco-MiniLM-L-6-v2`, `huggingface` → `Xenova/bge-reranker-base`). Point `model` at any ONNX-exported cross-encoder on the Hub to override.
 
 ```typescript
 const memory = new Memory({
@@ -92,12 +92,12 @@ const results = await memory.search("What movies do I like?", {
 ```
 
 <Note>
-  `batchSize` and `showProgressBar` are accepted for config parity with the Python SDK but are no-ops in this runtime — a memory search reranks a small candidate set in a single in-process forward pass. The model is downloaded once and cached in-process on first use.
+  `batchSize` and `showProgressBar` are accepted for config parity with the Python SDK but are no-ops in this runtime, because a memory search reranks a small candidate set in a single in-process forward pass. The model is downloaded once and cached in-process on first use.
 </Note>
 
 ### LLM reranker
 
-To score with an LLM instead of a dedicated reranker, use the `llm_reranker` provider. It builds its own LLM from the reranker's config — defaulting to `openai` / `gpt-4o-mini` — rather than reusing the Memory's main `llm`:
+To score with an LLM instead of a dedicated reranker, use the `llm_reranker` provider. It builds its own LLM from the reranker's config (defaulting to `openai` / `gpt-4o-mini`) rather than reusing the Memory's main `llm`:
 
 ```typescript
 const memory = new Memory({

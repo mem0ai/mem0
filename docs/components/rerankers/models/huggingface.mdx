@@ -59,7 +59,7 @@ config = {
 
 ## TypeScript (self-hosted)
 
-The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) runs this reranker locally with [Transformers.js](https://huggingface.co/docs/transformers.js) — the same cross-encoder path as `sentence_transformer`, just a different default model. It executes ONNX weights, so the default is the ONNX mirror `Xenova/bge-reranker-base`. Point `model` at any ONNX-exported reranker on the Hub (a raw `BAAI/bge-reranker-*` PyTorch checkpoint will not load in this runtime).
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) runs this reranker locally with [Transformers.js](https://huggingface.co/docs/transformers.js), the same cross-encoder path as `sentence_transformer`, just a different default model. It executes ONNX weights, so the default is the ONNX mirror `Xenova/bge-reranker-base`. Point `model` at any ONNX-exported reranker on the Hub (a raw `BAAI/bge-reranker-*` PyTorch checkpoint will not load in this runtime).
 
 ```bash
 pnpm add @huggingface/transformers

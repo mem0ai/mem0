@@ -114,7 +114,7 @@ The self-hosted [TypeScript SDK](/open-source/features/reranker-search#typescrip
 | `zero_entropy` | `pnpm add zeroentropy` | `zerank-1` | `apiKey`, `model`, `topK` |
 | `sentence_transformer` | `pnpm add @huggingface/transformers` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
 | `huggingface` | `pnpm add @huggingface/transformers` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
-| `llm_reranker` | — (uses your LLM provider's own SDK) | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
+| `llm_reranker` | None (uses your LLM provider's own SDK) | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
 
 ```typescript
 import { Memory } from "mem0ai/oss";

@@ -56,7 +56,7 @@ memory = Memory.from_config(config)
 
 ## TypeScript (self-hosted)
 
-The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) runs this reranker locally with [Transformers.js](https://huggingface.co/docs/transformers.js). Because it executes ONNX weights, the default model is the ONNX mirror of the Python default — `Xenova/ms-marco-MiniLM-L-6-v2`. Point `model` at any ONNX-exported cross-encoder on the Hub (a raw `cross-encoder/...` PyTorch checkpoint will not load in this runtime).
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) runs this reranker locally with [Transformers.js](https://huggingface.co/docs/transformers.js). Because it executes ONNX weights, the default model is the ONNX mirror of the Python default: `Xenova/ms-marco-MiniLM-L-6-v2`. Point `model` at any ONNX-exported cross-encoder on the Hub (a raw `cross-encoder/...` PyTorch checkpoint will not load in this runtime).
 
 ```bash
 pnpm add @huggingface/transformers
@@ -85,7 +85,7 @@ const results = await memory.search("What books does the user like?", {
 ```
 
 <Note>
-  `batchSize` and `showProgressBar` are accepted for parity with the Python SDK but are no-ops in the TypeScript runtime — a search reranks a small candidate set in a single in-process forward pass. The model downloads once and is cached in-process.
+  `batchSize` and `showProgressBar` are accepted for parity with the Python SDK but are no-ops in the TypeScript runtime, because a search reranks a small candidate set in a single in-process forward pass. The model downloads once and is cached in-process.
 </Note>
 
 ## GPU Acceleration

@@ -69,7 +69,7 @@ config = {
 
 ## TypeScript (self-hosted)
 
-The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the LLM reranker under the provider name `llm_reranker`. It does **not** reuse the Memory's main `llm` instance — it builds its own LLM from the reranker's own config, defaulting to `openai` / `gpt-4o-mini`. Set `provider`/`model`/`apiKey` directly on `config`, or nest a fully separate `config.llm: { provider, config }` (its `provider`/`config` take priority over the top-level fields, which only backfill values missing from the nested config).
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the LLM reranker under the provider name `llm_reranker`. It does **not** reuse the Memory's main `llm` instance; it builds its own LLM from the reranker's own config, defaulting to `openai` / `gpt-4o-mini`. Set `provider`/`model`/`apiKey` directly on `config`, or nest a fully separate `config.llm: { provider, config }` (its `provider`/`config` take priority over the top-level fields, which only backfill values missing from the nested config).
 
 ```typescript
 import { Memory } from "mem0ai/oss";
