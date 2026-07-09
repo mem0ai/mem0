@@ -1623,54 +1623,39 @@ export class Memory {
 
   async update(
     memoryId: string,
-    options: UpdateMemoryOptions,
-  ): Promise<{ message: string }>;
-  async update(
-    memoryId: string,
-    text: string,
-    metadata?: Record<string, any>,
-    expirationDate?: string | null,
-  ): Promise<{ message: string }>;
-  async update(
-    memoryId: string,
-    textOrOptions?: string | UpdateMemoryOptions,
-    metadata?: Record<string, any>,
-    expirationDate?: string | null,
+    config: UpdateMemoryOptions,
   ): Promise<{ message: string }> {
-    const options: UpdateMemoryOptions =
-      typeof textOrOptions === "object" && textOrOptions !== null
-        ? textOrOptions
-        : { text: textOrOptions, metadata, expirationDate };
-
     await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
 
-    let text = options.text;
-    if (options.data != null) {
+    const { metadata, expirationDate } = config;
+    let text = config.text;
+    if (config.data != null) {
       logger.warn(
         "The `data` option of update() is deprecated and will be removed in " +
           "the next major release. Use `text` instead.",
       );
-      text ??= options.data;
+      text ??= config.data;
     }
 
-    // `expirationDate: undefined` means "leave it alone"; `null` means "clear it".
-    const hasExpiration = options.expirationDate !== undefined;
-    if (text == null && options.metadata === undefined && !hasExpiration) {
+    if (
+      text == null &&
+      metadata === undefined &&
+      expirationDate === undefined
+    ) {
       throw new Error(
         "At least one of text, metadata, or expirationDate must be provided.",
       );
     }
 
-    const updateMetadata: Record<string, any> = { ...(options.metadata ?? {}) };
-    if (hasExpiration) {
+    const updateMetadata: Record<string, any> = { ...metadata };
+    if (expirationDate !== undefined) {
       updateMetadata.expiration_date =
-        options.expirationDate === null
+        expirationDate === null
           ? null
-          : normalizeExpirationDate(options.expirationDate!);
+          : normalizeExpirationDate(expirationDate);
     }
 
-    // Metadata-only updates skip embedding; updateMemory re-indexes the stored text.
     const existingEmbeddings: Record<string, number[]> = {};
     if (text != null) {
       existingEmbeddings[text] = await this.embedder.embed(text);

@@ -117,11 +117,10 @@ You only need to provide API keys - all other settings are optional.
   - Fetching by ID returns the memory even if it has expired.
 - `getAll(options): Promise<SearchResult>`
   - Expired memories are omitted unless you pass `showExpired: true`.
-- `update(memoryId: string, options: UpdateMemoryOptions): Promise<{ message: string }>`
-  - `UpdateMemoryOptions` is `{ text?, metadata?, expirationDate? }`. At least one must be
+- `update(memoryId: string, config: UpdateMemoryOptions): Promise<{ message: string }>`
+  - `UpdateMemoryOptions` is `{ text?, data?, metadata?, expirationDate? }`. At least one must be
     provided; omitted fields are left untouched, and `expirationDate: null` clears an existing
-    expiry. `data` is accepted as a deprecated alias for `text`.
-  - The positional form `update(memoryId, text, metadata?, expirationDate?)` is still supported.
+    expiry. `data` is a deprecated alias for `text`.
 - `delete(memoryId: string): Promise<{ message: string }>`
 - `deleteAll(userId?: string, ...): Promise<{ message: string }>`
 - `history(memoryId: string): Promise<any[]>`

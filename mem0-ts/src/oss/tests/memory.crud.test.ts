@@ -182,7 +182,7 @@ describe("Memory - update()", () => {
       infer: false,
     });
     const id = addResult.results[0].id;
-    const result = await memory.update(id, "Updated");
+    const result = await memory.update(id, { text: "Updated" });
     expect(result.message).toBe("Memory updated successfully!");
   });
 
@@ -192,7 +192,7 @@ describe("Memory - update()", () => {
       infer: false,
     });
     const id = addResult.results[0].id;
-    await memory.update(id, "After update");
+    await memory.update(id, { text: "After update" });
     const item: MemoryItem | null = await memory.get(id);
     expect(item!.memory).toBe("After update");
   });
@@ -206,7 +206,7 @@ describe("Memory - update()", () => {
     const before: MemoryItem | null = await memory.get(id);
     const originalCreatedAt = before!.createdAt;
 
-    await memory.update(id, "New text");
+    await memory.update(id, { text: "New text" });
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.createdAt).toBe(originalCreatedAt);
     expect(after!.updatedAt).toBeDefined();
@@ -219,7 +219,7 @@ describe("Memory - update()", () => {
     });
     const id = addResult.results[0].id;
     const before: MemoryItem | null = await memory.get(id);
-    await memory.update(id, "Completely different text");
+    await memory.update(id, { text: "Completely different text" });
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.hash).not.toBe(before!.hash);
   });
@@ -231,7 +231,7 @@ describe("Memory - update()", () => {
       infer: false,
     });
     const id = addResult.results[0].id;
-    await memory.update(id, "Updated text");
+    await memory.update(id, { text: "Updated text" });
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.memory).toBe("Updated text");
     expect(after!.metadata).toEqual(
@@ -245,7 +245,10 @@ describe("Memory - update()", () => {
       infer: false,
     });
     const id = addResult.results[0].id;
-    await memory.update(id, "Metadata via update", { category: "travel" });
+    await memory.update(id, {
+      text: "Metadata via update",
+      metadata: { category: "travel" },
+    });
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.metadata).toEqual(
       expect.objectContaining({ category: "travel" }),
@@ -258,7 +261,10 @@ describe("Memory - update()", () => {
       infer: false,
     });
     const id = addResult.results[0].id;
-    await memory.update(id, "Expiry via update", undefined, "2099-12-31");
+    await memory.update(id, {
+      text: "Expiry via update",
+      expirationDate: "2099-12-31",
+    });
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.metadata).toEqual(
       expect.objectContaining({ expiration_date: "2099-12-31" }),
@@ -272,7 +278,7 @@ describe("Memory - update()", () => {
     });
     const id = addResult.results[0].id;
     await expect(
-      memory.update(id, "Bad expiry", undefined, "not-a-date"),
+      memory.update(id, { text: "Bad expiry", expirationDate: "not-a-date" }),
     ).rejects.toThrow("YYYY-MM-DD");
   });
 
@@ -282,12 +288,11 @@ describe("Memory - update()", () => {
       infer: false,
     });
     const id = addResult.results[0].id;
-    await memory.update(
-      id,
-      "Object meta after",
-      { category: "work" },
-      "2099-01-01",
-    );
+    await memory.update(id, {
+      text: "Object meta after",
+      metadata: { category: "work" },
+      expirationDate: "2099-01-01",
+    });
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.metadata).toEqual(
       expect.objectContaining({
@@ -393,16 +398,6 @@ describe("Memory - update() text/data aliasing", () => {
     const id = await seed("Nothing to update");
     await expect(memory.update(id, {})).rejects.toThrow(
       "At least one of text, metadata, or expirationDate must be provided.",
-    );
-  });
-
-  test("still accepts the positional text form", async () => {
-    const id = await seed("Positional before");
-    await memory.update(id, "Positional after", { category: "legacy" });
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.memory).toBe("Positional after");
-    expect(after!.metadata).toEqual(
-      expect.objectContaining({ category: "legacy" }),
     );
   });
 });
@@ -842,7 +837,7 @@ describe("Memory - history()", () => {
       userId,
     });
     const id = addResult.results[0].id;
-    await memory.update(id, "After");
+    await memory.update(id, { text: "After" });
     const history = await memory.history(id);
     expect(history.length).toBeGreaterThanOrEqual(2);
   });

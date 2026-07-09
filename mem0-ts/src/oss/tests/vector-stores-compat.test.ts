@@ -2208,7 +2208,7 @@ describe("Memory class – backward compat with all providers", () => {
     expect(item).toBeDefined();
 
     // update
-    const updateResult = await mem.update("id-1", "new data");
+    const updateResult = await mem.update("id-1", { text: "new data" });
     expect(updateResult.message).toBe("Memory updated successfully!");
 
     // delete
