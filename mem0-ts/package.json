@@ -98,7 +98,8 @@
     "ts-node": "^10.9.2",
     "tsup": "^8.3.0",
     "typescript": "5.5.4",
-    "iovalkey": "^0.3.3"
+    "iovalkey": "^0.3.3",
+    "@mochow/mochow-sdk-node": "^2.1.5"
   },
   "dependencies": {
     "axios": "^1.16.0",
@@ -109,7 +110,7 @@
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
     "@aws-sdk/client-s3vectors": "3.967.0",
-    "@baiducloud/sdk": "^1.0.7",
+    "@mochow/mochow-sdk-node": "^2.1.5",
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
@@ -150,7 +151,7 @@
     "@zilliz/milvus2-sdk-node": {
       "optional": true
     },
-    "@baiducloud/sdk": {
+    "@mochow/mochow-sdk-node": {
       "optional": true
     }
   },

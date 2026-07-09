@@ -1,15 +1,19 @@
 import type {
-  BaiduClient as BaiduSdkClient,
-  BaiduConfigurationOptions,
-  BaiduDatabase as BaiduSdkDatabase,
-  BaiduRow,
-  BaiduSearchEnvelope,
-  BaiduSearchItem,
-  BaiduSdkModule as BaiduSdkModuleType,
-  BaiduTable as BaiduSdkTable,
-} from "@baiducloud/sdk";
+  AutoBuildIncrementPolicy,
+  CommonResponse,
+  DescTableResponse,
+  FieldType,
+  IndexSchema,
+  MochowClient,
+  QueryResponse,
+  SearchResponse,
+  SelectResponse,
+  TableSchema,
+} from "@mochow/mochow-sdk-node";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+
+type MochowSdk = typeof import("@mochow/mochow-sdk-node");
 
 export interface BaiduConfig extends VectorStoreConfig {
   endpoint: string;
@@ -18,18 +22,20 @@ export interface BaiduConfig extends VectorStoreConfig {
   databaseName: string;
   tableName: string;
   embeddingModelDims: number;
-  metricType?: string;
+  metricType?: "L2" | "IP" | "COSINE";
+  client?: MochowClient;
 }
 
-type BaiduClient = BaiduSdkClient;
-type BaiduDatabase = BaiduSdkDatabase;
-type BaiduTable = BaiduSdkTable;
-type BaiduSdkModule = BaiduSdkModuleType & { default?: BaiduSdkModuleType };
-type BaiduSearchResult =
-  | BaiduSearchEnvelope
-  | BaiduSearchItem[]
-  | null
-  | undefined;
+const VECTOR_INDEX = "vector_idx";
+const FILTERING_INDEX = "metadata_filtering_idx";
+const BM25_INDEX = "data_bm25_idx";
+const PROJECTIONS = ["id", "metadata"];
+const TABLE_POLL_INTERVAL_MS = 2000;
+const TABLE_POLL_ATTEMPTS = 60;
+
+// Mochow's server accepts JSON columns, but the Node SDK's FieldType enum predates them
+// (pymochow 2.4.1 ships FieldType.JSON == "JSON"). The wire value is the bare string.
+const JSON_FIELD_TYPE = "JSON" as unknown as FieldType;
 
 const SAFE_FILTER_KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -37,168 +43,46 @@ function escapeFilterString(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-function isAlreadyExistsError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-
-  const err = error as { code?: unknown; status?: unknown; message?: unknown };
-  return (
-    err.code === 409 ||
-    err.status === 409 ||
-    (typeof err.message === "string" &&
-      /already exists|already exist|entity already exists/i.test(err.message))
-  );
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isNotFoundError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
+// Mochow resolves with a {code, msg} envelope instead of rejecting, so every call site
+// has to inspect the code. `tolerated` lets callers accept the idempotent outcomes
+// (database/table already exists, table already dropped).
+function check(
+  response: CommonResponse,
+  action: string,
+  ...tolerated: number[]
+): number {
+  if (response.code !== 0 && !tolerated.includes(response.code)) {
+    throw new Error(
+      `Baidu Mochow ${action} failed (code ${response.code}): ${response.msg}`,
+    );
   }
-
-  const err = error as { code?: unknown; status?: unknown; message?: unknown };
-  return (
-    err.code === 404 ||
-    err.status === 404 ||
-    (typeof err.message === "string" &&
-      /does not exist|not exist|not found/i.test(err.message))
-  );
+  return response.code;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function hasSchemaField(
-  fields: unknown[],
-  fieldName: string,
-  types?: readonly string[],
-): boolean {
-  return fields.some(
-    (field) =>
-      isRecord(field) &&
-      field.name === fieldName &&
-      (types ? types.includes(String(field.type)) : true),
-  );
-}
-
-function toRow(value: unknown): BaiduRow | null {
-  if (!isRecord(value) || typeof value.id !== "string") {
-    return null;
-  }
-
-  return value as BaiduRow;
-}
-
-function firstRow(result: BaiduSearchResult): BaiduRow | null {
-  if (!result) {
-    return null;
-  }
-
-  if (Array.isArray(result)) {
-    return result.length > 0 ? toRow(result[0].row ?? result[0]) : null;
-  }
-
-  if (result.row) {
-    return toRow(result.row);
-  }
-
-  const rows = result.rows ?? result.points ?? result.items ?? result.data;
-  if (Array.isArray(rows) && rows.length > 0) {
-    return toRow(rows[0].row ?? rows[0]);
-  }
-
-  return null;
-}
-
-function normalizeRows(result: BaiduSearchResult): BaiduSearchItem[] {
-  if (!result) {
-    return [];
-  }
-
-  if (Array.isArray(result)) {
-    return result;
-  }
-
-  if (result.row) {
-    return [result.row];
-  }
-
-  const rows = result.rows ?? result.points ?? result.items ?? result.data;
-  return Array.isArray(rows) ? rows : [];
-}
-
-function isOptionalTextField(value: unknown, fieldName: string): boolean {
-  return (
-    isRecord(value) &&
-    value.name === fieldName &&
-    (value.type === "TEXT" ||
-      value.type === "TEXT_GBK" ||
-      value.type === "TEXT_GB18030")
-  );
-}
-
-function buildSearchTextFields(payload: Record<string, any>): {
-  data: string;
-  textLemmatized: string;
-} {
+function lemmatizedText(payload: Record<string, any>): string {
   const data = typeof payload.data === "string" ? payload.data : "";
-  const textLemmatized =
-    typeof payload.textLemmatized === "string" &&
+  return typeof payload.textLemmatized === "string" &&
     payload.textLemmatized.length > 0
-      ? payload.textLemmatized
-      : data;
-
-  return { data, textLemmatized };
-}
-
-function isUnsupportedKeywordSearchError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-
-  const err = error as { code?: unknown; status?: unknown; message?: unknown };
-  const message = typeof err.message === "string" ? err.message : "";
-
-  return /bm25|inverted index|keyword search|search unavailable|not supported/i.test(
-    message,
-  );
-}
-
-function hasMethod<T extends (...args: any[]) => unknown>(
-  target: unknown,
-  methodName: string,
-): target is Record<string, T> {
-  return isRecord(target) && typeof target[methodName] === "function";
-}
-
-function getMethod<T extends (...args: any[]) => unknown>(
-  target: unknown,
-  methodNames: readonly string[],
-): T {
-  for (const methodName of methodNames) {
-    if (hasMethod<T>(target, methodName)) {
-      return target[methodName];
-    }
-  }
-
-  throw new Error(
-    `Baidu SDK is missing expected method(s): ${methodNames.join(", ")}`,
-  );
+    ? payload.textLemmatized
+    : data;
 }
 
 export class BaiduDB implements VectorStore {
-  private client: BaiduClient | null = null;
-  private database: BaiduDatabase | null = null;
-  private table: BaiduTable | null = null;
+  private client: MochowClient | null = null;
+  private sdk: MochowSdk | null = null;
   private readonly endpoint: string;
   private readonly account: string;
   private readonly apiKey: string;
   private readonly databaseName: string;
   private readonly tableName: string;
   private readonly embeddingModelDims: number;
-  private readonly metricType: string;
-  private supportsKeywordSearch = true;
+  private readonly metricType: "L2" | "IP" | "COSINE";
+  // Fails closed: keyword search stays off until an inverted index is observed.
+  private supportsKeywordSearch = false;
   private storeUserId = "anonymous-baidu-user";
   private _initPromise?: Promise<void>;
 
@@ -239,234 +123,111 @@ export class BaiduDB implements VectorStore {
     this.initialize().catch(console.error);
   }
 
-  private async loadSdkClient(): Promise<BaiduClient> {
-    let sdkModule: BaiduSdkModule;
-    try {
-      sdkModule = (await import("@baiducloud/sdk")) as BaiduSdkModule;
-    } catch (error) {
-      throw new Error(
-        "The @baiducloud/sdk package is required for the Baidu vector store when no client is injected.",
-      );
-    }
-    // Baidu's SDK surface has shipped in multiple export shapes, so accept both
-    // the direct module and a default wrapper.
-    const sdk = sdkModule.default ?? sdkModule;
-    const Configuration = sdk.Configuration ?? sdk.configuration;
-    const BceCredentials = sdk.BceCredentials ?? sdk.bceCredentials;
-    const MochowClient = sdk.MochowClient ?? sdk.mochowClient;
-
-    if (!Configuration || !BceCredentials || !MochowClient) {
-      throw new Error(
-        "The @baiducloud/sdk package does not expose the expected Mochow client exports.",
-      );
-    }
-
-    const credentials = new BceCredentials(this.account, this.apiKey);
-    const sdkConfig: BaiduConfigurationOptions = {
-      credentials,
-      endpoint: this.endpoint,
-    };
-    const configuration = new Configuration(sdkConfig);
-    return new MochowClient(configuration);
+  private get ns(): { database: string; table: string } {
+    return { database: this.databaseName, table: this.tableName };
   }
 
-  private async ensureClient(): Promise<BaiduClient> {
+  // Loaded dynamically: @mochow/mochow-sdk-node is an optional peer dependency, so a static
+  // value import would break `import { Memory } from "mem0ai/oss"` for everyone else.
+  private async loadSdk(): Promise<MochowSdk> {
+    if (!this.sdk) {
+      let module: MochowSdk & { default?: MochowSdk };
+      try {
+        module = await import("@mochow/mochow-sdk-node");
+      } catch {
+        throw new Error(
+          "The Baidu vector store requires the '@mochow/mochow-sdk-node' package. Install it with: npm install @mochow/mochow-sdk-node",
+        );
+      }
+      this.sdk = module.default ?? module;
+    }
+    return this.sdk;
+  }
+
+  private async ensureClient(): Promise<MochowClient> {
     if (!this.client) {
-      this.client = await this.loadSdkClient();
+      const sdk = await this.loadSdk();
+      this.client = new sdk.MochowClient({
+        endpoint: this.endpoint,
+        credential: { account: this.account, apiKey: this.apiKey },
+      });
     }
     return this.client;
   }
 
-  private async createDatabase(client: BaiduClient): Promise<BaiduDatabase> {
-    const method = getMethod<(name: string) => Promise<BaiduDatabase>>(client, [
-      "createDatabase",
-      "create_database",
-    ]);
-    return method.call(client, this.databaseName);
+  private async ready(): Promise<{ client: MochowClient; sdk: MochowSdk }> {
+    await this.initialize();
+    return { client: await this.ensureClient(), sdk: await this.loadSdk() };
   }
 
-  private async getDatabase(client: BaiduClient): Promise<BaiduDatabase> {
-    const method = getMethod<(name: string) => BaiduDatabase>(client, [
-      "database",
-    ]);
-    return method.call(client, this.databaseName);
-  }
+  private buildSchema(sdk: MochowSdk): TableSchema {
+    const {
+      AutoBuildPolicyType,
+      FieldType,
+      IndexType,
+      InvertedIndexAnalyzer,
+      InvertedIndexFieldAttribute,
+      InvertedIndexParseMode,
+      MetricType,
+    } = sdk;
 
-  private async createTable(database: BaiduDatabase): Promise<BaiduTable> {
-    const method = getMethod<
-      (spec: Record<string, unknown>) => Promise<BaiduTable>
-    >(database, ["createTable", "create_table"]);
-    return method.call(database, this.buildTableSpec());
-  }
+    // sdk.AutoBuildIncrement() stamps policyType "TIMING" (bug in 2.1.5), so build the
+    // increment policy by hand.
+    const autoBuildPolicy: AutoBuildIncrementPolicy = {
+      policyType: AutoBuildPolicyType.Increment,
+      rowCountIncrement: 10000,
+    };
 
-  private async getExistingTable(database: BaiduDatabase): Promise<BaiduTable> {
-    const method = getMethod<(tableName: string) => Promise<BaiduTable>>(
-      database,
-      ["describeTable", "describe_table", "table"],
-    );
-    return method.call(database, this.tableName);
-  }
+    const vectorIndex: IndexSchema = {
+      indexName: VECTOR_INDEX,
+      indexType: IndexType.HNSW,
+      field: "vector",
+      metricType: MetricType[this.metricType],
+      params: { M: 16, efConstruction: 200 },
+      autoBuild: true,
+      autoBuildPolicy,
+    };
 
-  private async dropTable(database: BaiduDatabase): Promise<void> {
-    const method = getMethod<(tableName: string) => Promise<unknown>>(
-      database,
-      ["dropTable", "drop_table"],
-    );
-    await method.call(database, this.tableName);
-  }
-
-  private async vectorSearch(
-    table: BaiduTable,
-    query: number[],
-    topK: number,
-    filter?: string,
-  ): Promise<BaiduSearchResult> {
-    const method = getMethod<
-      (payload: {
-        vectorField: string;
-        vector_field: string;
-        vector: number[];
-        limit: number;
-        filter?: string;
-        config: { ef: number };
-      }) => Promise<BaiduSearchResult>
-    >(table, ["vectorSearch", "vector_search"]);
-    return method.call(table, {
-      vectorField: "vector",
-      vector_field: "vector",
-      vector: query,
-      limit: topK,
-      filter,
-      config: { ef: 200 },
-    });
-  }
-
-  private async keywordSearchRows(
-    table: BaiduTable,
-    query: string,
-    topK: number,
-    filter?: string,
-  ): Promise<BaiduSearchResult> {
-    // Best-effort BM25 lookup; if the backend does not support this shape, the
-    // public keywordSearch() path will fall back to the warning/null branch.
-    const method = getMethod<
-      (payload: {
-        indexName: string;
-        index_name: string;
-        searchText: string;
-        search_text: string;
-        limit: number;
-        filter?: string;
-      }) => Promise<BaiduSearchResult>
-    >(table, ["bm25Search", "bm25_search"]);
-    return method.call(table, {
-      indexName: "data_bm25_idx",
-      index_name: "data_bm25_idx",
-      searchText: query,
-      search_text: query,
-      limit: topK,
-      filter,
-    });
-  }
-
-  private async selectRows(
-    table: BaiduTable,
-    filter?: string,
-    topK = 100,
-  ): Promise<BaiduSearchResult> {
-    const method = getMethod<
-      (payload: {
-        filter?: string;
-        projections: string[];
-        limit: number;
-      }) => Promise<BaiduSearchEnvelope>
-    >(table, ["select"]);
-    return method.call(table, {
-      filter,
-      projections: ["id", "metadata"],
-      limit: topK,
-    });
-  }
-
-  private buildTableSpec(): Record<string, unknown> {
-    // Emit both camelCase and snake_case keys because the Mochow SDK surface is
-    // inconsistent across versions and environments.
     return {
-      tableName: this.tableName,
-      table_name: this.tableName,
-      replication: 3,
-      partition: { partitionNum: 1, partition_num: 1 },
-      schema: {
-        fields: [
-          {
-            name: "id",
-            type: "STRING",
-            primaryKey: true,
-            primary_key: true,
-            partitionKey: true,
-            partition_key: true,
-            autoIncrement: false,
-            auto_increment: false,
-            notNull: true,
-            not_null: true,
+      fields: [
+        {
+          fieldName: "id",
+          fieldType: FieldType.String,
+          primaryKey: true,
+          partitionKey: true,
+          autoIncrement: false,
+          notNull: true,
+        },
+        {
+          fieldName: "vector",
+          fieldType: FieldType.FloatVector,
+          notNull: true,
+          dimension: this.embeddingModelDims,
+        },
+        // Duplicated out of `metadata` because Mochow cannot build an inverted index on a
+        // field inside a JSON column. Memory.search() passes an already-lemmatized query,
+        // so only the lemmatized form is worth indexing.
+        { fieldName: "textLemmatized", fieldType: FieldType.Text },
+        { fieldName: "metadata", fieldType: JSON_FIELD_TYPE },
+      ],
+      indexes: [
+        vectorIndex,
+        {
+          indexName: FILTERING_INDEX,
+          indexType: IndexType.FilteringIndex,
+          fields: ["metadata"],
+        },
+        {
+          indexName: BM25_INDEX,
+          indexType: IndexType.InvertedIndex,
+          fields: ["textLemmatized"],
+          fieldAttributes: [InvertedIndexFieldAttribute.Analyzed],
+          params: {
+            analyzer: InvertedIndexAnalyzer.EnglishAnalyzer,
+            parseMode: InvertedIndexParseMode.FineMode,
           },
-          {
-            name: "vector",
-            type: "FLOAT_VECTOR",
-            dimension: this.embeddingModelDims,
-          },
-          {
-            name: "data",
-            type: "TEXT",
-          },
-          {
-            name: "textLemmatized",
-            type: "TEXT",
-          },
-          {
-            name: "metadata",
-            type: "JSON",
-          },
-        ],
-        indexes: [
-          {
-            indexName: "vector_idx",
-            index_name: "vector_idx",
-            indexType: "HNSW",
-            index_type: "HNSW",
-            field: "vector",
-            metricType: this.metricType,
-            metric_type: this.metricType,
-            params: {
-              m: 16,
-              efConstruction: 200,
-              ef_construction: 200,
-            },
-            autoBuild: true,
-            auto_build: true,
-            autoBuildIndexPolicy: {
-              rowCountIncrement: 10000,
-              row_count_increment: 10000,
-            },
-            auto_build_index_policy: {
-              rowCountIncrement: 10000,
-              row_count_increment: 10000,
-            },
-          },
-          {
-            indexName: "metadata_filtering_idx",
-            index_name: "metadata_filtering_idx",
-            fields: ["metadata"],
-          },
-          {
-            indexName: "data_bm25_idx",
-            index_name: "data_bm25_idx",
-            indexType: "INVERTED",
-            index_type: "INVERTED",
-            fields: ["data", "textLemmatized"],
-          },
-        ],
-      },
+        },
+      ],
     };
   }
 
@@ -496,115 +257,117 @@ export class BaiduDB implements VectorStore {
     return conditions.join(" AND ");
   }
 
-  private async ensureDatabase(): Promise<BaiduDatabase> {
-    if (this.database) {
-      return this.database;
+  private filterOf(filters?: SearchFilters): string | undefined {
+    return filters && Object.keys(filters).length > 0
+      ? this.buildFilter(filters)
+      : undefined;
+  }
+
+  private async pollTable(
+    client: MochowClient,
+    settled: (response: DescTableResponse) => boolean,
+    what: string,
+  ): Promise<void> {
+    for (let attempt = 0; attempt < TABLE_POLL_ATTEMPTS; attempt++) {
+      if (settled(await client.descTable(this.databaseName, this.tableName))) {
+        return;
+      }
+      await sleep(TABLE_POLL_INTERVAL_MS);
     }
 
+    throw new Error(
+      `Baidu Mochow table '${this.tableName}' was not ${what} after ${(TABLE_POLL_ATTEMPTS * TABLE_POLL_INTERVAL_MS) / 1000}s.`,
+    );
+  }
+
+  private async ensureTable(): Promise<void> {
+    const sdk = await this.loadSdk();
     const client = await this.ensureClient();
-    try {
-      this.database = await this.createDatabase(client);
-    } catch (error) {
-      if (!isAlreadyExistsError(error)) {
-        throw error;
-      }
-      this.database = await this.getDatabase(client);
-    }
+    const { ServerErrCode, TableState } = sdk;
 
-    return this.database;
+    check(
+      await client.createDatabase(this.databaseName),
+      `createDatabase '${this.databaseName}'`,
+      ServerErrCode.DBAlreadyExist,
+    );
+
+    const created = check(
+      await client.createTable({
+        ...this.ns,
+        description: "mem0 memories",
+        replication: 3,
+        partition: { partitionType: sdk.PartitionType.HASH, partitionNum: 1 },
+        enableDynamicField: false,
+        schema: this.buildSchema(sdk),
+      }),
+      `createTable '${this.tableName}'`,
+      ServerErrCode.TableAlreadyExist,
+    );
+
+    // A table is CREATING until its indexes are built; writing to it before then fails.
+    let description: DescTableResponse | undefined;
+    await this.pollTable(
+      client,
+      (response) => {
+        check(response, `descTable '${this.tableName}'`);
+        description = response;
+        return response.table.state === TableState.Normal;
+      },
+      "ready",
+    );
+
+    this.applySchema(
+      created === ServerErrCode.TableAlreadyExist,
+      description!.table.schema,
+    );
   }
 
-  private async ensureTable(): Promise<BaiduTable> {
-    if (this.table) {
-      return this.table;
-    }
-
-    const database = await this.ensureDatabase();
-    let table: BaiduTable | undefined;
-
-    try {
-      table = await this.createTable(database);
-    } catch (error) {
-      if (!isAlreadyExistsError(error)) {
-        throw error;
-      }
-      table = await this.getExistingTable(database);
-    }
-
-    const resolvedTable = table ?? (await this.getExistingTable(database));
-
-    await this.validateExistingTableSchema(resolvedTable);
-    this.table = resolvedTable;
-    return resolvedTable;
-  }
-
-  private async validateExistingTableSchema(table: BaiduTable): Promise<void> {
-    let stats: unknown;
-    try {
-      const statsMethod = getMethod<() => Promise<unknown> | unknown>(table, [
-        "stats",
-      ]);
-      stats = await statsMethod.call(table);
-    } catch (error) {
-      console.warn(
-        "Baidu table schema introspection is unavailable. keywordSearch() will stay best-effort.",
-        error,
-      );
+  private applySchema(preexisting: boolean, schema: TableSchema): void {
+    if (!preexisting) {
+      this.supportsKeywordSearch = true;
       return;
     }
 
-    if (!isRecord(stats) || !isRecord(stats.schema)) {
-      return;
-    }
+    const fields = schema?.fields ?? [];
+    const indexes = schema?.indexes ?? [];
+    const field = (name: string) => fields.find((f) => f.fieldName === name);
+    const typeOf = (name: string) => String(field(name)?.fieldType ?? "");
+    const label = `${this.databaseName}.${this.tableName}`;
 
-    const fields = Array.isArray(stats.schema.fields)
-      ? stats.schema.fields
-      : [];
-    const indexes = Array.isArray(stats.schema.indexes)
-      ? stats.schema.indexes
-      : [];
-
-    const hasIdField = hasSchemaField(fields, "id", ["STRING"]);
-    const hasVectorField = hasSchemaField(fields, "vector", ["FLOAT_VECTOR"]);
-    const hasMetadataField = hasSchemaField(fields, "metadata", ["JSON"]);
-    const hasDataField = fields.some((field) =>
-      isOptionalTextField(field, "data"),
-    );
-    const hasTextLemmatizedField = fields.some((field) =>
-      isOptionalTextField(field, "textLemmatized"),
-    );
-    const hasBm25Index = indexes.some(
-      (index) =>
-        isRecord(index) &&
-        (index.indexName === "data_bm25_idx" ||
-          index.index_name === "data_bm25_idx"),
-    );
-
-    if (!hasIdField || !hasVectorField || !hasMetadataField) {
+    if (
+      typeOf("id") !== "STRING" ||
+      typeOf("vector") !== "FLOAT_VECTOR" ||
+      typeOf("metadata") !== "JSON"
+    ) {
       throw new Error(
-        "Baidu table exists but is missing the core id/vector/metadata schema.",
+        `Baidu Mochow table '${label}' exists but is missing the id/vector/metadata schema mem0 requires. Drop it, or point 'tableName' at an unused table.`,
       );
     }
 
-    if (!hasDataField || !hasTextLemmatizedField || !hasBm25Index) {
-      this.supportsKeywordSearch = false;
+    const dimension = field("vector")?.dimension;
+    if (dimension !== undefined && dimension !== this.embeddingModelDims) {
+      throw new Error(
+        `Baidu Mochow table '${label}' stores ${dimension}-dimensional vectors, but 'embeddingModelDims' is ${this.embeddingModelDims}.`,
+      );
+    }
+
+    this.supportsKeywordSearch =
+      typeOf("textLemmatized").startsWith("TEXT") &&
+      indexes.some((index) => index.indexName === BM25_INDEX);
+
+    if (!this.supportsKeywordSearch) {
       console.warn(
-        "Baidu table exists without BM25 fields or index. keywordSearch() will return null until the table is recreated with BM25 support.",
+        `Baidu Mochow table '${label}' has no '${BM25_INDEX}' inverted index. keywordSearch() will return null until the table is recreated.`,
       );
-      return;
     }
-
-    this.supportsKeywordSearch = true;
   }
 
   async initialize(): Promise<void> {
     if (!this._initPromise) {
-      this._initPromise = this.ensureTable()
-        .then(() => undefined)
-        .catch((error) => {
-          this._initPromise = undefined;
-          throw error;
-        });
+      this._initPromise = this.ensureTable().catch((error) => {
+        this._initPromise = undefined;
+        throw error;
+      });
     }
 
     return this._initPromise;
@@ -615,66 +378,22 @@ export class BaiduDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
-    await this.initialize();
-    const table = await this.ensureTable();
+    const { client } = await this.ready();
 
-    const rowCount = Math.min(vectors.length, ids.length, payloads.length);
-    if (
-      rowCount !== vectors.length ||
-      rowCount !== ids.length ||
-      rowCount !== payloads.length
-    ) {
-      console.warn(
-        `Baidu insert received mismatched batch lengths; truncating to ${rowCount} row(s).`,
+    if (vectors.length !== ids.length || vectors.length !== payloads.length) {
+      throw new Error(
+        `Baidu insert requires vectors, ids, and payloads of equal length (got ${vectors.length}/${ids.length}/${payloads.length}).`,
       );
     }
 
-    for (let index = 0; index < rowCount; index++) {
-      await table.upsert({
-        rows: [
-          {
-            id: ids[index],
-            vector: vectors[index],
-            ...buildSearchTextFields(payloads[index] || {}),
-            metadata: payloads[index] || {},
-          },
-        ],
-      });
-    }
-  }
+    const rows = vectors.map((vector, index) => ({
+      id: ids[index],
+      vector,
+      textLemmatized: lemmatizedText(payloads[index] || {}),
+      metadata: payloads[index] || {},
+    }));
 
-  async keywordSearch(
-    query: string,
-    topK = 5,
-    filters?: SearchFilters,
-  ): Promise<VectorStoreResult[] | null> {
-    await this.initialize();
-
-    if (!this.supportsKeywordSearch) {
-      return null;
-    }
-
-    try {
-      const table = await this.ensureTable();
-      const filter =
-        filters && Object.keys(filters).length > 0
-          ? this.buildFilter(filters)
-          : undefined;
-      const result = await this.keywordSearchRows(table, query, topK, filter);
-
-      return normalizeRows(result).map((row) => ({
-        id: String(firstRow(row)?.id ?? row.id),
-        payload: firstRow(row)?.metadata ?? row.metadata ?? {},
-        score: row.score,
-      }));
-    } catch (error) {
-      if (!isUnsupportedKeywordSearchError(error)) {
-        throw error;
-      }
-
-      console.warn(`Baidu keyword search failed for query '${query}':`, error);
-      return null;
-    }
+    check(await client.upsert({ ...this.ns, rows }), "upsert");
   }
 
   async search(
@@ -682,41 +401,84 @@ export class BaiduDB implements VectorStore {
     topK = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    await this.initialize();
-    const table = await this.ensureTable();
-    const filter =
-      filters && Object.keys(filters).length > 0
-        ? this.buildFilter(filters)
-        : undefined;
-    const result = await this.vectorSearch(table, query, topK, filter);
+    const { client, sdk } = await this.ready();
+    const filter = this.filterOf(filters);
 
-    return normalizeRows(result).map((row) => {
-      const rowData = firstRow(row) ?? row;
-      return {
-        id: String(rowData.id),
-        payload: rowData.metadata || {},
-        score: row.score,
-      };
-    });
+    const request = new sdk.VectorTopkSearchRequest(
+      "vector",
+      new sdk.Vector(query),
+      topK,
+    )
+      .Projections(PROJECTIONS)
+      .Config(new sdk.VectorSearchConfig().Ef(200));
+    if (filter) {
+      request.Filter(filter);
+    }
+
+    const response = (await client.vectorSearch({
+      ...this.ns,
+      request,
+    })) as SearchResponse;
+    check(response, "vectorSearch");
+
+    return (response.rows ?? []).map((result) => ({
+      id: String(result.row.id),
+      payload: result.row.metadata || {},
+      score: result.score,
+    }));
+  }
+
+  async keywordSearch(
+    query: string,
+    topK = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    const { client, sdk } = await this.ready();
+
+    if (!this.supportsKeywordSearch) {
+      return null;
+    }
+
+    const filter = this.filterOf(filters);
+    const request = new sdk.BM25SearchRequest(BM25_INDEX, query)
+      .Projections(PROJECTIONS)
+      .Limit(topK);
+    if (filter) {
+      request.Filter(filter);
+    }
+
+    const response = (await client.bm25Search({
+      ...this.ns,
+      request,
+    })) as SearchResponse;
+    check(response, "bm25Search");
+
+    return (response.rows ?? []).map((result) => ({
+      id: String(result.row.id),
+      payload: result.row.metadata || {},
+      score: result.score,
+    }));
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
-    await this.initialize();
-    const table = await this.ensureTable();
-    const result = await table.query({
-      primaryKey: { id: vectorId },
-      primary_key: { id: vectorId },
-      projections: ["id", "metadata"],
-    });
+    const { client } = await this.ready();
 
-    const row = firstRow(result);
-    if (!row) {
+    // ponytail: ServerErrCode has no row-not-found member, so a missing id comes back as an
+    // empty row rather than a distinguishable code. Any non-zero code is a real failure.
+    const response: QueryResponse = await client.query({
+      ...this.ns,
+      primaryKey: { id: vectorId },
+      projections: PROJECTIONS,
+    });
+    check(response, `query '${vectorId}'`);
+
+    if (!response.row || response.row.id === undefined) {
       return null;
     }
 
     return {
-      id: String(row.id ?? vectorId),
-      payload: row.metadata || {},
+      id: String(response.row.id),
+      payload: response.row.metadata || {},
     };
   }
 
@@ -725,51 +487,64 @@ export class BaiduDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
-    await this.initialize();
-    const table = await this.ensureTable();
-    await table.upsert({
-      rows: [
-        {
-          id: vectorId,
-          vector,
-          ...buildSearchTextFields(payload),
-          metadata: payload,
-        },
-      ],
-    });
+    const { client } = await this.ready();
+
+    check(
+      await client.upsert({
+        ...this.ns,
+        rows: [
+          {
+            id: vectorId,
+            vector,
+            textLemmatized: lemmatizedText(payload),
+            metadata: payload,
+          },
+        ],
+      }),
+      `upsert '${vectorId}'`,
+    );
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.initialize();
-    const table = await this.ensureTable();
-    await table.delete({
-      primaryKey: { id: vectorId },
-      primary_key: { id: vectorId },
-    });
+    const { client } = await this.ready();
+
+    check(
+      await client.delete({ ...this.ns, primaryKey: { id: vectorId } }),
+      `delete '${vectorId}'`,
+    );
   }
 
   async deleteCol(): Promise<void> {
-    if (!this.database && !this.table && !this._initPromise) {
+    // The constructor starts initialize() without awaiting it. Let any in-flight run land
+    // first, otherwise it recreates the table after dropTable() and reset() is a no-op.
+    await this._initPromise?.catch(() => undefined);
+    this._initPromise = undefined;
+    this.supportsKeywordSearch = false;
+
+    const sdk = await this.loadSdk();
+    const client = await this.ensureClient();
+    const { ServerErrCode } = sdk;
+
+    const dropped = check(
+      await client.dropTable(this.databaseName, this.tableName),
+      `dropTable '${this.tableName}'`,
+      ServerErrCode.TableNotExist,
+    );
+    if (dropped === ServerErrCode.TableNotExist) {
       return;
     }
 
-    let database = this.database;
-    if (!database) {
-      const client = await this.ensureClient();
-      database = await this.getDatabase(client);
-      this.database = database;
-    }
-
-    try {
-      await this.dropTable(database);
-    } catch (error) {
-      if (!isNotFoundError(error)) {
-        throw error;
-      }
-    }
-    this.table = null;
-    this._initPromise = undefined;
-    this.supportsKeywordSearch = true;
+    // Drops are asynchronous; recreating the table before it is gone fails.
+    await this.pollTable(
+      client,
+      (response) =>
+        check(
+          response,
+          `descTable '${this.tableName}'`,
+          ServerErrCode.TableNotExist,
+        ) === ServerErrCode.TableNotExist,
+      "dropped",
+    );
   }
 
   async reset(): Promise<void> {
@@ -781,27 +556,21 @@ export class BaiduDB implements VectorStore {
     filters?: SearchFilters,
     topK = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    await this.initialize();
-    const table = await this.ensureTable();
-    const filter =
-      filters && Object.keys(filters).length > 0
-        ? this.buildFilter(filters)
-        : undefined;
-    const result = await this.selectRows(table, filter, topK);
+    const { client } = await this.ready();
 
-    const memories = normalizeRows(result).map((row) => {
-      const rowData = firstRow(row) ?? row;
-      return {
-        id: String(rowData.id),
-        payload: rowData.metadata || {},
-      };
+    const response: SelectResponse = await client.select({
+      ...this.ns,
+      filter: this.filterOf(filters),
+      projections: PROJECTIONS,
+      limit: topK,
     });
+    check(response, "select");
 
-    const total =
-      isRecord(result) && typeof result.total === "number"
-        ? result.total
-        : memories.length;
-    return [memories, total];
+    const memories = (response.rows ?? []).map((row) => ({
+      id: String(row.id),
+      payload: row.metadata || {},
+    }));
+    return [memories, memories.length];
   }
 
   async getUserId(): Promise<string> {

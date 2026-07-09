@@ -1,861 +1,597 @@
+import {
+  AutoBuildPolicyType,
+  FieldType,
+  IndexType,
+  InvertedIndexFieldAttribute,
+  MetricType,
+  PartitionType,
+  ServerErrCode,
+  TableState,
+} from "@mochow/mochow-sdk-node";
 import { BaiduDB } from "../src/vector_stores/baidu";
 
-type MockBaiduSdkState = {
-  clientInstance: any;
-  lastConfiguration: any;
-  lastCredentials: any;
-  lastClientConfig: any;
-};
+// No jest.mock() here on purpose: the real SDK supplies the enums and the search request
+// classes (which carry an internal `set` map the client reads, so they cannot be hand-rolled
+// as plain literals). Only the network-facing MochowClient is faked, via the `client` config.
 
-function getMockBaiduSdkState(): MockBaiduSdkState {
-  const globalState = globalThis as typeof globalThis & {
-    __mockBaiduSdkState?: MockBaiduSdkState;
-  };
+const OK = { code: 0, msg: "" };
+const DIMS = 1536;
 
-  if (!globalState.__mockBaiduSdkState) {
-    globalState.__mockBaiduSdkState = {
-      clientInstance: null,
-      lastConfiguration: null,
-      lastCredentials: null,
-      lastClientConfig: null,
-    };
-  }
-
-  return globalState.__mockBaiduSdkState;
-}
-
-jest.mock("@baiducloud/sdk", () => {
-  const state = getMockBaiduSdkState();
-
-  return {
-    __esModule: true,
-    configuration: jest.fn().mockImplementation(function Configuration(
-      this: any,
-      options: any,
-    ) {
-      state.lastConfiguration = options;
-      this.options = options;
-    }),
-    bceCredentials: jest.fn().mockImplementation(function BceCredentials(
-      this: any,
-      account: string,
-      apiKey: string,
-    ) {
-      state.lastCredentials = { account, apiKey };
-      this.account = account;
-      this.apiKey = apiKey;
-    }),
-    mochowClient: jest.fn().mockImplementation(function MochowClient(
-      this: any,
-      config: any,
-    ) {
-      state.lastClientConfig = config;
-      return state.clientInstance;
-    }),
-  };
+const normalTable = (schema: unknown = { fields: [], indexes: [] }) => ({
+  ...OK,
+  table: { state: TableState.Normal, schema },
 });
 
-type MockClientOptions = {
-  methodStyle?: "camelCase" | "snake_case";
-  createDatabaseExists?: boolean;
-  createTableExists?: boolean;
-  dropTableNotFound?: boolean;
-  keywordSearchFails?: boolean;
-};
+const CORE_FIELDS = [
+  { fieldName: "id", fieldType: FieldType.String },
+  { fieldName: "vector", fieldType: FieldType.FloatVector, dimension: DIMS },
+  { fieldName: "metadata", fieldType: "JSON" },
+];
 
-function createMockClient(options: MockClientOptions = {}): any {
-  const methodStyle = options.methodStyle || "camelCase";
-  const state = {
-    databaseCreated: false,
-    tableCreated: false,
-  };
+const BM25_FIELDS = [
+  ...CORE_FIELDS,
+  { fieldName: "textLemmatized", fieldType: FieldType.Text },
+];
 
-  const createAlreadyExistsError = () => {
-    const err = new Error("Collection already exists") as Error & {
-      code?: number;
-      status?: number;
+/** Records call order, so ordering regressions (deleteCol vs. in-flight init) are visible. */
+function fakeClient(overrides: Record<string, (...args: any[]) => any> = {}) {
+  const calls: string[] = [];
+  const track =
+    (name: string, impl: (...args: any[]) => any) =>
+    (...args: any[]) => {
+      calls.push(name);
+      return impl(...args);
     };
-    err.code = 409;
-    err.status = 409;
-    return err;
+
+  const client: any = {
+    calls,
+    createDatabase: jest.fn(track("createDatabase", async () => OK)),
+    createTable: jest.fn(track("createTable", async () => OK)),
+    dropTable: jest.fn(track("dropTable", async () => OK)),
+    descTable: jest.fn(track("descTable", async () => normalTable())),
+    upsert: jest.fn(async () => OK),
+    delete: jest.fn(async () => OK),
+    query: jest.fn(),
+    select: jest.fn(),
+    vectorSearch: jest.fn(),
+    bm25Search: jest.fn(),
   };
 
-  const createResultRow = (id: string, data: string, userId: string) => ({
-    id,
-    metadata: { data, user_id: userId },
-  });
-
-  const mockTable = {
-    ...(methodStyle === "snake_case"
-      ? {
-          upsert: jest.fn().mockResolvedValue(undefined),
-          query: jest.fn().mockResolvedValue({
-            data: [createResultRow("id-1", "alpha", "u1")],
-          }),
-          vector_search: jest.fn().mockResolvedValue({
-            points: [
-              {
-                row: createResultRow("id-1", "alpha", "u1"),
-                score: 0.91,
-              },
-              {
-                row: createResultRow("id-2", "beta", "u2"),
-                score: 0.72,
-              },
-            ],
-          }),
-          bm25_search: options.keywordSearchFails
-            ? jest.fn().mockRejectedValue(new Error("bm25 unavailable"))
-            : jest.fn().mockResolvedValue({
-                items: [
-                  {
-                    row: createResultRow("id-1", "alpha", "u1"),
-                    score: 0.55,
-                  },
-                ],
-              }),
-          select: jest.fn().mockResolvedValue({
-            data: [
-              createResultRow("id-1", "alpha", "u1"),
-              createResultRow("id-2", "beta", "u2"),
-            ],
-            total: 2,
-          }),
-          delete: jest.fn().mockResolvedValue(undefined),
-          dropTable: options.dropTableNotFound
-            ? jest.fn().mockRejectedValue(
-                Object.assign(new Error("Table does not exist"), {
-                  code: 404,
-                  status: 404,
-                }),
-              )
-            : jest.fn().mockResolvedValue(undefined),
-          stats: jest.fn().mockReturnValue({ tableName: "memories" }),
-        }
-      : {
-          upsert: jest.fn().mockResolvedValue(undefined),
-          query: jest.fn().mockResolvedValue({
-            row: createResultRow("id-1", "alpha", "u1"),
-          }),
-          vectorSearch: jest.fn().mockResolvedValue({
-            rows: [
-              {
-                row: createResultRow("id-1", "alpha", "u1"),
-                score: 0.91,
-              },
-              {
-                row: createResultRow("id-2", "beta", "u2"),
-                score: 0.72,
-              },
-            ],
-          }),
-          bm25Search: options.keywordSearchFails
-            ? jest.fn().mockRejectedValue(new Error("bm25 unavailable"))
-            : jest.fn().mockResolvedValue({
-                rows: [
-                  {
-                    row: createResultRow("id-1", "alpha", "u1"),
-                    score: 0.55,
-                  },
-                ],
-              }),
-          select: jest.fn().mockResolvedValue({
-            rows: [
-              createResultRow("id-1", "alpha", "u1"),
-              createResultRow("id-2", "beta", "u2"),
-            ],
-            total: 2,
-          }),
-          delete: jest.fn().mockResolvedValue(undefined),
-          drop_table: options.dropTableNotFound
-            ? jest.fn().mockRejectedValue(
-                Object.assign(new Error("Table does not exist"), {
-                  code: 404,
-                  status: 404,
-                }),
-              )
-            : jest.fn().mockResolvedValue(undefined),
-          stats: jest.fn().mockReturnValue({ tableName: "memories" }),
-        }),
-  };
-
-  const mockDatabase = {
-    ...(methodStyle === "snake_case"
-      ? {
-          create_table: jest.fn().mockImplementation(async () => {
-            if (options.createTableExists && !state.tableCreated) {
-              state.tableCreated = true;
-              throw createAlreadyExistsError();
-            }
-
-            state.tableCreated = true;
-            return mockTable;
-          }),
-          describe_table: jest.fn().mockResolvedValue(mockTable),
-          table: jest.fn().mockReturnValue(mockTable),
-          drop_table: jest.fn().mockResolvedValue(undefined),
-        }
-      : {
-          createTable: jest.fn().mockImplementation(async () => {
-            if (options.createTableExists && !state.tableCreated) {
-              state.tableCreated = true;
-              throw createAlreadyExistsError();
-            }
-
-            state.tableCreated = true;
-            return mockTable;
-          }),
-          describeTable: jest.fn().mockResolvedValue(mockTable),
-          table: jest.fn().mockReturnValue(mockTable),
-          dropTable: jest.fn().mockResolvedValue(undefined),
-        }),
-  };
-
-  const mockClient = {
-    ...(methodStyle === "snake_case"
-      ? {
-          create_database: jest.fn().mockImplementation(async () => {
-            if (options.createDatabaseExists && !state.databaseCreated) {
-              state.databaseCreated = true;
-              throw createAlreadyExistsError();
-            }
-
-            state.databaseCreated = true;
-            return mockDatabase;
-          }),
-          database: jest.fn().mockReturnValue(mockDatabase),
-        }
-      : {
-          createDatabase: jest.fn().mockImplementation(async () => {
-            if (options.createDatabaseExists && !state.databaseCreated) {
-              state.databaseCreated = true;
-              throw createAlreadyExistsError();
-            }
-
-            state.databaseCreated = true;
-            return mockDatabase;
-          }),
-          database: jest.fn().mockReturnValue(mockDatabase),
-        }),
-  };
-
-  return { mockClient, mockDatabase, mockTable };
+  for (const [name, impl] of Object.entries(overrides)) {
+    client[name] = jest.fn(track(name, impl));
+  }
+  return client;
 }
 
-function buildSchemaStats(includeBm25: boolean): Record<string, any> {
-  return {
-    tableName: "memories",
-    schema: {
-      fields: [
-        { name: "id", type: "STRING" },
-        { name: "vector", type: "FLOAT_VECTOR" },
-        { name: "metadata", type: "JSON" },
-        ...(includeBm25
-          ? [
-              { name: "data", type: "TEXT" },
-              { name: "textLemmatized", type: "TEXT" },
-            ]
-          : []),
-      ],
-      indexes: [
-        {
-          indexName: "vector_idx",
-          indexType: "HNSW",
-          field: "vector",
-        },
-        {
-          indexName: "metadata_filtering_idx",
-          fields: ["metadata"],
-        },
-        ...(includeBm25
-          ? [
-              {
-                indexName: "data_bm25_idx",
-                indexType: "INVERTED",
-                fields: ["data", "textLemmatized"],
-              },
-            ]
-          : []),
-      ],
-    },
-  };
-}
-
-describe("BaiduDB", () => {
-  const baseConfig = {
-    endpoint: "http://localhost:8287",
+const makeStore = (client: any, extra: Record<string, unknown> = {}) =>
+  new BaiduDB({
+    endpoint: "http://127.0.0.1:5287",
     account: "root",
     apiKey: "test-key",
-    databaseName: "mem0",
-    tableName: "memories",
-    embeddingModelDims: 4,
-    metricType: "COSINE",
-  };
+    databaseName: "mem0_db",
+    tableName: "mem0",
+    embeddingModelDims: DIMS,
+    client,
+    ...extra,
+  } as any);
 
-  beforeEach(() => {
-    const state = getMockBaiduSdkState();
-    state.clientInstance = null;
-    state.lastConfiguration = null;
-    state.lastCredentials = null;
-    state.lastClientConfig = null;
-    jest.clearAllMocks();
+/** Run the poll loop's setTimeout inline so tests never wait the real 2s interval. */
+const runTimersInline = () =>
+  jest.spyOn(global, "setTimeout").mockImplementation(((fn: () => void) => {
+    fn();
+    return 0;
+  }) as any);
+
+beforeEach(() => {
+  jest.spyOn(console, "warn").mockImplementation(() => {});
+  jest.spyOn(console, "error").mockImplementation(() => {});
+});
+
+afterEach(() => jest.restoreAllMocks());
+
+describe("BaiduDB config", () => {
+  it("rejects a missing required field", () => {
+    expect(() => makeStore(fakeClient(), { tableName: "" })).toThrow(
+      /non-empty 'tableName'/,
+    );
   });
 
-  test("implements the VectorStore contract and reset helper", () => {
-    const { mockClient } = createMockClient();
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    expect(typeof store.insert).toBe("function");
-    expect(typeof store.search).toBe("function");
-    expect(typeof store.get).toBe("function");
-    expect(typeof store.update).toBe("function");
-    expect(typeof store.delete).toBe("function");
-    expect(typeof store.deleteCol).toBe("function");
-    expect(typeof store.list).toBe("function");
-    expect(typeof store.getUserId).toBe("function");
-    expect(typeof store.setUserId).toBe("function");
-    expect(typeof store.initialize).toBe("function");
-    expect(typeof store.reset).toBe("function");
+  it("does not require endpoint credentials when a client is injected", () => {
+    expect(() =>
+      makeStore(fakeClient(), { endpoint: "", account: "", apiKey: "" }),
+    ).not.toThrow();
   });
+});
 
-  test("defaults metricType to L2 when not configured, matching the Python SDK", async () => {
-    const { mockClient, mockDatabase } = createMockClient();
-    const { metricType: _metricType, ...configWithoutMetricType } = baseConfig;
-    const store = new BaiduDB({
-      ...configWithoutMetricType,
-      client: mockClient,
+describe("BaiduDB table provisioning", () => {
+  it("creates the table with the schema mem0 needs", async () => {
+    const client = fakeClient();
+    await makeStore(client).initialize();
+
+    const spec = client.createTable.mock.calls[0][0];
+    expect(client.createDatabase).toHaveBeenCalledWith("mem0_db");
+    expect(spec.database).toBe("mem0_db");
+    expect(spec.table).toBe("mem0");
+    expect(spec.enableDynamicField).toBe(false);
+    // Mochow rejects a partition without partitionType.
+    expect(spec.partition).toEqual({
+      partitionType: PartitionType.HASH,
+      partitionNum: 1,
     });
 
-    await store.initialize();
+    const fields = spec.schema.fields.map((f: any) => [
+      f.fieldName,
+      f.fieldType,
+    ]);
+    expect(fields).toEqual([
+      ["id", FieldType.String],
+      ["vector", FieldType.FloatVector],
+      ["textLemmatized", FieldType.Text],
+      ["metadata", "JSON"],
+    ]);
+    expect(spec.schema.fields[0]).toMatchObject({
+      primaryKey: true,
+      partitionKey: true,
+      notNull: true,
+    });
+    expect(spec.schema.fields[1].dimension).toBe(DIMS);
+  });
 
-    expect(mockDatabase.createTable).toHaveBeenCalledWith(
-      expect.objectContaining({
-        schema: expect.objectContaining({
-          indexes: expect.arrayContaining([
-            expect.objectContaining({
-              indexName: "vector_idx",
-              metricType: "L2",
-            }),
-          ]),
+  it("builds a vector index with a genuine row-count-increment auto-build policy", async () => {
+    const client = fakeClient();
+    await makeStore(client).initialize();
+
+    const [vectorIndex] = client.createTable.mock.calls[0][0].schema.indexes;
+    expect(vectorIndex).toMatchObject({
+      indexName: "vector_idx",
+      indexType: IndexType.HNSW,
+      field: "vector",
+      metricType: MetricType.L2,
+      params: { M: 16, efConstruction: 200 },
+      autoBuild: true,
+    });
+    // Regression guard: sdk.AutoBuildIncrement() stamps policyType "TIMING" in 2.1.5.
+    expect(vectorIndex.autoBuildPolicy).toEqual({
+      policyType: AutoBuildPolicyType.Increment,
+      rowCountIncrement: 10000,
+    });
+    expect(AutoBuildPolicyType.Increment).not.toBe(AutoBuildPolicyType.Timing);
+  });
+
+  it("declares the filtering and BM25 indexes with an indexType", async () => {
+    const client = fakeClient();
+    await makeStore(client).initialize();
+
+    const [, filtering, bm25] =
+      client.createTable.mock.calls[0][0].schema.indexes;
+    expect(filtering).toEqual({
+      indexName: "metadata_filtering_idx",
+      indexType: IndexType.FilteringIndex,
+      fields: ["metadata"],
+    });
+    // Memory.search() hands keywordSearch() an already-lemmatized query, so raw `data` is
+    // not worth indexing — only the lemmatized column is.
+    expect(bm25).toMatchObject({
+      indexName: "data_bm25_idx",
+      indexType: IndexType.InvertedIndex,
+      fields: ["textLemmatized"],
+      fieldAttributes: [InvertedIndexFieldAttribute.Analyzed],
+    });
+  });
+
+  it("honours a configured metric type", async () => {
+    const client = fakeClient();
+    await makeStore(client, { metricType: "COSINE" }).initialize();
+    const [vectorIndex] = client.createTable.mock.calls[0][0].schema.indexes;
+    expect(vectorIndex.metricType).toBe(MetricType.COSINE);
+  });
+
+  it("tolerates an existing database and table", async () => {
+    const client = fakeClient({
+      createDatabase: async () => ({
+        code: ServerErrCode.DBAlreadyExist,
+        msg: "db exists",
+      }),
+      createTable: async () => ({
+        code: ServerErrCode.TableAlreadyExist,
+        msg: "table exists",
+      }),
+      descTable: async () => normalTable({ fields: BM25_FIELDS, indexes: [] }),
+    });
+    await expect(makeStore(client).initialize()).resolves.toBeUndefined();
+  });
+
+  it("waits for a CREATING table to become NORMAL", async () => {
+    runTimersInline();
+    const states = [
+      TableState.Creating,
+      TableState.Creating,
+      TableState.Normal,
+    ];
+    const client = fakeClient({
+      descTable: async () => ({
+        ...OK,
+        table: { state: states.shift(), schema: { fields: [], indexes: [] } },
+      }),
+    });
+
+    await makeStore(client).initialize();
+    expect(client.descTable).toHaveBeenCalledTimes(3);
+  });
+
+  it("surfaces a non-zero envelope as an error rather than succeeding", async () => {
+    const client = fakeClient({
+      createTable: async () => ({
+        code: ServerErrCode.InvalidTableSchema,
+        msg: "bad schema",
+      }),
+    });
+    await expect(makeStore(client).initialize()).rejects.toThrow(
+      /createTable 'mem0' failed \(code 60\): bad schema/,
+    );
+  });
+
+  it("rejects an existing table whose vector dimension disagrees", async () => {
+    const client = fakeClient({
+      createTable: async () => ({
+        code: ServerErrCode.TableAlreadyExist,
+        msg: "",
+      }),
+      descTable: async () =>
+        normalTable({
+          fields: [
+            CORE_FIELDS[0],
+            {
+              fieldName: "vector",
+              fieldType: FieldType.FloatVector,
+              dimension: 768,
+            },
+            CORE_FIELDS[2],
+          ],
+          indexes: [],
         }),
+    });
+    await expect(makeStore(client).initialize()).rejects.toThrow(
+      /stores 768-dimensional vectors, but 'embeddingModelDims' is 1536/,
+    );
+  });
+
+  it("rejects an existing table missing the core schema", async () => {
+    const client = fakeClient({
+      createTable: async () => ({
+        code: ServerErrCode.TableAlreadyExist,
+        msg: "",
       }),
+      descTable: async () =>
+        normalTable({ fields: [CORE_FIELDS[0]], indexes: [] }),
+    });
+    await expect(makeStore(client).initialize()).rejects.toThrow(
+      /missing the id\/vector\/metadata schema/,
+    );
+  });
+});
+
+describe("BaiduDB keyword search support detection", () => {
+  it("fails closed when an existing table has no inverted index", async () => {
+    const client = fakeClient({
+      createTable: async () => ({
+        code: ServerErrCode.TableAlreadyExist,
+        msg: "",
+      }),
+      descTable: async () => normalTable({ fields: CORE_FIELDS, indexes: [] }),
+    });
+    const store = makeStore(client);
+
+    await expect(store.keywordSearch("hello")).resolves.toBeNull();
+    expect(client.bm25Search).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining("data_bm25_idx"),
     );
   });
 
-  test("still validates required config even when a client is injected", () => {
-    const { mockClient } = createMockClient();
-
-    expect(
-      () =>
-        new BaiduDB({
-          ...baseConfig,
-          tableName: "",
-          client: mockClient,
-        } as any),
-    ).toThrow(
-      "Baidu vector store requires a non-empty 'tableName' config value.",
-    );
-  });
-
-  test("loads the SDK using lower-case export aliases when no client is injected", async () => {
-    const state = getMockBaiduSdkState();
-    state.clientInstance = createMockClient({
-      methodStyle: "snake_case",
-    }).mockClient;
-
-    const store = new BaiduDB({
-      ...baseConfig,
-    });
-
-    await store.initialize();
-
-    expect(state.lastCredentials).toEqual({
-      account: "root",
-      apiKey: "test-key",
-    });
-    expect(state.lastConfiguration).toEqual(
-      expect.objectContaining({
-        endpoint: "http://localhost:8287",
-        credentials: expect.objectContaining({
-          account: "root",
-          apiKey: "test-key",
+  it("enables keyword search when the existing table carries the BM25 index", async () => {
+    const client = fakeClient({
+      createTable: async () => ({
+        code: ServerErrCode.TableAlreadyExist,
+        msg: "",
+      }),
+      descTable: async () =>
+        normalTable({
+          fields: BM25_FIELDS,
+          indexes: [{ indexName: "data_bm25_idx" }],
         }),
-      }),
-    );
-    expect(state.lastClientConfig).toEqual(expect.anything());
-  });
-
-  test("initialize() is idempotent and creates the database/table once", async () => {
-    const { mockClient, mockDatabase, mockTable } = createMockClient();
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    await Promise.all([
-      store.initialize(),
-      store.initialize(),
-      store.initialize(),
-    ]);
-
-    expect(mockClient.createDatabase).toHaveBeenCalledTimes(1);
-    expect(mockDatabase.createTable).toHaveBeenCalledTimes(1);
-    expect(mockDatabase.createTable).toHaveBeenCalledWith(
-      expect.objectContaining({
-        schema: expect.objectContaining({
-          fields: expect.arrayContaining([
-            expect.objectContaining({
-              name: "vector",
-              type: "FLOAT_VECTOR",
-            }),
-            expect.objectContaining({ name: "data", type: "TEXT" }),
-            expect.objectContaining({
-              name: "textLemmatized",
-              type: "TEXT",
-            }),
-            expect.objectContaining({ name: "metadata", type: "JSON" }),
-          ]),
-          indexes: expect.arrayContaining([
-            expect.objectContaining({
-              indexName: "vector_idx",
-              indexType: "HNSW",
-              field: "vector",
-              metricType: "COSINE",
-            }),
-            expect.objectContaining({
-              indexName: "metadata_filtering_idx",
-              fields: ["metadata"],
-            }),
-            expect.objectContaining({
-              indexName: "data_bm25_idx",
-              indexType: "INVERTED",
-              fields: ["data", "textLemmatized"],
-            }),
-          ]),
-        }),
-      }),
-    );
-    expect(mockDatabase.describeTable).not.toHaveBeenCalled();
-    expect(mockTable.stats).toHaveBeenCalledTimes(1);
-  });
-
-  test("initializes successfully against a fully compliant schema and keeps keyword search enabled", async () => {
-    const { mockClient, mockTable } = createMockClient();
-    mockTable.stats.mockReturnValue(buildSchemaStats(true));
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    await store.initialize();
-
-    const keywordResults = await store.keywordSearch("alpha", 1, {
-      user_id: "u1",
     });
+    client.bm25Search.mockResolvedValue({ ...OK, rows: [] });
 
-    expect(mockTable.bm25Search).toHaveBeenCalledWith(
-      expect.objectContaining({
-        searchText: "alpha",
-        limit: 1,
-        filter: 'metadata["user_id"] = "u1"',
-      }),
-    );
-    expect(keywordResults).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.55 },
-    ]);
+    await expect(makeStore(client).keywordSearch("hello")).resolves.toEqual([]);
+    expect(client.bm25Search).toHaveBeenCalled();
   });
 
-  test("disables keyword search when the existing table lacks BM25 support", async () => {
-    const { mockClient, mockTable } = createMockClient();
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    mockTable.stats.mockReturnValue(buildSchemaStats(false));
-
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-    await store.initialize();
-
-    await expect(store.keywordSearch("alpha", 1)).resolves.toBeNull();
-    expect(mockTable.bm25Search).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("without BM25 fields or index"),
-    );
-
-    warnSpy.mockRestore();
-  });
-
-  test("retries initialization after a transient startup failure", async () => {
-    const { mockClient, mockDatabase } = createMockClient();
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    mockDatabase.createTable.mockImplementationOnce(async () => {
-      throw new Error("transient create failure");
-    });
-
-    await expect(store.initialize()).rejects.toThrow(
-      "transient create failure",
-    );
-    await expect(store.initialize()).resolves.toBeUndefined();
-    expect(mockDatabase.createTable).toHaveBeenCalledTimes(2);
-  });
-
-  test("tolerates missing stats() support and keeps initialization best-effort", async () => {
-    const { mockClient, mockTable } = createMockClient();
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    mockTable.stats.mockRejectedValue(new Error("stats unavailable"));
-
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    await expect(store.initialize()).resolves.toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("schema introspection is unavailable"),
-      expect.any(Error),
-    );
-
-    await expect(store.keywordSearch("alpha", 1)).resolves.toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.55 },
-    ]);
-
-    warnSpy.mockRestore();
-  });
-
-  test("falls back to existing database and table on already-exists errors", async () => {
-    const { mockClient, mockDatabase, mockTable } = createMockClient({
-      createDatabaseExists: true,
-      createTableExists: true,
-    });
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    await store.initialize();
-
-    expect(mockClient.createDatabase).toHaveBeenCalledTimes(1);
-    expect(mockClient.database).toHaveBeenCalledTimes(1);
-    expect(mockDatabase.createTable).toHaveBeenCalledTimes(1);
-    expect(mockDatabase.describeTable).toHaveBeenCalledTimes(1);
-    expect(mockTable.stats).toHaveBeenCalledTimes(1);
-  });
-
-  test("supports the full CRUD lifecycle and reset", async () => {
-    const { mockClient, mockDatabase, mockTable } = createMockClient();
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-    await store.initialize();
-
-    await store.insert(
-      [
-        [0.1, 0.2, 0.3, 0.4],
-        [0.4, 0.3, 0.2, 0.1],
+  it("queries the inverted index with the caller's already-lemmatized text", async () => {
+    const client = fakeClient();
+    client.bm25Search.mockResolvedValue({
+      ...OK,
+      rows: [
+        { row: { id: "m1", metadata: { data: "loves pizza" } }, score: 3.5 },
       ],
-      ["id-1", "id-2"],
+    });
+
+    const results = await makeStore(client).keywordSearch("love pizza", 7, {
+      userId: "alice",
+    });
+    expect(results).toEqual([
+      { id: "m1", payload: { data: "loves pizza" }, score: 3.5 },
+    ]);
+
+    const { request, ...ns } = client.bm25Search.mock.calls[0][0];
+    expect(ns).toEqual({ database: "mem0_db", table: "mem0" });
+    expect(request.indexName).toBe("data_bm25_idx");
+    expect(request.searchText).toBe("love pizza");
+    expect(request.limit).toBe(7);
+    expect(request.filter).toBe('metadata["userId"] = "alice"');
+  });
+});
+
+describe("BaiduDB writes", () => {
+  it("upserts the whole batch in one call and mirrors textLemmatized out of the payload", async () => {
+    const client = fakeClient();
+
+    await makeStore(client).insert(
       [
-        { data: "alpha", user_id: "u1" },
-        { data: "beta", user_id: "u2" },
+        [1, 2],
+        [3, 4],
+      ],
+      ["a", "b"],
+      [
+        { data: "loves pizza", textLemmatized: "love pizza" },
+        { data: "runs daily" },
       ],
     );
 
-    expect(mockTable.upsert).toHaveBeenCalledTimes(2);
-    expect(mockTable.upsert).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        rows: [
-          expect.objectContaining({
-            id: "id-1",
-            vector: [0.1, 0.2, 0.3, 0.4],
-            data: "alpha",
-            textLemmatized: "alpha",
-            metadata: { data: "alpha", user_id: "u1" },
-          }),
-        ],
-      }),
-    );
-    expect(mockTable.upsert).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        rows: [
-          expect.objectContaining({
-            id: "id-2",
-            vector: [0.4, 0.3, 0.2, 0.1],
-            data: "beta",
-            textLemmatized: "beta",
-            metadata: { data: "beta", user_id: "u2" },
-          }),
-        ],
-      }),
-    );
-
-    const searchResults = await store.search([0.1, 0.2, 0.3, 0.4], 2, {
-      user_id: 'alice\\path"beta',
-      active: true,
-      score: 7,
-    });
-    expect(mockTable.vectorSearch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        filter:
-          'metadata["user_id"] = "alice\\\\path\\"beta" AND metadata["active"] = true AND metadata["score"] = 7',
-      }),
-    );
-    expect(searchResults).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.91 },
-      { id: "id-2", payload: { data: "beta", user_id: "u2" }, score: 0.72 },
-    ]);
-
-    const keywordResults = await store.keywordSearch("alpha", 1, {
-      user_id: "u1",
-    });
-    expect(keywordResults).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.55 },
-    ]);
-
-    const item = await store.get("id-1");
-    expect(item).toEqual({
-      id: "id-1",
-      payload: { data: "alpha", user_id: "u1" },
-    });
-
-    await store.update("id-1", [1, 1, 1, 1], { data: "updated" });
-    expect(mockTable.upsert).toHaveBeenCalledTimes(3);
-    expect(mockTable.upsert).toHaveBeenNthCalledWith(
-      3,
-      expect.objectContaining({
-        rows: [
-          expect.objectContaining({
-            id: "id-1",
-            vector: [1, 1, 1, 1],
-            data: "updated",
-            textLemmatized: "updated",
-            metadata: { data: "updated" },
-          }),
-        ],
-      }),
-    );
-
-    const [listed, count] = await store.list({ user_id: "u1" }, 10);
-    expect(mockTable.select).toHaveBeenCalledWith(
-      expect.objectContaining({
-        filter: 'metadata["user_id"] = "u1"',
-        limit: 10,
-      }),
-    );
-    expect(listed).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" } },
-      { id: "id-2", payload: { data: "beta", user_id: "u2" } },
-    ]);
-    expect(count).toBe(2);
-
-    await store.delete("id-2");
-    expect(mockTable.delete).toHaveBeenCalledWith({
-      primaryKey: { id: "id-2" },
-      primary_key: { id: "id-2" },
-    });
-
-    await store.reset();
-    expect(mockDatabase.dropTable).toHaveBeenCalledWith("memories");
-    expect(mockDatabase.createTable).toHaveBeenCalledTimes(2);
-  });
-
-  test("truncates uneven insert inputs to the shortest length", async () => {
-    const { mockClient, mockTable } = createMockClient();
-    mockTable.stats.mockReturnValue(buildSchemaStats(true));
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-
-    await store.insert(
-      [
-        [0.1, 0.2, 0.3, 0.4],
-        [0.4, 0.3, 0.2, 0.1],
-        [0.9, 0.8, 0.7, 0.6],
+    expect(client.upsert).toHaveBeenCalledTimes(1);
+    expect(client.upsert.mock.calls[0][0]).toEqual({
+      database: "mem0_db",
+      table: "mem0",
+      rows: [
+        {
+          id: "a",
+          vector: [1, 2],
+          textLemmatized: "love pizza",
+          metadata: { data: "loves pizza", textLemmatized: "love pizza" },
+        },
+        // Falls back to `data` when the caller did not lemmatize.
+        {
+          id: "b",
+          vector: [3, 4],
+          textLemmatized: "runs daily",
+          metadata: { data: "runs daily" },
+        },
       ],
-      ["id-1", "id-2"],
-      [
-        { data: "alpha", user_id: "u1" },
-        { data: "beta", user_id: "u2" },
-        { data: "gamma", user_id: "u3" },
-      ],
-    );
-
-    expect(mockTable.upsert).toHaveBeenCalledTimes(2);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("mismatched batch lengths"),
-    );
-    expect(mockTable.upsert).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        rows: [
-          expect.objectContaining({
-            id: "id-2",
-            vector: [0.4, 0.3, 0.2, 0.1],
-            metadata: { data: "beta", user_id: "u2" },
-          }),
-        ],
-      }),
-    );
-
-    warnSpy.mockRestore();
+    });
   });
 
-  test("supports snake_case SDK methods and alternate response envelopes", async () => {
-    const { mockClient, mockDatabase, mockTable } = createMockClient({
-      methodStyle: "snake_case",
-    });
-
-    const store = new BaiduDB({
-      ...baseConfig,
-      client: mockClient,
-    });
-
-    await store.initialize();
-
-    const searchResults = await store.search([0.1, 0.2, 0.3, 0.4], 2, {
-      user_id: "u1",
-    });
-    expect(mockTable.vector_search).toHaveBeenCalledWith(
-      expect.objectContaining({
-        vector_field: "vector",
-        vector: [0.1, 0.2, 0.3, 0.4],
-        filter: 'metadata["user_id"] = "u1"',
-      }),
-    );
-    expect(searchResults).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.91 },
-      { id: "id-2", payload: { data: "beta", user_id: "u2" }, score: 0.72 },
-    ]);
-
-    const keywordResults = await store.keywordSearch("alpha", 1, {
-      user_id: "u1",
-    });
-    expect(mockTable.bm25_search).toHaveBeenCalledWith(
-      expect.objectContaining({
-        search_text: "alpha",
-        limit: 1,
-        filter: 'metadata["user_id"] = "u1"',
-      }),
-    );
-    expect(keywordResults).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.55 },
-    ]);
-
-    const item = await store.get("id-1");
-    expect(item).toEqual({
-      id: "id-1",
-      payload: { data: "alpha", user_id: "u1" },
-    });
-
-    const [listed, count] = await store.list({ user_id: "u1" }, 10);
-    expect(mockTable.select).toHaveBeenCalledWith(
-      expect.objectContaining({
-        filter: 'metadata["user_id"] = "u1"',
-        limit: 10,
-      }),
-    );
-    expect(listed).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" } },
-      { id: "id-2", payload: { data: "beta", user_id: "u2" } },
-    ]);
-    expect(count).toBe(2);
-
-    await store.delete("id-2");
-    expect(mockTable.delete).toHaveBeenCalledWith({
-      primaryKey: { id: "id-2" },
-      primary_key: { id: "id-2" },
-    });
-
-    await store.reset();
-    expect(mockDatabase.drop_table).toHaveBeenCalledWith("memories");
-    expect(mockDatabase.create_table).toHaveBeenCalledTimes(2);
+  it("refuses a ragged batch instead of silently truncating it", async () => {
+    await expect(
+      makeStore(fakeClient()).insert([[1]], ["a", "b"], [{}]),
+    ).rejects.toThrow(/equal length \(got 1\/2\/1\)/);
   });
 
-  test("parses top-level row responses across search, keywordSearch, get, and list", async () => {
-    const { mockClient, mockTable } = createMockClient();
-    mockTable.stats.mockReturnValue(buildSchemaStats(true));
-    mockTable.vectorSearch.mockResolvedValue({
-      row: { id: "id-1", metadata: { data: "alpha", user_id: "u1" } },
-    });
-    mockTable.bm25Search.mockResolvedValue({
-      row: {
-        id: "id-1",
-        metadata: { data: "alpha", user_id: "u1" },
-        score: 0.55,
-      },
-    });
-    mockTable.query.mockResolvedValue({
-      row: { id: "id-1", metadata: { data: "alpha", user_id: "u1" } },
-    });
-    mockTable.select.mockResolvedValue({
-      row: { id: "id-1", metadata: { data: "alpha", user_id: "u1" } },
-      total: 1,
-    });
+  it("updates and deletes by primary key", async () => {
+    const client = fakeClient();
+    const store = makeStore(client);
 
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-    await store.initialize();
-
-    await expect(store.search([0.1, 0.2, 0.3, 0.4], 1)).resolves.toEqual([
+    await store.update("m1", [9], { data: "new" });
+    expect(client.upsert.mock.calls[0][0].rows).toEqual([
       {
-        id: "id-1",
-        payload: { data: "alpha", user_id: "u1" },
-        score: undefined,
+        id: "m1",
+        vector: [9],
+        textLemmatized: "new",
+        metadata: { data: "new" },
       },
     ]);
-    await expect(store.keywordSearch("alpha", 1)).resolves.toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" }, score: 0.55 },
-    ]);
-    await expect(store.get("id-1")).resolves.toEqual({
-      id: "id-1",
-      payload: { data: "alpha", user_id: "u1" },
+
+    await store.delete("m1");
+    expect(client.delete).toHaveBeenCalledWith({
+      database: "mem0_db",
+      table: "mem0",
+      primaryKey: { id: "m1" },
+    });
+  });
+
+  it("throws when the server rejects an upsert", async () => {
+    const client = fakeClient();
+    client.upsert.mockResolvedValue({ code: 100, msg: "duplicate key" });
+
+    await expect(makeStore(client).insert([[1]], ["a"], [{}])).rejects.toThrow(
+      /upsert failed \(code 100\): duplicate key/,
+    );
+  });
+});
+
+describe("BaiduDB reads", () => {
+  it("maps vector search hits out of the nested row envelope", async () => {
+    const client = fakeClient();
+    client.vectorSearch.mockResolvedValue({
+      ...OK,
+      rows: [
+        {
+          row: { id: "m1", metadata: { data: "x" } },
+          distance: 0.2,
+          score: 0.8,
+        },
+      ],
     });
 
-    const [listed, total] = await store.list(undefined, 1);
-    expect(listed).toEqual([
-      { id: "id-1", payload: { data: "alpha", user_id: "u1" } },
-    ]);
-    expect(total).toBe(1);
+    const results = await makeStore(client).search([1, 2, 3], 5, {
+      userId: "alice",
+    });
+    expect(results).toEqual([{ id: "m1", payload: { data: "x" }, score: 0.8 }]);
+
+    const { request } = client.vectorSearch.mock.calls[0][0];
+    expect(request.vectorField).toBe("vector");
+    expect(request.vector).toEqual({ vector: [1, 2, 3] });
+    expect(request.limit).toBe(5);
+    expect(request.filter).toBe('metadata["userId"] = "alice"');
+    expect(request.projections).toEqual(["id", "metadata"]);
+    expect(request.config.params).toEqual({ ef: 200 });
   });
 
-  test("rejects unsafe filter keys and non-primitive values", async () => {
-    const { mockClient } = createMockClient();
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-    await store.initialize();
-
-    await expect(
-      store.search([0.1, 0.2, 0.3, 0.4], 2, {
-        '"] = "") or true or ("': "x",
-      } as any),
-    ).rejects.toThrow("Invalid filter key");
-
-    await expect(
-      store.search([0.1, 0.2, 0.3, 0.4], 2, {
-        user_id: { $ne: "x" } as any,
-      }),
-    ).rejects.toThrow("must be str, int, float, or bool");
+  it("omits the filter when no filters are supplied", async () => {
+    const client = fakeClient();
+    client.vectorSearch.mockResolvedValue({ ...OK, rows: [] });
+    await makeStore(client).search([1], 5);
+    expect(client.vectorSearch.mock.calls[0][0].request.filter).toBeUndefined();
   });
 
-  test("returns null and warns when keyword search fails", async () => {
-    const { mockClient } = createMockClient({ keywordSearchFails: true });
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
+  it("escapes quotes and rejects unsafe filter keys and values", async () => {
+    const client = fakeClient();
+    client.vectorSearch.mockResolvedValue({ ...OK, rows: [] });
+    const store = makeStore(client);
 
-    await store.initialize();
-
-    await expect(store.keywordSearch("alpha", 1)).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Baidu keyword search failed"),
-      expect.any(Error),
+    await store.search([1], 5, { userId: 'a"b', runId: 3, agentId: true });
+    expect(client.vectorSearch.mock.calls[0][0].request.filter).toBe(
+      'metadata["userId"] = "a\\"b" AND metadata["runId"] = 3 AND metadata["agentId"] = true',
     );
 
-    warnSpy.mockRestore();
+    await expect(store.search([1], 5, { "bad key": "x" })).rejects.toThrow(
+      /Invalid filter key/,
+    );
+    await expect(
+      store.search([1], 5, { userId: ["a"] as any }),
+    ).rejects.toThrow(/must be str, int, float, or bool, got array/);
   });
 
-  test("tracks user IDs in memory for the OSS contract", async () => {
-    const { mockClient } = createMockClient();
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
-    await store.initialize();
+  it("returns null for a missing id and throws on a real query failure", async () => {
+    const client = fakeClient();
+    const store = makeStore(client);
 
-    expect(await store.getUserId()).toBe("anonymous-baidu-user");
-    await store.setUserId("custom-user");
-    expect(await store.getUserId()).toBe("custom-user");
-  });
+    client.query.mockResolvedValue({ ...OK, row: {} });
+    await expect(store.get("nope")).resolves.toBeNull();
 
-  test("deleteCol ignores missing tables so reset stays idempotent", async () => {
-    const { mockClient, mockDatabase } = createMockClient({
-      dropTableNotFound: true,
+    client.query.mockResolvedValue({
+      ...OK,
+      row: { id: "m1", metadata: { a: 1 } },
     });
-    const store = new BaiduDB({ ...baseConfig, client: mockClient });
+    await expect(store.get("m1")).resolves.toEqual({
+      id: "m1",
+      payload: { a: 1 },
+    });
+
+    client.query.mockResolvedValue({ code: 2, msg: "invalid parameter" });
+    await expect(store.get("m1")).rejects.toThrow(
+      /query 'm1' failed \(code 2\): invalid parameter/,
+    );
+  });
+
+  it("lists flat select rows and reports how many came back", async () => {
+    const client = fakeClient();
+    client.select.mockResolvedValue({
+      ...OK,
+      isTruncated: false,
+      nextMarker: "",
+      rows: [{ id: "m1", metadata: { data: "x" } }, { id: "m2" }],
+    });
+
+    await expect(
+      makeStore(client).list({ userId: "alice" }, 50),
+    ).resolves.toEqual([
+      [
+        { id: "m1", payload: { data: "x" } },
+        { id: "m2", payload: {} },
+      ],
+      2,
+    ]);
+    expect(client.select).toHaveBeenCalledWith({
+      database: "mem0_db",
+      table: "mem0",
+      filter: 'metadata["userId"] = "alice"',
+      projections: ["id", "metadata"],
+      limit: 50,
+    });
+  });
+});
+
+describe("BaiduDB deleteCol", () => {
+  it("waits for the drop to land before returning", async () => {
+    runTimersInline();
+    const client = fakeClient();
+    const store = makeStore(client);
     await store.initialize();
 
-    await expect(store.deleteCol()).resolves.toBeUndefined();
-    expect(mockDatabase.dropTable).toHaveBeenCalledWith("memories");
+    client.descTable
+      .mockResolvedValueOnce({ ...OK, table: { state: TableState.Deleting } })
+      .mockResolvedValueOnce({
+        code: ServerErrCode.TableNotExist,
+        msg: "gone",
+      });
 
-    await expect(store.reset()).resolves.toBeUndefined();
-    expect(mockDatabase.createTable).toHaveBeenCalledTimes(2);
+    await store.deleteCol();
+    expect(client.dropTable).toHaveBeenCalledWith("mem0_db", "mem0");
+    expect(client.descTable).toHaveBeenCalledTimes(3); // 1 from initialize + 2 polls
+  });
+
+  it("is a no-op when the table is already gone", async () => {
+    const client = fakeClient();
+    const store = makeStore(client);
+    await store.initialize();
+
+    client.dropTable.mockResolvedValue({
+      code: ServerErrCode.TableNotExist,
+      msg: "gone",
+    });
+    await expect(store.deleteCol()).resolves.toBeUndefined();
+  });
+
+  // Regression: deleteCol() used to run alongside the fire-and-forget initialize() the
+  // constructor starts, so the in-flight createTable landed *after* dropTable and the table
+  // survived reset().
+  it("does not race the initialize() the constructor kicks off", async () => {
+    runTimersInline();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    // The table exists after the first init, is gone once dropTable lands, then exists again.
+    const descQueue: unknown[] = [
+      normalTable(),
+      { code: ServerErrCode.TableNotExist, msg: "gone" },
+    ];
+    const client = fakeClient({
+      createDatabase: async () => {
+        await gate;
+        return OK;
+      },
+      descTable: async () => descQueue.shift() ?? normalTable(),
+    });
+
+    const store = makeStore(client); // initialize() is now in flight, parked on `gate`
+    const resetting = store.reset();
+    release();
+    await resetting;
+
+    expect(client.calls).toEqual([
+      "createDatabase",
+      "createTable",
+      "descTable",
+      "dropTable",
+      "descTable",
+      "createDatabase",
+      "createTable",
+      "descTable",
+    ]);
+    expect(client.calls.indexOf("dropTable")).toBeGreaterThan(
+      client.calls.indexOf("createTable"),
+    );
+    expect(client.createTable).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("BaiduDB user id", () => {
+  it("round-trips the store user id", async () => {
+    const store = makeStore(fakeClient());
+    await expect(store.getUserId()).resolves.toBe("anonymous-baidu-user");
+    await store.setUserId("alice");
+    await expect(store.getUserId()).resolves.toBe("alice");
   });
 });
