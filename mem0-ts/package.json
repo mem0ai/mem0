@@ -131,6 +131,7 @@
     "fastembed": "^2.1.0",
     "groq-sdk": "0.3.0",
     "mongodb": "^7.0.0",
+    "weaviate-client": "^3.0.0",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
@@ -138,10 +139,14 @@
     "iovalkey": "^0.3.3",
     "compromise": "^14.0.0",
     "natural": "^8.0.1",
-    "mysql2": "^3.0.0"
+    "mysql2": "^3.0.0",
+    "@zilliz/milvus2-sdk-node": "^2.4.0 || ^3.0.0"
   },
   "peerDependenciesMeta": {
     "mysql2": {
+      "optional": true
+    },
+    "@zilliz/milvus2-sdk-node": {
       "optional": true
     }
   },
@@ -170,6 +175,7 @@
       "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
       "postcss@<8.5.10": ">=8.5.10",
       "uuid@<11.1.1": ">=11.1.1",
+      "weaviate-client>uuid": "^11.1.1",
       "ws@>=8.0.0 <8.20.1": ">=8.20.1",
       "rollup@>=4.0.0 <4.59.0": "^4.59.0",
       "tar-fs@>=2.0.0 <2.1.4": "^2.1.4",

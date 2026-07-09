@@ -61,7 +61,7 @@ client.get_all(user_id="alice")
 client.get(memory_id="<id>")
 
 # Update
-client.update(memory_id="<id>", data="Alice loves mountain hiking")
+client.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 client.delete(memory_id="<id>")
@@ -118,7 +118,7 @@ m.get_all(user_id="alice")
 m.get(memory_id="<id>")
 
 # Update
-m.update(memory_id="<id>", data="Alice loves mountain hiking")
+m.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 m.delete(memory_id="<id>")

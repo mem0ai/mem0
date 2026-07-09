@@ -2154,12 +2154,13 @@ describe("Memory class – backward compat with all providers", () => {
   });
 
   it("all public methods work after initialization", async () => {
+    const memoryId = "3f0d5b6a-9c1e-4a2b-8d7f-1e2c3a4b5c6d";
     const mockVStore = createMockVectorStore();
     mockVStore.search.mockResolvedValue([
-      { id: "id-1", payload: { memory: "test", hash: "h" }, score: 0.9 },
+      { id: memoryId, payload: { memory: "test", hash: "h" }, score: 0.9 },
     ]);
     mockVStore.get.mockResolvedValue({
-      id: "id-1",
+      id: memoryId,
       payload: {
         memory: "test",
         hash: "h",
@@ -2170,7 +2171,7 @@ describe("Memory class – backward compat with all providers", () => {
     mockVStore.list.mockResolvedValue([
       [
         {
-          id: "id-1",
+          id: memoryId,
           payload: {
             memory: "test",
             hash: "h",
@@ -2204,15 +2205,15 @@ describe("Memory class – backward compat with all providers", () => {
     expect(searchResult).toBeDefined();
 
     // get
-    const item = await mem.get("id-1");
+    const item = await mem.get(memoryId);
     expect(item).toBeDefined();
 
     // update
-    const updateResult = await mem.update("id-1", "new data");
+    const updateResult = await mem.update(memoryId, { text: "new data" });
     expect(updateResult.message).toBe("Memory updated successfully!");
 
     // delete
-    const deleteResult = await mem.delete("id-1");
+    const deleteResult = await mem.delete(memoryId);
     expect(deleteResult.message).toBe("Memory deleted successfully!");
 
     // deleteAll
@@ -2220,7 +2221,7 @@ describe("Memory class – backward compat with all providers", () => {
     expect(deleteAllResult.message).toBe("Memories deleted successfully!");
 
     // history
-    const history = await mem.history("id-1");
+    const history = await mem.history(memoryId);
     expect(Array.isArray(history)).toBe(true);
   });
 
@@ -2279,5 +2280,154 @@ describe("Memory class – backward compat with all providers", () => {
     );
 
     consoleSpy.mockRestore();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// WeaviateDB — mock client, behavioral surface checks
+// ───────────────────────────────────────────────────────────────────────────
+describe("WeaviateDB – backward compat with mocked client", () => {
+  let WeaviateDB: any;
+  let mockClient: any;
+  let mockCol: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    mockCol = {
+      data: {
+        insertMany: jest.fn().mockResolvedValue({}),
+        deleteById: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      query: {
+        nearVector: jest.fn().mockResolvedValue({ objects: [] }),
+        bm25: jest.fn().mockResolvedValue({ objects: [] }),
+        fetchObjectById: jest.fn().mockResolvedValue(null),
+        fetchObjects: jest.fn().mockResolvedValue({ objects: [] }),
+      },
+      filter: {
+        byProperty: jest
+          .fn()
+          .mockReturnValue({ equal: jest.fn().mockReturnValue({}) }),
+      },
+    };
+
+    mockClient = {
+      collections: {
+        exists: jest.fn().mockResolvedValue(false),
+        create: jest.fn().mockResolvedValue({}),
+        get: jest.fn().mockReturnValue(mockCol),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    jest.doMock("weaviate-client", () => ({
+      default: {
+        connectToLocal: jest.fn().mockResolvedValue(mockClient),
+        connectToWeaviateCloud: jest.fn().mockResolvedValue(mockClient),
+        connectToCustom: jest.fn().mockResolvedValue(mockClient),
+        ApiKey: jest.fn().mockReturnValue({}),
+        configure: {
+          vectorizer: { none: jest.fn().mockReturnValue({}) },
+          vectorIndex: { hnsw: jest.fn().mockReturnValue({}) },
+        },
+      },
+      Filters: { and: jest.fn().mockReturnValue({ __mock: "filter" }) },
+      __esModule: true,
+    }));
+
+    WeaviateDB = require("../src/vector_stores/weaviate").WeaviateDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.keywordSearch).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+    expect(mockClient.collections.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("insert shapes insertMany request correctly", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    await store.insert([[0.1, 0.2, 0.3]], ["id-1"], [{ data: "hello" }]);
+    expect(mockCol.data.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "id-1",
+          properties: { data: "hello" },
+          vectors: [0.1, 0.2, 0.3],
+        }),
+      ]),
+    );
+  });
+
+  it("search normalizes nearVector result to id/payload/score", async () => {
+    mockCol.query.nearVector.mockResolvedValue({
+      objects: [
+        {
+          uuid: "id-1",
+          properties: { data: "x" },
+          metadata: { distance: 0.2 },
+        },
+      ],
+    });
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    const results = await store.search([0.1, 0.2, 0.3], 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      id: "id-1",
+      payload: { data: "x" },
+      score: 0.8,
+    });
+  });
+
+  it("getUserId / setUserId roundtrip", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
   });
 });
