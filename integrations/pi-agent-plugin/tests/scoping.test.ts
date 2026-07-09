@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAddParams, resolveSearchFilters } from "../src/memory/scoping.ts";
+import { resolveAddParams, resolveSearchFilters, GLOBAL_APP_ID } from "../src/memory/scoping.ts";
 import type { ScopeContext } from "../src/types.ts";
 
 const ctx: ScopeContext = {
@@ -41,7 +41,7 @@ describe("resolveAddParams", () => {
     });
   });
 
-  it("global scope returns userId only", () => {
-    expect(resolveAddParams("global", ctx)).toEqual({ userId: "kartik" });
+  it("global scope tags appId with the reserved GLOBAL_APP_ID sentinel", () => {
+    expect(resolveAddParams("global", ctx)).toEqual({ userId: "kartik", appId: GLOBAL_APP_ID });
   });
 });

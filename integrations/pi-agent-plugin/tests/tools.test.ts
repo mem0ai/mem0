@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildToolExecute } from "../src/memory/tools.ts";
+import { GLOBAL_APP_ID } from "../src/memory/scoping.ts";
 import type { ScopeContext } from "../src/types.ts";
 
 const mockMem0 = {
@@ -44,6 +45,14 @@ describe("buildToolExecute", () => {
     expect(mockMem0.search).toHaveBeenCalledWith("preferences", {
       filters: { user_id: "testuser", app_id: "*" },
     });
+  });
+
+  it("add with scope=global tags appId with GLOBAL_APP_ID so it stays reachable by the global search wildcard", async () => {
+    mockMem0.add.mockResolvedValue([{ id: "new-id", memory: "test" }]);
+    await execute({ action: "add", content: "Cross-project preference", scope: "global" });
+    const call = mockMem0.add.mock.calls[mockMem0.add.mock.calls.length - 1];
+    expect(call[1].userId).toBe("testuser");
+    expect(call[1].appId).toBe(GLOBAL_APP_ID);
   });
 
   it("delete calls mem0.delete with full memory_id", async () => {

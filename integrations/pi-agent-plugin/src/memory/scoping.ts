@@ -36,6 +36,15 @@ export function resolveSearchFilters(
   }
 }
 
+// Reserved app_id for scope="global" adds. A memory written without an appId
+// gets app_id: null, but resolveSearchFilters("global") uses a "*" wildcard,
+// which only matches non-null values — so a null-tagged memory would never
+// surface in a global search. Tagging it with this sentinel instead keeps it
+// inside the wildcard's match set without widening what counts as "global"
+// on the read side (which already correctly covers every real project's
+// memories via the wildcard).
+export const GLOBAL_APP_ID = "__global__";
+
 export function resolveAddParams(
   scope: Scope,
   ctx: ScopeContext,
@@ -46,6 +55,6 @@ export function resolveAddParams(
     case "session":
       return { userId: ctx.userId, appId: ctx.appId, runId: ctx.runId };
     case "global":
-      return { userId: ctx.userId };
+      return { userId: ctx.userId, appId: GLOBAL_APP_ID };
   }
 }
