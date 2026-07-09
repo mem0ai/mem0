@@ -349,6 +349,91 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
+def test_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    attributed_to is written to the payload on add (and the extraction prompt marks it
+    required), so get/get_all/search must return it instead of dropping it. It must be a
+    top-level field, not buried inside metadata.
+    """
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+    memory.embedding_model = mock_embedder
+
+    payload = {"data": "User likes Python", "attributed_to": "user", "user_id": "u1"}
+
+    # get
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", payload)
+    got = memory.get("mem_1")
+    assert got["attributed_to"] == "user"
+    assert "attributed_to" not in (got.get("metadata") or {})
+
+    # get_all
+    mock_vector_store.list.return_value = [MockVectorMemory("mem_1", payload)]
+    listed = memory._get_all_from_vector_store({"user_id": "u1"}, 100)
+    assert listed[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (listed[0].get("metadata") or {})
+
+    # search
+    mock_vector_store.search.return_value = [MockVectorMemory("mem_1", payload, score=0.9)]
+    mock_vector_store.keyword_search.return_value = []
+    searched = memory._search_vector_store("python", {"user_id": "u1"}, 10)
+    assert searched[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (searched[0].get("metadata") or {})
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """AsyncMemory get/get_all/search must surface attributed_to, same as the sync path."""
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    memory = AsyncMemory(MemoryConfig())
+    memory.embedding_model = mock_embedder
+
+    payload = {"data": "User likes Python", "attributed_to": "user", "user_id": "u1"}
+
+    # get
+    mock_vector_store.get.return_value = MockVectorMemory("mem_1", payload)
+    got = await memory.get("mem_1")
+    assert got["attributed_to"] == "user"
+    assert "attributed_to" not in (got.get("metadata") or {})
+
+    # get_all
+    mock_vector_store.list.return_value = [MockVectorMemory("mem_1", payload)]
+    listed = await memory._get_all_from_vector_store({"user_id": "u1"}, 100)
+    assert listed[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (listed[0].get("metadata") or {})
+
+    # search
+    mock_vector_store.search.return_value = [MockVectorMemory("mem_1", payload, score=0.9)]
+    mock_vector_store.keyword_search.return_value = []
+    searched = await memory._search_vector_store("python", {"user_id": "u1"}, 10)
+    assert searched[0]["attributed_to"] == "user"
+    assert "attributed_to" not in (searched[0].get("metadata") or {})
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Repro for: 'list' object has no attribute 'replace' on infer=true.
@@ -1411,3 +1496,36 @@ class TestAsyncDeleteAllEntityRace:
         mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
 
         assert mock_vector_store.delete.call_count == 2
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_factory, mock_emb, mock_vs):
+    """Regression #5710: async LangChain path must call remove_code_blocks()."""
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+
+    mock_langchain_llm = MagicMock()
+    mock_response = MagicMock()
+    mock_response.content = '```json\n{"key": "value"}\n```'
+    mock_langchain_llm.invoke.return_value = mock_response
+
+    messages = [{"role": "user", "content": "test"}]
+    metadata = {"user_id": "test_user"}
+
+    await memory._create_procedural_memory(messages, metadata=metadata, llm=mock_langchain_llm)
+
+    insert_call = memory.vector_store.insert.call_args
+    stored_data = insert_call[1]["payloads"][0]["data"]
+    assert "```" not in stored_data

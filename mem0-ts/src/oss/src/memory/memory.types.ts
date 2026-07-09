@@ -12,6 +12,22 @@ export interface AddMemoryOptions extends Entity {
   filters?: SearchFilters;
   infer?: boolean;
   timestamp?: number | string | Date | null;
+  /** Date (YYYY-MM-DD) after which the memory is considered expired. */
+  expirationDate?: string | null;
+}
+
+export interface UpdateMemoryOptions {
+  /** New content to update the memory with. */
+  text?: string;
+  /**
+   * New content to update the memory with.
+   * @deprecated Use `text` instead. Will be removed in the next major release.
+   */
+  data?: string;
+  /** Metadata merged into the memory's existing metadata. */
+  metadata?: Record<string, any>;
+  /** Date (YYYY-MM-DD) after which the memory expires, or `null` to clear it. */
+  expirationDate?: string | null;
 }
 
 export interface SearchMemoryOptions {
@@ -20,11 +36,15 @@ export interface SearchMemoryOptions {
   threshold?: number;
   explain?: boolean;
   referenceDate?: number | string | Date | null;
+  /** Include expired memories in the results. Defaults to false. */
+  showExpired?: boolean;
 }
 
 export interface GetAllMemoryOptions {
   topK?: number;
   filters?: SearchFilters;
+  /** Include expired memories in the results. Defaults to false. */
+  showExpired?: boolean;
 }
 
 export interface DeleteAllMemoryOptions extends Entity {}

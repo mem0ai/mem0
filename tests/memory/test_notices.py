@@ -1403,6 +1403,30 @@ def test_scale_threshold_provider_count_helpers_are_safe():
         def col_info(self):
             return {"count": 2300}
 
+    class RedisInfoStore:
+        def __init__(self):
+            self.schema = {"index": {"name": "test_collection"}}
+
+        def count(self):
+            raise RuntimeError("count unavailable")
+
+        def col_info(self, name):
+            assert name == self.schema["index"]["name"]
+            return {"index_name": "test_collection", "num_docs": 2300}
+
+    class SearchMetadataStore:
+        def __init__(self):
+            self.collection_name = "test_collection"
+            self.client = MagicMock()
+            self.client.count.return_value = {"count": 2400}
+
+        def count(self):
+            raise RuntimeError("count unavailable")
+
+        def col_info(self, name):
+            assert name == self.collection_name
+            return {"test_collection": {"settings": {"index": {}}}}
+
     memory = MagicMock()
     memory.vector_store = CountStore()
     assert notices._get_provider_memory_count(memory) == 2100
@@ -1410,7 +1434,15 @@ def test_scale_threshold_provider_count_helpers_are_safe():
     memory.vector_store = FallbackStore()
     assert notices._get_provider_memory_count(memory) == 2300
 
-    assert notices._extract_count({"points_count": 2400}) == 2400
+    memory.vector_store = RedisInfoStore()
+    assert notices._get_provider_memory_count(memory) == 2300
+
+    search_store = SearchMetadataStore()
+    memory.vector_store = search_store
+    assert notices._get_provider_memory_count(memory) == 2400
+    search_store.client.count.assert_called_once_with(index="test_collection")
+
+    assert notices._extract_count({"points_count": 2500}) == 2500
     assert notices._extract_count(Info()) == 2200
     assert notices._extract_count({"count": -1}) is None
 

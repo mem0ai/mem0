@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "3.0.9",
+  "version": "3.0.13",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -97,7 +97,8 @@
     "ts-jest": "^29.2.6",
     "ts-node": "^10.9.2",
     "tsup": "^8.3.0",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "iovalkey": "^0.3.3"
   },
   "dependencies": {
     "axios": "^1.16.0",
@@ -107,24 +108,47 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
+    "@aws-sdk/client-s3vectors": "3.967.0",
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
+    "@google-cloud/aiplatform": "^6.8.0",
     "@google/genai": "^1.40.0",
     "@langchain/core": "^1.1.47",
     "@mistralai/mistralai": "^1.5.2",
+    "@opensearch-project/opensearch": "^3.5.1",
+    "@pinecone-database/pinecone": "^8.0.0",
     "@qdrant/js-client-rest": "^1.18.0",
     "@supabase/supabase-js": "^2.49.1",
+    "@turbopuffer/turbopuffer": "^2.0.0",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
+    "@upstash/vector": "^1.2.3",
     "better-sqlite3": "^12.6.2",
+    "cassandra-driver": "4.8.0",
+    "chromadb": "^3.5.0",
     "cloudflare": "^4.2.0",
+    "fastembed": "^2.1.0",
     "groq-sdk": "0.3.0",
+    "mongodb": "^7.0.0",
+    "weaviate-client": "^3.0.0",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
+    "@elastic/elasticsearch": "^9.0.0",
+    "iovalkey": "^0.3.3",
     "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "natural": "^8.0.1",
+    "mysql2": "^3.0.0",
+    "@zilliz/milvus2-sdk-node": "^2.4.0 || ^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "mysql2": {
+      "optional": true
+    },
+    "@zilliz/milvus2-sdk-node": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=18"
@@ -151,12 +175,16 @@
       "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
       "postcss@<8.5.10": ">=8.5.10",
       "uuid@<11.1.1": ">=11.1.1",
+      "weaviate-client>uuid": "^11.1.1",
       "ws@>=8.0.0 <8.20.1": ">=8.20.1",
       "rollup@>=4.0.0 <4.59.0": "^4.59.0",
       "tar-fs@>=2.0.0 <2.1.4": "^2.1.4",
       "glob@>=10.2.0 <10.5.0": "^10.5.0",
+      "fast-xml-parser@>=5.0.0 <5.7.0": "^5.9.3",
+      "tar@<=7.5.15": "^7.5.19",
       "@modelcontextprotocol/sdk": "^1.25.4",
-      "esbuild": ">=0.28.1"
+      "esbuild": ">=0.28.1",
+      "undici@<6.27.0": ">=6.27.0 <8.0.0"
     }
   }
 }

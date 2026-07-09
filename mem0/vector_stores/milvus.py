@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Optional
 
 from pydantic import BaseModel
@@ -143,6 +144,8 @@ class MilvusDB(VectorStoreBase):
         data = [_build_record(idx, embedding, metadata) for idx, embedding, metadata in zip(ids, vectors, payloads)]
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
     def _create_filter(self, filters: dict):
         """Prepare filters for efficient query.
 
@@ -154,10 +157,18 @@ class MilvusDB(VectorStoreBase):
         """
         operands = []
         for key, value in filters.items():
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
             if isinstance(value, str):
-                operands.append(f'(metadata["{key}"] == "{value}")')
-            else:
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                operands.append(f'(metadata["{key}"] == "{escaped}")')
+            elif isinstance(value, (int, float, bool)):
                 operands.append(f'(metadata["{key}"] == {value})')
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
 
         return " and ".join(operands)
 
@@ -262,7 +273,7 @@ class MilvusDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.client.delete(collection_name=self.collection_name, ids=vector_id)
+        self.client.delete(collection_name=self.collection_name, ids=[vector_id])
 
     def update(self, vector_id=None, vector=None, payload=None):
         """

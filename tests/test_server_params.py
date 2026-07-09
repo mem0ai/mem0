@@ -564,12 +564,20 @@ class TestUpdateMemory:
         resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
         assert resp.status_code == 200
         _, kwargs = mock_memory.update.call_args
-        assert kwargs["metadata"] is None
+        assert "metadata" not in kwargs
 
-    def test_missing_text_returns_422(self, client):
-        """text is required — omitting it should fail validation."""
-        resp = client.put("/memories/mem-1", json={"metadata": {"k": "v"}})
-        assert resp.status_code == 422
+    def test_expiration_date_forwarded_without_text(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"expiration_date": "2999-01-01"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["expiration_date"] == "2999-01-01"
+        assert "data" not in kwargs
+
+    def test_null_expiration_date_forwarded_for_clear(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"expiration_date": None})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["expiration_date"] is None
 
     def test_dict_not_passed_as_data(self, client, mock_memory):
         """Regression test for #3933: the entire dict must NOT be passed as data."""
@@ -618,6 +626,31 @@ class TestGetMemories:
         # 3. Verify the core logic: the param was mapped to the filters dict!
         _, kwargs = mock_memory.get_all.call_args
         assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert "top_k" not in kwargs
+
+    def test_get_memories_entity_filters_forward_top_k(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1000")
+
+        assert response.status_code == 200
+
+        _, kwargs = mock_memory.get_all.call_args
+        assert kwargs["filters"] == {"user_id": "test_routing_user"}
+        assert kwargs["top_k"] == 1000
+
+    def test_get_memories_admin_top_k_zero_not_defaulted(self, client, mock_memory):
+        mock_memory.vector_store.list.return_value = []
+
+        response = client.get("/memories?top_k=0")
+
+        assert response.status_code == 200
+        _, kwargs = mock_memory.vector_store.list.call_args
+        assert kwargs["top_k"] == 0
+
+    def test_get_memories_rejects_top_k_above_limit(self, client, mock_memory):
+        response = client.get("/memories?user_id=test_routing_user&top_k=1001")
+
+        assert response.status_code == 422
+        mock_memory.get_all.assert_not_called()
 
 
 # ===========================================================================

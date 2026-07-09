@@ -9,7 +9,7 @@ import time
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
@@ -22,17 +22,15 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
+from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
-    detect_scale_threshold_from_add_result,
-    detect_scale_threshold_from_top_k,
     detect_decay_usage_from_delete,
     detect_decay_usage_from_delete_all,
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
     display_decay_usage_notice,
@@ -50,6 +48,9 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.storage import SQLiteManager
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -79,6 +80,14 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+
+
+def _vector_store_list_rows(listed):
+    if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
+        return listed[0]
+    if isinstance(listed, (list, tuple)):
+        return listed
+    return []
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -370,9 +379,37 @@ def _entity_collection_name(provider: str, collection_name: str) -> str:
     return f"{collection_name}{separator}entities"
 
 
+def _normalize_expiration_date(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value).isoformat()
+        except ValueError as exc:
+            raise ValueError("expiration_date must be a valid date in YYYY-MM-DD format.") from exc
+    raise ValueError("expiration_date must be a date string in YYYY-MM-DD format.")
+
+
+def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
+    if not payload:
+        return False
+    expiration_date = payload.get("expiration_date")
+    if not expiration_date:
+        return False
+    try:
+        return date.fromisoformat(str(expiration_date)) < datetime.now(timezone.utc).date()
+    except ValueError:
+        return False
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
+_UNSET = object()
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
 
 
@@ -499,22 +536,49 @@ class Memory(MemoryBase):
             )
         return self._entity_store
 
+    @staticmethod
+    def _normalize_entity_text(value: str) -> str:
+        return " ".join(value.strip().lower().split())
+
+    def _existing_entities_by_text(self, filters):
+        """Return existing entity rows keyed by normalized payload data."""
+        try:
+            listed = self.entity_store.list(filters=filters, top_k=10000)
+        except Exception as e:
+            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
+            return {}
+
+        rows_by_text = {}
+        for row in _vector_store_list_rows(listed):
+            payload = getattr(row, "payload", None) or {}
+            text = payload.get("data")
+            if not isinstance(text, str):
+                continue
+            normalized = self._normalize_entity_text(text)
+            if normalized and normalized not in rows_by_text:
+                rows_by_text[normalized] = row
+        return rows_by_text
+
     def _upsert_entity(self, entity_text, entity_type, memory_id, filters):
         """Upsert an entity into the entity store, linking it to a memory."""
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
 
-            existing = self.entity_store.search(
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=1,
-                filters=search_filters,
-            )
+            existing = []
+            if exact_match is None:
+                existing = self.entity_store.search(
+                    query=entity_text,
+                    vectors=entity_embedding,
+                    top_k=1,
+                    filters=search_filters,
+                )
 
-            if existing and existing[0].score >= 0.95:
+            semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
+            match = exact_match or semantic_match
+            if match:
                 # Update existing entity's linked_memory_ids
-                match = existing[0]
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
@@ -609,7 +673,7 @@ class Memory(MemoryBase):
                 return
             seen = set()
             for entity_type, entity_text in entities:
-                key = entity_text.strip().lower()
+                key = self._normalize_entity_text(entity_text)
                 if not key or key in seen:
                     continue
                 seen.add(key)
@@ -659,6 +723,7 @@ class Memory(MemoryBase):
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Any] = None,
+        expiration_date: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -677,6 +742,8 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
+                from search and get_all unless show_expired is True.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
                 If False, 'messages' are added as raw memories directly.
@@ -702,6 +769,7 @@ class Memory(MemoryBase):
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
+        normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
@@ -709,6 +777,8 @@ class Memory(MemoryBase):
             run_id=run_id,
             input_metadata=metadata,
         )
+        if normalized_expiration_date is not None:
+            processed_metadata["expiration_date"] = normalized_expiration_date
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise Mem0ValidationError(
@@ -843,8 +913,12 @@ class Memory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+            # Re-raise so callers can implement provider fallback / retry.
+            # The original silent ``return []`` made upstream callers unable to
+            # distinguish "LLM unavailable" (429/5xx/timeout) from "LLM
+            # extracted no facts" -- both surfaced as an empty list.
             logger.error(f"LLM extraction failed: {e}")
-            return []
+            raise LLMError(f"LLM extraction failed: {e}") from e
 
         # Parse response
         try:
@@ -971,7 +1045,7 @@ class Memory(MemoryBase):
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
+                    key = self._normalize_entity_text(entity_text)
                     if key in global_entities:
                         global_entities[key][2].add(memory_id)
                     else:
@@ -1009,6 +1083,7 @@ class Memory(MemoryBase):
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
+                    exact_matches = self._existing_entities_by_text(search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -1024,10 +1099,12 @@ class Memory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
+                        exact_match = exact_matches.get(key)
 
-                        if matches and matches[0].score >= 0.95:
+                        semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
+                        match = exact_match or semantic_match
+                        if match:
                             # Update existing entity
-                            match = matches[0]
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
@@ -1102,6 +1179,8 @@ class Memory(MemoryBase):
             "run_id",
             "actor_id",
             "role",
+            "attributed_to",
+            "expiration_date",
         ]
 
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
@@ -1130,6 +1209,7 @@ class Memory(MemoryBase):
         *,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
+        show_expired: bool = False,
         **kwargs,
     ):
         """
@@ -1140,6 +1220,7 @@ class Memory(MemoryBase):
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
+            show_expired (bool, optional): Include expired memories. Defaults to False.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
@@ -1178,6 +1259,7 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        fetch_limit = limit if show_expired else max(limit * 4, 60)
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
@@ -1185,7 +1267,7 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
-        all_memories_result = self._get_all_from_vector_store(effective_filters, limit)
+        all_memories_result = self._get_all_from_vector_store(effective_filters, fetch_limit, show_expired, limit)
 
         if scale_threshold_notice:
             display_scale_threshold_notice(self, "sync", "get_all", *scale_threshold_notice)
@@ -1193,7 +1275,7 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "get_all")
         return {"results": all_memories_result}
 
-    def _get_all_from_vector_store(self, filters, limit):
+    def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
         memories_result = self.vector_store.list(filters=filters, top_k=limit)
 
         # Handle different vector store return formats by inspecting first element
@@ -1215,11 +1297,15 @@ class Memory(MemoryBase):
             "run_id",
             "actor_id",
             "role",
+            "attributed_to",
+            "expiration_date",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         formatted_memories = []
         for mem in actual_memories:
+            if not show_expired and _payload_is_expired(mem.payload):
+                continue
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1237,6 +1323,8 @@ class Memory(MemoryBase):
                 memory_item_dict["metadata"] = additional_metadata
 
             formatted_memories.append(memory_item_dict)
+            if output_limit is not None and len(formatted_memories) >= output_limit:
+                break
 
         return formatted_memories
 
@@ -1250,6 +1338,7 @@ class Memory(MemoryBase):
         rerank: bool = False,
         explain: bool = False,
         reference_date: Optional[Any] = None,
+        show_expired: bool = False,
         **kwargs,
     ):
         """
@@ -1282,6 +1371,7 @@ class Memory(MemoryBase):
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            show_expired (bool, optional): Include expired memories. Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1353,7 +1443,9 @@ class Memory(MemoryBase):
         )
 
         search_start = time.perf_counter()
-        original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        original_memories = self._search_vector_store(
+            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+        )
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
@@ -1485,7 +1577,7 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
+    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1526,11 +1618,14 @@ class Memory(MemoryBase):
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
+            payload = mem.payload if hasattr(mem, 'payload') else {}
+            if not show_expired and _payload_is_expired(payload):
+                continue
             mem_id = str(mem.id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank
@@ -1550,6 +1645,8 @@ class Memory(MemoryBase):
             "run_id",
             "actor_id",
             "role",
+            "attributed_to",
+            "expiration_date",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
@@ -1600,7 +1697,7 @@ class Memory(MemoryBase):
         seen = set()
         deduped = []
         for entity_type, entity_text in query_entities[:8]:
-            key = entity_text.strip().lower()
+            key = self._normalize_entity_text(entity_text)
             if key and key not in seen:
                 seen.add(key)
                 deduped.append((entity_type, entity_text))
@@ -1667,27 +1764,55 @@ class Memory(MemoryBase):
 
         return memory_boosts
 
-    def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
+    def update(
+        self,
+        memory_id,
+        text: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
+    ):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+            expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
-        existing_embeddings = {data: self.embedding_model.embed(data, "update")}
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
 
-        self._update_memory(memory_id, data, existing_embeddings, metadata)
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
+
+        update_metadata = deepcopy(metadata) if metadata is not None else None
+        if expiration_date is not _UNSET:
+            update_metadata = update_metadata or {}
+            update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
+
+        existing_embeddings = {}
+        if text is not None:
+            existing_embeddings[text] = self.embedding_model.embed(text, "update")
+
+        self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -1721,6 +1846,10 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
+        user_id = _validate_and_trim_entity_id(user_id, "user_id")
+        agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
+        run_id = _validate_and_trim_entity_id(run_id, "run_id")
+
         filters: Dict[str, Any] = {}
         if user_id:
             filters["user_id"] = user_id
@@ -1850,6 +1979,11 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
         prev_value = existing_memory.payload.get("data")
+        if data is None:
+            data = prev_value
+        if not isinstance(data, str):
+            raise ValueError(f"Memory with id {memory_id} does not have text content to update")
+        text_changed = data != prev_value
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
@@ -1891,8 +2025,9 @@ class Memory(MemoryBase):
         # Entity-store cleanup: strip this memory's id from old-text entities,
         # then re-extract entities from the new text and link them back.
         session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
-        self._remove_memory_from_entity_store(memory_id, session_filters)
-        self._link_entities_for_memory(memory_id, data, session_filters)
+        if text_changed:
+            self._remove_memory_from_entity_store(memory_id, session_filters)
+            self._link_entities_for_memory(memory_id, data, session_filters)
 
         return memory_id
 
@@ -2042,22 +2177,51 @@ class AsyncMemory(MemoryBase):
             )
         return self._entity_store
 
+    @staticmethod
+    def _normalize_entity_text(value: str) -> str:
+        return " ".join(value.strip().lower().split())
+
+    def _existing_entities_by_text(self, filters):
+        """Return existing entity rows keyed by normalized payload data."""
+        try:
+            listed = self.entity_store.list(filters=filters, top_k=10000)
+        except Exception as e:
+            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
+            return {}
+
+        rows_by_text = {}
+        for row in _vector_store_list_rows(listed):
+            payload = getattr(row, "payload", None) or {}
+            text = payload.get("data")
+            if not isinstance(text, str):
+                continue
+            normalized = self._normalize_entity_text(text)
+            if normalized and normalized not in rows_by_text:
+                rows_by_text[normalized] = row
+        return rows_by_text
+
     async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
         try:
             entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            exact_match = (
+                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+            ).get(self._normalize_entity_text(entity_text))
 
-            existing = await asyncio.to_thread(
-                self.entity_store.search,
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=1,
-                filters=search_filters,
-            )
+            existing = []
+            if exact_match is None:
+                existing = await asyncio.to_thread(
+                    self.entity_store.search,
+                    query=entity_text,
+                    vectors=entity_embedding,
+                    top_k=1,
+                    filters=search_filters,
+                )
 
-            if existing and existing[0].score >= 0.95:
-                match = existing[0]
+            semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
+            match = exact_match or semantic_match
+            if match:
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
@@ -2160,7 +2324,7 @@ class AsyncMemory(MemoryBase):
                 return
             seen = set()
             for entity_type, entity_text in entities:
-                key = entity_text.strip().lower()
+                key = self._normalize_entity_text(entity_text)
                 if not key or key in seen:
                     continue
                 seen.add(key)
@@ -2210,6 +2374,7 @@ class AsyncMemory(MemoryBase):
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Any] = None,
+        expiration_date: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -2225,6 +2390,8 @@ class AsyncMemory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
+                from search and get_all unless show_expired is True.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
@@ -2236,10 +2403,13 @@ class AsyncMemory(MemoryBase):
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
 
+        normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
+        if normalized_expiration_date is not None:
+            processed_metadata["expiration_date"] = normalized_expiration_date
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -2382,8 +2552,10 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+            # Re-raise so callers can implement provider fallback / retry
+            # (see sync counterpart for rationale).
             logger.error(f"LLM extraction failed (async): {e}")
-            return []
+            raise LLMError(f"LLM extraction failed: {e}") from e
 
         # Parse response
         try:
@@ -2509,7 +2681,7 @@ class AsyncMemory(MemoryBase):
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
+                    key = self._normalize_entity_text(entity_text)
                     if key in global_entities:
                         global_entities[key][2].add(memory_id)
                     else:
@@ -2544,6 +2716,7 @@ class AsyncMemory(MemoryBase):
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
+                    exact_matches = await asyncio.to_thread(self._existing_entities_by_text, search_filters)
 
                     # 7c: Batch search for existing entities
                     valid_texts = [global_entities[k][1] for k in valid_keys]
@@ -2560,9 +2733,11 @@ class AsyncMemory(MemoryBase):
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
+                        exact_match = exact_matches.get(key)
 
-                        if matches and matches[0].score >= 0.95:
-                            match = matches[0]
+                        semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
+                        match = exact_match or semantic_match
+                        if match:
                             payload = match.payload or {}
                             linked = set(payload.get("linked_memory_ids", []))
                             linked |= memory_ids
@@ -2638,6 +2813,8 @@ class AsyncMemory(MemoryBase):
             "run_id",
             "actor_id",
             "role",
+            "attributed_to",
+            "expiration_date",
         ]
 
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
@@ -2666,6 +2843,7 @@ class AsyncMemory(MemoryBase):
         *,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
+        show_expired: bool = False,
         **kwargs,
     ):
         """
@@ -2676,6 +2854,7 @@ class AsyncMemory(MemoryBase):
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
+            show_expired (bool, optional): Include expired memories. Defaults to False.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
@@ -2714,6 +2893,7 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        fetch_limit = limit if show_expired else max(limit * 4, 60)
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
@@ -2721,7 +2901,7 @@ class AsyncMemory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        all_memories_result = await self._get_all_from_vector_store(effective_filters, limit)
+        all_memories_result = await self._get_all_from_vector_store(effective_filters, fetch_limit, show_expired, limit)
 
         if scale_threshold_notice:
             await display_scale_threshold_notice_async(self, "async", "get_all", *scale_threshold_notice)
@@ -2729,7 +2909,7 @@ class AsyncMemory(MemoryBase):
             await display_first_run_notice_async(self, "async", "get_all")
         return {"results": all_memories_result}
 
-    async def _get_all_from_vector_store(self, filters, limit):
+    async def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
 
         # Handle different vector store return formats by inspecting first element
@@ -2751,11 +2931,15 @@ class AsyncMemory(MemoryBase):
             "run_id",
             "actor_id",
             "role",
+            "attributed_to",
+            "expiration_date",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         formatted_memories = []
         for mem in actual_memories:
+            if not show_expired and _payload_is_expired(mem.payload):
+                continue
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -2773,6 +2957,8 @@ class AsyncMemory(MemoryBase):
                 memory_item_dict["metadata"] = additional_metadata
 
             formatted_memories.append(memory_item_dict)
+            if output_limit is not None and len(formatted_memories) >= output_limit:
+                break
 
         return formatted_memories
 
@@ -2786,6 +2972,7 @@ class AsyncMemory(MemoryBase):
         rerank: bool = False,
         explain: bool = False,
         reference_date: Optional[Any] = None,
+        show_expired: bool = False,
         **kwargs,
     ):
         """
@@ -2818,6 +3005,7 @@ class AsyncMemory(MemoryBase):
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            show_expired (bool, optional): Include expired memories. Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -2893,7 +3081,9 @@ class AsyncMemory(MemoryBase):
         )
 
         search_start = time.perf_counter()
-        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        original_memories = await self._search_vector_store(
+            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+        )
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
@@ -3028,7 +3218,7 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
+    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
         if threshold is None:
             threshold = 0.1
 
@@ -3068,11 +3258,14 @@ class AsyncMemory(MemoryBase):
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
+            payload = mem.payload if hasattr(mem, 'payload') else {}
+            if not show_expired and _payload_is_expired(payload):
+                continue
             mem_id = str(mem.id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank
@@ -3092,6 +3285,8 @@ class AsyncMemory(MemoryBase):
             "run_id",
             "actor_id",
             "role",
+            "attributed_to",
+            "expiration_date",
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
@@ -3131,7 +3326,7 @@ class AsyncMemory(MemoryBase):
         seen = set()
         deduped = []
         for entity_type, entity_text in query_entities[:8]:
-            key = entity_text.strip().lower()
+            key = self._normalize_entity_text(entity_text)
             if key and key not in seen:
                 seen.add(key)
                 deduped.append((entity_type, entity_text))
@@ -3200,28 +3395,56 @@ class AsyncMemory(MemoryBase):
 
         return memory_boosts
 
-    async def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
+    async def update(
+        self,
+        memory_id,
+        text: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
+    ):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+            expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> await m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
-        existing_embeddings = {data: embeddings}
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
 
-        await self._update_memory(memory_id, data, existing_embeddings, metadata)
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
+
+        update_metadata = deepcopy(metadata) if metadata is not None else None
+        if expiration_date is not _UNSET:
+            update_metadata = update_metadata or {}
+            update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
+
+        existing_embeddings = {}
+        if text is not None:
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, text, "update")
+            existing_embeddings[text] = embeddings
+
+        await self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -3255,6 +3478,10 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
+        user_id = _validate_and_trim_entity_id(user_id, "user_id")
+        agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
+        run_id = _validate_and_trim_entity_id(run_id, "run_id")
+
         filters = {}
         if user_id:
             filters["user_id"] = user_id
@@ -3380,7 +3607,7 @@ class AsyncMemory(MemoryBase):
             if llm is not None:
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
-                procedural_memory = response.content
+                procedural_memory = remove_code_blocks(response.content)
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
@@ -3415,6 +3642,11 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
 
         prev_value = existing_memory.payload.get("data")
+        if data is None:
+            data = prev_value
+        if not isinstance(data, str):
+            raise ValueError(f"Memory with id {memory_id} does not have text content to update")
+        text_changed = data != prev_value
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
@@ -3458,8 +3690,9 @@ class AsyncMemory(MemoryBase):
         # Entity-store cleanup: strip this memory's id from old-text entities,
         # then re-extract entities from the new text and link them back.
         session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
-        await self._remove_memory_from_entity_store(memory_id, session_filters)
-        await self._link_entities_for_memory(memory_id, data, session_filters)
+        if text_changed:
+            await self._remove_memory_from_entity_store(memory_id, session_filters)
+            await self._link_entities_for_memory(memory_id, data, session_filters)
 
         return memory_id
 
