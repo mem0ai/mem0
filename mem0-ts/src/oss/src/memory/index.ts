@@ -748,6 +748,23 @@ export class Memory {
       metadata.expiration_date = normalizeExpirationDate(config.expirationDate);
     }
 
+    const filterUserId = validateAndTrimEntityId(
+      filters.user_id,
+      "filters.user_id",
+    );
+    const filterAgentId = validateAndTrimEntityId(
+      filters.agent_id,
+      "filters.agent_id",
+    );
+    const filterRunId = validateAndTrimEntityId(
+      filters.run_id,
+      "filters.run_id",
+    );
+
+    if (filterUserId) filters.user_id = metadata.user_id = filterUserId;
+    if (filterAgentId) filters.agent_id = metadata.agent_id = filterAgentId;
+    if (filterRunId) filters.run_id = metadata.run_id = filterRunId;
+
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
         "One of the filters: userId, agentId or runId is required!",
