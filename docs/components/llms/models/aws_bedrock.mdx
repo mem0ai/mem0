@@ -5,12 +5,13 @@ description: "Configure AWS Bedrock as an LLM provider in Mem0 with IAM authenti
 
 ### Setup
 - Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
-- You will also need to authenticate the `boto3` client by using a method in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials)
-- You will have to export `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` to set environment variables.
+- Install the AWS SDK for your language: `pip install boto3` (Python) or `npm install @aws-sdk/client-bedrock-runtime` (TypeScript).
+- Both SDKs fall back to the standard AWS credential chain (environment variables, `~/.aws/credentials`, or an attached IAM role), so exporting `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` is the quickest way to get started. In TypeScript you can also pass credentials inline with `awsRegion`, `awsAccessKeyId`, `awsSecretAccessKey`, and `awsSessionToken`, as shown below.
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -38,6 +39,43 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  llm: {
+    provider: 'aws_bedrock',
+    config: {
+      model: 'anthropic.claude-3-5-haiku-20241022-v1:0',
+      temperature: 0.2,
+      maxTokens: 2000,
+      // Optional. Omit these to use the default AWS credential chain.
+      awsRegion: process.env.AWS_REGION,
+      awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+];
+await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } });
+```
+</CodeGroup>
+
+<Note>
+  `@aws-sdk/client-bedrock-runtime` is an optional peer dependency of `mem0ai`, so npm will not install it for you. The TypeScript provider throws a clear error at construction time if the package is missing.
+</Note>
+
+<Note>
+  The TypeScript provider calls the Bedrock [Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html), a single uniform interface across the current Bedrock model families. Streaming and `InvokeModel`-only models are not supported yet.
+</Note>
 
 ### Config
 
