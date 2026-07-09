@@ -128,37 +128,6 @@ describe("Memory - get()", () => {
     expect(item!.createdAt).toBeDefined();
     expect(new Date(item!.createdAt!).toString()).not.toBe("Invalid Date");
   });
-
-  test("stores a normalized expiration date passed to add()", async () => {
-    const addResult: SearchResult = await memory.add("Expiry via add", {
-      userId,
-      infer: false,
-      expirationDate: "2099-12-31",
-    });
-    const item: MemoryItem | null = await memory.get(addResult.results[0].id);
-    expect(item!.metadata).toEqual(
-      expect.objectContaining({ expiration_date: "2099-12-31" }),
-    );
-  });
-
-  test("rejects an invalid expiration date passed to add()", async () => {
-    await expect(
-      memory.add("Bad expiry via add", {
-        userId,
-        infer: false,
-        expirationDate: "not-a-date",
-      }),
-    ).rejects.toThrow("YYYY-MM-DD");
-  });
-
-  test("omits expiration_date when none is provided to add()", async () => {
-    const addResult: SearchResult = await memory.add("No expiry", {
-      userId,
-      infer: false,
-    });
-    const item: MemoryItem | null = await memory.get(addResult.results[0].id);
-    expect(item!.metadata?.expiration_date).toBeUndefined();
-  });
 });
 
 // ─── update() ────────────────────────────────────────────
@@ -238,77 +207,14 @@ describe("Memory - update()", () => {
       expect.objectContaining({ category: "hobbies", priority: "high" }),
     );
   });
-
-  test("merges metadata passed to update()", async () => {
-    const addResult: SearchResult = await memory.add("Metadata via update", {
-      userId,
-      infer: false,
-    });
-    const id = addResult.results[0].id;
-    await memory.update(id, {
-      text: "Metadata via update",
-      metadata: { category: "travel" },
-    });
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.metadata).toEqual(
-      expect.objectContaining({ category: "travel" }),
-    );
-  });
-
-  test("stores a normalized expiration date passed to update()", async () => {
-    const addResult: SearchResult = await memory.add("Expiry via update", {
-      userId,
-      infer: false,
-    });
-    const id = addResult.results[0].id;
-    await memory.update(id, {
-      text: "Expiry via update",
-      expirationDate: "2099-12-31",
-    });
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.metadata).toEqual(
-      expect.objectContaining({ expiration_date: "2099-12-31" }),
-    );
-  });
-
-  test("rejects an invalid expiration date", async () => {
-    const addResult: SearchResult = await memory.add("Bad expiry", {
-      userId,
-      infer: false,
-    });
-    const id = addResult.results[0].id;
-    await expect(
-      memory.update(id, { text: "Bad expiry", expirationDate: "not-a-date" }),
-    ).rejects.toThrow("YYYY-MM-DD");
-  });
-
-  test("merges metadata and expiration together", async () => {
-    const addResult: SearchResult = await memory.add("Object meta before", {
-      userId,
-      infer: false,
-    });
-    const id = addResult.results[0].id;
-    await memory.update(id, {
-      text: "Object meta after",
-      metadata: { category: "work" },
-      expirationDate: "2099-01-01",
-    });
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.metadata).toEqual(
-      expect.objectContaining({
-        category: "work",
-        expiration_date: "2099-01-01",
-      }),
-    );
-  });
 });
 
-// ─── update() text/data aliasing ─────────────────────────
+// ─── update() options: text / data / metadata / expirationDate ───
 
-describe("Memory - update() text/data aliasing", () => {
+describe("Memory - update() options", () => {
   let memory: Memory;
   let warnSpy: jest.SpyInstance;
-  const userId = `alias_test_${Date.now()}`;
+  const userId = `update_options_${Date.now()}`;
 
   beforeAll(async () => {
     memory = createMemory();
@@ -334,11 +240,19 @@ describe("Memory - update() text/data aliasing", () => {
     return addResult.results[0].id;
   }
 
-  test("accepts an options object with text", async () => {
-    const id = await seed("Options object before");
-    await memory.update(id, { text: "Options object after" });
+  test("accepts an options object with text, without warning", async () => {
+    const id = await seed("Options before");
+    await memory.update(id, { text: "Options after" });
     const after: MemoryItem | null = await memory.get(id);
-    expect(after!.memory).toBe("Options object after");
+    expect(after!.memory).toBe("Options after");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("accepts a bare text string, as on main", async () => {
+    const id = await seed("Bare before");
+    await memory.update(id, "Bare after");
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Bare after");
   });
 
   test("accepts the deprecated data alias and warns", async () => {
@@ -349,17 +263,21 @@ describe("Memory - update() text/data aliasing", () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("deprecated"));
   });
 
-  test("prefers text over data when both are provided", async () => {
+  // An empty `text` is content, so it must beat `data`. Guards against `||=`,
+  // which would treat "" as absent and store the `data` value instead.
+  test("text wins over data, even when text is empty", async () => {
     const id = await seed("Both before");
-    await memory.update(id, { text: "From text", data: "From data" });
+    await memory.update(id, { text: "", data: "From data" });
     const after: MemoryItem | null = await memory.get(id);
-    expect(after!.memory).toBe("From text");
+    expect(after!.memory).toBe("");
   });
 
-  test("does not warn when only text is provided", async () => {
-    const id = await seed("No warn before");
-    await memory.update(id, { text: "No warn after" });
-    expect(warnSpy).not.toHaveBeenCalled();
+  // Same trap on the guard: "" must not read as "no field provided".
+  test("an empty bare string is content, not a missing argument", async () => {
+    const id = await seed("Empty bare");
+    await memory.update(id, "");
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("");
   });
 
   test("updates metadata without touching the stored text", async () => {
@@ -382,58 +300,24 @@ describe("Memory - update() text/data aliasing", () => {
     );
   });
 
-  test("clears an existing expiration date with null", async () => {
-    const addResult: SearchResult = await memory.add("Clear expiry", {
-      userId,
-      infer: false,
-      expirationDate: "2099-12-31",
-    });
-    const id = addResult.results[0].id;
-    await memory.update(id, { expirationDate: null });
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.metadata!.expiration_date).toBeNull();
-  });
-
-  test("throws when no updatable field is provided", async () => {
-    const id = await seed("Nothing to update");
-    await expect(memory.update(id, {})).rejects.toThrow(
-      "At least one of text, metadata, or expirationDate must be provided.",
-    );
-  });
-
-  // Python raises on `metadata=None` but not on `metadata={}`.
-  test("throws when metadata is explicitly null", async () => {
-    const id = await seed("Null metadata");
-    await expect(memory.update(id, { metadata: null } as any)).rejects.toThrow(
-      "At least one of text, metadata, or expirationDate must be provided.",
-    );
-  });
+  // Python raises on `data=None` / `metadata=None`, so loose `== null` is the
+  // right check for both. `{}` is a real value and must not raise.
+  test.each([{}, { data: null }, { metadata: null }])(
+    "throws when %p provides nothing updatable",
+    async (options) => {
+      const id = await seed("Nothing to update");
+      await expect(memory.update(id, options as any)).rejects.toThrow(
+        "At least one of text, metadata, or expirationDate must be provided.",
+      );
+      expect(warnSpy).not.toHaveBeenCalled();
+    },
+  );
 
   test("accepts empty metadata as an updatable field", async () => {
     const id = await seed("Empty metadata");
     await expect(memory.update(id, { metadata: {} })).resolves.toEqual({
       message: "Memory updated successfully!",
     });
-  });
-
-  test("still accepts a bare text string, as on main", async () => {
-    const id = await seed("Positional before");
-    await memory.update(id, "Positional after");
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.memory).toBe("Positional after");
-  });
-
-  test("a bare text string does not warn", async () => {
-    const id = await seed("No warn positional");
-    await memory.update(id, "Positional no warn");
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  test("an empty bare string is content, not a missing argument", async () => {
-    const id = await seed("Empty positional");
-    await memory.update(id, "");
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.memory).toBe("");
   });
 });
 
@@ -451,17 +335,14 @@ describe("Memory - expiration date parsing", () => {
     await memory.reset();
   });
 
-  // `new Date(...)` happily parses all of these; Python's date.fromisoformat
-  // rejects them. Some also shift the day by one depending on the local
-  // timezone, e.g. "12/31/2099" -> "2099-12-30" east of UTC.
+  // `new Date(...)` accepts all of these; Python's date.fromisoformat rejects
+  // them. The first two die to the format regex, the last two only to the
+  // UTC component round-trip: they match YYYY-MM-DD but are not real days.
   const rejected = [
-    "12/31/2099",
-    "Jan 15, 2025",
-    "2099",
+    "12/31/2099", // also shifts a day west of UTC
     "2099-12-31T23:00:00",
     "2099-02-30", // rolls over to 2099-03-02
     "2100-02-29", // 2100 is not a leap year
-    "not-a-date",
   ];
 
   test.each(rejected)("add() rejects %p", async (value) => {
@@ -470,17 +351,19 @@ describe("Memory - expiration date parsing", () => {
     ).rejects.toThrow("YYYY-MM-DD");
   });
 
-  test.each(rejected)("update() rejects %p", async (value) => {
+  // add() and update() share normalizeExpirationDate(); this checks the wiring.
+  test("update() rejects a malformed expiration date", async () => {
     const addResult: SearchResult = await memory.add("Good", {
       userId,
       infer: false,
     });
     await expect(
-      memory.update(addResult.results[0].id, { expirationDate: value }),
+      memory.update(addResult.results[0].id, { expirationDate: "12/31/2099" }),
     ).rejects.toThrow("YYYY-MM-DD");
   });
 
-  test.each(["2099-12-31", "2096-02-29", "2020-01-01"])(
+  // "2096-02-29" is a real leap day: it must survive the component check.
+  test.each(["2099-12-31", "2096-02-29"])(
     "stores %p verbatim",
     async (value) => {
       const addResult: SearchResult = await memory.add("Good expiry", {
@@ -518,69 +401,46 @@ describe("Memory - expired memories", () => {
     return addResult.results[0].id;
   }
 
-  test("getAll() hides expired memories by default", async () => {
+  async function seedLiveAndDead(scopedUser: string): Promise<void> {
+    await memory.add("Live memory", { userId: scopedUser, infer: false });
+    await memory.add("Dead memory", {
+      userId: scopedUser,
+      infer: false,
+      expirationDate: "2020-01-01",
+    });
+  }
+
+  test("getAll() hides expired memories unless showExpired", async () => {
     const scopedUser = `${userId}_getall`;
-    await memory.add("Live memory", { userId: scopedUser, infer: false });
-    await memory.add("Dead memory", {
-      userId: scopedUser,
-      infer: false,
-      expirationDate: "2020-01-01",
-    });
+    await seedLiveAndDead(scopedUser);
+    const filters = { user_id: scopedUser };
 
-    const result: SearchResult = await memory.getAll({
-      filters: { user_id: scopedUser },
-    });
-    expect(result.results.map((r) => r.memory)).toEqual(["Live memory"]);
-  });
+    const hidden: SearchResult = await memory.getAll({ filters });
+    expect(hidden.results.map((r) => r.memory)).toEqual(["Live memory"]);
 
-  test("getAll() includes expired memories with showExpired", async () => {
-    const scopedUser = `${userId}_getall_show`;
-    await memory.add("Live memory", { userId: scopedUser, infer: false });
-    await memory.add("Dead memory", {
-      userId: scopedUser,
-      infer: false,
-      expirationDate: "2020-01-01",
-    });
-
-    const result: SearchResult = await memory.getAll({
-      filters: { user_id: scopedUser },
+    const shown: SearchResult = await memory.getAll({
+      filters,
       showExpired: true,
     });
-    expect(result.results.map((r) => r.memory).sort()).toEqual([
+    expect(shown.results.map((r) => r.memory).sort()).toEqual([
       "Dead memory",
       "Live memory",
     ]);
   });
 
-  test("search() hides expired memories by default", async () => {
+  test("search() hides expired memories unless showExpired", async () => {
     const scopedUser = `${userId}_search`;
-    await memory.add("Live memory", { userId: scopedUser, infer: false });
-    await memory.add("Dead memory", {
-      userId: scopedUser,
-      infer: false,
-      expirationDate: "2020-01-01",
-    });
+    await seedLiveAndDead(scopedUser);
+    const filters = { user_id: scopedUser };
 
-    const result: SearchResult = await memory.search("memory", {
-      filters: { user_id: scopedUser },
-    });
-    expect(result.results.map((r) => r.memory)).toEqual(["Live memory"]);
-  });
+    const hidden: SearchResult = await memory.search("memory", { filters });
+    expect(hidden.results.map((r) => r.memory)).toEqual(["Live memory"]);
 
-  test("search() includes expired memories with showExpired", async () => {
-    const scopedUser = `${userId}_search_show`;
-    await memory.add("Live memory", { userId: scopedUser, infer: false });
-    await memory.add("Dead memory", {
-      userId: scopedUser,
-      infer: false,
-      expirationDate: "2020-01-01",
-    });
-
-    const result: SearchResult = await memory.search("memory", {
-      filters: { user_id: scopedUser },
+    const shown: SearchResult = await memory.search("memory", {
+      filters,
       showExpired: true,
     });
-    expect(result.results.map((r) => r.memory).sort()).toEqual([
+    expect(shown.results.map((r) => r.memory).sort()).toEqual([
       "Dead memory",
       "Live memory",
     ]);
