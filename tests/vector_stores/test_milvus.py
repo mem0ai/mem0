@@ -107,12 +107,11 @@ class TestMilvusDB:
         assert 'metadata["category"] == "work"' in filter_str
         assert ' and ' in filter_str
 
-    def test_create_filter_asterisk_conditions(self, milvus_db):
-        """Test filter creation with asterisk conditions."""
+    def test_create_filter_wildcard_conditions(self, milvus_db):
+        """Test filter creation with wildcard conditions."""
         filters = {"user_id": "alice", "run_id": "*"}
         filter_str = milvus_db._create_filter(filters)
 
-        # Should join with 'and'
         assert 'metadata["user_id"] == "alice"' in filter_str
         assert 'metadata["run_id"] == "*"' not in filter_str
 
