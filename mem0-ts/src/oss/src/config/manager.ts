@@ -133,6 +133,11 @@ export class ConfigManager {
             userConf?.maxTokens ?? (llmRaw?.max_tokens as number | undefined);
 
           return {
+            // Spread user-provided config first so any additional fields
+            // (e.g. future aws_bedrock options) pass through without a
+            // manager.ts edit, matching the vectorStore.config pattern above
+            // and making the schema's .passthrough() on llm.config meaningful.
+            ...userConf,
             baseURL: llmBaseURL,
             url: userConf?.url,
             apiKey:
