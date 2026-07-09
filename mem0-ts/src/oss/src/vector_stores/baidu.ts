@@ -28,7 +28,11 @@ export interface BaiduConfig extends VectorStoreConfig {
 
 const VECTOR_INDEX = "vector_idx";
 const FILTERING_INDEX = "metadata_filtering_idx";
-const BM25_INDEX = "data_bm25_idx";
+// Named after the column it actually indexes, and deliberately not Python's "data_bm25_idx".
+// This index holds Porter-stemmed text, but mem0/vector_stores/baidu.py's keyword_search()
+// sends a raw, unstemmed query to that name. Sharing it would let Python find an index whose
+// contents it cannot match properly, silently returning degraded hits instead of None.
+const BM25_INDEX = "text_lemmatized_bm25_idx";
 const PROJECTIONS = ["id", "data", "metadata"];
 const TABLE_POLL_INTERVAL_MS = 2000;
 const TABLE_POLL_ATTEMPTS = 60;

@@ -172,9 +172,12 @@ describe("BaiduDB table provisioning", () => {
       fields: ["metadata"],
     });
     // Memory.search() hands keywordSearch() an already-lemmatized query, so raw `data` is
-    // not worth indexing — only the lemmatized column is.
+    // not worth indexing — only the lemmatized column is. The index is therefore named for
+    // that column and must never be called "data_bm25_idx": that is the name Python's
+    // keyword_search() queries with a raw, unstemmed query, and it must keep missing (and so
+    // falling back to vector search) rather than half-matching this stemmed index.
     expect(bm25).toMatchObject({
-      indexName: "data_bm25_idx",
+      indexName: "text_lemmatized_bm25_idx",
       indexType: IndexType.InvertedIndex,
       fields: ["textLemmatized"],
       fieldAttributes: [InvertedIndexFieldAttribute.Analyzed],
@@ -288,7 +291,7 @@ describe("BaiduDB keyword search support detection", () => {
     await expect(store.keywordSearch("hello")).resolves.toBeNull();
     expect(client.bm25Search).not.toHaveBeenCalled();
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("data_bm25_idx"),
+      expect.stringContaining("text_lemmatized_bm25_idx"),
     );
   });
 
@@ -301,7 +304,7 @@ describe("BaiduDB keyword search support detection", () => {
       descTable: async () =>
         normalTable({
           fields: BM25_FIELDS,
-          indexes: [{ indexName: "data_bm25_idx" }],
+          indexes: [{ indexName: "text_lemmatized_bm25_idx" }],
         }),
     });
     client.bm25Search.mockResolvedValue({ ...OK, rows: [] });
@@ -328,7 +331,7 @@ describe("BaiduDB keyword search support detection", () => {
 
     const { request, ...ns } = client.bm25Search.mock.calls[0][0];
     expect(ns).toEqual({ database: "mem0_db", table: "mem0" });
-    expect(request.indexName).toBe("data_bm25_idx");
+    expect(request.indexName).toBe("text_lemmatized_bm25_idx");
     expect(request.searchText).toBe("love pizza");
     expect(request.limit).toBe(7);
     expect(request.filter).toBe('metadata["userId"] = "alice"');
