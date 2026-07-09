@@ -150,7 +150,7 @@ await memory.update("mem_123", { metadata: { category: "preferences" } });
 </Note>
 
 <Note>
-  `data` is a deprecated alias for `text` in both OSS SDKs (`data=` in Python, `{ data: ... }` in JavaScript). It still works but logs a warning; prefer `text`.
+  `data` is a deprecated alias for `text` in both OSS SDKs (`data=` in Python, `{ data: ... }` in JavaScript). It still works but logs a warning; prefer `text`. In JavaScript, passing a bare string is shorthand for `{ text }`, so `update(memoryId, "new text")` also still works.
 </Note>
 
 ## Tips

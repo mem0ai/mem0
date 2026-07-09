@@ -1623,19 +1623,22 @@ export class Memory {
 
   async update(
     memoryId: string,
-    config: UpdateMemoryOptions,
+    config: string | UpdateMemoryOptions,
   ): Promise<{ message: string }> {
     await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
 
-    const { metadata, expirationDate } = config;
-    let text = config.text;
-    if (config.data != null) {
+    const options: UpdateMemoryOptions =
+      typeof config === "string" ? { text: config } : config;
+
+    const { metadata, expirationDate } = options;
+    let text = options.text;
+    if (options.data != null) {
       logger.warn(
         "The `data` option of update() is deprecated and will be removed in " +
           "the next major release. Use `text` instead.",
       );
-      text ??= config.data;
+      text ??= options.data;
     }
 
     if (

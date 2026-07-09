@@ -400,6 +400,26 @@ describe("Memory - update() text/data aliasing", () => {
       "At least one of text, metadata, or expirationDate must be provided.",
     );
   });
+
+  test("still accepts a bare text string, as on main", async () => {
+    const id = await seed("Positional before");
+    await memory.update(id, "Positional after");
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Positional after");
+  });
+
+  test("a bare text string does not warn", async () => {
+    const id = await seed("No warn positional");
+    await memory.update(id, "Positional no warn");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  test("an empty bare string is content, not a missing argument", async () => {
+    const id = await seed("Empty positional");
+    await memory.update(id, "");
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("");
+  });
 });
 
 // ─── expiration date parsing ─────────────────────────────
