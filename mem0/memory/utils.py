@@ -120,7 +120,10 @@ def remove_code_blocks(content: str) -> str:
     - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
+    - Returns None unchanged when content is None (e.g. safety-refusal responses).
     """
+    if content is None:
+        return content
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     match_res=match.group(1).strip() if match else content.strip()
