@@ -40,6 +40,11 @@ jest.mock("../src/embeddings/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
 }));
+jest.mock("../src/embeddings/vertexai", () => ({
+  VertexAIEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vertexai-embedder", config })),
+}));
 jest.mock("../src/embeddings/together", () => ({
   TogetherEmbedder: jest
     .fn()
@@ -137,6 +142,11 @@ jest.mock("../src/vector_stores/qdrant", () => ({
   Qdrant: jest
     .fn()
     .mockImplementation((config) => ({ type: "qdrant", config })),
+}));
+jest.mock("../src/vector_stores/baidu", () => ({
+  BaiduDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "baidu", config })),
 }));
 jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
@@ -236,6 +246,7 @@ describe("EmbedderFactory", () => {
     ["fastembed"],
     ["langchain"],
     ["lmstudio"],
+    ["vertexai"],
     ["together"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
@@ -320,6 +331,7 @@ describe("VectorStoreFactory", () => {
   });
 
   test.each([
+    ["baidu"],
     ["qdrant"],
     ["redis"],
     ["valkey"],
@@ -335,9 +347,8 @@ describe("VectorStoreFactory", () => {
     ["s3_vectors"],
     ["weaviate"],
   ])("creates vector store for provider '%s'", (provider) => {
-    expect(() =>
-      VectorStoreFactory.create(provider, dummyVSConfig),
-    ).not.toThrow();
+    const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
+    expect(result.config).toBe(dummyVSConfig);
   });
 
   test("throws for unsupported provider", () => {

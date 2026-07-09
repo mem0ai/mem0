@@ -18,7 +18,129 @@ Reranker-enhanced search adds a second scoring pass after vector retrieval so Me
 </Warning>
 
 <Note>
-  All configuration snippets translate directly to the TypeScript SDK: swap dictionaries for objects while keeping the same keys (`provider`, `config`, `rerank` flags).
+  The `Configure it` and `See it in action` snippets below use the Python SDK. The self-hosted **TypeScript SDK** supports the Cohere, Zero Entropy, Sentence Transformer, Hugging Face, and LLM rerankers; see [TypeScript SDK](#typescript-sdk).
+</Note>
+
+---
+
+## TypeScript SDK
+
+The self-hosted TypeScript SDK (`mem0ai/oss`) ships five rerankers: **Cohere**, **Zero Entropy**, **Sentence Transformer**, **Hugging Face**, and the **LLM reranker**. Configure one under `reranker`, then opt in per search with `rerank: true`. Keys are camelCase (`apiKey`, not `api_key`).
+
+Provider SDKs are peer dependencies. Install the one your reranker needs:
+
+```bash
+pnpm add cohere-ai          # cohere
+pnpm add zeroentropy        # zero_entropy
+pnpm add @huggingface/transformers   # sentence_transformer, huggingface
+# llm_reranker defaults to openai (already a core dependency); install another
+# provider's SDK only if you nest a different one under config.llm
+```
+
+### Hosted rerankers (Cohere, Zero Entropy)
+
+Both call a hosted API and read their key from config or the provider's environment variable (`COHERE_API_KEY`, `ZERO_ENTROPY_API_KEY`).
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+// Cohere reranker (defaults to the rerank-v3.5 model)
+const memory = new Memory({
+  reranker: {
+    provider: "cohere",
+    config: { apiKey: process.env.COHERE_API_KEY },
+  },
+});
+
+const results = await memory.search("What are my food preferences?", {
+  filters: { userId: "alice" },
+  rerank: true,
+});
+```
+
+```typescript
+// Zero Entropy reranker (defaults to the zerank-1 model)
+const memory = new Memory({
+  reranker: {
+    provider: "zero_entropy",
+    config: { apiKey: process.env.ZERO_ENTROPY_API_KEY },
+  },
+});
+```
+
+### Local cross-encoders (Sentence Transformer, Hugging Face)
+
+Both run a cross-encoder locally with [Transformers.js](https://huggingface.co/docs/transformers.js): no API key, no network at inference time. Because Transformers.js runs ONNX weights, the default models are the ONNX mirrors of the Python SDK's defaults (`sentence_transformer` → `Xenova/ms-marco-MiniLM-L-6-v2`, `huggingface` → `Xenova/bge-reranker-base`). Point `model` at any ONNX-exported cross-encoder on the Hub to override.
+
+```typescript
+const memory = new Memory({
+  reranker: {
+    provider: "sentence_transformer", // or "huggingface"
+    config: {
+      // model: "Xenova/bge-reranker-base",  // override the default
+      device: "cpu", // Transformers.js device: "cpu" | "wasm" | "webgpu"
+      maxLength: 512, // max tokens per query-document pair
+      normalize: true, // sigmoid-normalize logits to [0, 1] (default)
+    },
+  },
+});
+
+const results = await memory.search("What movies do I like?", {
+  filters: { userId: "alice" },
+  rerank: true,
+});
+```
+
+<Note>
+  `batchSize` and `showProgressBar` are accepted for config parity with the Python SDK but are no-ops in this runtime, because a memory search reranks a small candidate set in a single in-process forward pass. The model is downloaded once and cached in-process on first use.
+</Note>
+
+### LLM reranker
+
+To score with an LLM instead of a dedicated reranker, use the `llm_reranker` provider. It builds its own LLM from the reranker's config (defaulting to `openai` / `gpt-4o-mini`) rather than reusing the Memory's main `llm`:
+
+```typescript
+const memory = new Memory({
+  reranker: {
+    provider: "llm_reranker",
+    config: { apiKey: process.env.OPENAI_API_KEY },
+  },
+});
+
+const results = await memory.search("What movies do I like?", {
+  filters: { userId: "alice" },
+  rerank: true,
+});
+```
+
+Nest a different provider under `config.llm` to override the default:
+
+```typescript
+const memory = new Memory({
+  reranker: {
+    provider: "llm_reranker",
+    config: {
+      llm: {
+        provider: "anthropic",
+        config: { apiKey: process.env.ANTHROPIC_API_KEY },
+      },
+    },
+  },
+});
+```
+
+### Config reference
+
+| Provider | Default model | Key config fields |
+| --- | --- | --- |
+| `cohere` | `rerank-v3.5` | `apiKey`, `model`, `topK` |
+| `zero_entropy` | `zerank-1` | `apiKey`, `model`, `topK` |
+| `sentence_transformer` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `huggingface` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `llm_reranker` | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
+
+<Note>
+  `rerank` is opt-in per search and a no-op when no `reranker` is configured. If the reranker call fails, Mem0 logs a warning and returns the original vector-ranked results.
 </Note>
 
 ---
@@ -61,7 +183,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key"
         }
     }
@@ -86,7 +208,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key",
             "top_k": 10,
             "return_documents": True
@@ -164,7 +286,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key",
             "top_k": 15,
             "return_documents": True
@@ -338,7 +460,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key"
         }
     }
