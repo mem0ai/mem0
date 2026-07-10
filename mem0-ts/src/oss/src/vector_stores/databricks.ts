@@ -119,6 +119,16 @@ function extractHostAndWorkspaceUrl(config: DatabricksConfig): {
   );
 }
 
+// `Memory.search()` hands keywordSearch() an already-lemmatized query, so BM25 has to score
+// against lemmatized text. Same contract as baidu.ts / pgvector.ts.
+function lemmatizedText(payload: Record<string, any>): string {
+  const data = typeof payload.data === "string" ? payload.data : "";
+  return typeof payload.textLemmatized === "string" &&
+    payload.textLemmatized.length > 0
+    ? payload.textLemmatized
+    : data;
+}
+
 function formatSqlValue(value: any): string {
   if (value === null || value === undefined) {
     return "NULL";
@@ -434,6 +444,10 @@ export class DatabricksVectorStore implements VectorStore {
   private session?: DatabricksSqlSessionLike;
   private _sessionPromise?: Promise<DatabricksSqlSessionLike>;
   private _initPromise?: Promise<void>;
+  private indexSyncWait: Promise<void> | null = null;
+  private indexSyncRunning = false;
+  private indexSyncQueued = false;
+  private indexSyncError: unknown = null;
   private readonly oauthTokens = new Map<
     string,
     { accessToken: string; expiresAt: number }
@@ -508,6 +522,7 @@ export class DatabricksVectorStore implements VectorStore {
         memory_id STRING,
         embedding ARRAY<FLOAT>,
         payload STRING,
+        text_lemmatized STRING,
         user_id STRING,
         agent_id STRING,
         run_id STRING
@@ -542,6 +557,7 @@ export class DatabricksVectorStore implements VectorStore {
         ${formatSqlValue(ids[index])},
         ${formatSqlValue(vector)},
         ${formatSqlValue(JSON.stringify(payload))},
+        ${formatSqlValue(lemmatizedText(payload))},
         ${formatSqlValue(sessionValues.user_id)},
         ${formatSqlValue(sessionValues.agent_id)},
         ${formatSqlValue(sessionValues.run_id)}
@@ -550,10 +566,10 @@ export class DatabricksVectorStore implements VectorStore {
 
     await this.executeSql(`
       INSERT INTO ${this.fullTableName}
-        (memory_id, embedding, payload, user_id, agent_id, run_id)
+        (memory_id, embedding, payload, text_lemmatized, user_id, agent_id, run_id)
       VALUES ${values.join(", ")}
     `);
-    await this.syncIndexIfTriggered();
+    this.requestIndexSync();
   }
 
   async search(
@@ -598,6 +614,11 @@ export class DatabricksVectorStore implements VectorStore {
       filters,
     );
 
+    // ponytail: `text_lemmatized` is synced so BM25 has clean text to score, but this query
+    // does not scope matching to it -- the `query_columns` parameter that would is Beta and
+    // gated behind the Full-Text Search public preview. Until it is GA the serialized
+    // `payload` column is also matchable, which adds noise (hashes, JSON keys) to ranking.
+    // Upgrade path: add `query_columns: ["text_lemmatized"]` once the preview ships.
     return this.queryIndex(
       {
         columns: ["memory_id", "payload"],
@@ -644,12 +665,13 @@ export class DatabricksVectorStore implements VectorStore {
       UPDATE ${this.fullTableName}
       SET embedding = ${formatSqlValue(vector)},
           payload = ${formatSqlValue(JSON.stringify(payload || {}))},
+          text_lemmatized = ${formatSqlValue(lemmatizedText(payload || {}))},
           user_id = ${formatSqlValue(sessionValues.user_id)},
           agent_id = ${formatSqlValue(sessionValues.agent_id)},
           run_id = ${formatSqlValue(sessionValues.run_id)}
       WHERE memory_id = ${formatSqlValue(vectorId)}
     `);
-    await this.syncIndexIfTriggered();
+    this.requestIndexSync();
   }
 
   async delete(vectorId: string): Promise<void> {
@@ -659,7 +681,7 @@ export class DatabricksVectorStore implements VectorStore {
       DELETE FROM ${this.fullTableName}
       WHERE memory_id = ${formatSqlValue(vectorId)}
     `);
-    await this.syncIndexIfTriggered();
+    this.requestIndexSync();
   }
 
   async deleteCol(): Promise<void> {
@@ -800,9 +822,18 @@ export class DatabricksVectorStore implements VectorStore {
         delta_sync_index_spec: {
           source_table: this.fullTableName,
           pipeline_type: this.pipelineType,
+          // ponytail: `payload` stays synced because query results are hydrated straight
+          // from it. Drop it here and hydrate by memory_id over SQL if index size bites.
           columns_to_sync:
             this.endpointType === "STANDARD"
-              ? ["memory_id", "payload", "user_id", "agent_id", "run_id"]
+              ? [
+                  "memory_id",
+                  "payload",
+                  "text_lemmatized",
+                  "user_id",
+                  "agent_id",
+                  "run_id",
+                ]
               : undefined,
           embedding_vector_columns: [
             {
@@ -1021,15 +1052,61 @@ export class DatabricksVectorStore implements VectorStore {
     }
   }
 
-  private async syncIndexIfTriggered(): Promise<void> {
+  /**
+   * A TRIGGERED pipeline only ingests new rows when it is explicitly synced, so every write
+   * must request one. Writers fire the sync and return; only readers wait for it to land.
+   * A sync already in flight absorbs later writes -- deleteAll()'s N sequential deletes
+   * collapse into far fewer than N pipeline runs.
+   */
+  private requestIndexSync(): void {
     if (this.pipelineType !== "TRIGGERED") {
       return;
     }
 
-    await this.httpClient.post(
-      `/indexes/${encodeURIComponent(this.fullIndexName)}/sync`,
-    );
-    await this.waitForIndexReadiness();
+    this.indexSyncQueued = true;
+    if (this.indexSyncRunning) {
+      // A drain is live and has not yet re-checked the queue, so it will pick this up.
+      return;
+    }
+    this.indexSyncRunning = true;
+    this.indexSyncWait = this.drainIndexSync();
+  }
+
+  private async drainIndexSync(): Promise<void> {
+    try {
+      // Re-checking the flag and clearing `indexSyncRunning` both happen with no `await`
+      // between them, so a write can never land on a drain that has stopped looking.
+      while (this.indexSyncQueued) {
+        this.indexSyncQueued = false;
+        await this.httpClient.post(
+          `/indexes/${encodeURIComponent(this.fullIndexName)}/sync`,
+        );
+        await this.waitForIndexReadiness();
+      }
+      this.indexSyncError = null;
+    } catch (error) {
+      // Surfaced to the next reader: the writer that scheduled this has already returned.
+      this.indexSyncError = error;
+    } finally {
+      this.indexSyncRunning = false;
+    }
+  }
+
+  private async awaitIndexSync(): Promise<void> {
+    while (this.indexSyncWait) {
+      const wait = this.indexSyncWait;
+      await wait;
+      // Only retire the promise we actually awaited; a newer drain may have replaced it,
+      // and that one still owes us its rows. Clearing unconditionally would drop it.
+      if (this.indexSyncWait === wait) {
+        this.indexSyncWait = null;
+      }
+    }
+    if (this.indexSyncError) {
+      const error = this.indexSyncError;
+      this.indexSyncError = null;
+      throw error;
+    }
   }
 
   private async waitForEndpointReadiness(): Promise<void> {
@@ -1145,6 +1222,9 @@ export class DatabricksVectorStore implements VectorStore {
     filters: SearchFilters | undefined,
     topK: number,
   ): Promise<VectorStoreResult[]> {
+    // Read-after-write: writers only request the sync, the reader is what blocks on it.
+    // get()/list() skip this -- they read the source Delta table, which is always current.
+    await this.awaitIndexSync();
     const requiresLocalFilteringPagination =
       this.shouldPaginateForLocalFiltering(filters);
     const queryResultCap =

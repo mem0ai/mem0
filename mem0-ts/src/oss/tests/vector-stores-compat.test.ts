@@ -816,6 +816,7 @@ describe("Databricks – backward compat with mocked clients", () => {
       let indexExists = false;
       let indexPendingReadyResponses = 0;
       let syncPendingReadyResponses = 0;
+      let indexNeverReady = false;
       let pagedQueryResponses: any[] = [];
 
       const defaultQueryResponse = {
@@ -860,6 +861,14 @@ describe("Databricks – backward compat with mocked clients", () => {
               const error: any = new Error("missing index");
               error.response = { status: 404 };
               throw error;
+            }
+            if (indexNeverReady) {
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
             }
             if (indexPendingReadyResponses > 0) {
               indexPendingReadyResponses -= 1;
@@ -950,6 +959,9 @@ describe("Databricks – backward compat with mocked clients", () => {
             JSON.parse(JSON.stringify(response)),
           );
         },
+        __setIndexNeverReady: (value: boolean) => {
+          indexNeverReady = value;
+        },
         __mockAuthPost: authPost,
       };
     });
@@ -1035,6 +1047,7 @@ describe("Databricks – backward compat with mocked clients", () => {
         columns_to_sync: [
           "memory_id",
           "payload",
+          "text_lemmatized",
           "user_id",
           "agent_id",
           "run_id",
@@ -1129,6 +1142,9 @@ describe("Databricks – backward compat with mocked clients", () => {
       schema: "default",
       collectionName: "memories",
       dimension: 3,
+      // Non-zero: a 0ms poll skips the sleep entirely, so a sync would drain within the
+      // microtask queue and never overlap the next write. 1ms models a real readiness wait.
+      syncPollIntervalMs: 1,
     });
 
     await store.initialize();
@@ -1156,11 +1172,13 @@ describe("Databricks – backward compat with mocked clients", () => {
       topic: "alpha",
     });
     const httpClient = axiosModule.__mockHttpClient;
-    expect(
-      httpClient.post.mock.calls.filter(
-        ([url]: [string]) => url === "/indexes/main.default.memories/sync",
-      ),
-    ).toHaveLength(3);
+    const syncPosts = httpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+    );
+    // insert/update/delete each request a sync, but writes that land while one is already
+    // in flight coalesce into it -- so three writes never cost three pipeline runs.
+    expect(syncPosts.length).toBeGreaterThanOrEqual(1);
+    expect(syncPosts.length).toBeLessThan(3);
     expect(
       httpClient.get.mock.calls.filter(
         ([url]: [string]) => url === "/indexes/main.default.memories",
@@ -1815,6 +1833,201 @@ describe("Databricks – backward compat with mocked clients", () => {
     expect(listSql).toBeDefined();
     expect(listSql).not.toContain("WHERE");
     expect(listSql).toContain("LIMIT 10000");
+  });
+
+  it("provisions a dedicated text_lemmatized column for BM25 keyword search", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+
+    const session = databricksSql.__mockSession;
+    const createSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("CREATE TABLE IF NOT EXISTS main.default.memories"),
+      );
+
+    expect(createSql).toBeDefined();
+    expect(createSql).toContain("text_lemmatized STRING");
+  });
+
+  it("writes lemmatized text on insert and refreshes it on update", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ data: "running shoes", textLemmatized: "run shoe" }],
+    );
+
+    const insertSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("INSERT INTO"));
+
+    expect(insertSql).toContain(
+      "(memory_id, embedding, payload, text_lemmatized, user_id, agent_id, run_id)",
+    );
+    expect(insertSql).toContain("'run shoe'");
+
+    session.executeStatement.mockClear();
+    await store.update("id-1", [0, 1, 0], {
+      data: "walking boots",
+      textLemmatized: "walk boot",
+    });
+
+    const updateSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("UPDATE"));
+
+    expect(updateSql).toContain("text_lemmatized = 'walk boot'");
+  });
+
+  it("falls back to payload.data when textLemmatized is absent", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.insert([[1, 0, 0]], ["id-1"], [{ data: "plain text" }]);
+
+    const insertSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("INSERT INTO"));
+
+    expect(insertSql).toContain("'plain text'");
+  });
+
+  it("coalesces triggered-index syncs across sequential deletes", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    const httpClient = axiosModule.__mockHttpClient;
+    httpClient.post.mockClear();
+
+    // deleteAll() awaits each deleteMemory in turn -- exactly this shape.
+    for (let index = 0; index < 8; index += 1) {
+      await store.delete(`id-${index}`);
+    }
+    await store.search([1, 0, 0], 5);
+
+    const syncPosts = httpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+    );
+
+    expect(syncPosts.length).toBeGreaterThanOrEqual(1);
+    expect(syncPosts.length).toBeLessThan(8);
+  });
+
+  it("starts one sync for concurrent writers, and still drains the second write", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    const httpClient = axiosModule.__mockHttpClient;
+    httpClient.post.mockClear();
+
+    const syncPosts = () =>
+      httpClient.post.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+      ).length;
+
+    await Promise.all([
+      store.insert([[1, 0, 0]], ["id-a"], [{ data: "alpha" }]),
+      store.insert([[0, 1, 0]], ["id-b"], [{ data: "beta" }]),
+    ]);
+
+    // Both writers ran before any sync settled. Exactly one drain may own the pipeline --
+    // if both had raced past the guard they would each have POSTed their own sync.
+    expect(syncPosts()).toBe(1);
+
+    // The second writer's rows are not lost: the live drain re-checks the queue and syncs again.
+    await store.search([1, 0, 0], 5);
+    expect(syncPosts()).toBe(2);
+  });
+
+  it("does not block writes on index readiness, and surfaces sync failures on the next read", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+      syncTimeoutMs: 10,
+    });
+
+    await store.initialize();
+    // Every readiness poll from here on reports not-ready, so the sync can only time out.
+    axiosModule.__setIndexNeverReady(true);
+
+    // The write still resolves: it schedules the sync, it does not wait for it.
+    await expect(
+      store.insert([[1, 0, 0]], ["id-1"], [{ data: "alpha" }]),
+    ).resolves.toBeUndefined();
+
+    // The reader is what pays -- and inherits the deferred failure.
+    await expect(store.search([1, 0, 0], 5)).rejects.toThrow();
+
+    // The error is consumed once, not latched forever.
+    axiosModule.__setIndexNeverReady(false);
+    await expect(store.search([1, 0, 0], 5)).resolves.toBeDefined();
   });
 });
 
