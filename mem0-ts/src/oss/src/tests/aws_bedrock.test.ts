@@ -130,6 +130,78 @@ describe("AWSBedrockLLM", () => {
     });
   });
 
+  it("drops tools for providers that do not support the tool-use API", async () => {
+    const llm = new AWSBedrockLLM({
+      awsRegion: "us-west-2",
+      model: "meta.llama3-70b-instruct-v1:0",
+    });
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "add_memory",
+          description: "store a memory",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    ];
+
+    const result = await llm.generateResponse(
+      [{ role: "user", content: "Hi" }],
+      undefined,
+      tools,
+    );
+
+    // No toolConfig is sent for unsupported families; the plain text response
+    // is returned instead of a toolCalls payload.
+    const input = converseCtor.mock.calls[0][0];
+    expect(input.toolConfig).toBeUndefined();
+    expect(result).toBe("hello");
+  });
+
+  it("keeps tools for supported providers", async () => {
+    const llm = new AWSBedrockLLM({
+      awsRegion: "us-west-2",
+      model: "cohere.command-r-plus-v1:0",
+    });
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "add_memory",
+          description: "store a memory",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    ];
+
+    await llm.generateResponse(
+      [{ role: "user", content: "Hi" }],
+      undefined,
+      tools,
+    );
+
+    const input = converseCtor.mock.calls[0][0];
+    expect(input.toolConfig.tools[0].toolSpec.name).toBe("add_memory");
+  });
+
+  it("resolves the provider for region-prefixed model ids", () => {
+    // A cross-region inference profile id still resolves to the underlying
+    // provider family, so tool support is gated correctly.
+    expect(
+      () =>
+        new AWSBedrockLLM({
+          model: "us.anthropic.claude-3-5-sonnet-20240620-v1:0",
+        }),
+    ).not.toThrow();
+  });
+
+  it("throws on an unknown provider in the model id", () => {
+    expect(() => new AWSBedrockLLM({ model: "acme.super-model-v1:0" })).toThrow(
+      /Unknown AWS Bedrock provider/,
+    );
+  });
+
   it("reads region and credentials from the environment", async () => {
     process.env.AWS_REGION = "eu-central-1";
     process.env.AWS_ACCESS_KEY_ID = "AKIA_TEST";

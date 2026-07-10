@@ -14,16 +14,51 @@ type BedrockSDK = typeof import("@aws-sdk/client-bedrock-runtime");
 // `inferenceConfig`. Mirrors the Python provider's `_build_inference_config`.
 const TOP_P_INCOMPATIBLE_PROVIDERS = new Set(["anthropic", "minimax"]);
 
-// Cross-region inference profile prefixes that precede the real provider
-// segment in a model id (e.g. `us.anthropic.claude-...`).
-const REGION_PREFIXES = new Set(["us", "eu", "apac", "global"]);
+// Known Bedrock model providers. Mirrors the Python provider's PROVIDERS list
+// and is used to validate the provider segment of a model id.
+const PROVIDERS = [
+  "ai21",
+  "amazon",
+  "anthropic",
+  "cohere",
+  "meta",
+  "mistral",
+  "stability",
+  "writer",
+  "deepseek",
+  "gpt-oss",
+  "perplexity",
+  "snowflake",
+  "titan",
+  "command",
+  "j2",
+  "llama",
+  "minimax",
+];
 
+// Providers whose models support the Converse tool-use API. Requests that
+// attach a toolConfig for other families raise an AWS ValidationException, so
+// tools are silently dropped for them (parity with the Python provider's
+// `supports_tools` gate).
+const SUPPORTS_TOOLS_PROVIDERS = new Set(["anthropic", "cohere", "amazon"]);
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Resolve the provider family from a model id by word-boundary matching against
+// the known PROVIDERS list. Mirrors the Python provider's regex search and
+// raises on an unrecognized model id rather than silently guessing.
 function extractProvider(model: string): string {
-  const parts = model.split(".");
-  if (parts.length >= 2 && REGION_PREFIXES.has(parts[0])) {
-    return parts[1];
+  for (const provider of PROVIDERS) {
+    const pattern = new RegExp(`\\b${escapeRegExp(provider)}\\b`);
+    if (pattern.test(model)) {
+      return provider;
+    }
   }
-  return parts[0];
+  throw new Error(
+    `Unknown AWS Bedrock provider for model '${model}'. Expected the model id to reference one of: ${PROVIDERS.join(", ")}.`,
+  );
 }
 
 export class AWSBedrockLLM implements LLM {
@@ -33,6 +68,7 @@ export class AWSBedrockLLM implements LLM {
   private client?: BedrockRuntimeClient;
   private model: string;
   private provider: string;
+  private supportsTools: boolean;
   private maxTokens: number;
   private temperature?: number;
   private topP?: number;
@@ -81,6 +117,7 @@ export class AWSBedrockLLM implements LLM {
       (typeof config.model === "string" ? config.model : undefined) ||
       "anthropic.claude-3-5-sonnet-20240620-v1:0";
     this.provider = extractProvider(this.model);
+    this.supportsTools = SUPPORTS_TOOLS_PROVIDERS.has(this.provider);
     // Defaults mirror the Python provider's AWSBedrockConfig
     // (max_tokens=2000, temperature=0.1, top_p omitted).
     this.maxTokens = config.maxTokens ?? 2000;
@@ -197,7 +234,12 @@ export class AWSBedrockLLM implements LLM {
 
     const { system, messages: converseMessages } =
       this.toBedrockMessages(messages);
-    const toolConfig = this.toToolConfig(tools);
+    // Only attach tools for provider families that support the tool-use API.
+    // For others the tools are silently dropped rather than triggering an AWS
+    // ValidationException, matching the Python provider's fallback.
+    const toolConfig = this.supportsTools
+      ? this.toToolConfig(tools)
+      : undefined;
 
     const input: ConverseCommandInput = {
       modelId: this.model,
