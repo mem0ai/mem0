@@ -25,15 +25,12 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
-    detect_scale_threshold_from_add_result,
-    detect_scale_threshold_from_top_k,
     detect_decay_usage_from_delete,
     detect_decay_usage_from_delete_all,
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
     display_decay_usage_notice,
@@ -51,6 +48,9 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.storage import SQLiteManager
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -1767,30 +1767,41 @@ class Memory(MemoryBase):
     def update(
         self,
         memory_id,
-        data: Optional[str] = None,
+        text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
     ):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str, optional): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
-        if data is None and metadata is None and expiration_date is _UNSET:
-            raise ValueError("At least one of data, metadata, or expiration_date must be provided.")
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
+
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
 
         update_metadata = deepcopy(metadata) if metadata is not None else None
         if expiration_date is not _UNSET:
@@ -1798,10 +1809,10 @@ class Memory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if data is not None:
-            existing_embeddings[data] = self.embedding_model.embed(data, "update")
+        if text is not None:
+            existing_embeddings[text] = self.embedding_model.embed(text, "update")
 
-        self._update_memory(memory_id, data, existing_embeddings, update_metadata)
+        self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -3387,30 +3398,41 @@ class AsyncMemory(MemoryBase):
     async def update(
         self,
         memory_id,
-        data: Optional[str] = None,
+        text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
     ):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str, optional): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> await m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        if data is None and metadata is None and expiration_date is _UNSET:
-            raise ValueError("At least one of data, metadata, or expiration_date must be provided.")
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
+
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
 
         update_metadata = deepcopy(metadata) if metadata is not None else None
         if expiration_date is not _UNSET:
@@ -3418,11 +3440,11 @@ class AsyncMemory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if data is not None:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
-            existing_embeddings[data] = embeddings
+        if text is not None:
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, text, "update")
+            existing_embeddings[text] = embeddings
 
-        await self._update_memory(memory_id, data, existing_embeddings, update_metadata)
+        await self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 

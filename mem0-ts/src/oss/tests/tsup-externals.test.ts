@@ -47,4 +47,11 @@ describe("tsup.config.ts externals", () => {
   it("should have peerDependencies defined in package.json", () => {
     expect(peerDeps.length).toBeGreaterThan(0);
   });
+
+  it("should not list any dependency twice", () => {
+    const duplicates = externalDeps.filter(
+      (dep, i) => externalDeps.indexOf(dep) !== i,
+    );
+    expect(duplicates).toEqual([]);
+  });
 });

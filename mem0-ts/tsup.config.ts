@@ -5,7 +5,11 @@ const external = [
   "openai",
   "@anthropic-ai/sdk",
   "@aws-sdk/client-s3vectors",
+  "@mochow/mochow-sdk-node",
   "groq-sdk",
+  "cohere-ai",
+  "@huggingface/transformers",
+  "zeroentropy",
   "uuid",
   "pg",
   "zod",
@@ -21,6 +25,7 @@ const external = [
   "@mistralai/mistralai",
   "@supabase/supabase-js",
   "@upstash/vector",
+  "@zilliz/milvus2-sdk-node",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",
@@ -35,6 +40,8 @@ const external = [
   "mongodb",
   "@opensearch-project/opensearch",
   "@elastic/elasticsearch",
+  "chromadb",
+  "weaviate-client",
 ];
 
 const define = {

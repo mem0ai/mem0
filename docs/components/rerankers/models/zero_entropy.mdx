@@ -50,6 +50,34 @@ config = {
 memory = Memory.from_config(config)
 ```
 
+## TypeScript (self-hosted)
+
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the Zero Entropy reranker under the same provider name as Python, `zero_entropy`. It reads the key from config or `ZERO_ENTROPY_API_KEY` and defaults to the `zerank-1` model.
+
+```bash
+pnpm add zeroentropy
+```
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  reranker: {
+    provider: "zero_entropy",
+    config: {
+      apiKey: process.env.ZERO_ENTROPY_API_KEY,
+      // model: "zerank-1",   // default (or "zerank-1-small")
+      topK: 5,
+    },
+  },
+});
+
+const results = await memory.search("What Italian food does the user like?", {
+  filters: { userId: "alice" },
+  rerank: true,
+});
+```
+
 ## Environment Variables
 
 Set your API key as an environment variable:

@@ -422,6 +422,57 @@ describe("ConfigManager", () => {
       expect(cfg.vectorStore.config.port).toBe(6333);
     });
   });
+
+  describe("mergeConfig - provider-specific embedder fields", () => {
+    // The embedder config used to be rebuilt from a fixed key list, which
+    // dropped every provider-specific field before the embedder was
+    // constructed. Vertex AI then authenticated against whatever ambient
+    // project ADC resolved to and ignored the configured task types.
+    it("preserves Vertex AI fields through the merge", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "vertexai",
+          config: {
+            model: "gemini-embedding-001",
+            googleProjectId: "my-proj",
+            location: "europe-west4",
+            vertexCredentialsJson: "/creds.json",
+            memoryAddEmbeddingType: "SEMANTIC_SIMILARITY",
+          },
+        },
+        vectorStore: { provider: "memory", config: { collectionName: "test" } },
+        llm: { provider: "openai", config: { apiKey: "test-key" } },
+      });
+
+      expect(cfg.embedder.config).toMatchObject({
+        model: "gemini-embedding-001",
+        googleProjectId: "my-proj",
+        location: "europe-west4",
+        vertexCredentialsJson: "/creds.json",
+        memoryAddEmbeddingType: "SEMANTIC_SIMILARITY",
+      });
+    });
+
+    it("still lets normalized values win over the raw user config", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "lmstudio",
+          config: {
+            lmstudio_base_url: "http://localhost:1234/v1",
+            embedding_dims: 768,
+          },
+        } as never,
+        vectorStore: { provider: "memory", config: { collectionName: "test" } },
+        llm: { provider: "openai", config: { apiKey: "test-key" } },
+      });
+
+      expect(cfg.embedder.config.baseURL).toBe("http://localhost:1234/v1");
+      expect(cfg.embedder.config.embeddingDims).toBe(768);
+      // Snake_case aliases are normalized, not passed through to the provider.
+      expect(cfg.embedder.config).not.toHaveProperty("lmstudio_base_url");
+      expect(cfg.embedder.config).not.toHaveProperty("embedding_dims");
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -629,7 +680,10 @@ describe("Memory – LM Studio end-to-end flow", () => {
       filters: { user_id: "u1" },
     });
 
-    expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");
+    expect(mockEmbedder.embed).toHaveBeenCalledWith(
+      "What does the user like?",
+      "search",
+    );
     expect(mockVStore.search).toHaveBeenCalled();
     expect(result.results).toHaveLength(1);
     expect(result.results[0].memory).toBe("User likes hiking");

@@ -40,6 +40,11 @@ jest.mock("../src/embeddings/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
 }));
+jest.mock("../src/embeddings/vertexai", () => ({
+  VertexAIEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vertexai-embedder", config })),
+}));
 jest.mock("../src/embeddings/together", () => ({
   TogetherEmbedder: jest
     .fn()
@@ -107,6 +112,11 @@ jest.mock("../src/llms/xai", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "xai-llm", config })),
 }));
+jest.mock("../src/llms/sarvam", () => ({
+  SarvamLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "sarvam-llm", config })),
+}));
 jest.mock("../src/llms/litellm", () => ({
   LiteLLM: jest
     .fn()
@@ -132,6 +142,11 @@ jest.mock("../src/vector_stores/qdrant", () => ({
   Qdrant: jest
     .fn()
     .mockImplementation((config) => ({ type: "qdrant", config })),
+}));
+jest.mock("../src/vector_stores/baidu", () => ({
+  BaiduDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "baidu", config })),
 }));
 jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
@@ -193,6 +208,11 @@ jest.mock("../src/vector_stores/s3_vectors", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "s3-vectors", config })),
 }));
+jest.mock("../src/vector_stores/weaviate", () => ({
+  WeaviateDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "weaviate", config })),
+}));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
     .fn()
@@ -231,6 +251,7 @@ describe("EmbedderFactory", () => {
     ["fastembed"],
     ["langchain"],
     ["lmstudio"],
+    ["vertexai"],
     ["together"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
@@ -274,6 +295,7 @@ describe("LLMFactory", () => {
     ["lmstudio"],
     ["deepseek"],
     ["xai"],
+    ["sarvam"],
     ["litellm"],
     ["minimax"],
     ["together"],
@@ -314,6 +336,7 @@ describe("VectorStoreFactory", () => {
   });
 
   test.each([
+    ["baidu"],
     ["qdrant"],
     ["redis"],
     ["valkey"],
@@ -328,10 +351,10 @@ describe("VectorStoreFactory", () => {
     ["cassandra"],
     ["s3-vectors"],
     ["s3_vectors"],
+    ["weaviate"],
   ])("creates vector store for provider '%s'", (provider) => {
-    expect(() =>
-      VectorStoreFactory.create(provider, dummyVSConfig),
-    ).not.toThrow();
+    const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
+    expect(result.config).toBe(dummyVSConfig);
   });
 
   test("throws for unsupported provider", () => {

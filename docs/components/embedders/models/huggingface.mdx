@@ -5,6 +5,10 @@ description: "Configure Hugging Face as an embedding provider in Mem0 for local 
 
 You can use embedding models from Huggingface to run Mem0 locally.
 
+<Note>
+The TypeScript SDK supports Hugging Face only through a hosted [Text Embeddings Inference (TEI)](#using-text-embeddings-inference-tei) endpoint, or any OpenAI-compatible Hugging Face endpoint. The local `sentence-transformers` mode shown first is Python-only.
+</Note>
+
 ### Usage
 
 ```python
@@ -34,9 +38,10 @@ m.add(messages, user_id="john")
 
 ### Using Text Embeddings Inference (TEI)
 
-You can also use Hugging Face's Text Embeddings Inference service for faster and more efficient embeddings:
+You can also use Hugging Face's Text Embeddings Inference service for faster and more efficient embeddings. This is the mode the TypeScript SDK uses.
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -56,6 +61,24 @@ m = Memory.from_config(config)
 m.add("This text will be embedded using the TEI service.", user_id="john")
 ```
 
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+// Point at a running TEI server, or any OpenAI-compatible HF endpoint
+const config = {
+  embedder: {
+    provider: 'huggingface',
+    config: {
+      huggingfaceBaseUrl: 'http://localhost:3000/v1',
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add("This text will be embedded using the TEI service.", { userId: "john" });
+```
+</CodeGroup>
+
 To run the TEI service, you can use Docker:
 
 ```bash
@@ -66,11 +89,22 @@ docker run -d -p 3000:80 -v huggingfacetei:/data --platform linux/amd64 \
 
 ### Config
 
-Here are the parameters available for configuring Huggingface embedder:
+Here are the parameters available for configuring the Hugging Face embedder:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `model` | The name of the model to use | `multi-qa-MiniLM-L6-cos-v1` |
 | `embedding_dims` | Dimensions of the embedding model | `selected_model_dimensions` |
 | `model_kwargs` | Additional arguments for the model | `None` |
 | `huggingface_base_url` | URL to connect to Text Embeddings Inference (TEI) API | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `huggingfaceBaseUrl` | TEI or OpenAI-compatible endpoint URL. Required; falls back to `baseURL`, `url`, then the `HUGGINGFACE_BASE_URL` env var | `None` |
+| `model` | Model name sent to the endpoint (TEI ignores it) | `tei` |
+| `apiKey` | API key for the endpoint; falls back to the `HUGGINGFACE_API_KEY` env var | `"hf"` |
+</Tab>
+</Tabs>
