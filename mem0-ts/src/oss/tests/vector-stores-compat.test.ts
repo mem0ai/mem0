@@ -2165,6 +2165,63 @@ describe("Databricks – backward compat with mocked clients", () => {
     axiosModule.__setIndexNeverReady(false);
     await expect(store.search([1, 0, 0], 5)).resolves.toBeDefined();
   });
+
+  it("update() does not null out session columns on a partial payload", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+    // Partial payload -- omits user_id/agent_id/run_id, the way a caller updating just one
+    // field would. Mirrors Python's `excluded_keys`: these must survive untouched.
+    await store.update("id-1", [0, 1, 0], { topic: "beta" });
+
+    const session = databricksSql.__mockSession;
+    const updateSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0])
+      .find((sql: string) => sql.includes("UPDATE"));
+
+    expect(updateSql).toBeDefined();
+    expect(updateSql).not.toMatch(/\buser_id\s*=/);
+    expect(updateSql).not.toMatch(/\bagent_id\s*=/);
+    expect(updateSql).not.toMatch(/\brun_id\s*=/);
+    expect(updateSql).toMatch(/embedding\s*=/);
+    expect(updateSql).toMatch(/payload\s*=/);
+  });
+
+  it("list() rejects an unsafe-integer topK that would slip past Number.isInteger", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    // 1e21 is Number.isInteger()-true but not representable exactly, and stringifies as
+    // "1e+21" -- meaningless (and unguarded) as a SQL LIMIT.
+    await expect(store.list({ user_id: "u1" }, 1e21)).rejects.toThrow(
+      /topK must be a positive integer/,
+    );
+    // Sanity: a normal topK is still accepted (does not throw).
+    await expect(store.list({ user_id: "u1" }, 10)).resolves.toBeDefined();
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

@@ -669,15 +669,15 @@ export class DatabricksVectorStore implements VectorStore {
     await this.initialize();
     this.assertVectorDimension(vector, "Vector");
 
-    const sessionValues = this.extractSessionValues(payload || {});
+    // Session columns (user_id/agent_id/run_id) are the scope keys that search/list filter on and
+    // are written once at insert(). Mirror Python's `excluded_keys`: update() must never rewrite
+    // them from the payload -- a partial payload that omits these keys would otherwise SET them to
+    // NULL and hide the row from every session-scoped search and list().
     await this.executeSql(`
       UPDATE ${this.fullTableName}
       SET embedding = ${formatSqlValue(vector)},
           payload = ${formatSqlValue(JSON.stringify(payload || {}))},
-          text_lemmatized = ${formatSqlValue(lemmatizedText(payload || {}))},
-          user_id = ${formatSqlValue(sessionValues.user_id)},
-          agent_id = ${formatSqlValue(sessionValues.agent_id)},
-          run_id = ${formatSqlValue(sessionValues.run_id)}
+          text_lemmatized = ${formatSqlValue(lemmatizedText(payload || {}))}
       WHERE memory_id = ${formatSqlValue(vectorId)}
     `);
     this.requestIndexSync();
@@ -718,7 +718,9 @@ export class DatabricksVectorStore implements VectorStore {
     // be rejected here rather than reaching the query -- otherwise a caller that skips
     // TypeScript's compile-time check (e.g. anything passing user input straight through)
     // could inject arbitrary SQL via the LIMIT clause.
-    if (!Number.isInteger(topK) || topK <= 0) {
+    if (!Number.isSafeInteger(topK) || topK <= 0) {
+      // isSafeInteger (not isInteger): an unsafe/huge integer like 1e21 stringifies as "1e+21",
+      // which is meaningless as a LIMIT and would slip past a plain integer check.
       throw new Error(
         `Databricks vector store: topK must be a positive integer, got ${topK}`,
       );
