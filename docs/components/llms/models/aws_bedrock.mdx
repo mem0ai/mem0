@@ -5,6 +5,7 @@ description: "Configure AWS Bedrock as an LLM provider in Mem0 with IAM authenti
 
 ### Setup
 - Before using the AWS Bedrock LLM, make sure you have the appropriate model access from [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- Model availability is per-region. `anthropic.claude-sonnet-4-20250514-v1:0` supports on-demand inference in `us-east-1` and `ap-southeast-4`; from any other region, use the cross-region inference profile ID `us.anthropic.claude-sonnet-4-20250514-v1:0` instead.
 - Install the AWS SDK for your language: `pip install boto3` (Python) or `npm install @aws-sdk/client-bedrock-runtime` (TypeScript).
 - Both SDKs fall back to the standard AWS credential chain (environment variables, `~/.aws/credentials`, or an attached IAM role), so exporting `AWS_REGION`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` is the quickest way to get started. In TypeScript you can also pass credentials inline with `awsRegion`, `awsAccessKeyId`, `awsSecretAccessKey`, and `awsSessionToken`, as shown below.
 
@@ -15,7 +16,7 @@ description: "Configure AWS Bedrock as an LLM provider in Mem0 with IAM authenti
 import os
 from mem0 import Memory
 
-os.environ['AWS_REGION'] = 'us-west-2'
+os.environ['AWS_REGION'] = 'us-east-1'
 os.environ["AWS_ACCESS_KEY_ID"] = "xx"
 os.environ["AWS_SECRET_ACCESS_KEY"] = "xx"
 
@@ -23,7 +24,7 @@ config = {
     "llm": {
         "provider": "aws_bedrock",
         "config": {
-            "model": "anthropic.claude-3-5-haiku-20241022-v1:0",
+            "model": "anthropic.claude-sonnet-4-20250514-v1:0",
             "temperature": 0.2,
             "max_tokens": 2000,
         }
@@ -47,7 +48,7 @@ const config = {
   llm: {
     provider: 'aws_bedrock',
     config: {
-      model: 'anthropic.claude-3-5-haiku-20241022-v1:0',
+      model: 'anthropic.claude-sonnet-4-20250514-v1:0',
       temperature: 0.2,
       maxTokens: 2000,
       // Optional. Omit these to use the default AWS credential chain.
@@ -70,7 +71,7 @@ await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } }
 </CodeGroup>
 
 <Note>
-  `@aws-sdk/client-bedrock-runtime` is an optional peer dependency of `mem0ai`, so npm will not install it for you. The TypeScript provider throws a clear error at construction time if the package is missing.
+  `@aws-sdk/client-bedrock-runtime` is an optional peer dependency of `mem0ai`, so npm will not install it for you. The TypeScript provider loads it lazily and throws a clear error on the first request if the package is missing.
 </Note>
 
 <Note>
