@@ -1,3 +1,4 @@
+import logging
 import os
 from unittest.mock import Mock, patch
 
@@ -210,6 +211,24 @@ def test_update_with_empty_metadata(memory_instance):
     memory_instance._update_memory.assert_called_once_with(
         "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
     )
+
+
+def test_update_data_is_deprecated_alias_for_text(memory_instance, caplog):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance._update_memory = Mock()
+
+    # `data=` still works but emits a deprecation warning
+    with caplog.at_level(logging.WARNING):
+        memory_instance.update("test_id", data="via data")
+
+    assert any("deprecated" in record.message for record in caplog.records)
+    memory_instance._update_memory.assert_called_once_with("test_id", "via data", {"via data": [0.1, 0.2, 0.3]}, None)
+
+    # `text` takes precedence when both are passed
+    memory_instance._update_memory.reset_mock()
+    memory_instance.update("test_id", text="preferred", data="ignored")
+    memory_instance._update_memory.assert_called_once_with("test_id", "preferred", {"preferred": [0.1, 0.2, 0.3]}, None)
 
 
 @pytest.mark.parametrize(

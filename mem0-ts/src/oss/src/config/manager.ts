@@ -3,16 +3,22 @@ import { DEFAULT_MEMORY_CONFIG } from "./defaults";
 
 export class ConfigManager {
   static mergeConfig(userConfig: Partial<MemoryConfig> = {}): MemoryConfig {
+    const embedderProvider =
+      userConfig.embedder?.provider || DEFAULT_MEMORY_CONFIG.embedder.provider;
+    const embedderProviderKey = embedderProvider.toLowerCase();
     const mergedConfig = {
       version: userConfig.version || DEFAULT_MEMORY_CONFIG.version,
       embedder: {
-        provider:
-          userConfig.embedder?.provider ||
-          DEFAULT_MEMORY_CONFIG.embedder.provider,
+        provider: embedderProvider,
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.embedder.config;
           const userConf = userConfig.embedder?.config;
-          let finalModel: string | any = defaultConf.model;
+          // The default embedder model (OpenAI's text-embedding-3-small) only
+          // makes sense for API-based providers. FastEmbed has its own fixed
+          // model set and default, so leave the model unset here and let
+          // FastEmbedEmbedder fall back to its own default.
+          let finalModel: string | any =
+            embedderProviderKey === "fastembed" ? undefined : defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
             finalModel = userConf.model;
@@ -34,6 +40,10 @@ export class ConfigManager {
               | undefined);
 
           return {
+            // Spread first so provider-specific keys (e.g. the Vertex AI
+            // project/location/credentials) survive the merge, while the
+            // normalized values below still win.
+            ...userConf,
             apiKey:
               userConf?.apiKey !== undefined
                 ? userConf.apiKey
@@ -96,6 +106,8 @@ export class ConfigManager {
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.llm.config;
           const userConf = userConfig.llm?.config;
+          const provider =
+            userConfig.llm?.provider || DEFAULT_MEMORY_CONFIG.llm.provider;
           let finalModel: string | any = defaultConf.model;
 
           if (userConf?.model && typeof userConf.model === "object") {
@@ -105,14 +117,18 @@ export class ConfigManager {
           }
 
           // Normalize snake_case keys from Python SDK / OpenClaw configs
+          const llmRaw = userConf as Record<string, unknown> | undefined;
           const llmBaseURL =
             userConf?.baseURL ??
+            userConf?.vllmBaseURL ??
+            (llmRaw?.vllm_base_url as string | undefined) ??
             ((userConf as Record<string, unknown>)?.lmstudio_base_url as
               | string
               | undefined) ??
             userConf?.url ??
-            defaultConf.baseURL;
-          const llmRaw = userConf as Record<string, unknown> | undefined;
+            (provider.toLowerCase() === "vllm"
+              ? undefined
+              : defaultConf.baseURL);
           const temperature =
             userConf?.temperature ??
             (llmRaw?.temperature as number | undefined);
@@ -165,6 +181,7 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
+      reranker: userConfig.reranker,
     };
 
     // Validate the merged config

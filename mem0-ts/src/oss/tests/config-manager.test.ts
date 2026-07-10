@@ -155,6 +155,35 @@ describe("ConfigManager", () => {
       expect(config.llm.config.baseURL).toBe("https://api.openai.com/v1");
     });
 
+    it("normalizes vllm_base_url to baseURL for vLLM", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "vllm",
+          config: {
+            model: "Qwen/Qwen2.5-32B-Instruct",
+            vllm_base_url: "http://localhost:8000/v1",
+          },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBe("http://localhost:8000/v1");
+    });
+
+    it("does not inject the OpenAI baseURL default for vLLM", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "vllm",
+          config: { model: "Qwen/Qwen2.5-32B-Instruct" },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBeUndefined();
+    });
+
     it("should preserve url in embedder config (existing behavior)", () => {
       const config = ConfigManager.mergeConfig({
         embedder: {
@@ -269,6 +298,38 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("mergeConfig - FastEmbed defaults", () => {
+    const baseLlm = { provider: "openai", config: { apiKey: "k" } };
+
+    it("does not inject the OpenAI default embedder model into fastembed", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "fastembed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("fastembed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+
+    it("treats FastEmbed provider casing the same way as the factory", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "FastEmbed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("FastEmbed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+  });
+
   describe("mergeConfig - LM Studio LLM config", () => {
     const baseEmbedder = { provider: "openai", config: { apiKey: "k" } };
 
@@ -359,6 +420,57 @@ describe("ConfigManager", () => {
       expect(cfg.vectorStore.provider).toBe("qdrant");
       expect(cfg.vectorStore.config.host).toBe("192.168.200.12");
       expect(cfg.vectorStore.config.port).toBe(6333);
+    });
+  });
+
+  describe("mergeConfig - provider-specific embedder fields", () => {
+    // The embedder config used to be rebuilt from a fixed key list, which
+    // dropped every provider-specific field before the embedder was
+    // constructed. Vertex AI then authenticated against whatever ambient
+    // project ADC resolved to and ignored the configured task types.
+    it("preserves Vertex AI fields through the merge", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "vertexai",
+          config: {
+            model: "gemini-embedding-001",
+            googleProjectId: "my-proj",
+            location: "europe-west4",
+            vertexCredentialsJson: "/creds.json",
+            memoryAddEmbeddingType: "SEMANTIC_SIMILARITY",
+          },
+        },
+        vectorStore: { provider: "memory", config: { collectionName: "test" } },
+        llm: { provider: "openai", config: { apiKey: "test-key" } },
+      });
+
+      expect(cfg.embedder.config).toMatchObject({
+        model: "gemini-embedding-001",
+        googleProjectId: "my-proj",
+        location: "europe-west4",
+        vertexCredentialsJson: "/creds.json",
+        memoryAddEmbeddingType: "SEMANTIC_SIMILARITY",
+      });
+    });
+
+    it("still lets normalized values win over the raw user config", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "lmstudio",
+          config: {
+            lmstudio_base_url: "http://localhost:1234/v1",
+            embedding_dims: 768,
+          },
+        } as never,
+        vectorStore: { provider: "memory", config: { collectionName: "test" } },
+        llm: { provider: "openai", config: { apiKey: "test-key" } },
+      });
+
+      expect(cfg.embedder.config.baseURL).toBe("http://localhost:1234/v1");
+      expect(cfg.embedder.config.embeddingDims).toBe(768);
+      // Snake_case aliases are normalized, not passed through to the provider.
+      expect(cfg.embedder.config).not.toHaveProperty("lmstudio_base_url");
+      expect(cfg.embedder.config).not.toHaveProperty("embedding_dims");
     });
   });
 });
@@ -568,10 +680,37 @@ describe("Memory – LM Studio end-to-end flow", () => {
       filters: { user_id: "u1" },
     });
 
-    expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");
+    expect(mockEmbedder.embed).toHaveBeenCalledWith(
+      "What does the user like?",
+      "search",
+    );
     expect(mockVStore.search).toHaveBeenCalled();
     expect(result.results).toHaveLength(1);
     expect(result.results[0].memory).toBe("User likes hiking");
+  });
+
+  it("preserves the FastEmbed provider default model through the Memory config path", async () => {
+    const mem = new MemoryClass({
+      embedder: {
+        provider: "fastembed",
+        config: {},
+      },
+      vectorStore: { provider: "memory", config: { collectionName: "test" } },
+      llm: {
+        provider: "openai",
+        config: { apiKey: "test-key" },
+      },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+
+    expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
+      "fastembed",
+      expect.objectContaining({
+        model: undefined,
+      }),
+    );
   });
 
   it("add flow works with lmstudio LLM for fact extraction", async () => {
