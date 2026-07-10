@@ -109,7 +109,7 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
-    "@aws-sdk/client-neptune-graph": "3.966.0",
+    "@aws-sdk/client-neptune-graph": ">=3.0.0 <3.968.0",
     "@aws-sdk/client-s3vectors": "3.967.0",
     "@mochow/mochow-sdk-node": "^2.1.5",
     "@azure/identity": "^4.0.0",
@@ -165,6 +165,9 @@
     },
     "@databricks/sql": {
       "optional": true
+    },
+    "@aws-sdk/client-neptune-graph": {
+      "optional": true
     }
   },
   "engines": {
@@ -202,7 +205,8 @@
       "@modelcontextprotocol/sdk": "^1.25.4",
       "esbuild": ">=0.28.1",
       "undici@<6.27.0": ">=6.27.0 <8.0.0",
-      "@aws-sdk/client-bedrock-runtime": "3.967.0"
+      "@aws-sdk/client-bedrock-runtime": "3.967.0",
+      "@aws-sdk/client-neptune-graph": "3.966.0"
     }
   }
 }

@@ -1069,6 +1069,117 @@ describe("Databricks – backward compat with mocked clients", () => {
     ).toBe(true);
   });
 
+  it("retries loading @databricks/sql after a failed dynamic import instead of caching the rejection", async () => {
+    let shouldFail = true;
+    jest.doMock("@databricks/sql", () => {
+      if (shouldFail) {
+        throw new Error("Cannot find module '@databricks/sql'");
+      }
+      const session = {
+        executeStatement: jest.fn().mockResolvedValue({
+          fetchAll: jest.fn().mockResolvedValue([]),
+          close: jest.fn().mockResolvedValue(undefined),
+        }),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const client = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        openSession: jest.fn().mockResolvedValue(session),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      client.connect.mockResolvedValue(client);
+      return { DBSQLClient: jest.fn().mockImplementation(() => client) };
+    });
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await expect((store as any).getSqlModule()).rejects.toThrow(
+      "The '@databricks/sql' package is required to use the Databricks vector store. " +
+        "Install it with: npm install @databricks/sql (original error: Cannot find module '@databricks/sql')",
+    );
+
+    shouldFail = false;
+    const sqlModule = await (store as any).getSqlModule();
+    expect(typeof sqlModule.DBSQLClient).toBe("function");
+  });
+
+  it("executeSql(): reconnects on the next call after a session failure instead of reusing a dead session", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    const openSessionSpy = jest.spyOn(store as any, "openSession");
+
+    session.executeStatement.mockRejectedValueOnce(
+      new Error("session expired"),
+    );
+    await expect((store as any).executeSql("SELECT 1")).rejects.toThrow(
+      "session expired",
+    );
+    expect(openSessionSpy).not.toHaveBeenCalled();
+
+    await (store as any).executeSql("SELECT 1");
+    expect(openSessionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("getSession(): retries after a failed connection attempt instead of caching the rejection", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    // Simulate the warehouse dropping so the next getSession() must reconnect from scratch
+    // (this clears both the cached session and any in-flight session promise).
+    (store as any).resetSession();
+
+    let attempts = 0;
+    jest.spyOn(store as any, "openSession").mockImplementation(async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error("warehouse cold start");
+      }
+      return databricksSql.__mockSession;
+    });
+
+    // First connection attempt fails (e.g. a cold/auto-suspended warehouse at startup)...
+    await expect((store as any).getSession()).rejects.toThrow(
+      "warehouse cold start",
+    );
+
+    // ...the next call must open a fresh session rather than replay the rejected promise.
+    // Without getSession()'s catch-and-reset, openSession would never be called a second time.
+    const session = await (store as any).getSession();
+    expect(session).toBe(databricksSql.__mockSession);
+    expect(attempts).toBe(2);
+  });
+
   it("supports service-principal credentials for REST and SQL setup", async () => {
     const axiosModule = require("axios");
     const databricksSql = require("@databricks/sql");
@@ -1803,6 +1914,31 @@ describe("Databricks – backward compat with mocked clients", () => {
         sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
       );
     expect(customTopKSql).toContain("LIMIT 7");
+  });
+
+  it("list(): rejects a topK that isn't a positive integer before it reaches SQL", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    for (const badTopK of [
+      0,
+      -1,
+      2.5,
+      NaN,
+      "10; DROP TABLE t" as unknown as number,
+    ]) {
+      await expect(store.list({ user_id: "u1" }, badTopK)).rejects.toThrow(
+        `Databricks vector store: topK must be a positive integer, got ${badTopK}`,
+      );
+    }
   });
 
   it("list(): falls back to the 10k scan ceiling (no WHERE) when $or can't be pushed down", async () => {
@@ -2845,8 +2981,39 @@ describe("S3 Vectors – backward compat with mocked client", () => {
 // 6. Neptune Analytics — mock NeptuneGraph client, test interface + init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Neptune Analytics – backward compat with mocked client", () => {
+  // `@aws-sdk/client-neptune-graph` is an optional peer loaded via dynamic `import()`
+  // (see neptune_analytics.ts). Register a default virtual mock so every test that
+  // exercises `executeQuery()` -- even ones that inject their own `config.client` --
+  // can resolve `sdk.ExecuteQueryCommand` without the real package being installed.
+  // Tests that care about the AWS client constructor itself override this locally
+  // with their own `jest.doMock(..., { virtual: true })` before requiring the module.
+  beforeEach(() => {
+    jest.resetModules();
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
+
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: class NeptuneGraphClient {
+          constructor(public config: any) {}
+
+          async send() {
+            throw new Error(
+              "Neptune Analytics tests must inject a mock `client`; the default virtual SDK has no server to talk to.",
+            );
+          }
+        },
+      }),
+      { virtual: true },
+    );
+  });
+
   afterEach(() => {
-    jest.dontMock("@aws-sdk/client-neptune-graph");
     jest.resetModules();
   });
 
@@ -3346,29 +3513,34 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     expect(mockClient.send).not.toHaveBeenCalled();
   });
 
-  it("passes custom HTTPS endpoints to the AWS client when graphIdentifier is provided", () => {
+  it("passes custom HTTPS endpoints to the AWS client when graphIdentifier is provided", async () => {
     jest.resetModules();
 
-    const neptuneGraphClient = jest.fn().mockReturnValue({
-      send: jest.fn(),
-    });
+    const send = jest
+      .fn()
+      .mockResolvedValue(createMockResponse({ results: [] }));
+    const neptuneGraphClient = jest.fn().mockReturnValue({ send });
 
-    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
-      ExecuteQueryCommand: class ExecuteQueryCommand {
-        input: any;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
 
-        constructor(input: any) {
-          this.input = input;
-        }
-      },
-      NeptuneGraphClient: neptuneGraphClient,
-    }));
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: neptuneGraphClient,
+      }),
+      { virtual: true },
+    );
 
     const {
       NeptuneAnalyticsVectorStore,
     } = require("../src/vector_stores/neptune_analytics");
 
-    new NeptuneAnalyticsVectorStore({
+    const store = new NeptuneAnalyticsVectorStore({
       graphIdentifier: "g-1234567890",
       endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
       collectionName: "test",
@@ -3377,6 +3549,9 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       profile: "dev-profile",
       maxAttempts: 3,
     });
+
+    // The client is now constructed lazily on first use, not in the constructor.
+    await store.search([1, 2, 3], 1);
 
     expect(neptuneGraphClient).toHaveBeenCalledWith({
       endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
@@ -3389,18 +3564,22 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
   it("rejects HTTPS endpoints without an explicit graphIdentifier", () => {
     jest.resetModules();
 
-    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
-      ExecuteQueryCommand: class ExecuteQueryCommand {
-        input: any;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
 
-        constructor(input: any) {
-          this.input = input;
-        }
-      },
-      NeptuneGraphClient: jest.fn().mockReturnValue({
-        send: jest.fn(),
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: jest.fn().mockReturnValue({
+          send: jest.fn(),
+        }),
       }),
-    }));
+      { virtual: true },
+    );
 
     const {
       NeptuneAnalyticsVectorStore,
@@ -3426,16 +3605,20 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       .mockResolvedValue(createMockResponse({ results: [] }));
     const neptuneGraphClient = jest.fn().mockReturnValue({ send });
 
-    jest.doMock("@aws-sdk/client-neptune-graph", () => ({
-      ExecuteQueryCommand: class ExecuteQueryCommand {
-        input: any;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
 
-        constructor(input: any) {
-          this.input = input;
-        }
-      },
-      NeptuneGraphClient: neptuneGraphClient,
-    }));
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: neptuneGraphClient,
+      }),
+      { virtual: true },
+    );
 
     const {
       NeptuneAnalyticsVectorStore,
@@ -3454,6 +3637,109 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     });
     expect(send).toHaveBeenCalled();
     expect(send.mock.calls[0][0].input.graphIdentifier).toBe("g-1234567890");
+  });
+
+  it("does not construct the Neptune client or load the SDK until the first query", async () => {
+    jest.resetModules();
+
+    let clientConstructions = 0;
+    let sdkLoads = 0;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => {
+        sdkLoads++;
+        return {
+          ExecuteQueryCommand: class ExecuteQueryCommand {
+            input: any;
+
+            constructor(input: any) {
+              this.input = input;
+            }
+          },
+          NeptuneGraphClient: class NeptuneGraphClient {
+            constructor(public config: any) {
+              clientConstructions++;
+            }
+
+            async send() {
+              return createMockResponse({ results: [] });
+            }
+          },
+        };
+      },
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    const store = new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    expect(clientConstructions).toBe(0);
+    expect(sdkLoads).toBe(0);
+
+    await store.search([1, 2, 3], 1);
+
+    expect(sdkLoads).toBe(1);
+    expect(clientConstructions).toBe(1);
+  });
+
+  it("retries constructing the Neptune client after a failed SDK load instead of caching the rejection", async () => {
+    jest.resetModules();
+
+    let shouldFail = true;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => {
+        if (shouldFail) {
+          throw new Error("Cannot find module '@aws-sdk/client-neptune-graph'");
+        }
+        return {
+          ExecuteQueryCommand: class ExecuteQueryCommand {
+            input: any;
+
+            constructor(input: any) {
+              this.input = input;
+            }
+          },
+          NeptuneGraphClient: class NeptuneGraphClient {
+            constructor(public config: any) {}
+
+            async send() {
+              return createMockResponse({ results: [] });
+            }
+          },
+        };
+      },
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    const store = new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    // First use fails because the optional SDK can't be loaded...
+    await expect((store as any).getClient()).rejects.toThrow(
+      "The '@aws-sdk/client-neptune-graph' package is required",
+    );
+
+    // ...but a later call must retry rather than replay the cached rejection. Without
+    // getClient()'s catch-and-reset this second call would throw the same stale error.
+    shouldFail = false;
+    const client = await (store as any).getClient();
+    expect(client).toBeDefined();
+    expect(typeof client.send).toBe("function");
   });
 
   it("shapes Neptune write requests and normalizes search results", async () => {
@@ -3904,7 +4190,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     expect(await freshStore.getUserId()).toBe("persisted-user");
   });
 
-  it("throws when Neptune rejects an update upsert", async () => {
+  it("rolls back the payload when Neptune rejects an update upsert", async () => {
     const {
       NeptuneAnalyticsVectorStore,
     } = require("../src/vector_stores/neptune_analytics");
@@ -3925,15 +4211,15 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
     ).rejects.toThrow("Update failed in Neptune Analytics");
 
-    // The payload write runs before the vector upsert, so it is already
-    // durable by the time the vector step rejects — the caller's new
-    // metadata must not be silently dropped just because the embedding
-    // failed to update afterward.
+    // Neptune's vector index isn't transactional: the payload write already lands by the
+    // time the vector step rejects. Without compensation the new metadata would be stuck
+    // pointing at the stale embedding, so a failed update rolls the payload back to what
+    // it was before the call instead of leaving the two desynced.
     const afterFailedUpsert = await store.get("id-1");
     expect(afterFailedUpsert).not.toBeNull();
     expect(afterFailedUpsert!.payload).toEqual(
       expect.objectContaining({
-        data: "beta",
+        data: "alpha",
         user_id: "u1",
       }),
     );
@@ -4866,14 +5152,14 @@ describe("Memory class – backward compat with all providers", () => {
   });
 
   // optional-peers.test.ts proves no optional peer is imported at module scope. This asserts the
-  // other half for Databricks: the driver is still loaded lazily rather than dropped entirely.
-  // No test exercises the SQL path, so nothing else would notice its removal.
+  // other half for Databricks: the driver is still loaded lazily (memoized dynamic import, with
+  // retry-on-failure via getSqlModule()) rather than dropped entirely or made static/eager.
   it("still loads the optional @databricks/sql driver lazily", () => {
     const source = fs.readFileSync(
       path.join(__dirname, "../src/vector_stores/databricks.ts"),
       "utf8",
     );
-    expect(source).toContain('await import("@databricks/sql")');
+    expect(source).toContain('import("@databricks/sql")');
   });
 
   it("sends file-based entities to their own DB when provider casing differs", async () => {

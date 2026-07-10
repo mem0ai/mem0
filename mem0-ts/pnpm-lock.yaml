@@ -28,6 +28,7 @@ overrides:
   esbuild: '>=0.28.1'
   undici@<6.27.0: '>=6.27.0 <8.0.0'
   '@aws-sdk/client-bedrock-runtime': 3.967.0
+  '@aws-sdk/client-neptune-graph': 3.966.0
 
 importers:
 

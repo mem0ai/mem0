@@ -443,6 +443,9 @@ export class DatabricksVectorStore implements VectorStore {
   private session?: DatabricksSqlSessionLike;
   private _sessionPromise?: Promise<DatabricksSqlSessionLike>;
   private _initPromise?: Promise<void>;
+  private sqlModulePromise?: Promise<{
+    DBSQLClient: new () => DatabricksSqlClientLike;
+  }>;
   private indexSyncWait: Promise<void> | null = null;
   private indexSyncRunning = false;
   private indexSyncQueued = false;
@@ -507,7 +510,14 @@ export class DatabricksVectorStore implements VectorStore {
 
   async initialize(): Promise<void> {
     if (!this._initPromise) {
-      this._initPromise = this._doInitialize();
+      this._initPromise = this._doInitialize().catch((error) => {
+        // A failed init (e.g. a cold/auto-suspended warehouse at startup) must not be cached
+        // forever -- clear it so the next public call retries instead of replaying the
+        // rejection. Every step is idempotent (CREATE ... IF NOT EXISTS / ensure*), so a
+        // retry is safe.
+        this._initPromise = undefined;
+        throw error;
+      });
     }
     return this._initPromise;
   }
@@ -703,6 +713,17 @@ export class DatabricksVectorStore implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    // `limit` below is interpolated directly into the SQL string (not a bound parameter,
+    // and not passed through formatSqlValue()), so a non-integer or non-positive topK must
+    // be rejected here rather than reaching the query -- otherwise a caller that skips
+    // TypeScript's compile-time check (e.g. anything passing user input straight through)
+    // could inject arbitrary SQL via the LIMIT clause.
+    if (!Number.isInteger(topK) || topK <= 0) {
+      throw new Error(
+        `Databricks vector store: topK must be a positive integer, got ${topK}`,
+      );
+    }
+
     await this.initialize();
 
     // Push the SQL-translatable conjunctive filters (session keys) into a WHERE
@@ -999,7 +1020,15 @@ export class DatabricksVectorStore implements VectorStore {
       this._sessionPromise = this.openSession();
     }
 
-    this.session = await this._sessionPromise;
+    try {
+      this.session = await this._sessionPromise;
+    } catch (error) {
+      // The first connection attempt failed (cold/auto-suspended warehouse, or a token that
+      // expired before first use). This runs before executeSql()'s own try/catch, so drop the
+      // rejected promise here too -- otherwise the next call replays it forever.
+      this.resetSession();
+      throw error;
+    }
     return this.session;
   }
 
@@ -1008,10 +1037,36 @@ export class DatabricksVectorStore implements VectorStore {
    * top-level `import` makes `import "mem0ai/oss"` throw MODULE_NOT_FOUND for every user who
    * never installed the driver -- including everyone who uses a different vector store. Load it
    * on the first SQL call instead, the way milvus.ts and baidu.ts load theirs.
+   *
+   * This MUST be a dynamic `import()`, never `require()`: tsup/esbuild rewrite `require()` in
+   * the published ESM bundle (`dist/oss/index.mjs`) into a `__require` shim that throws
+   * `Dynamic require of "..." is not supported`, so every ESM consumer would hit a dead
+   * provider even with the driver installed.
    */
+  private async getSqlModule(): Promise<{
+    DBSQLClient: new () => DatabricksSqlClientLike;
+  }> {
+    if (!this.sqlModulePromise) {
+      this.sqlModulePromise = import("@databricks/sql").then(
+        (mod) =>
+          mod as unknown as { DBSQLClient: new () => DatabricksSqlClientLike },
+        (err) => {
+          // Let a later call retry rather than caching the rejection forever.
+          this.sqlModulePromise = undefined;
+          const detail = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            "The '@databricks/sql' package is required to use the Databricks vector store. " +
+              `Install it with: npm install @databricks/sql (original error: ${detail})`,
+          );
+        },
+      );
+    }
+    return this.sqlModulePromise;
+  }
+
   private async getSqlClient(): Promise<DatabricksSqlClientLike> {
     if (!this.sqlClient) {
-      const { DBSQLClient } = await import("@databricks/sql");
+      const { DBSQLClient } = await this.getSqlModule();
       this.sqlClient = new DBSQLClient();
     }
     return this.sqlClient;
@@ -1050,13 +1105,36 @@ export class DatabricksVectorStore implements VectorStore {
     };
   }
 
+  /**
+   * Drop the cached session/session-promise so the next `getSession()` opens a fresh one.
+   * Called after any SQL failure below -- a stale session (expired token, dropped socket)
+   * would otherwise keep being handed out and keep failing forever.
+   */
+  private resetSession(): void {
+    this.session = undefined;
+    this._sessionPromise = undefined;
+  }
+
   private async executeSql(
     statement: string,
   ): Promise<Array<Record<string, any>>> {
     const session = await this.getSession();
-    const operation = await session.executeStatement(statement);
+
+    let operation;
+    try {
+      operation = await session.executeStatement(statement);
+    } catch (error) {
+      // ponytail: no retry here -- statement could be a non-idempotent write, so we only
+      // clear the bad session and let the caller's own retry (if any) reconnect.
+      this.resetSession();
+      throw error;
+    }
+
     try {
       return await operation.fetchAll();
+    } catch (error) {
+      this.resetSession();
+      throw error;
     } finally {
       if (typeof operation.close === "function") {
         await operation.close();
