@@ -217,7 +217,9 @@ const memoryPlugin = definePluginEntry({
     // Memory runtime capability (consumed by memory-wiki, talk, status scans)
     // ========================================================================
     if (typeof api.registerMemoryCapability === "function") {
-      api.registerMemoryCapability(createMemoryCapability(cfg));
+      api.registerMemoryCapability(
+        createMemoryCapability(cfg, provider, _effectiveUserId),
+      );
       api.logger.debug("openclaw-mem0: memory runtime capability registered");
     }
 

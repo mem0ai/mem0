@@ -56,7 +56,7 @@ describe("plugin registration modes", () => {
     );
   });
 
-  it("registers the memory capability with no artifact provider and a null search manager", async () => {
+  it("registers the memory capability with no artifact provider and a real search manager", async () => {
     const api = createPluginApi();
 
     memoryPlugin.register(api as any);
@@ -64,9 +64,11 @@ describe("plugin registration modes", () => {
     expect(api.registerMemoryCapability).toHaveBeenCalledTimes(1);
     const capability = api.registerMemoryCapability.mock.calls[0]?.[0];
     expect("publicArtifacts" in capability).toBe(false);
-    await expect(capability.runtime.getMemorySearchManager()).resolves.toMatchObject({
-      manager: null,
-    });
+    const { manager } = await capability.runtime.getMemorySearchManager();
+    expect(manager).not.toBeNull();
+    expect(typeof manager.search).toBe("function");
+    expect(typeof manager.readFile).toBe("function");
+    expect(typeof manager.status).toBe("function");
   });
 });
 
