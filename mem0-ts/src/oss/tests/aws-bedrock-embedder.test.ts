@@ -138,7 +138,7 @@ describe("AWSBedrockEmbedder", () => {
     expect(result).toEqual([0.4, 0.5, 0.6]);
   });
 
-  it("batches Cohere inputs in one request", async () => {
+  it("batches Cohere v3 inputs in one request", async () => {
     mockSend.mockResolvedValue({
       body: responseBody({
         embeddings: [
@@ -167,6 +167,38 @@ describe("AWSBedrockEmbedder", () => {
     ]);
   });
 
+  it("supports Cohere v4 float embedding responses", async () => {
+    mockSend.mockResolvedValue({
+      body: responseBody({
+        embeddings: {
+          float: [
+            [0.7, 0.8],
+            [0.9, 1.0],
+          ],
+        },
+      }),
+    });
+
+    const embedder = new AWSBedrockEmbedder({
+      model: "cohere.embed-v4:0",
+    });
+    const result = await embedder.embedBatch(["hello", "world"]);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    const request = JSON.parse(
+      mockInvokeModelCommand.mock.calls[0][0].body,
+    ) as Record<string, unknown>;
+    expect(request).toEqual({
+      texts: ["hello", "world"],
+      input_type: "search_document",
+      embedding_types: ["float"],
+    });
+    expect(result).toEqual([
+      [0.7, 0.8],
+      [0.9, 1.0],
+    ]);
+  });
+
   it("preserves input order for Titan batch embeddings", async () => {
     mockSend
       .mockResolvedValueOnce({
@@ -181,6 +213,32 @@ describe("AWSBedrockEmbedder", () => {
 
     expect(mockSend).toHaveBeenCalledTimes(2);
     expect(result).toEqual([[0.1], [0.2]]);
+  });
+
+  it("caps concurrent Titan batch requests", async () => {
+    let active = 0;
+    let maxActive = 0;
+    mockSend.mockImplementation(async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return { body: responseBody({ embedding: [maxActive] }) };
+    });
+
+    const embedder = new AWSBedrockEmbedder({});
+    const result = await embedder.embedBatch([
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+    ]);
+
+    expect(mockSend).toHaveBeenCalledTimes(6);
+    expect(maxActive).toBeLessThanOrEqual(4);
+    expect(result).toHaveLength(6);
   });
 
   it("throws a model-specific error for malformed responses", async () => {

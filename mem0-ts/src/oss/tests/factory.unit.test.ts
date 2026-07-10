@@ -25,6 +25,11 @@ jest.mock("../src/embeddings/google", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "google-embedder", config })),
 }));
+jest.mock("../src/embeddings/fastembed", () => ({
+  FastEmbedEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "fastembed-embedder", config })),
+}));
 jest.mock("../src/embeddings/azure", () => ({
   AzureOpenAIEmbedder: jest
     .fn()
@@ -39,6 +44,16 @@ jest.mock("../src/embeddings/lmstudio", () => ({
   LMStudioEmbedder: jest
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-embedder", config })),
+}));
+jest.mock("../src/embeddings/vertexai", () => ({
+  VertexAIEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vertexai-embedder", config })),
+}));
+jest.mock("../src/embeddings/together", () => ({
+  TogetherEmbedder: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "together-embedder", config })),
 }));
 
 jest.mock("../src/llms/openai", () => ({
@@ -97,16 +112,56 @@ jest.mock("../src/llms/deepseek", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "deepseek-llm", config })),
 }));
+jest.mock("../src/llms/xai", () => ({
+  XAILLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "xai-llm", config })),
+}));
+jest.mock("../src/llms/sarvam", () => ({
+  SarvamLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "sarvam-llm", config })),
+}));
+jest.mock("../src/llms/litellm", () => ({
+  LiteLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "litellm-llm", config })),
+}));
+jest.mock("../src/llms/minimax", () => ({
+  MiniMaxLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "minimax-llm", config })),
+}));
+jest.mock("../src/llms/together", () => ({
+  TogetherLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "together-llm", config })),
+}));
+jest.mock("../src/llms/vllm", () => ({
+  VllmLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "vllm-llm", config })),
+}));
 
 jest.mock("../src/vector_stores/qdrant", () => ({
   Qdrant: jest
     .fn()
     .mockImplementation((config) => ({ type: "qdrant", config })),
 }));
+jest.mock("../src/vector_stores/baidu", () => ({
+  BaiduDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "baidu", config })),
+}));
 jest.mock("../src/vector_stores/redis", () => ({
   RedisDB: jest
     .fn()
     .mockImplementation((config) => ({ type: "redis", config })),
+}));
+jest.mock("../src/vector_stores/valkey", () => ({
+  ValkeyDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "valkey", config })),
 }));
 jest.mock("../src/vector_stores/supabase", () => ({
   SupabaseDB: jest
@@ -132,6 +187,31 @@ jest.mock("../src/vector_stores/pgvector", () => ({
   PGVector: jest
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
+}));
+jest.mock("../src/vector_stores/upstash_vector", () => ({
+  UpstashVector: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "upstash-vector", config })),
+}));
+jest.mock("../src/vector_stores/azure_mysql", () => ({
+  AzureMySQLDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "azure_mysql", config })),
+}));
+jest.mock("../src/vector_stores/cassandra", () => ({
+  CassandraDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "cassandra", config })),
+}));
+jest.mock("../src/vector_stores/s3_vectors", () => ({
+  S3Vectors: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "s3-vectors", config })),
+}));
+jest.mock("../src/vector_stores/weaviate", () => ({
+  WeaviateDB: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "weaviate", config })),
 }));
 jest.mock("../src/storage/SupabaseHistoryManager", () => ({
   SupabaseHistoryManager: jest
@@ -169,8 +249,11 @@ describe("EmbedderFactory", () => {
     ["google"],
     ["gemini"],
     ["azure_openai"],
+    ["fastembed"],
     ["langchain"],
     ["lmstudio"],
+    ["vertexai"],
+    ["together"],
   ])("creates embedder for provider '%s'", (provider) => {
     expect(() =>
       EmbedderFactory.create(provider, dummyEmbedConfig),
@@ -212,6 +295,12 @@ describe("LLMFactory", () => {
     ["langchain"],
     ["lmstudio"],
     ["deepseek"],
+    ["xai"],
+    ["sarvam"],
+    ["litellm"],
+    ["minimax"],
+    ["together"],
+    ["vllm"],
   ])("creates LLM for provider '%s'", (provider) => {
     expect(() => LLMFactory.create(provider, dummyLLMConfig)).not.toThrow();
   });
@@ -242,22 +331,30 @@ describe("VectorStoreFactory", () => {
       VectorStoreFactory.create("memory", {
         collectionName: "test",
         dimension: 4,
+        dbPath: ":memory:",
       }),
     ).not.toThrow();
   });
 
   test.each([
+    ["baidu"],
     ["qdrant"],
     ["redis"],
+    ["valkey"],
     ["supabase"],
     ["langchain"],
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["upstash_vector"],
+    ["azure_mysql"],
+    ["cassandra"],
+    ["s3-vectors"],
+    ["s3_vectors"],
+    ["weaviate"],
   ])("creates vector store for provider '%s'", (provider) => {
-    expect(() =>
-      VectorStoreFactory.create(provider, dummyVSConfig),
-    ).not.toThrow();
+    const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
+    expect(result.config).toBe(dummyVSConfig);
   });
 
   test("throws for unsupported provider", () => {

@@ -4,10 +4,11 @@ import { EmbeddingConfig } from "../types";
 const DEFAULT_MODEL = "amazon.titan-embed-text-v1";
 const DEFAULT_REGION = "us-west-2";
 const BEDROCK_RUNTIME_PACKAGE = "@aws-sdk/client-bedrock-runtime";
+const NON_COHERE_BATCH_CONCURRENCY = 4;
 
 type BedrockEmbeddingResponse = {
   embedding?: number[];
-  embeddings?: number[][];
+  embeddings?: number[][] | { float?: number[][] };
 };
 
 type BedrockRuntimeClientConfig = {
@@ -97,11 +98,16 @@ export class AWSBedrockEmbedder implements Embedder {
     return this.model.startsWith("cohere.");
   }
 
+  private isCohereV4Model(): boolean {
+    return this.model.includes("embed-v4");
+  }
+
   private buildRequestBody(texts: string[]): Record<string, unknown> {
     if (this.isCohereModel()) {
       return {
         texts,
         input_type: "search_document",
+        ...(this.isCohereV4Model() && { embedding_types: ["float"] }),
       };
     }
 
@@ -131,11 +137,7 @@ export class AWSBedrockEmbedder implements Embedder {
       const parsed = JSON.parse(
         new TextDecoder().decode(response.body),
       ) as BedrockEmbeddingResponse;
-      const embeddings = this.isCohereModel()
-        ? parsed.embeddings
-        : parsed.embedding
-          ? [parsed.embedding]
-          : undefined;
+      const embeddings = this.extractEmbeddings(parsed);
 
       if (!embeddings || embeddings.length !== texts.length) {
         throw new Error(
@@ -151,6 +153,20 @@ export class AWSBedrockEmbedder implements Embedder {
     }
   }
 
+  private extractEmbeddings(
+    parsed: BedrockEmbeddingResponse,
+  ): number[][] | undefined {
+    if (!this.isCohereModel()) {
+      return parsed.embedding ? [parsed.embedding] : undefined;
+    }
+
+    if (Array.isArray(parsed.embeddings)) {
+      return parsed.embeddings;
+    }
+
+    return parsed.embeddings?.float;
+  }
+
   async embed(text: string): Promise<number[]> {
     return (await this.invoke([text]))[0];
   }
@@ -158,6 +174,19 @@ export class AWSBedrockEmbedder implements Embedder {
   async embedBatch(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
     if (this.isCohereModel()) return this.invoke(texts);
-    return Promise.all(texts.map((text) => this.embed(text)));
+
+    const results: number[][] = new Array(texts.length);
+    let nextIndex = 0;
+
+    const worker = async (): Promise<void> => {
+      while (nextIndex < texts.length) {
+        const index = nextIndex++;
+        results[index] = await this.embed(texts[index]);
+      }
+    };
+
+    const workerCount = Math.min(NON_COHERE_BATCH_CONCURRENCY, texts.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+    return results;
   }
 }
