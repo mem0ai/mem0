@@ -1571,6 +1571,14 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
 
+@pytest.mark.parametrize(
+    "llm_response, expected_memory",
+    [
+        (None, ""),
+        ([{"type": "text", "text": "remember the deploy steps"}], "remember the deploy steps"),
+        ("plain procedural memory text", "plain procedural memory text"),
+    ],
+)
 @patch("mem0.memory.main.VectorStoreFactory")
 @patch("mem0.memory.main.EmbedderFactory")
 @patch("mem0.memory.main.LlmFactory")
@@ -1597,6 +1605,14 @@ async def test_async_procedural_memory_handles_empty_and_block_content(
 
     assert result["results"][0]["memory"] == expected_memory
 
+@pytest.mark.parametrize(
+    "response_content, expected_memory",
+    [
+        (None, ""),
+        ([{"type": "text", "text": "remember the deploy steps"}], "remember the deploy steps"),
+        ("plain procedural memory text", "plain procedural memory text"),
+    ],
+)
 @patch("mem0.memory.main.VectorStoreFactory")
 @patch("mem0.memory.main.EmbedderFactory")
 @patch("mem0.memory.main.LlmFactory")
@@ -1628,6 +1644,14 @@ async def test_async_procedural_memory_langchain_handles_empty_and_block_content
 
     assert result["results"][0]["memory"] == expected_memory
 
+@pytest.mark.parametrize(
+    "llm_response, expected_memory",
+    [
+        (None, ""),
+        ([{"type": "text", "text": "remember the deploy steps"}], "remember the deploy steps"),
+        ("plain procedural memory text", "plain procedural memory text"),
+    ],
+)
 @patch("mem0.memory.main.VectorStoreFactory")
 @patch("mem0.memory.main.EmbedderFactory")
 @patch("mem0.memory.main.LlmFactory")
