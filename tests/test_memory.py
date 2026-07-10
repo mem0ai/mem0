@@ -1571,6 +1571,7 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "llm_response, expected_memory",
     [
@@ -1605,6 +1606,7 @@ async def test_async_procedural_memory_handles_empty_and_block_content(
 
     assert result["results"][0]["memory"] == expected_memory
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "response_content, expected_memory",
     [
