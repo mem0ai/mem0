@@ -137,6 +137,11 @@ export class ConfigManager {
             userConf?.maxTokens ?? (llmRaw?.max_tokens as number | undefined);
 
           return {
+            // Spread user-provided config first so any additional fields
+            // (e.g. future aws_bedrock options) pass through without a
+            // manager.ts edit, matching the vectorStore.config pattern above
+            // and making the schema's .passthrough() on llm.config meaningful.
+            ...userConf,
             baseURL: llmBaseURL,
             url: userConf?.url,
             apiKey:
@@ -151,6 +156,20 @@ export class ConfigManager {
             temperature,
             topP,
             maxTokens,
+            // Pass through AWS Bedrock fields so the aws_bedrock provider works
+            // through the standard Memory config path (snake_case tolerated).
+            awsRegion:
+              userConf?.awsRegion ?? (llmRaw?.aws_region as string | undefined),
+            awsAccessKeyId:
+              userConf?.awsAccessKeyId ??
+              (llmRaw?.aws_access_key_id as string | undefined),
+            awsSecretAccessKey:
+              userConf?.awsSecretAccessKey ??
+              (llmRaw?.aws_secret_access_key as string | undefined),
+            awsSessionToken:
+              userConf?.awsSessionToken ??
+              (llmRaw?.aws_session_token as string | undefined),
+            client: userConf?.client,
           };
         })(),
       },

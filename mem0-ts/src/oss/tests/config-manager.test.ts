@@ -378,6 +378,55 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("mergeConfig - AWS Bedrock credential passthrough", () => {
+    const baseEmbedder = { provider: "openai", config: { apiKey: "k" } };
+    const baseVectorStore = { provider: "memory", config: {} };
+
+    it("preserves explicit AWS Bedrock credentials through MemoryConfigSchema.parse", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "aws_bedrock",
+          config: {
+            model: "anthropic.claude-3-sonnet-20240229-v1:0",
+            awsRegion: "us-east-1",
+            awsAccessKeyId: "AKIAEXAMPLE",
+            awsSecretAccessKey: "secret-example",
+            awsSessionToken: "session-example",
+          } as any,
+        },
+      });
+
+      // Regression: zod default parse strips undeclared keys, which silently
+      // dropped credentials before .passthrough() + typed fields were added.
+      expect(cfg.llm.config.awsRegion).toBe("us-east-1");
+      expect(cfg.llm.config.awsAccessKeyId).toBe("AKIAEXAMPLE");
+      expect(cfg.llm.config.awsSecretAccessKey).toBe("secret-example");
+      expect(cfg.llm.config.awsSessionToken).toBe("session-example");
+    });
+
+    it("normalizes snake_case AWS credentials from the raw config", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "aws_bedrock",
+          config: {
+            model: "anthropic.claude-3-sonnet-20240229-v1:0",
+            aws_region: "eu-west-1",
+            aws_access_key_id: "AKIASNAKE",
+            aws_secret_access_key: "snake-secret",
+          } as any,
+        },
+      });
+
+      expect(cfg.llm.config.awsRegion).toBe("eu-west-1");
+      expect(cfg.llm.config.awsAccessKeyId).toBe("AKIASNAKE");
+      expect(cfg.llm.config.awsSecretAccessKey).toBe("snake-secret");
+    });
+  });
+
   describe("mergeConfig - full OpenClaw-style LM Studio config", () => {
     it("handles the exact config from issue #4235", () => {
       const cfg = ConfigManager.mergeConfig({
@@ -709,6 +758,47 @@ describe("Memory – LM Studio end-to-end flow", () => {
       "fastembed",
       expect.objectContaining({
         model: undefined,
+      }),
+    );
+  });
+
+  it("passes AWS Bedrock credentials to LLMFactory through the Memory stack", async () => {
+    const mem = new MemoryClass({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test", dimension: 768 },
+      },
+      llm: {
+        provider: "aws_bedrock",
+        config: {
+          model: "anthropic.claude-3-sonnet-20240229-v1:0",
+          awsRegion: "us-east-1",
+          awsAccessKeyId: "AKIAEXAMPLE",
+          awsSecretAccessKey: "secret-example",
+        },
+      },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+
+    // Regression: credentials must survive ConfigManager -> Memory -> LLMFactory,
+    // otherwise Bedrock silently falls back to the ambient AWS credential chain.
+    expect(mockLlmFactory.create).toHaveBeenCalledWith(
+      "aws_bedrock",
+      expect.objectContaining({
+        model: "anthropic.claude-3-sonnet-20240229-v1:0",
+        awsRegion: "us-east-1",
+        awsAccessKeyId: "AKIAEXAMPLE",
+        awsSecretAccessKey: "secret-example",
       }),
     );
   });

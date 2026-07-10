@@ -24,6 +24,7 @@ export * from "./llms/mistral";
 export * from "./llms/langchain";
 export * from "./llms/litellm";
 export * from "./llms/vllm";
+export * from "./llms/aws_bedrock";
 export * from "./vector_stores/base";
 export * from "./vector_stores/memory";
 export * from "./vector_stores/baidu";
