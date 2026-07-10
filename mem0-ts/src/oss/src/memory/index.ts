@@ -276,7 +276,7 @@ export class Memory {
 
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
-      const entityProvider = this.config.vectorStore.provider.toLowerCase();
+      const entityProvider = this.config.vectorStore.provider;
       const entityCollectionName = `${this.collectionName}_entities`;
       const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
@@ -1743,7 +1743,7 @@ export class Memory {
     await this.db.reset();
 
     // Check provider before attempting deleteCol
-    if (this.config.vectorStore.provider.toLowerCase() !== "langchain") {
+    if (this.config.vectorStore.provider !== "langchain") {
       try {
         await this.vectorStore.deleteCol();
       } catch (e) {

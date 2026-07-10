@@ -3601,6 +3601,43 @@ describe("Memory class – backward compat with all providers", () => {
     expect(entityStore.initialize).toHaveBeenCalled();
   });
 
+  it("sends file-based entities to their own DB when provider casing differs", async () => {
+    const primaryStore = createMockVectorStore();
+    const entityStore = createMockVectorStore();
+    mockVectorStoreFactory.create
+      .mockReturnValueOnce(primaryStore)
+      .mockReturnValueOnce(entityStore);
+
+    const mem = new MemoryClass({
+      embedder: { provider: "openai", config: { apiKey: "k" } },
+      vectorStore: {
+        provider: "Memory",
+        config: {
+          collectionName: "memories",
+          dbPath: "/tmp/mem0-casing.db",
+          dimension: 1536,
+        },
+      },
+      llm: { provider: "openai", config: { apiKey: "k" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+    await (mem as any).getEntityStore();
+
+    // Un-normalized, the `=== "memory"` check misses, dbPath is left alone, and entities land
+    // in the very file they are supposed to be split out of.
+    expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+      2,
+      "memory",
+      expect.objectContaining({
+        collectionName: "memories_entities",
+        dbPath: "/tmp/mem0-casing_entities.db",
+      }),
+    );
+    expect(entityStore.initialize).toHaveBeenCalled();
+  });
+
   it("propagates init error to public methods", async () => {
     const failingEmbedder = {
       embed: jest.fn().mockRejectedValue(new Error("Embedder unreachable")),
