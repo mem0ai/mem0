@@ -55,18 +55,25 @@ type AWSBedrockConfig = LLMConfig;
  * single code path serves them all (the Python provider keeps per-family
  * `invoke_model` branches for legacy reasons; Converse supersedes them).
  *
- * The `@aws-sdk/client-bedrock-runtime` dependency is lazily required so the
- * package stays optional. Credentials resolve via the standard AWS chain
- * unless provided explicitly in config.
+ * The `@aws-sdk/client-bedrock-runtime` dependency is loaded on first use via
+ * dynamic `import()` so the package stays optional. Credentials resolve via the
+ * standard AWS chain unless provided explicitly in config.
  */
+interface BedrockSDK {
+  BedrockRuntimeClient: new (config: Record<string, any>) => any;
+  ConverseCommand: new (input: Record<string, any>) => any;
+}
+
 export class AWSBedrockLLM implements LLM {
-  private client: any;
   private model: string;
   private provider: string;
   private temperature: number;
   private maxTokens: number;
   private topP?: number;
-  private ConverseCommand: any;
+  private clientConfig: Record<string, any>;
+  private clientOverride?: any;
+  private sdkPromise?: Promise<BedrockSDK>;
+  private clientPromise?: Promise<any>;
 
   constructor(config: AWSBedrockConfig = {}) {
     this.model =
@@ -76,21 +83,6 @@ export class AWSBedrockLLM implements LLM {
     this.temperature = config.temperature ?? 0.1;
     this.maxTokens = config.maxTokens ?? 2000;
     this.topP = config.topP;
-
-    let BedrockRuntimeClient: any;
-    let ConverseCommand: any;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const sdk = require("@aws-sdk/client-bedrock-runtime");
-      BedrockRuntimeClient = sdk.BedrockRuntimeClient;
-      ConverseCommand = sdk.ConverseCommand;
-    } catch (_) {
-      throw new Error(
-        "The '@aws-sdk/client-bedrock-runtime' package is required to use the AWS Bedrock LLM provider. " +
-          "Install it with: npm install @aws-sdk/client-bedrock-runtime",
-      );
-    }
-    this.ConverseCommand = ConverseCommand;
 
     const region =
       config.awsRegion ||
@@ -108,11 +100,46 @@ export class AWSBedrockLLM implements LLM {
       };
     }
 
-    if (config.client) {
-      this.client = config.client;
-    } else {
-      this.client = new BedrockRuntimeClient(clientConfig);
+    this.clientConfig = clientConfig;
+    this.clientOverride = config.client;
+  }
+
+  /**
+   * Load the optional AWS SDK on first use.
+   *
+   * This MUST be a dynamic `import()`, never `require()`: tsup/esbuild rewrite
+   * `require()` in the published ESM bundle (`dist/oss/index.mjs`) into a
+   * `__require` shim that throws `Dynamic require of "..." is not supported`,
+   * so every ESM consumer would hit a dead provider even with the SDK installed.
+   */
+  private async getSDK(): Promise<BedrockSDK> {
+    if (!this.sdkPromise) {
+      this.sdkPromise = import("@aws-sdk/client-bedrock-runtime").then(
+        (sdk) => sdk as unknown as BedrockSDK,
+        (err) => {
+          // Let a later call retry rather than caching the rejection forever.
+          this.sdkPromise = undefined;
+          const detail = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            "The '@aws-sdk/client-bedrock-runtime' package is required to use the AWS Bedrock LLM provider. " +
+              `Install it with: npm install @aws-sdk/client-bedrock-runtime (original error: ${detail})`,
+          );
+        },
+      );
     }
+    return this.sdkPromise;
+  }
+
+  /** Memoized Bedrock client; an injected `config.client` short-circuits the SDK. */
+  private async getClient(): Promise<any> {
+    if (this.clientOverride) return this.clientOverride;
+    if (!this.clientPromise) {
+      this.clientPromise = this.getSDK().then(
+        ({ BedrockRuntimeClient }) =>
+          new BedrockRuntimeClient(this.clientConfig),
+      );
+    }
+    return this.clientPromise;
   }
 
   /**
@@ -200,7 +227,11 @@ export class AWSBedrockLLM implements LLM {
     const toolConfig = tools ? this.convertToolsToConverse(tools) : undefined;
     if (toolConfig) input.toolConfig = toolConfig;
 
-    return this.client.send(new this.ConverseCommand(input));
+    const [{ ConverseCommand }, client] = await Promise.all([
+      this.getSDK(),
+      this.getClient(),
+    ]);
+    return client.send(new ConverseCommand(input));
   }
 
   /** Pull the first text block out of a Converse response. */

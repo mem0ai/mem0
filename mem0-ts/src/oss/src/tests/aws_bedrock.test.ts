@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
 import { AWSBedrockLLM, extractProvider } from "../llms/aws_bedrock";
 
 /**
@@ -18,13 +21,19 @@ class FakeBedrockClient {
   }
 }
 
-// The provider lazily requires the AWS SDK in its constructor. Mock the module
-// so construction succeeds and ConverseCommand simply wraps its input.
+// Counts real client constructions so we can prove the SDK stays untouched
+// until the first request. (jest only lets mock factories close over `mock*`.)
+let mockClientConstructions = 0;
+
+// The provider loads the AWS SDK on first use via dynamic import(). Mock the
+// module so it resolves and ConverseCommand simply wraps its input.
 jest.mock(
   "@aws-sdk/client-bedrock-runtime",
   () => ({
     BedrockRuntimeClient: class {
-      constructor(public config: any) {}
+      constructor(public config: any) {
+        mockClientConstructions++;
+      }
     },
     ConverseCommand: class {
       input: any;
@@ -165,5 +174,41 @@ describe("AWSBedrockLLM", () => {
     const llm = makeLLM(client);
     const res = await llm.generateChat([{ role: "user", content: "hi" }]);
     expect(res).toEqual({ content: "hello from bedrock", role: "assistant" });
+  });
+
+  it("does not construct the Bedrock client until the first request", () => {
+    const before = mockClientConstructions;
+    // No injected client: the old constructor eagerly built a real one.
+    new AWSBedrockLLM({
+      model: "anthropic.claude-3-5-sonnet-20240620-v1:0",
+      awsRegion: "us-west-2",
+    });
+    expect(mockClientConstructions).toBe(before);
+  });
+});
+
+/**
+ * ts-jest downlevels this suite to CommonJS, where `require()` works fine — so
+ * no runtime test here can observe the ESM failure. Guard the source invariant
+ * that causes it instead: esbuild rewrites `require()` in the published ESM
+ * bundle (dist/oss/index.mjs) into a `__require` shim that throws
+ * `Dynamic require of "..." is not supported`, stranding every ESM consumer.
+ */
+describe("aws_bedrock.ts ESM safety", () => {
+  const source = readFileSync(
+    join(__dirname, "..", "llms", "aws_bedrock.ts"),
+    "utf8",
+  );
+  // Comments legitimately mention require(); only real code should be checked.
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  it("never calls require() — the ESM bundle turns it into a throwing shim", () => {
+    expect(code).not.toMatch(/\brequire\s*\(/);
+  });
+
+  it("loads the optional AWS SDK through a dynamic import()", () => {
+    expect(code).toMatch(/import\("@aws-sdk\/client-bedrock-runtime"\)/);
   });
 });
