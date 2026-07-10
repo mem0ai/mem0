@@ -1992,6 +1992,17 @@
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
 									},
+									"custom_categories": {
+										"type": "array",
+										"description": "Category catalog for this call. Replaces the project-level list rather than merging with it. Omit to fall back to the project list, then the default catalog.",
+										"items": {
+											"type": "object",
+											"additionalProperties": {
+												"type": "string"
+											},
+											"description": "Maps a category name to the description the classifier matches against."
+										}
+									},
 									"infer": {
 										"type": "boolean",
 										"default": true,
