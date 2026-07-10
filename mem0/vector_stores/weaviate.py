@@ -297,11 +297,6 @@ class Weaviate(VectorStoreBase):
             collection.data.update(uuid=vector_id, properties=payload)
 
         if vector:
-            # data.update performs a partial (merge) update, so updating the
-            # vector alone leaves the existing properties untouched. The previous
-            # implementation resent dict(OutputData), i.e. the model field names
-            # ("id", "score", "payload"), which overwrote the real properties
-            # with garbage instead of preserving them.
             collection.data.update(uuid=vector_id, vector=vector)
 
     def get(self, vector_id) -> Optional[OutputData]:
