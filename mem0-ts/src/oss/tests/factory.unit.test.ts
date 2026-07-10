@@ -188,6 +188,12 @@ jest.mock("../src/vector_stores/databricks", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "databricks", config })),
 }));
+jest.mock("../src/vector_stores/neptune_analytics", () => ({
+  NeptuneAnalyticsVectorStore: jest.fn().mockImplementation((config) => ({
+    type: "neptune-analytics",
+    config,
+  })),
+}));
 jest.mock("../src/vector_stores/upstash_vector", () => ({
   UpstashVector: jest
     .fn()
@@ -346,6 +352,8 @@ describe("VectorStoreFactory", () => {
     ["azure-ai-search"],
     ["pgvector"],
     ["databricks"],
+    ["neptune"],
+    ["neptune-analytics"],
     ["upstash_vector"],
     ["azure_mysql"],
     ["cassandra"],
@@ -355,6 +363,30 @@ describe("VectorStoreFactory", () => {
   ])("creates vector store for provider '%s'", (provider) => {
     const result = VectorStoreFactory.create(provider, dummyVSConfig) as any;
     expect(result.config).toBe(dummyVSConfig);
+  });
+
+  test("passes Neptune endpoint URI config through the factory", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune", config) as any;
+
+    expect(store.config).toEqual(config);
+  });
+
+  test("keeps neptune-analytics as a compatibility alias", () => {
+    const config = {
+      collectionName: "test",
+      dimension: 4,
+      endpoint: "neptune-graph://g-1234567890",
+      region: "us-east-1",
+    };
+    const store = VectorStoreFactory.create("neptune-analytics", config) as any;
+
+    expect(store.config).toEqual(config);
   });
 
   test("throws for unsupported provider", () => {

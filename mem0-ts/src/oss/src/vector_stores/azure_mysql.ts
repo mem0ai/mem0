@@ -1,8 +1,3 @@
-// `mysql2` is an OPTIONAL peer, so npm never installs it, and `index.ts` re-exports this module
-// eagerly -- a top-level value import makes `import "mem0ai/oss"` throw MODULE_NOT_FOUND for
-// every user, including everyone using a different vector store. Load it on first use instead,
-// the way milvus.ts, baidu.ts, and aws_bedrock.ts load theirs. (The `import type` below is
-// erased at compile time and emits no require, so it is safe to keep at module scope.)
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
@@ -97,7 +92,16 @@ export class AzureMySQLDB implements VectorStore {
           ...(this.config.sslCa ? { ca: this.config.sslCa } : {}),
         };
 
-    const { createPool } = await import("mysql2/promise");
+    // Loaded dynamically: mysql2 is an optional peer dependency, so a static value import
+    // would break `import { Memory } from "mem0ai/oss"` for everyone else.
+    let createPool: typeof import("mysql2/promise").createPool;
+    try {
+      ({ createPool } = await import("mysql2/promise"));
+    } catch {
+      throw new Error(
+        "The Azure MySQL vector store requires the 'mysql2' package. Install it with: npm install mysql2",
+      );
+    }
 
     this.pool = createPool({
       host: this.config.host,

@@ -1,85 +1,70 @@
-import fs from "fs";
-import path from "path";
+import { readdirSync, readFileSync, statSync } from "fs";
+import { join, relative, resolve } from "path";
 
-/**
- * npm installs non-optional `peerDependencies` automatically, but it never installs peers marked
- * `peerDependenciesMeta.<pkg>.optional`. `src/oss/src/index.ts` re-exports every provider eagerly,
- * so a module-scope import of an optional peer makes `import "mem0ai/oss"` throw MODULE_NOT_FOUND
- * for EVERY user -- including everyone using a different provider entirely.
- *
- * This has now happened twice (`mysql2` in azure_mysql.ts, `@databricks/sql` in databricks.ts).
- * Optional peers must be loaded lazily, on first use, the way milvus.ts, baidu.ts, and
- * aws_bedrock.ts load theirs. `import type` is fine -- it is erased and emits no require.
- *
- * No runtime test can catch this: jest resolves every peer from devDependencies, so the import
- * always succeeds here. Assert the source invariant instead.
- */
+// Optional peers are not installed by npm/pnpm. A static value import of one therefore throws
+// MODULE_NOT_FOUND the moment anything pulls in `mem0ai/oss`, because src/index.ts re-exports every
+// vector store. Load them with `await import(...)` inside the code path that needs them instead.
 
-const SRC = path.join(__dirname, "../src");
-const PKG = path.join(__dirname, "../../../package.json");
+const packageRoot = resolve(__dirname, "../../..");
 
-const optionalPeers: string[] = Object.keys(
-  JSON.parse(fs.readFileSync(PKG, "utf8")).peerDependenciesMeta ?? {},
-);
-
-function walk(dir: string): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) return walk(full);
-    return entry.isFile() && full.endsWith(".ts") ? [full] : [];
-  });
+function optionalPeers(): string[] {
+  const pkg = JSON.parse(
+    readFileSync(join(packageRoot, "package.json"), "utf8"),
+  );
+  return Object.entries(
+    (pkg.peerDependenciesMeta ?? {}) as Record<string, { optional?: boolean }>,
+  )
+    .filter(([, meta]) => meta.optional)
+    .map(([name]) => name);
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-// An import clause holds only identifiers, braces, commas, `*`, `as`, and whitespace. Spelling it
-// out (rather than `[\s\S]*?`) stops a match from starting at one import statement and running
-// down the file to a *later* `from "<peer>"` -- which reported the wrong line and flagged files
-// that merely import `axios` above a real violation.
-const CLAUSE = "[A-Za-z0-9_$,{}\\s*]*?";
-
-/** Module-scope `import ... from "peer"` (excluding `import type`) or `import "peer"`. */
-function eagerImports(source: string, peer: string): string[] {
-  const p = escape(peer);
-  const found: string[] = [];
-  // `import <clause> from "peer"` -- clause may span lines. Skip `import type`.
-  const withClause = new RegExp(
-    `(?:^|\\n)[ \\t]*import\\s+(type\\s+)?(${CLAUSE})\\bfrom\\s*["']${p}(?:/[^"']*)?["']`,
-    "g",
-  );
-  for (const m of source.matchAll(withClause)) {
-    if (!m[1]) found.push(m[0].trim().replace(/\s+/g, " "));
+function sourceFiles(dir: string, acc: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      if (entry !== "tests" && entry !== "__tests__") sourceFiles(full, acc);
+    } else if (entry.endsWith(".ts") && !entry.endsWith(".test.ts")) {
+      acc.push(full);
+    }
   }
-  // bare side-effect `import "peer";`
-  const sideEffect = new RegExp(
-    `(?:^|\\n)[ \\t]*import\\s*["']${p}(?:/[^"']*)?["']`,
-    "g",
+  return acc;
+}
+
+// Matches `import ... from "pkg"` and `import "pkg"`, but not `import type ... from "pkg"`,
+// `typeof import("pkg")`, or `await import("pkg")` — those are erased or already lazy.
+function hasStaticValueImport(pkg: string, source: string): boolean {
+  const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const specifier = `["']${escaped}(?:\\/[^"']*)?["']`;
+  return (
+    new RegExp(
+      `(?:^|\\n)\\s*import\\s+(?!type\\b)[^;]*?from\\s+${specifier}`,
+    ).test(source) ||
+    new RegExp(`(?:^|\\n)\\s*import\\s+${specifier}`).test(source)
   );
-  for (const m of source.matchAll(sideEffect)) found.push(m[0].trim());
-  // module-scope `const x = require("peer")` (indented requires are inside a function -- fine)
-  const topRequire = new RegExp(
-    `(?:^|\\n)(?:const|let|var)\\s[^\\n]*require\\(\\s*["']${p}(?:/[^"']*)?["']`,
-    "g",
-  );
-  for (const m of source.matchAll(topRequire)) found.push(m[0].trim());
-  return found;
 }
 
 describe("optional peer dependencies", () => {
-  it("declares at least one optional peer (guards against a vacuous test)", () => {
-    expect(optionalPeers.length).toBeGreaterThan(0);
+  const peers = optionalPeers();
+
+  it("are discoverable from package.json", () => {
+    expect(peers.length).toBeGreaterThan(0);
   });
 
-  it("are never imported at module scope by any file under src/oss/src", () => {
-    const violations: string[] = [];
-    for (const file of walk(SRC)) {
-      const source = fs.readFileSync(file, "utf8");
-      for (const peer of optionalPeers) {
-        for (const hit of eagerImports(source, peer)) {
-          violations.push(`${path.relative(SRC, file)}: ${hit}`);
+  it("are never statically imported by src", () => {
+    const files = sourceFiles(join(packageRoot, "src"));
+    const sources = new Map(
+      files.map((file) => [file, readFileSync(file, "utf8")]),
+    );
+
+    const offenders: string[] = [];
+    for (const peer of peers) {
+      for (const [file, source] of sources) {
+        if (hasStaticValueImport(peer, source)) {
+          offenders.push(`${relative(packageRoot, file)} imports ${peer}`);
         }
       }
     }
-    expect(violations).toEqual([]);
+
+    expect(offenders).toEqual([]);
   });
 });
