@@ -210,9 +210,35 @@ User's goals include becoming more productive at work, maintaining a consistent 
 
 Extraction is model driven, so the exact wording and the number of memories vary between runs. The categories are drawn from the active list.
 
-Alongside `memory` and `categories`, each result carries `id`, `user_id`, `metadata`, `created_at`, `updated_at`, `expiration_date`, and `structured_attributes`.
+<Info>
+  **Sample memory payload**
+  ```json
+  {
+    "id": "638008c4-***",
+    "memory": "User is seeking to balance work responsibilities with regular workout sessions and requests a personalized schedule to manage both.",
+    "user_id": "alice",
+    "metadata": null,
+    "categories": ["lifestyle_management_concerns", "seeking_structure"],
+    "created_at": "2026-07-10T06:13:12-07:00",
+    "updated_at": "2026-07-10T06:13:20-07:00",
+    "expiration_date": null,
+    "structured_attributes": {
+      "year": 2026,
+      "month": 7,
+      "day": 10,
+      "hour": 13,
+      "minute": 13,
+      "day_of_week": "friday",
+      "week_of_year": 28,
+      "day_of_year": 191,
+      "quarter": 3,
+      "is_weekend": false
+    }
+  }
+  ```
+</Info>
 
-Categorization runs asynchronously, a moment after the memory itself is written. A memory fetched immediately after `add` can come back with `categories: null` and pick up its tags shortly after.
+Categorization runs asynchronously, a moment after the memory itself is written. A memory fetched immediately after `add` may not show up in `get_all` yet, or can come back with `categories: null` and pick up its tags a moment later. Poll until `categories` is populated rather than reading once.
 
 <Note>
   Need ad-hoc labels for a single call? Pass `custom_categories` on that `add` call. Use `metadata` instead when the label is a fixed value you already know, rather than something the classifier should infer.
