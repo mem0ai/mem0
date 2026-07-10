@@ -171,36 +171,6 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     const hasPayload = !!payload && Object.keys(payload).length > 0;
     const hasVector = vector.length > 0;
 
-    if (hasPayload && hasVector) {
-      const properties = this.buildStoredPayload(payload);
-      const results = await this.executeQuery(
-        `
-          MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
-          WITH n, $embedding AS embedding
-          CALL neptune.algo.vectors.upsert(n, embedding)
-          YIELD success
-          RETURN success
-        `,
-        {
-          vectorId,
-          embedding: vector,
-        },
-      );
-      this.assertSuccessfulResults(results, "Update");
-      await this.executeQuery(
-        `
-          MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
-          SET n = $properties
-          RETURN n
-        `,
-        {
-          vectorId,
-          properties,
-        },
-      );
-      return;
-    }
-
     if (hasPayload) {
       const properties = this.buildStoredPayload(payload);
       await this.executeQuery(

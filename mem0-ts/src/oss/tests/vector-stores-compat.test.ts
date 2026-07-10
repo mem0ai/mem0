@@ -1923,6 +1923,10 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           ) &&
           queryString.includes("SET n = $properties")
         ) {
+          if (options?.failPayloadWrite) {
+            throw new Error("Neptune property write rejected");
+          }
+
           const existing = nodes.get(parameters.vectorId);
           if (existing) {
             nodes.set(parameters.vectorId, {
@@ -2609,11 +2613,15 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
     ).rejects.toThrow("Update failed in Neptune Analytics");
 
-    const unchanged = await store.get("id-1");
-    expect(unchanged).not.toBeNull();
-    expect(unchanged!.payload).toEqual(
+    // The payload write runs before the vector upsert, so it is already
+    // durable by the time the vector step rejects — the caller's new
+    // metadata must not be silently dropped just because the embedding
+    // failed to update afterward.
+    const afterFailedUpsert = await store.get("id-1");
+    expect(afterFailedUpsert).not.toBeNull();
+    expect(afterFailedUpsert!.payload).toEqual(
       expect.objectContaining({
-        data: "alpha",
+        data: "beta",
         user_id: "u1",
       }),
     );
@@ -2674,6 +2682,72 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
 
     const results = await store.search([1, 2, 3], 1);
     expect(results).toEqual([]);
+  });
+
+  it("does not make the embedding durable when the update payload write fails", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient({ failPayloadWrite: true });
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
+    ).rejects.toThrow();
+
+    const upsertCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "neptune.algo.vectors.upsert",
+        ),
+      );
+    expect(upsertCalls).toHaveLength(0);
+  });
+
+  it("writes the Neptune payload before the vector on a combined update", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    await store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" });
+
+    const updateQueries = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      )
+      .map((command: any) => String(command.input.queryString || ""));
+
+    const payloadIndex = updateQueries.findIndex((queryString: string) =>
+      queryString.includes("SET n = $properties"),
+    );
+    const vectorIndex = updateQueries.findIndex((queryString: string) =>
+      queryString.includes("CALL neptune.algo.vectors.upsert"),
+    );
+
+    expect(payloadIndex).toBeGreaterThanOrEqual(0);
+    expect(vectorIndex).toBeGreaterThan(payloadIndex);
   });
 
   it("throws for unsupported Neptune search and list filter shapes", async () => {
