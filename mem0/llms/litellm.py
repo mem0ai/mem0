@@ -70,21 +70,34 @@ class LiteLLM(LLMBase):
         if tools and not litellm.supports_function_calling(self.config.model):
             raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
 
-        params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": self.config.temperature,
-            "top_p": self.config.top_p,
-        }
-        if self._uses_max_completion_tokens(self.config.model):
-            params["max_completion_tokens"] = self.config.max_tokens
-        else:
-            params["max_tokens"] = self.config.max_tokens
+        # Build provider params through the shared helper so reasoning models
+        # (o1/o3/gpt-5 family) drop temperature/top_p the way OpenAI/xAI do.
+        # LiteLLM previously always forwarded temperature, which is the same
+        # failure mode documented in #6085 for the OpenAI default path.
+        kwargs = {}
         if response_format:
-            params["response_format"] = response_format
+            kwargs["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = tool_choice
+
+        params = self._get_supported_params(messages=messages, **kwargs)
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
+        # ``_get_supported_params`` already chose max_tokens vs max_completion_tokens
+        # for non-reasoning models. For reasoning models the shared helper omits the
+        # cap entirely today; re-apply the GPT-5-family max_completion_tokens key so
+        # configured limits still work through LiteLLM.
+        if self._is_reasoning_model(self.config.model) or self._uses_max_completion_tokens(
+            self.config.model
+        ):
+            if self.config.max_tokens is not None and "max_tokens" not in params and "max_completion_tokens" not in params:
+                params["max_completion_tokens"] = self.config.max_tokens
+        params.setdefault("model", self.config.model)
 
         response = litellm.completion(**params)
         return self._parse_response(response, tools)
