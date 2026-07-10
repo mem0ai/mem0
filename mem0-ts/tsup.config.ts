@@ -26,6 +26,7 @@ const external = [
   "@supabase/supabase-js",
   "@upstash/vector",
   "@zilliz/milvus2-sdk-node",
+  "@aws-sdk/client-bedrock-runtime",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",
