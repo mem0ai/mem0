@@ -145,9 +145,10 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
-def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
+def _validate_and_trim_entity_id(value: Optional[Any], name: str) -> Optional[str]:
     """
     Validates and normalizes an entity ID.
+    - Coerces non-string values (e.g. integer ids) to str
     - Trims leading/trailing whitespace
     - Rejects empty or whitespace-only strings
     - Rejects strings containing internal whitespace
@@ -164,6 +165,11 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     """
     if value is None:
         return None
+    # Callers commonly pass integer ids (e.g. a database primary key). Coerce
+    # to str at this single validation point so scoping stays consistent across
+    # add/search/get_all/delete_all instead of crashing on `.strip()`.
+    if not isinstance(value, str):
+        value = str(value)
     trimmed = value.strip()
     if trimmed == "":
         raise ValueError(
