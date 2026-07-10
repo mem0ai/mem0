@@ -280,6 +280,16 @@ describe("createMemoryCapability", () => {
       const { manager } = await runtime.getMemorySearchManager();
       await expect(manager!.probeVectorAvailability()).resolves.toBe(true);
     });
+
+    it("close() resolves without error", async () => {
+      const { runtime } = createMemoryCapability(
+        makeConfig(),
+        makeProvider(),
+        () => "user-1",
+      );
+      const { manager } = await runtime.getMemorySearchManager();
+      await expect(manager!.close!()).resolves.toBeUndefined();
+    });
   });
 
   describe("runtime.resolveMemoryBackendConfig", () => {
