@@ -157,6 +157,9 @@
     },
     "@mochow/mochow-sdk-node": {
       "optional": true
+    },
+    "@databricks/sql": {
+      "optional": true
     }
   },
   "engines": {

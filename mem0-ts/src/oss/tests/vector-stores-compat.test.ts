@@ -1710,6 +1710,112 @@ describe("Databricks – backward compat with mocked clients", () => {
     expect(listSql).toBeDefined();
     expect(listSql).toContain("WHERE user_id = 'u1'");
   });
+
+  it("list(): pushes null-safe ne/nin predicates into the WHERE clause", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+
+    session.executeStatement.mockClear();
+    await store.list({ agent_id: { ne: "a2" } }, 10);
+    const neSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(neSql).toBeDefined();
+    expect(neSql).toContain("(agent_id IS NULL OR agent_id != 'a2')");
+    expect(neSql).not.toContain("WHERE agent_id != 'a2'");
+
+    session.executeStatement.mockClear();
+    await store.list({ agent_id: { nin: ["a2", "a3"] } }, 10);
+    const ninSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(ninSql).toBeDefined();
+    expect(ninSql).toContain(
+      "(agent_id IS NULL OR agent_id NOT IN ('a2', 'a3'))",
+    );
+    expect(ninSql).not.toContain("WHERE agent_id NOT IN ('a2', 'a3')");
+  });
+
+  it("list(): bounds the SQL scan with LIMIT topK when the filter fully pushes down", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+
+    session.executeStatement.mockClear();
+    await store.list({ user_id: "u1" });
+    const defaultTopKSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(defaultTopKSql).toContain("LIMIT 100");
+
+    session.executeStatement.mockClear();
+    await store.list({ user_id: "u1" }, 7);
+    const customTopKSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(customTopKSql).toContain("LIMIT 7");
+  });
+
+  it("list(): falls back to the 10k scan ceiling (no WHERE) when $or can't be pushed down", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.list({ $or: [{ user_id: "u1" }, { topic: "beta" }] });
+
+    const listSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+
+    expect(listSql).toBeDefined();
+    expect(listSql).not.toContain("WHERE");
+    expect(listSql).toContain("LIMIT 10000");
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

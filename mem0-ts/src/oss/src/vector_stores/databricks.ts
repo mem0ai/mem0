@@ -286,7 +286,9 @@ function buildStorageOptimizedDatabricksFilterClause(
     case "eq":
       return `${safeKey} = ${formatSqlValue(normalizeFilterValue(operand))}`;
     case "ne":
-      return `${safeKey} != ${formatSqlValue(normalizeFilterValue(operand))}`;
+      // SQL three-valued logic: `col != x` is NULL (excluded) when col IS NULL,
+      // but the local matcher keeps rows with a missing field for `ne`. Match it.
+      return `(${safeKey} IS NULL OR ${safeKey} != ${formatSqlValue(normalizeFilterValue(operand))})`;
     case "gt":
       return `${safeKey} > ${formatSqlValue(normalizeFilterValue(operand))}`;
     case "gte":
@@ -302,10 +304,11 @@ function buildStorageOptimizedDatabricksFilterClause(
             .join(", ")})`
         : null;
     case "nin":
+      // Same NULL-handling as `ne` above.
       return Array.isArray(operand) && operand.length > 0
-        ? `${safeKey} NOT IN (${operand
+        ? `(${safeKey} IS NULL OR ${safeKey} NOT IN (${operand
             .map((entry) => formatSqlValue(normalizeFilterValue(entry)))
-            .join(", ")})`
+            .join(", ")}))`
         : null;
     default:
       return null;
@@ -343,6 +346,38 @@ function collectConjunctiveDatabricksFilters(
   }
 
   return clauses;
+}
+
+// True iff `filters` has no `$or`/`$not` at any nesting depth (recursing through
+// `$and`), i.e. every entry is something collectConjunctiveDatabricksFilters can see.
+function isFullyConjunctiveDatabricksFilter(filters?: SearchFilters): boolean {
+  if (!filters || Object.keys(filters).length === 0) {
+    return true;
+  }
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "$and") {
+      if (!Array.isArray(value)) {
+        return false;
+      }
+      if (
+        value.some(
+          (entry) =>
+            !isPlainObject(entry) ||
+            !isFullyConjunctiveDatabricksFilter(entry as SearchFilters),
+        )
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (key === "$or" || key === "$not") {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function buildDatabricksServerFilters(
@@ -653,18 +688,28 @@ export class DatabricksVectorStore implements VectorStore {
     // clause so a filtered list does not pull the whole table to the client.
     // filterVector below still enforces the complete filter, so this clause is a
     // best-effort narrowing: untranslatable filters ($or/$not/metadata) yield an
-    // empty clause and fall back to the prior full-scan + local filtering.
-    const whereClause = collectConjunctiveDatabricksFilters(filters)
-      .map(([key, value]) =>
-        buildStorageOptimizedDatabricksFilterClause(key, value),
-      )
+    // empty clause and fall back to a bounded scan (see LIMIT below) + local filtering.
+    const conjunctiveFilters = collectConjunctiveDatabricksFilters(filters);
+    const clauses = conjunctiveFilters.map(([key, value]) =>
+      buildStorageOptimizedDatabricksFilterClause(key, value),
+    );
+    const whereClause = clauses
       .filter((clause): clause is string => Boolean(clause))
       .join(" AND ");
+
+    // The WHERE clause fully expresses `filters` (so filterVector below is a
+    // no-op) only if there's no $or/$not anywhere AND every entry translated.
+    const isFullyExpressed =
+      isFullyConjunctiveDatabricksFilter(filters) &&
+      clauses.every((clause) => clause !== null);
+    // ponytail: 10k scan ceiling when the filter can't be fully pushed down; paginate if a user hits it.
+    const limit = isFullyExpressed ? topK : MAX_QUERY_RESULTS;
 
     const rows = await this.executeSql(`
       SELECT memory_id, payload
       FROM ${this.fullTableName}
       ${whereClause ? `WHERE ${whereClause}` : ""}
+      LIMIT ${limit}
     `);
     const results: VectorStoreResult[] = [];
 
@@ -1133,6 +1178,7 @@ export class DatabricksVectorStore implements VectorStore {
       const nextPage = await this.httpClient.post(
         `/indexes/${encodeURIComponent(this.fullIndexName)}/query-next-page`,
         {
+          endpoint_name: this.endpointName,
           page_token: nextPageToken,
         },
       );
