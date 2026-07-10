@@ -87,13 +87,15 @@ print(categories)
 ```json Output
 {
   "custom_categories": [
-    {"lifestyle_management_concerns": "Tracks daily routines, habits, hobbies and interests including cooking, time management and work-life balance"},
-    {"seeking_structure": "Documents goals around creating routines, schedules, and organized systems in various life areas"},
-    {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
+    "lifestyle_management_concerns",
+    "seeking_structure",
+    "personal_information"
   ]
 }
 ```
 </CodeGroup>
+
+`get` returns category names only. The descriptions you set are used by the classifier but are not read back, so keep your category list in source control if you need to edit it later.
 
 ### 3. Override categories on a single add call
 
@@ -136,9 +138,13 @@ await client.add(healthMessages, {
   customCategories: healthCategories,
 });
 ```
+
+```text Resulting categories
+["medications", "appointments"]
+```
 </CodeGroup>
 
-Those memories are tagged from `health_categories`. The project catalog is not consulted for this call, and it is not modified.
+The memory is tagged from `health_categories` alone. The project catalog is not consulted for this call, and it is not modified.
 
 #### Per-user categories inside one project
 
@@ -181,43 +187,26 @@ client.add(messages, user_id="alice")
 
 ### Retrieve memories and inspect categories
 
+`get_all` returns a paginated object. The memories are under `results`, and each one carries its own `categories` list.
+
 <CodeGroup>
 ```python Code
-memories = client.get_all(filters={"user_id": "alice"})
+response = client.get_all(filters={"user_id": "alice"})
+
+for memory in response["results"]:
+    print(memory["memory"], memory["categories"])
 ```
 
-```json Output
-["lifestyle_management_concerns", "seeking_structure"]
+```text Output
+User's name is Alice ['personal_information']
+Alice wants to be more productive at work, maintain a consistent workout routine, and have energy for friends and hobbies ['lifestyle_management_concerns', 'seeking_structure', 'personal_information']
+Alice feels overwhelmed trying to balance work, exercise, and social life ['lifestyle_management_concerns', 'personal_information']
 ```
 </CodeGroup>
 
-<Info>
-  **Sample memory payload**
-  ```json
-  {
-    "id": "33d2***",
-    "memory": "Trying to balance work and workouts",
-    "user_id": "alice",
-    "metadata": null,
-    "categories": ["wellness"],  // ← matches the custom category we set
-    "created_at": "2025-11-01T02:13:32.828364-07:00",
-    "updated_at": "2025-11-01T02:13:32.830896-07:00",
-    "expiration_date": null,
-    "structured_attributes": {
-      "day": 1,
-      "hour": 9,
-      "year": 2025,
-      "month": 11,
-      "minute": 13,
-      "quarter": 4,
-      "is_weekend": true,
-      "day_of_week": "saturday",
-      "day_of_year": 305,
-      "week_of_year": 44
-    }
-  }
-  ```
-</Info>
+Alongside `memory` and `categories`, each result carries `id`, `user_id`, `metadata`, `created_at`, `updated_at`, `expiration_date`, and `structured_attributes`.
+
+Categorization runs asynchronously, a moment after the memory itself is written. A memory fetched immediately after `add` can come back with `categories: null` and pick up its tags shortly after.
 
 <Note>
   Need ad-hoc labels for a single call? Pass `custom_categories` on that `add` call. Use `metadata` instead when the label is a fixed value you already know, rather than something the classifier should infer.
