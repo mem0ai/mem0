@@ -1,0 +1,188 @@
+---
+title: Document Processing as a Tool, with Memory
+description: "Give an agent document processing via the Unstructured Transform MCP server, let it search a local markdown copy with simple tools (no vector DB), and use Mem0 to remember navigation hints."
+---
+
+Real-world documents (PDFs with columns, tables, scans) are hard to hand to a model directly.
+[Unstructured](https://unstructured.io) solves this with **Unstructured Transform**, a hosted MCP server that turns
+60+ file types into clean content. Since it is a remote
+[MCP](https://modelcontextprotocol.io) server, you can plug it into the OpenAI **Responses API**
+as a tool. Your agent gets document processing as a tool it can call on demand. For more information, check out the [docs](https://docs.unstructured.io/transform/overview). 15,000 free pages a month, 3 cents a page after.
+
+This cookbook then lets an agent work over the document the same way a coding agent works over a repository. Instead of chopping the document into pieces and embedding them into a vector database, we parse the PDF to markdown and save it to a local file, then give the agent two simple tools, `search_document` and `read_lines`, to find and read only the parts it needs. Mem0 remembers only **hints** about where common questions are answered, so repeat questions route faster and improve with feedback. The document stays on disk; only the small slices the agent reads enter its context; Mem0 never stores the document.
+
+A runnable notebook is at [`examples/notebooks/unstructured-transform-mcp.ipynb`](https://github.com/mem0ai/mem0/blob/main/examples/notebooks/unstructured-transform-mcp.ipynb).
+
+
+## Prerequisites
+
+```bash
+pip install openai mem0ai requests
+```
+```bash
+export UNSTRUCTURED_API_KEY=your-unstructured-key   # https://platform.unstructured.io
+export MEM0_API_KEY=your-mem0-key                   # https://app.mem0.ai
+export OPENAI_API_KEY=your-openai-key
+```
+
+## Code Walkthrough
+
+### 1. Parse to markdown and save it locally
+
+Parsing runs as an asynchronous job. We let the model drive the Transform tools and give it a `wait_seconds` tool it can call between status checks. Because `wait_seconds` really sleeps, the agent can patiently wait for a slow job, then we fetch the markdown and save it locally. This needs only the `openai` client.
+
+```python
+import json, os, re, time, requests
+from openai import OpenAI
+
+client, MODEL = OpenAI(), "gpt-5"
+TRANSFORM_MCP_URL = "https://mcp.transform.unstructured.io/"
+PDF_URL = "https://arxiv.org/pdf/1706.03762"  # Attention Is All You Need
+DOC_PATH = "attention.md"
+
+def transform_mcp_tool():
+    return {
+        "type": "mcp",
+        "server_label": "unstructured_transform",
+        "server_url": TRANSFORM_MCP_URL,
+        "require_approval": "never",
+        "headers": {"Authorization": f"Bearer {os.environ['UNSTRUCTURED_API_KEY']}"},
+    }
+
+def wait_seconds(seconds):
+    time.sleep(seconds)
+    return f"Waited {seconds} seconds."
+
+WAIT_TOOL = {
+    "type": "function", "name": "wait_seconds",
+    "description": "Wait the given number of seconds before checking the job status again.",
+    "parameters": {"type": "object", "properties": {"seconds": {"type": "integer"}},
+                   "required": ["seconds"], "additionalProperties": False},
+}
+
+MD_URL = re.compile(r"https://mcp\.transform\.unstructured\.io/output/\S+?\.md[^\"\\ ]*")
+
+def parse_to_markdown(url):
+    tools = [transform_mcp_tool(), WAIT_TOOL]
+    instruction = (
+        f"Parse the PDF at {url} into markdown using the Unstructured Transform tools. "
+        "Call transform_files with the URL, then poll check_transform_status, calling "
+        "wait_seconds(10) between each check, until the status is COMPLETED. Then call "
+        "get_transform_results with output_format 'md' and report the markdown download URL."
+    )
+    resp = client.responses.create(model=MODEL, tools=tools, input=instruction)
+    seen = json.dumps(resp.model_dump())
+    for _ in range(40):
+        calls = [o for o in resp.output if o.type == "function_call"]
+        if not calls:
+            break
+        outputs = [{"type": "function_call_output", "call_id": c.call_id,
+                    "output": wait_seconds(**json.loads(c.arguments))}
+                   for c in calls if c.name == "wait_seconds"]
+        resp = client.responses.create(model=MODEL, tools=tools,
+                                       previous_response_id=resp.id, input=outputs)
+        seen += "\n" + json.dumps(resp.model_dump())
+    urls = MD_URL.findall(seen)
+    if not urls:
+        raise RuntimeError("Transform did not return a markdown URL; check the job status.")
+    return requests.get(urls[0], timeout=120).text
+
+markdown = parse_to_markdown(PDF_URL)
+open(DOC_PATH, "w", encoding="utf-8").write(markdown)
+```
+
+### 2. Give the agent search and read tools
+
+Two small tools over the local file. The agent decides what to search for and how much to read.
+
+```python
+def search_document(query):
+    lines = open(DOC_PATH, encoding="utf-8").read().splitlines()
+    hits = [f"L{i + 1}: {ln}" for i, ln in enumerate(lines) if query.lower() in ln.lower()]
+    return "\n".join(hits[:25]) if hits else "No matches."
+
+def read_lines(start, end):
+    lines = open(DOC_PATH, encoding="utf-8").read().splitlines()
+    start, end = max(1, start), min(len(lines), end)
+    return "\n".join(f"L{i}: {lines[i - 1]}" for i in range(start, end + 1))
+
+TOOL_FUNCS = {"search_document": search_document, "read_lines": read_lines}
+TOOLS = [
+    {"type": "function", "name": "search_document",
+     "description": "Case-insensitive search; returns matching lines with line numbers.",
+     "parameters": {"type": "object", "properties": {"query": {"type": "string"}},
+                    "required": ["query"], "additionalProperties": False}},
+    {"type": "function", "name": "read_lines",
+     "description": "Read a range of lines (1-indexed, inclusive).",
+     "parameters": {"type": "object",
+                    "properties": {"start": {"type": "integer"}, "end": {"type": "integer"}},
+                    "required": ["start", "end"], "additionalProperties": False}},
+]
+
+SYSTEM = ("You answer questions about a document you can only access through the search_document and "
+          "read_lines tools. Search, read, then answer from the document only. End with a line: "
+          "'Source: <the section heading you used>'.")
+
+def run_agent(question, hint_heading=None):
+    system = SYSTEM
+    if hint_heading:
+        system += f"\n\nMemory hint: a similar question was answered from '{hint_heading}'. Search there first."
+    resp = client.responses.create(model=MODEL, tools=TOOLS,
+        input=[{"role": "system", "content": system}, {"role": "user", "content": question}])
+    for _ in range(6):
+        calls = [o for o in resp.output if o.type == "function_call"]
+        if not calls:
+            return resp.output_text
+        outputs = []
+        for c in calls:
+            args = json.loads(c.arguments)
+            print(f"  tool call: {c.name}  args: {args}")
+            result = TOOL_FUNCS[c.name](**args)
+            print(f"    -> {(result.splitlines()[0] if result else '')[:90]}")
+            outputs.append({"type": "function_call_output", "call_id": c.call_id, "output": result})
+        resp = client.responses.create(model=MODEL, tools=TOOLS,
+            previous_response_id=resp.id, input=outputs)
+    return resp.output_text
+```
+
+### 3. Remember hints with Mem0
+
+Mem0 stores only hints about where a kind of question was answered. `answer()` looks for a matching hint first, passes it to the agent, answers, then saves a hint. Positive feedback reinforces good hints.
+
+```python
+from mem0 import MemoryClient
+mem = MemoryClient()
+HINTS = "attention_hints"
+
+def rows(res):
+    return res.get("results", res) if isinstance(res, dict) else res
+
+def get_hint(question):
+    hits = rows(mem.search(question, version="v2", filters={"agent_id": HINTS}, limit=1))
+    return hits[0] if hits else None
+
+def answer(question):
+    hint = get_hint(question)
+    hint_heading = (hint.get("metadata") or {}).get("heading") if hint else None
+    reply = run_agent(question, hint_heading=hint_heading)
+    match = re.search(r"Source:\s*(.+)", reply)
+    heading = match.group(1).strip() if match else None
+    mem.add(messages=[{"role": "user", "content": question}],
+            agent_id=HINTS, metadata={"heading": heading}, infer=False)
+    return reply
+
+# reinforce a hint that guided a question
+hit = get_hint("How many attention heads does the model use?")
+if hit:
+    mem.feedback(memory_id=hit["id"], feedback="POSITIVE")
+```
+
+## Where to go next
+
+- Add a tool that reads a whole section by heading, or have `search_document` return the nearest heading with each match, so the agent navigates with less reading.
+- Serve many documents at once by giving each its own `agent_id` for hints, so one assistant can cover several manuals.
+- Swap in any file type Transform supports (PDF, DOCX, PPTX, images, and more). See the [Transform docs](https://docs.unstructured.io/transform/overview).
+
+## Resources
+
+- [Unstructured Transform](https://docs.unstructured.io/transform/overview)

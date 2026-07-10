@@ -321,6 +321,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk) [Both]: Use when the domain is medical and the framework is Google ADK.
 - [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock) [Both]: Use when deploying with AWS managed model services.
 - [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search) [Both]: Use when the agent layers web search on memory.
+- [Document Processing as a Tool, with Memory](https://docs.mem0.ai/cookbooks/integrations/unstructured-transform-mcp) [Platform]: Use when parsing a document with Unstructured Transform and letting an agent search a local markdown copy with simple tools (no vector DB), while Mem0 remembers navigation hints.
 
 ### Framework Examples
 - [LlamaIndex React](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-react) [Both]: Use when building a React UI with LlamaIndex and memory.
