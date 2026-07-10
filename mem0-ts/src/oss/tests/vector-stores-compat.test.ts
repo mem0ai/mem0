@@ -1550,11 +1550,12 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     failInsertUpsert?: boolean;
     throwInsertUpsert?: boolean;
     failUpdateUpsert?: boolean;
+    failPayloadWrite?: boolean;
   }) {
     const nodes = new Map<
       string,
       {
-        embedding: number[];
+        embedding?: number[];
         labels: string[];
         properties: Record<string, any>;
       }
@@ -1774,15 +1775,19 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           Array.isArray(parameters.rows) &&
           queryString.includes("RETURN success")
         ) {
+          const createsNode = queryString.includes("MERGE");
+          const processedRows: any[] = [];
           for (const row of parameters.rows) {
             const existing = nodes.get(row.node_id);
+            if (!existing && !createsNode) {
+              continue;
+            }
             nodes.set(row.node_id, {
               embedding: row.embedding,
-              labels: [collectionLabel],
-              properties: existing
-                ? { ...existing.properties, ...row.properties }
-                : { ...row.properties },
+              labels: existing?.labels || [collectionLabel],
+              properties: existing ? existing.properties : {},
             });
+            processedRows.push(row);
           }
 
           if (options?.throwInsertUpsert) {
@@ -1790,7 +1795,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           }
 
           return createMockResponse({
-            results: (parameters.rows || []).map(() => ({
+            results: processedRows.map(() => ({
               success: !options?.failInsertUpsert,
             })),
           });
@@ -1800,13 +1805,15 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
           queryString.includes("UNWIND $rows AS row") &&
           queryString.includes("SET n += row.properties")
         ) {
-          for (const row of parameters.rows || []) {
-            const existing = nodes.get(row.node_id);
-            if (existing) {
+          if (!options?.failPayloadWrite) {
+            for (const row of parameters.rows || []) {
+              const existing = nodes.get(row.node_id);
               nodes.set(row.node_id, {
-                embedding: existing.embedding,
-                labels: existing.labels,
-                properties: { ...existing.properties, ...row.properties },
+                embedding: existing?.embedding,
+                labels: existing?.labels || [collectionLabel],
+                properties: existing
+                  ? { ...existing.properties, ...row.properties }
+                  : { ...row.properties },
               });
             }
           }
@@ -2157,16 +2164,29 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       .find((command: any) =>
         String(command.input.queryString || "").includes("MERGE"),
       );
+    const vectorCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes(
+          "CALL neptune.algo.vectors.upsert",
+        ),
+      );
     expect(insertCall).toBeDefined();
     expect(insertCall.input.queryString).toContain("MERGE");
-    expect(insertCall.input.queryString).toContain(
-      "CALL neptune.algo.vectors.upsert",
-    );
     expect(insertCall.input.queryString).not.toContain("FOREACH");
     expect(insertCall.input.parameters.rows[0].properties.label).toBe(
       "topic-a",
     );
     expect(insertCall.input.parameters.rows[0].embedding).toEqual([1, 2, 3]);
+
+    expect(vectorCall).toBeDefined();
+    expect(vectorCall.input.queryString).toContain(
+      "CALL neptune.algo.vectors.upsert",
+    );
+    expect(vectorCall.input.queryString).toContain(
+      "WITH n, row.embedding AS embedding",
+    );
+    expect(vectorCall.input.queryString).not.toContain("MERGE");
 
     const results = await store.search([1, 2, 3], 1, {
       $or: [{ user_id: "u2" }, { priority: { gte: 5 } }],
@@ -2633,6 +2653,27 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
     ).rejects.toThrow("Neptune upsert rejected");
 
     expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("does not leave a phantom record when the property write fails", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failPayloadWrite: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    const results = await store.search([1, 2, 3], 1);
+    expect(results).toEqual([]);
   });
 
   it("throws for unsupported Neptune search and list filter shapes", async () => {

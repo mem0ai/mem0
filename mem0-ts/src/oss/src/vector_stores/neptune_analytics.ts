@@ -57,7 +57,7 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     this.client =
       config.client || new NeptuneGraphClient(this.buildClientConfig(config));
 
-    void this.initialize();
+    void this.initialize().catch(console.error);
   }
 
   initialize(): Promise<void> {
@@ -85,9 +85,16 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
       embedding: vector,
     }));
 
-    const insertQuery = `
+    const propertiesQuery = `
       UNWIND $rows AS row
       MERGE (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
+      ON CREATE SET n = row.properties
+      ON MATCH SET n += row.properties
+    `;
+
+    const vectorQuery = `
+      UNWIND $rows AS row
+      MATCH (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
       WITH n, row.embedding AS embedding
       CALL neptune.algo.vectors.upsert(n, embedding)
       YIELD success
@@ -95,19 +102,9 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     `;
 
     try {
-      const results = await this.executeQuery(insertQuery, { rows });
+      await this.executeQuery(propertiesQuery, { rows });
+      const results = await this.executeQuery(vectorQuery, { rows });
       this.assertSuccessfulResults(results, "Insert");
-      await this.executeQuery(
-        `
-          UNWIND $rows AS row
-          MATCH (n:${this.collectionLabelExpr} {\`~id\`: row.node_id})
-          SET n += row.properties
-          RETURN n
-        `,
-        {
-          rows,
-        },
-      );
     } catch (error) {
       await this.cleanupFailedInsert(ids.filter((id) => !existingIds.has(id)));
       throw error;
@@ -337,26 +334,6 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     this.cachedUserId = userId;
   }
 
-  private async listCols(): Promise<string[]> {
-    const results = await this.executeQuery(
-      `
-        CALL neptune.graph.pg_schema()
-        YIELD schema
-        RETURN [label IN schema.nodeLabels WHERE label STARTS WITH $prefix] AS result
-      `,
-      {
-        prefix: "MEM0_VECTOR_",
-      },
-    );
-
-    const labels = results[0]?.result;
-    if (Array.isArray(labels)) {
-      return labels.map((label) => String(label));
-    }
-
-    return [];
-  }
-
   private async findExistingIds(nodeIds: string[]): Promise<Set<string>> {
     if (nodeIds.length === 0) {
       return new Set();
@@ -396,8 +373,11 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
           nodeIds,
         },
       );
-    } catch {
-      return;
+    } catch (error) {
+      console.error(
+        "Neptune Analytics: failed to clean up node(s) after a failed insert",
+        error,
+      );
     }
   }
 
