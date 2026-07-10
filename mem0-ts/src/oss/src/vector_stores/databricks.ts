@@ -1,5 +1,4 @@
 import axios, { AxiosInstance } from "axios";
-import { DBSQLClient } from "@databricks/sql";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -439,7 +438,7 @@ export class DatabricksVectorStore implements VectorStore {
   private readonly fullIndexName: string;
   private readonly syncPollIntervalMs: number;
   private readonly syncTimeoutMs: number;
-  private readonly sqlClient: DatabricksSqlClientLike;
+  private sqlClient: DatabricksSqlClientLike | null;
   private readonly httpClient: DatabricksHttpClientLike;
   private session?: DatabricksSqlSessionLike;
   private _sessionPromise?: Promise<DatabricksSqlSessionLike>;
@@ -482,7 +481,7 @@ export class DatabricksVectorStore implements VectorStore {
     this.syncPollIntervalMs =
       config.syncPollIntervalMs ?? DEFAULT_SYNC_POLL_INTERVAL_MS;
     this.syncTimeoutMs = config.syncTimeoutMs ?? DEFAULT_SYNC_TIMEOUT_MS;
-    this.sqlClient = config.sqlClient || new DBSQLClient();
+    this.sqlClient = config.sqlClient ?? null;
     this.httpClient = config.httpClient || this.createHttpClient();
 
     if (
@@ -1004,10 +1003,23 @@ export class DatabricksVectorStore implements VectorStore {
     return this.session;
   }
 
+  /**
+   * `@databricks/sql` is an OPTIONAL peer, and `index.ts` re-exports this module eagerly, so a
+   * top-level `import` makes `import "mem0ai/oss"` throw MODULE_NOT_FOUND for every user who
+   * never installed the driver -- including everyone who uses a different vector store. Load it
+   * on the first SQL call instead, the way milvus.ts and baidu.ts load theirs.
+   */
+  private async getSqlClient(): Promise<DatabricksSqlClientLike> {
+    if (!this.sqlClient) {
+      const { DBSQLClient } = await import("@databricks/sql");
+      this.sqlClient = new DBSQLClient();
+    }
+    return this.sqlClient;
+  }
+
   private async openSession(): Promise<DatabricksSqlSessionLike> {
-    const connected = await this.sqlClient.connect(
-      this.buildSqlConnectionOptions(),
-    );
+    const sqlClient = await this.getSqlClient();
+    const connected = await sqlClient.connect(this.buildSqlConnectionOptions());
     return connected.openSession();
   }
 
