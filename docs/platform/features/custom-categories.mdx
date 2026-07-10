@@ -87,15 +87,15 @@ print(categories)
 ```json Output
 {
   "custom_categories": [
-    "lifestyle_management_concerns",
-    "seeking_structure",
-    "personal_information"
+    {"lifestyle_management_concerns": "Tracks daily routines, habits, hobbies and interests including cooking, time management and work-life balance"},
+    {"seeking_structure": "Documents goals around creating routines, schedules, and organized systems in various life areas"},
+    {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
   ]
 }
 ```
 </CodeGroup>
 
-`get` returns category names only. The descriptions you set are used by the classifier but are not read back, so keep your category list in source control if you need to edit it later.
+`get` echoes back the shape you set. `update` also accepts a plain list of names, such as `["billing", "support"]`, in which case `get` returns that same list of names. Descriptions are optional, and the classifier uses them to disambiguate when it has them.
 
 ### 3. Override categories on a single add call
 
@@ -198,11 +198,13 @@ for memory in response["results"]:
 ```
 
 ```text Output
-User's name is Alice ['personal_information']
-Alice wants to be more productive at work, maintain a consistent workout routine, and have energy for friends and hobbies ['lifestyle_management_concerns', 'seeking_structure', 'personal_information']
-Alice feels overwhelmed trying to balance work, exercise, and social life ['lifestyle_management_concerns', 'personal_information']
+User introduced herself as Alice and expressed a desire for help organizing her daily schedule. ['lifestyle_management_concerns', 'seeking_structure', 'personal_information']
+User feels overwhelmed trying to balance work responsibilities, regular exercise, and a social life, indicating difficulty managing time across these areas. ['lifestyle_management_concerns']
+User's goals include becoming more productive at work, maintaining a consistent workout routine, and preserving enough energy for friends and hobbies. ['lifestyle_management_concerns', 'seeking_structure']
 ```
 </CodeGroup>
+
+Extraction is model driven, so the exact wording and the number of memories vary between runs. The categories are drawn from the active list.
 
 Alongside `memory` and `categories`, each result carries `id`, `user_id`, `metadata`, `created_at`, `updated_at`, `expiration_date`, and `structured_attributes`.
 
