@@ -95,7 +95,11 @@ print(categories)
 ```
 </CodeGroup>
 
-`get` echoes back the shape you set. `update` also accepts a plain list of names, such as `["billing", "support"]`, in which case `get` returns that same list of names. Descriptions are optional, and the classifier uses them to disambiguate when it has them.
+`get` echoes back the shape you set. `update` also accepts a plain list of names, such as `["billing", "support"]`, in which case `get` returns that same list of names. Descriptions are optional here, and the classifier uses them to disambiguate when it has them.
+
+<Warning>
+  `add` is stricter than `update`. Every entry in a per-call `custom_categories` list must be an object mapping a name to a description. Passing bare names to `add` fails with `400 Expected a dictionary of items but got type "str"`.
+</Warning>
 
 ### 3. Override categories on a single add call
 
