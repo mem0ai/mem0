@@ -3601,25 +3601,14 @@ describe("Memory class – backward compat with all providers", () => {
     expect(entityStore.initialize).toHaveBeenCalled();
   });
 
-  // `@databricks/sql` is an OPTIONAL peer, so npm never auto-installs it, and `oss/src/index.ts`
-  // re-exports this module eagerly. A top-level import therefore makes `import "mem0ai/oss"`
-  // throw MODULE_NOT_FOUND for every user of every OTHER vector store. Jest resolves the driver
-  // from devDependencies, so no runtime test can reproduce that -- assert the source invariant.
-  it("never imports the optional @databricks/sql driver at module scope", () => {
+  // optional-peers.test.ts proves no optional peer is imported at module scope. This asserts the
+  // other half for Databricks: the driver is still loaded lazily rather than dropped entirely.
+  // No test exercises the SQL path, so nothing else would notice its removal.
+  it("still loads the optional @databricks/sql driver lazily", () => {
     const source = fs.readFileSync(
       path.join(__dirname, "../src/vector_stores/databricks.ts"),
       "utf8",
     );
-    const eagerLoads = source.split("\n").filter(
-      (line) =>
-        // a static `import ... "@databricks/sql"` -- but not `await import(...)`
-        /^\s*import\s[^(]*@databricks\/sql/.test(line) ||
-        // or a module-scope `const x = require("@databricks/sql")`
-        /^(const|let|var)\b.*require\(\s*["']@databricks\/sql/.test(line),
-    );
-
-    expect(eagerLoads).toEqual([]);
-    // ...and it is still loaded lazily somewhere, rather than dropped entirely.
     expect(source).toContain('await import("@databricks/sql")');
   });
 
