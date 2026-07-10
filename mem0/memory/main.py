@@ -3563,16 +3563,6 @@ class AsyncMemory(MemoryBase):
             llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
         parsed_messages = [
@@ -3583,6 +3573,19 @@ class AsyncMemory(MemoryBase):
 
         try:
             if llm is not None:
+                # langchain-core is only needed to adapt messages for a custom
+                # LangChain LLM. The default path uses self.llm and must not
+                # require the optional dependency, mirroring the sync version.
+                try:
+                    from langchain_core.messages.utils import (
+                        convert_to_messages,  # type: ignore
+                    )
+                except ImportError as e:
+                    raise ImportError(
+                        "langchain-core is required to pass a custom LLM to procedural memory. "
+                        "Install it with 'pip install langchain-core'."
+                    ) from e
+
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)
