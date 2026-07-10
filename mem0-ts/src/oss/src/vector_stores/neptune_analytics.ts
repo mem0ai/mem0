@@ -187,6 +187,9 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     // the new metadata). Capture the prior node so a failed upsert can be restored; this is
     // best-effort compensation, not a rollback. Only needed when both writes happen -- a
     // payload-only or vector-only update can't desync.
+    // The restore assumes a single writer per vectorId -- concurrent updates to the same node can
+    // interleave and clobber each other's compensation. AWS advises against concurrent same-vertex
+    // writes to the Neptune Analytics vector index for exactly this reason.
     const priorResult =
       hasPayload && hasVector ? await this.get(vectorId) : null;
 

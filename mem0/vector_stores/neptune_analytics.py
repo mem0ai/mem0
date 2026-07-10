@@ -237,6 +237,9 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         # otherwise be left committed against the stale embedding. Capture the prior properties
         # so a failed upsert can be restored; this is best-effort compensation, not a rollback.
         # Only needed when both writes happen -- a payload-only or vector-only update can't desync.
+        # The restore assumes a single writer per vector_id -- concurrent updates to the same node
+        # can interleave and clobber each other's compensation. AWS advises against concurrent
+        # same-vertex writes to the Neptune Analytics vector index for exactly this reason.
         prior_properties = None
         if payload and vector:
             prior = self.get(vector_id)
