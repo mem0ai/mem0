@@ -74,19 +74,29 @@ class TogetherLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
-        params.update(kwargs)
+        # Use the shared parameter filter so o1/o3/gpt-5-style models drop
+        # temperature/top_p (parity with OpenAI/xAI and the LiteLLM fix).
+        call_kwargs = dict(kwargs)
         if response_format:
-            params["response_format"] = response_format
+            call_kwargs["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            call_kwargs["tools"] = tools
+            call_kwargs["tool_choice"] = tool_choice
+
+        params = self._get_supported_params(messages=messages, **call_kwargs)
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
+        if (
+            (self._is_reasoning_model(self.config.model) or self._uses_max_completion_tokens(self.config.model))
+            and self.config.max_tokens is not None
+            and "max_tokens" not in params
+            and "max_completion_tokens" not in params
+        ):
+            params["max_completion_tokens"] = self.config.max_tokens
 
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)
