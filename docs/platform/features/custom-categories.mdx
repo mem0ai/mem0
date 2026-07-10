@@ -274,10 +274,12 @@ client.project.get(["custom_categories"])
 
 ```json Output
 {
-    "custom_categories": None
+    "custom_categories": null
 }
 ```
 </CodeGroup>
+
+A project that has never set a list returns `null`. One you have reset with `project.update(custom_categories=[])` returns `[]`. Both mean the default catalog is active.
 
 ## Verify the feature is working
 
