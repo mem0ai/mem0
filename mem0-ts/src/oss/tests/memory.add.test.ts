@@ -9,7 +9,9 @@ import type { MemoryConfig, MemoryItem, SearchResult } from "../src/types";
 jest.setTimeout(15000);
 
 // Mock vector store dependencies that fail in CI
-jest.mock("mysql2/promise", () => ({ createPool: jest.fn() }), { virtual: true });
+jest.mock("mysql2/promise", () => ({ createPool: jest.fn() }), {
+  virtual: true,
+});
 jest.mock("weaviate-client", () => ({}), { virtual: true });
 
 // Mock Google modules to prevent @google/genai crash in CI
