@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, Optional
 
 from app.database import get_db
@@ -14,6 +15,7 @@ class LLMConfig(BaseModel):
     temperature: float = Field(..., description="Temperature setting for the model")
     max_tokens: int = Field(..., description="Maximum tokens to generate")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible APIs (e.g., http://localhost:8080/v1)")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
 
 class LLMProvider(BaseModel):
@@ -23,6 +25,7 @@ class LLMProvider(BaseModel):
 class EmbedderConfig(BaseModel):
     model: str = Field(..., description="Embedder model name")
     api_key: Optional[str] = Field(None, description="API key or 'env:API_KEY' to use environment variable")
+    openai_base_url: Optional[str] = Field(None, description="Base URL for OpenAI-compatible APIs (e.g., http://localhost:8080/v1)")
     ollama_base_url: Optional[str] = Field(None, description="Base URL for Ollama server (e.g., http://host.docker.internal:11434)")
 
 class EmbedderProvider(BaseModel):
@@ -47,27 +50,58 @@ class ConfigSchema(BaseModel):
     mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
+    """Get the default configuration with sensible defaults for LLM and embedder.
+
+    Honors the same LLM_* / EMBEDDER_* environment variables that
+    app.utils.memory.get_default_memory_config() supports, so the config row
+    this function seeds matches an env-configured deployment instead of
+    silently switching it to hardcoded OpenAI defaults. Values are stored as
+    'env:VAR' references so secret material is never persisted in the
+    database. With none of these variables set, the result is identical to
+    the previous hardcoded defaults.
+    """
+    llm_provider = os.environ.get("LLM_PROVIDER", "openai").lower()
+    llm_config = {
+        "model": os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+        "temperature": 0.1,
+        "max_tokens": 2000,
+    }
+    if llm_provider == "ollama":
+        if os.environ.get("OLLAMA_BASE_URL"):
+            llm_config["ollama_base_url"] = "env:OLLAMA_BASE_URL"
+        elif os.environ.get("LLM_BASE_URL"):
+            llm_config["ollama_base_url"] = "env:LLM_BASE_URL"
+    else:
+        llm_config["api_key"] = "env:LLM_API_KEY" if os.environ.get("LLM_API_KEY") else "env:OPENAI_API_KEY"
+        if os.environ.get("LLM_BASE_URL"):
+            llm_config["openai_base_url"] = "env:LLM_BASE_URL"
+
+    embedder_provider = os.environ.get("EMBEDDER_PROVIDER", "openai").lower()
+    embedder_config = {
+        "model": os.environ.get("EMBEDDER_MODEL", "text-embedding-3-small"),
+    }
+    if embedder_provider == "ollama":
+        if os.environ.get("EMBEDDER_BASE_URL"):
+            embedder_config["ollama_base_url"] = "env:EMBEDDER_BASE_URL"
+        elif os.environ.get("OLLAMA_BASE_URL"):
+            embedder_config["ollama_base_url"] = "env:OLLAMA_BASE_URL"
+    else:
+        embedder_config["api_key"] = "env:EMBEDDER_API_KEY" if os.environ.get("EMBEDDER_API_KEY") else "env:OPENAI_API_KEY"
+        if os.environ.get("EMBEDDER_BASE_URL"):
+            embedder_config["openai_base_url"] = "env:EMBEDDER_BASE_URL"
+
     return {
         "openmemory": {
             "custom_instructions": None
         },
         "mem0": {
             "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
+                "provider": llm_provider,
+                "config": llm_config
             },
             "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
+                "provider": embedder_provider,
+                "config": embedder_config
             },
             "vector_store": None
         }
