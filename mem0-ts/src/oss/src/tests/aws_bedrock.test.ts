@@ -41,6 +41,12 @@ jest.mock(
         this.input = input;
       }
     },
+    InvokeModelCommand: class {
+      input: any;
+      constructor(input: any) {
+        this.input = input;
+      }
+    },
   }),
   { virtual: true },
 );
@@ -184,6 +190,55 @@ describe("AWSBedrockLLM", () => {
       awsRegion: "us-west-2",
     });
     expect(mockClientConstructions).toBe(before);
+  });
+});
+
+describe("invoke_model API (#6023)", () => {
+  // Fake client returning a raw JSON body, as InvokeModel does.
+  function makeInvokeClient(bodyObj: any) {
+    return new FakeBedrockClient({
+      body: Buffer.from(JSON.stringify(bodyObj), "utf8"),
+    });
+  }
+
+  it("uses InvokeModel with an anthropic body and parses content", async () => {
+    const client = makeInvokeClient({ content: [{ text: "legacy reply" }] });
+    const llm = makeLLM(client, {
+      bedrockApi: "invoke_model",
+    });
+    const out = await llm.generateResponse([{ role: "user", content: "hi" }]);
+    expect(out).toBe("legacy reply");
+    expect(client.lastInput.modelId).toContain("anthropic");
+    expect(client.lastInput.contentType).toBe("application/json");
+    const body = JSON.parse(client.lastInput.body);
+    expect(body.anthropic_version).toBe("bedrock-2023-05-31");
+    expect(body.messages[0].content[0].text).toBe("hi");
+  });
+
+  it("builds an ai21/j2 body for j2 model ids", async () => {
+    const client = makeInvokeClient({
+      completions: [{ data: { text: "j2 reply" } }],
+    });
+    const llm = makeLLM(client, {
+      model: "ai21.j2-ultra-v1",
+      bedrockApi: "invoke_model",
+    });
+    const out = await llm.generateResponse([{ role: "user", content: "hi" }]);
+    expect(out).toBe("j2 reply");
+    const body = JSON.parse(client.lastInput.body);
+    expect(body.maxTokens).toBeDefined();
+    expect(body.prompt).toContain("user: hi");
+  });
+
+  it("defaults to converse when bedrockApi is not set", async () => {
+    const client = new FakeBedrockClient({
+      output: { message: { content: [{ text: "c" }] } },
+    });
+    const llm = makeLLM(client);
+    await llm.generateResponse([{ role: "user", content: "hi" }]);
+    // Converse uses inferenceConfig; InvokeModel does not.
+    expect(client.lastInput.inferenceConfig).toBeDefined();
+    expect(client.lastInput.body).toBeUndefined();
   });
 });
 
