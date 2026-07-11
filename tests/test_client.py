@@ -389,3 +389,48 @@ class TestValidateApiKeyHttpError:
 
         assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestGetAllPagination:
+    """page/page_size must travel as query params even when passed alone (#6227)."""
+
+    def _mock_post(self, client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        client.client.post.return_value = mock_response
+
+    def test_page_size_alone_moves_to_query_params(self, mock_memory_client):
+        self._mock_post(mock_memory_client)
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page_size=5)
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page_size": 5},
+        )
+
+    def test_page_alone_moves_to_query_params(self, mock_memory_client):
+        self._mock_post(mock_memory_client)
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page=2)
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page": 2},
+        )
+
+    def test_page_and_page_size_move_to_query_params(self, mock_memory_client):
+        self._mock_post(mock_memory_client)
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page=2, page_size=5)
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page": 2, "page_size": 5},
+        )
+
+    def test_no_pagination_omits_query_params(self, mock_memory_client):
+        self._mock_post(mock_memory_client)
+        mock_memory_client.get_all(filters={"user_id": "u1"})
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+        )
