@@ -227,7 +227,9 @@ def process_telemetry_filters(filters):
     Process the telemetry filters
     """
     if filters is None:
-        return {}
+        # Callers unpack the result as `keys, encoded_ids` — keep the
+        # return type a 2-tuple for the None case too.
+        return [], {}
 
     encoded_ids = {}
     if "user_id" in filters:
