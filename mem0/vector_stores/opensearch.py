@@ -381,8 +381,11 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if top_k:
-                query["size"] = top_k
+            # Without an explicit size OpenSearch returns only its default 10
+            # hits, silently truncating get_all()/delete_all(), which call
+            # list() with top_k=None to enumerate everything (#6108). 10000
+            # is OpenSearch's default index.max_result_window.
+            query["size"] = top_k if top_k else 10000
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]
