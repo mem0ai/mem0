@@ -185,6 +185,7 @@ class VectorStoreFactory:
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
         "azure_mysql": "mem0.vector_stores.azure_mysql.AzureMySQL",
         "pinecone": "mem0.vector_stores.pinecone.PineconeDB",
+        "bedrock_kb": "mem0.vector_stores.bedrock_kb.BedrockKB",
         "mongodb": "mem0.vector_stores.mongodb.MongoDB",
         "redis": "mem0.vector_stores.redis.RedisDB",
         "valkey": "mem0.vector_stores.valkey.ValkeyDB",
