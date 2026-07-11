@@ -469,6 +469,24 @@ def _attach_usage_if_requested(result: Dict[str, Any], llm, include_usage: bool)
     return result
 
 
+def _attach_usage(result: Dict[str, Any], usage: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if usage:
+        result["usage"] = usage
+    return result
+
+
+def _generate_response_with_optional_usage(llm, include_usage: bool, **kwargs):
+    response = llm.generate_response(**kwargs)
+    if not include_usage:
+        return response, None
+
+    get_usage = getattr(llm, "get_last_usage", None)
+    if not callable(get_usage):
+        return response, None
+
+    return response, get_usage()
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -2522,8 +2540,15 @@ class AsyncMemory(MemoryBase):
         try:
             if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
                 results = await self._create_procedural_memory(
-                    messages, metadata=processed_metadata, prompt=prompt, llm=llm
+                    messages,
+                    metadata=processed_metadata,
+                    prompt=prompt,
+                    llm=llm,
+                    include_usage=include_usage,
                 )
+                captured_usage = None
+                if isinstance(results, tuple) and len(results) == 2:
+                    results, captured_usage = results
                 scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
                 if temporal_usage_notice:
                     await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2531,6 +2556,8 @@ class AsyncMemory(MemoryBase):
                     await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
                 else:
                     await display_first_run_notice_async(self, "async", "add")
+                if captured_usage is not None:
+                    return _attach_usage(results, captured_usage)
                 return _attach_usage_if_requested(results, active_llm, include_usage)
 
             if self.config.llm.config.get("enable_vision"):
@@ -2539,8 +2566,16 @@ class AsyncMemory(MemoryBase):
                 messages = parse_vision_messages(messages)
 
             vector_store_result = await self._add_to_vector_store(
-                messages, processed_metadata, effective_filters, infer, prompt=prompt
+                messages,
+                processed_metadata,
+                effective_filters,
+                infer,
+                prompt=prompt,
+                include_usage=include_usage,
             )
+            captured_usage = None
+            if isinstance(vector_store_result, tuple) and len(vector_store_result) == 2:
+                vector_store_result, captured_usage = vector_store_result
             scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2548,7 +2583,10 @@ class AsyncMemory(MemoryBase):
                 await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
             else:
                 await display_first_run_notice_async(self, "async", "add")
-            return _attach_usage_if_requested({"results": vector_store_result}, active_llm, include_usage)
+            result = {"results": vector_store_result}
+            if captured_usage is not None:
+                return _attach_usage(result, captured_usage)
+            return _attach_usage_if_requested(result, active_llm, include_usage)
         finally:
             _stop_llm_usage_capture(active_llm, include_usage)
 
@@ -2559,6 +2597,7 @@ class AsyncMemory(MemoryBase):
         effective_filters: dict,
         infer: bool,
         prompt: Optional[str] = None,
+        include_usage: bool = False,
     ):
         if not infer:
             returned_memories = []
@@ -2637,8 +2676,10 @@ class AsyncMemory(MemoryBase):
         )
 
         try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
+            response, captured_usage = await asyncio.to_thread(
+                _generate_response_with_optional_usage,
+                self.llm,
+                include_usage,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -2668,7 +2709,7 @@ class AsyncMemory(MemoryBase):
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            return []
+            return ([], captured_usage) if include_usage else []
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
@@ -2720,7 +2761,7 @@ class AsyncMemory(MemoryBase):
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            return []
+            return ([], captured_usage) if include_usage else []
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -2883,7 +2924,7 @@ class AsyncMemory(MemoryBase):
             self,
             {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
         )
-        return returned_memories
+        return (returned_memories, captured_usage) if include_usage else returned_memories
 
     async def get(self, memory_id):
         """
@@ -3690,7 +3731,7 @@ class AsyncMemory(MemoryBase):
 
         return memory_id
 
-    async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None):
+    async def _create_procedural_memory(self, messages, metadata=None, llm=None, prompt=None, include_usage: bool = False):
         """
         Create a procedural memory asynchronously
 
@@ -3726,8 +3767,14 @@ class AsyncMemory(MemoryBase):
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)
+                captured_usage = None
             else:
-                procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                procedural_memory, captured_usage = await asyncio.to_thread(
+                    _generate_response_with_optional_usage,
+                    self.llm,
+                    include_usage,
+                    messages=parsed_messages,
+                )
                 procedural_memory = remove_code_blocks(procedural_memory)
         
         except Exception as e:
@@ -3744,7 +3791,7 @@ class AsyncMemory(MemoryBase):
 
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
-        return result
+        return (result, captured_usage) if include_usage else result
 
     async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
         logger.info(f"Updating memory with {data=}")
