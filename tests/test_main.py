@@ -455,6 +455,40 @@ class TestEntityIdValidation:
         _, kwargs = memory_instance.vector_store.list.call_args
         assert kwargs["filters"]["user_id"] == "42"
 
+    def test_get_all_rejects_filters_with_only_none_entity_ids(self, memory_instance):
+        """A filters dict whose only entity ids are None has no usable scope and must be rejected."""
+        with pytest.raises(ValueError, match="at least one of: user_id, agent_id, run_id"):
+            memory_instance.get_all(filters={"user_id": None, "agent_id": None})
+
+    def test_get_all_drops_none_entity_id_but_keeps_valid_scope(self, memory_instance):
+        """A None id alongside a real id must be dropped, not scope the query to <id> IS NULL."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.get_all(filters={"user_id": None, "agent_id": "a1"})
+
+        _, kwargs = memory_instance.vector_store.list.call_args
+        assert "user_id" not in kwargs["filters"]
+        assert kwargs["filters"]["agent_id"] == "a1"
+
+    def test_search_rejects_filters_with_only_none_entity_ids(self, memory_instance):
+        """search should reject a filters dict whose only entity ids are None."""
+        with pytest.raises(ValueError, match="at least one of: user_id, agent_id, run_id"):
+            memory_instance.search("test query", filters={"user_id": None})
+
+    def test_search_drops_none_entity_id_but_keeps_valid_scope(self, memory_instance):
+        """search must drop a None id and scope by the remaining valid id."""
+        memory_instance.vector_store.search = Mock(return_value=[])
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            memory_instance.search("test query", filters={"user_id": None, "agent_id": "a1"})
+
+        _, kwargs = memory_instance.vector_store.search.call_args
+        assert "user_id" not in kwargs["filters"]
+        assert kwargs["filters"]["agent_id"] == "a1"
+
 
 class TestSearchParamValidation:
     """Tests for search parameter validation (threshold and top_k)."""
