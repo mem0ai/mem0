@@ -1,4 +1,3 @@
-import Turbopuffer from "@turbopuffer/turbopuffer";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -11,11 +10,10 @@ interface TurbopufferConfig extends VectorStoreConfig {
 }
 
 export class TurbopufferDB implements VectorStore {
-  private client: Turbopuffer;
-  private ns: ReturnType<InstanceType<typeof Turbopuffer>["namespace"]>;
-  private migrationsNs: ReturnType<
-    InstanceType<typeof Turbopuffer>["namespace"]
-  >;
+  private clientInstance?: any;
+  private clientPromise?: Promise<any>;
+  private readonly apiKey: string;
+  private readonly region: string;
   private readonly collectionName: string;
   private readonly distanceMetric: string;
   private readonly batchSize: number;
@@ -28,17 +26,55 @@ export class TurbopufferDB implements VectorStore {
       );
     }
 
-    this.client = new Turbopuffer({
-      apiKey,
-      region: config.region ?? "gcp-us-central1",
-    });
+    this.apiKey = apiKey;
+    this.region = config.region ?? "gcp-us-central1";
     this.collectionName = config.collectionName;
     this.distanceMetric = config.distanceMetric ?? "cosine_distance";
     this.batchSize = config.batchSize ?? 100;
-    this.ns = this.client.namespace(this.collectionName);
-    this.migrationsNs = this.client.namespace(
-      this.collectionName + "_migrations",
-    );
+  }
+
+  /**
+   * Lazily construct (or reuse) the Turbopuffer client, importing the optional
+   * `@turbopuffer/turbopuffer` peer only when the store is first used so
+   * consumers that never touch Turbopuffer don't need it installed.
+   */
+  private async getClient(): Promise<any> {
+    if (this.clientInstance) return this.clientInstance;
+    if (!this.clientPromise) {
+      this.clientPromise = this.createClient();
+    }
+    this.clientInstance = await this.clientPromise;
+    return this.clientInstance;
+  }
+
+  private async createClient(): Promise<any> {
+    let sdk: any;
+    try {
+      sdk = await import("@turbopuffer/turbopuffer");
+    } catch {
+      throw new Error(
+        "The '@turbopuffer/turbopuffer' package is required to use the Turbopuffer vector store. Install it with: npm install @turbopuffer/turbopuffer",
+      );
+    }
+
+    // @turbopuffer/turbopuffer ships `Turbopuffer` as both the default export
+    // and a named export pointing at the same class. Use `.default` since
+    // that's what a plain `import Turbopuffer from "..."` resolves to (and
+    // what test doubles for this module mock).
+    return new sdk.default({
+      apiKey: this.apiKey,
+      region: this.region,
+    });
+  }
+
+  private async getNs(): Promise<any> {
+    const client = await this.getClient();
+    return client.namespace(this.collectionName);
+  }
+
+  private async getMigrationsNs(): Promise<any> {
+    const client = await this.getClient();
+    return client.namespace(this.collectionName + "_migrations");
   }
 
   async initialize(): Promise<void> {
@@ -50,6 +86,7 @@ export class TurbopufferDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    const ns = await this.getNs();
     for (let i = 0; i < vectors.length; i += this.batchSize) {
       const batchVectors = vectors.slice(i, i + this.batchSize);
       const batchIds = ids.slice(i, i + this.batchSize);
@@ -61,7 +98,7 @@ export class TurbopufferDB implements VectorStore {
         vector,
       }));
 
-      await this.ns.write({
+      await ns.write({
         upsert_rows,
         distance_metric: this.distanceMetric as any,
       });
@@ -82,8 +119,9 @@ export class TurbopufferDB implements VectorStore {
     const tpufFilters = this.convertFilters(filters);
     if (tpufFilters !== null) queryParams.filters = tpufFilters;
 
+    const ns = await this.getNs();
     try {
-      const result = await this.ns.query(queryParams);
+      const result = await ns.query(queryParams);
       return this.parseRows(result.rows ?? []);
     } catch (err) {
       console.error("Turbopuffer search error:", err);
@@ -96,8 +134,9 @@ export class TurbopufferDB implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    const ns = await this.getNs();
     try {
-      const result = await this.ns.query({
+      const result = await ns.query({
         rank_by: ["id", "asc"] as any,
         top_k: 1,
         include_attributes: true,
@@ -116,24 +155,27 @@ export class TurbopufferDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    const ns = await this.getNs();
     if (vector && vector.length > 0) {
-      await this.ns.write({
+      await ns.write({
         upsert_rows: [{ ...payload, id: vectorId, vector }],
         distance_metric: this.distanceMetric as any,
       });
     } else {
-      await this.ns.write({
+      await ns.write({
         patch_rows: [{ ...payload, id: vectorId }],
       });
     }
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.ns.write({ deletes: [vectorId] });
+    const ns = await this.getNs();
+    await ns.write({ deletes: [vectorId] });
   }
 
   async deleteCol(): Promise<void> {
-    await this.ns.deleteAll();
+    const ns = await this.getNs();
+    await ns.deleteAll();
   }
 
   async list(
@@ -149,8 +191,9 @@ export class TurbopufferDB implements VectorStore {
     const tpufFilters = this.convertFilters(filters);
     if (tpufFilters !== null) queryParams.filters = tpufFilters;
 
+    const ns = await this.getNs();
     try {
-      const result = await this.ns.query(queryParams);
+      const result = await ns.query(queryParams);
       const rows = this.parseRows(result.rows ?? []);
       return [rows, rows.length];
     } catch (err) {
@@ -161,9 +204,10 @@ export class TurbopufferDB implements VectorStore {
 
   async getUserId(): Promise<string> {
     try {
+      const migrationsNs = await this.getMigrationsNs();
       let rows: any[] = [];
       try {
-        const result = await this.migrationsNs.query({
+        const result = await migrationsNs.query({
           rank_by: ["id", "asc"] as any,
           top_k: 1,
           include_attributes: true,
@@ -181,7 +225,7 @@ export class TurbopufferDB implements VectorStore {
       const randomId =
         Math.random().toString(36).slice(2, 15) +
         Math.random().toString(36).slice(2, 15);
-      await this.migrationsNs.write({
+      await migrationsNs.write({
         upsert_rows: [{ id: "1", vector: [0.0], user_id: randomId }],
         distance_metric: "cosine_distance" as any,
       });
@@ -194,7 +238,8 @@ export class TurbopufferDB implements VectorStore {
 
   async setUserId(userId: string): Promise<void> {
     try {
-      await this.migrationsNs.write({
+      const migrationsNs = await this.getMigrationsNs();
+      await migrationsNs.write({
         upsert_rows: [{ id: "1", vector: [0.0], user_id: userId }],
         distance_metric: "cosine_distance" as any,
       });

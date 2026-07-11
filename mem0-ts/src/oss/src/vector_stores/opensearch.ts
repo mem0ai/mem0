@@ -1,4 +1,4 @@
-import { Client } from "@opensearch-project/opensearch";
+import type { Client } from "@opensearch-project/opensearch";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -14,7 +14,9 @@ type OpenSearchAuth =
   | Record<string, any>;
 
 interface OpenSearchConfig extends VectorStoreConfig {
-  client?: Client;
+  /** Pre-configured OpenSearch client instance (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  client?: any;
   host?: string;
   port?: number;
   httpAuth?: OpenSearchAuth | [string, string];
@@ -61,17 +63,29 @@ function escapeWildcard(value: string): string {
 }
 
 export class OpenSearchDB implements VectorStore {
-  private client: Client;
+  private client!: Client;
+  private readonly config: OpenSearchConfig;
   private readonly collectionName: string;
   private readonly embeddingModelDims: number;
   private readonly autoRefresh: boolean;
   private _initPromise?: Promise<void>;
 
   constructor(config: OpenSearchConfig) {
+    this.config = config;
     this.collectionName = config.collectionName;
     this.embeddingModelDims = config.embeddingModelDims;
     this.autoRefresh = config.autoRefresh ?? false;
 
+    this.initialize().catch(console.error);
+  }
+
+  // The client is created lazily on first initialize() so the optional
+  // `@opensearch-project/opensearch` peer is only loaded when the store is
+  // actually used.
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+
+    const config = this.config;
     if (config.client) {
       this.client = config.client;
     } else {
@@ -84,7 +98,16 @@ export class OpenSearchDB implements VectorStore {
           ? { username: config.user, password: config.password }
           : undefined);
 
-      this.client = new Client({
+      let sdk: any;
+      try {
+        sdk = await import("@opensearch-project/opensearch");
+      } catch {
+        throw new Error(
+          "The '@opensearch-project/opensearch' package is required to use the OpenSearch vector store. Install it with: npm install @opensearch-project/opensearch",
+        );
+      }
+
+      this.client = new sdk.Client({
         node: `${useSSL ? "https" : "http"}://${host}:${port}`,
         auth: this.normalizeAuth(auth),
         ssl: {
@@ -94,8 +117,6 @@ export class OpenSearchDB implements VectorStore {
         },
       });
     }
-
-    this.initialize().catch(console.error);
   }
 
   async initialize(): Promise<void> {
@@ -107,6 +128,7 @@ export class OpenSearchDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     await this.createCol(this.collectionName, this.embeddingModelDims);
     await this.ensureMigrationIndex();
   }
@@ -210,6 +232,7 @@ export class OpenSearchDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     vectors.forEach((vector, index) => this.validateVector(vector, index));
 
     const operations = vectors.flatMap((vector, index) => {
@@ -250,6 +273,7 @@ export class OpenSearchDB implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
+    await this.initialize();
     const boolQuery: Record<string, any> = {
       should: [
         { match: { "payload.data": query } },
@@ -281,6 +305,7 @@ export class OpenSearchDB implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const knnQuery = {
       knn: {
         vector_field: {
@@ -316,6 +341,7 @@ export class OpenSearchDB implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     try {
       const response = responseBody<{ _source?: OpenSearchHit["_source"] }>(
         await this.client.get({
@@ -343,6 +369,7 @@ export class OpenSearchDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     if (vector) {
       this.validateVector(vector, 0);
     }
@@ -362,6 +389,7 @@ export class OpenSearchDB implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     try {
       await this.client.delete({
         index: this.collectionName,
@@ -377,6 +405,7 @@ export class OpenSearchDB implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     if (!(await this.indexExists(this.collectionName))) return;
     await this.client.indices.delete({ index: this.collectionName });
   }
@@ -385,6 +414,7 @@ export class OpenSearchDB implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const filter = this.buildFilterClauses(filters);
     const query = filter.length ? { bool: { filter } } : { match_all: {} };
 
@@ -413,11 +443,13 @@ export class OpenSearchDB implements VectorStore {
   }
 
   async reset(): Promise<void> {
+    await this.initialize();
     await this.deleteCol();
     await this.createCol(this.collectionName, this.embeddingModelDims);
   }
 
   async getUserId(): Promise<string> {
+    await this.initialize();
     await this.ensureMigrationIndex();
 
     const response = responseBody<{ hits: { hits: OpenSearchHit[] } }>(
@@ -442,6 +474,7 @@ export class OpenSearchDB implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     await this.ensureMigrationIndex();
     await this.client.index({
       index: "memory_migrations",

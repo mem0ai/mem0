@@ -168,6 +168,54 @@
     },
     "@aws-sdk/client-neptune-graph": {
       "optional": true
+    },
+    "chromadb": {
+      "optional": true
+    },
+    "mongodb": {
+      "optional": true
+    },
+    "weaviate-client": {
+      "optional": true
+    },
+    "cassandra-driver": {
+      "optional": true
+    },
+    "@pinecone-database/pinecone": {
+      "optional": true
+    },
+    "@aws-sdk/client-s3vectors": {
+      "optional": true
+    },
+    "@turbopuffer/turbopuffer": {
+      "optional": true
+    },
+    "@upstash/vector": {
+      "optional": true
+    },
+    "@elastic/elasticsearch": {
+      "optional": true
+    },
+    "@opensearch-project/opensearch": {
+      "optional": true
+    },
+    "cohere-ai": {
+      "optional": true
+    },
+    "zeroentropy": {
+      "optional": true
+    },
+    "fastembed": {
+      "optional": true
+    },
+    "@google-cloud/aiplatform": {
+      "optional": true
+    },
+    "@huggingface/transformers": {
+      "optional": true
+    },
+    "iovalkey": {
+      "optional": true
     }
   },
   "engines": {

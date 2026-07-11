@@ -1,10 +1,12 @@
-import weaviate, { Filters, type WeaviateClient } from "weaviate-client";
+import type { WeaviateClient } from "weaviate-client";
 import { v4 as uuidv4 } from "uuid";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface WeaviateConfig extends VectorStoreConfig {
-  client?: WeaviateClient;
+  /** Pre-configured Weaviate client instance (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  client?: any;
   clusterUrl?: string;
   apiKey?: string;
   additionalHeaders?: Record<string, string>;
@@ -28,6 +30,7 @@ const RETURN_PROPERTIES = [
 export class WeaviateDB implements VectorStore {
   private _config: WeaviateConfig;
   private _client!: WeaviateClient;
+  private _sdk: any;
   private _col!: any;
   private _userId: string;
   private _initPromise?: Promise<void>;
@@ -42,9 +45,23 @@ export class WeaviateDB implements VectorStore {
     return (this._initPromise ??= this._doInitialize());
   }
 
-  private async _doInitialize(): Promise<void> {
-    const { client, clusterUrl, apiKey, additionalHeaders, collectionName } =
-      this._config;
+  // Loaded dynamically: weaviate-client is an optional peer dependency, so a static
+  // value import would break `import { Memory } from "mem0ai/oss"` for everyone else.
+  private async ensureClient(): Promise<void> {
+    if (this._client) return;
+
+    let sdk: any;
+    try {
+      sdk = await import("weaviate-client");
+    } catch {
+      throw new Error(
+        "The 'weaviate-client' package is required to use the Weaviate vector store. Install it with: npm install weaviate-client",
+      );
+    }
+    this._sdk = sdk;
+
+    const { client, clusterUrl, apiKey, additionalHeaders } = this._config;
+    const weaviate = sdk.default;
 
     if (client) {
       this._client = client;
@@ -79,6 +96,12 @@ export class WeaviateDB implements VectorStore {
         headers: additionalHeaders,
       });
     }
+  }
+
+  private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
+    const { collectionName } = this._config;
+    const weaviate = this._sdk.default;
 
     const exists = await this._client.collections.exists(collectionName);
     if (!exists) {
@@ -101,7 +124,7 @@ export class WeaviateDB implements VectorStore {
     const conditions = (["user_id", "agent_id", "run_id"] as const)
       .filter((key) => filters[key] != null)
       .map((key) => this._col.filter.byProperty(key).equal(filters[key]));
-    return conditions.length ? Filters.and(...conditions) : undefined;
+    return conditions.length ? this._sdk.Filters.and(...conditions) : undefined;
   }
 
   async insert(
