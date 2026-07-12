@@ -166,9 +166,41 @@ describe("Valkey – mocked iovalkey client", () => {
     const result = await store.get("mem-1");
     expect(result?.id).toBe("mem-1");
     expect(result?.payload.data).toBe("hello valkey");
-    expect(result?.payload.userId).toBe("alice");
+    // Entity ids follow the canonical snake_case contract (index.ts reads
+    // payload.user_id, not payload.userId); only timestamps are camelCase.
+    expect(result?.payload.user_id).toBe("alice");
+    expect(result?.payload.userId).toBeUndefined();
     // created_at is persisted as unix seconds and rendered back to its ISO instant.
     expect(result?.payload.createdAt).toBe("2024-01-01T00:00:00.000Z");
+  });
+
+  it("returns agent_id and run_id in snake_case, not camelCase", async () => {
+    const store = new ValkeyDB({
+      collectionName: "test",
+      embeddingModelDims: 4,
+      valkeyUrl: "valkey://localhost:6379",
+    });
+    await store.initialize();
+
+    await store.insert(
+      [[0.1, 0.2, 0.3, 0.4]],
+      ["mem-2"],
+      [
+        {
+          data: "scoped",
+          hash: "hash-2",
+          created_at: "2024-01-01T00:00:00.000Z",
+          agent_id: "agent-1",
+          run_id: "run-1",
+        },
+      ],
+    );
+
+    const result = await store.get("mem-2");
+    expect(result?.payload.agent_id).toBe("agent-1");
+    expect(result?.payload.run_id).toBe("run-1");
+    expect(result?.payload.agentId).toBeUndefined();
+    expect(result?.payload.runId).toBeUndefined();
   });
 
   it("uses Cluster client when clusterMode is enabled", async () => {
