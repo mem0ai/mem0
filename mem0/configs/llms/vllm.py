@@ -53,4 +53,4 @@ class VllmConfig(BaseLlmConfig):
         )
 
         # vLLM-specific parameters
-        self.vllm_base_url = vllm_base_url or "http://localhost:8000/v1"
+        self.vllm_base_url = vllm_base_url
