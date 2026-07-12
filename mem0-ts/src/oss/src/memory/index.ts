@@ -2107,6 +2107,33 @@ export class Memory {
       return result;
     };
 
+    // Merge source into target, deep-merging nested operator dicts for the same
+    // key so multiple conditions on one field combine (e.g. {gte:10} and
+    // {lte:20} -> {gte:10, lte:20}) instead of the later one overwriting the
+    // earlier. A plain Object.assign shallow-overwrites, silently dropping the
+    // first bound of a range expressed via AND. Mirrors merge_filters in the
+    // Python SDK's Memory._process_metadata_filters.
+    const mergeFilters = (
+      target: Record<string, any>,
+      source: Record<string, any>,
+    ): void => {
+      for (const [key, value] of Object.entries(source)) {
+        const existing = target[key];
+        if (
+          existing !== null &&
+          typeof existing === "object" &&
+          !Array.isArray(existing) &&
+          value !== null &&
+          typeof value === "object" &&
+          !Array.isArray(value)
+        ) {
+          Object.assign(existing, value);
+        } else {
+          target[key] = value;
+        }
+      }
+    };
+
     for (const [key, value] of Object.entries(metadataFilters)) {
       if (key === "AND") {
         // Logical AND: combine multiple conditions
@@ -2115,7 +2142,7 @@ export class Memory {
         }
         for (const condition of value) {
           for (const [subKey, subValue] of Object.entries(condition)) {
-            Object.assign(processedFilters, processCondition(subKey, subValue));
+            mergeFilters(processedFilters, processCondition(subKey, subValue));
           }
         }
       } else if (key === "OR") {
@@ -2131,7 +2158,7 @@ export class Memory {
           for (const [subKey, subValue] of Object.entries(
             condition as Record<string, any>,
           )) {
-            Object.assign(orCondition, processCondition(subKey, subValue));
+            mergeFilters(orCondition, processCondition(subKey, subValue));
           }
           processedFilters["$or"].push(orCondition);
         }
@@ -2148,12 +2175,12 @@ export class Memory {
           for (const [subKey, subValue] of Object.entries(
             condition as Record<string, any>,
           )) {
-            Object.assign(notCondition, processCondition(subKey, subValue));
+            mergeFilters(notCondition, processCondition(subKey, subValue));
           }
           processedFilters["$not"].push(notCondition);
         }
       } else {
-        Object.assign(processedFilters, processCondition(key, value));
+        mergeFilters(processedFilters, processCondition(key, value));
       }
     }
 
