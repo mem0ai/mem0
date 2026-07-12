@@ -122,18 +122,24 @@ function rejectTopLevelEntityParams(
 
 /**
  * Validates and normalizes an entity ID.
+ * - Coerces non-string ids (e.g. numeric database keys) to string
  * - Trims leading/trailing whitespace
  * - Rejects empty or whitespace-only strings
  * - Rejects strings containing internal whitespace
- * @returns The trimmed entity ID, or undefined if input is undefined
+ * @returns The trimmed entity ID, or undefined if input is undefined/null
  * @throws Error if entity ID is invalid
  */
 function validateAndTrimEntityId(
-  value: string | undefined,
+  value: string | number | undefined | null,
   name: string,
 ): string | undefined {
-  if (value === undefined) return undefined;
-  const trimmed = value.trim();
+  if (value === undefined || value === null) return undefined;
+  // Callers commonly pass integer ids (e.g. a database primary key). Coerce to
+  // string at this single validation point so scoping stays consistent across
+  // add/search/getAll/deleteAll instead of crashing on `.trim()`. Mirrors the
+  // Python SDK's _validate_and_trim_entity_id.
+  const stringValue = typeof value === "string" ? value : String(value);
+  const trimmed = stringValue.trim();
   if (trimmed === "") {
     throw new Error(
       `Invalid ${name}: cannot be empty or whitespace-only. Provide a valid identifier.`,
