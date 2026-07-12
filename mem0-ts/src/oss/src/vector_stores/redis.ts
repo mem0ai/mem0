@@ -145,6 +145,24 @@ function toCamelCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
+// Re-attach entity ids in snake_case after a toCamelCase pass on a stored
+// payload. The entity ids (user_id/agent_id/run_id) are part of the canonical
+// payload contract in snake_case: index.ts and every other vector store read
+// payload.user_id, not payload.userId. Running the whole payload through
+// toCamelCase renamed them to userId/agentId/runId, so they were dropped from
+// search/getAll/get results and leaked into metadata, and delete/update entity
+// cleanup could not read the scope. Timestamps stay camelCase (createdAt) as
+// the contract expects, which is why the camelCase pass is kept for the rest.
+function withEntityIds(
+  payload: Record<string, any>,
+  source: { agent_id?: string; run_id?: string; user_id?: string },
+): Record<string, any> {
+  if (source.agent_id) payload.agent_id = source.agent_id;
+  if (source.run_id) payload.run_id = source.run_id;
+  if (source.user_id) payload.user_id = source.user_id;
+  return payload;
+}
+
 export class RedisDB implements VectorStore {
   private client: RedisClientType<
     RedisDefaultModules & RedisModules & RedisFunctions & RedisScripts
@@ -437,15 +455,12 @@ export class RedisDB implements VectorStore {
           ...(doc.value.updated_at && {
             updated_at: new Date(parseInt(doc.value.updated_at)).toISOString(),
           }),
-          ...(doc.value.agent_id && { agent_id: doc.value.agent_id }),
-          ...(doc.value.run_id && { run_id: doc.value.run_id }),
-          ...(doc.value.user_id && { user_id: doc.value.user_id }),
           ...JSON.parse(doc.value.metadata || "{}"),
         };
 
         return {
           id: doc.value.memory_id,
-          payload: toCamelCase(resultPayload),
+          payload: withEntityIds(toCamelCase(resultPayload), doc.value),
           score: Math.max(0, 1 - (Number(doc.value.__vector_score) ?? 0)),
         };
       });
@@ -541,15 +556,12 @@ export class RedisDB implements VectorStore {
         data: doc.memory,
         created_at: created_at.toISOString(),
         ...(updated_at && { updated_at: updated_at.toISOString() }),
-        ...(doc.agent_id && { agent_id: doc.agent_id }),
-        ...(doc.run_id && { run_id: doc.run_id }),
-        ...(doc.user_id && { user_id: doc.user_id }),
         ...JSON.parse(doc.metadata || "{}"),
       };
 
       return {
         id: vectorId,
-        payload: toCamelCase(payload),
+        payload: withEntityIds(toCamelCase(payload), doc),
       };
     } catch (error) {
       console.error("Error getting vector:", error);
@@ -658,18 +670,18 @@ export class RedisDB implements VectorStore {
 
     const items = results.documents.map((doc) => ({
       id: doc.value.memory_id,
-      payload: toCamelCase({
-        hash: doc.value.hash,
-        data: doc.value.memory,
-        created_at: new Date(parseInt(doc.value.created_at)).toISOString(),
-        ...(doc.value.updated_at && {
-          updated_at: new Date(parseInt(doc.value.updated_at)).toISOString(),
+      payload: withEntityIds(
+        toCamelCase({
+          hash: doc.value.hash,
+          data: doc.value.memory,
+          created_at: new Date(parseInt(doc.value.created_at)).toISOString(),
+          ...(doc.value.updated_at && {
+            updated_at: new Date(parseInt(doc.value.updated_at)).toISOString(),
+          }),
+          ...JSON.parse(doc.value.metadata || "{}"),
         }),
-        ...(doc.value.agent_id && { agent_id: doc.value.agent_id }),
-        ...(doc.value.run_id && { run_id: doc.value.run_id }),
-        ...(doc.value.user_id && { user_id: doc.value.user_id }),
-        ...JSON.parse(doc.value.metadata || "{}"),
-      }),
+        doc.value,
+      ),
     }));
 
     return [items, results.total];
