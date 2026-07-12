@@ -20,7 +20,7 @@ def mock_minimax_client():
 def test_minimax_llm_default_base_url():
     """Default config uses MiniMax official base URL."""
     config = BaseLlmConfig(
-        model="MiniMax-M3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+        model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
     )
     llm = MiniMaxLLM(config)
     # OpenAI client may normalize URL with trailing slash
@@ -33,7 +33,7 @@ def test_minimax_llm_env_base_url():
     os.environ["MINIMAX_API_BASE"] = provider_base_url
     try:
         config = MinimaxConfig(
-            model="MiniMax-M3",
+            model="MiniMax-M2.7",
             temperature=0.7,
             max_tokens=100,
             top_p=1.0,
@@ -49,7 +49,7 @@ def test_minimax_llm_config_base_url():
     """Config uses minimax_base_url when provided."""
     config_base_url = "https://api.config.com/v1/"
     config = MinimaxConfig(
-        model="MiniMax-M3",
+        model="MiniMax-M2.7",
         temperature=0.7,
         max_tokens=100,
         top_p=1.0,
@@ -74,7 +74,7 @@ def test_minimax_llm_env_api_key():
         with patch("mem0.llms.minimax.OpenAI") as mock_openai:
             mock_client = Mock()
             mock_openai.return_value = mock_client
-            config = MinimaxConfig(model="MiniMax-M3", api_key=None)
+            config = MinimaxConfig(model="MiniMax-M2.7", api_key=None)
             MiniMaxLLM(config)
             mock_openai.assert_called_once_with(
                 api_key="env-api-key",
@@ -87,7 +87,7 @@ def test_minimax_llm_env_api_key():
 def test_generate_response_without_tools(mock_minimax_client):
     """generate_response returns text when no tools provided."""
     config = BaseLlmConfig(
-        model="MiniMax-M3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+        model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
     )
     llm = MiniMaxLLM(config)
     messages = [
@@ -102,7 +102,7 @@ def test_generate_response_without_tools(mock_minimax_client):
     response = llm.generate_response(messages)
 
     mock_minimax_client.chat.completions.create.assert_called_once_with(
-        model="MiniMax-M3", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
+        model="MiniMax-M2.7", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
@@ -110,7 +110,7 @@ def test_generate_response_without_tools(mock_minimax_client):
 def test_generate_response_with_tools(mock_minimax_client):
     """generate_response returns tool_calls when tools provided."""
     config = BaseLlmConfig(
-        model="MiniMax-M3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+        model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
     )
     llm = MiniMaxLLM(config)
     messages = [
@@ -147,7 +147,7 @@ def test_generate_response_with_tools(mock_minimax_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_minimax_client.chat.completions.create.assert_called_once_with(
-        model="MiniMax-M3",
+        model="MiniMax-M2.7",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -165,7 +165,7 @@ def test_generate_response_with_tools(mock_minimax_client):
 def test_generate_response_with_response_format(mock_minimax_client):
     """generate_response passes response_format to the API."""
     config = BaseLlmConfig(
-        model="MiniMax-M3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+        model="MiniMax-M2.7", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
     )
     llm = MiniMaxLLM(config)
     messages = [{"role": "user", "content": "Return JSON."}]
@@ -178,7 +178,7 @@ def test_generate_response_with_response_format(mock_minimax_client):
     llm.generate_response(messages, response_format=response_format)
 
     mock_minimax_client.chat.completions.create.assert_called_once_with(
-        model="MiniMax-M3",
+        model="MiniMax-M2.7",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -189,6 +189,6 @@ def test_generate_response_with_response_format(mock_minimax_client):
 
 def test_factory_creates_minimax_llm(mock_minimax_client):
     """LlmFactory.create returns MiniMaxLLM for provider 'minimax'."""
-    llm = LlmFactory.create("minimax", {"model": "MiniMax-M3", "api_key": "test-key"})
+    llm = LlmFactory.create("minimax", {"model": "MiniMax-M2.7", "api_key": "test-key"})
     assert isinstance(llm, MiniMaxLLM)
-    assert llm.config.model == "MiniMax-M3"
+    assert llm.config.model == "MiniMax-M2.7"

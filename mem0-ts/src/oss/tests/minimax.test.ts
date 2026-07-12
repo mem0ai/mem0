@@ -57,13 +57,37 @@ describe("MiniMaxLLM (unit)", () => {
     new MiniMaxLLM({
       apiKey: "config-key",
       baseURL: "https://config.minimax.test/v1",
-      model: "MiniMax-M1",
+      model: "MiniMax-M2.7",
     });
 
     expect(capturedConstructorArgs).toMatchObject({
       apiKey: "config-key",
       baseURL: "https://config.minimax.test/v1",
     });
+  });
+
+  it("preserves an explicit MiniMax-M2.7 model", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "Hello from MiniMax",
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
+    });
+
+    const llm = new MiniMaxLLM({
+      apiKey: "test-key",
+      model: "MiniMax-M2.7",
+    });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "MiniMax-M2.7" }),
+    );
   });
 
   it("generateResponse() returns a text response", async () => {
