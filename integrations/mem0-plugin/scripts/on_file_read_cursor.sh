@@ -22,6 +22,14 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Re-source identity so settings.json auto_search applies even when
+# MEM0_API_KEY was already present in the environment (the branch above
+# skips identity in that case).
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
+if [ "${MEM0_AUTO_SEARCH:-true}" = "false" ]; then
+  exit 0
+fi
+
 CWD=$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")
 
 TIMELINE=$(python3 "$SCRIPT_DIR/file_context.py" "$FILE_PATH" "$CWD" 2>/dev/null || echo "")
