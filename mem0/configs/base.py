@@ -55,6 +55,20 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    custom_fact_extraction_prompt: Optional[str] = Field(
+        description=(
+            "Optional full override of the extraction system prompt. When set, "
+            "this string replaces the built-in high-recall extraction prompt "
+            "(``ADDITIVE_EXTRACTION_PROMPT``) so self-hosted callers can dial "
+            "extraction recall down. Defaults to ``None``, which preserves "
+            "current behaviour byte-for-byte (a blank value is treated the same "
+            "as ``None``). When set, the caller is "
+            "responsible for preserving the JSON output contract "
+            '(``{"memory": [{"text": ...}, ...]}``); see '
+            "https://github.com/mem0ai/mem0/issues/5730."
+        ),
+        default=None,
+    )
 
 
 class AzureConfig(BaseModel):

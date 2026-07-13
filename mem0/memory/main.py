@@ -462,6 +462,9 @@ class Memory(MemoryBase):
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
+        # Optional full override of the extraction system prompt (see #5730).
+        # ``None`` preserves current behaviour byte-for-byte.
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
 
         # Initialize reranker if configured
         self.reranker = None
@@ -895,7 +898,12 @@ class Memory(MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        # Self-hosted callers can supply ``custom_fact_extraction_prompt`` (see
+        # #5730) to fully replace the built-in high-recall extraction system
+        # prompt and dial recall down. A blank value is treated as unset, so
+        # behaviour is unchanged. The caller owns the JSON output contract.
+        override_prompt = self.custom_fact_extraction_prompt
+        system_prompt = override_prompt if override_prompt and override_prompt.strip() else ADDITIVE_EXTRACTION_PROMPT
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
@@ -2124,6 +2132,9 @@ class AsyncMemory(MemoryBase):
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
+        # Optional full override of the extraction system prompt (see #5730).
+        # ``None`` preserves current behaviour byte-for-byte.
+        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
         self._entity_store = None
 
         # Initialize reranker if configured
@@ -2533,7 +2544,12 @@ class AsyncMemory(MemoryBase):
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
-        system_prompt = ADDITIVE_EXTRACTION_PROMPT
+        # Self-hosted callers can supply ``custom_fact_extraction_prompt`` (see
+        # #5730) to fully replace the built-in high-recall extraction system
+        # prompt and dial recall down. A blank value is treated as unset, so
+        # behaviour is unchanged. The caller owns the JSON output contract.
+        override_prompt = self.custom_fact_extraction_prompt
+        system_prompt = override_prompt if override_prompt and override_prompt.strip() else ADDITIVE_EXTRACTION_PROMPT
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
