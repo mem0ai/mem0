@@ -221,10 +221,12 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## Hosted-memory cost controls
 
-Automatic hosted retrieval is off by default. Set `"auto_search": true` in
-`~/.mem0/settings.json` to opt in to file-read, resume, error, SessionStart,
-and automatic-import searches. Explicit MCP searches remain available, subject
-to the same hard local budget as all other hosted Mem0 traffic.
+Automatic hosted retrieval is off for fresh installs and whenever the setting
+is missing. Set `"auto_search": true` in `~/.mem0/settings.json` to opt in to
+file-read, resume, error, SessionStart, and automatic-import searches. An
+existing explicit `auto_search: true` is preserved on upgrade; set it to
+`false` to adopt the new posture. Explicit MCP searches remain available,
+subject to the same hard local budget as all other hosted Mem0 traffic.
 
 The Python/shell plugin surface charges each admitted hosted request atomically
 in `${MEM0_STATE_DIR:-~/.mem0}/admission.sqlite3` before transport. Defaults:

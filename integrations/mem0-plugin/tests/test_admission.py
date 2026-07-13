@@ -10,6 +10,8 @@ import sys
 import urllib.request
 import uuid
 import json
+import shutil
+import time
 from unittest.mock import patch
 
 import pytest
@@ -262,4 +264,38 @@ def test_session_start_helpers_default_off_never_enter_admission(tmp_path, helpe
         [sys.executable, script], env=env, capture_output=True, text=True
     )
     assert result.returncode == 0
+    assert not (state / "admission.sqlite3").exists()
+
+
+def test_session_start_launcher_does_not_spawn_automatic_hosted_helpers_by_default(tmp_path):
+    source_scripts = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts"))
+    scripts = tmp_path / "scripts"
+    shutil.copytree(source_scripts, scripts)
+    marker = tmp_path / "automatic-helper-ran"
+    sentinel = f"#!/bin/sh\necho ran >> {marker}\n"
+    for name in ("auto_import.py", "auto_setup_categories.py"):
+        helper = scripts / name
+        helper.write_text(sentinel)
+        helper.chmod(0o755)
+
+    state = tmp_path / "state"
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(tmp_path / "home"),
+            "MEM0_API_KEY": "sentinel-no-network",
+            "MEM0_STATE_DIR": str(state),
+            "CLAUDE_PLUGIN_DATA": str(tmp_path / "plugin-data"),
+        }
+    )
+    result = subprocess.run(
+        [scripts / "on_session_start.sh"],
+        input=json.dumps({"source": "startup", "session_id": "test-session", "cwd": str(tmp_path)}),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    time.sleep(0.1)
+    assert result.returncode == 0
+    assert not marker.exists()
     assert not (state / "admission.sqlite3").exists()
