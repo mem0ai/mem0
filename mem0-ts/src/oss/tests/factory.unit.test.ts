@@ -183,6 +183,11 @@ jest.mock("../src/vector_stores/pgvector", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "pgvector", config })),
 }));
+jest.mock("../src/vector_stores/databricks", () => ({
+  DatabricksVectorStore: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "databricks", config })),
+}));
 jest.mock("../src/vector_stores/neptune_analytics", () => ({
   NeptuneAnalyticsVectorStore: jest.fn().mockImplementation((config) => ({
     type: "neptune-analytics",
@@ -346,6 +351,7 @@ describe("VectorStoreFactory", () => {
     ["vectorize"],
     ["azure-ai-search"],
     ["pgvector"],
+    ["databricks"],
     ["neptune"],
     ["neptune-analytics"],
     ["upstash_vector"],

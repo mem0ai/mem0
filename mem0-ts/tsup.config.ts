@@ -32,6 +32,7 @@ const external = [
   "@azure/identity",
   "cloudflare",
   "@cloudflare/workers-types",
+  "@databricks/sql",
   "@langchain/core",
   "fastembed",
   "compromise",

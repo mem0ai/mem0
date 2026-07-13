@@ -1,0 +1,175 @@
+---
+title: Memory Expiration
+description: "Give a memory a shelf life: set an expiration date and it stops surfacing in search once that date passes, without deleting the record."
+---
+
+# Memory Expiration
+
+Some facts are only true for a while. A trial plan ends, a seasonal preference goes stale, a support ticket ages past its retention window. Set an `expiration_date` on a memory and Mem0 stops surfacing it once that date passes, so you don't need a cleanup job hunting for rows to delete.
+
+**Expiration hides a memory, it does not delete it.** The record stays in storage untouched. `search()` and `get_all()` skip it, fetching it by ID still returns it, and clearing the date brings it straight back.
+
+## How it works
+
+- **Format**: a plain `YYYY-MM-DD` date. No time component, no timezone offset.
+- **Evaluated in UTC**, never against the caller's local timezone.
+- **Inclusive of the date itself**: a memory set to expire on `2030-01-31` stays visible all through `2030-01-31` UTC and disappears on `2030-02-01`.
+- **Only list-shaped reads filter**: `search()` and `get_all()` (`getAll()` in TypeScript) hide expired memories. <Link href="/api-reference/memory/get-memory">`get(memory_id)`</Link> always returns the memory, so there is no `show_expired` parameter on that path.
+- **No expiration date means never expires.** That is the default for every memory.
+- **Malformed dates fail open**: a stored value Mem0 can't parse is treated as *not* expired. A bad date never makes a memory silently vanish.
+
+## Set an expiration date
+
+Set it when you add the memory:
+
+<CodeGroup>
+```python Python
+# Mem0 Platform
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+messages = [{"role": "user", "content": "My Pro trial ends soon."}]
+
+client.add(messages, user_id="alice", expiration_date="2030-01-31")
+
+# Mem0 OSS
+from mem0 import Memory
+
+memory = Memory()
+memory.add(messages, user_id="alice", expiration_date="2030-01-31")
+```
+
+```javascript JavaScript
+// Mem0 Platform
+import { MemoryClient } from "mem0ai";
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+const messages = [{ role: "user", content: "My Pro trial ends soon." }];
+
+await client.add(messages, { userId: "alice", expirationDate: "2030-01-31" });
+
+// Mem0 OSS
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory();
+await memory.add(messages, { userId: "alice", expirationDate: "2030-01-31" });
+```
+</CodeGroup>
+
+Or attach it to a memory that already exists, using `update()`:
+
+<CodeGroup>
+```python Python
+client.update("mem_123", expiration_date="2030-01-31")   # Platform
+memory.update("mem_123", expiration_date="2030-01-31")   # OSS
+```
+
+```javascript JavaScript
+await client.update("mem_123", { expirationDate: "2030-01-31" });   // Platform
+await memory.update("mem_123", { expirationDate: "2030-01-31" });   // OSS
+```
+</CodeGroup>
+
+Full field lists live in the <Link href="/api-reference/memory/add-memories">Add Memories</Link> and <Link href="/api-reference/memory/update-memory">Update Memory</Link> references.
+
+## Read expired memories back
+
+Pass `show_expired` (`showExpired` in TypeScript) to include them. It defaults to `false` on every client.
+
+<CodeGroup>
+```python Python
+client.get_all(filters={"user_id": "alice"}, show_expired=True)
+client.search("What plan is Alice on?", filters={"user_id": "alice"}, show_expired=True)
+```
+
+```javascript JavaScript
+await client.getAll({ filters: { user_id: "alice" }, showExpired: true });
+await client.search("What plan is Alice on?", {
+  filters: { user_id: "alice" },
+  showExpired: true,
+});
+```
+</CodeGroup>
+
+The same parameter and spelling work on the OSS `Memory` class. See <Link href="/api-reference/memory/search-memories">Search Memories</Link> and <Link href="/api-reference/memory/get-memories">Get Memories</Link>.
+
+<Note>
+  Expired memories are dropped *before* your `top_k` is applied, so Mem0 widens the internal candidate pool first and short result sets are rare. They are not impossible: if nearly every memory in a scope has expired, a call can still return fewer than `top_k` results. Pass `show_expired: true` to get the full set back.
+</Note>
+
+## Clear an expiration date
+
+Pass an explicit `None` (Python) or `null` (TypeScript) to make the memory permanent again. The SDKs deliberately preserve that null instead of treating it as "argument not supplied".
+
+<CodeGroup>
+```python Python
+client.update("mem_123", expiration_date=None)   # Platform
+memory.update("mem_123", expiration_date=None)   # OSS
+```
+
+```javascript JavaScript
+await client.update("mem_123", { expirationDate: null });   // Platform
+await memory.update("mem_123", { expirationDate: null });   // OSS
+```
+</CodeGroup>
+
+<Note>
+  `update()` needs at least one of `text`, `metadata`, or `expiration_date`, and raises if you pass none of them. Clearing the date satisfies that on its own: the memory's content and metadata are left alone.
+</Note>
+
+## What each client accepts
+
+| Client | Accepted input | Notes |
+| --- | --- | --- |
+| Python (Platform and OSS) | `str` in `YYYY-MM-DD` form, or a `date` / `datetime` object | Normalized to `YYYY-MM-DD` before storage. |
+| TypeScript (Platform and OSS) | `string` in `YYYY-MM-DD` form only | Stricter than `new Date()`: rejects `12/31/2099`, `2099-12-31T23:00:00`, and non-days like `2099-02-30` or `2100-02-29`. |
+| Self-hosted REST server | `string` in `YYYY-MM-DD` form | Same normalization as OSS Python underneath. |
+| CLI (`mem0 add --expires`) | `string` in `YYYY-MM-DD` form | Must be strictly in the future, checked against the local system date. The SDKs have no such restriction. Platform only: the CLI has no OSS backend. |
+
+## Reading the field back
+
+Most clients return expiration as a top-level field on the memory: `expiration_date` in Python (Platform and OSS) and in the REST API, `expirationDate` in the Platform TypeScript SDK.
+
+<Info>
+  The OSS TypeScript SDK is the one exception. There, expiration round-trips under **`result.metadata.expiration_date`**, not `result.expirationDate`, on both `get()` and `getAll()`.
+</Info>
+
+## Expiration, decay, and delete
+
+These three get conflated. They solve different problems:
+
+|  | Memory Expiration | Memory Decay | Delete |
+| --- | --- | --- | --- |
+| What it does | Hides a memory once a date you set passes | Re-ranks results by how recently a memory was used | Removes a memory permanently |
+| Data still stored? | Yes | Yes | No |
+| Filters results? | Yes, after the date | Never, it only reorders scores | Yes, permanently |
+| Reversible? | Yes, clear or push back the date | Yes, toggle `decay` off | No |
+| Set where | Per memory, by you | Per project, opt-in | Per call |
+| Available in | Platform and OSS | Platform only | Platform and OSS |
+
+Reach for <Link href="/platform/features/memory-decay">Memory Decay</Link> when old memories should rank lower but stay searchable, expiration when a memory should stop appearing after a specific known date, and <Link href="/core-concepts/memory-operations/delete">Delete</Link> when it should be gone for good.
+
+## Common patterns
+
+**Trial and subscription facts.** "Alice is on the Pro trial" is true until the trial ends. Set `expiration_date` to that end date when you write the fact. If she upgrades, clear the date and the memory becomes permanent. If she doesn't, it stops surfacing the next day on its own.
+
+**Seasonal preferences.** "Alex wants gift ideas for the holidays" matters in December and is noise in July. A short-lived expiration date keeps it from competing with evergreen preferences in every search.
+
+**Retention windows.** Data-retention policies usually want a soft window before a hard delete: keep a ticket's memories searchable for 90 days, stop surfacing them, purge them later on a schedule. Expiration is the soft step, and a scheduled <Link href="/core-concepts/memory-operations/delete">delete</Link> is the permanent one.
+
+<CardGroup cols={2}>
+  <Card
+    title="Memory Decay"
+    description="Rank stale memories lower instead of hiding them outright."
+    icon="chart-line"
+    href="/platform/features/memory-decay"
+  />
+  <Card
+    title="Delete Memories"
+    description="Remove memories permanently instead of hiding them."
+    icon="trash"
+    href="/core-concepts/memory-operations/delete"
+  />
+</CardGroup>
+
+<Snippet file="get-help.mdx" />

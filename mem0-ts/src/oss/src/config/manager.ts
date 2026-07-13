@@ -60,9 +60,14 @@ export class ConfigManager {
         })(),
       },
       vectorStore: {
-        provider:
+        // Every factory already matches the provider case-insensitively, so a capitalized
+        // name constructs the right store -- but the `provider === "memory"` comparisons that
+        // pick per-provider entity-store settings do not. Normalize once, here, so those
+        // comparisons cannot silently miss.
+        provider: (
           userConfig.vectorStore?.provider ||
-          DEFAULT_MEMORY_CONFIG.vectorStore.provider,
+          DEFAULT_MEMORY_CONFIG.vectorStore.provider
+        ).toLowerCase(),
         config: (() => {
           const defaultConf = DEFAULT_MEMORY_CONFIG.vectorStore.config;
           const userConf = userConfig.vectorStore?.config;

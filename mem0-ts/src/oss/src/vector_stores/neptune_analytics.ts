@@ -1,10 +1,10 @@
-import {
-  ExecuteQueryCommand,
-  NeptuneGraphClient,
-} from "@aws-sdk/client-neptune-graph";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
+/**
+ * The `@aws-sdk/client-neptune-graph` dependency is loaded on first use via dynamic
+ * `import()` so the package stays optional (mirrors `aws_bedrock.ts`).
+ */
 interface NeptuneAnalyticsConfig extends VectorStoreConfig {
   graphIdentifier?: string;
   endpoint?: string;
@@ -14,7 +14,14 @@ interface NeptuneAnalyticsConfig extends VectorStoreConfig {
 }
 
 interface NeptuneGraphClientLike {
-  send(command: ExecuteQueryCommand): Promise<NeptuneExecuteQueryOutput>;
+  send(command: any): Promise<NeptuneExecuteQueryOutput>;
+}
+
+interface NeptuneSDK {
+  NeptuneGraphClient: new (
+    config: Record<string, any>,
+  ) => NeptuneGraphClientLike;
+  ExecuteQueryCommand: new (input: Record<string, any>) => any;
 }
 
 interface NeptuneExecuteQueryOutput {
@@ -33,7 +40,10 @@ interface WhereClauseResult {
 }
 
 export class NeptuneAnalyticsVectorStore implements VectorStore {
-  private readonly client: NeptuneGraphClientLike;
+  private clientConfig: Record<string, any>;
+  private clientOverride?: NeptuneGraphClientLike;
+  private sdkPromise?: Promise<NeptuneSDK>;
+  private clientPromise?: Promise<NeptuneGraphClientLike>;
   private readonly graphIdentifier: string;
   private readonly collectionName: string;
   private readonly collectionLabel: string;
@@ -54,8 +64,8 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     this.userLabelExpr = this.escapeLabel(this.userLabel);
     this.userNodeId = "mem0-user";
     this.dimension = config.dimension || 1536;
-    this.client =
-      config.client || new NeptuneGraphClient(this.buildClientConfig(config));
+    this.clientConfig = this.buildClientConfig(config);
+    this.clientOverride = config.client;
 
     void this.initialize().catch(console.error);
   }
@@ -171,6 +181,18 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     const hasPayload = !!payload && Object.keys(payload).length > 0;
     const hasVector = vector.length > 0;
 
+    // ponytail: a combined update writes the payload before the embedding, and Neptune's vector
+    // index isn't transactional -- if the upsert below fails, the new payload would otherwise be
+    // left committed against the stale embedding (searches would match the old vector but return
+    // the new metadata). Capture the prior node so a failed upsert can be restored; this is
+    // best-effort compensation, not a rollback. Only needed when both writes happen -- a
+    // payload-only or vector-only update can't desync.
+    // The restore assumes a single writer per vectorId -- concurrent updates to the same node can
+    // interleave and clobber each other's compensation. AWS advises against concurrent same-vertex
+    // writes to the Neptune Analytics vector index for exactly this reason.
+    const priorResult =
+      hasPayload && hasVector ? await this.get(vectorId) : null;
+
     if (hasPayload) {
       const properties = this.buildStoredPayload(payload);
       await this.executeQuery(
@@ -187,20 +209,45 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     }
 
     if (hasVector) {
-      const updateResults = await this.executeQuery(
-        `
-          MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
-          WITH n, $embedding AS embedding
-          CALL neptune.algo.vectors.upsert(n, embedding)
-          YIELD success
-          RETURN success
-        `,
-        {
-          vectorId,
-          embedding: vector,
-        },
-      );
-      this.assertSuccessfulResults(updateResults, "Update");
+      try {
+        const updateResults = await this.executeQuery(
+          `
+            MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
+            WITH n, $embedding AS embedding
+            CALL neptune.algo.vectors.upsert(n, embedding)
+            YIELD success
+            RETURN success
+          `,
+          {
+            vectorId,
+            embedding: vector,
+          },
+        );
+        this.assertSuccessfulResults(updateResults, "Update");
+      } catch (error) {
+        if (priorResult) {
+          try {
+            await this.executeQuery(
+              `
+                MATCH (n:${this.collectionLabelExpr} {\`~id\`: $vectorId})
+                SET n = $properties
+                RETURN n
+              `,
+              {
+                vectorId,
+                properties: priorResult.payload,
+              },
+            );
+          } catch (restoreError) {
+            // Do not mask the original failure with a compensation failure.
+            console.error(
+              "Neptune Analytics: failed to restore prior payload after a failed update upsert",
+              restoreError,
+            );
+          }
+        }
+        throw error;
+      }
     }
   }
 
@@ -985,12 +1032,58 @@ export class NeptuneAnalyticsVectorStore implements VectorStore {
     }
   }
 
+  /**
+   * Load the optional AWS SDK on first use.
+   *
+   * This MUST be a dynamic `import()`, never `require()`: tsup/esbuild rewrite
+   * `require()` in the published ESM bundle (`dist/oss/index.mjs`) into a
+   * `__require` shim that throws `Dynamic require of "..." is not supported`,
+   * so every ESM consumer would hit a dead provider even with the SDK installed.
+   */
+  private async getSDK(): Promise<NeptuneSDK> {
+    if (!this.sdkPromise) {
+      this.sdkPromise = import("@aws-sdk/client-neptune-graph").then(
+        (sdk) => sdk as unknown as NeptuneSDK,
+        (err) => {
+          // Let a later call retry rather than caching the rejection forever.
+          this.sdkPromise = undefined;
+          const detail = err instanceof Error ? err.message : String(err);
+          throw new Error(
+            "The '@aws-sdk/client-neptune-graph' package is required to use the Neptune Analytics vector store. " +
+              `Install it with: npm install @aws-sdk/client-neptune-graph (original error: ${detail})`,
+          );
+        },
+      );
+    }
+    return this.sdkPromise;
+  }
+
+  /** Memoized Neptune client; an injected `config.client` short-circuits the SDK. */
+  private async getClient(): Promise<NeptuneGraphClientLike> {
+    if (this.clientOverride) return this.clientOverride;
+    if (!this.clientPromise) {
+      this.clientPromise = this.getSDK()
+        .then(
+          ({ NeptuneGraphClient }) => new NeptuneGraphClient(this.clientConfig),
+        )
+        .catch((err) => {
+          // Mirror getSDK(): drop the rejected promise so a later call retries rather than
+          // replaying a cached rejection forever (a rejected promise is still truthy, so the
+          // `!this.clientPromise` guard above would otherwise never re-enter).
+          this.clientPromise = undefined;
+          throw err;
+        });
+    }
+    return this.clientPromise;
+  }
+
   private async executeQuery(
     queryString: string,
     parameters: Record<string, any> = {},
   ): Promise<NeptuneQueryRecord[]> {
-    const response = await this.client.send(
-      new ExecuteQueryCommand({
+    const [client, sdk] = await Promise.all([this.getClient(), this.getSDK()]);
+    const response = await client.send(
+      new sdk.ExecuteQueryCommand({
         graphIdentifier: this.graphIdentifier,
         language: "OPEN_CYPHER",
         queryString,

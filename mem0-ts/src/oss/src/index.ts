@@ -37,6 +37,7 @@ export * from "./vector_stores/langchain";
 export * from "./vector_stores/vectorize";
 export * from "./vector_stores/azure_ai_search";
 export * from "./vector_stores/pgvector";
+export * from "./vector_stores/databricks";
 export * from "./vector_stores/neptune_analytics";
 export * from "./vector_stores/elasticsearch";
 export * from "./vector_stores/upstash_vector";

@@ -1,6 +1,7 @@
 import json
+import sys
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -1529,3 +1530,43 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_default_path_without_langchain(mock_llm_factory, mock_emb, mock_vs):
+    """Async procedural memory must not require langchain-core on the default
+    (llm=None) path, which uses self.llm and never calls convert_to_messages.
+    The sync path already works without it; this keeps the async path in parity.
+    """
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+    memory.embedding_model.embed = Mock(return_value=[0.1] * 1536)
+    memory.llm.generate_response = Mock(return_value="- deploy with the release script")
+
+    messages = [{"role": "user", "content": "how do we deploy"}]
+
+    # Simulate langchain-core being unavailable; the default path must still work.
+    with patch.dict(
+        sys.modules,
+        {
+            "langchain_core": None,
+            "langchain_core.messages": None,
+            "langchain_core.messages.utils": None,
+        },
+    ):
+        result = await memory._create_procedural_memory(messages, metadata={"agent_id": "agent_1"})
+
+    assert result["results"][0]["event"] == "ADD"
+    memory.llm.generate_response.assert_called_once()

@@ -522,6 +522,34 @@ describe("ConfigManager", () => {
       expect(cfg.embedder.config).not.toHaveProperty("embedding_dims");
     });
   });
+
+  describe("mergeConfig - vector store provider normalization", () => {
+    const baseLlm = { provider: "openai", config: { apiKey: "test-key" } };
+    const baseEmbedder = { provider: "openai", config: { apiKey: "test-key" } };
+
+    it.each(["Memory", "DATABRICKS", "QdRaNt"])(
+      "lowercases the vector store provider %p",
+      (provider) => {
+        const config = ConfigManager.mergeConfig({
+          embedder: baseEmbedder,
+          vectorStore: { provider, config: { collectionName: "test" } },
+          llm: baseLlm,
+        });
+
+        expect(config.vectorStore.provider).toBe(provider.toLowerCase());
+      },
+    );
+
+    it("still falls back to the default provider when none is given", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: { config: { collectionName: "test" } } as any,
+        llm: baseLlm,
+      });
+
+      expect(config.vectorStore.provider).toBe("memory");
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -19,14 +19,14 @@ def mock_anthropic_client():
 
 def test_default_config_omits_top_p(mock_anthropic_client):
     """Default AnthropicConfig should not set top_p to avoid conflict with temperature."""
-    config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
     assert config.top_p is None
     assert config.temperature == 0.1
 
 
 def test_generate_response_does_not_send_top_p_by_default(mock_anthropic_client):
     """Anthropic API rejects temperature and top_p together; top_p must be omitted by default."""
-    config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
     llm = AnthropicLLM(config)
 
     mock_response = Mock()
@@ -47,7 +47,7 @@ def test_generate_response_does_not_send_top_p_by_default(mock_anthropic_client)
 
 def test_generate_response_sends_top_p_alone_when_no_temperature(mock_anthropic_client):
     """When user sets only top_p (no temperature), top_p should be sent."""
-    config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key", top_p=0.9, temperature=None)
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key", top_p=0.9, temperature=None)
     llm = AnthropicLLM(config)
 
     mock_response = Mock()
@@ -68,7 +68,7 @@ def test_generate_response_sends_top_p_alone_when_no_temperature(mock_anthropic_
 
 def test_both_set_prefers_temperature_over_top_p(mock_anthropic_client):
     """When both temperature and top_p are set, temperature wins and top_p is dropped."""
-    config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key", top_p=0.9, temperature=0.5)
+    config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key", top_p=0.9, temperature=0.5)
     llm = AnthropicLLM(config)
 
     mock_response = Mock()
@@ -87,7 +87,7 @@ def test_configured_base_url_is_passed_to_client():
     """A configured anthropic_base_url must reach the Anthropic client constructor."""
     with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
         config = AnthropicConfig(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-opus-4-6",
             api_key="test-key",
             anthropic_base_url="https://proxy.example.com",
         )
@@ -100,7 +100,7 @@ def test_base_url_falls_back_to_env(monkeypatch):
     """When no base_url is configured, ANTHROPIC_BASE_URL is used."""
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://env.example.com")
     with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
-        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+        config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
         AnthropicLLM(config)
 
     assert mock_anthropic.Anthropic.call_args[1]["base_url"] == "https://env.example.com"
@@ -110,7 +110,7 @@ def test_base_url_omitted_when_unset(monkeypatch):
     """With no base_url anywhere, base_url must not be forced to None on the client."""
     monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
     with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
-        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+        config = AnthropicConfig(model="claude-opus-4-6", api_key="test-key")
         AnthropicLLM(config)
 
     assert "base_url" not in mock_anthropic.Anthropic.call_args[1]
@@ -118,7 +118,7 @@ def test_base_url_omitted_when_unset(monkeypatch):
 
 def test_base_config_conversion_does_not_send_both(mock_anthropic_client):
     """BaseLlmConfig defaults both temperature=0.1 and top_p=0.1; Anthropic must not send both."""
-    base_config = BaseLlmConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+    base_config = BaseLlmConfig(model="claude-opus-4-6", api_key="test-key")
     llm = AnthropicLLM(base_config)
 
     mock_response = Mock()
@@ -130,4 +130,58 @@ def test_base_config_conversion_does_not_send_both(mock_anthropic_client):
 
     call_kwargs = mock_anthropic_client.messages.create.call_args[1]
     assert "temperature" in call_kwargs
+    assert "top_p" not in call_kwargs
+
+
+@pytest.mark.parametrize(
+    ("model", "expected"),
+    [
+        ("opus", False),
+        ("claude-opus-4-6", True),
+        ("claude-opus-4-7", False),
+        ("claude-opus-4-8", False),
+        ("sonnet", False),
+        ("claude-sonnet-4-6", True),
+        ("claude-sonnet-5", False),
+        ("haiku", True),
+        ("claude-haiku-4-5", True),
+        ("claude-haiku-4-5-20251001", True),
+        ("claude-fable-5", False),
+        ("claude-mythos-5", False),
+        ("claude-mythos-preview", False),
+    ],
+)
+def test_enable_sampling_parameters_for_current_models(mock_anthropic_client, model, expected):
+    config = AnthropicConfig(model=model, api_key="test-key", top_p=0.9)
+    llm = AnthropicLLM(config)
+
+    mock_response = Mock()
+    mock_response.content = [Mock(text="Hello!")]
+    mock_anthropic_client.messages.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": "Hi"}]
+    llm.generate_response(messages)
+
+    call_kwargs = mock_anthropic_client.messages.create.call_args[1]
+    assert ("temperature" in call_kwargs) is expected
+
+
+def test_enable_sampling_parameters_respects_explicit_override(mock_anthropic_client):
+    config = AnthropicConfig(
+        model="claude-opus-4-6",
+        api_key="test-key",
+        top_p=0.9,
+        enable_sampling_parameters=False,
+    )
+    llm = AnthropicLLM(config)
+
+    mock_response = Mock()
+    mock_response.content = [Mock(text="Hello!")]
+    mock_anthropic_client.messages.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": "Hi"}]
+    llm.generate_response(messages)
+
+    call_kwargs = mock_anthropic_client.messages.create.call_args[1]
+    assert "temperature" not in call_kwargs
     assert "top_p" not in call_kwargs
