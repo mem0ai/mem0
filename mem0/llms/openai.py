@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Dict, List, Optional, Union
 
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
@@ -29,9 +29,9 @@ class OpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                reasoning_effort=getattr(config, 'reasoning_effort', None),
+                reasoning_effort=getattr(config, "reasoning_effort", None),
                 http_client_proxies=config.http_client_proxies,
-                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
+                is_reasoning_model=getattr(config, "is_reasoning_model", None),
             )
 
         super().__init__(config)
@@ -40,17 +40,16 @@ class OpenAILLM(LLMBase):
             self.config.model = "gpt-5-mini"
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
-            self.client = OpenAI(
-                api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=self.config.openrouter_base_url
-                or os.getenv("OPENROUTER_API_BASE")
-                or "https://openrouter.ai/api/v1",
+            api_key = os.environ.get("OPENROUTER_API_KEY")
+            base_url = (
+                self.config.openrouter_base_url or os.getenv("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.async_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
 
     def _parse_response(self, response, tools):
         """
@@ -82,6 +81,54 @@ class OpenAILLM(LLMBase):
         else:
             return response.choices[0].message.content
 
+    def _build_request_params(self, messages, response_format=None, tools=None, tool_choice="auto", **kwargs):
+        params = self._get_supported_params(messages=messages, **kwargs)
+
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
+
+        if os.getenv("OPENROUTER_API_KEY"):
+            openrouter_params = {}
+            if self.config.models:
+                openrouter_params["models"] = self.config.models
+                openrouter_params["route"] = self.config.route
+                params.pop("model")
+
+            if self.config.site_url and self.config.app_name:
+                extra_headers = {
+                    "HTTP-Referer": self.config.site_url,
+                    "X-Title": self.config.app_name,
+                }
+                openrouter_params["extra_headers"] = extra_headers
+
+            params.update(**openrouter_params)
+        else:
+            # Only send OpenAI-specific parameters when the user has explicitly
+            # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
+            # reject unknown fields, so `store` must be opt-in, not opt-out.
+            if self.config.store is not None:
+                params["store"] = self.config.store
+
+        if response_format:
+            params["response_format"] = response_format
+        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
+        return params
+
+    def _handle_response_callback(self, response, params):
+        if self.config.response_callback:
+            try:
+                self.config.response_callback(self, response, params)
+            except Exception as e:
+                # Log error but don't propagate
+                logging.error(f"Error due to callback: {e}")
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
@@ -103,48 +150,34 @@ class OpenAILLM(LLMBase):
         Returns:
             json: The generated response.
         """
-        params = self._get_supported_params(messages=messages, **kwargs)
-        
-        params.update({
-            "model": self.config.model,
-            "messages": messages,
-        })
-
-        if os.getenv("OPENROUTER_API_KEY"):
-            openrouter_params = {}
-            if self.config.models:
-                openrouter_params["models"] = self.config.models
-                openrouter_params["route"] = self.config.route
-                params.pop("model")
-
-            if self.config.site_url and self.config.app_name:
-                extra_headers = {
-                    "HTTP-Referer": self.config.site_url,
-                    "X-Title": self.config.app_name,
-                }
-                openrouter_params["extra_headers"] = extra_headers
-
-            params.update(**openrouter_params)
-        
-        else:
-            # Only send OpenAI-specific parameters when the user has explicitly
-            # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
-            # reject unknown fields, so `store` must be opt-in, not opt-out.
-            if self.config.store is not None:
-                params["store"] = self.config.store
-
-        if response_format:
-            params["response_format"] = response_format
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
+        params = self._build_request_params(
+            messages,
+            response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
+            **kwargs,
+        )
         response = self.client.chat.completions.create(**params)
         parsed_response = self._parse_response(response, tools)
-        if self.config.response_callback:
-            try:
-                self.config.response_callback(self, response, params)
-            except Exception as e:
-                # Log error but don't propagate
-                logging.error(f"Error due to callback: {e}")
-                pass
+        self._handle_response_callback(response, params)
+        return parsed_response
+
+    async def agenerate_response(
+        self,
+        messages: List[Dict[str, str]],
+        response_format=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+        **kwargs,
+    ):
+        params = self._build_request_params(
+            messages,
+            response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
+            **kwargs,
+        )
+        response = await self.async_client.chat.completions.create(**params)
+        parsed_response = self._parse_response(response, tools)
+        self._handle_response_callback(response, params)
         return parsed_response

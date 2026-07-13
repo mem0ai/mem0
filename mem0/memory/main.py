@@ -2234,7 +2234,7 @@ class AsyncMemory(MemoryBase):
     async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
         try:
-            entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
+            entity_embedding = await self.embedding_model.aembed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
             exact_match = (
                 await asyncio.to_thread(self._existing_entities_by_text, search_filters)
@@ -2328,7 +2328,7 @@ class AsyncMemory(MemoryBase):
                             logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup (async)")
                             continue
                         try:
-                            vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
+                            vec = await self.embedding_model.aembed(entity_text, "update")
                         except Exception as e:
                             logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
                             continue
@@ -2519,7 +2519,7 @@ class AsyncMemory(MemoryBase):
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
-                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
+                msg_embeddings = await self.embedding_model.aembed(msg_content, "add")
                 mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
@@ -2542,7 +2542,7 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        query_embedding = await self.embedding_model.aembed(parsed_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
             query=parsed_messages,
@@ -2574,8 +2574,7 @@ class AsyncMemory(MemoryBase):
         )
 
         try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
+            response = await self.llm.agenerate_response(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -2610,13 +2609,13 @@ class AsyncMemory(MemoryBase):
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
-            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+            mem_embeddings_list = await self.embedding_model.aembed_batch(mem_texts, "add")
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
             for text in mem_texts:
                 try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                    embed_map[text] = await self.embedding_model.aembed(text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
 
@@ -2724,12 +2723,12 @@ class AsyncMemory(MemoryBase):
 
                 # 7b: Batch embed entities
                 try:
-                    entity_embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "add")
+                    entity_embeddings = await self.embedding_model.aembed_batch(entity_texts, "add")
                 except Exception:
                     entity_embeddings = []
                     for t in entity_texts:
                         try:
-                            entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
+                            entity_embeddings.append(await self.embedding_model.aembed(t, "add"))
                         except Exception:
                             entity_embeddings.append(None)
 
@@ -3258,7 +3257,7 @@ class AsyncMemory(MemoryBase):
         query_entities = await asyncio.to_thread(extract_entities, query)
 
         # Step 2: Embed query
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
+        embeddings = await self.embedding_model.aembed(query, "search")
 
         # Step 3: Semantic search (over-fetch)
         internal_limit = max(limit * 4, 60)
@@ -3370,7 +3369,7 @@ class AsyncMemory(MemoryBase):
 
         try:
             entity_texts = [text for _, text in deduped]
-            embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
+            embeddings = await self.embedding_model.aembed_batch(entity_texts, "search")
 
             if len(embeddings) != len(entity_texts):
                 logger.warning(
@@ -3474,7 +3473,7 @@ class AsyncMemory(MemoryBase):
 
         existing_embeddings = {}
         if text is not None:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, text, "update")
+            embeddings = await self.embedding_model.aembed(text, "update")
             existing_embeddings[text] = embeddings
 
         await self._update_memory(memory_id, text, existing_embeddings, update_metadata)
@@ -3595,7 +3594,7 @@ class AsyncMemory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
+            embeddings = await self.embedding_model.aembed(data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
         new_metadata = deepcopy(metadata) if metadata is not None else {}
@@ -3664,7 +3663,7 @@ class AsyncMemory(MemoryBase):
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)
             else:
-                procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                procedural_memory = await self.llm.agenerate_response(messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
         
         except Exception as e:
@@ -3675,7 +3674,7 @@ class AsyncMemory(MemoryBase):
             raise ValueError("Metadata cannot be done for procedural memory.")
 
         metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
+        embeddings = await self.embedding_model.aembed(procedural_memory, memory_action="add")
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
 
@@ -3716,7 +3715,7 @@ class AsyncMemory(MemoryBase):
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
+            embeddings = await self.embedding_model.aembed(data, "update")
 
         await asyncio.to_thread(
             self.vector_store.update,

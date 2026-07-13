@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Literal, Optional
 
@@ -45,3 +46,9 @@ class EmbeddingBase(ABC):
             List of embedding vectors (list of floats), one per input text.
         """
         return [self.embed(text, memory_action) for text in texts]
+
+    async def aembed(self, text, memory_action: Optional[Literal["add", "search", "update"]]):
+        return await asyncio.to_thread(self.embed, text, memory_action)
+
+    async def aembed_batch(self, texts, memory_action="add"):
+        return await asyncio.to_thread(self.embed_batch, texts, memory_action)

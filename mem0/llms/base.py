@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 
@@ -56,8 +57,14 @@ class LLMBase(ABC):
             return explicit
 
         reasoning_models = {
-            "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "o1",
+            "o1-preview",
+            "o3-mini",
+            "o3",
+            "gpt-5",
+            "gpt-5o",
+            "gpt-5o-mini",
+            "gpt-5o-micro",
         }
 
         model_lower = model.lower()
@@ -97,18 +104,18 @@ class LLMBase(ABC):
         """
         Get parameters that are supported by the current model.
         Filters out unsupported parameters for reasoning models and GPT-5 series.
-        
+
         Args:
             **kwargs: Additional parameters to include
-            
+
         Returns:
             Dict: Filtered parameters dictionary
         """
-        model = getattr(self.config, 'model', '')
-        
+        model = getattr(self.config, "model", "")
+
         if self._is_reasoning_model(model):
             supported_params = {}
-            
+
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -119,7 +126,7 @@ class LLMBase(ABC):
                 supported_params["tool_choice"] = kwargs["tool_choice"]
 
             # Add reasoning_effort if configured
-            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            reasoning_effort = getattr(self.config, "reasoning_effort", None)
             if reasoning_effort:
                 supported_params["reasoning_effort"] = reasoning_effort
 
@@ -145,6 +152,17 @@ class LLMBase(ABC):
             str or dict: The generated response.
         """
         pass
+
+    async def agenerate_response(
+        self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, tool_choice: str = "auto", **kwargs
+    ):
+        return await asyncio.to_thread(
+            self.generate_response,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            **kwargs,
+        )
 
     def _get_common_params(self, **kwargs) -> Dict:
         """
