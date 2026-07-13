@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _formatting import TYPE_ICONS, format_age
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_project_id
+from hosted_request import open_hosted_request
+from load_settings import load_settings
 
 API_URL = "https://api.mem0.ai"
 MAX_RECENT = 10
@@ -29,6 +31,8 @@ FETCH_TIMEOUT = 5
 
 def fetch_recent_memories(api_key: str, user_id: str, project_id: str) -> list[dict]:
     """Fetch the most recent memories for this project via GET list endpoint."""
+    if not load_settings().get("auto_search", False):
+        return []
     global_search = os.environ.get("MEM0_GLOBAL_SEARCH", "false") == "true"
 
     if global_search:
@@ -47,7 +51,14 @@ def fetch_recent_memories(api_key: str, user_id: str, project_id: str) -> list[d
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as r:
+        with open_hosted_request(
+            req,
+            timeout=FETCH_TIMEOUT,
+            ingress="session-timeline",
+            automatic=True,
+            operation="list",
+            coalesce_key=f"session-timeline:{user_id}:{project_id}",
+        ) as r:
             result = json.loads(r.read())
             if isinstance(result, dict) and "results" in result:
                 return result["results"][:MAX_RECENT]

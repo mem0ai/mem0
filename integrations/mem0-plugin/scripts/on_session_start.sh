@@ -70,39 +70,10 @@ if [ -f "${_DATA_DIR}/.install-failed" ]; then
 fi
 
 MEM0_COUNT="?"
-if command -v python3 >/dev/null 2>&1; then
-  MEM0_COUNT=$(python3 -c "
-import json, os, urllib.request, urllib.error
-api_key = os.environ.get('MEM0_API_KEY', '')
-user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
-app_id = os.environ.get('MEM0_PROJECT_ID', '')
-global_search = os.environ.get('MEM0_GLOBAL_SEARCH', 'false') == 'true'
-
-def get_count(filters):
-    body = json.dumps({'filters': filters}).encode()
-    req = urllib.request.Request(
-        'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
-        headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
-        data=body, method='POST',
-    )
-    with urllib.request.urlopen(req, timeout=5) as r:
-        data = json.loads(r.read())
-        if isinstance(data, dict) and 'count' in data:
-            return data['count']
-        if isinstance(data, list):
-            return len(data)
-    return 0
-
-try:
-    if global_search:
-        filters = {'OR': [{'user_id': '*'}]}
-    else:
-        filters = {'AND': [{'user_id': user_id}, {'app_id': app_id}]}
-    total = get_count(filters)
-    print(total)
-except Exception:
-    print('?')
-" 2>/dev/null || echo "?")
+if command -v python3 >/dev/null 2>&1 && [ "${MEM0_AUTO_SEARCH:-false}" = "true" ]; then
+  MEM0_COUNT=$(python3 "$SCRIPT_DIR/count_memories.py" 2>/dev/null || echo "?")
+elif [ "${MEM0_AUTO_SEARCH:-false}" != "true" ]; then
+  MEM0_COUNT="not-loaded"
 fi
 
 _UID="${MEM0_RESOLVED_USER_ID:-${USER:-default}}"
@@ -152,7 +123,9 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 
 if [ "$SOURCE" = "startup" ]; then
-  if [ "$MEM0_COUNT" = "0" ]; then
+  if [ "${MEM0_AUTO_SEARCH:-false}" != "true" ]; then
+    echo "Automatic hosted retrieval is off. Use explicit Mem0 search only when it is high value."
+  elif [ "$MEM0_COUNT" = "0" ]; then
     echo "New project with 0 memories. Invoke the mem0:onboard skill to import project files. Coding categories install automatically in the background."
   else
     echo "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type."
@@ -172,8 +145,10 @@ if [ "$SOURCE" = "startup" ]; then
     echo "Native MEMORY.md detected at ${_MEMORY_MD}. Add autoMemoryEnabled:false to settings.json or run /mem0:import."
   fi
 
-  MEM0_CWD="$MEM0_CWD_RESOLVED" \
-    python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+  if [ "${MEM0_AUTO_SEARCH:-false}" = "true" ]; then
+    MEM0_CWD="$MEM0_CWD_RESOLVED" \
+      python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+  fi
 
   # Configure the coding-category taxonomy in the background (idempotent, never blocks).
   # Prefer the venv python since this path needs the mem0ai SDK.

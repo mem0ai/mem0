@@ -6,9 +6,12 @@ All pre-fetch hooks use this instead of duplicating urllib boilerplate.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import urllib.request
+
+from hosted_request import open_hosted_request
 
 SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
 SEARCH_TIMEOUT = 5
@@ -32,7 +35,13 @@ def should_rerank() -> bool:
     return raw.strip().lower() not in ("0", "false", "no", "off", "")
 
 
-def _do_search(api_key: str, payload: dict) -> list[dict]:
+def _do_search(
+    api_key: str,
+    payload: dict,
+    *,
+    ingress: str,
+    automatic: bool,
+) -> list[dict]:
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
         SEARCH_URL,
@@ -40,7 +49,22 @@ def _do_search(api_key: str, payload: dict) -> list[dict]:
         headers={"Authorization": f"Token {api_key}", "Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=SEARCH_TIMEOUT) as r:
+    coalesce_key = None
+    if automatic:
+        coalesce_key = hashlib.sha256(
+            json.dumps(
+                {"ingress": ingress, "query": payload.get("query"), "filters": payload.get("filters")},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+    with open_hosted_request(
+        req,
+        timeout=SEARCH_TIMEOUT,
+        ingress=ingress,
+        automatic=automatic,
+        operation="search",
+        coalesce_key=coalesce_key,
+    ) as r:
         data = json.loads(r.read())
         return data if isinstance(data, list) else data.get("results", [])
 
@@ -57,9 +81,19 @@ def search_memories(
     rerank: bool = False,
     threshold: float = 0.3,
     global_search: bool = False,
+    ingress: str = "explicit-search",
+    automatic: bool = False,
 ) -> list[dict]:
     if not api_key:
         return []
+    if automatic:
+        try:
+            from load_settings import load_settings
+
+            if not load_settings().get("auto_search", False):
+                return []
+        except Exception:
+            return []
 
     if global_search:
         filters: dict = {"OR": [{"user_id": "*"}]}
@@ -78,7 +112,9 @@ def search_memories(
 
     try:
         payload = {**base_payload, "filters": filters}
-        results = _do_search(api_key, payload)[:top_k]
+        results = _do_search(
+            api_key, payload, ingress=ingress, automatic=automatic
+        )[:top_k]
 
         if min_score > 0:
             results = [m for m in results if m.get("score", 0) >= min_score]

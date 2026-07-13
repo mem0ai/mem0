@@ -27,6 +27,7 @@ from datetime import date, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
+from hosted_request import HostedRequestDenied, open_hosted_request
 
 log = logging.getLogger("mem0-compact-summary")
 log.setLevel(logging.DEBUG)
@@ -124,13 +125,13 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with open_hosted_request(req, timeout=15, ingress="compact-summary", automatic=True, operation="add") as resp:
             if resp.status in (200, 201):
                 log.info("Compact summary stored")
                 return True
             log.warning("API returned status %d", resp.status)
             return False
-    except urllib.error.URLError as e:
+    except (urllib.error.URLError, HostedRequestDenied) as e:
         log.warning("API call failed: %s", e)
         return False
 

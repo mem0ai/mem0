@@ -23,9 +23,10 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Resolve API key (covers Desktop app users who set it in shell profile)
-if [ -z "${MEM0_API_KEY:-}" ]; then
-  . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
+# Resolve settings and API key (covers Desktop users and default-off search).
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
+if [ "${MEM0_AUTO_SEARCH:-false}" != "true" ]; then
+  exit 0
 fi
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0

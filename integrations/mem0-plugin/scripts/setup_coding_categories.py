@@ -25,6 +25,7 @@ import sys
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 from _identity import resolve_api_key  # noqa: E402
+from hosted_request import require_admission  # noqa: E402
 
 _plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", os.path.join(_script_dir, ".."))
 _data_dir = os.environ.get("CLAUDE_PLUGIN_DATA", os.path.join(os.path.expanduser("~"), ".mem0", "plugin-data"))
@@ -204,6 +205,7 @@ def main() -> int:
         return 1
 
     try:
+        require_admission("get", "explicit-categories-get", False)
         current = client.project.get(fields=["custom_categories"])
         current_cats = current.get("custom_categories") if isinstance(current, dict) else None
     except Exception as e:
@@ -223,6 +225,12 @@ def main() -> int:
 
     print("Applying coding categories...")
     try:
+        require_admission(
+            "update",
+            "explicit-categories-update",
+            False,
+            payload_bytes=len(json.dumps(CODING_CATEGORIES).encode()),
+        )
         response = client.project.update(custom_categories=CODING_CATEGORIES)
     except Exception as e:
         print(f"ERROR applying update: {e}", file=sys.stderr)

@@ -13,15 +13,15 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
-if [ -z "${MEM0_API_KEY:-}" ]; then
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
+if [ "${MEM0_AUTO_SEARCH:-false}" != "true" ]; then
+  exit 0
 fi
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CWD=$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")
 
 TIMELINE=$(python3 "$SCRIPT_DIR/file_context.py" "$FILE_PATH" "$CWD" 2>/dev/null || echo "")

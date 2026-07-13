@@ -22,8 +22,9 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _chunking import filter_and_truncate, split_by_headers
-from _identity import resolve_api_key, resolve_user_id
+from _identity import resolve_api_key, resolve_config, resolve_user_id
 from _project import resolve_branch, resolve_project_id, save_project_mapping
+from hosted_request import HostedRequestDenied, open_hosted_request
 
 log = logging.getLogger("mem0-auto-import")
 log.setLevel(logging.DEBUG)
@@ -46,6 +47,11 @@ MAX_FILE_SIZE = 100_000  # skip files over 100 KB
 TARGET_FILES = ["CLAUDE.md", "AGENTS.md", ".cursorrules", ".windsurfrules", "mem0.md"]
 HASH_STORE = os.path.expanduser("~/.mem0/file_hashes.json")
 LOCK_FILE = os.path.expanduser("~/.mem0/auto_import.lock")
+
+
+def _automatic_mode() -> bool:
+    """Manual onboarding can opt into an explicit, separately reserved import."""
+    return os.environ.get("MEM0_IMPORT_EXPLICIT", "") != "1"
 
 
 def _acquire_lock() -> bool:
@@ -141,7 +147,7 @@ def already_imported(api_key: str, user_id: str, project_id: str, filename: str)
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as r:
+        with open_hosted_request(req, timeout=5, ingress="auto-import-dedupe", automatic=_automatic_mode(), operation="search") as r:
             data = json.loads(r.read())
             results = data if isinstance(data, list) else data.get("results", [])
             for result in results:
@@ -176,7 +182,7 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
     )
     ids_to_delete = []
     try:
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with open_hosted_request(req, timeout=10, ingress="auto-import-stale-search", automatic=_automatic_mode(), operation="search") as r:
             data = json.loads(r.read())
             results = data if isinstance(data, list) else data.get("results", [])
             for result in results:
@@ -200,7 +206,7 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
                 headers={"Authorization": f"Token {api_key}"},
                 method="DELETE",
             )
-            with urllib.request.urlopen(del_req, timeout=10):
+            with open_hosted_request(del_req, timeout=10, ingress="auto-import-delete", automatic=_automatic_mode(), operation="delete"):
                 deleted += 1
         except Exception as e:
             log.warning("Failed to delete stale chunk %s: %s", mid, e)
@@ -244,18 +250,21 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with open_hosted_request(req, timeout=15, ingress="auto-import-add", automatic=_automatic_mode(), operation="import") as resp:
             if resp.status in (200, 201):
                 log.info("Imported %s (project=%s)", filename, project_id)
                 return True
             log.warning("API returned status %d for %s", resp.status, filename)
             return False
-    except urllib.error.URLError as e:
+    except (urllib.error.URLError, HostedRequestDenied) as e:
         log.warning("API call failed for %s: %s", filename, e)
         return False
 
 
 def main() -> None:
+    if _automatic_mode() and not resolve_config().get("auto_search", False):
+        log.debug("auto_search is disabled; skipping automatic import because dedup requires search")
+        return
     api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping auto-import")

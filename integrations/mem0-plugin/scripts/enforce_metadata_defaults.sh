@@ -4,11 +4,9 @@
 # omits them. Uses the hookSpecificOutput.updatedInput contract to modify
 # tool call parameters before execution.
 #
-# Handles:
-#   add_memory         — top-level user_id, app_id, metadata defaults
-#   search_memories    — user_id/app_id into filters.AND[]
-#   get_memories       — user_id/app_id into filters.AND[]
-#   delete_all_memories — top-level user_id, app_id
+# Classifies and budgets every advertised Mem0 MCP operation. Identity defaults
+# are injected only where the tool contract accepts them. Record-scoped and
+# entity-management operations are admission-only passthroughs.
 #
 # Hook contract:
 #   exit 0 = allow. If stdout contains {"hookSpecificOutput": {"updatedInput": ...}},
@@ -33,12 +31,40 @@ case "$TOOL_NAME" in
     HANDLER="search_memories" ;;
   mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories)
     HANDLER="get_memories" ;;
+  mcp__mem0__get_memory|mcp__plugin_mem0_mem0__get_memory)
+    HANDLER="get_memory" ;;
+  mcp__mem0__update_memory|mcp__plugin_mem0_mem0__update_memory)
+    HANDLER="update_memory" ;;
+  mcp__mem0__delete_memory|mcp__plugin_mem0_mem0__delete_memory)
+    HANDLER="delete_memory" ;;
   mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories)
-    HANDLER="delete_all" ;;
-  *) exit 0 ;;
+    HANDLER="delete_all_memories" ;;
+  mcp__mem0__delete_entities|mcp__plugin_mem0_mem0__delete_entities)
+    HANDLER="delete_entities" ;;
+  mcp__mem0__list_entities|mcp__plugin_mem0_mem0__list_entities)
+    HANDLER="list_entities" ;;
+  *)
+    echo "remote-unknown-operation: unclassified Mem0 MCP tool $TOOL_NAME" >&2
+    exit 2 ;;
 esac
 
 TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // "{}"' 2>/dev/null)
+
+# Admission is synchronous: no MCP request is allowed until the monotonic
+# charge is committed. Explicit MCP calls are intentionally not coalesced.
+_PAYLOAD_BYTES=$(printf '%s' "$TOOL_INPUT" | wc -c | tr -d '[:space:]')
+_ADMISSION_SESSION_ID="${MEM0_SESSION_ID:-default}"
+_ADMISSION_OUT=$(python3 "$SCRIPT_DIR/admission_cli.py" charge \
+  --operation "$HANDLER" \
+  --ingress "mcp-pretooluse" \
+  --session-id "$_ADMISSION_SESSION_ID" \
+  --payload-bytes "${_PAYLOAD_BYTES:-0}" 2>/dev/null)
+_ADMISSION_STATUS=$?
+if [ "$_ADMISSION_STATUS" -ne 0 ]; then
+  _REASON=$(printf '%s' "$_ADMISSION_OUT" | jq -r '.reason // "remote-accounting-unavailable"' 2>/dev/null || echo "remote-accounting-unavailable")
+  echo "${_REASON}: hosted Mem0 request denied" >&2
+  exit 2
+fi
 
 _PATCH_OUT="/tmp/mem0_enforce_$$"
 trap 'rm -f "$_PATCH_OUT"' EXIT
@@ -185,8 +211,12 @@ elif handler in ("search_memories", "get_memories"):
     else:
         changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
 
-elif handler == "delete_all":
+elif handler == "delete_all_memories":
     changed = inject_top_level_identity(inp, resolved_uid, resolved_aid)
+
+# get_memory/update_memory/delete_memory are record-scoped. delete_entities
+# and list_entities have operation-specific entity parameters. None accepts
+# the generic identity defaults above, so those five are admission-only.
 
 if changed:
     print(json.dumps(inp))
@@ -202,6 +232,13 @@ if [ -n "$PATCHED" ] && echo "$PATCHED" | jq empty 2>/dev/null; then
       "updatedInput": $updated
     }
   }' 2>/dev/null || true
+else
+  jq -n '{
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "allow"
+    }
+  }' 2>/dev/null || true
 fi
 
 # Track session stats here because PostToolUse hooks don't fire for plugin MCP tools.
@@ -210,7 +247,7 @@ case "$HANDLER" in
     _CAT=$(echo "$TOOL_INPUT" | jq -r '.metadata.type // .metadata.category // ""' 2>/dev/null || echo "")
     python3 "$SCRIPT_DIR/session_stats.py" add "$_CAT" 2>/dev/null &
     ;;
-  search_memories|get_memories)
+  search_memories|get_memories|get_memory|list_entities)
     python3 "$SCRIPT_DIR/session_stats.py" search 2>/dev/null &
     ;;
 esac

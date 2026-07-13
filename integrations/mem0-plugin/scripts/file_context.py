@@ -94,6 +94,8 @@ def search_file_context(
         top_k=MAX_RESULTS, threshold=0.3,
         global_search=global_search,
         rerank=should_rerank(),
+        ingress="file-read",
+        automatic=True,
     )
 
     results = results[:MAX_RESULTS]

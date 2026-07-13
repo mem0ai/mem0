@@ -56,6 +56,17 @@ _mem0_resolve_identity() {
 MEM0_RESOLVED_USER_ID="$(_mem0_resolve_identity)"
 export MEM0_RESOLVED_USER_ID
 
+# Hooks do not all inherit the SessionStart environment on every host. Reuse
+# the session marker rather than collapsing their budgets into a permanent
+# "default" bucket.
+if [ -z "${MEM0_SESSION_ID:-}" ]; then
+  _MEM0_SESSION_FILE="/tmp/mem0_session_id_${USER:-default}"
+  if [ -f "$_MEM0_SESSION_FILE" ]; then
+    MEM0_SESSION_ID=$(cat "$_MEM0_SESSION_FILE" 2>/dev/null || echo "")
+    export MEM0_SESSION_ID
+  fi
+fi
+
 _MEM0_IDENTITY_ANNOTATION=""
 if [ -n "${MEM0_USER_ID:-}" ] && [ "$MEM0_USER_ID" != "${USER:-default}" ]; then
   _MEM0_IDENTITY_ANNOTATION=" (override; default: ${USER:-default})"
@@ -66,7 +77,7 @@ export _MEM0_IDENTITY_ANNOTATION
 if command -v python3 >/dev/null 2>&1; then
   _SETTINGS_JSON=$(PYTHONPATH="$_SCRIPT_DIR" python3 -c "from load_settings import load_settings; import json; print(json.dumps(load_settings()))" 2>/dev/null || echo "{}")
   MEM0_AUTO_SAVE=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('auto_save',True)).lower())" 2>/dev/null || echo "true")
-  MEM0_AUTO_SEARCH=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('auto_search',True)).lower())" 2>/dev/null || echo "true")
+  MEM0_AUTO_SEARCH=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('auto_search',False)).lower())" 2>/dev/null || echo "false")
   MEM0_SEARCH_LIMIT=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('search_limit',10))" 2>/dev/null || echo "10")
   MEM0_RETENTION_SESSION_DAYS=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('retention_session_days',90))" 2>/dev/null || echo "90")
   MEM0_CONFIDENCE_THRESHOLD=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('confidence_threshold',0.3))" 2>/dev/null || echo "0.3")
@@ -74,7 +85,7 @@ if command -v python3 >/dev/null 2>&1; then
   MEM0_DEBUG=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('debug',False)).lower())" 2>/dev/null || echo "false")
 else
   MEM0_AUTO_SAVE="true"
-  MEM0_AUTO_SEARCH="true"
+  MEM0_AUTO_SEARCH="false"
   MEM0_SEARCH_LIMIT="10"
   MEM0_RETENTION_SESSION_DAYS="90"
   MEM0_CONFIDENCE_THRESHOLD="0.3"

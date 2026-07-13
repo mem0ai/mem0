@@ -12,7 +12,7 @@ SETTINGS_PATH = Path.home() / ".mem0" / "settings.json"
 
 DEFAULTS = {
     "auto_save": True,
-    "auto_search": True,
+    "auto_search": False,
     "search_limit": 10,
     "retention_session_days": 90,
     "confidence_threshold": 0.3,

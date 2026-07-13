@@ -34,6 +34,21 @@ def _clean_project_map(monkeypatch):
         os.remove(map_path)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_admission_state(monkeypatch, tmp_path):
+    """Tests must never consume the operator's real hosted-memory budget."""
+    monkeypatch.setenv("MEM0_STATE_DIR", str(tmp_path / "mem0-state"))
+    for name in (
+        "MEM0_BUDGET_SESSION_REQUESTS",
+        "MEM0_BUDGET_DAILY_REQUESTS",
+        "MEM0_BUDGET_SESSION_AUTO_REQUESTS",
+        "MEM0_BUDGET_DAILY_AUTO_REQUESTS",
+        "MEM0_BUDGET_SESSION_WEIGHT",
+        "MEM0_BUDGET_DAILY_WEIGHT",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture()
 def tmp_git_repo(tmp_path):
     """Create a temp dir with a git repo and HTTPS remote."""

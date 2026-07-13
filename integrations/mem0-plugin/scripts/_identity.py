@@ -83,7 +83,7 @@ def resolve_config() -> dict:
     except ImportError:
         return {
             "auto_save": True,
-            "auto_search": True,
+            "auto_search": False,
             "search_limit": 10,
             "retention_session_days": 90,
             "confidence_threshold": 0.3,

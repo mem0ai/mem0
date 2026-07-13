@@ -32,6 +32,7 @@ from _chunking import (
 )
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
+from hosted_request import HostedRequestDenied, open_hosted_request
 
 API_URL = "https://api.mem0.ai"
 HASH_STORE = os.path.expanduser("~/.mem0/import_hashes.json")
@@ -92,9 +93,9 @@ def post_memory(api_key: str, content: str, user_id: str, project_id: str, branc
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with open_hosted_request(req, timeout=20, ingress="explicit-import", automatic=False, operation="import") as resp:
             return resp.status in (200, 201)
-    except urllib.error.URLError as e:
+    except (urllib.error.URLError, HostedRequestDenied) as e:
         print(f"  [warn] API call failed: {e}", file=sys.stderr)
         return False
 

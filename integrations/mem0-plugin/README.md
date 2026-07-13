@@ -219,6 +219,36 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 | `/mem0:memory-reviewer` | Audit memory quality — duplicates, contradictions, stale |
 | `/mem0:context-loader` | Pre-load relevant memories for current task |
 
+## Hosted-memory cost controls
+
+Automatic hosted retrieval is off by default. Set `"auto_search": true` in
+`~/.mem0/settings.json` to opt in to file-read, resume, error, SessionStart,
+and automatic-import searches. Explicit MCP searches remain available, subject
+to the same hard local budget as all other hosted Mem0 traffic.
+
+The Python/shell plugin surface charges each admitted hosted request atomically
+in `${MEM0_STATE_DIR:-~/.mem0}/admission.sqlite3` before transport. Defaults:
+
+| Environment variable | Default |
+|---|---:|
+| `MEM0_BUDGET_SESSION_REQUESTS` | 12 |
+| `MEM0_BUDGET_DAILY_REQUESTS` | 50 |
+| `MEM0_BUDGET_SESSION_AUTO_REQUESTS` | 6 |
+| `MEM0_BUDGET_DAILY_AUTO_REQUESTS` | 20 |
+| `MEM0_BUDGET_SESSION_WEIGHT` | 30 |
+| `MEM0_BUDGET_DAILY_WEIGHT` | 120 |
+
+`0` denies that dimension. Invalid or unavailable accounting fails closed for
+remote memory calls only; file reads and local work continue. Request weights
+are conservative tuning heuristics, not provider billing units, tokens, or
+dollar estimates. Charges are monotonic admitted attempts and are not refunded.
+
+Claude Code's PreToolUse deny path is protected by the tested hook contract.
+Codex, Cursor, and Antigravity remain best-effort until equivalent
+host-executed deny smokes pass. **P0 cost admission: unprotected for the
+separately published OpenCode TypeScript plugin**, which needs a future
+language-neutral adapter.
+
 ## What's included
 
 | Component | Claude Code / Cowork | Cursor (MCP) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |

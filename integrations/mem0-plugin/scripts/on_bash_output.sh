@@ -70,6 +70,9 @@ python3 "$SCRIPT_DIR/telemetry.py" bash_error --error_detected 2>/dev/null &
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
+if [ "${MEM0_AUTO_SEARCH:-false}" != "true" ]; then
+  exit 0
+fi
 
 # Pre-fetch memories: anti_pattern and bug_fix searches
 RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_QUERY="$ERROR_QUERY" MEM0_SEARCH_USER="$USER_ID" \
@@ -85,8 +88,8 @@ project_id = os.environ.get('MEM0_PROJECT_ID', 'unknown')
 query = os.environ.get('MEM0_SEARCH_QUERY', '')
 rerank = should_rerank()
 
-r1 = search_memories(api_key, user_id, project_id, query, metadata_type='anti_pattern', top_k=3, rerank=rerank)
-r2 = search_memories(api_key, user_id, project_id, query, metadata_type='bug_fix', top_k=3, rerank=rerank)
+r1 = search_memories(api_key, user_id, project_id, query, metadata_type='anti_pattern', top_k=3, rerank=rerank, ingress='bash-error-anti-pattern', automatic=True)
+r2 = search_memories(api_key, user_id, project_id, query, metadata_type='bug_fix', top_k=3, rerank=rerank, ingress='bash-error-bug-fix', automatic=True)
 
 seen = set()
 combined = []

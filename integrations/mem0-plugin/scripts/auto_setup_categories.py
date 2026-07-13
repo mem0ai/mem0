@@ -40,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # works even when this script is run with the system python3.
 from _identity import resolve_api_key  # noqa: E402
 from setup_coding_categories import CODING_CATEGORIES, _categories_match  # noqa: E402
+from hosted_request import require_admission  # noqa: E402
 
 log = logging.getLogger("mem0-auto-categories")
 log.setLevel(logging.DEBUG)
@@ -133,6 +134,7 @@ def make_client():
 
 def fetch_current_categories(client) -> list | None:
     """Return the project's current custom_categories, or None if unavailable."""
+    require_admission("get", "auto-categories-get", True)
     current = client.project.get(fields=["custom_categories"])
     if isinstance(current, dict):
         return current.get("custom_categories")
@@ -148,6 +150,12 @@ def apply_categories(client, proposed: list = CODING_CATEGORIES) -> str:
     current = fetch_current_categories(client)
     if _categories_match(current, proposed):
         return "already-configured"
+    require_admission(
+        "update",
+        "auto-categories-update",
+        True,
+        payload_bytes=len(json.dumps(proposed).encode()),
+    )
     client.project.update(custom_categories=proposed)
     return "applied"
 

@@ -116,7 +116,7 @@ If no files found, print `- No project files found. Skipping import.` and procee
 Run auto_import in foreground to check status and import if needed:
 
 ```bash
-MEM0_DEBUG=1 MEM0_CWD="$PWD" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/auto_import.py"
+MEM0_DEBUG=1 MEM0_IMPORT_EXPLICIT=1 MEM0_CWD="$PWD" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/auto_import.py"
 ```
 
 ### 4c: Report to user
