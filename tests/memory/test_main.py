@@ -418,6 +418,63 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     assert payload["updated_at"] is not None
 
 
+_ATTACKER_UPDATE_METADATA = {
+    "user_id": "attacker_tenant",
+    "agent_id": "attacker_agent",
+    "run_id": "attacker_run",
+    "actor_id": "attacker_actor",
+    "category": "sports",
+}
+
+_EXISTING_UPDATE_PAYLOAD = {
+    "data": "old memory",
+    "user_id": "tenant_a",
+    "agent_id": "agent_a",
+    "run_id": "run_a",
+    "actor_id": "actor_a",
+}
+
+
+def test_update_memory_metadata_cannot_overwrite_identity_fields(mocker):
+    """Regression: metadata passed to update() must never overwrite a memory's
+    user_id/agent_id/run_id/actor_id. These fields scope every search()/
+    get_all()/delete_all() call, so letting caller metadata overwrite them
+    would silently move a memory into another tenant's scope and make it
+    unreachable via the original tenant's delete_all(). Extends the existing
+    actor_id protection (issue #4490) to the sibling identity fields.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["agent_id"] == "agent_a"
+    assert payload["run_id"] == "run_a"
+    assert payload["actor_id"] == "actor_a"
+    # Benign metadata keys still pass through normally.
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_metadata_cannot_overwrite_identity_fields(mocker):
+    """Async counterpart of test_update_memory_metadata_cannot_overwrite_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    await memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["agent_id"] == "agent_a"
+    assert payload["run_id"] == "run_a"
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
+
+
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     """Reproduces issue #3720: created_at must be identical in search() and get_all()."""
     memory = _build_memory_instance(mocker, Memory)

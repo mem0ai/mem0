@@ -1999,9 +1999,14 @@ class Memory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        # actor_id is immutable after creation (issue #4490). user_id/agent_id/run_id
+        # are likewise immutable: they scope every search()/get_all()/delete_all() call,
+        # so letting caller-supplied metadata overwrite them would silently move a
+        # memory into another tenant's scope and make it unreachable via the original
+        # tenant's delete_all().
+        for _identity_key in ("actor_id", "user_id", "agent_id", "run_id"):
+            if _identity_key in existing_memory.payload:
+                new_metadata[_identity_key] = existing_memory.payload[_identity_key]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3665,9 +3670,14 @@ class AsyncMemory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
+        # actor_id is immutable after creation (issue #4490). user_id/agent_id/run_id
+        # are likewise immutable: they scope every search()/get_all()/delete_all() call,
+        # so letting caller-supplied metadata overwrite them would silently move a
+        # memory into another tenant's scope and make it unreachable via the original
+        # tenant's delete_all().
+        for _identity_key in ("actor_id", "user_id", "agent_id", "run_id"):
+            if _identity_key in existing_memory.payload:
+                new_metadata[_identity_key] = existing_memory.payload[_identity_key]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
