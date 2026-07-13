@@ -37,7 +37,13 @@ export type { ValkeyConfig } from "./valkey";
 export interface VectorStoreConfig {
   collectionName?: string;
   dimension?: number;
+  embeddingModelDims?: number;
   dbPath?: string;
+  path?: string;
+  distanceStrategy?: string;
+  normalizeL2?: boolean;
+  binding?: any;
+  faissLib?: any;
   client?: any;
   instance?: any;
   [key: string]: any;
