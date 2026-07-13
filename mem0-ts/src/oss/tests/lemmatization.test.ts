@@ -1,10 +1,14 @@
 import { lemmatizeForBm25 } from "../src/utils/lemmatization";
 
 describe("lemmatizeForBm25", () => {
-  const originalSegmenter = (Intl as any).Segmenter;
+  const originalSegmenter = Intl.Segmenter;
 
   afterEach(() => {
-    (Intl as any).Segmenter = originalSegmenter;
+    Object.defineProperty(Intl, "Segmenter", {
+      value: originalSegmenter,
+      configurable: true,
+      writable: true,
+    });
   });
 
   it("handles basic English lemmatization with stemming", () => {
@@ -30,7 +34,11 @@ describe("lemmatizeForBm25", () => {
   });
 
   it("falls back to regex segmenter when Intl.Segmenter is undefined", () => {
-    (Intl as any).Segmenter = undefined;
+    Object.defineProperty(Intl, "Segmenter", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
 
     const text = "He is running and eating apples";
     const result = lemmatizeForBm25(text);

@@ -10,6 +10,29 @@
  * noun vs verb -> different stems).
  */
 
+import { logger } from "./logger";
+
+declare global {
+  namespace Intl {
+    interface SegmenterOptions {
+      localeMatcher?: "lookup" | "best fit";
+      granularity?: "grapheme" | "word" | "sentence";
+    }
+    interface SegmentData {
+      segment: string;
+      index: number;
+      input: string;
+      isWordLike?: boolean;
+    }
+    class Segmenter {
+      constructor(locales?: string | string[], options?: SegmenterOptions);
+      segment(input: string): {
+        [Symbol.iterator](): IterableIterator<SegmentData>;
+      };
+    }
+  }
+}
+
 /** Standard English stop words (based on NLTK stop word list). */
 const STOP_WORDS: Set<string> = new Set([
   "a",
@@ -243,6 +266,8 @@ function simpleStem(word: string): string {
  * @param text - Input text to lemmatize.
  * @returns Space-joined lemmatized/stemmed tokens.
  */
+let warnedAboutSegmenter = false;
+
 export function lemmatizeForBm25(text: string, locales?: string[]): string {
   const lower = text.toLowerCase();
 
@@ -253,7 +278,13 @@ export function lemmatizeForBm25(text: string, locales?: string[]): string {
 
   const tokens: string[] = [];
 
-  if (typeof (Intl as any).Segmenter === "undefined") {
+  if (Intl.Segmenter === undefined) {
+    if (!warnedAboutSegmenter) {
+      logger.warn(
+        "Intl.Segmenter is not supported in this environment. Falling back to simple regex segmentation."
+      );
+      warnedAboutSegmenter = true;
+    }
     const words = lower.match(/[a-z0-9]+/g);
     if (!words) {
       return text.toLowerCase();
@@ -279,7 +310,7 @@ export function lemmatizeForBm25(text: string, locales?: string[]): string {
 
   const localeList = locales || ["en-US", "zh-TW", "zh-CN", "ja", "ko"];
 
-  const segmenter = new (Intl as any).Segmenter(localeList, {
+  const segmenter = new Intl.Segmenter(localeList, {
     granularity: "word",
   });
   const segments = segmenter.segment(lower);
