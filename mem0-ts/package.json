@@ -216,10 +216,9 @@
       "optional": true
     },
     "faiss-node": {
-    "iovalkey": {
       "optional": true
     },
-    "faiss-node": {
+    "iovalkey": {
       "optional": true
     }
   },
