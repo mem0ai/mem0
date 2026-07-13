@@ -169,7 +169,6 @@ export class VectorStoreFactory {
       case "vectorize":
         return new VectorizeDB(config as any);
       case "azure-ai-search":
-      case "azure_ai_search":
         return new AzureAISearch(config as any);
       case "vertex_ai_vector_search":
         return new VertexAIVectorSearch(config as any);
