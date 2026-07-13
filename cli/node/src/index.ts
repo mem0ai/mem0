@@ -266,42 +266,10 @@ program
 
 program
 	.command("whoami")
-	.description("Print the active agent's AGENTRUSH identifier.")
+	.description("Print your user_id (default_user_id).")
 	.action(async () => {
 		const { cmdWhoami } = await import("./commands/whoami.js");
 		await cmdWhoami();
-	});
-
-// ── AGENTRUSH subcommand group ────────────────────────────────────────────
-
-const agentRush = program
-	.command("agent-rush")
-	.description("AGENTRUSH game commands.")
-	.addHelpCommand(false)
-	.configureHelp({ formatHelp: richFormatHelp });
-
-agentRush
-	.command("add <content...>")
-	.description("Submit a memory to AGENTRUSH.")
-	.addHelpText(
-		"after",
-		'\nExamples:\n  $ mem0 agent-rush add "I used mem0 to build a coding agent"\n  $ mem0 agent-rush add "Agents that remember are better agents"',
-	)
-	.action(async (parts: string[]) => {
-		const { cmdAgentRushAdd } = await import("./commands/agent-rush.js");
-		await cmdAgentRushAdd(parts.join(" "));
-	});
-
-agentRush
-	.command("search <query...>")
-	.description("Search AGENTRUSH memories.")
-	.addHelpText(
-		"after",
-		'\nExamples:\n  $ mem0 agent-rush search "agents and memory and tools"\n  $ mem0 agent-rush search "coding assistant"',
-	)
-	.action(async (parts: string[]) => {
-		const { cmdAgentRushSearch } = await import("./commands/agent-rush.js");
-		await cmdAgentRushSearch(parts.join(" "));
 	});
 
 // ── Memory: add ───────────────────────────────────────────────────────────

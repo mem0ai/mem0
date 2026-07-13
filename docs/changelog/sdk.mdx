@@ -1606,6 +1606,15 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-07-07" description="Python v0.2.10 / Node v0.2.11">
+
+**Changes:**
+- **`mem0 agent-rush` removed:** The AGENTRUSH game has ended; the `agent-rush add` and `agent-rush search` commands are removed from both CLIs.
+- **`mem0 whoami` output:** Now prints `Your user_id:  <default_user_id>` instead of the AGENTRUSH-branded line. The value and the exit-code behavior are unchanged.
+- **Config schema:** The `agent_rush.acknowledged_at` key is no longer read or written. Existing config files that still contain it are unaffected; the key is ignored.
+
+</Update>
+
 <Update label="2026-07-01" description="Python v0.2.9 / Node v0.2.10">
 
 **Bug Fixes:**

@@ -1,11 +1,11 @@
-"""mem0 whoami — print the active agent's default_user_id (AGENTRUSH identifier)."""
+"""mem0 whoami — print the active agent's default_user_id."""
 
 from __future__ import annotations
 
 import typer
 from rich.console import Console
 
-from mem0_cli.branding import BRAND_COLOR, print_error, print_info
+from mem0_cli.branding import BRAND_COLOR, print_error
 from mem0_cli.config import load_config
 
 console = Console()
@@ -21,5 +21,4 @@ def run_whoami() -> None:
             "No default_user_id found. Run `mem0 init --agent` first.",
         )
         raise typer.Exit(1)
-    console.print(f"Your AGENTRUSH identifier:  [{BRAND_COLOR}]{session_id}[/{BRAND_COLOR}]")
-    print_info(console, "Find your row at https://mem0.ai/agentrush")
+    console.print(f"Your user_id:  [{BRAND_COLOR}]{session_id}[/{BRAND_COLOR}]")
