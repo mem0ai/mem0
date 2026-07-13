@@ -79,7 +79,7 @@ new_project = client.project.create(
 
 ### Update Project Settings
 
-Modify project configuration including custom instructions, categories, language preferences, retrieval criteria, and memory decay:
+Modify project configuration including custom instructions, categories, language preferences, and memory decay:
 
 ```python
 # Update project with custom categories
@@ -98,14 +98,6 @@ client.project.update(
 # Use the input language for memory storage and retrieval
 client.project.update(multilingual=True)
 
-# Set retrieval criteria to control which memories are surfaced in search
-client.project.update(
-    retrieval_criteria=[
-        {"name": "relevance", "description": "How directly relevant this memory is to the current topic or user query", "weight": 3},
-        {"name": "access_frequency", "description": "How often this memory has been accessed or surfaced recently", "weight": 1}
-    ]
-)
-
 # Enable Memory Decay (boosts recently-accessed memories at search time)
 client.project.update(decay=True)
 
@@ -119,34 +111,6 @@ client.project.update(
     multilingual=True
 )
 ```
-
-#### Set Retrieval Criteria
-
-`retrieval_criteria` is a per-project list of dictionaries (`List[Dict]`) that shapes how memories are ranked and filtered during search. Each dictionary has three fields: `name` (identifier), `description` (interpreted by the LLM to score each memory), and `weight` (relative influence on the final score). Use this to focus retrieval on intent-aligned or signal-specific memories:
-
-```python
-client.project.update(
-    retrieval_criteria=[
-        {
-            "name": "joy",
-            "description": "Measure the intensity of positive emotions such as happiness, excitement, or amusement expressed in the memory. A higher score reflects greater joy.",
-            "weight": 3
-        },
-        {
-            "name": "curiosity",
-            "description": "Assess the extent to which the memory reflects inquisitiveness or interest in exploring new information. A higher score reflects stronger curiosity.",
-            "weight": 2
-        },
-        {
-            "name": "access_frequency",
-            "description": "How often this memory has been accessed or surfaced recently.",
-            "weight": 1
-        }
-    ]
-)
-```
-
-Pass an empty list to clear all criteria and restore default retrieval behaviour.
 
 #### Toggle Memory Decay
 
