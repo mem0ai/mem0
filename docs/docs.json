@@ -85,7 +85,6 @@
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
-                          "platform/features/contextual-add",
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay"
                         ]
@@ -609,6 +608,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/platform/features/contextual-add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
     {
       "source": "/changelog/openclaw",
       "destination": "/changelog/sdk"
