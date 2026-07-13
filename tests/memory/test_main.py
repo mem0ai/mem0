@@ -243,6 +243,7 @@ class TestAsyncUpdate:
 
     @pytest.mark.asyncio
     async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
+        mock_async_memory.embedding_model = _asyncify_embedding_model(mock_async_memory.embedding_model)
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory.vector_store.get = Mock(
             return_value=Mock(
@@ -277,6 +278,8 @@ class TestAsyncAddToVectorStoreErrors:
         mock_llm, _ = _setup_mocks(mocker)
 
         memory = AsyncMemory()
+        memory.llm = _asyncify_llm(memory.llm)
+        memory.embedding_model = _asyncify_embedding_model(memory.embedding_model)
         memory.config = mocker.MagicMock()
         memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
