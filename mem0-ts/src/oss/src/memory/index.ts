@@ -1896,12 +1896,17 @@ export class Memory {
     const embedding =
       existingEmbeddings[data] || (await this.embedder.embed(data, "add"));
 
+    const now = new Date().toISOString();
     const memoryMetadata = {
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
       textLemmatized: lemmatizeForBm25(data),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      // A freshly created memory has updatedAt == createdAt. The batch pipeline
+      // and updateMemory both set it; without it here, infer:false memories come
+      // back from get()/getAll()/search() with updatedAt undefined.
+      updatedAt: now,
     };
 
     await this.vectorStore.insert([embedding], [memoryId], [memoryMetadata]);
@@ -1911,6 +1916,7 @@ export class Memory {
       data,
       "ADD",
       memoryMetadata.createdAt,
+      memoryMetadata.updatedAt,
     );
 
     return memoryId;
