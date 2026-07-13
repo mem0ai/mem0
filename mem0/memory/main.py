@@ -1027,7 +1027,10 @@ class Memory(MemoryBase):
                 "new_memory": r[1],
                 "event": "ADD",
                 "created_at": r[3].get("created_at"),
+                "updated_at": r[3].get("updated_at"),
                 "is_deleted": 0,
+                "actor_id": r[3].get("actor_id"),
+                "role": r[3].get("role"),
             }
             for r in records
         ]
@@ -1037,7 +1040,16 @@ class Memory(MemoryBase):
             # Fallback: add one by one
             for hr in history_records:
                 try:
-                    self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
+                    self.db.add_history(
+                        hr["memory_id"],
+                        None,
+                        hr["new_memory"],
+                        "ADD",
+                        created_at=hr.get("created_at"),
+                        updated_at=hr.get("updated_at"),
+                        actor_id=hr.get("actor_id"),
+                        role=hr.get("role"),
+                    )
                 except Exception as e:
                     logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
 
@@ -2661,7 +2673,10 @@ class AsyncMemory(MemoryBase):
                 "new_memory": r[1],
                 "event": "ADD",
                 "created_at": r[3].get("created_at"),
+                "updated_at": r[3].get("updated_at"),
                 "is_deleted": 0,
+                "actor_id": r[3].get("actor_id"),
+                "role": r[3].get("role"),
             }
             for r in records
         ]
@@ -2672,7 +2687,10 @@ class AsyncMemory(MemoryBase):
                 try:
                     await asyncio.to_thread(
                         self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                        created_at=hr.get("created_at")
+                        created_at=hr.get("created_at"),
+                        updated_at=hr.get("updated_at"),
+                        actor_id=hr.get("actor_id"),
+                        role=hr.get("role"),
                     )
                 except Exception as e:
                     logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")

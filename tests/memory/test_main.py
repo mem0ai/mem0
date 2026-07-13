@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -461,6 +462,59 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     assert search_item["updated_at"] is not None
     assert get_all_item["created_at"] is not None
     assert get_all_item["updated_at"] is not None
+
+
+def test_batch_add_history_carries_updated_at(mocker):
+    """The V3 batch add pipeline (the default infer=True path) must record the
+    ADD history event with updated_at set, matching the single-memory
+    _create_memory path where updated_at == created_at."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.db.get_last_messages.return_value = []
+    memory.vector_store.search.return_value = []
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+    memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": "Likes pizza"}]})
+
+    memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "I like pizza"}],
+        metadata={"user_id": "alice"},
+        filters={"user_id": "alice"},
+        infer=True,
+    )
+
+    memory.db.batch_add_history.assert_called_once()
+    records = memory.db.batch_add_history.call_args.args[0]
+    assert len(records) == 1
+    record = records[0]
+    assert record["event"] == "ADD"
+    assert record["created_at"] is not None
+    assert record["updated_at"] == record["created_at"]
+
+
+@pytest.mark.asyncio
+async def test_async_batch_add_history_carries_updated_at(mocker):
+    """Async twin of test_batch_add_history_carries_updated_at."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.db.get_last_messages.return_value = []
+    memory.vector_store.search.return_value = []
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+    memory.llm.generate_response.return_value = json.dumps({"memory": [{"text": "Likes pizza"}]})
+
+    await memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "I like pizza"}],
+        metadata={"user_id": "alice"},
+        effective_filters={"user_id": "alice"},
+        infer=True,
+    )
+
+    memory.db.batch_add_history.assert_called_once()
+    records = memory.db.batch_add_history.call_args.args[0]
+    assert len(records) == 1
+    record = records[0]
+    assert record["event"] == "ADD"
+    assert record["created_at"] is not None
+    assert record["updated_at"] == record["created_at"]
 
 
 def test_update_preserves_created_at_and_updates_updated_at(mocker):
