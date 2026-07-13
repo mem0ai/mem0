@@ -24,7 +24,7 @@ class AzureAISearchConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         allowed_fields = set(cls.model_fields.keys())
         input_fields = set(values.keys())
         extra_fields = input_fields - allowed_fields
@@ -35,12 +35,6 @@ class AzureAISearchConfig(BaseModel):
                 "The parameter 'use_compression' is no longer supported. "
                 "Please use 'compression_type=\"scalar\"' instead of 'use_compression=True' "
                 "or 'compression_type=None' instead of 'use_compression=False'."
-            )
-
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. "
-                f"Please input only the following fields: {', '.join(allowed_fields)}"
             )
 
         # Validate compression_type values
@@ -54,4 +48,4 @@ class AzureAISearchConfig(BaseModel):
 
         return values
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")

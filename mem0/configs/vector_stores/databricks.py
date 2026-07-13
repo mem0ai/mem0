@@ -31,18 +31,6 @@ class DatabricksConfig(BaseModel):
     warehouse_name: Optional[str] = Field(None, description="Databricks SQL warehouse Name")
     query_type: str = Field("ANN", description="Query type: `ANN` and `HYBRID`")
 
-    @model_validator(mode="before")
-    @classmethod
-    def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        allowed_fields = set(cls.model_fields.keys())
-        input_fields = set(values.keys())
-        extra_fields = input_fields - allowed_fields
-        if extra_fields:
-            raise ValueError(
-                f"Extra fields not allowed: {', '.join(extra_fields)}. Please input only the following fields: {', '.join(allowed_fields)}"
-            )
-        return values
-
     @model_validator(mode="after")
     def validate_authentication(self):
         """Validate that either access_token or service principal credentials are provided."""
@@ -58,4 +46,4 @@ class DatabricksConfig(BaseModel):
 
         return self
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
