@@ -44,6 +44,30 @@ class AnthropicLLM(LLMBase):
             client_kwargs["base_url"] = base_url
         self.client = anthropic.Anthropic(**client_kwargs)
 
+    def _enable_sampling_parameters(self):
+        """Return whether the configured model supports sampling parameters."""
+        explicit = getattr(self.config, "enable_sampling_parameters", None)
+        if explicit is not None:
+            return explicit
+
+        model_name = self.config.model.lower()
+        model_name_parts = model_name.rsplit("[", 1)[0].split("-")
+        _, family, major, minor, *_ = (*model_name_parts, "", "", "", "")
+
+        # Use model_name if only provided a family name, e.g., opus
+        family = family or model_name
+        major = int(major) if major.isdigit() else None
+        minor = int(minor) if minor.isdigit() else None
+
+        if family == "haiku":
+            return True
+        if family == "sonnet" and major is not None:
+            return major < 5
+        if family == "opus" and major is not None and minor is not None:
+            return (major, minor) < (4, 7)
+
+        return False
+
     def _get_common_params(self, **kwargs) -> Dict:
         """Get common parameters, avoiding sending both temperature and top_p together.
 
@@ -58,13 +82,14 @@ class AnthropicLLM(LLMBase):
         has_temperature = self.config.temperature is not None
         has_top_p = self.config.top_p is not None
 
-        if has_temperature and has_top_p:
-            # Anthropic forbids both; prefer temperature
-            params["temperature"] = self.config.temperature
-        elif has_temperature:
-            params["temperature"] = self.config.temperature
-        elif has_top_p:
-            params["top_p"] = self.config.top_p
+        if self._enable_sampling_parameters():
+            if has_temperature and has_top_p:
+                # Anthropic forbids both; prefer temperature
+                params["temperature"] = self.config.temperature
+            elif has_temperature:
+                params["temperature"] = self.config.temperature
+            elif has_top_p:
+                params["top_p"] = self.config.top_p
 
         params.update(kwargs)
         return params
@@ -122,8 +147,6 @@ class AnthropicLLM(LLMBase):
                 if block.type == "text":
                     result["content"] = block.text
                 elif block.type == "tool_use":
-                    result["tool_calls"].append(
-                        {"name": block.name, "arguments": block.input}
-                    )
+                    result["tool_calls"].append({"name": block.name, "arguments": block.input})
             return result
         return response.content[0].text

@@ -50,8 +50,10 @@ beforeEach(() => {
 
 describe("ElasticsearchDB", () => {
   describe("constructor", () => {
-    it("creates client with self-hosted host:port", () => {
-      new ElasticsearchDB({
+    // The client is built lazily on first use, so await initialize() before
+    // asserting how it was constructed.
+    it("creates client with self-hosted host:port", async () => {
+      const store = new ElasticsearchDB({
         collectionName: "mem0",
         embeddingModelDims: 768,
         host: "localhost",
@@ -59,6 +61,7 @@ describe("ElasticsearchDB", () => {
         username: "user",
         password: "pass",
       });
+      await store.initialize();
 
       expect(mockClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -68,14 +71,15 @@ describe("ElasticsearchDB", () => {
       );
     });
 
-    it("creates client with cloud config", () => {
-      new ElasticsearchDB({
+    it("creates client with cloud config", async () => {
+      const store = new ElasticsearchDB({
         collectionName: "mem0",
         embeddingModelDims: 1536,
         cloudId:
           "my-cloud:dXMtZWFzdDQuZ2NwLmVsYXN0aWMtY2xvdWQuY29tOjQ0MyQxMjM0NTY3ODkw",
         apiKey: "base64-key",
       });
+      await store.initialize();
 
       expect(mockClient).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -98,12 +102,13 @@ describe("ElasticsearchDB", () => {
       expect(mockClient).toHaveBeenCalledTimes(1);
     });
 
-    it("defaults to port 9200 and https", () => {
-      new ElasticsearchDB({
+    it("defaults to port 9200 and https", async () => {
+      const store = new ElasticsearchDB({
         collectionName: "mem0",
         embeddingModelDims: 384,
         host: "es.example.com",
       });
+      await store.initialize();
 
       expect(mockClient).toHaveBeenCalledWith(
         expect.objectContaining({

@@ -96,7 +96,8 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp"
+                          "platform/features/timestamp",
+                          "platform/features/memory-expiration"
                         ]
                       },
                       {
@@ -152,7 +153,8 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
-                      "open-source/features/openai_compatibility"
+                      "open-source/features/openai_compatibility",
+                      "platform/features/memory-expiration"
                     ]
                   },
                   {

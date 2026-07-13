@@ -215,6 +215,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Direct Import](https://docs.mem0.ai/platform/features/direct-import) [Platform]: Use when seeding a Mem0 project from existing data.
 - [Memory Export](https://docs.mem0.ai/platform/features/memory-export) [Platform]: Use when exporting memories via a Pydantic schema.
 - [Timestamp Support](https://docs.mem0.ai/platform/features/timestamp) [Platform]: Use when temporal queries or time-based filtering matter.
+- [Memory Expiration](https://docs.mem0.ai/platform/features/memory-expiration) [Both]: Use when a memory should stop surfacing after a known date without being deleted, e.g. trial facts, seasonal preferences, or retention windows.
 
 ### Features - Integration & Ops
 - [Webhooks](https://docs.mem0.ai/platform/features/webhooks) [Platform]: Use when another system needs to react to memory changes in real time.
@@ -501,5 +502,6 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Custom Reranker Prompts](https://docs.mem0.ai/components/rerankers/custom-prompts) [OSS]: Use when rewriting reranker prompts.
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
 - [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
-- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
+- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
+- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.

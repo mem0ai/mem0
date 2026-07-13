@@ -7,12 +7,14 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreConfig,
 } from "../types";
 import {
   EmbedderFactory,
   LLMFactory,
   VectorStoreFactory,
   HistoryManagerFactory,
+  RerankerFactory,
 } from "../utils/factory";
 import {
   FactRetrievalSchema,
@@ -28,6 +30,7 @@ import {
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
+import { Reranker } from "../rerankers/base";
 import { VectorStore } from "../vector_stores/base";
 import { ConfigManager } from "../config/manager";
 
@@ -77,7 +80,18 @@ import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
-// Entity params that must be passed via filters - check both snake_case and camelCase
+export class LLMError extends Error {
+  readonly cause?: unknown;
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = "LLMError";
+    this.cause = options.cause;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// Entity params that must be passed via filters check both snake_case and camelCase
 const ENTITY_PARAMS = [
   "user_id",
   "agent_id",
@@ -164,6 +178,7 @@ export class Memory {
   private embedder: Embedder;
   private vectorStore!: VectorStore;
   private llm: LLM;
+  private reranker: Reranker | null = null;
   private db: HistoryManager;
   private collectionName: string | undefined;
   private apiVersion: string;
@@ -188,6 +203,12 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
+    if (this.config.reranker) {
+      this.reranker = RerankerFactory.create(
+        this.config.reranker.provider,
+        this.config.reranker.config,
+      );
+    }
     if (this.config.disableHistory) {
       this.db = new DummyHistoryManager();
     } else {
@@ -266,18 +287,24 @@ export class Memory {
 
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
+      const entityProvider = this.config.vectorStore.provider;
       const entityCollectionName = `${this.collectionName}_entities`;
-      const entityConfig = {
+      const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
       // For file-based stores (memory/SQLite), always use a separate DB for entities
-      if (this.config.vectorStore.provider === "memory") {
+      if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
         entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
+      if (entityProvider === "databricks") {
+        entityConfig.tableName = entityConfig.tableName
+          ? `${entityConfig.tableName}_entities`
+          : entityCollectionName;
+      }
       this._entityStore = VectorStoreFactory.create(
-        this.config.vectorStore.provider,
+        entityProvider,
         entityConfig,
       );
       await this._entityStore.initialize();
@@ -399,7 +426,7 @@ export class Memory {
           }
           let vec: number[];
           try {
-            vec = await this.embedder.embed(entityText);
+            vec = await this.embedder.embed(entityText, "update");
           } catch (e) {
             console.debug(`Entity re-embed failed for '${entityText}': ${e}`);
             continue;
@@ -443,7 +470,7 @@ export class Memory {
         try {
           let entityVec: number[];
           try {
-            entityVec = await this.embedder.embed(entity.text);
+            entityVec = await this.embedder.embed(entity.text, "add");
           } catch (e) {
             console.debug(`Entity embed failed for '${entity.text}': ${e}`);
             continue;
@@ -818,7 +845,7 @@ export class Memory {
       .join("\n");
 
     // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages);
+    const queryEmbedding = await this.embedder.embed(parsedMessages, "search");
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,
@@ -862,7 +889,7 @@ export class Memory {
       )) as string;
     } catch (e) {
       console.error("LLM extraction failed:", e);
-      return [];
+      throw new LLMError(`LLM extraction failed: ${e}`, { cause: e });
     }
 
     // Parse response
@@ -912,7 +939,7 @@ export class Memory {
       .filter((t) => t.length > 0);
     let embedMap: Record<string, number[]> = {};
     try {
-      const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
+      const memEmbeddingsList = await this.embedder.embedBatch(memTexts, "add");
       for (let i = 0; i < memTexts.length; i++) {
         embedMap[memTexts[i]] = memEmbeddingsList[i];
       }
@@ -920,7 +947,7 @@ export class Memory {
       // Fallback: embed individually
       for (const text of memTexts) {
         try {
-          embedMap[text] = await this.embedder.embed(text);
+          embedMap[text] = await this.embedder.embed(text, "add");
         } catch (e) {
           console.warn(`Failed to embed memory text: ${e}`);
         }
@@ -1098,13 +1125,13 @@ export class Memory {
         // 7b: Single batch embed for all unique entities
         let entityEmbeddings: (number[] | null)[];
         try {
-          entityEmbeddings = await this.embedder.embedBatch(entityTexts);
+          entityEmbeddings = await this.embedder.embedBatch(entityTexts, "add");
         } catch {
           // Fallback: embed individually
           entityEmbeddings = [];
           for (const t of entityTexts) {
             try {
-              entityEmbeddings.push(await this.embedder.embed(t));
+              entityEmbeddings.push(await this.embedder.embed(t, "add"));
             } catch {
               entityEmbeddings.push(null);
             }
@@ -1368,7 +1395,7 @@ export class Memory {
     const queryEntities = extractEntities(query);
 
     // Step 2: Embed query
-    const queryEmbedding = await this.embedder.embed(query);
+    const queryEmbedding = await this.embedder.embed(query, "search");
 
     // Step 3: Semantic search (over-fetch for scoring pool)
     const internalLimit = Math.max(topK * 4, 60);
@@ -1433,7 +1460,10 @@ export class Memory {
               entitySearchFilters[k] = effectiveFilters[k];
           }
           const entityTexts = deduped.map((e) => e.text);
-          const embeddings = await this.embedder.embedBatch(entityTexts);
+          const embeddings = await this.embedder.embedBatch(
+            entityTexts,
+            "search",
+          );
 
           if (embeddings.length !== entityTexts.length) {
             console.warn(
@@ -1541,8 +1571,30 @@ export class Memory {
         };
       });
 
+    // Step 10: Optionally re-rank with the configured reranker. Opt-in per
+    // search via `rerank: true`; a no-op when no reranker is configured.
+    const invokeReranker = Boolean(
+      config.rerank && this.reranker && results.length > 0,
+    );
+    let finalResults = results;
+    if (invokeReranker) {
+      try {
+        const ranked = await this.reranker!.rerank(
+          query,
+          results.map((r) => r.memory),
+          topK,
+        );
+        finalResults = ranked.map((r) => ({
+          ...results[r.index],
+          rerankScore: r.rerankScore,
+        }));
+      } catch (e) {
+        console.warn(`Reranking failed, using original results: ${e}`);
+      }
+    }
+
     const result = {
-      results,
+      results: finalResults,
     };
     const searchElapsedMs = Date.now() - searchStartMs;
     if (temporalUsageNotice) {
@@ -1617,7 +1669,7 @@ export class Memory {
 
     const existingEmbeddings: Record<string, number[]> = {};
     if (text != null) {
-      existingEmbeddings[text] = await this.embedder.embed(text);
+      existingEmbeddings[text] = await this.embedder.embed(text, "update");
     }
 
     await this.updateMemory(memoryId, text, existingEmbeddings, updateMetadata);
@@ -1702,7 +1754,7 @@ export class Memory {
     await this.db.reset();
 
     // Check provider before attempting deleteCol
-    if (this.config.vectorStore.provider.toLowerCase() !== "langchain") {
+    if (this.config.vectorStore.provider !== "langchain") {
       try {
         await this.vectorStore.deleteCol();
       } catch (e) {
@@ -1842,7 +1894,7 @@ export class Memory {
   ): Promise<string> {
     const memoryId = uuidv4();
     const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data));
+      existingEmbeddings[data] || (await this.embedder.embed(data, "add"));
 
     const memoryMetadata = {
       ...metadata,
@@ -1886,7 +1938,8 @@ export class Memory {
     const textChanged = newData !== prevValue;
 
     const embedding =
-      existingEmbeddings[newData] || (await this.embedder.embed(newData));
+      existingEmbeddings[newData] ||
+      (await this.embedder.embed(newData, "update"));
 
     const newMetadata = {
       ...existingMemory.payload,

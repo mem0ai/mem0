@@ -1,4 +1,4 @@
-import { ChromaClient, CloudClient } from "chromadb";
+import type { ChromaClient, CloudClient } from "chromadb";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -32,36 +32,68 @@ const MIGRATIONS_COLLECTION = "memory_migrations";
  * so no embedding function is required on the collection.
  */
 export class ChromaDB implements VectorStore {
-  private client: any;
+  private clientInstance?: any;
+  private clientPromise?: Promise<any>;
+  private readonly config: ChromaConfig;
   private readonly collectionName: string;
   private collectionPromise?: Promise<any>;
   private migrationsPromise?: Promise<any>;
 
   constructor(config: ChromaConfig) {
-    if (config.client) {
-      this.client = config.client;
-    } else if (config.apiKey && config.tenant) {
-      this.client = new CloudClient({
-        apiKey: config.apiKey,
-        tenant: config.tenant,
-        database: config.database || "mem0",
-      } as any);
-    } else {
-      const params: Record<string, any> = {};
-      if (config.host) params.host = config.host;
-      if (config.port) params.port = config.port;
-      if (config.ssl !== undefined) params.ssl = config.ssl;
-      if (config.path) params.path = config.path;
-      this.client = new ChromaClient(params as any);
-    }
-
+    this.config = config;
     this.collectionName = config.collectionName;
     this.initialize().catch(console.error);
   }
 
+  /**
+   * Lazily construct (or reuse) the ChromaDB client, importing the optional
+   * `chromadb` peer only when the store is first used so consumers that never
+   * touch Chroma don't need it installed.
+   */
+  private async getClient(): Promise<any> {
+    if (this.clientInstance) return this.clientInstance;
+    if (!this.clientPromise) {
+      this.clientPromise = this.createClient();
+    }
+    this.clientInstance = await this.clientPromise;
+    return this.clientInstance;
+  }
+
+  private async createClient(): Promise<any> {
+    const config = this.config;
+    if (config.client) {
+      return config.client;
+    }
+
+    let sdk: any;
+    try {
+      sdk = await import("chromadb");
+    } catch {
+      throw new Error(
+        "The 'chromadb' package is required to use the Chroma vector store. Install it with: npm install chromadb",
+      );
+    }
+
+    if (config.apiKey && config.tenant) {
+      return new sdk.CloudClient({
+        apiKey: config.apiKey,
+        tenant: config.tenant,
+        database: config.database || "mem0",
+      } as any);
+    }
+
+    const params: Record<string, any> = {};
+    if (config.host) params.host = config.host;
+    if (config.port) params.port = config.port;
+    if (config.ssl !== undefined) params.ssl = config.ssl;
+    if (config.path) params.path = config.path;
+    return new sdk.ChromaClient(params as any);
+  }
+
   private async getCollection(): Promise<any> {
     if (!this.collectionPromise) {
-      this.collectionPromise = this.client.getOrCreateCollection({
+      const client = await this.getClient();
+      this.collectionPromise = client.getOrCreateCollection({
         name: this.collectionName,
         embeddingFunction: null,
       });
@@ -71,7 +103,8 @@ export class ChromaDB implements VectorStore {
 
   private async getMigrationsCollection(): Promise<any> {
     if (!this.migrationsPromise) {
-      this.migrationsPromise = this.client.getOrCreateCollection({
+      const client = await this.getClient();
+      this.migrationsPromise = client.getOrCreateCollection({
         name: MIGRATIONS_COLLECTION,
         embeddingFunction: null,
       });
@@ -170,7 +203,8 @@ export class ChromaDB implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
-    await this.client.deleteCollection({ name: this.collectionName });
+    const client = await this.getClient();
+    await client.deleteCollection({ name: this.collectionName });
     this.collectionPromise = undefined;
   }
 

@@ -57,6 +57,40 @@ config = {
 }
 ```
 
+## TypeScript (self-hosted)
+
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) runs this reranker locally with [Transformers.js](https://huggingface.co/docs/transformers.js), the same cross-encoder path as `sentence_transformer`, just a different default model. It executes ONNX weights, so the default is the ONNX mirror `Xenova/bge-reranker-base`. Point `model` at any ONNX-exported reranker on the Hub (a raw `BAAI/bge-reranker-*` PyTorch checkpoint will not load in this runtime).
+
+```bash
+pnpm add @huggingface/transformers
+```
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  reranker: {
+    provider: "huggingface",
+    config: {
+      // model: "Xenova/bge-reranker-base", // default (ONNX)
+      device: "cpu", // "cpu" | "wasm" | "webgpu"
+      maxLength: 512, // max tokens per query-document pair
+      normalize: true, // sigmoid-normalize logits to [0, 1] (default)
+      topK: 5,
+    },
+  },
+});
+
+const results = await memory.search("What are the user's interests?", {
+  filters: { userId: "alice" },
+  rerank: true,
+});
+```
+
+<Note>
+  `batchSize` and `showProgressBar` are accepted for parity with the Python SDK but are no-ops in the TypeScript runtime. `trust_remote_code` and `model_kwargs` are Python-only.
+</Note>
+
 ## Popular Models
 
 ### BGE Rerankers (Recommended)

@@ -102,9 +102,29 @@ await client.updateProject({ customCategories: newCategories });
 categories = client.project.get(fields=["custom_categories"])
 ```
 
-### Key Constraint
+**Override categories for a single add call:**
+```python
+client.add(messages, user_id="alice", custom_categories=per_call_categories)
+```
 
-Per-request overrides (`custom_categories=...` on `client.add`) are **not supported** on the managed API. Only project-level configuration works. Workaround: store ad-hoc labels in `metadata` field.
+```javascript
+await client.add(messages, { userId: "alice", customCategories: perCallCategories });
+```
+
+### Resolution Order
+
+1. `custom_categories` passed on the `add` call
+2. `custom_categories` set on the project
+3. Built-in default catalog
+
+### Key Constraints
+
+- A per-call list **fully replaces** the project list for that call. The lists are not merged.
+- Categories are applied at ingestion time. Changing the list later does not re-tag existing memories.
+
+### Main Use Case
+
+Per-call lists give different users or entities their own vocabulary inside a single project, without splitting them across projects.
 
 ---
 

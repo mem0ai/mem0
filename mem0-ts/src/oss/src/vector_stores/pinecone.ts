@@ -1,5 +1,4 @@
-import { Pinecone } from "@pinecone-database/pinecone";
-import type { Index } from "@pinecone-database/pinecone";
+import type { Pinecone, Index } from "@pinecone-database/pinecone";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -9,7 +8,9 @@ const MIGRATIONS_RECORD_ID = "mem0-user-id";
 interface PineconeDBConfig extends VectorStoreConfig {
   collectionName: string;
   embeddingModelDims: number;
-  client?: Pinecone;
+  /** Pre-configured Pinecone client instance (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  client?: any;
   apiKey?: string;
   serverlessConfig?: { cloud: string; region: string };
   podConfig?: {
@@ -26,7 +27,8 @@ interface PineconeDBConfig extends VectorStoreConfig {
 }
 
 export class PineconeDB implements VectorStore {
-  private client: Pinecone;
+  private client!: Pinecone;
+  private readonly config: PineconeDBConfig;
   private readonly collectionName: string;
   private readonly dimension: number;
   private readonly metric: "cosine" | "dotproduct" | "euclidean";
@@ -45,18 +47,16 @@ export class PineconeDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: PineconeDBConfig) {
-    if (config.client) {
-      this.client = config.client;
-    } else {
+    if (!config.client) {
       const apiKey = config.apiKey || process.env.PINECONE_API_KEY;
       if (!apiKey) {
         throw new Error(
           "Pinecone API key required: pass apiKey or set PINECONE_API_KEY env var",
         );
       }
-      this.client = new Pinecone({ apiKey });
     }
 
+    this.config = config;
     this.collectionName = config.collectionName;
     this.dimension = config.embeddingModelDims || config.dimension || 1536;
     this.metric = config.metric || "cosine";
@@ -69,6 +69,31 @@ export class PineconeDB implements VectorStore {
     this.initialize().catch(console.error);
   }
 
+  /**
+   * Lazily construct (or reuse) the Pinecone client, importing the optional
+   * `@pinecone-database/pinecone` peer only when the store is first used so
+   * consumers that never touch Pinecone don't need it installed.
+   */
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+
+    const config = this.config;
+    if (config.client) {
+      this.client = config.client;
+    } else {
+      const apiKey = config.apiKey || process.env.PINECONE_API_KEY;
+      let sdk: any;
+      try {
+        sdk = await import("@pinecone-database/pinecone");
+      } catch {
+        throw new Error(
+          "The '@pinecone-database/pinecone' package is required to use the Pinecone vector store. Install it with: npm install @pinecone-database/pinecone",
+        );
+      }
+      this.client = new sdk.Pinecone({ apiKey });
+    }
+  }
+
   async initialize(): Promise<void> {
     if (!this._initPromise) {
       this._initPromise = this._doInitialize();
@@ -77,6 +102,7 @@ export class PineconeDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     await this._ensureIndex();
     this._index = this.client.index({ name: this.collectionName });
   }

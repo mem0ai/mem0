@@ -7,6 +7,34 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-07-13" description="v2.0.12">
+
+**New Features:**
+- **Memory (OSS):** Accept `text` in `Memory.update()` and `AsyncMemory.update()`. `data` still works but is now deprecated, so prefer `text` in new code ([#6044](https://github.com/mem0ai/mem0/pull/6044))
+
+**Bug Fixes:**
+- **Core:** Coerce non-string entity IDs (`user_id`, `agent_id`, `run_id`) instead of crashing on `.strip()`, so passing an integer ID no longer raises `AttributeError` ([#6206](https://github.com/mem0ai/mem0/pull/6206))
+- **Core:** Stop requiring `langchain-core` for the default async procedural memory path. The optional dependency is now only imported when you pass a custom LangChain LLM, matching the sync behavior ([#6209](https://github.com/mem0ai/mem0/pull/6209))
+- **Client:** Encode dynamic URL path segments so IDs containing special characters no longer produce malformed requests ([#5963](https://github.com/mem0ai/mem0/pull/5963))
+- **LLMs:** Skip `temperature` and `top_p` for newer Anthropic models that reject sampling parameters. Detection is automatic per model family and version, and the new `enable_sampling_parameters` config flag overrides it ([#6211](https://github.com/mem0ai/mem0/pull/6211))
+- **Vector Stores:** Stop writing internal `OutputData` model fields as properties on Weaviate `update()` ([#6149](https://github.com/mem0ai/mem0/pull/6149))
+- **Vector Stores:** Improve wildcard search handling in Milvus ([#6187](https://github.com/mem0ai/mem0/pull/6187))
+- **Vector Stores:** Keep env-resolved Upstash Vector credentials after config validation. An env-var-only config previously passed validation and then failed to build ([#5811](https://github.com/mem0ai/mem0/pull/5811))
+- **Vector Stores:** Restore the previous payload when a Neptune Analytics vector upsert fails inside `update()`, so a partial write can no longer leave the payload and embedding out of sync ([#5824](https://github.com/mem0ai/mem0/pull/5824))
+
+**Changes:**
+- **LLMs:** The Together default model is now `MiniMaxAI/MiniMax-M3` (was `mistralai/Mixtral-8x7B-Instruct-v0.1`) ([#6049](https://github.com/mem0ai/mem0/pull/6049))
+- **LLMs:** The xAI default model is now `grok-4.3` (was `grok-2-latest`) ([#6115](https://github.com/mem0ai/mem0/pull/6115))
+- **Embeddings:** The Together default embedding model is now `intfloat/multilingual-e5-large-instruct` at 1024 dimensions (was `togethercomputer/m2-bert-80M-8k-retrieval` at 768). If you use the Together embedder without pinning `model`, existing vectors were written at the old dimension: either re-embed them, or pin `model` and `embedding_dims` to the old values ([#5989](https://github.com/mem0ai/mem0/pull/5989))
+- **Rerankers:** The Cohere default rerank model is now `rerank-v3.5` (was `rerank-english-v3.0`) ([#6055](https://github.com/mem0ai/mem0/pull/6055))
+
+**Security:**
+- **Vector Stores:** Fix SQL and Cypher injection vulnerabilities in the PGVector, Azure MySQL, and Neptune providers ([#4878](https://github.com/mem0ai/mem0/pull/4878))
+- **Vector Stores:** Validate Elasticsearch filter keys and values to prevent term query injection ([#5980](https://github.com/mem0ai/mem0/pull/5980))
+- **Dependencies:** Require `transformers>=5.3.0` to remediate GHSA-29pf-2h5f-8g72 (CVE-2026-4372) ([#6110](https://github.com/mem0ai/mem0/pull/6110))
+
+</Update>
+
 <Update label="2026-07-01" description="v2.0.11">
 
 **Bug Fixes:**
@@ -1100,6 +1128,32 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-07-13" description="v3.1.0">
+
+The largest provider release for the TypeScript OSS SDK so far: 17 new vector stores, 5 new LLM providers, 4 new embedders, and reranking support. Importing `mem0ai/oss` no longer pulls in any provider SDK, so you only install what you actually configure.
+
+**New Features:**
+- **Rerankers:** Add reranking to the OSS SDK with four providers (Cohere, ZeroEntropy, cross-encoder, and LLM-based), plus per-search rerank via a `rerank` option on `search()` ([#6055](https://github.com/mem0ai/mem0/pull/6055))
+- **Memory (OSS):** Accept `text` in `Memory.update()`. `data` still works but is now deprecated, so prefer `text` in new code ([#6044](https://github.com/mem0ai/mem0/pull/6044))
+- **Vector Stores:** Add Pinecone ([#5802](https://github.com/mem0ai/mem0/pull/5802)), Weaviate ([#5800](https://github.com/mem0ai/mem0/pull/5800)), Milvus ([#5889](https://github.com/mem0ai/mem0/pull/5889)), Chroma ([#6145](https://github.com/mem0ai/mem0/pull/6145)), MongoDB ([#5793](https://github.com/mem0ai/mem0/pull/5793)), Elasticsearch ([#5866](https://github.com/mem0ai/mem0/pull/5866)), and OpenSearch ([#5810](https://github.com/mem0ai/mem0/pull/5810))
+- **Vector Stores:** Add Databricks ([#5824](https://github.com/mem0ai/mem0/pull/5824)), AWS Neptune Analytics ([#5797](https://github.com/mem0ai/mem0/pull/5797)), S3 Vectors ([#5822](https://github.com/mem0ai/mem0/pull/5822)), Azure MySQL ([#5827](https://github.com/mem0ai/mem0/pull/5827)), and Google Vertex AI Vector Search ([#5791](https://github.com/mem0ai/mem0/pull/5791))
+- **Vector Stores:** Add Turbopuffer ([#5801](https://github.com/mem0ai/mem0/pull/5801)), Upstash Vector ([#5811](https://github.com/mem0ai/mem0/pull/5811)), Valkey ([#5826](https://github.com/mem0ai/mem0/pull/5826)), Cassandra ([#5823](https://github.com/mem0ai/mem0/pull/5823)), and Baidu Mochow ([#5790](https://github.com/mem0ai/mem0/pull/5790))
+- **LLMs:** Add AWS Bedrock ([#5890](https://github.com/mem0ai/mem0/pull/5890)), xAI Grok ([#6115](https://github.com/mem0ai/mem0/pull/6115)), Together ([#6049](https://github.com/mem0ai/mem0/pull/6049)), vLLM ([#5805](https://github.com/mem0ai/mem0/pull/5805)), and Sarvam ([#6130](https://github.com/mem0ai/mem0/pull/6130))
+- **Embeddings:** Add Vertex AI ([#5882](https://github.com/mem0ai/mem0/pull/5882)), HuggingFace ([#6027](https://github.com/mem0ai/mem0/pull/6027)), FastEmbed ([#5862](https://github.com/mem0ai/mem0/pull/5862)), and Together ([#5989](https://github.com/mem0ai/mem0/pull/5989))
+
+**Improvements:**
+- **Packaging:** Lazy-load optional provider SDKs so importing `mem0ai/oss` never requires them. Provider packages are now resolved on first use, so an app that only configures OpenAI and Qdrant does not need the other provider SDKs installed ([#6280](https://github.com/mem0ai/mem0/pull/6280))
+
+**Bug Fixes:**
+- **Memory (OSS):** Re-raise LLM extraction transport failures instead of returning `[]`, so a network error during extraction surfaces as an error rather than a silently empty result ([#6102](https://github.com/mem0ai/mem0/pull/6102))
+- **Vector Stores:** Prevent an unhandled promise rejection in the Supabase and Redis constructors ([#6111](https://github.com/mem0ai/mem0/pull/6111))
+- **Client:** Encode dynamic URL path segments so IDs containing special characters no longer produce malformed requests ([#5963](https://github.com/mem0ai/mem0/pull/5963))
+
+**Security:**
+- **Dependencies:** Patch the `fast-xml-parser` and `tar` transitive CVEs ([#6160](https://github.com/mem0ai/mem0/pull/6160))
+
+</Update>
+
 <Update label="2026-07-01" description="v3.0.13">
 
 **Bug Fixes:**
@@ -1605,6 +1659,13 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 </Tab>
 
 <Tab title="CLI">
+
+<Update label="2026-07-13" description="Python v0.2.10 / Node v0.2.11">
+
+**Bug Fixes:**
+- **Platform backend:** Encode dynamic URL path segments so memory and entity IDs containing special characters no longer produce malformed requests (Python and Node [#5963](https://github.com/mem0ai/mem0/pull/5963))
+
+</Update>
 
 <Update label="2026-07-01" description="Python v0.2.9 / Node v0.2.10">
 
