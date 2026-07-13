@@ -1565,7 +1565,9 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
     memory.vector_store = MagicMock()
     memory.vector_store.insert = MagicMock()
     memory.embedding_model.embed = Mock(return_value=[0.1] * 1536)
+    memory.embedding_model.aembed = AsyncMock(side_effect=lambda *args, **kwargs: memory.embedding_model.embed(*args, **kwargs))
     memory.llm.generate_response = Mock(return_value="- deploy with the release script")
+    memory.llm.agenerate_response = AsyncMock(side_effect=lambda *args, **kwargs: memory.llm.generate_response(*args, **kwargs))
 
     messages = [{"role": "user", "content": "how do we deploy"}]
 

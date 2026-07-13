@@ -221,7 +221,7 @@ class TestAsyncUpdate:
 
     @pytest.mark.asyncio
     async def test_async_update_data_is_deprecated_alias_for_text(self, mock_async_memory, mocker, caplog):
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory._update_memory = mocker.AsyncMock()
 
