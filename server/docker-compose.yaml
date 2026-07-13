@@ -13,12 +13,12 @@ services:
       - mem0_network
     volumes:
       - ./history:/app/history
-      - .:/app
+      - fastembed_cache:/root/.cache
     depends_on:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "rm -rf /app/packages && pip install -q --force-reinstall --no-deps mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -70,6 +70,7 @@ services:
 
 volumes:
   postgres_db:
+  fastembed_cache:
 
 networks:
   mem0_network:

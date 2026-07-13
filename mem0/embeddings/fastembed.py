@@ -29,4 +29,6 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0]
+        # FastEmbed returns numpy.ndarray, while vector stores such as pgvector
+        # expect a plain Python sequence that their database adapter can encode.
+        return embeddings[0].tolist()
