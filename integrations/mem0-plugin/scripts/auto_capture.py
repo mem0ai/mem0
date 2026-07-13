@@ -29,11 +29,11 @@ _handler = logging.StreamHandler(sys.stderr)
 _handler.setFormatter(logging.Formatter("[mem0-auto-capture] %(message)s"))
 log.addHandler(_handler)
 
-if os.environ.get("MEM0_DEBUG"):
+if os.environ.get("MEM0_DEBUG", "").lower() not in ("", "0", "false"):
     _log_dir = os.path.expanduser("~/.mem0")
     try:
         os.makedirs(_log_dir, exist_ok=True)
-        _fh = logging.FileHandler(os.path.join(_log_dir, "hooks.log"))
+        _fh = logging.FileHandler(os.path.join(_log_dir, "hooks.log"), encoding="utf-8")
         _fh.setFormatter(logging.Formatter("[mem0-auto-capture] %(asctime)s %(message)s"))
         log.addHandler(_fh)
     except OSError:
