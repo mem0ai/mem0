@@ -299,3 +299,39 @@ def test_session_start_launcher_does_not_spawn_automatic_hosted_helpers_by_defau
     assert result.returncode == 0
     assert not marker.exists()
     assert not (state / "admission.sqlite3").exists()
+
+
+@pytest.mark.parametrize("opted_in", [False, True])
+def test_prompt_prefetch_respects_auto_search_and_budget(tmp_path, opted_in):
+    if opted_in:
+        settings = tmp_path / ".mem0" / "settings.json"
+        settings.parent.mkdir()
+        settings.write_text(json.dumps({"auto_search": True}))
+    state = tmp_path / "state"
+    hook = os.path.join(os.path.dirname(__file__), "..", "scripts", "on_user_prompt.sh")
+    env = os.environ.copy()
+    env.update(
+        {
+            "HOME": str(tmp_path),
+            "USER": f"prefetch-{tmp_path.name}",
+            "MEM0_API_KEY": "sentinel-no-network",
+            "MEM0_STATE_DIR": str(state),
+            "MEM0_BUDGET_SESSION_REQUESTS": "0",
+            "MEM0_RUBRIC_DIR": str(tmp_path),
+        }
+    )
+    result = subprocess.run(
+        [hook],
+        input=json.dumps(
+            {
+                "prompt": "Explain the current architecture decision and its tradeoffs.",
+                "session_id": "prefetch-test",
+                "cwd": str(tmp_path),
+            }
+        ),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert (state / "admission.sqlite3").exists() is opted_in

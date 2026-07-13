@@ -223,4 +223,3 @@ def admit(
     finally:
         if connection is not None:
             connection.close()
-
