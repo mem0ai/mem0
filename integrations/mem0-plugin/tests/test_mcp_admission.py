@@ -107,3 +107,15 @@ def test_budget_denial_returns_pretooluse_deny_for_every_operation(tmp_path, ope
     )
     assert result.returncode == 2
     assert "remote-session-budget-exhausted" in result.stderr
+
+
+def test_accounting_has_fail_closed_deadline_before_host_timeout():
+    script = open(SCRIPT).read()
+    assert "alarm 2; exec @ARGV" in script
+    for relative in ("hooks/hooks.json", "hooks/codex-hooks.json", "hooks/cursor-hooks.json"):
+        with open(os.path.join(PLUGIN_ROOT, relative)) as handle:
+            manifest = json.load(handle)
+        entries = manifest["hooks"].get("PreToolUse", manifest["hooks"].get("preToolUse", []))
+        mem0 = next(entry for entry in entries if entry.get("matcher", "").startswith("mcp__mem0__"))
+        hooks = mem0.get("hooks", [mem0])
+        assert hooks[0]["timeout"] >= 3

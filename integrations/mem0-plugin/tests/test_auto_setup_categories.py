@@ -151,3 +151,15 @@ def test_fetch_current_categories_handles_non_dict():
         project = type("P", (), {"get": staticmethod(lambda fields=None: "unexpected")})()
 
     assert asc.fetch_current_categories(Weird()) is None
+
+
+def test_main_skips_all_hosted_setup_when_auto_search_is_off(monkeypatch):
+    """Default-off automatic retrieval must include taxonomy get/update calls."""
+    monkeypatch.setattr(asc, "resolve_config", lambda: {"auto_search": False})
+    monkeypatch.setattr(asc, "resolve_api_key", lambda: "sentinel-key")
+    called = []
+    monkeypatch.setattr(asc, "make_client", lambda: called.append(True))
+
+    asc.main()
+
+    assert called == []

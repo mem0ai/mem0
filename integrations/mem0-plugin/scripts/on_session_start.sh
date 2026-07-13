@@ -150,13 +150,15 @@ if [ "$SOURCE" = "startup" ]; then
       python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
   fi
 
-  # Configure the coding-category taxonomy in the background (idempotent, never blocks).
-  # Prefer the venv python since this path needs the mem0ai SDK.
-  _VENV_PY="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/venv/bin/python3"
-  if [ -x "$_VENV_PY" ]; then
-    MEM0_CWD="$MEM0_CWD_RESOLVED" "$_VENV_PY" "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
-  else
-    MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+  # Taxonomy setup performs hosted get/update calls, so it shares the same
+  # explicit automatic-retrieval opt-in as the other SessionStart helpers.
+  if [ "${MEM0_AUTO_SEARCH:-false}" = "true" ]; then
+    _VENV_PY="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/venv/bin/python3"
+    if [ -x "$_VENV_PY" ]; then
+      MEM0_CWD="$MEM0_CWD_RESOLVED" "$_VENV_PY" "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+    else
+      MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+    fi
   fi
 
 elif [ "$SOURCE" = "resume" ]; then

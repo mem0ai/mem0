@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Importing setup_coding_categories also injects the plugin venv's site-packages
 # onto sys.path (its module-level bootstrap), so ``from mem0 import MemoryClient``
 # works even when this script is run with the system python3.
-from _identity import resolve_api_key  # noqa: E402
+from _identity import resolve_api_key, resolve_config  # noqa: E402
 from setup_coding_categories import CODING_CATEGORIES, _categories_match  # noqa: E402
 from hosted_request import require_admission  # noqa: E402
 
@@ -192,6 +192,9 @@ def _release_lock() -> None:
 # Entry point                                                                  #
 # --------------------------------------------------------------------------- #
 def main() -> None:
+    if not resolve_config().get("auto_search", False):
+        log.debug("auto_search is disabled; skipping automatic coding-category setup")
+        return
     api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping coding-categories setup")

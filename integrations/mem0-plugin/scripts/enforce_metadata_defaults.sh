@@ -54,7 +54,9 @@ TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // "{}"' 2>/dev/null)
 # charge is committed. Explicit MCP calls are intentionally not coalesced.
 _PAYLOAD_BYTES=$(printf '%s' "$TOOL_INPUT" | wc -c | tr -d '[:space:]')
 _ADMISSION_SESSION_ID="${MEM0_SESSION_ID:-default}"
-_ADMISSION_OUT=$(python3 "$SCRIPT_DIR/admission_cli.py" charge \
+# Bound accounting below the host's 3s hook deadline. Timeout or missing Perl
+# returns non-zero and therefore follows the same fail-closed denial path.
+_ADMISSION_OUT=$(perl -e 'alarm 2; exec @ARGV' python3 "$SCRIPT_DIR/admission_cli.py" charge \
   --operation "$HANDLER" \
   --ingress "mcp-pretooluse" \
   --session-id "$_ADMISSION_SESSION_ID" \
