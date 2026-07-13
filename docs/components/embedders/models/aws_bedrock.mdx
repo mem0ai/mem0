@@ -9,7 +9,7 @@ Both SDKs support the Amazon Titan and Cohere embedding model families.
 
 ### Setup
 
-- Ensure you have model access from the [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess).
+- Model access is automatic: Bedrock enables serverless foundation models on first invocation in AWS commercial regions, and the [Model access page has been retired](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html). Cohere models are served from AWS Marketplace, so an account's first invocation must come from a principal with the `aws-marketplace:Subscribe` permission; after that, any user in the account can invoke them. Browse the models available to you in the [Bedrock model catalog](https://console.aws.amazon.com/bedrock/).
 - Install the AWS client for your language:
 
   <CodeGroup>
