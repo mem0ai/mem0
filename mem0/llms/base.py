@@ -60,9 +60,17 @@ class LLMBase(ABC):
         if explicit is not None:
             return explicit
 
+        # The non-dotted GPT-5 originals (gpt-5, gpt-5-mini, gpt-5-nano) are
+        # reasoning models: they reject temperature/top_p and only accept the
+        # default temperature=1. gpt-5-mini is mem0's default-resolved model,
+        # so it must be listed here or the default config 400s (#6241). Dotted
+        # versions (gpt-5.4-mini, gpt-5.5, ...) *do* support temperature and are
+        # deliberately kept out — matched exactly, never by prefix, so #4738
+        # (gpt-5.4-mini incorrectly stripped) can't regress.
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "gpt-5", "gpt-5-mini", "gpt-5-nano",
+            "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
         }
 
         model_lower = model.lower()
