@@ -61,7 +61,7 @@ jobs:
             type=semver,pattern={{version}},value=${{ steps.parse_tag.outputs.clean_tag }}
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.parse_tag.outputs.clean_tag }}
             type=semver,pattern={{major}},value=${{ steps.parse_tag.outputs.clean_tag }}
-            type=raw,value=latest,enable=${{ inputs.prerelease == false }}
+            type=raw,value=latest,enable=${{ inputs.prerelease != true && inputs.prerelease != 'true' }}
             type=raw,value=${{ steps.parse_tag.outputs.clean_tag }}
 
       - name: Build + push
