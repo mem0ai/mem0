@@ -207,6 +207,23 @@ describe("Memory - update()", () => {
       expect.objectContaining({ category: "hobbies", priority: "high" }),
     );
   });
+
+  test("supports metadata-only updates for Object.prototype-named text", async () => {
+    const addResult: SearchResult = await memory.add("Before collision", {
+      userId,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+    await memory.update(id, { text: "toString" });
+
+    await memory.update(id, { metadata: { source: "prototype-key-test" } });
+
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("toString");
+    expect(after!.metadata).toEqual(
+      expect.objectContaining({ source: "prototype-key-test" }),
+    );
+  });
 });
 
 // ─── update() options: text / data / metadata / expirationDate ───

@@ -1893,8 +1893,12 @@ export class Memory {
     metadata: Record<string, any>,
   ): Promise<string> {
     const memoryId = uuidv4();
-    const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data, "add"));
+    const embedding = Object.prototype.hasOwnProperty.call(
+      existingEmbeddings,
+      data,
+    )
+      ? existingEmbeddings[data]
+      : await this.embedder.embed(data, "add");
 
     const memoryMetadata = {
       ...metadata,
@@ -1937,9 +1941,12 @@ export class Memory {
     }
     const textChanged = newData !== prevValue;
 
-    const embedding =
-      existingEmbeddings[newData] ||
-      (await this.embedder.embed(newData, "update"));
+    const embedding = Object.prototype.hasOwnProperty.call(
+      existingEmbeddings,
+      newData,
+    )
+      ? existingEmbeddings[newData]
+      : await this.embedder.embed(newData, "update");
 
     const newMetadata = {
       ...existingMemory.payload,

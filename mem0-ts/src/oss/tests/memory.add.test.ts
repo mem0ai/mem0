@@ -191,4 +191,18 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test.each(["toString", "constructor", "__proto__"])(
+    "with infer=false stores Object.prototype-named text %s",
+    async (text) => {
+      const result: SearchResult = await memory.add(text, {
+        userId,
+        infer: false,
+      });
+
+      expect(result.results[0].memory).toBe(text);
+      const stored: MemoryItem | null = await memory.get(result.results[0].id);
+      expect(stored!.memory).toBe(text);
+    },
+  );
 });
