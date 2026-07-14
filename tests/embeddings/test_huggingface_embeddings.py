@@ -72,7 +72,8 @@ def test_embed_with_custom_embedding_dims(mock_sentence_transformer):
     assert result == [1.0, 1.1, 1.2]
 
 
-def test_embed_with_huggingface_base_url():
+def test_embed_with_huggingface_base_url(monkeypatch):
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
     config = BaseEmbedderConfig(
         huggingface_base_url="http://localhost:8080",
         model="my-custom-model",
