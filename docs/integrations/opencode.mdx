@@ -101,7 +101,7 @@ To change the **default** scope (used when no scope is passed), run the `/mem0-s
 
 The default persists in `~/.mem0/settings.json` (`default_scope`) and is read fresh on each memory operation, so a change applies immediately. No restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
 
-The project id (`app_id`) comes from OpenCode's active `worktree` first, then `directory`. When OpenCode does not supply either, the plugin falls back to your git remote (`owner-repo`), then the git repo's root directory name, then the current directory.
+The plugin first chooses OpenCode's active `worktree`, then `directory`, as the path it will inspect. From that path it derives the project id (`app_id`) from the git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory.
 
 ## Lifecycle Hooks
 
