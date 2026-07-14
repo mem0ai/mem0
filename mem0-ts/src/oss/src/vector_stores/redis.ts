@@ -197,7 +197,6 @@ export class RedisDB implements VectorStore {
 
     this.initialize().catch((err) => {
       console.error("Failed to initialize Redis:", err);
-      throw err;
     });
   }
 

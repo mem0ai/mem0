@@ -25,15 +25,12 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
-    detect_scale_threshold_from_add_result,
-    detect_scale_threshold_from_top_k,
     detect_decay_usage_from_delete,
     detect_decay_usage_from_delete_all,
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
     display_decay_usage_notice,
@@ -51,6 +48,9 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.storage import SQLiteManager
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -145,9 +145,10 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
-def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
+def _validate_and_trim_entity_id(value: Optional[Any], name: str) -> Optional[str]:
     """
     Validates and normalizes an entity ID.
+    - Coerces non-string values (e.g. integer ids) to str
     - Trims leading/trailing whitespace
     - Rejects empty or whitespace-only strings
     - Rejects strings containing internal whitespace
@@ -164,6 +165,11 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     """
     if value is None:
         return None
+    # Callers commonly pass integer ids (e.g. a database primary key). Coerce
+    # to str at this single validation point so scoping stays consistent across
+    # add/search/get_all/delete_all instead of crashing on `.strip()`.
+    if not isinstance(value, str):
+        value = str(value)
     trimmed = value.strip()
     if trimmed == "":
         raise ValueError(
@@ -418,7 +424,6 @@ class _OSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -432,7 +437,6 @@ class _AsyncOSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -1767,30 +1771,41 @@ class Memory(MemoryBase):
     def update(
         self,
         memory_id,
-        data: Optional[str] = None,
+        text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
     ):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str, optional): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
-        if data is None and metadata is None and expiration_date is _UNSET:
-            raise ValueError("At least one of data, metadata, or expiration_date must be provided.")
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
+
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
 
         update_metadata = deepcopy(metadata) if metadata is not None else None
         if expiration_date is not _UNSET:
@@ -1798,10 +1813,10 @@ class Memory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if data is not None:
-            existing_embeddings[data] = self.embedding_model.embed(data, "update")
+        if text is not None:
+            existing_embeddings[text] = self.embedding_model.embed(text, "update")
 
-        self._update_memory(memory_id, data, existing_embeddings, update_metadata)
+        self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -3387,30 +3402,41 @@ class AsyncMemory(MemoryBase):
     async def update(
         self,
         memory_id,
-        data: Optional[str] = None,
+        text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         expiration_date: Any = _UNSET,
+        data: Optional[str] = None,
     ):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
-            data (str, optional): New content to update the memory with.
+            text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
+            data (str, optional): Deprecated alias for ``text``. Will be removed in the next
+                major release; use ``text`` instead.
 
         Returns:
             dict: Success message indicating the memory was updated.
 
         Example:
-            >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
+            >>> await m.update(memory_id="mem_123", text="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        if data is None and metadata is None and expiration_date is _UNSET:
-            raise ValueError("At least one of data, metadata, or expiration_date must be provided.")
+        if data is not None:
+            logger.warning(
+                "The `data` argument to update() is deprecated and will be removed in the "
+                "next major release. Use `text` instead."
+            )
+            if text is None:
+                text = data
+
+        if text is None and metadata is None and expiration_date is _UNSET:
+            raise ValueError("At least one of text, metadata, or expiration_date must be provided.")
 
         update_metadata = deepcopy(metadata) if metadata is not None else None
         if expiration_date is not _UNSET:
@@ -3418,11 +3444,11 @@ class AsyncMemory(MemoryBase):
             update_metadata["expiration_date"] = _normalize_expiration_date(expiration_date)
 
         existing_embeddings = {}
-        if data is not None:
-            embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
-            existing_embeddings[data] = embeddings
+        if text is not None:
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, text, "update")
+            existing_embeddings[text] = embeddings
 
-        await self._update_memory(memory_id, data, existing_embeddings, update_metadata)
+        await self._update_memory(memory_id, text, existing_embeddings, update_metadata)
         await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -3563,16 +3589,6 @@ class AsyncMemory(MemoryBase):
             llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
         parsed_messages = [
@@ -3583,6 +3599,19 @@ class AsyncMemory(MemoryBase):
 
         try:
             if llm is not None:
+                # langchain-core is only needed to adapt messages for a custom
+                # LangChain LLM. The default path uses self.llm and must not
+                # require the optional dependency, mirroring the sync version.
+                try:
+                    from langchain_core.messages.utils import (
+                        convert_to_messages,  # type: ignore
+                    )
+                except ImportError as e:
+                    raise ImportError(
+                        "langchain-core is required to pass a custom LLM to procedural memory. "
+                        "Install it with 'pip install langchain-core'."
+                    ) from e
+
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)

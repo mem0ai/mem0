@@ -1,10 +1,11 @@
+import logging
 import os
 from unittest.mock import Mock, patch
 
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory
+from mem0.memory.main import Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -212,6 +213,24 @@ def test_update_with_empty_metadata(memory_instance):
     )
 
 
+def test_update_data_is_deprecated_alias_for_text(memory_instance, caplog):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance._update_memory = Mock()
+
+    # `data=` still works but emits a deprecation warning
+    with caplog.at_level(logging.WARNING):
+        memory_instance.update("test_id", data="via data")
+
+    assert any("deprecated" in record.message for record in caplog.records)
+    memory_instance._update_memory.assert_called_once_with("test_id", "via data", {"via data": [0.1, 0.2, 0.3]}, None)
+
+    # `text` takes precedence when both are passed
+    memory_instance._update_memory.reset_mock()
+    memory_instance.update("test_id", text="preferred", data="ignored")
+    memory_instance._update_memory.assert_called_once_with("test_id", "preferred", {"preferred": [0.1, 0.2, 0.3]}, None)
+
+
 @pytest.mark.parametrize(
     ("expiration_date", "expected_expiration_date"),
     [
@@ -413,6 +432,28 @@ class TestEntityIdValidation:
         memory_instance.delete_all(user_id="  alice  ")
 
         memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+
+    def test_validate_coerces_non_string_entity_id(self):
+        """Integer (and other non-string) ids are coerced to str, not crashed on."""
+        assert _validate_and_trim_entity_id(42, "user_id") == "42"
+        assert _validate_and_trim_entity_id(0, "user_id") == "0"
+
+    def test_delete_all_coerces_integer_user_id_before_list(self, memory_instance):
+        """delete_all should accept an integer user_id and scope by its str form."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.delete_all(user_id=42)
+
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+
+    def test_get_all_coerces_integer_user_id(self, memory_instance):
+        """get_all should accept an integer user_id in filters and scope by its str form."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.get_all(filters={"user_id": 42})
+
+        _, kwargs = memory_instance.vector_store.list.call_args
+        assert kwargs["filters"]["user_id"] == "42"
 
 
 class TestSearchParamValidation:
