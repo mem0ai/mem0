@@ -15,16 +15,19 @@ import memoryPlugin, {
   stripNoiseFromContent,
   filterMessagesForExtraction,
   registerHooks,
-  formatRegistrationLog,
 } from "./index.ts";
 import type { Mem0Config, Mem0Provider } from "./types.ts";
 
-function createPluginApi(registrationMode?: string) {
+function createPluginApi(
+  registrationMode?: string,
+  pluginConfigOverrides: Record<string, unknown> = {},
+) {
   return {
     pluginConfig: {
       mode: "platform",
       apiKey: "test-api-key",
       userId: "alice",
+      ...pluginConfigOverrides,
     },
     registrationMode,
     logger: {
@@ -62,9 +65,19 @@ describe("plugin registration modes", () => {
 
 describe("startup log", () => {
   it("logs the effective legacy recall timeout once", () => {
-    expect(formatRegistrationLog(hookConfig(120000), false)).toContain(
-      "legacyRecallTimeoutMs: 120000",
-    );
+    const api = createPluginApi(undefined, { recallTimeoutMs: 120000 });
+
+    memoryPlugin.register(api as any);
+
+    const matches = api.logger.info.mock.calls
+      .map(([message]: [unknown]) => String(message))
+      .filter(
+        (message: string) =>
+          message.includes("openclaw-mem0: registered") &&
+          message.includes("legacyRecallTimeoutMs: 120000"),
+      );
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.match(/legacyRecallTimeoutMs/g)).toHaveLength(1);
   });
 });
 
@@ -116,11 +129,22 @@ describe("legacy recall timeout ownership", () => {
         { id: "m1", memory: "fact", score: 0.9 },
       ]), 8500))),
     };
-    const { api, callback } = registerRecallTest(hookConfig(9000), provider);
+    const { api, callback, captureEvent } = registerRecallTest(hookConfig(9000), provider);
     const resultPromise = callback({ prompt: "remember this" }, {});
     await vi.advanceTimersByTimeAsync(8500);
     expect((await resultPromise) as object).toHaveProperty("prependContext");
+    await vi.advanceTimersByTimeAsync(1000);
     expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("injecting 1 memories"));
+    expect(api.logger.warn).not.toHaveBeenCalledWith(expect.stringContaining("timed out"));
+    expect(captureEvent).toHaveBeenCalledTimes(1);
+    expect(captureEvent).toHaveBeenCalledWith(
+      "openclaw.hook.recall",
+      expect.objectContaining({ outcome: "success" }),
+    );
+    expect(captureEvent).not.toHaveBeenCalledWith(
+      "openclaw.hook.recall",
+      expect.objectContaining({ outcome: "timeout" }),
+    );
     vi.useRealTimers();
   });
 
@@ -152,12 +176,21 @@ describe("legacy recall timeout ownership", () => {
   });
 
   it("records one terminal legacy recall outcome", async () => {
+    vi.useFakeTimers();
     const provider = {
-      search: vi.fn().mockRejectedValue(new Error("provider unavailable")),
+      search: vi.fn(
+        () =>
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("provider unavailable")), 1000),
+          ),
+      ),
     };
     const { api, callback, captureEvent } = registerRecallTest(hookConfig(8000), provider);
 
-    await expect(callback({ prompt: "remember this" }, {})).resolves.toBeUndefined();
+    const resultPromise = callback({ prompt: "remember this" }, {});
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(resultPromise).resolves.toBeUndefined();
+    await vi.advanceTimersByTimeAsync(8000);
     expect(api.logger.warn).toHaveBeenCalledWith(
       "openclaw-mem0: recall failed: Error: provider unavailable",
     );
@@ -176,6 +209,30 @@ describe("legacy recall timeout ownership", () => {
     );
     expect(api.logger.warn).not.toHaveBeenCalledWith(expect.stringContaining("timed out"));
     expect(api.logger.info).not.toHaveBeenCalledWith(expect.stringContaining("injecting"));
+
+    const emptyProvider = {
+      search: vi.fn(
+        () =>
+          new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+      ),
+    };
+    const {
+      api: emptyApi,
+      callback: emptyCallback,
+      captureEvent: emptyCaptureEvent,
+    } = registerRecallTest(hookConfig(8000), emptyProvider);
+
+    const emptyResultPromise = emptyCallback({ prompt: "remember this" }, {});
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(emptyResultPromise).resolves.toBeUndefined();
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(emptyCaptureEvent).not.toHaveBeenCalled();
+    expect(emptyApi.logger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("timed out"),
+    );
+    expect(emptyApi.logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining("injecting"),
+    );
   });
 });
 

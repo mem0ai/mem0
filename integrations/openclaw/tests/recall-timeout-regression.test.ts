@@ -10,6 +10,7 @@ vi.mock("../cli/config-file.ts", () => ({
 }));
 
 vi.mock("../fs-safe.ts", () => ({
+  bootstrapTelemetryFlag: vi.fn(),
   readText: vi.fn().mockReturnValue("{}"),
   exists: vi.fn().mockReturnValue(true),
   writeText: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("../fs-safe.ts", () => ({
 vi.mock("../skill-loader.ts", () => ({
   loadCompactTriagePrompt: vi.fn().mockReturnValue("triage prompt"),
   loadDreamPrompt: vi.fn().mockReturnValue("dream prompt"),
+  isSkillsMode: vi.fn().mockReturnValue(false),
 }));
 
 import { registerCliCommands } from "../cli/commands.ts";
@@ -30,7 +32,7 @@ import {
   mem0ConfigSchema,
   MIN_RECALL_TIMEOUT_MS,
 } from "../config.ts";
-import { formatRegistrationLog, registerHooks } from "../index.ts";
+import memoryPlugin, { registerHooks } from "../index.ts";
 import type { Mem0Config, Mem0Provider } from "../types.ts";
 
 interface MockCommand {
@@ -181,6 +183,30 @@ function setupCli() {
   };
 }
 
+function createPluginApi(pluginConfigOverrides: Record<string, unknown> = {}) {
+  return {
+    pluginConfig: {
+      mode: "platform",
+      apiKey: "test-api-key",
+      userId: "alice",
+      ...pluginConfigOverrides,
+    },
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    },
+    resolvePath: vi.fn((p: string) => p),
+    registerTool: vi.fn(),
+    on: vi.fn(),
+    registerCli: vi.fn(),
+    registerCommand: vi.fn(),
+    registerService: vi.fn(),
+    registerMemoryCapability: vi.fn(),
+  };
+}
+
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 let stdoutWriteSpy: ReturnType<typeof vi.spyOn>;
 
@@ -221,15 +247,21 @@ it("reproduction: configurable legacy recall deadline", async () => {
   await vi.advanceTimersByTimeAsync(8500);
 
   await expect(resultPromise).resolves.toHaveProperty("prependContext");
+  await vi.advanceTimersByTimeAsync(1000);
   expect(api.logger.info).toHaveBeenCalledWith(
     expect.stringContaining("injecting 1 memories"),
   );
   expect(api.logger.warn).not.toHaveBeenCalledWith(
     expect.stringContaining("timed out"),
   );
+  expect(captureEvent).toHaveBeenCalledTimes(1);
   expect(captureEvent).toHaveBeenCalledWith(
     "openclaw.hook.recall",
     expect.objectContaining({ outcome: "success" }),
+  );
+  expect(captureEvent).not.toHaveBeenCalledWith(
+    "openclaw.hook.recall",
+    expect.objectContaining({ outcome: "timeout" }),
   );
 });
 
@@ -337,15 +369,24 @@ it("negative-space: skills-mode recall ignores legacy deadline", async () => {
 });
 
 it("terminal outcome ownership", async () => {
+  vi.useFakeTimers();
   const provider = {
-    search: vi.fn().mockRejectedValue(new Error("provider unavailable")),
+    search: vi.fn(
+      () =>
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("provider unavailable")), 1000),
+        ),
+    ),
   };
   const { api, callback, captureEvent } = registerRecallTest(
     parseHookConfig({ recallTimeoutMs: 8000 }),
     provider,
   );
 
-  await expect(callback({ prompt: "remember this" }, {})).resolves.toBeUndefined();
+  const resultPromise = callback({ prompt: "remember this" }, {});
+  await vi.advanceTimersByTimeAsync(1000);
+  await expect(resultPromise).resolves.toBeUndefined();
+  await vi.advanceTimersByTimeAsync(8000);
   expect(api.logger.warn).toHaveBeenCalledWith(
     "openclaw-mem0: recall failed: Error: provider unavailable",
   );
@@ -368,13 +409,44 @@ it("terminal outcome ownership", async () => {
   expect(api.logger.info).not.toHaveBeenCalledWith(
     expect.stringContaining("injecting"),
   );
+
+  const emptyProvider = {
+    search: vi.fn(
+      () =>
+        new Promise((resolve) => setTimeout(() => resolve([]), 1000)),
+    ),
+  };
+  const {
+    api: emptyApi,
+    callback: emptyCallback,
+    captureEvent: emptyCaptureEvent,
+  } = registerRecallTest(parseHookConfig({ recallTimeoutMs: 8000 }), emptyProvider);
+
+  const emptyResultPromise = emptyCallback({ prompt: "remember this" }, {});
+  await vi.advanceTimersByTimeAsync(1000);
+  await expect(emptyResultPromise).resolves.toBeUndefined();
+  await vi.advanceTimersByTimeAsync(8000);
+  expect(emptyCaptureEvent).not.toHaveBeenCalled();
+  expect(emptyApi.logger.warn).not.toHaveBeenCalledWith(
+    expect.stringContaining("timed out"),
+  );
+  expect(emptyApi.logger.info).not.toHaveBeenCalledWith(
+    expect.stringContaining("injecting"),
+  );
 });
 
 it("startup log: effective legacy timeout", () => {
-  const logLine = formatRegistrationLog(
-    parseHookConfig({ recallTimeoutMs: 120000 }),
-    false,
-  );
-  expect(logLine).toContain("legacyRecallTimeoutMs: 120000");
-  expect(logLine.match(/legacyRecallTimeoutMs/g)).toHaveLength(1);
+  const api = createPluginApi({ recallTimeoutMs: 120000 });
+
+  memoryPlugin.register(api as any);
+
+  const matches = api.logger.info.mock.calls
+    .map(([message]: [unknown]) => String(message))
+    .filter(
+      (message: string) =>
+        message.includes("openclaw-mem0: registered") &&
+        message.includes("legacyRecallTimeoutMs: 120000"),
+    );
+  expect(matches).toHaveLength(1);
+  expect(matches[0]?.match(/legacyRecallTimeoutMs/g)).toHaveLength(1);
 });

@@ -813,25 +813,35 @@ export function registerHooks(
         };
       };
 
+      const RECALL_TIMEOUT = Symbol("recall-timeout");
+      let recallSettled = false;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
       try {
-        const timeout = new Promise<undefined>((resolve) => {
-          setTimeout(() => resolve(undefined), cfg.recallTimeoutMs);
+        const timeout = new Promise<typeof RECALL_TIMEOUT>((resolve) => {
+          timeoutId = setTimeout(() => {
+            if (recallSettled) return;
+            resolve(RECALL_TIMEOUT);
+          }, cfg.recallTimeoutMs);
         });
         const result = await Promise.race([
           recallWork(),
-          timeout.then(() => {
-            api.logger.warn(
-              `openclaw-mem0: recall timed out after ${cfg.recallTimeoutMs}ms, skipping`,
-            );
-            _captureEvent("openclaw.hook.recall", {
-              strategy: "legacy",
-              outcome: "timeout",
-              timeout_ms: cfg.recallTimeoutMs,
-              latency_ms: Date.now() - recallStart,
-            });
-            return undefined;
-          }),
+          timeout,
         ]);
+        recallSettled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        if (result === RECALL_TIMEOUT) {
+          api.logger.warn(
+            `openclaw-mem0: recall timed out after ${cfg.recallTimeoutMs}ms, skipping`,
+          );
+          _captureEvent("openclaw.hook.recall", {
+            strategy: "legacy",
+            outcome: "timeout",
+            timeout_ms: cfg.recallTimeoutMs,
+            latency_ms: Date.now() - recallStart,
+          });
+          return undefined;
+        }
         if (!result) return undefined;
         _captureEvent("openclaw.hook.recall", {
           strategy: "legacy",
@@ -844,6 +854,8 @@ export function registerHooks(
         );
         return { prependContext: result.prependContext };
       } catch (err) {
+        recallSettled = true;
+        if (timeoutId) clearTimeout(timeoutId);
         _captureEvent("openclaw.hook.recall", {
           strategy: "legacy",
           outcome: "provider_error",
