@@ -9,10 +9,11 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 | `mem0-plugin/` | Claude Code / Cursor / Codex plugin | none | none | pytest |
 | `mem0-plugin/.opencode-plugin/` | `@mem0/opencode-plugin` | Bun | none | tsc type-check |
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
+| `kilo-plugin/` | `@mem0/kilo-plugin` | Bun | none | bun test |
 | `n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` | tsc | ESLint (n8n-nodes-base) | none |
 | `zapier-mem0/` | `@mem0/zapier` | tsc | none | offline unit tests + `zapier validate` |
 
-pnpm everywhere except `.opencode-plugin/`, which uses Bun. Never npm, never yarn.
+pnpm everywhere except `.opencode-plugin/` and `kilo-plugin/`, which use Bun. Never npm, never yarn.
 
 ## Commands
 
