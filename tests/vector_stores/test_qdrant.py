@@ -71,6 +71,30 @@ class TestQdrant(unittest.TestCase):
             sparse_vectors_config=expected_sparse_config,
         )
 
+    def test_existing_collection_dimension_mismatch_raises_clear_error(self):
+        client_mock = MagicMock(spec=QdrantClient)
+        existing_collection = MagicMock()
+        existing_collection.name = "test_collection"
+        client_mock.get_collections.return_value = MagicMock(collections=[existing_collection])
+
+        collection_info = MagicMock()
+        collection_info.config.params.vectors = VectorParams(size=1536, distance=Distance.COSINE)
+        collection_info.config.params.sparse_vectors = None
+        client_mock.get_collection.return_value = collection_info
+
+        with self.assertRaises(ValueError) as ctx:
+            Qdrant(
+                collection_name="test_collection",
+                embedding_model_dims=1024,
+                client=client_mock,
+            )
+
+        error_message = str(ctx.exception)
+        self.assertIn("test_collection", error_message)
+        self.assertIn("1536", error_message)
+        self.assertIn("1024", error_message)
+        client_mock.create_collection.assert_not_called()
+
     def test_insert(self):
         vectors = [[0.1, 0.2], [0.3, 0.4]]
         payloads = [{"key": "value1"}, {"key": "value2"}]
