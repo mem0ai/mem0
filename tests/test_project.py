@@ -2,9 +2,9 @@
 parameter-passthrough surface.
 
 Verifies the kwarg → JSON payload mapping for every supported field
-(``custom_instructions``, ``custom_categories``, ``retrieval_criteria``,
-``multilingual``, ``decay``), the ValueError when no field is
-provided, and the URL/method shape. The HTTP layer is mocked.
+(``custom_instructions``, ``custom_categories``, ``multilingual``,
+``decay``), the ValueError when no field is provided, and the
+URL/method shape. The HTTP layer is mocked.
 """
 
 from unittest.mock import MagicMock, patch

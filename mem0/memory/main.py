@@ -424,7 +424,6 @@ class _OSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -438,7 +437,6 @@ class _AsyncOSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
