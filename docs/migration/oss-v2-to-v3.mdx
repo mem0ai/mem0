@@ -182,7 +182,7 @@ pip install fastembed
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
     )
-    for r in results:
+    for r in results["results"]:
         print(r["score"])
     ```
 
