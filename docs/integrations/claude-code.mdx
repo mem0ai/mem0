@@ -143,8 +143,10 @@ When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecyc
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message; skips short prompts |
 | **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Stop** | `Stop` | Stores a session summary when the session ends |
+| **Stop** | `Stop` | Stores a session summary at the end of every assistant turn (not just at session end) |
 | **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
+
+What you type is stored as yours. What Claude produces — session summaries and compaction summaries — is stored as the assistant's, so its suggestions never become your stated preferences.
 
 ## Example Workflow
 
@@ -153,16 +155,17 @@ When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecyc
 You: Let's refactor the auth module to use JWT tokens instead of sessions.
 
 # Claude searches memories, finds nothing relevant, proceeds with the work.
-# After completing the task, Mem0 stores:
+# Mem0 stores what you said as yours:
+#   - Your preference: "Prefers TypeScript, uses ESLint"
+# ...and what Claude did as the assistant's, in the session summary:
 #   - Decision: "Migrated auth from sessions to JWT tokens"
 #   - Files modified: auth/middleware.ts, auth/token.ts
-#   - User preference: "Prefers TypeScript, uses ESLint"
 
 # Session 2 (days later): Related work
 You: Add refresh token rotation to the auth system.
 
 # Claude searches memories, retrieves the JWT migration context.
-# Knows the file structure, decisions made, and user preferences.
+# Knows the file structure, decisions made, and your stated preferences.
 # Continues seamlessly without re-explaining the codebase.
 ```
 

@@ -96,10 +96,11 @@ Once installed, the following tools are available in every Cursor session:
 You: The API endpoint /users is taking 3 seconds. Help me optimize it.
 
 # Cursor agent searches memories, proceeds with investigation.
-# After completing the task, Mem0 stores:
+# Mem0 stores what you said as yours:
+#   - Your preference: "Prefers query-level fixes over caching"
+# ...and what the agent did as the assistant's:
 #   - Learning: "N+1 query in UserService.getAll(): fixed with eager loading"
 #   - Decision: "Added database index on users.email column"
-#   - Preference: "User prefers query-level fixes over caching"
 
 # Session 2 (next week): Similar issue
 You: The /orders endpoint is also slow, same pattern as before.

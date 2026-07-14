@@ -104,8 +104,11 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
     }
     if branch:
         metadata["branch"] = branch
+    # The compact summary is model-authored prose, in the first person and with no
+    # framing to mark it as such. Under role="user" mem0 reads "I recommend X" as
+    # the human saying it and stores "User recommends X".
     body = {
-        "messages": [{"role": "user", "content": summary}],
+        "messages": [{"role": "assistant", "content": summary}],
         "user_id": user_id,
         "app_id": project_id,
         "metadata": metadata,
