@@ -78,7 +78,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("negative-space: skills-mode recall ignores legacy deadline", async () => {
+it("skills-mode recall is bounded by recallTimeoutMs", async () => {
   vi.useFakeTimers();
   const provider = {
     search: vi.fn(
@@ -98,10 +98,15 @@ it("negative-space: skills-mode recall ignores legacy deadline", async () => {
     { prompt: "remember this" },
     { sessionKey: "agent:main:main" },
   );
-  await vi.advanceTimersByTimeAsync(1500);
+  // Deadline fires before provider resolves.
+  await vi.advanceTimersByTimeAsync(1000);
 
   await expect(resultPromise).resolves.toBeDefined();
-  expect(api.logger.warn).not.toHaveBeenCalledWith(
-    expect.stringContaining("timed out"),
+  expect(api.logger.warn).toHaveBeenCalledWith(
+    expect.stringContaining("skills-mode recall timed out after 1000ms"),
   );
+  expect(api.logger.info).not.toHaveBeenCalledWith(
+    expect.stringContaining("injecting"),
+  );
+  vi.useRealTimers();
 });

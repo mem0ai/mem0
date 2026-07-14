@@ -97,7 +97,7 @@
     "recallTimeoutMs": {
       "label": "Legacy Recall Timeout (ms)",
       "advanced": true,
-      "help": "Legacy auto-recall deadline. Default: 8000 ms; allowed range: 1000-120000 ms. Ignored in skills mode. Supports ${RECALL_TIMEOUT_MS}."
+      "help": "Auto-recall deadline for legacy + skills mode. Default: 8000 ms; allowed range: 1000-120000 ms. Supports ${RECALL_TIMEOUT_MS}."
     },
     "customInstructions": {
       "label": "Custom Instructions",
@@ -198,7 +198,7 @@
           { "type": "string", "pattern": "^0*(?:[1-9][0-9]{3,4}|1[01][0-9]{4}|120000)$" }
         ],
         "default": 8000,
-        "description": "Legacy auto-recall timeout in milliseconds. Valid range: 1000-120000. Ignored in skills mode. Supports ${RECALL_TIMEOUT_MS}."
+        "description": "Auto-recall timeout in milliseconds (legacy + skills mode). Valid range: 1000-120000. Supports ${RECALL_TIMEOUT_MS}."
       },
       "customInstructions": {
         "type": "string"

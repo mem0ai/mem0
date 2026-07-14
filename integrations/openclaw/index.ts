@@ -534,6 +534,7 @@ export function registerHooks(
 
       if (recallEnabled && recallStrategy !== "manual") {
         const recallStart = Date.now();
+        const recallTimeoutMs = cfg.recallTimeoutMs;
         try {
           const query = sanitizeQuery(event.prompt);
 
@@ -545,25 +546,36 @@ export function registerHooks(
                 : sessionId
               : undefined; // smart: long-term only
 
-          const recallResult = await skillRecall(
+          const skillRecallWork = skillRecall(
             provider,
             query,
             userId,
             cfg.skills ?? {},
             sessionIdForRecall,
           );
-
-          api.logger.info(
-            `openclaw-mem0: skills-mode recall (strategy=${recallStrategy}) injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens)`,
-          );
-
-          _captureEvent("openclaw.hook.recall", {
-            strategy: recallStrategy,
-            memory_count: recallResult.memories.length,
-            latency_ms: Date.now() - recallStart,
+          const skillTimeout = new Promise<"__timeout__">((resolve) => {
+            setTimeout(() => resolve("__timeout__"), recallTimeoutMs);
           });
+          const raced = await Promise.race([skillRecallWork, skillTimeout]);
+          if (raced === "__timeout__") {
+            api.logger.warn(
+              `openclaw-mem0: skills-mode recall timed out after ${recallTimeoutMs}ms, skipping`,
+            );
+          } else {
+            const recallResult = raced;
 
-          recallContext = recallResult.context;
+            api.logger.info(
+              `openclaw-mem0: skills-mode recall (strategy=${recallStrategy}) injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens)`,
+            );
+
+            _captureEvent("openclaw.hook.recall", {
+              strategy: recallStrategy,
+              memory_count: recallResult.memories.length,
+              latency_ms: Date.now() - recallStart,
+            });
+
+            recallContext = recallResult.context;
+          }
         } catch (err) {
           api.logger.warn(
             `openclaw-mem0: skills-mode recall failed: ${String(err)}`,

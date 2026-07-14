@@ -303,7 +303,7 @@ openclaw mem0 help --json                                   # discover all comma
 | `autoCapture` | `boolean` | `true` | Extract and store facts after each turn. Ignored when `skills` is set. |
 | `topK` | `number` | `5` | Max memories returned per recall |
 | `searchThreshold` | `number` | `0.1` | Minimum similarity score (0-1) |
-| `recallTimeoutMs` | `integer` or ASCII digit string | `8000` | Legacy-only recall deadline in milliseconds; allowed range is `1000` to `120000`. Ignored in skills mode. |
+| `recallTimeoutMs` | `integer` or ASCII digit string | `8000` | Auto-recall deadline in milliseconds for **legacy and skills mode**; allowed range is `1000` to `120000`. |
 
 ### Skills Mode (Recommended)
 

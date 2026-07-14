@@ -185,6 +185,47 @@ describe("legacy recall timeout ownership", () => {
     vi.useRealTimers();
   });
 
+  it("skills-mode recall honors recallTimeoutMs via Promise.race", async () => {
+    vi.useFakeTimers();
+    // skillRecall uses provider.search; hang it past the deadline
+    const provider = {
+      search: vi.fn(
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () => resolve([{ id: "m1", memory: "late fact", score: 0.9 }]),
+              5000,
+            ),
+          ),
+      ),
+      getAll: vi.fn().mockResolvedValue([]),
+    };
+    const { api, callback } = registerRecallTest(
+      {
+        ...hookConfig(1000),
+        skills: { recall: { enabled: true, strategy: "smart" } },
+      },
+      provider,
+      true,
+    );
+    const resultPromise = callback(
+      { prompt: "remember this long enough query" },
+      { sessionKey: "agent:main:main" },
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    const result = await resultPromise;
+    // timeout skips injection; prependSystemContext may still be present
+    expect(api.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("skills-mode recall timed out after 1000ms"),
+    );
+    expect(api.logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining("injecting"),
+    );
+    // should not hang
+    expect(result).toBeDefined();
+    vi.useRealTimers();
+  });
+
   it("records one terminal legacy recall outcome", async () => {
     vi.useFakeTimers();
     const provider = {
