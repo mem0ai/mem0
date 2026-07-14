@@ -14,7 +14,10 @@ import memoryPlugin, {
   isGenericAssistantMessage,
   stripNoiseFromContent,
   filterMessagesForExtraction,
+  registerHooks,
+  formatRegistrationLog,
 } from "./index.ts";
+import type { Mem0Config, Mem0Provider } from "./types.ts";
 
 function createPluginApi(registrationMode?: string) {
   return {
@@ -54,6 +57,125 @@ describe("plugin registration modes", () => {
     expect(api.logger.info).not.toHaveBeenCalledWith(
       expect.stringContaining("openclaw-mem0: registered"),
     );
+  });
+});
+
+describe("startup log", () => {
+  it("logs the effective legacy recall timeout once", () => {
+    expect(formatRegistrationLog(hookConfig(120000), false)).toContain(
+      "legacyRecallTimeoutMs: 120000",
+    );
+  });
+});
+
+function hookConfig(recallTimeoutMs: number): Mem0Config {
+  return {
+    mode: "platform",
+    apiKey: "test-api-key",
+    userId: "alice",
+    customInstructions: "",
+    customCategories: {},
+    autoCapture: false,
+    autoRecall: true,
+    searchThreshold: 0.1,
+    topK: 5,
+    recallTimeoutMs,
+  };
+}
+
+function registerRecallTest(
+  cfg: Mem0Config,
+  provider: Partial<Mem0Provider>,
+  skillsActive = false,
+) {
+  const hooks = new Map<string, (...args: any[]) => Promise<unknown>>();
+  const captureEvent = vi.fn();
+  const api = {
+    on: vi.fn((name: string, callback: (...args: any[]) => Promise<unknown>) => hooks.set(name, callback)),
+    logger: { info: vi.fn(), warn: vi.fn() },
+  } as any;
+  registerHooks(
+    api,
+    provider as Mem0Provider,
+    cfg,
+    () => cfg.userId,
+    () => ({ user_id: cfg.userId }),
+    () => ({ user_id: cfg.userId, top_k: cfg.topK }),
+    { setCurrentSessionId: vi.fn(), getStateDir: () => undefined },
+    skillsActive,
+    captureEvent,
+  );
+  return { api, callback: hooks.get("before_prompt_build")!, captureEvent };
+}
+
+describe("legacy recall timeout ownership", () => {
+  it("uses recallTimeoutMs 9000 for a provider delayed 8500ms", async () => {
+    vi.useFakeTimers();
+    const provider = {
+      search: vi.fn(() => new Promise((resolve) => setTimeout(() => resolve([
+        { id: "m1", memory: "fact", score: 0.9 },
+      ]), 8500))),
+    };
+    const { api, callback } = registerRecallTest(hookConfig(9000), provider);
+    const resultPromise = callback({ prompt: "remember this" }, {});
+    await vi.advanceTimersByTimeAsync(8500);
+    expect((await resultPromise) as object).toHaveProperty("prependContext");
+    expect(api.logger.info).toHaveBeenCalledWith(expect.stringContaining("injecting 1 memories"));
+    vi.useRealTimers();
+  });
+
+  it("uses the 8000ms default when recallTimeoutMs is unset", async () => {
+    vi.useFakeTimers();
+    const provider = {
+      search: vi.fn(() => new Promise((resolve) => setTimeout(() => resolve([
+        { id: "m1", memory: "fact", score: 0.9 },
+      ]), 8500))),
+    };
+    const { api, callback } = registerRecallTest(hookConfig(8000), provider);
+    const resultPromise = callback({ prompt: "remember this" }, {});
+    await vi.advanceTimersByTimeAsync(8000);
+    expect(await resultPromise).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(api.logger.warn).toHaveBeenCalledWith(expect.stringContaining("after 8000ms"));
+    expect(api.logger.info).not.toHaveBeenCalledWith(expect.stringContaining("injecting"));
+    vi.useRealTimers();
+  });
+
+  it("skills-mode recall ignores recallTimeoutMs", async () => {
+    const provider = { search: vi.fn().mockResolvedValue([]) };
+    const { callback } = registerRecallTest({
+      ...hookConfig(1000),
+      skills: { recall: { enabled: true } },
+    }, provider, true);
+    await expect(callback({ prompt: "remember this" }, { sessionKey: "agent:main:main" })).resolves.toBeDefined();
+    expect(provider.search).toHaveBeenCalled();
+  });
+
+  it("records one terminal legacy recall outcome", async () => {
+    const provider = {
+      search: vi.fn().mockRejectedValue(new Error("provider unavailable")),
+    };
+    const { api, callback, captureEvent } = registerRecallTest(hookConfig(8000), provider);
+
+    await expect(callback({ prompt: "remember this" }, {})).resolves.toBeUndefined();
+    expect(api.logger.warn).toHaveBeenCalledWith(
+      "openclaw-mem0: recall failed: Error: provider unavailable",
+    );
+    expect(captureEvent).toHaveBeenCalledTimes(1);
+    expect(captureEvent).toHaveBeenCalledWith(
+      "openclaw.hook.recall",
+      expect.objectContaining({ outcome: "provider_error" }),
+    );
+    expect(captureEvent).not.toHaveBeenCalledWith(
+      "openclaw.hook.recall",
+      expect.objectContaining({ outcome: "timeout" }),
+    );
+    expect(captureEvent).not.toHaveBeenCalledWith(
+      "openclaw.hook.recall",
+      expect.objectContaining({ outcome: "success" }),
+    );
+    expect(api.logger.warn).not.toHaveBeenCalledWith(expect.stringContaining("timed out"));
+    expect(api.logger.info).not.toHaveBeenCalledWith(expect.stringContaining("injecting"));
   });
 });
 
