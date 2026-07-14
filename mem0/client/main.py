@@ -91,6 +91,7 @@ class MemoryClient:
         api_key: Optional[str] = None,
         host: Optional[str] = None,
         client: Optional[httpx.Client] = None,
+        validate_api_key: bool = True,
     ):
         """Initialize the MemoryClient.
 
@@ -103,6 +104,12 @@ class MemoryClient:
             client: A custom httpx.Client instance. If provided, it will be
                     used instead of creating a new one. Note that base_url and
                     headers will be set/overridden as needed.
+            validate_api_key: If True (default), ping the API on init to
+                    validate the key and resolve org_id/project_id/user_email.
+                    Set False to skip that request. add(), search() and
+                    get_all() work either way (the server resolves org/project
+                    from the API key on every call). client.project.* still
+                    validates lazily on first access when skipped.
 
         Raises:
             ValueError: If no API key is provided or found in the environment.
@@ -138,17 +145,17 @@ class MemoryClient:
                 },
                 timeout=300,
             )
-        self.user_email = self._validate_api_key()
-
-        # Initialize project manager
-        self.project = Project(
-            client=self.client,
-            org_id=self.org_id,
-            project_id=self.project_id,
-            user_email=self.user_email,
-        )
-
-        _maybe_alias_anon_to_email(self.user_email)
+        # Validate the API key up front by default. This pings /v1/ping/ to
+        # resolve org_id/project_id/user_email. add()/search()/get_all() don't
+        # need it — the server resolves org/project from the API key on every
+        # call — so latency/DB-sensitive callers can pass validate_api_key=False
+        # to skip the request. client.project.* validates lazily on first use
+        # regardless.
+        self.user_email = None
+        self._validated = False
+        self._project = None
+        if validate_api_key:
+            self._ensure_validated()
         capture_client_event("client.init", self, {"sync_type": "sync"})
 
     def _validate_api_key(self):
@@ -173,6 +180,30 @@ class MemoryClient:
             except Exception:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
+
+    def _ensure_validated(self):
+        """Validate the API key and resolve org/project on first use.
+
+        Idempotent — the /v1/ping/ request runs at most once per client.
+        """
+        if self._validated:
+            return
+        self.user_email = self._validate_api_key()
+        _maybe_alias_anon_to_email(self.user_email)
+        self._validated = True
+
+    @property
+    def project(self):
+        """Project-management interface; validates the API key on first access."""
+        self._ensure_validated()
+        if self._project is None:
+            self._project = Project(
+                client=self.client,
+                org_id=self.org_id,
+                project_id=self.project_id,
+                user_email=self.user_email,
+            )
+        return self._project
 
     @api_error_handler
     def add(self, messages, options: Optional[AddMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
@@ -703,6 +734,7 @@ class MemoryClient:
             "of the package. Please use the client.project.get() method "
             "instead."
         )
+        self._ensure_validated()
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -751,6 +783,7 @@ class MemoryClient:
             "update_project() method is going to be deprecated in version v1.0 of the package. "
             "Please use the client.project.update() method instead."
         )
+        self._ensure_validated()
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
@@ -983,6 +1016,7 @@ class AsyncMemoryClient:
         api_key: Optional[str] = None,
         host: Optional[str] = None,
         client: Optional[httpx.AsyncClient] = None,
+        validate_api_key: bool = True,
     ):
         """Initialize the AsyncMemoryClient.
 
@@ -995,6 +1029,12 @@ class AsyncMemoryClient:
             client: A custom httpx.AsyncClient instance. If provided, it will
                     be used instead of creating a new one. Note that base_url
                     and headers will be set/overridden as needed.
+            validate_api_key: If True (default), ping the API on init to
+                    validate the key and resolve org_id/project_id/user_email.
+                    Set False to skip that request. add(), search() and
+                    get_all() work either way (the server resolves org/project
+                    from the API key on every call). client.project.* still
+                    validates lazily on first access when skipped.
 
         Raises:
             ValueError: If no API key is provided or found in the environment.
@@ -1031,17 +1071,12 @@ class AsyncMemoryClient:
                 timeout=300,
             )
 
-        self.user_email = self._validate_api_key()
-
-        # Initialize project manager
-        self.project = AsyncProject(
-            client=self.async_client,
-            org_id=self.org_id,
-            project_id=self.project_id,
-            user_email=self.user_email,
-        )
-
-        _maybe_alias_anon_to_email(self.user_email)
+        # See MemoryClient.__init__ for why validation is optional and lazy.
+        self.user_email = None
+        self._validated = False
+        self._project = None
+        if validate_api_key:
+            self._ensure_validated()
         capture_client_event("client.init", self, {"sync_type": "async"})
 
     def _validate_api_key(self):
@@ -1073,6 +1108,30 @@ class AsyncMemoryClient:
             except Exception:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
+
+    def _ensure_validated(self):
+        """Validate the API key and resolve org/project on first use.
+
+        Idempotent — the /v1/ping/ request runs at most once per client.
+        """
+        if self._validated:
+            return
+        self.user_email = self._validate_api_key()
+        _maybe_alias_anon_to_email(self.user_email)
+        self._validated = True
+
+    @property
+    def project(self):
+        """Project-management interface; validates the API key on first access."""
+        self._ensure_validated()
+        if self._project is None:
+            self._project = AsyncProject(
+                client=self.async_client,
+                org_id=self.org_id,
+                project_id=self.project_id,
+                user_email=self.user_email,
+            )
+        return self._project
 
     def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the payload for API requests.
@@ -1612,6 +1671,7 @@ class AsyncMemoryClient:
             "of the package. Please use the client.project.get() method "
             "instead."
         )
+        self._ensure_validated()
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
 
@@ -1656,6 +1716,7 @@ class AsyncMemoryClient:
             "update_project() method is going to be deprecated in version v1.0 of the package. "
             "Please use the client.project.update() method instead."
         )
+        self._ensure_validated()
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
