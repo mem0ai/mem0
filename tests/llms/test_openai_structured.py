@@ -53,7 +53,7 @@ def test_regular_model_sends_sampling_params(mock_openai_client):
 
 def test_uses_openai_base_url_environment_variable(monkeypatch):
     base_url = "https://gateway.example/v1"
-    monkeypatch.delenv("OPENAI_API_BASE", raising=False)
+    monkeypatch.setenv("OPENAI_API_BASE", "https://legacy.example/v1")
     monkeypatch.setenv("OPENAI_BASE_URL", base_url)
 
     with patch("mem0.llms.openai_structured.OpenAI") as mock_openai:
