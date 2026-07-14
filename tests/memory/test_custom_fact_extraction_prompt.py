@@ -234,6 +234,18 @@ class TestCustomFactExtractionPromptAsync:
         system_prompt = _extract_system_prompt(mock_async_memory)
         assert system_prompt == override + AGENT_CONTEXT_SUFFIX
 
+    @pytest.mark.parametrize("blank", ["", "   ", "\n\t"])
+    async def test_blank_override_falls_back_to_default(self, mock_async_memory, blank):
+        """Async parity: a blank / whitespace-only override is treated as unset."""
+        mock_async_memory.custom_fact_extraction_prompt = blank
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+        assert _extract_system_prompt(mock_async_memory) == ADDITIVE_EXTRACTION_PROMPT
+
 
 # ---------------------------------------------------------------------------
 # ``MemoryConfig`` plumbing
