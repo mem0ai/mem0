@@ -1828,7 +1828,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Update label="2026-07-14" description="mem0-plugin v0.2.13">
 
 **Fixes:**
-- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences — "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`. Affects Claude Code, Cursor, and Codex, which share these hooks.
+- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences — "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`. Affects Claude Code, Cursor, Codex, and Antigravity, which share these hooks.
 
 Existing memories written by the previous versions are not rewritten. If your memories contain preferences you never expressed, delete them — the plugin will not recreate them.
 
@@ -2156,6 +2156,15 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="Antigravity">
+
+<Update label="2026-07-14" description="Antigravity plugin v0.1.5">
+
+**Fixes:**
+- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences — "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`.
+
+Existing memories written by the previous versions are not rewritten. If your memories contain preferences you never expressed, delete them — the plugin will not recreate them.
+
+</Update>
 
 <Update label="2026-06-30" description="Antigravity plugin v0.1.4">
 
