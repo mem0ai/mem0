@@ -125,8 +125,10 @@ When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to 
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
 | **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Stop** | `Stop` | Stores a session summary when the session ends |
+| **Stop** | `Stop` | Stores a session summary at the end of every assistant turn (not just at session end) |
 | **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
+
+What you type is stored as yours. What Codex produces — session summaries and compaction summaries — is stored as the assistant's, so its suggestions never become your stated preferences.
 
 ## Example Workflow
 
@@ -134,11 +136,12 @@ When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to 
 # Task 1: Setting up a new service
 You: Create a REST API for the notifications service using Express and TypeScript.
 
-# Codex searches memories, finds user preferences from prior tasks.
-# After completing the task, Mem0 stores:
+# Codex searches memories, finds your preferences from prior tasks.
+# Mem0 stores what you said as yours:
+#   - Your preference: "Prefers explicit error types over generic catch-all"
+# ...and what Codex did as the assistant's, in the session summary:
 #   - Decision: "Notifications service uses Express + TypeScript + Zod validation"
 #   - Convention: "All API routes follow /api/v1/{resource} pattern"
-#   - Preference: "User prefers explicit error types over generic catch-all"
 
 # Task 2 (days later): Extending the service
 You: Add WebSocket support for real-time notification delivery.
