@@ -195,7 +195,7 @@
       "recallTimeoutMs": {
         "anyOf": [
           { "type": "integer", "minimum": 1000, "maximum": 120000 },
-          { "type": "string", "pattern": "^[0-9]+$" }
+          { "type": "string", "pattern": "^(?:[1-9][0-9]{3,4}|1[01][0-9]{4}|120000)$" }
         ],
         "default": 8000,
         "description": "Legacy auto-recall timeout in milliseconds. Valid range: 1000-120000. Ignored in skills mode. Supports ${RECALL_TIMEOUT_MS}."

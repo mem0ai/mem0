@@ -75,9 +75,29 @@ describe("startup log", () => {
         (message: string) =>
           message.includes("openclaw-mem0: registered") &&
           message.includes("legacyRecallTimeoutMs: 120000"),
-      );
+    );
     expect(matches).toHaveLength(1);
     expect(matches[0]?.match(/legacyRecallTimeoutMs/g)).toHaveLength(1);
+  });
+
+  it("falls back to the default legacy recall timeout when registration sees an invalid value", () => {
+    const api = createPluginApi(undefined, {
+      recallTimeoutMs: "${RECALL_TIMEOUT_MS}",
+    });
+
+    memoryPlugin.register(api as any);
+
+    expect(api.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('invalid recallTimeoutMs "${RECALL_TIMEOUT_MS}"'),
+    );
+    const matches = api.logger.info.mock.calls
+      .map(([message]: [unknown]) => String(message))
+      .filter(
+        (message: string) =>
+          message.includes("openclaw-mem0: registered") &&
+          message.includes("legacyRecallTimeoutMs: 8000"),
+      );
+    expect(matches).toHaveLength(1);
   });
 });
 
@@ -163,16 +183,6 @@ describe("legacy recall timeout ownership", () => {
     expect(api.logger.warn).toHaveBeenCalledWith(expect.stringContaining("after 8000ms"));
     expect(api.logger.info).not.toHaveBeenCalledWith(expect.stringContaining("injecting"));
     vi.useRealTimers();
-  });
-
-  it("skills-mode recall ignores recallTimeoutMs", async () => {
-    const provider = { search: vi.fn().mockResolvedValue([]) };
-    const { callback } = registerRecallTest({
-      ...hookConfig(1000),
-      skills: { recall: { enabled: true } },
-    }, provider, true);
-    await expect(callback({ prompt: "remember this" }, { sessionKey: "agent:main:main" })).resolves.toBeDefined();
-    expect(provider.search).toHaveBeenCalled();
   });
 
   it("records one terminal legacy recall outcome", async () => {

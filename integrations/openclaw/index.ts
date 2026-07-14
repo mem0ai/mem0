@@ -30,7 +30,11 @@ import {
   customCategoryMapToList,
   providerToBackend,
 } from "./providers.ts";
-import { mem0ConfigSchema } from "./config.ts";
+import {
+  DEFAULT_RECALL_TIMEOUT_MS,
+  mem0ConfigSchema,
+  parseRecallTimeoutMs,
+} from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { createPublicArtifactsProvider } from "./public-artifacts.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
@@ -99,6 +103,39 @@ export function formatRegistrationLog(cfg: Mem0Config, skillsActive: boolean): s
   return `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive}, legacyRecallTimeoutMs: ${cfg.recallTimeoutMs})`;
 }
 
+function parseRegistrationConfig(
+  pluginConfig: unknown,
+  fileConfig: FileConfig,
+  logger: Pick<OpenClawPluginApi["logger"], "warn">,
+): Mem0Config {
+  if (
+    pluginConfig &&
+    typeof pluginConfig === "object" &&
+    !Array.isArray(pluginConfig) &&
+    Object.prototype.hasOwnProperty.call(pluginConfig, "recallTimeoutMs")
+  ) {
+    const rawConfig = pluginConfig as Record<string, unknown>;
+    try {
+      parseRecallTimeoutMs(rawConfig.recallTimeoutMs);
+    } catch {
+      const fallbackConfig = { ...rawConfig };
+      const invalidValue = fallbackConfig.recallTimeoutMs;
+      delete fallbackConfig.recallTimeoutMs;
+      const cfg = mem0ConfigSchema.parse(fallbackConfig, fileConfig);
+      const renderedValue =
+        typeof invalidValue === "string"
+          ? JSON.stringify(invalidValue)
+          : String(invalidValue);
+      logger.warn(
+        `openclaw-mem0: invalid recallTimeoutMs ${renderedValue}, falling back to default ${DEFAULT_RECALL_TIMEOUT_MS}ms`,
+      );
+      return cfg;
+    }
+  }
+
+  return mem0ConfigSchema.parse(pluginConfig, fileConfig);
+}
+
 const memoryPlugin = definePluginEntry({
   id: "openclaw-mem0",
   name: "Memory (Mem0)",
@@ -114,7 +151,7 @@ const memoryPlugin = definePluginEntry({
       apiKey: pluginAuth.apiKey,
       baseUrl: pluginAuth.baseUrl,
     };
-    const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
+    const cfg = parseRegistrationConfig(api.pluginConfig, fileConfig, api.logger);
     const isMetadataRegistration = api.registrationMode === "cli-metadata";
 
     // Telemetry context bound to this plugin instance's config
