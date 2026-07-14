@@ -158,6 +158,7 @@ const ALLOWED_KEYS = [
   "customPrompt",
   "searchThreshold",
   "topK",
+  "recallTimeoutMs",
   "oss",
   "skills",
 ];
@@ -249,6 +250,7 @@ export const mem0ConfigSchema = {
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.1,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      recallTimeoutMs: typeof cfg.recallTimeoutMs === "number" ? cfg.recallTimeoutMs : 8000,
       needsSetup,
       oss: ossConfig,
       skills:

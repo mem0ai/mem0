@@ -684,7 +684,7 @@ function registerHooks(
 
   // Auto-recall: inject relevant memories before prompt is built
   if (cfg.autoRecall) {
-    const RECALL_TIMEOUT_MS = 8_000;
+    const RECALL_TIMEOUT_MS = cfg.recallTimeoutMs;
 
     api.on("before_prompt_build", async (event: any, ctx: any) => {
       if (!event.prompt || event.prompt.length < 5) return;
