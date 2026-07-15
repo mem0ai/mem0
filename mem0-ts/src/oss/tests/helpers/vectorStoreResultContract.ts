@@ -8,11 +8,7 @@
 import type { VectorStoreResult } from "../../src/types";
 
 /** Reserved metadata keys the Memory layer expects in snake_case. */
-export const CANONICAL_ENTITY_KEYS = [
-  "user_id",
-  "agent_id",
-  "run_id",
-] as const;
+export const CANONICAL_ENTITY_KEYS = ["user_id", "agent_id", "run_id"] as const;
 
 /** Timestamp keys that must not be renamed to camelCase. */
 export const CANONICAL_TIME_KEYS = ["created_at", "updated_at"] as const;
