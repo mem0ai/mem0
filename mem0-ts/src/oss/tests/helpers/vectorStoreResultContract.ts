@@ -1,7 +1,4 @@
-type VectorStoreResultLike = {
-  id: string;
-  payload: Record<string, any>;
-};
+import type { VectorStoreResult } from "../../src/types";
 
 export const canonicalResultId = "canonical-result";
 
@@ -19,9 +16,9 @@ export const canonicalResultPayload = {
 
 export function expectCanonicalResultPayload(
   expectedId: string,
-  getResult: VectorStoreResultLike | null,
-  listResults: VectorStoreResultLike[],
-  searchResults: VectorStoreResultLike[],
+  getResult: VectorStoreResult | null,
+  listResults: VectorStoreResult[],
+  searchResults: VectorStoreResult[],
 ) {
   expect(getResult).not.toBeNull();
   const listedResult = listResults.find((result) => result.id === expectedId);
