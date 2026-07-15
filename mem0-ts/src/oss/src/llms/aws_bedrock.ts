@@ -124,8 +124,7 @@ export class AWSBedrockLLM implements LLM {
    */
   private async getSDK(): Promise<BedrockSDK> {
     if (!this.sdkPromise) {
-      // Peer dep may be absent in the typecheck environment.
-      // @ts-expect-error optional peer @aws-sdk/client-bedrock-runtime
+      // Peer dep may be absent in light installs; keep import dynamic for ESM.
       this.sdkPromise = import("@aws-sdk/client-bedrock-runtime").then(
         (sdk) => sdk as unknown as BedrockSDK,
         (err) => {
