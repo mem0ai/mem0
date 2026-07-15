@@ -311,6 +311,47 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+def _extract_observation_timestamp(
+    metadata: Optional[Dict[str, Any]], messages: Optional[list] = None
+) -> Optional[str]:
+    """Find the timestamp that should anchor relative dates during extraction.
+
+    Looks up metadata first (``timestamp`` then ``created_at``), then walks the
+    raw messages list for the same keys. Values are coerced to strings so
+    ``datetime`` instances and non-str ISO providers still populate Observation
+    Date. Salvage of #4964 / closes #5894; defensive coercion from #5881 notes.
+    """
+    metadata = metadata or {}
+
+    def _coerce(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, str):
+            return value
+        # Numbers / other types: only pass through if truthy str form is useful
+        try:
+            return str(value)
+        except Exception:
+            return None
+
+    for key in ("timestamp", "created_at"):
+        coerced = _coerce(metadata.get(key))
+        if coerced:
+            return coerced
+
+    for message in messages or []:
+        if not isinstance(message, dict):
+            continue
+        for key in ("timestamp", "created_at"):
+            coerced = _coerce(message.get(key))
+            if coerced:
+                return coerced
+
+    return None
+
+
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
@@ -939,6 +980,7 @@ class Memory(MemoryBase):
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=_extract_observation_timestamp(metadata, messages),
             custom_instructions=custom_instr,
         )
 
@@ -2589,6 +2631,7 @@ class AsyncMemory(MemoryBase):
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=_extract_observation_timestamp(metadata, messages),
             custom_instructions=custom_instr,
         )
 
