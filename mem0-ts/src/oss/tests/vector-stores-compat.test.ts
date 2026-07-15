@@ -14,40 +14,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import {
+  canonicalResultId,
+  canonicalResultPayload,
+  expectCanonicalResultPayload,
+} from "./helpers/vectorStoreResultContract";
 
 jest.setTimeout(15000);
-
-const canonicalResultId = "canonical-result";
-const canonicalResultPayload = {
-  data: "canonical memory",
-  hash: "canonical-hash",
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-02T00:00:00.000Z",
-  user_id: "user-1",
-  agent_id: "agent-1",
-  run_id: "run-1",
-  source: "compat-test",
-};
-
-function expectCanonicalResultPayload(
-  expectedId: string,
-  getResult: { id: string; payload: Record<string, any> } | null,
-  listResults: Array<{ id: string; payload: Record<string, any> }>,
-  searchResults: Array<{ id: string; payload: Record<string, any> }>,
-) {
-  expect(getResult).not.toBeNull();
-  const listedResult = listResults.find((result) => result.id === expectedId);
-  const searchedResult = searchResults.find(
-    (result) => result.id === expectedId,
-  );
-
-  expect(getResult!.id).toBe(expectedId);
-  expect(listedResult?.id).toBe(expectedId);
-  expect(searchedResult?.id).toBe(expectedId);
-  expect(getResult!.payload).toStrictEqual(canonicalResultPayload);
-  expect(listedResult!.payload).toStrictEqual(canonicalResultPayload);
-  expect(searchedResult!.payload).toStrictEqual(canonicalResultPayload);
-}
 
 it("shared canonical result payload helper rejects noncanonical shapes", () => {
   expect(() =>
@@ -255,6 +228,39 @@ describe("MemoryVectorStore – full backward compat", () => {
       listed,
       await store.search(vector, 1),
     );
+    (store as any).db.close();
+  });
+
+  it("normalizes camelCase entity keys on read", async () => {
+    const store = new MemoryVectorStore({
+      collectionName: "test",
+      dimension: 3,
+      dbPath: path.join(tmpDir, "vs.db"),
+    });
+    const vector = [1, 0, 0];
+    const normalizationResultId = "camelcase-entity-ids";
+
+    await store.insert(
+      [vector],
+      [normalizationResultId],
+      [
+        {
+          data: "camel entity ids",
+          userId: "user-camel",
+          agentId: "agent-camel",
+          runId: "run-camel",
+        },
+      ],
+    );
+
+    const result = await store.get(normalizationResultId);
+    expect(result).not.toBeNull();
+    expect(result!.payload.user_id).toBe("user-camel");
+    expect(result!.payload.agent_id).toBe("agent-camel");
+    expect(result!.payload.run_id).toBe("run-camel");
+    expect(result!.payload.userId).toBeUndefined();
+    expect(result!.payload.agentId).toBeUndefined();
+    expect(result!.payload.runId).toBeUndefined();
     (store as any).db.close();
   });
 
