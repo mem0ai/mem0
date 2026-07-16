@@ -1,0 +1,186 @@
+---
+title: Install from Source
+description: "Install the Mem0 Python or TypeScript SDK from a local clone or directly from GitHub when you need unreleased changes, a fork, or a specific branch."
+icon: "code-branch"
+---
+
+Install Mem0 from source when you need code that is not yet on PyPI or npm — for example, an open pull request, a fork, or the latest `main` branch.
+
+<Note>
+  For most users, installing from the registry is simpler: `pip install mem0ai` (Python) or `npm install mem0ai` (Node.js). See the [Python](/open-source/python-quickstart) and [Node.js](/open-source/node-quickstart) quickstarts.
+</Note>
+
+## Prerequisites
+
+- **Git**
+- **Python SDK:** Python 3.10 or higher
+- **TypeScript SDK:** Node.js 18+ and [pnpm](https://pnpm.io/) v10+
+
+## Clone the repository
+
+```bash
+git clone https://github.com/mem0ai/mem0.git
+cd mem0
+```
+
+To use a specific branch or tag, check it out after cloning:
+
+```bash
+git checkout main          # latest development code
+git checkout <branch-name> # feature branch or fork
+```
+
+---
+
+## Python SDK
+
+The Python package lives at the repository root (`mem0/`). All commands below run from the repo root unless noted.
+
+### Editable install (recommended)
+
+An editable install links your environment to the local source tree, so code changes take effect immediately without reinstalling.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -e .
+```
+
+Verify the install:
+
+```bash
+python -c "from mem0 import Memory; print('mem0ai installed from source')"
+```
+
+### Install from a built wheel
+
+Use this when you want a normal (non-editable) install from your local checkout — for example, to test the packaged artifact before publishing.
+
+```bash
+pip install hatch
+hatch build
+pip install dist/mem0ai-*.whl
+```
+
+You can also build with `pip install build && python -m build` if you prefer not to install Hatch.
+
+### Install directly from GitHub
+
+Install without cloning locally. Pip fetches the repository and builds the package for you.
+
+```bash
+# Latest main branch
+pip install "git+https://github.com/mem0ai/mem0.git"
+
+# Specific branch
+pip install "git+https://github.com/mem0ai/mem0.git@<branch-name>"
+```
+
+### Optional dependency groups
+
+Core dependencies are installed automatically. Add optional groups when you need extra providers or development tools:
+
+```bash
+# Vector stores, LLM providers, NLP entity extraction, and extras
+pip install -e ".[vector-stores,llms,nlp,extras]"
+
+# Linting and tests (for contributors)
+pip install -e ".[dev]"
+```
+
+| Extra | Includes |
+|---|---|
+| `vector-stores` | Chroma, Pinecone, Weaviate, Redis, Elasticsearch, and other vector DB clients |
+| `llms` | Groq, Together, LiteLLM, Ollama, Vertex AI, and other LLM SDKs |
+| `nlp` | spaCy for entity extraction (`mem0ai[nlp]`) |
+| `extras` | LangChain, sentence-transformers, FastEmbed, and related utilities |
+| `dev` / `test` | Ruff, isort, and pytest (see `pyproject.toml` optional-dependencies) |
+
+See [Configuration](/open-source/configuration) for how to wire providers after install.
+
+### Contributor workflow
+
+If you plan to **change** the SDK and run the full test suite, use Hatch for environment management instead of managing dependencies only with pip. See [Development Contributions](/contributing/development).
+
+---
+
+## TypeScript SDK
+
+The TypeScript package is in `mem0-ts/`. Build it once, then link it into your app.
+
+### Build from source
+
+```bash
+cd mem0-ts
+pnpm install
+pnpm run build
+```
+
+This produces the compiled package in `mem0-ts/dist/`.
+
+<Tip>
+  Run `pnpm run build` again in `mem0-ts/` after every `git pull` that changes TypeScript source files.
+</Tip>
+
+### Use in your project
+
+From your application directory, install the local path:
+
+```bash
+npm install /path/to/mem0/mem0-ts
+# or with pnpm:
+pnpm add /path/to/mem0/mem0-ts
+```
+
+Verify the install:
+
+```bash
+node -e "const { Memory } = require('mem0ai/oss'); console.log('mem0ai installed from source')"
+```
+
+<Tip>
+  The TypeScript SDK lives in the `mem0-ts/` subdirectory of the monorepo. Package managers cannot install it directly from a GitHub URL the way they can for the Python SDK at the repo root — clone the repository, build, then install the local path as shown above.
+</Tip>
+
+---
+
+## Self-hosted server and OpenMemory
+
+To run the full self-hosted stack from source (REST API, dashboard, Postgres/pgvector, Neo4j):
+
+- **Mem0 REST server:** see [Self-Hosted Setup](/open-source/setup) — `server/` uses Docker Compose and mounts the local `mem0/` Python package for live reload during development.
+- **OpenMemory platform:** clone the repo and run `docker-compose up` inside `openmemory/` for the API, UI, and Qdrant stack.
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="PackageNotFoundError: No package metadata was found for mem0ai">
+  The package is not installed in your active virtual environment. Activate the venv where you ran `pip install -e .` and try again.
+</Accordion>
+
+<Accordion title="Unknown vector store or LLM provider">
+  Install the matching optional extra, for example `pip install -e ".[vector-stores]"` or `pip install -e ".[llms]"`.
+</Accordion>
+
+<Accordion title="TypeScript: Cannot find module 'mem0ai/oss'">
+  Run `pnpm run build` in `mem0-ts/` before installing or linking the package into your app.
+</Accordion>
+
+<Accordion title="Python version error">
+  Mem0 requires Python 3.10+. Check with `python --version` and create a new venv with a supported interpreter.
+</Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
+    Store and search your first memory after installing from source.
+  </Card>
+  <Card title="Configure components" icon="sliders" href="/open-source/configuration">
+    Set your LLM, embedder, vector store, and reranker.
+  </Card>
+</CardGroup>
