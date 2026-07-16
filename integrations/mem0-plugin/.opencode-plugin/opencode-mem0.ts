@@ -267,7 +267,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
           service: "mem0",
           level: "error",
           message:
-            "MEM0_API_KEY environment variable not set. Get one at https://app.mem0.ai/dashboard/api-keys",
+            "MEM0_API_KEY environment variable not set.",
         },
       });
     } catch {
@@ -275,7 +275,10 @@ const Mem0Plugin: Plugin = async (ctx) => {
     return {};
   }
 
-  const mem0 = new MemoryClient({apiKey});
+  const apiUrl = process.env.MEM0_API_URL || process.env.MEM0_BASE_URL || "";
+  const mem0 = apiUrl
+    ? new MemoryClient({apiKey, host: apiUrl.replace(/\/+$/, "")})
+    : new MemoryClient({apiKey});
   const userId = await getUserId();
   const appId = await getProjectId($);
   const branch = await getBranch($);
