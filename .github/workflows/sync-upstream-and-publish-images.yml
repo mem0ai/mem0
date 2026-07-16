@@ -1,0 +1,154 @@
+# ==============================================================================
+# 文件名称: .github/workflows/sync-upstream-and-publish-images.yml
+# 文件作用: 每日同步 mem0 官方上游 main 到当前 fork main，并构建正式/开发镜像推送至阿里云 ACR。
+# 触发方式: 定时任务、手动触发、main 分支推送。
+# 依赖配置: CI/CD 环境或仓库级变量/密钥 ACR_USERNAME、ACR_PASSWORD；GITHUB_TOKEN 需要 contents: write。
+# 镜像输出:
+#   - crpi-efmmpn9a6t9mspwy.cn-hangzhou.personal.cr.aliyuncs.com/vancer-saas/mem0
+#   - crpi-efmmpn9a6t9mspwy.cn-hangzhou.personal.cr.aliyuncs.com/vancer-saas/mem0-dev
+# ==============================================================================
+
+name: Sync upstream and publish images
+
+on:
+  schedule:
+    # 每天北京时间 03:17 运行，避开整点高峰。
+    - cron: "17 19 * * *"
+  workflow_dispatch:
+    inputs:
+      upstream_branch:
+        description: "上游分支名称"
+        required: false
+        default: "main"
+        type: string
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: sync-upstream-and-publish-images-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  ACR_REGISTRY_HOST: crpi-efmmpn9a6t9mspwy.cn-hangzhou.personal.cr.aliyuncs.com
+  ACR_NAMESPACE: vancer-saas
+  UPSTREAM_REPOSITORY: mem0ai/mem0
+  UPSTREAM_BRANCH: ${{ inputs.upstream_branch || 'main' }}
+
+jobs:
+  sync-upstream:
+    name: Sync upstream main
+    runs-on: ubuntu-latest
+    outputs:
+      synced_sha: ${{ steps.sync.outputs.synced_sha }}
+      upstream_changed: ${{ steps.sync.outputs.upstream_changed }}
+    steps:
+      - name: Checkout fork main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge upstream and push fork main
+        id: sync
+        run: |
+          set -euo pipefail
+
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch upstream "${UPSTREAM_BRANCH}" --prune
+
+          before_sha="$(git rev-parse HEAD)"
+          git merge --no-edit "upstream/${UPSTREAM_BRANCH}"
+          after_sha="$(git rev-parse HEAD)"
+
+          if [ "${before_sha}" != "${after_sha}" ]; then
+            git push origin "HEAD:main"
+            echo "upstream_changed=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "upstream_changed=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+          echo "synced_sha=${after_sha}" >> "${GITHUB_OUTPUT}"
+
+  publish-images:
+    name: Build and push ${{ matrix.variant }} image
+    runs-on: ubuntu-latest
+    needs:
+      - sync-upstream
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: production
+            image_name: mem0
+            context: server
+            dockerfile: server/Dockerfile
+            stable_tag: latest
+          - variant: development
+            image_name: mem0-dev
+            context: .
+            dockerfile: server/dev.Dockerfile
+            stable_tag: latest
+    environment: "CI/CD"
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout synced source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync-upstream.outputs.synced_sha }}
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_REGISTRY_HOST }}
+          username: ${{ secrets.ACR_USERNAME || vars.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD || vars.ACR_PASSWORD }}
+
+      - name: Prepare image metadata
+        id: image_meta
+        run: |
+          set -euo pipefail
+
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          image="${ACR_REGISTRY_HOST}/${ACR_NAMESPACE}/${{ matrix.image_name }}"
+
+          {
+            echo "tags<<EOF"
+            echo "${image}:${{ matrix.stable_tag }}"
+            echo "${image}:main"
+            echo "${image}:${short_sha}"
+            echo "EOF"
+            echo "labels<<EOF"
+            echo "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"
+            echo "org.opencontainers.image.revision=$(git rev-parse HEAD)"
+            echo "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "org.opencontainers.image.title=${{ matrix.image_name }}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.image_meta.outputs.tags }}
+          labels: ${{ steps.image_meta.outputs.labels }}
+          cache-from: type=gha,scope=mem0-${{ matrix.variant }}
+          cache-to: type=gha,mode=max,scope=mem0-${{ matrix.variant }}
