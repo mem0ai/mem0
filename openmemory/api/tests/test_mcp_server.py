@@ -291,6 +291,52 @@ class TestStreamableHTTPProtocol:
         )
 
     @pytest.mark.asyncio
+    async def test_search_memory_returns_no_hits_when_acl_denies_all(self, client, monkeypatch):
+        from app import mcp_server
+
+        memory_ids = [uuid4(), uuid4()]
+        user = SimpleNamespace(id=uuid4())
+        app = SimpleNamespace(id=uuid4())
+        user_memories = [SimpleNamespace(id=memory_id) for memory_id in memory_ids]
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = user_memories
+        monkeypatch.setattr(mcp_server, "SessionLocal", MagicMock(return_value=db))
+        monkeypatch.setattr(mcp_server, "get_user_and_app", MagicMock(return_value=(user, app)))
+        check_permissions = MagicMock(return_value=False)
+        monkeypatch.setattr(mcp_server, "check_memory_access_permissions", check_permissions)
+
+        memory_client = MagicMock()
+        memory_client.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory_client.vector_store.search.return_value = [
+            SimpleNamespace(
+                id=str(memory_id),
+                score=0.9,
+                payload={"data": f"Memory {index}", "hash": f"hash-{index}"},
+            )
+            for index, memory_id in enumerate(memory_ids)
+        ]
+        monkeypatch.setattr(mcp_server, "get_memory_client_safe", MagicMock(return_value=memory_client))
+
+        await client.post(
+            "/mcp/testclient/http/alice",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+        resp = await client.post(
+            "/mcp/testclient/http/alice",
+            json=_jsonrpc("tools/call", {"name": "search_memory", "arguments": {"query": "private"}}, req_id=2),
+            headers=MCP_HEADERS,
+        )
+
+        assert resp.status_code == 200
+        result = resp.json()["result"]
+        assert result.get("isError") is not True
+        assert json.loads(result["content"][0]["text"]) == {"results": []}
+        assert check_permissions.call_count == 2
+        db.add.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_list_memories_uses_filters(self, client, memory_tool_dependencies):
         memory_client, memory_id = memory_tool_dependencies
         memory_client.get_all.return_value = {
