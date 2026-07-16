@@ -62,6 +62,10 @@ sse = SseServerTransport("/mcp/messages/")
 
 @mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction.")
 async def add_memories(text: str, infer: bool = True) -> str:
+    return await anyio.to_thread.run_sync(_add_memories, text, infer)
+
+
+def _add_memories(text: str, infer: bool = True) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -147,6 +151,10 @@ async def add_memories(text: str, infer: bool = True) -> str:
 
 @mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
 async def search_memory(query: str) -> str:
+    return await anyio.to_thread.run_sync(_search_memory, query)
+
+
+def _search_memory(query: str) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -225,6 +233,10 @@ async def search_memory(query: str) -> str:
 
 @mcp.tool(description="List all memories in the user's memory")
 async def list_memories() -> str:
+    return await anyio.to_thread.run_sync(_list_memories)
+
+
+def _list_memories() -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -330,6 +342,10 @@ def _delete_memory_from_stores(db, memory_client, memory, user_id, app_id, acces
 
 @mcp.tool(description="Delete specific memories by their IDs")
 async def delete_memories(memory_ids: list[str]) -> str:
+    return await anyio.to_thread.run_sync(_delete_memories, memory_ids)
+
+
+def _delete_memories(memory_ids: list[str]) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:
@@ -394,6 +410,10 @@ async def delete_memories(memory_ids: list[str]) -> str:
 
 @mcp.tool(description="Delete all memories in the user's memory")
 async def delete_all_memories() -> str:
+    return await anyio.to_thread.run_sync(_delete_all_memories)
+
+
+def _delete_all_memories() -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
     if not uid:

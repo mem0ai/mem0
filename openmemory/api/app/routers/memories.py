@@ -99,7 +99,7 @@ def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
 
 # List all memories with filtering
 @router.get("/", response_model=Page[MemoryResponse])
-async def list_memories(
+def list_memories(
     user_id: str,
     app_id: Optional[UUID] = None,
     from_date: Optional[int] = Query(
@@ -187,7 +187,7 @@ async def list_memories(
 
 # Get all categories
 @router.get("/categories")
-async def get_categories(
+def get_categories(
     user_id: str,
     db: Session = Depends(get_db)
 ):
@@ -219,7 +219,7 @@ class CreateMemoryRequest(BaseModel):
 
 # Create new memory
 @router.post("/")
-async def create_memory(
+def create_memory(
     request: CreateMemoryRequest,
     db: Session = Depends(get_db)
 ):
@@ -330,7 +330,7 @@ async def create_memory(
 
 # Get memory by ID
 @router.get("/{memory_id}")
-async def get_memory(
+def get_memory(
     memory_id: UUID,
     db: Session = Depends(get_db)
 ):
@@ -353,7 +353,7 @@ class DeleteMemoriesRequest(BaseModel):
 
 # Delete multiple memories
 @router.delete("/")
-async def delete_memories(
+def delete_memories(
     request: DeleteMemoriesRequest,
     db: Session = Depends(get_db)
 ):
@@ -414,7 +414,7 @@ async def delete_memories(
 
 # Archive memories
 @router.post("/actions/archive")
-async def archive_memories(
+def archive_memories(
     memory_ids: List[UUID],
     user_id: UUID,
     db: Session = Depends(get_db)
@@ -435,7 +435,7 @@ class PauseMemoriesRequest(BaseModel):
 
 # Pause access to memories
 @router.post("/actions/pause")
-async def pause_memories(
+def pause_memories(
     request: PauseMemoriesRequest,
     db: Session = Depends(get_db)
 ):
@@ -508,7 +508,7 @@ async def pause_memories(
 
 # Get memory access logs
 @router.get("/{memory_id}/access-log")
-async def get_memory_access_log(
+def get_memory_access_log(
     memory_id: UUID,
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
@@ -537,7 +537,7 @@ class UpdateMemoryRequest(BaseModel):
 
 # Update a memory
 @router.put("/{memory_id}")
-async def update_memory(
+def update_memory(
     memory_id: UUID,
     request: UpdateMemoryRequest,
     db: Session = Depends(get_db)
@@ -610,7 +610,7 @@ class FilterMemoriesRequest(BaseModel):
     show_archived: Optional[bool] = False
 
 @router.post("/filter", response_model=Page[MemoryResponse])
-async def filter_memories(
+def filter_memories(
     request: FilterMemoriesRequest,
     db: Session = Depends(get_db)
 ):
@@ -704,7 +704,7 @@ async def filter_memories(
 
 
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])
-async def get_related_memories(
+def get_related_memories(
     memory_id: UUID,
     user_id: str,
     params: Params = Depends(),

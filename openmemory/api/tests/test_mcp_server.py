@@ -5,8 +5,10 @@ transport.  Tests exercise the full JSON-RPC flow — initialize, tools/list,
 tools/call — as well as error handling and context-variable isolation.
 """
 
+import asyncio
 import json
 import os
+import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -35,6 +37,11 @@ def test_app():
 
     app = FastAPI()
     app.include_router(mcp_router)
+
+    @app.get("/probe")
+    async def probe():
+        return {"status": "ok"}
+
     return app
 
 
@@ -255,6 +262,64 @@ class TestStreamableHTTPProtocol:
         assert "error" in data or (
             "result" in data and data["result"].get("isError")
         )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("tool_name", "arguments"),
+        [
+            ("add_memories", {"text": "Remember this"}),
+            ("search_memory", {"query": "Remember"}),
+        ],
+    )
+    async def test_blocking_memory_tools_do_not_stall_concurrent_requests(
+        self, client, memory_tool_dependencies, tool_name, arguments
+    ):
+        memory_client, _ = memory_tool_dependencies
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_call(*args, **kwargs):
+            started.set()
+            release.wait(timeout=3)
+            if tool_name == "add_memories":
+                return {"results": []}
+            return [0.1, 0.2, 0.3]
+
+        if tool_name == "add_memories":
+            memory_client.add.side_effect = slow_call
+        else:
+            memory_client.embedding_model.embed.side_effect = slow_call
+            memory_client.vector_store.search.return_value = []
+
+        await client.post(
+            "/mcp/testclient/http/alice",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+
+        timer = threading.Timer(2, release.set)
+        timer.start()
+        started_at = asyncio.get_running_loop().time()
+        tool_task = asyncio.create_task(
+            client.post(
+                "/mcp/testclient/http/alice",
+                json=_jsonrpc("tools/call", {"name": tool_name, "arguments": arguments}, req_id=2),
+                headers=MCP_HEADERS,
+            )
+        )
+
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            response = await client.get("/probe")
+            elapsed = asyncio.get_running_loop().time() - started_at
+        finally:
+            release.set()
+            tool_response = await tool_task
+            timer.cancel()
+
+        assert response.status_code == 200
+        assert tool_response.status_code == 200
+        assert elapsed < 1.5
 
     @pytest.mark.asyncio
     async def test_search_memory_uses_vector_store_top_k(self, client, memory_tool_dependencies):
