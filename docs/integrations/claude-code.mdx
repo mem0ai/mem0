@@ -44,14 +44,14 @@ Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 
 1. Add the Mem0 marketplace:
 
-   ```
-   /plugin marketplace add mem0ai/mem0
+   ```bash
+   claude plugin marketplace add mem0ai/mem0
    ```
 
 2. Install the plugin:
 
-   ```
-   /plugin install mem0@mem0-plugins
+   ```bash
+   claude plugin install mem0@mem0-plugins
    ```
 
 **Claude Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
@@ -86,6 +86,15 @@ Add to your Claude Code MCP config (`.mcp.json`):
     }
   }
 }
+```
+
+### Managing the Plugin
+
+```bash
+claude plugin update mem0@mem0-plugins         # update the plugin to the latest version (restart to apply)
+claude plugin marketplace update mem0-plugins  # refresh the marketplace catalog
+claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the marketplace)
+claude plugin marketplace remove mem0-plugins  # unregister the marketplace entirely
 ```
 
 <Info icon="check">
