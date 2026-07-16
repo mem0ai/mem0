@@ -1949,6 +1949,19 @@ export class Memory {
       textLemmatized: lemmatizeForBm25(newData),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
+      // Identity fields scope every search()/getAll()/deleteAll() call and are
+      // immutable after creation. Re-pin them after the spread so caller-supplied
+      // metadata can never silently move a memory into another tenant's scope
+      // (mirror of the Python P0 fix, issues #6277 / #6278).
+      ...(existingMemory.payload.user_id !== undefined && {
+        user_id: existingMemory.payload.user_id,
+      }),
+      ...(existingMemory.payload.agent_id !== undefined && {
+        agent_id: existingMemory.payload.agent_id,
+      }),
+      ...(existingMemory.payload.run_id !== undefined && {
+        run_id: existingMemory.payload.run_id,
+      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);

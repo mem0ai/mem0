@@ -207,6 +207,39 @@ describe("Memory - update()", () => {
       expect.objectContaining({ category: "hobbies", priority: "high" }),
     );
   });
+
+  // Regression: metadata passed to update() must never overwrite a memory's
+  // user_id/agent_id/run_id. These fields scope every search()/getAll()/
+  // deleteAll() call, so letting caller metadata overwrite them would silently
+  // move a memory into another tenant's scope and make it unreachable via the
+  // original tenant. Mirrors the Python P0 fix (issues #6277 / #6278).
+  test("metadata cannot overwrite identity fields (tenant isolation)", async () => {
+    const tenantA = `tenant_a_${Date.now()}`;
+    const tenantB = `tenant_b_${Date.now()}`;
+    const addResult: SearchResult = await memory.add("Tenant A secret", {
+      userId: tenantA,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+
+    // Caller metadata attempts to re-scope the memory to tenant B.
+    await memory.update(id, {
+      text: "Updated text",
+      metadata: { user_id: tenantB, agent_id: "attacker", run_id: "attacker" },
+    });
+
+    // The memory must remain in tenant A's scope...
+    const aList: SearchResult = await memory.getAll({
+      filters: { user_id: tenantA },
+    });
+    expect(aList.results.map((m) => m.id)).toContain(id);
+
+    // ...and must never leak into tenant B's scope.
+    const bList: SearchResult = await memory.getAll({
+      filters: { user_id: tenantB },
+    });
+    expect(bList.results.map((m) => m.id)).not.toContain(id);
+  });
 });
 
 // ─── update() options: text / data / metadata / expirationDate ───
