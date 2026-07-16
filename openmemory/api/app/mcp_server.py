@@ -292,6 +292,42 @@ async def list_memories() -> str:
         return f"Error getting memories: {e}"
 
 
+def _delete_memory_from_stores(db, memory_client, memory, user_id, app_id, access_type, operation):
+    memory_id = memory.id
+    try:
+        memory_client.delete(str(memory_id))
+    except Exception as delete_error:
+        raise RuntimeError(f"Failed to delete memory {memory_id} from vector store: {delete_error}") from delete_error
+
+    old_state = memory.state
+    memory.state = MemoryState.deleted
+    memory.deleted_at = datetime.datetime.now(datetime.UTC)
+    db.add(
+        MemoryStatusHistory(
+            memory_id=memory_id,
+            changed_by=user_id,
+            old_state=old_state,
+            new_state=MemoryState.deleted,
+        )
+    )
+    db.add(
+        MemoryAccessLog(
+            memory_id=memory_id,
+            app_id=app_id,
+            access_type=access_type,
+            metadata_={"operation": operation},
+        )
+    )
+
+    try:
+        db.commit()
+    except Exception as db_error:
+        db.rollback()
+        raise RuntimeError(
+            f"Memory {memory_id} was deleted from vector store but its SQL state could not be updated"
+        ) from db_error
+
+
 @mcp.tool(description="Delete specific memories by their IDs")
 async def delete_memories(memory_ids: list[str]) -> str:
     uid = user_id_var.get(None)
@@ -315,50 +351,40 @@ async def delete_memories(memory_ids: list[str]) -> str:
             # Convert string IDs to UUIDs and filter accessible ones
             requested_ids = [uuid.UUID(mid) for mid in memory_ids]
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memories = [
+                memory for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+            ]
+            accessible_memories_by_id = {memory.id: memory for memory in accessible_memories}
 
             # Only delete memories that are both requested and accessible
-            ids_to_delete = [mid for mid in requested_ids if mid in accessible_memory_ids]
+            memories_to_delete = [
+                accessible_memories_by_id[mid] for mid in requested_ids if mid in accessible_memories_by_id
+            ]
 
-            if not ids_to_delete:
+            if not memories_to_delete:
                 return "Error: No accessible memories found with provided IDs"
 
-            # Delete from vector store
-            for memory_id in ids_to_delete:
+            # Delete each vector before committing the corresponding SQL state.
+            deleted_count = 0
+            for memory in memories_to_delete:
                 try:
-                    memory_client.delete(str(memory_id))
+                    _delete_memory_from_stores(
+                        db,
+                        memory_client,
+                        memory,
+                        user.id,
+                        app.id,
+                        "delete",
+                        "delete_by_id",
+                    )
                 except Exception as delete_error:
-                    logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
+                    raise RuntimeError(
+                        f"Delete stopped after {deleted_count} successful deletions: {delete_error}"
+                    ) from delete_error
 
-            # Update each memory's state and create history entries
-            now = datetime.datetime.now(datetime.UTC)
-            for memory_id in ids_to_delete:
-                memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                if memory:
-                    # Update memory state
-                    memory.state = MemoryState.deleted
-                    memory.deleted_at = now
+                deleted_count += 1
 
-                    # Create history entry
-                    history = MemoryStatusHistory(
-                        memory_id=memory_id,
-                        changed_by=user.id,
-                        old_state=MemoryState.active,
-                        new_state=MemoryState.deleted
-                    )
-                    db.add(history)
-
-                    # Create access log entry
-                    access_log = MemoryAccessLog(
-                        memory_id=memory_id,
-                        app_id=app.id,
-                        access_type="delete",
-                        metadata_={"operation": "delete_by_id"}
-                    )
-                    db.add(access_log)
-
-            db.commit()
-            return f"Successfully deleted {len(ids_to_delete)} memories"
+            return f"Successfully deleted {deleted_count} memories"
         finally:
             db.close()
     except Exception as e:
@@ -387,42 +413,30 @@ async def delete_all_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memories = [
+                memory for memory in user_memories if check_memory_access_permissions(db, memory, app.id)
+            ]
 
-            # delete the accessible memories only
-            for memory_id in accessible_memory_ids:
+            # Delete each vector before committing the corresponding SQL state.
+            deleted_count = 0
+            for memory in accessible_memories:
                 try:
-                    memory_client.delete(str(memory_id))
+                    _delete_memory_from_stores(
+                        db,
+                        memory_client,
+                        memory,
+                        user.id,
+                        app.id,
+                        "delete_all",
+                        "bulk_delete",
+                    )
                 except Exception as delete_error:
-                    logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
+                    raise RuntimeError(
+                        f"Delete stopped after {deleted_count} successful deletions: {delete_error}"
+                    ) from delete_error
 
-            # Update each memory's state and create history entries
-            now = datetime.datetime.now(datetime.UTC)
-            for memory_id in accessible_memory_ids:
-                memory = db.query(Memory).filter(Memory.id == memory_id).first()
-                # Update memory state
-                memory.state = MemoryState.deleted
-                memory.deleted_at = now
+                deleted_count += 1
 
-                # Create history entry
-                history = MemoryStatusHistory(
-                    memory_id=memory_id,
-                    changed_by=user.id,
-                    old_state=MemoryState.active,
-                    new_state=MemoryState.deleted
-                )
-                db.add(history)
-
-                # Create access log entry
-                access_log = MemoryAccessLog(
-                    memory_id=memory_id,
-                    app_id=app.id,
-                    access_type="delete_all",
-                    metadata_={"operation": "bulk_delete"}
-                )
-                db.add(access_log)
-
-            db.commit()
             return "Successfully deleted all memories"
         finally:
             db.close()

@@ -361,6 +361,57 @@ class TestStreamableHTTPProtocol:
         memory_client.get_all.assert_called_once_with(filters={"user_id": "alice"})
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("tool_name", "arguments"),
+        [
+            ("delete_memories", lambda memory_id: {"memory_ids": [str(memory_id)]}),
+            ("delete_all_memories", lambda _memory_id: {}),
+        ],
+    )
+    async def test_delete_tools_preserve_sql_when_vector_delete_fails(
+        self, client, monkeypatch, tool_name, arguments
+    ):
+        from app import mcp_server
+
+        memory_id = uuid4()
+        user = SimpleNamespace(id=uuid4())
+        app = SimpleNamespace(id=uuid4())
+        memory = SimpleNamespace(id=memory_id, state=mcp_server.MemoryState.active, deleted_at=None)
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = [memory]
+        monkeypatch.setattr(mcp_server, "SessionLocal", MagicMock(return_value=db))
+        monkeypatch.setattr(mcp_server, "get_user_and_app", MagicMock(return_value=(user, app)))
+        monkeypatch.setattr(mcp_server, "check_memory_access_permissions", MagicMock(return_value=True))
+
+        memory_client = MagicMock()
+        memory_client.delete.side_effect = RuntimeError("vector unavailable")
+        monkeypatch.setattr(mcp_server, "get_memory_client_safe", MagicMock(return_value=memory_client))
+
+        await client.post(
+            "/mcp/testclient/http/alice",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+        resp = await client.post(
+            "/mcp/testclient/http/alice",
+            json=_jsonrpc(
+                "tools/call",
+                {"name": tool_name, "arguments": arguments(memory_id)},
+                req_id=2,
+            ),
+            headers=MCP_HEADERS,
+        )
+
+        assert resp.status_code == 200
+        text = resp.json()["result"]["content"][0]["text"]
+        assert text.startswith("Error deleting memories:")
+        assert "vector unavailable" in text
+        assert memory.state == mcp_server.MemoryState.active
+        assert memory.deleted_at is None
+        db.add.assert_not_called()
+        db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_unknown_jsonrpc_method(self, client):
         """An unknown JSON-RPC method should return an error."""
         resp = await client.post(

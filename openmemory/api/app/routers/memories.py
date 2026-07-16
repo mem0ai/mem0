@@ -378,16 +378,38 @@ async def delete_memories(
             detail=f"Memory service unavailable: {str(client_error)}"
         )
 
-    # Delete from vector store then mark as deleted in database
-    for memory_id in request.memory_ids:
+    memories = [get_memory_or_404(db, memory_id) for memory_id in request.memory_ids]
+
+    # Delete each vector before marking the corresponding SQL row as deleted.
+    deleted_count = 0
+    for memory in memories:
         try:
-            memory_client.delete(str(memory_id))
+            memory_client.delete(str(memory.id))
         except Exception as delete_error:
-            logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
+            logging.error(f"Failed to delete memory {memory.id} from vector store: {delete_error}")
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"Failed to delete memory {memory.id} from vector store after "
+                    f"{deleted_count} successful deletions: {delete_error}"
+                ),
+            ) from delete_error
 
-        update_memory_state(db, memory_id, MemoryState.deleted, user.id)
+        try:
+            update_memory_state(db, memory.id, MemoryState.deleted, user.id)
+        except HTTPException:
+            raise
+        except Exception as db_error:
+            db.rollback()
+            logging.error(f"Memory {memory.id} was deleted from vector store but SQL update failed: {db_error}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Memory {memory.id} was deleted from vector store but its SQL state could not be updated",
+            ) from db_error
 
-    return {"message": f"Successfully deleted {len(request.memory_ids)} memories"}
+        deleted_count += 1
+
+    return {"message": f"Successfully deleted {deleted_count} memories"}
 
 
 # Archive memories
@@ -524,8 +546,53 @@ async def update_memory(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     memory = get_memory_or_404(db, memory_id)
+
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise HTTPException(status_code=503, detail="Memory client is not available")
+    except HTTPException:
+        raise
+    except Exception as client_error:
+        logging.error(f"Memory client initialization failed: {client_error}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Memory service unavailable: {str(client_error)}",
+        ) from client_error
+
+    old_content = memory.content
+    try:
+        memory_client.update(str(memory_id), text=request.memory_content)
+    except Exception as update_error:
+        logging.error(f"Failed to update memory {memory_id} in vector store: {update_error}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to update memory {memory_id} in vector store: {update_error}",
+        ) from update_error
+
     memory.content = request.memory_content
-    db.commit()
+    try:
+        db.commit()
+    except Exception as db_error:
+        db.rollback()
+        try:
+            memory_client.update(str(memory_id), text=old_content)
+        except Exception as compensation_error:
+            logging.exception(
+                f"Failed to restore memory {memory_id} in vector store after SQL update failed: {compensation_error}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"SQL update failed for memory {memory_id}, and its vector-store update could not be restored"
+                ),
+            ) from db_error
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"SQL update failed for memory {memory_id}; the vector-store update was restored",
+        ) from db_error
+
     db.refresh(memory)
     return memory
 
