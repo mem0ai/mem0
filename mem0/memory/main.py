@@ -1869,14 +1869,25 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        deleted_count = 0
+        processed_memory_ids = set()
+        while True:
+            memories = [
+                memory
+                for memory in _vector_store_list_rows(self.vector_store.list(filters=filters))
+                if str(memory.id) not in processed_memory_ids
+            ]
+            if not memories:
+                break
 
-        logger.info(f"Deleted {len(memories)} memories")
+            processed_memory_ids.update(str(memory.id) for memory in memories)
+            for memory in memories:
+                self._delete_memory(memory.id)
+                deleted_count += 1
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        logger.info(f"Deleted {deleted_count} memories")
+
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3501,26 +3512,35 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        deleted_count = 0
+        processed_memory_ids = set()
+        errors = []
+        while True:
+            listed = await asyncio.to_thread(self.vector_store.list, filters=filters)
+            memories = [
+                memory for memory in _vector_store_list_rows(listed) if str(memory.id) not in processed_memory_ids
+            ]
+            if not memories:
+                break
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            processed_memory_ids.update(str(memory.id) for memory in memories)
+            delete_tasks = [self._delete_memory(memory.id, skip_entity_cleanup=True) for memory in memories]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            batch_errors = [result for result in results if isinstance(result, BaseException)]
+            errors.extend(batch_errors)
+            deleted_count += len(results) - len(batch_errors)
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            logger.warning("Failed to delete %d out of %d memories", len(errors), len(processed_memory_ids))
             for err in errors:
                 logger.warning("Delete error: %s", err)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:

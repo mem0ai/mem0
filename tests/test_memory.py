@@ -1,7 +1,7 @@
 import json
 import sys
 from datetime import datetime
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -1001,6 +1001,36 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     assert mock_vector_store.delete.call_count == 2
 
 
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_deletes_more_than_one_vector_store_page(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    memory = AsyncMemory(MemoryConfig())
+    mock_memories = [MagicMock(id=str(index)) for index in range(101)]
+    mock_vector_store.list.side_effect = [[mock_memories[:100]], [mock_memories[100:]], [[]]]
+    memory._delete_memory = AsyncMock()
+
+    result = await memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.list.call_count == 3
+    assert [call.args[0] for call in memory._delete_memory.await_args_list] == [
+        memory.id for memory in mock_memories
+    ]
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -1231,8 +1261,9 @@ class TestHybridSearchWarning:
     def test_warning_for_store_without_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithoutKeywordSearch(VectorStoreBase):
             def create_col(self, *a, **kw): pass
@@ -1267,8 +1298,9 @@ class TestHybridSearchWarning:
     def test_no_warning_for_store_with_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithKeywordSearch(VectorStoreBase):
             def keyword_search(self, query, top_k=5, filters=None):
