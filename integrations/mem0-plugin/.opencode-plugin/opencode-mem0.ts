@@ -279,6 +279,48 @@ const Mem0Plugin: Plugin = async (ctx) => {
   const mem0 = apiUrl
     ? new MemoryClient({apiKey, host: apiUrl.replace(/\/+$/, "")})
     : new MemoryClient({apiKey});
+
+  // Self-hosted Mem0 servers (this deployment) authenticate with `X-API-Key`
+  // and expose UNVERSIONED routes (`/memories`, `/search`, `/entities`), while
+  // the hosted platform uses `Authorization: Token <key>` and versioned routes
+  // (`/v3/memories/add/`, `/v3/memories/search/`, ...). The mem0ai SDK hardcodes
+  // both the `Token` scheme and the versioned paths, so when a self-hosted
+  // `host` is configured we override the request to send `X-API-Key` and rewrite
+  // the SDK's versioned URLs to the server's unversioned routes. Hosted calls
+  // (no `host` set) are untouched.
+  if (apiUrl) {
+    const rewriteSelfHostedUrl = (url: string): string => {
+      // `${host}/v3/memories/add/` -> `${host}/memories` (create)
+      // `${host}/v3/memories/search/` -> `${host}/search` (search)
+      // `${host}/v3/memories/` -> `${host}/memories`
+      // `${host}/v1/memories/{id}/` -> `${host}/memories/{id}`
+      // `${host}/v1/memories/{id}/history/` -> `${host}/memories/{id}/history`
+      // `${host}/v1/memories/?q` -> `${host}/memories?q`
+      // `${host}/v1/entities/...` -> `${host}/entities/...`
+      // `${host}/v1/ping/` -> `${host}/configure` (server has no /ping; /configure is 200)
+      return url
+        .replace(/\/v3\/memories\/add\/?$/, "/memories")
+        .replace(/\/v3\/memories\/search\/?$/, "/search")
+        .replace(/\/v3\/memories\/?$/, "/memories")
+        .replace(/\/v1\/memories\/([^/]+)\/history\/?$/, "/memories/$1/history")
+        .replace(/\/v1\/memories\/([^/]+)\/?(\?.*)?$/, "/memories/$1$2")
+        .replace(/\/v1\/memories\/?(\?.*)?$/, "/memories$1")
+        .replace(/\/v1\/entities\/?/, "/entities/")
+        .replace(/\/v1\/ping\/?$/, "/configure");
+    };
+    const originalFetch = mem0._fetchWithErrorHandling.bind(mem0);
+    mem0._fetchWithErrorHandling = async (url: string, options: any = {}) => {
+      const headers = {...(options.headers || {})};
+      delete headers["Authorization"];
+      headers["X-API-Key"] = apiKey;
+      return originalFetch(rewriteSelfHostedUrl(url), {...options, headers});
+    };
+    if (mem0.client?.defaults?.headers) {
+      delete (mem0.client.defaults.headers as any)["Authorization"];
+      (mem0.client.defaults.headers as any)["X-API-Key"] = apiKey;
+    }
+  }
+
   const userId = await getUserId();
   const appId = await getProjectId($);
   const branch = await getBranch($);
