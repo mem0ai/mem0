@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.memory.main import AsyncMemory, Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -31,6 +31,51 @@ def memory_instance():
 
         config = MemoryConfig(version="v1.1")
         return Memory(config)
+
+
+@pytest.fixture
+def async_memory_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        return AsyncMemory(config)
+
+
+def _memories_beyond_expiration_window():
+    expired = [
+        Mock(
+            id=f"expired-{index}",
+            payload={
+                "data": f"Expired memory {index}",
+                "user_id": "test_user",
+                "expiration_date": "2000-01-01",
+            },
+            score=1 - index / 1000,
+        )
+        for index in range(61)
+    ]
+    active = [
+        Mock(
+            id=f"active-{index}",
+            payload={
+                "data": f"Active memory {index}",
+                "user_id": "test_user",
+                "expiration_date": "2999-01-01",
+            },
+            score=0.8 - index / 1000,
+        )
+        for index in range(2)
+    ]
+    return expired + active
 
 
 @pytest.fixture
@@ -151,6 +196,39 @@ def test_search_hides_expired_memories_by_default(memory_instance):
 
     assert [memory["memory"] for memory in result["results"]] == ["Active memory"]
     assert result["results"][0]["expiration_date"] == "2999-01-01"
+
+
+def test_search_expands_window_until_top_k_active_memories(memory_instance):
+    memories = _memories_beyond_expiration_window()
+    memory_instance.vector_store.search = Mock(side_effect=lambda **kwargs: memories[: kwargs["top_k"]])
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"}, top_k=2)
+
+    assert [memory["id"] for memory in result["results"]] == ["active-0", "active-1"]
+    assert [call.kwargs["top_k"] for call in memory_instance.vector_store.search.call_args_list] == [60, 120]
+
+
+@pytest.mark.asyncio
+async def test_async_search_expands_window_until_top_k_active_memories(async_memory_instance):
+    memories = _memories_beyond_expiration_window()
+    async_memory_instance.vector_store.search = Mock(side_effect=lambda **kwargs: memories[: kwargs["top_k"]])
+    async_memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    async_memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
+        result = await async_memory_instance.search("test query", filters={"user_id": "test_user"}, top_k=2)
+
+    assert [memory["id"] for memory in result["results"]] == ["active-0", "active-1"]
+    assert [call.kwargs["top_k"] for call in async_memory_instance.vector_store.search.call_args_list] == [60, 120]
 
 
 def test_search_can_show_expired_memories(memory_instance):
@@ -318,6 +396,41 @@ def test_get_all_hides_expired_memories_by_default(memory_instance):
 
     assert [memory["memory"] for memory in result["results"]] == ["Active memory"]
     assert result["results"][0]["expiration_date"] == "2999-01-01"
+
+
+def test_get_all_expands_window_until_top_k_active_memories(memory_instance):
+    memories = _memories_beyond_expiration_window()
+    memory_instance.vector_store.list = Mock(
+        side_effect=lambda **kwargs: (memories[: kwargs["top_k"]], None)
+    )
+
+    result = memory_instance.get_all(filters={"user_id": "test_user"}, top_k=2)
+
+    assert [memory["id"] for memory in result["results"]] == ["active-0", "active-1"]
+    assert [call.kwargs["top_k"] for call in memory_instance.vector_store.list.call_args_list] == [60, 120]
+
+
+def test_get_all_stops_when_provider_window_does_not_grow(memory_instance):
+    expired_memories = _memories_beyond_expiration_window()[:60]
+    memory_instance.vector_store.list = Mock(return_value=(expired_memories, None))
+
+    result = memory_instance.get_all(filters={"user_id": "test_user"}, top_k=2)
+
+    assert result["results"] == []
+    assert [call.kwargs["top_k"] for call in memory_instance.vector_store.list.call_args_list] == [60, 120]
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_expands_window_until_top_k_active_memories(async_memory_instance):
+    memories = _memories_beyond_expiration_window()
+    async_memory_instance.vector_store.list = Mock(
+        side_effect=lambda **kwargs: (memories[: kwargs["top_k"]], None)
+    )
+
+    result = await async_memory_instance.get_all(filters={"user_id": "test_user"}, top_k=2)
+
+    assert [memory["id"] for memory in result["results"]] == ["active-0", "active-1"]
+    assert [call.kwargs["top_k"] for call in async_memory_instance.vector_store.list.call_args_list] == [60, 120]
 
 
 def test_get_all_can_show_expired_memories(memory_instance):
