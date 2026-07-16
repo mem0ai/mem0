@@ -26,6 +26,7 @@ export type Mem0Config = {
   autoRecall: boolean;
   searchThreshold: number;
   topK: number;
+  recallTimeoutMs: number;
   // Setup state
   needsSetup?: boolean;
   // Agentic harness skills
