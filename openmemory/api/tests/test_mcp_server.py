@@ -5,16 +5,19 @@ transport.  Tests exercise the full JSON-RPC flow — initialize, tools/list,
 tools/call — as well as error handling and context-variable isolation.
 """
 
+import json
 import os
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+from uuid import uuid4
 
 # Set dummy keys before any imports that trigger client initialization
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-
 from app.mcp_server import client_name_var, mcp, mcp_router, user_id_var
+from httpx import ASGITransport, AsyncClient
 
 # MCP Streamable HTTP requires the Accept header to include application/json.
 # Including text/event-stream as well satisfies GET (SSE) requests.
@@ -43,6 +46,28 @@ async def client(test_app):
         yield ac
 
 
+@pytest.fixture
+def memory_tool_dependencies(monkeypatch):
+    """Mock the database and OSS memory client used by MCP memory tools."""
+    from app import mcp_server
+
+    memory_id = uuid4()
+    user = SimpleNamespace(id=uuid4())
+    app = SimpleNamespace(id=uuid4(), is_active=True)
+    memory = SimpleNamespace(id=memory_id)
+
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = [memory]
+    monkeypatch.setattr(mcp_server, "SessionLocal", MagicMock(return_value=db))
+    monkeypatch.setattr(mcp_server, "get_user_and_app", MagicMock(return_value=(user, app)))
+    monkeypatch.setattr(mcp_server, "check_memory_access_permissions", MagicMock(return_value=True))
+
+    memory_client = MagicMock()
+    monkeypatch.setattr(mcp_server, "get_memory_client_safe", MagicMock(return_value=memory_client))
+
+    return memory_client, memory_id
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -67,6 +92,23 @@ def _initialize_payload(req_id: int = 1) -> dict:
         },
         req_id=req_id,
     )
+
+
+def _registered_route_paths(app) -> list[str]:
+    """Return route paths across flattened and nested FastAPI routers."""
+    paths = []
+
+    def collect(routes):
+        for route in routes:
+            path = getattr(route, "path", None)
+            if path:
+                paths.append(path)
+            included_router = getattr(route, "original_router", None)
+            if included_router is not None:
+                collect(included_router.routes)
+
+    collect(app.routes)
+    return paths
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +255,64 @@ class TestStreamableHTTPProtocol:
         assert "error" in data or (
             "result" in data and data["result"].get("isError")
         )
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_vector_store_top_k(self, client, memory_tool_dependencies):
+        memory_client, memory_id = memory_tool_dependencies
+        memory_client.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory_client.vector_store.search.return_value = [
+            SimpleNamespace(
+                id=str(memory_id),
+                score=0.9,
+                payload={"data": "User likes hiking", "hash": "hash-1"},
+            )
+        ]
+
+        await client.post(
+            "/mcp/testclient/http/alice",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+        resp = await client.post(
+            "/mcp/testclient/http/alice",
+            json=_jsonrpc("tools/call", {"name": "search_memory", "arguments": {"query": "hiking"}}, req_id=2),
+            headers=MCP_HEADERS,
+        )
+
+        assert resp.status_code == 200
+        result = resp.json()["result"]
+        assert result.get("isError") is not True
+        assert json.loads(result["content"][0]["text"])["results"][0]["id"] == str(memory_id)
+        memory_client.vector_store.search.assert_called_once_with(
+            query="hiking",
+            vectors=[0.1, 0.2, 0.3],
+            top_k=10,
+            filters={"user_id": "alice"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_list_memories_uses_filters(self, client, memory_tool_dependencies):
+        memory_client, memory_id = memory_tool_dependencies
+        memory_client.get_all.return_value = {
+            "results": [{"id": str(memory_id), "memory": "User likes hiking", "hash": "hash-1"}]
+        }
+
+        await client.post(
+            "/mcp/testclient/http/alice",
+            json=_initialize_payload(),
+            headers=MCP_HEADERS,
+        )
+        resp = await client.post(
+            "/mcp/testclient/http/alice",
+            json=_jsonrpc("tools/call", {"name": "list_memories", "arguments": {}}, req_id=2),
+            headers=MCP_HEADERS,
+        )
+
+        assert resp.status_code == 200
+        result = resp.json()["result"]
+        assert result.get("isError") is not True
+        assert json.loads(result["content"][0]["text"])[0]["id"] == str(memory_id)
+        memory_client.get_all.assert_called_once_with(filters={"user_id": "alice"})
 
     @pytest.mark.asyncio
     async def test_unknown_jsonrpc_method(self, client):
@@ -384,13 +484,13 @@ class TestRouteRegistration:
     """Verify all expected routes are registered in the router."""
 
     def test_sse_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+        routes = _registered_route_paths(test_app)
         assert "/mcp/{client_name}/sse/{user_id}" in routes
 
     def test_sse_post_messages_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+        routes = _registered_route_paths(test_app)
         assert "/mcp/messages/" in routes or "/mcp/{client_name}/sse/{user_id}/messages/" in routes
 
     def test_streamable_http_route_is_registered(self, test_app):
-        routes = [r.path for r in test_app.routes if hasattr(r, "path")]
+        routes = _registered_route_paths(test_app)
         assert "/mcp/{client_name}/http/{user_id}" in routes

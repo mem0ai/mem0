@@ -22,7 +22,6 @@ import logging
 import uuid
 
 import anyio
-
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
@@ -179,7 +178,7 @@ async def search_memory(query: str) -> str:
             hits = memory_client.vector_store.search(
                 query=query, 
                 vectors=embeddings, 
-                limit=10, 
+                top_k=10,
                 filters=filters,
             )
 
@@ -245,7 +244,7 @@ async def list_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get all memories
-            memories = memory_client.get_all(user_id=uid)
+            memories = memory_client.get_all(filters={"user_id": uid})
             filtered_memories = []
 
             # Filter memories based on permissions
@@ -464,14 +463,15 @@ async def handle_sse(request: Request):
 
 @mcp_router.post("/messages/")
 async def handle_get_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message(request)
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
 async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message(request)
 
-async def handle_post_message(request: Request):
+
+async def _handle_post_message(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()
