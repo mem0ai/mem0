@@ -284,6 +284,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
   const branch = await getBranch($);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
+  let currentAgent = "main";
   const globalSearch = loadGlobalSearch();
 
   let initialized = false;
@@ -434,7 +435,7 @@ Identity context (resolved at plugin startup):
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
           const effScope: Scope = args.scope ? asScope(args.scope) : loadDefaultScope();
           const sp = scopeWriteParams(effScope, userId, appId, sessionId);
-          const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
+          const finalUserId = args.user_id ?? sp.user_id;
           const finalAppId = args.app_id ?? sp.app_id;
 
           const meta = args.metadata ?? {};
@@ -456,7 +457,7 @@ Identity context (resolved at plugin startup):
               user_id: finalUserId,
               app_id: finalAppId,
               run_id: sp.run_id,
-              agent_id: args.agent_id,
+              agent_id: args.agent_id ?? sp.agent_id ?? currentAgent,
               metadata: meta,
               infer
             } as any
@@ -570,7 +571,7 @@ Identity context (resolved at plugin startup):
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
           const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, sessionId) : null;
           const res = await mem0.deleteAll({
-            user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
+            user_id: sp ? sp.user_id : (args.user_id ?? userId),
             app_id: sp ? sp.app_id : (args.app_id ?? appId),
             run_id: sp?.run_id,
             agent_id: args.agent_id,
@@ -630,6 +631,7 @@ Identity context (resolved at plugin startup):
   };
 
   async function chatMessageHook(input: any, output: any) {
+    currentAgent = input.agent || "main";
     const userText = extractUserText(input, output);
     if (!userText || userText.length < 10) return;
 
@@ -834,6 +836,8 @@ Identity context (resolved at plugin startup):
               session_id: sessionId,
               branch,
             },
+            agent_id: currentAgent,
+            agent: currentAgent,
             infer: true,
           } as any);
           stats.adds++;
@@ -974,6 +978,8 @@ Identity context (resolved at plugin startup):
               session_id: compactSessionId,
               branch,
             },
+            agent_id: currentAgent,
+            agent: currentAgent,
             infer: true,
           } as any);
         } catch {
@@ -991,7 +997,7 @@ Identity context (resolved at plugin startup):
       if (memories.length > 0 && output?.context) {
         const lines = memories.map((m) => `- ${m.memory}`).join("\n");
         output.context.push(
-          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool.`,
+          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool. Tag memories with agent_id "${currentAgent}" so they can be recalled per-agent.`,
         );
       }
     } catch {
