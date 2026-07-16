@@ -280,7 +280,7 @@ def test_delete(memory_instance):
 
 def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
-    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.list = Mock(side_effect=[(mock_memories, None), ([], None)])
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
 
@@ -291,6 +291,22 @@ def test_delete_all(memory_instance):
     memory_instance.vector_store.reset.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_deletes_more_than_one_vector_store_page(memory_instance):
+    mock_memories = [Mock(id=str(index)) for index in range(101)]
+    memory_instance.vector_store.list = Mock(
+        side_effect=[(mock_memories[:100], "next-page"), (mock_memories[100:], None), ([], None)]
+    )
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert memory_instance.vector_store.list.call_count == 3
+    assert [call.args[0] for call in memory_instance._delete_memory.call_args_list] == [
+        memory.id for memory in mock_memories
+    ]
 
 
 def test_get_all(memory_instance):
