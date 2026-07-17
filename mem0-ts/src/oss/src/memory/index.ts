@@ -101,6 +101,14 @@ const ENTITY_PARAMS = [
   "runId",
 ];
 
+// Identity fields that scope every search()/getAll()/deleteAll() call and are
+// immutable after creation. Derived from ENTITY_PARAMS (which already covers
+// user_id/agent_id/run_id in both snake_case and camelCase — the default vector
+// store promotes the camelCase aliases to snake_case on read) plus actor_id,
+// which has no camelCase alias. update() strips these from caller metadata so it
+// can neither overwrite an existing scope nor inject a new one.
+const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
+
 /**
  * Validates that no top-level entity parameters are passed in config.
  * @throws Error if entity params are found at top level
@@ -1941,13 +1949,11 @@ export class Memory {
       existingEmbeddings[newData] ||
       (await this.embedder.embed(newData, "update"));
 
-    // Identity fields scope every search()/getAll()/deleteAll() call and are
-    // immutable after creation. Strip them from the incoming metadata before the
-    // spread so caller-supplied metadata can neither overwrite an existing scope
-    // nor inject a brand-new one on a memory that never had it — either would
+    // Strip identity keys from the incoming metadata before the spread so
+    // caller-supplied metadata can neither overwrite an existing scope nor
+    // inject a brand-new one on a memory that never had it — either would
     // silently move the memory across tenants or grant it a scope it never had.
     // Mirrors the Python fix (issues #6277 / #6278, TS twin #6342 / #6367).
-    const IDENTITY_KEYS = ["actor_id", "user_id", "agent_id", "run_id"];
     const sanitizedMetadata = metadata
       ? Object.fromEntries(
           Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),

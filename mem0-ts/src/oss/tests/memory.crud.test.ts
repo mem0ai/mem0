@@ -282,6 +282,43 @@ describe("Memory - update()", () => {
     });
     expect(agentList.results.map((m) => m.id)).not.toContain(id);
   });
+
+  // The default vector store promotes camelCase aliases (userId/agentId/runId)
+  // to their snake_case identity keys on read (normalizePayload). So stripping
+  // only snake_case keys leaves an injection path open via the camelCase alias.
+  // Metadata must not inject an identity scope through either casing.
+  test("metadata cannot inject an identity field via camelCase alias", async () => {
+    const runId = `run_camel_${Date.now()}`;
+    const attacker = `attacker_camel_${Date.now()}`;
+    const addResult: SearchResult = await memory.add("Run-scoped secret", {
+      runId,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+
+    // camelCase aliases attempt to inject new scopes.
+    await memory.update(id, {
+      text: "Updated text",
+      metadata: { userId: attacker, agentId: attacker },
+    });
+
+    // Still reachable under its original run_id scope...
+    const runList: SearchResult = await memory.getAll({
+      filters: { run_id: runId },
+    });
+    expect(runList.results.map((m) => m.id)).toContain(id);
+
+    // ...and the injected scopes must not resolve to it, through either casing.
+    const userList: SearchResult = await memory.getAll({
+      filters: { user_id: attacker },
+    });
+    expect(userList.results.map((m) => m.id)).not.toContain(id);
+
+    const agentList: SearchResult = await memory.getAll({
+      filters: { agent_id: attacker },
+    });
+    expect(agentList.results.map((m) => m.id)).not.toContain(id);
+  });
 });
 
 // ─── update() options: text / data / metadata / expirationDate ───
