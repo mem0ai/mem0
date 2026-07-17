@@ -361,9 +361,7 @@ def run_init(
                         "Set MEM0_API_KEY (and restart Codex/Cursor MCP if needed) "
                         "before plugin MCP auth will succeed."
                     ),
-                    "claim_hint": envelope.get(
-                        "claim_command", "mem0 init --email <your-email>"
-                    ),
+                    "claim_hint": envelope.get("claim_command", "mem0 init --email <your-email>"),
                 },
             )
         _fire_init("agent")
