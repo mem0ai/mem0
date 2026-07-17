@@ -46,3 +46,21 @@ def test_embed_removes_newlines(mock_fastembed_client):
     mock_fastembed_client.embed.assert_called_once_with("Hello world")
     assert isinstance(embedding, list)
     assert embedding == [0.7, 0.8, 0.9]
+
+
+def test_forwards_offline_cache_configuration():
+    config = BaseEmbedderConfig(
+        model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        embedding_dims=384,
+        cache_dir="/models/fastembed",
+        local_files_only=True,
+    )
+
+    with patch("mem0.embeddings.fastembed.TextEmbedding") as mock_fastembed:
+        FastEmbedEmbedding(config)
+
+        mock_fastembed.assert_called_once_with(
+            model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            cache_dir="/models/fastembed",
+            local_files_only=True,
+        )

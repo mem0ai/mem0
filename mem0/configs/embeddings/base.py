@@ -16,6 +16,9 @@ class BaseEmbedderConfig(ABC):
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         embedding_dims: Optional[int] = None,
+        # FastEmbed specific
+        cache_dir: Optional[str] = None,
+        local_files_only: bool = False,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
         # Openai specific
@@ -50,6 +53,10 @@ class BaseEmbedderConfig(ABC):
         :type api_key: Optional[str], optional
         :param embedding_dims: The number of dimensions in the embedding, defaults to None
         :type embedding_dims: Optional[int], optional
+        :param cache_dir: FastEmbed model cache directory, defaults to None
+        :type cache_dir: Optional[str], optional
+        :param local_files_only: Prevent FastEmbed from downloading model files, defaults to False
+        :type local_files_only: bool, optional
         :param ollama_base_url: Base URL for the Ollama API, defaults to None
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
@@ -78,6 +85,10 @@ class BaseEmbedderConfig(ABC):
         self.api_key = api_key
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
+
+        # FastEmbed specific
+        self.cache_dir = cache_dir
+        self.local_files_only = local_files_only
 
         # AzureOpenAI specific
         self.http_client_proxies = http_client_proxies

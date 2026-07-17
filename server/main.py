@@ -119,6 +119,13 @@ DEFAULT_EMBEDDER_MODEL = os.environ.get(
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
 )
 DEFAULT_EMBEDDING_DIMS = int(os.environ.get("MEM0_EMBEDDING_DIMS", "384"))
+FASTEMBED_CACHE_PATH = os.environ.get("FASTEMBED_CACHE_PATH")
+FASTEMBED_LOCAL_FILES_ONLY = os.environ.get("FASTEMBED_LOCAL_FILES_ONLY", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -138,7 +145,15 @@ DEFAULT_CONFIG = {
         "provider": "groq",
         "config": {"api_key": GROQ_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
     },
-    "embedder": {"provider": "fastembed", "config": {"model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {
+        "provider": "fastembed",
+        "config": {
+            "model": DEFAULT_EMBEDDER_MODEL,
+            "embedding_dims": DEFAULT_EMBEDDING_DIMS,
+            "cache_dir": FASTEMBED_CACHE_PATH,
+            "local_files_only": FASTEMBED_LOCAL_FILES_ONLY,
+        },
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 
