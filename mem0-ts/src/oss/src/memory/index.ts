@@ -1941,27 +1941,27 @@ export class Memory {
       existingEmbeddings[newData] ||
       (await this.embedder.embed(newData, "update"));
 
+    // Identity fields scope every search()/getAll()/deleteAll() call and are
+    // immutable after creation. Strip them from the incoming metadata before the
+    // spread so caller-supplied metadata can neither overwrite an existing scope
+    // nor inject a brand-new one on a memory that never had it — either would
+    // silently move the memory across tenants or grant it a scope it never had.
+    // Mirrors the Python fix (issues #6277 / #6278, TS twin #6342 / #6367).
+    const IDENTITY_KEYS = ["actor_id", "user_id", "agent_id", "run_id"];
+    const sanitizedMetadata = metadata
+      ? Object.fromEntries(
+          Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),
+        )
+      : metadata;
+
     const newMetadata = {
       ...existingMemory.payload,
-      ...metadata,
+      ...sanitizedMetadata,
       data: newData,
       hash: createHash("md5").update(newData).digest("hex"),
       textLemmatized: lemmatizeForBm25(newData),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      // Identity fields scope every search()/getAll()/deleteAll() call and are
-      // immutable after creation. Re-pin them after the spread so caller-supplied
-      // metadata can never silently move a memory into another tenant's scope
-      // (mirror of the Python P0 fix, issues #6277 / #6278).
-      ...(existingMemory.payload.user_id !== undefined && {
-        user_id: existingMemory.payload.user_id,
-      }),
-      ...(existingMemory.payload.agent_id !== undefined && {
-        agent_id: existingMemory.payload.agent_id,
-      }),
-      ...(existingMemory.payload.run_id !== undefined && {
-        run_id: existingMemory.payload.run_id,
-      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);

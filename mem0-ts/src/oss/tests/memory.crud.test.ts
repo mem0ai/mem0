@@ -240,6 +240,48 @@ describe("Memory - update()", () => {
     });
     expect(bList.results.map((m) => m.id)).not.toContain(id);
   });
+
+  // A memory created with only some identity fields (e.g. run_id only — allowed,
+  // since add()/getAll() require just one of user_id/agent_id/run_id) must not
+  // let update() metadata *inject* a brand-new identity key, granting the memory
+  // a scope it never had. Covers the injection case (not just overwrite) and
+  // actor_id, matching #6367 / the Python fix in #6278.
+  test("metadata cannot inject a new identity field on update", async () => {
+    const runId = `run_only_${Date.now()}`;
+    const attacker = `attacker_${Date.now()}`;
+    const addResult: SearchResult = await memory.add("Run-scoped secret", {
+      runId,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+
+    // Memory has no user_id/agent_id/actor_id — metadata tries to inject them.
+    await memory.update(id, {
+      text: "Updated text",
+      metadata: {
+        user_id: attacker,
+        agent_id: attacker,
+        actor_id: attacker,
+      },
+    });
+
+    // Still reachable under its original run_id scope...
+    const runList: SearchResult = await memory.getAll({
+      filters: { run_id: runId },
+    });
+    expect(runList.results.map((m) => m.id)).toContain(id);
+
+    // ...and the injected identity scopes must not resolve to it.
+    const userList: SearchResult = await memory.getAll({
+      filters: { user_id: attacker },
+    });
+    expect(userList.results.map((m) => m.id)).not.toContain(id);
+
+    const agentList: SearchResult = await memory.getAll({
+      filters: { agent_id: attacker },
+    });
+    expect(agentList.results.map((m) => m.id)).not.toContain(id);
+  });
 });
 
 // ─── update() options: text / data / metadata / expirationDate ───
