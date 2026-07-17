@@ -1041,3 +1041,57 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         self.assertIn("mem0ai[extras]", joined)  # points at the right install
         self.assertNotIn("pip install fastembed", joined)  # not the bare package
         self.assertNotIn("\u2014", joined)  # no em-dash
+
+
+
+    def test_get_bm25_encoder_passes_specific_model_path_as_cache_dir(self):
+        """#6361: offline BM25 via bm25_specific_model_path -> SparseTextEmbedding(cache_dir=...)."""
+        import types
+
+        self.qdrant._bm25_encoder = None
+        self.qdrant.bm25_model_name = "Qdrant/bm25"
+        self.qdrant.bm25_specific_model_path = "/opt/models/fastembed-cache"
+
+        mock_encoder = MagicMock(name="SparseTextEmbedding")
+        mod = types.ModuleType("fastembed")
+        mod.SparseTextEmbedding = MagicMock(return_value=mock_encoder)
+
+        with patch.dict("sys.modules", {"fastembed": mod}):
+            result = self.qdrant._get_bm25_encoder()
+
+        self.assertIs(result, mock_encoder)
+        mod.SparseTextEmbedding.assert_called_once_with(
+            model_name="Qdrant/bm25",
+            cache_dir="/opt/models/fastembed-cache",
+        )
+
+    def test_get_bm25_encoder_without_path_keeps_default_constructor(self):
+        """Without bm25_specific_model_path, only model_name is forwarded."""
+        import types
+
+        self.qdrant._bm25_encoder = None
+        self.qdrant.bm25_model_name = "Qdrant/bm25"
+        self.qdrant.bm25_specific_model_path = None
+
+        mock_encoder = MagicMock(name="SparseTextEmbedding")
+        mod = types.ModuleType("fastembed")
+        mod.SparseTextEmbedding = MagicMock(return_value=mock_encoder)
+
+        with patch.dict("sys.modules", {"fastembed": mod}):
+            result = self.qdrant._get_bm25_encoder()
+
+        self.assertIs(result, mock_encoder)
+        mod.SparseTextEmbedding.assert_called_once_with(model_name="Qdrant/bm25")
+
+
+def test_qdrant_init_stores_bm25_path_options():
+    client_mock = MagicMock(spec=QdrantClient)
+    q = Qdrant(
+        collection_name="c",
+        embedding_model_dims=8,
+        client=client_mock,
+        bm25_model_name="Custom/bm25",
+        bm25_specific_model_path="/var/cache/bm25",
+    )
+    assert q.bm25_model_name == "Custom/bm25"
+    assert q.bm25_specific_model_path == "/var/cache/bm25"

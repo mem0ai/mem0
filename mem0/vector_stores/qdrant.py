@@ -39,6 +39,8 @@ class Qdrant(VectorStoreBase):
         api_key: str = None,
         https: bool | None = None,
         on_disk: bool = False,
+        bm25_model_name: str = "Qdrant/bm25",
+        bm25_specific_model_path: str | None = None,
     ):
         """
         Initialize the Qdrant vector store.
@@ -56,6 +58,9 @@ class Qdrant(VectorStoreBase):
                 Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
+            bm25_model_name (str, optional): fastembed SparseTextEmbedding model name. Defaults to "Qdrant/bm25".
+            bm25_specific_model_path (str, optional): Local cache directory for a pre-downloaded BM25 model so
+                hybrid search works without network access. Passed to SparseTextEmbedding as cache_dir.
         """
         if client:
             self.client = client
@@ -83,6 +88,8 @@ class Qdrant(VectorStoreBase):
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.on_disk = on_disk
+        self.bm25_model_name = bm25_model_name or "Qdrant/bm25"
+        self.bm25_specific_model_path = bm25_specific_model_path
         self._bm25_encoder = None
         # Whether this collection has the `bm25` named sparse vector slot.
         # Pre-v3 collections lack it; writing a `bm25` sparse vector into such a
@@ -95,8 +102,20 @@ class Qdrant(VectorStoreBase):
         if self._bm25_encoder is None:
             try:
                 from fastembed import SparseTextEmbedding
-                self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
-                logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
+
+                kwargs = {"model_name": self.bm25_model_name}
+                if self.bm25_specific_model_path:
+                    # Offline / air-gapped: load weights from a pre-populated cache dir.
+                    kwargs["cache_dir"] = self.bm25_specific_model_path
+                self._bm25_encoder = SparseTextEmbedding(**kwargs)
+                if self.bm25_specific_model_path:
+                    logger.info(
+                        "BM25 encoder loaded (fastembed %s, cache_dir=%s)",
+                        self.bm25_model_name,
+                        self.bm25_specific_model_path,
+                    )
+                else:
+                    logger.info("BM25 encoder loaded (fastembed %s)", self.bm25_model_name)
             except ImportError:
                 logger.warning(
                     "fastembed not installed - BM25 keyword search disabled. "

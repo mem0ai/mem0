@@ -35,3 +35,15 @@ def test_qdrant_passes_explicit_https_to_client(monkeypatch):
         port=6333,
         https=False,
     )
+
+
+def test_qdrant_config_accepts_bm25_offline_options():
+    config = QdrantConfig(
+        host="127.0.0.1",
+        port=6333,
+        api_key="test-key",
+        bm25_model_name="Qdrant/bm25",
+        bm25_specific_model_path="/models/cache",
+    )
+    assert config.bm25_model_name == "Qdrant/bm25"
+    assert config.bm25_specific_model_path == "/models/cache"
