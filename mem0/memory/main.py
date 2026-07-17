@@ -134,6 +134,11 @@ _SENSITIVE_SUFFIXES = (
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 
+# Tenant-scoping fields that update() must never let caller-supplied metadata
+# set or overwrite (issues #4490, #6277): they determine every search()/
+# get_all()/delete_all() call's scope.
+_IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
+
 
 def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
     """Reject top-level entity parameters - must use filters instead."""
@@ -1991,22 +1996,24 @@ class Memory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            new_metadata.update(metadata)
+            # actor_id/user_id/agent_id/run_id are immutable after creation
+            # (issue #4490, extended here to the tenant-scoping trio): they
+            # scope every search()/get_all()/delete_all() call, so letting
+            # caller-supplied metadata set or overwrite them would silently
+            # move a memory into another tenant's scope (or inject a new
+            # scope for memories that never had one) and make it unreachable
+            # via the original tenant's delete_all(). Strip them from the
+            # incoming metadata before merging, since new_metadata already
+            # carries whichever of them existing_memory.payload had.
+            new_metadata.update(
+                {k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS}
+            )
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490). user_id/agent_id/run_id
-        # are likewise immutable: they scope every search()/get_all()/delete_all() call,
-        # so letting caller-supplied metadata overwrite them would silently move a
-        # memory into another tenant's scope and make it unreachable via the original
-        # tenant's delete_all().
-        for _identity_key in ("actor_id", "user_id", "agent_id", "run_id"):
-            if _identity_key in existing_memory.payload:
-                new_metadata[_identity_key] = existing_memory.payload[_identity_key]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3662,22 +3669,24 @@ class AsyncMemory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            new_metadata.update(metadata)
+            # actor_id/user_id/agent_id/run_id are immutable after creation
+            # (issue #4490, extended here to the tenant-scoping trio): they
+            # scope every search()/get_all()/delete_all() call, so letting
+            # caller-supplied metadata set or overwrite them would silently
+            # move a memory into another tenant's scope (or inject a new
+            # scope for memories that never had one) and make it unreachable
+            # via the original tenant's delete_all(). Strip them from the
+            # incoming metadata before merging, since new_metadata already
+            # carries whichever of them existing_memory.payload had.
+            new_metadata.update(
+                {k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS}
+            )
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490). user_id/agent_id/run_id
-        # are likewise immutable: they scope every search()/get_all()/delete_all() call,
-        # so letting caller-supplied metadata overwrite them would silently move a
-        # memory into another tenant's scope and make it unreachable via the original
-        # tenant's delete_all().
-        for _identity_key in ("actor_id", "user_id", "agent_id", "run_id"):
-            if _identity_key in existing_memory.payload:
-                new_metadata[_identity_key] = existing_memory.payload[_identity_key]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
