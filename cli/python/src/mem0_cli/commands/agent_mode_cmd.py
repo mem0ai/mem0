@@ -54,7 +54,8 @@ def bootstrap_via_backend(
     *,
     source: str | None = None,
     agent_caller: str | None = None,
-) -> None:
+    quiet: bool = False,
+) -> dict[str, Any]:
     """POST /api/v1/auth/agent_mode/ and mutate config in place.
 
     Args:
@@ -65,6 +66,11 @@ def bootstrap_via_backend(
             omitted the flag; the agent can backfill later via
             ``mem0 identify <name>``. Sent to the backend in the request body
             and saved into ``platform.agent_caller`` for local introspection.
+        quiet: When True, skip Rich human-facing banners so callers can emit a
+            single structured JSON success envelope (``mem0 init --agent --json``).
+
+    Returns:
+        The validated backend envelope (at least ``api_key`` and ``default_user_id``).
 
     Raises typer.Exit(1) on failure.
     """
@@ -124,20 +130,35 @@ def bootstrap_via_backend(
     config.defaults.user_id = envelope["default_user_id"]
     save_config(config)
 
-    print_success(console, f"Agent Mode active. Default user_id: {envelope['default_user_id']}")
-    notice = envelope.get("mem0_notice")
-    if notice:
-        console.print(f"\n[yellow]🔔 {notice}[/yellow]\n")
-    else:
-        # Fallback if the backend hasn't deployed the unified notice yet.
-        claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
-        console.print(f"  [{DIM_COLOR}]To claim this account later: {claim_cmd}[/]")
-
-    if not agent_caller:
-        console.print(
-            f"  [{DIM_COLOR}]If you are an AI agent, identify yourself: "
-            f"`mem0 identify <your-name>` (e.g. claude-code, cursor).[/]"
+    if not quiet:
+        print_success(
+            console,
+            f"Agent Mode active. Default user_id: {envelope['default_user_id']}",
         )
+        notice = envelope.get("mem0_notice")
+        if notice:
+            console.print(f"\n[yellow]🔔 {notice}[/yellow]\n")
+        else:
+            # Fallback if the backend hasn't deployed the unified notice yet.
+            claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
+            console.print(f"  [{DIM_COLOR}]To claim this account later: {claim_cmd}[/]")
+
+        # MCP hosts (Codex/Cursor/etc.) read MEM0_API_KEY from the environment,
+        # not from ~/.mem0/config.json. Be explicit so exit 0 is not mistaken for
+        # "plugin MCP is authenticated" after a clean-home bootstrap.
+        console.print(
+            f"  [{DIM_COLOR}]CLI credential saved to ~/.mem0/config.json. "
+            f"MCP transports that require MEM0_API_KEY still need that env var "
+            f"exported (or a host restart after you set it) before they are ready.[/]"
+        )
+
+        if not agent_caller:
+            console.print(
+                f"  [{DIM_COLOR}]If you are an AI agent, identify yourself: "
+                f"`mem0 identify <your-name>` (e.g. claude-code, cursor).[/]"
+            )
+
+    return envelope
 
 
 def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) -> None:

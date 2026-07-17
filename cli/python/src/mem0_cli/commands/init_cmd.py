@@ -334,7 +334,38 @@ def run_init(
         # agent_caller is the agent's self-declared identity from --agent-caller
         # (Proof Editor-style). Env-var auto-detect is still used above to
         # decide we're in an agent context, but never to fill identity.
-        bootstrap_via_backend(config, source=source, agent_caller=agent_caller)
+        json_mode = _is_json_mode()
+        envelope = bootstrap_via_backend(
+            config,
+            source=source,
+            agent_caller=agent_caller,
+            quiet=json_mode,
+        )
+        if json_mode:
+            # Scientists and agents must not treat exit 0 + plain text as
+            # MCP-ready: save_config writes config.json only; plugin_sync
+            # only updates EXISTING env/rc entries (none on a clean home).
+            format_json_envelope(
+                console,
+                command="init",
+                data={
+                    "api_key_saved": True,
+                    "api_key_source": "agent_mode_bootstrap",
+                    "default_user_id": envelope["default_user_id"],
+                    "agent_mode": True,
+                    "config_path": str(CONFIG_FILE),
+                    "mcp_ready": False,
+                    "mcp_credential_source": "config_only",
+                    "next_step": (
+                        "API key is in ~/.mem0/config.json for CLI use. "
+                        "Set MEM0_API_KEY (and restart Codex/Cursor MCP if needed) "
+                        "before plugin MCP auth will succeed."
+                    ),
+                    "claim_hint": envelope.get(
+                        "claim_command", "mem0 init --email <your-email>"
+                    ),
+                },
+            )
         _fire_init("agent")
         return
 
