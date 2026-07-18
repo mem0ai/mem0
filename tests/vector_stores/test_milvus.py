@@ -179,6 +179,32 @@ class TestMilvusDB:
         assert call_args[1]['data']['vectors'] == vector
         assert call_args[1]['data']['metadata'] == payload
 
+    def test_update_omits_text_on_legacy_collection(self, milvus_db, mock_milvus_client):
+        """Legacy collections lack a `text` field, so update must not upsert one (else it's rejected)."""
+        milvus_db._has_bm25_schema = False
+
+        milvus_db.update(
+            vector_id="test_id",
+            vector=[0.1] * 1536,
+            payload={"user_id": "alice", "data": "Updated memory"},
+        )
+
+        data = mock_milvus_client.upsert.call_args[1]['data']
+        assert "text" not in data
+
+    def test_update_includes_text_on_bm25_collection(self, milvus_db, mock_milvus_client):
+        """BM25-capable collections keep the `text` field for full-text search."""
+        milvus_db._has_bm25_schema = True
+
+        milvus_db.update(
+            vector_id="test_id",
+            vector=[0.1] * 1536,
+            payload={"user_id": "alice", "data": "Updated memory"},
+        )
+
+        data = mock_milvus_client.upsert.call_args[1]['data']
+        assert data["text"] == "Updated memory"
+
     def test_delete(self, milvus_db, mock_milvus_client):
         """Test vector deletion."""
         vector_id = "test_id"
