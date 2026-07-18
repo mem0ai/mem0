@@ -1722,18 +1722,30 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters);
-    for (const memory of memories) {
-      await this.deleteMemory(memory.id);
+    let deletedCount = 0;
+    const processedMemoryIds = new Set<string>();
+    while (true) {
+      const [listedMemories] = await this.vectorStore.list(filters);
+      const memories = listedMemories.filter(
+        (memory) => !processedMemoryIds.has(String(memory.id)),
+      );
+      if (memories.length === 0) break;
+
+      for (const memory of memories) {
+        const memoryId = String(memory.id);
+        processedMemoryIds.add(memoryId);
+        await this.deleteMemory(memoryId);
+        deletedCount += 1;
+      }
     }
 
     const result = { message: "Memories deleted successfully!" };
-    if (memories.length > 0) {
+    if (deletedCount > 0) {
       await this._displayDecayUsageNotice({
         triggerFunction: "delete_all",
         triggerSource: "delete_all",
         triggerReason: "bulk_delete",
-        deletedCount: memories.length,
+        deletedCount,
       });
     } else {
       await this._displayFirstRunNotice("delete_all");

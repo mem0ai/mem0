@@ -571,6 +571,45 @@ describe("Memory - deleteAll()", () => {
     expect(remaining.results).toHaveLength(0);
   });
 
+  test("deletes memories across multiple vector-store pages", async () => {
+    const pagedMemory = createMemory();
+    const internals = pagedMemory as any;
+    await internals._ensureInitialized();
+
+    const memories = Array.from({ length: 101 }, (_, index) => ({
+      id: String(index),
+      payload: { data: `Memory ${index}`, user_id: userId },
+    }));
+    const listSpy = jest
+      .spyOn(internals.vectorStore, "list")
+      .mockResolvedValueOnce([memories.slice(0, 100), 101])
+      .mockResolvedValueOnce([memories.slice(100), 1])
+      .mockResolvedValueOnce([[], 0]);
+    const deleteSpy = jest
+      .spyOn(internals, "deleteMemory")
+      .mockResolvedValue(undefined);
+    const noticeSpy = jest
+      .spyOn(internals, "_displayDecayUsageNotice")
+      .mockResolvedValue(undefined);
+
+    const result = await pagedMemory.deleteAll({ userId });
+
+    expect(result).toEqual({ message: "Memories deleted successfully!" });
+    expect(listSpy).toHaveBeenCalledTimes(3);
+    expect(deleteSpy).toHaveBeenCalledTimes(101);
+    expect(deleteSpy.mock.calls.map(([memoryId]) => memoryId)).toEqual(
+      memories.map((item) => item.id),
+    );
+    expect(noticeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ deletedCount: 101 }),
+    );
+
+    listSpy.mockRestore();
+    deleteSpy.mockRestore();
+    noticeSpy.mockRestore();
+    await pagedMemory.reset();
+  });
+
   test("throws when no filter is provided", async () => {
     await expect(memory.deleteAll({} as any)).rejects.toThrow(
       "At least one filter is required to delete all memories",
