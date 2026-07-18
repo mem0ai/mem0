@@ -7,6 +7,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.exceptions import VectorStoreError
 from mem0.memory.main import _entity_collection_name
 from mem0.memory.utils import normalize_facts
 
@@ -812,6 +813,167 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     mock_vector_store.insert.assert_called_once()
 
 
+def _configure_inferred_add_with_insert_failures(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    *,
+    failed_texts,
+):
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.embed_batch.return_value = [[0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]
+    mock_embedder_factory.return_value = embedder
+
+    vector_store = MagicMock()
+    vector_store.search.return_value = []
+
+    def insert(*, vectors, ids, payloads):
+        if len(ids) > 1:
+            raise RuntimeError("batch insert failed")
+        if payloads[0]["data"] in failed_texts:
+            raise RuntimeError(f"insert failed for {payloads[0]['data']}")
+
+    vector_store.insert.side_effect = insert
+    mock_vector_factory.return_value = vector_store
+
+    llm = MagicMock()
+    llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "Persisted fact"}, {"text": "Failed fact"}]}
+    )
+    mock_llm_factory.return_value = llm
+
+    database = MagicMock()
+    database.get_last_messages.return_value = []
+    mock_sqlite.return_value = database
+    return vector_store, database
+
+
+@patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+def test_add_returns_and_links_only_successfully_persisted_memories(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    mock_extract_entities_batch,
+):
+    vector_store, database = _configure_inferred_add_with_insert_failures(
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        failed_texts={"Failed fact"},
+    )
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    result = MemoryClass(MemoryConfig()).add("Remember these facts", user_id="test-user")
+
+    assert [item["memory"] for item in result["results"]] == ["Persisted fact"]
+    history_records = database.batch_add_history.call_args.args[0]
+    assert [record["new_memory"] for record in history_records] == ["Persisted fact"]
+    mock_extract_entities_batch.assert_called_once_with(["Persisted fact"])
+    assert vector_store.insert.call_count == 3
+
+
+@patch("mem0.memory.main.extract_entities_batch")
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+def test_add_raises_when_no_extracted_memory_can_be_persisted(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    mock_extract_entities_batch,
+):
+    _, database = _configure_inferred_add_with_insert_failures(
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        failed_texts={"Persisted fact", "Failed fact"},
+    )
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    with pytest.raises(VectorStoreError, match="Failed to persist extracted memories"):
+        MemoryClass(MemoryConfig()).add("Remember these facts", user_id="test-user")
+
+    database.batch_add_history.assert_not_called()
+    database.save_messages.assert_not_called()
+    mock_extract_entities_batch.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_add_returns_and_links_only_successfully_persisted_memories(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    mock_extract_entities_batch,
+):
+    vector_store, database = _configure_inferred_add_with_insert_failures(
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        failed_texts={"Failed fact"},
+    )
+
+    from mem0.memory.main import AsyncMemory
+
+    result = await AsyncMemory(MemoryConfig()).add("Remember these facts", user_id="test-user")
+
+    assert [item["memory"] for item in result["results"]] == ["Persisted fact"]
+    history_records = database.batch_add_history.call_args.args[0]
+    assert [record["new_memory"] for record in history_records] == ["Persisted fact"]
+    mock_extract_entities_batch.assert_called_once_with(["Persisted fact"])
+    assert vector_store.insert.call_count == 3
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.extract_entities_batch")
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_add_raises_when_no_extracted_memory_can_be_persisted(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    mock_extract_entities_batch,
+):
+    _, database = _configure_inferred_add_with_insert_failures(
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        failed_texts={"Persisted fact", "Failed fact"},
+    )
+
+    from mem0.memory.main import AsyncMemory
+
+    with pytest.raises(VectorStoreError, match="Failed to persist extracted memories"):
+        await AsyncMemory(MemoryConfig()).add("Remember these facts", user_id="test-user")
+
+    database.batch_add_history.assert_not_called()
+    database.save_messages.assert_not_called()
+    mock_extract_entities_batch.assert_not_called()
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -1231,8 +1393,9 @@ class TestHybridSearchWarning:
     def test_warning_for_store_without_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithoutKeywordSearch(VectorStoreBase):
             def create_col(self, *a, **kw): pass
@@ -1267,8 +1430,9 @@ class TestHybridSearchWarning:
     def test_no_warning_for_store_with_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithKeywordSearch(VectorStoreBase):
             def keyword_search(self, query, top_k=5, filters=None):
