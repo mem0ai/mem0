@@ -737,7 +737,7 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_memory_export", []);
 
-    if (!data.memoryExportId && !data.filters) {
+    if (!data.memoryExportId && !data.memory_export_id && !data.filters) {
       throw new Error("Missing memoryExportId or filters");
     }
 
