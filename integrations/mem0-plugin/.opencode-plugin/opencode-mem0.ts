@@ -6,7 +6,7 @@ import type {Plugin} from "@opencode-ai/plugin";
 import {tool} from "@opencode-ai/plugin";
 import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
-import {basename, resolve, dirname} from "path";
+import {resolve, dirname} from "path";
 import {randomBytes} from "crypto";
 import {existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync} from "fs";
 import {homedir} from "os";
@@ -24,7 +24,7 @@ import {
   DREAM_PROTOCOL,
 } from "./dream";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
-import {parseProjectFromRemote, selectActiveProjectPath, type ProjectContext} from "./project";
+import {getBranch, getProjectId, selectActiveProjectPath} from "./project";
 import {resolveApiKey} from "./api-key";
 
 async function getUserId(): Promise<string> {
@@ -34,44 +34,6 @@ async function getUserId(): Promise<string> {
   } catch {
   }
   return process.env.USER || process.env.USERNAME || "unknown";
-}
-
-type ShellCommand = {
-  cwd?: (path: string) => ShellCommand;
-  quiet: () => Promise<{ stdout: { toString(): string } }>;
-};
-
-function commandInProject(command: ShellCommand, projectPath: string): ShellCommand {
-  if (typeof command.cwd === "function") return command.cwd(projectPath);
-  return command;
-}
-
-export async function getProjectId($: any, projectPath: string): Promise<string> {
-  if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
-  try {
-    const r = await commandInProject($`git remote get-url origin`, projectPath).quiet();
-    const project = parseProjectFromRemote(r.stdout.toString());
-    if (project) return project;
-  } catch {
-  }
-  try {
-    const r = await commandInProject($`git rev-parse --show-toplevel`, projectPath).quiet();
-    const top = r.stdout.toString().trim();
-    if (top) return basename(top);
-  } catch {
-  }
-  const selectedBasename = basename(projectPath);
-  if (selectedBasename) return selectedBasename;
-  return basename(process.cwd());
-}
-
-export async function getBranch($: any, projectPath: string): Promise<string> {
-  try {
-    const r = await commandInProject($`git branch --show-current`, projectPath).quiet();
-    return r.stdout.toString().trim() || "main";
-  } catch {
-  }
-  return "main";
 }
 
 function extractMemories(res: any): Array<{ memory: string; id: string }> {

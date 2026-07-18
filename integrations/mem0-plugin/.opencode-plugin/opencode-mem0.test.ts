@@ -1,5 +1,6 @@
 import {afterEach, describe, expect, test} from "bun:test";
-import {getBranch, getProjectId} from "./opencode-mem0";
+import * as opencodeModule from "./opencode-mem0";
+import {getBranch, getProjectId} from "./project";
 
 type ShellCall = {
   command: string;
@@ -103,6 +104,12 @@ describe("getProjectId", () => {
     )).resolves.toBe("mem0ai-mem0");
 
     expect(calls).toEqual([{command: "git remote get-url origin", cwd}]);
+  });
+});
+
+describe("opencode-mem0 entry module", () => {
+  test("exports only the default plugin factory", () => {
+    expect(Object.keys(opencodeModule).sort()).toEqual(["default"]);
   });
 });
 
