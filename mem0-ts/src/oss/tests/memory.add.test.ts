@@ -8,6 +8,118 @@ import type { MemoryConfig, MemoryItem, SearchResult } from "../src/types";
 
 jest.setTimeout(15000);
 
+jest.mock("../src/utils/factory", () => {
+  const { MemoryVectorStore } = jest.requireActual(
+    "../src/vector_stores/memory",
+  );
+  const { MemoryHistoryManager } = jest.requireActual(
+    "../src/storage/MemoryHistoryManager",
+  );
+  const testEmbedding = new Array(1536).fill(0.1);
+
+  class MockEmbedder {
+    embeddingDims = 1536;
+
+    async embed(): Promise<number[]> {
+      return testEmbedding;
+    }
+
+    async embedBatch(texts: string[]): Promise<number[][]> {
+      return texts.map(() => testEmbedding);
+    }
+  }
+
+  class MockLLM {
+    async generateResponse(messages: Array<{ role: string; content: string }>) {
+      const userMsg = messages.find((m) => m.role === "user");
+      const content = userMsg?.content ?? "";
+      const newMsgMatch = content.match(
+        /## New Messages\n([\s\S]*?)(?=\n##|$)/,
+      );
+      const extracted = newMsgMatch
+        ? newMsgMatch[1].trim()
+        : "extracted fact from input";
+
+      return JSON.stringify({
+        memory: [
+          {
+            id: "0",
+            text: extracted,
+            attributed_to: "user",
+          },
+        ],
+      });
+    }
+  }
+
+  return {
+    __esModule: true,
+    EmbedderFactory: {
+      create: jest.fn(() => new MockEmbedder()),
+    },
+    LLMFactory: {
+      create: jest.fn(() => new MockLLM()),
+    },
+    VectorStoreFactory: {
+      create: jest.fn((provider: string, config: any) => {
+        if (provider.toLowerCase() !== "memory") {
+          throw new Error(
+            `Unsupported vector store provider in test: ${provider}`,
+          );
+        }
+        return new MemoryVectorStore(config);
+      }),
+    },
+    HistoryManagerFactory: {
+      create: jest.fn(() => new MemoryHistoryManager()),
+    },
+    RerankerFactory: {
+      create: jest.fn(() => {
+        throw new Error("RerankerFactory is not used in memory.add.test.ts");
+      }),
+    },
+  };
+});
+
+jest.mock("openai", () => {
+  class MockOpenAI {
+    embeddings = { create: jest.fn() };
+    chat = { completions: { create: jest.fn() } };
+    responses = { create: jest.fn() };
+    beta = { chat: { completions: { parse: jest.fn() } } };
+  }
+
+  return {
+    __esModule: true,
+    default: MockOpenAI,
+    AzureOpenAI: MockOpenAI,
+  };
+});
+
+jest.mock(
+  "node-fetch",
+  () => ({
+    __esModule: true,
+    default: jest.fn(),
+    Headers: class {},
+    Request: class {},
+    Response: class {},
+  }),
+  { virtual: true },
+);
+
+jest.mock("@anthropic-ai/sdk", () => {
+  class MockAnthropic {
+    messages = { create: jest.fn() };
+    beta = { messages: { create: jest.fn() } };
+  }
+
+  return {
+    __esModule: true,
+    default: MockAnthropic,
+  };
+});
+
 // Mock Google modules to prevent @google/genai crash in CI
 jest.mock("../src/embeddings/google", () => ({
   GoogleEmbedder: jest.fn(),
@@ -177,7 +289,9 @@ describe("Memory - add()", () => {
       userId: "u1",
       metadata: {
         agent_id: "other",
+        agentId: "other-camel",
         run_id: "other-run",
+        runId: "other-run-camel",
         actor_id: "x",
         source: "issue-6371",
         nested: { preserved: true },
@@ -197,7 +311,9 @@ describe("Memory - add()", () => {
     expect(stored).not.toHaveProperty("agent_id");
     expect(stored).not.toHaveProperty("run_id");
     expect(stored!.metadata).not.toHaveProperty("agent_id");
+    expect(stored!.metadata).not.toHaveProperty("agentId");
     expect(stored!.metadata).not.toHaveProperty("run_id");
+    expect(stored!.metadata).not.toHaveProperty("runId");
     expect(stored!.metadata).not.toHaveProperty("actor_id");
   });
 
@@ -213,8 +329,11 @@ describe("Memory - add()", () => {
         infer,
         metadata: {
           user_id: "metadata-user",
+          userId: "metadata-user-camel",
           agent_id: "metadata-agent",
+          agentId: "metadata-agent-camel",
           run_id: "metadata-run",
+          runId: "metadata-run-camel",
           actor_id: "metadata-actor",
           ordinary: "preserved",
         },
@@ -222,10 +341,23 @@ describe("Memory - add()", () => {
       const stored: MemoryItem | null = await memory.get(result.results[0].id);
 
       expect(stored).toHaveProperty(canonicalKey, canonicalValue);
+      for (const key of ["user_id", "agent_id", "run_id"]) {
+        if (key !== canonicalKey) {
+          expect(stored).not.toHaveProperty(key);
+        }
+      }
       expect(stored!.metadata).toEqual(
         expect.objectContaining({ ordinary: "preserved" }),
       );
-      for (const key of ["user_id", "agent_id", "run_id", "actor_id"]) {
+      for (const key of [
+        "user_id",
+        "userId",
+        "agent_id",
+        "agentId",
+        "run_id",
+        "runId",
+        "actor_id",
+      ]) {
         if (key !== canonicalKey) {
           expect(stored!.metadata).not.toHaveProperty(key);
         }
@@ -246,8 +378,11 @@ describe("Memory - add()", () => {
         infer,
         metadata: {
           user_id: "metadata-user",
+          userId: "metadata-user-camel",
           agent_id: "metadata-agent",
+          agentId: "metadata-agent-camel",
           run_id: "metadata-run",
+          runId: "metadata-run-camel",
           actor_id: "metadata-actor",
           ordinary: "preserved",
         },
@@ -255,13 +390,26 @@ describe("Memory - add()", () => {
       const stored: MemoryItem | null = await memory.get(result.results[0].id);
 
       expect(stored).toHaveProperty(filterKey, filterValue);
+      for (const key of ["user_id", "agent_id", "run_id"]) {
+        if (key !== filterKey) {
+          expect(stored).not.toHaveProperty(key);
+        }
+      }
       expect(stored!.metadata).toEqual(
         expect.objectContaining({
           [filterKey]: filterValue,
           ordinary: "preserved",
         }),
       );
-      for (const key of ["user_id", "agent_id", "run_id", "actor_id"]) {
+      for (const key of [
+        "user_id",
+        "userId",
+        "agent_id",
+        "agentId",
+        "run_id",
+        "runId",
+        "actor_id",
+      ]) {
         if (key === filterKey) continue;
         expect(stored!.metadata).not.toHaveProperty(key);
       }

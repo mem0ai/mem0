@@ -100,12 +100,7 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
-const IDENTITY_METADATA_KEYS = [
-  "user_id",
-  "agent_id",
-  "run_id",
-  "actor_id",
-] as const;
+const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"] as const;
 
 // Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
 // in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
@@ -744,7 +739,7 @@ export class Memory {
     });
     const { filters = {}, infer = true } = config;
     const metadata = { ...config.metadata };
-    for (const key of IDENTITY_METADATA_KEYS) delete metadata[key];
+    for (const key of IDENTITY_KEYS) delete metadata[key];
 
     // Validate and trim entity IDs
     const userId = validateAndTrimEntityId(config.userId, "userId");
