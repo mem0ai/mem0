@@ -312,6 +312,14 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(len(result[0]), 1)
         self.assertEqual(result[0][0].id, "id1")
 
+    def test_list_defaults_size_without_top_k(self):
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+        self.os_db.list()
+        self.client_mock.search.assert_called_once()
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 10000)
+
     @patch("mem0.vector_stores.opensearch.logger")
     def test_list_error_returns_nested_empty_list(self, mock_logger):
         """list() error path must return [[]] (not bare []) so callers can do

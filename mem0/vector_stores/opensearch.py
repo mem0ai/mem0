@@ -381,8 +381,7 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if top_k:
-                query["size"] = top_k
+            query["size"] = top_k if top_k else 10000
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]
