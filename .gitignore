@@ -7,6 +7,9 @@ __pycache__/
 # Self-hosted server local runtime state
 server/history/
 server/.env
+server/.env.*
+.env.*
+**/auth.json
 
 # C extensions
 *.so

@@ -114,6 +114,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+LLM_OPENAI_BASE_URL = os.environ.get("MEM0_LLM_OPENAI_BASE_URL")
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -130,7 +131,12 @@ DEFAULT_CONFIG = {
     },
     "llm": {
         "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "temperature": 0.2,
+            "model": DEFAULT_LLM_MODEL,
+            **({"openai_base_url": LLM_OPENAI_BASE_URL} if LLM_OPENAI_BASE_URL else {}),
+        },
     },
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
     "history_db_path": HISTORY_DB_PATH,
@@ -392,15 +398,26 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
+MAX_PAGE_LIMIT = 5000  # hard cap on page * page_size; caller-facing pages beyond this always return empty
+
+
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
     request: Request,
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 20,
     _auth=Depends(verify_auth),
 ):
-    """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
+    """Retrieve stored memories. Lists all memories when no identifier is provided (admin only).
+
+    The underlying vector store supports `top_k` but not native OFFSET/ORDER BY
+    pagination, so filtered paging is implemented by over-fetching and slicing
+    the requested window in-process. Requests beyond `MAX_PAGE_LIMIT` return an
+    empty page to guarantee bounded pagination loops.
+    """
     try:
         if not any([user_id, run_id, agent_id]):
             auth_type = getattr(request.state, "auth_type", "none")
@@ -410,7 +427,15 @@ def get_all_memories(
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        return get_memory_instance().get_all(filters=filters)
+        page = max(page, 1)
+        page_size = max(page_size, 1)
+        start = (page - 1) * page_size
+        needed = start + page_size
+        if needed > MAX_PAGE_LIMIT:
+            return {"results": []}
+        all_results = get_memory_instance().get_all(filters=filters, top_k=needed)
+        results_list = all_results.get("results", [])
+        return {"results": results_list[start:start + page_size]}
     except HTTPException:
         raise
     except Exception:
@@ -421,9 +446,12 @@ def get_all_memories(
 def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
-        return get_memory_instance().get(memory_id)
+        result = get_memory_instance().get(memory_id)
     except Exception:
         raise upstream_error()
+    if result is None:
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    return result
 
 
 @app.post("/search", summary="Search memories")
