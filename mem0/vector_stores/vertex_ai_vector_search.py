@@ -61,6 +61,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         self.deployment_index_id = config.deployment_index_id  # The deployment-specific ID
         self.collection_name = config.collection_name
         self.vector_search_api_endpoint = config.vector_search_api_endpoint
+        self.embedding_model_dims = config.embedding_model_dims
 
         logger.debug("Using project=%s, location=%s", self.project_id, self.region)
 
@@ -481,7 +482,7 @@ class GoogleMatchingEngine(VectorStoreBase):
 
         try:
             # Use a zero vector for the search
-            dimension = 768  # This should be configurable based on the model
+            dimension = self.embedding_model_dims
             zero_vector = [0.0] * dimension
 
             # Use a large top_k if none specified
