@@ -282,8 +282,7 @@ class ElasticsearchDB(VectorStoreBase):
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             query["query"] = {"bool": {"must": filter_conditions}}
 
-        if top_k:
-            query["size"] = top_k
+        query["size"] = top_k if top_k else 10000
 
         response = self.client.search(index=self.collection_name, body=query)
 

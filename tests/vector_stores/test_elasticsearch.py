@@ -290,6 +290,18 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(results[0][1].id, "id2")
         self.assertEqual(results[0][1].payload, {"key2": "value2"})
 
+    def test_list_default_size(self):
+        # Mock search response
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+
+        # List without top_k should request a large size, not fall back to ES default of 10
+        self.es_db.list()
+
+        self.client_mock.search.assert_called_once()
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 10000)
+
     def test_delete(self):
         # Perform delete
         self.es_db.delete(vector_id="id1")
