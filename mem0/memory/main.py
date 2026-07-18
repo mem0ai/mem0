@@ -1619,18 +1619,36 @@ class Memory(MemoryBase):
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
-        candidates = []
+        # Step 7: Build candidate set from the union of semantic and keyword results
+        candidates_by_id = {}
         for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
+            payload = mem.payload if hasattr(mem, "payload") else mem.get("payload", {})
             if not show_expired and _payload_is_expired(payload):
                 continue
-            mem_id = str(mem.id)
-            candidates.append({
+            mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+            if not mem_id:
+                continue
+            candidates_by_id[mem_id] = {
                 "id": mem_id,
-                "score": mem.score,
+                "score": mem.score if hasattr(mem, "score") else mem.get("score"),
                 "payload": payload,
-            })
+            }
+
+        if keyword_results is not None:
+            for mem in keyword_results:
+                mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+                if not mem_id or mem_id in candidates_by_id or mem_id not in bm25_scores:
+                    continue
+                payload = mem.payload if hasattr(mem, "payload") else mem.get("payload", {})
+                if not show_expired and _payload_is_expired(payload):
+                    continue
+                candidates_by_id[mem_id] = {
+                    "id": mem_id,
+                    "score": None,
+                    "payload": payload,
+                }
+
+        candidates = list(candidates_by_id.values())
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -3259,18 +3277,36 @@ class AsyncMemory(MemoryBase):
         if query_entities:
             entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
-        candidates = []
+        # Step 7: Build candidate set from the union of semantic and keyword results
+        candidates_by_id = {}
         for mem in semantic_results:
-            payload = mem.payload if hasattr(mem, 'payload') else {}
+            payload = mem.payload if hasattr(mem, "payload") else mem.get("payload", {})
             if not show_expired and _payload_is_expired(payload):
                 continue
-            mem_id = str(mem.id)
-            candidates.append({
+            mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+            if not mem_id:
+                continue
+            candidates_by_id[mem_id] = {
                 "id": mem_id,
-                "score": mem.score,
+                "score": mem.score if hasattr(mem, "score") else mem.get("score"),
                 "payload": payload,
-            })
+            }
+
+        if keyword_results is not None:
+            for mem in keyword_results:
+                mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+                if not mem_id or mem_id in candidates_by_id or mem_id not in bm25_scores:
+                    continue
+                payload = mem.payload if hasattr(mem, "payload") else mem.get("payload", {})
+                if not show_expired and _payload_is_expired(payload):
+                    continue
+                candidates_by_id[mem_id] = {
+                    "id": mem_id,
+                    "score": None,
+                    "payload": payload,
+                }
+
+        candidates = list(candidates_by_id.values())
 
         # Step 8: Score and rank
         scored_results = score_and_rank(

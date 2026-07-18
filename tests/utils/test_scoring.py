@@ -1,10 +1,10 @@
 import pytest
 
 from mem0.utils.scoring import (
+    ENTITY_BOOST_WEIGHT,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
-    ENTITY_BOOST_WEIGHT,
 )
 
 
@@ -95,6 +95,14 @@ class TestScoreAndRank:
         scored = score_and_rank(results, bm25, {}, threshold=0.1, top_k=10)
         assert len(scored) == 1
         assert scored[0]["id"] == "b"
+
+    def test_keyword_only_candidate_is_not_gated_by_semantic_threshold(self):
+        results = [{"id": "a", "score": None, "payload": {"data": "exact match"}}]
+        scored = score_and_rank(results, {"a": 0.9}, {}, threshold=0.1, top_k=10)
+
+        assert len(scored) == 1
+        assert scored[0]["id"] == "a"
+        assert scored[0]["score"] == pytest.approx(0.45)
 
     def test_top_k_limit(self):
         results = [{"id": str(i), "score": 0.5, "payload": {}} for i in range(20)]

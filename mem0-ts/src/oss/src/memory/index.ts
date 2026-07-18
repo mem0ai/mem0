@@ -1517,14 +1517,33 @@ export class Memory {
       }
     }
 
-    // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults
-      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
-      .map((mem) => ({
-        id: String(mem.id),
+    // Step 7: Build candidate set from the union of semantic and keyword results
+    const candidatesById = new Map<
+      string,
+      { id: string; score?: number; payload: Record<string, any> }
+    >();
+    for (const mem of semanticResults) {
+      const payload = mem.payload || {};
+      if (!showExpired && payloadIsExpired(payload)) continue;
+      const id = String(mem.id);
+      candidatesById.set(id, {
+        id,
         score: mem.score ?? 0,
-        payload: mem.payload || {},
-      }));
+        payload,
+      });
+    }
+
+    if (keywordResults) {
+      for (const mem of keywordResults) {
+        const id = String(mem.id);
+        if (candidatesById.has(id) || bm25Scores[id] == null) continue;
+        const payload = mem.payload || {};
+        if (!showExpired && payloadIsExpired(payload)) continue;
+        candidatesById.set(id, { id, payload });
+      }
+    }
+
+    const candidates = Array.from(candidatesById.values());
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
