@@ -100,6 +100,12 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
+const IDENTITY_METADATA_KEYS = [
+  "user_id",
+  "agent_id",
+  "run_id",
+  "actor_id",
+] as const;
 
 // Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
 // in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
@@ -736,7 +742,9 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const { metadata = {}, filters = {}, infer = true } = config;
+    const { filters = {}, infer = true } = config;
+    const metadata = { ...config.metadata };
+    for (const key of IDENTITY_METADATA_KEYS) delete metadata[key];
 
     // Validate and trim entity IDs
     const userId = validateAndTrimEntityId(config.userId, "userId");
@@ -747,6 +755,9 @@ export class Memory {
     if (userId) filters.user_id = metadata.user_id = userId;
     if (agentId) filters.agent_id = metadata.agent_id = agentId;
     if (runId) filters.run_id = metadata.run_id = runId;
+    if (filters.user_id) metadata.user_id = filters.user_id;
+    if (filters.agent_id) metadata.agent_id = filters.agent_id;
+    if (filters.run_id) metadata.run_id = filters.run_id;
 
     // Normalize expiration date into the stored metadata (round-trips via get()).
     if (config.expirationDate != null) {

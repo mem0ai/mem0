@@ -172,6 +172,102 @@ describe("Memory - add()", () => {
     );
   });
 
+  test("does not allow metadata to set identity scope", async () => {
+    const result: SearchResult = await memory.add("I am a software engineer", {
+      userId: "u1",
+      metadata: {
+        agent_id: "other",
+        run_id: "other-run",
+        actor_id: "x",
+        source: "issue-6371",
+        nested: { preserved: true },
+      },
+    });
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+
+    expect(stored).toEqual(
+      expect.objectContaining({
+        user_id: "u1",
+        metadata: expect.objectContaining({
+          source: "issue-6371",
+          nested: { preserved: true },
+        }),
+      }),
+    );
+    expect(stored).not.toHaveProperty("agent_id");
+    expect(stored).not.toHaveProperty("run_id");
+    expect(stored!.metadata).not.toHaveProperty("agent_id");
+    expect(stored!.metadata).not.toHaveProperty("run_id");
+    expect(stored!.metadata).not.toHaveProperty("actor_id");
+  });
+
+  test.each([
+    ["userId", { userId: "u1" }, true, "user_id", "u1"],
+    ["agentId", { agentId: "a1" }, false, "agent_id", "a1"],
+    ["runId", { runId: "r1" }, true, "run_id", "r1"],
+  ] as const)(
+    "preserves typed %s scope while stripping conflicting metadata identities",
+    async (_mode, scope, infer, canonicalKey, canonicalValue) => {
+      const result: SearchResult = await memory.add("scoped content", {
+        ...scope,
+        infer,
+        metadata: {
+          user_id: "metadata-user",
+          agent_id: "metadata-agent",
+          run_id: "metadata-run",
+          actor_id: "metadata-actor",
+          ordinary: "preserved",
+        },
+      });
+      const stored: MemoryItem | null = await memory.get(result.results[0].id);
+
+      expect(stored).toHaveProperty(canonicalKey, canonicalValue);
+      expect(stored!.metadata).toEqual(
+        expect.objectContaining({ ordinary: "preserved" }),
+      );
+      for (const key of ["user_id", "agent_id", "run_id", "actor_id"]) {
+        if (key !== canonicalKey) {
+          expect(stored!.metadata).not.toHaveProperty(key);
+        }
+      }
+    },
+  );
+
+  test.each([
+    [true, "user_id", "filter-user"],
+    [false, "user_id", "filter-user"],
+    [false, "agent_id", "filter-agent"],
+    [false, "run_id", "filter-run"],
+  ] as const)(
+    "preserves %s filters scope after sanitization",
+    async (infer, filterKey, filterValue) => {
+      const result: SearchResult = await memory.add("filter-scoped content", {
+        filters: { [filterKey]: filterValue },
+        infer,
+        metadata: {
+          user_id: "metadata-user",
+          agent_id: "metadata-agent",
+          run_id: "metadata-run",
+          actor_id: "metadata-actor",
+          ordinary: "preserved",
+        },
+      });
+      const stored: MemoryItem | null = await memory.get(result.results[0].id);
+
+      expect(stored).toHaveProperty(filterKey, filterValue);
+      expect(stored!.metadata).toEqual(
+        expect.objectContaining({
+          [filterKey]: filterValue,
+          ordinary: "preserved",
+        }),
+      );
+      for (const key of ["user_id", "agent_id", "run_id", "actor_id"]) {
+        if (key === filterKey) continue;
+        expect(stored!.metadata).not.toHaveProperty(key);
+      }
+    },
+  );
+
   test("with infer=false skips LLM and stores messages directly", async () => {
     const result: SearchResult = await memory.add("Direct storage content", {
       userId,
