@@ -10,8 +10,12 @@ const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
 const originalTelemetry = process.env.MEM0_TELEMETRY;
 const originalFetch = globalThis.fetch;
+const testCleanups: Array<() => Promise<void> | void> = [];
 
-afterEach(() => {
+afterEach(async () => {
+  while (testCleanups.length > 0) {
+    await testCleanups.pop()?.();
+  }
   if (originalKey === undefined) delete process.env.MEM0_API_KEY;
   else process.env.MEM0_API_KEY = originalKey;
   if (originalHome === undefined) delete process.env.HOME;
@@ -48,6 +52,18 @@ function stubFetch(): void {
       headers: {"content-type": "application/json"},
     });
   }) as typeof fetch;
+}
+
+function captureDeferredPluginCleanup(): () => Promise<void> {
+  const baseline = new Set(process.listeners("beforeExit"));
+  return async () => {
+    await Promise.resolve();
+    for (const listener of process.listeners("beforeExit")) {
+      if (!baseline.has(listener)) {
+        process.off("beforeExit", listener as (...args: any[]) => void);
+      }
+    }
+  };
 }
 
 describe("parseApiKeyLine", () => {
@@ -101,6 +117,7 @@ describe("resolveApiKey", () => {
     process.env.USERPROFILE = dir;
     process.env.MEM0_TELEMETRY = "false";
     stubFetch();
+    testCleanups.push(captureDeferredPluginCleanup());
 
     const logs: unknown[] = [];
     const plugin = await Mem0Plugin(pluginContext(logs));
@@ -124,6 +141,7 @@ describe("resolveApiKey", () => {
     process.env.USERPROFILE = dir;
     process.env.MEM0_TELEMETRY = "false";
     stubFetch();
+    testCleanups.push(captureDeferredPluginCleanup());
 
     const logs: unknown[] = [];
     const plugin = await Mem0Plugin(pluginContext(logs));
