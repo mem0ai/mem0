@@ -272,7 +272,14 @@ class ElasticsearchDB(VectorStoreBase):
         return self.client.indices.get(index=name)
 
     def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[List[OutputData]]:
-        """List all memories."""
+        """List memories.
+
+        With ``top_k`` a single bounded page is returned. Without it, every match is
+        returned by paging with a point-in-time + ``search_after`` so results are not
+        capped at ``index.max_result_window`` and the whole set is never loaded in one
+        response. Only the id and metadata are needed, so the stored vector is excluded
+        from ``_source``.
+        """
         query: Dict[str, Any] = {"query": {"match_all": {}}}
 
         if filters:
@@ -282,19 +289,40 @@ class ElasticsearchDB(VectorStoreBase):
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             query["query"] = {"bool": {"must": filter_conditions}}
 
-        query["size"] = top_k if top_k else 10000
+        def _to_output(hit: Dict[str, Any]) -> OutputData:
+            return OutputData(id=hit["_id"], score=1.0, payload=hit.get("_source", {}).get("metadata", {}))
 
-        response = self.client.search(index=self.collection_name, body=query)
+        if top_k:
+            body = {**query, "size": top_k, "_source": ["metadata"]}
+            response = self.client.search(index=self.collection_name, body=body)
+            return [[_to_output(hit) for hit in response["hits"]["hits"]]]
 
-        results = []
-        for hit in response["hits"]["hits"]:
-            results.append(
-                OutputData(
-                    id=hit["_id"],
-                    score=1.0,  # Default score for list operation
-                    payload=hit.get("_source", {}).get("metadata", {}),
-                )
-            )
+        results: List[OutputData] = []
+        page_size = 1000
+        pit_id = self.client.open_point_in_time(index=self.collection_name, keep_alive="2m")["id"]
+        search_after: Optional[List[Any]] = None
+        try:
+            while True:
+                body: Dict[str, Any] = {
+                    **query,
+                    "size": page_size,
+                    "_source": ["metadata"],
+                    "pit": {"id": pit_id, "keep_alive": "2m"},
+                    "sort": [{"_shard_doc": "asc"}],
+                }
+                if search_after is not None:
+                    body["search_after"] = search_after
+                response = self.client.search(body=body)
+                hits = response["hits"]["hits"]
+                if not hits:
+                    break
+                results.extend(_to_output(hit) for hit in hits)
+                if len(hits) < page_size:
+                    break
+                search_after = hits[-1]["sort"]
+                pit_id = response.get("pit_id", pit_id)
+        finally:
+            self.client.close_point_in_time(id=pit_id)
 
         return [results]
 
