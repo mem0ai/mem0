@@ -1083,3 +1083,154 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+def _silence_get_all_notices(mocker):
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice")
+    mocker.patch("mem0.memory.main.display_first_run_notice_async")
+
+
+def _mock_memory_rows(n):
+    rows = []
+    for i in range(n):
+        row = MagicMock()
+        row.id = f"id-{i}"
+        row.payload = {
+            "data": f"mem {i}",
+            "user_id": "u",
+            "hash": f"h{i}",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+        rows.append(row)
+    return rows
+
+
+def test_get_all_without_pagination_is_unchanged(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(5)]
+
+    result = memory.get_all(filters={"user_id": "u"})
+
+    assert [r["id"] for r in result["results"]] == [f"id-{i}" for i in range(5)]
+    # default top_k=20 -> fetch window max(20*4, 60) = 80, offset 0 (no slicing)
+    assert memory.vector_store.list.call_args.kwargs["top_k"] == 80
+
+
+def test_get_all_first_page(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(10)]
+
+    result = memory.get_all(filters={"user_id": "u"}, page=1, page_size=3)
+
+    assert [r["id"] for r in result["results"]] == ["id-0", "id-1", "id-2"]
+
+
+def test_get_all_second_page(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(10)]
+
+    result = memory.get_all(filters={"user_id": "u"}, page=2, page_size=3)
+
+    assert [r["id"] for r in result["results"]] == ["id-3", "id-4", "id-5"]
+
+
+def test_get_all_page_beyond_data_is_empty(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(4)]
+
+    result = memory.get_all(filters={"user_id": "u"}, page=3, page_size=3)
+
+    assert result["results"] == []
+
+
+def test_get_all_pagination_scales_fetch_window(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(0)]
+
+    memory.get_all(filters={"user_id": "u"}, page=3, page_size=10)
+
+    # offset=20, window=10 -> limit=30 -> fetch window max(30*4, 60) = 120
+    assert memory.vector_store.list.call_args.kwargs["top_k"] == 120
+
+
+def test_get_all_partial_pagination_raises(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+
+    with pytest.raises(ValueError, match="page and page_size must be provided together"):
+        memory.get_all(filters={"user_id": "u"}, page=1)
+    with pytest.raises(ValueError, match="page and page_size must be provided together"):
+        memory.get_all(filters={"user_id": "u"}, page_size=5)
+
+
+def test_get_all_invalid_pagination_raises(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+
+    with pytest.raises(ValueError, match="Invalid page"):
+        memory.get_all(filters={"user_id": "u"}, page=0, page_size=5)
+    with pytest.raises(ValueError, match="Invalid page_size"):
+        memory.get_all(filters={"user_id": "u"}, page=1, page_size=0)
+
+
+def test_get_all_pagination_skips_expired_rows(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    rows = _mock_memory_rows(6)
+    # Mark id-1 and id-3 expired -> live order is id-0, id-2, id-4, id-5
+    for i in (1, 3):
+        rows[i].payload["expiration_date"] = "2000-01-01"
+    memory.vector_store.list.return_value = [rows]
+
+    page_1 = memory.get_all(filters={"user_id": "u"}, page=1, page_size=2)
+    page_2 = memory.get_all(filters={"user_id": "u"}, page=2, page_size=2)
+
+    assert [r["id"] for r in page_1["results"]] == ["id-0", "id-2"]
+    assert [r["id"] for r in page_2["results"]] == ["id-4", "id-5"]
+
+
+def test_get_all_pagination_ignores_top_k(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(10)]
+
+    # top_k=1 would cap output to 1 without pagination; page_size must win.
+    result = memory.get_all(filters={"user_id": "u"}, top_k=1, page=1, page_size=4)
+
+    assert [r["id"] for r in result["results"]] == ["id-0", "id-1", "id-2", "id-3"]
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_second_page(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    _silence_get_all_notices(mocker)
+    memory.vector_store.list.return_value = [_mock_memory_rows(10)]
+
+    result = await memory.get_all(filters={"user_id": "u"}, page=2, page_size=3)
+
+    assert [r["id"] for r in result["results"]] == ["id-3", "id-4", "id-5"]
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_invalid_pagination_raises(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    _silence_get_all_notices(mocker)
+
+    with pytest.raises(ValueError, match="Invalid page"):
+        await memory.get_all(filters={"user_id": "u"}, page=0, page_size=5)
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_partial_pagination_raises(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    _silence_get_all_notices(mocker)
+
+    with pytest.raises(ValueError, match="page and page_size must be provided together"):
+        await memory.get_all(filters={"user_id": "u"}, page_size=5)
