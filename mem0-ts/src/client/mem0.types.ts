@@ -144,6 +144,7 @@ export interface MemoryHistory {
 export interface MemoryUpdateBody {
   memoryId: string;
   text: string;
+  metadata?: Record<string, any>;
 }
 
 export interface User {
