@@ -212,10 +212,48 @@ class PGVector(VectorStoreBase):
     def _ensure_collection(self):
         if self._collection_ensured:
             return
+        if self.embedding_model_dims is None:
+            raise ValueError(
+                "PGVector requires 'embedding_model_dims' to be set. "
+                "Either pass it explicitly in the vector store config or configure an "
+                "embedder provider so that mem0 can infer the dimension automatically."
+            )
         collections = self.list_cols()
         if self.collection_name not in collections:
             self.create_col()
+        else:
+            self._validate_schema_dims()
         self._collection_ensured = True
+
+    def _get_table_vector_dim(self):
+        """Return the declared dimension of the 'vector' column for this table, or None."""
+        with self._get_cursor() as cur:
+            cur.execute(
+                """
+                SELECT a.atttypmod
+                FROM pg_attribute a
+                JOIN pg_class c ON a.attrelid = c.oid
+                WHERE c.relname = %s
+                  AND a.attname = 'vector'
+                  AND a.atttypmod > 0
+                """,
+                (self.collection_name,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else None
+
+    def _validate_schema_dims(self) -> None:
+        """Raise if the existing table's vector dimension differs from the configured one."""
+        actual_dims = self._get_table_vector_dim()
+        if actual_dims is not None and actual_dims != self.embedding_model_dims:
+            raise ValueError(
+                f"Vector dimension mismatch for collection '{self.collection_name}': "
+                f"the existing table was created with {actual_dims}-dimensional vectors, "
+                f"but the current configuration expects {self.embedding_model_dims} dimensions. "
+                f"To resolve: use a different collection_name for the new embedder, drop the "
+                f"existing table and let mem0 recreate it, or reconfigure the embedder to "
+                f"produce {actual_dims}-dimensional vectors."
+            )
 
     @contextmanager
     def _get_cursor(self, commit: bool = False):

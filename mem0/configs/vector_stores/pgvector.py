@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class PGVectorConfig(BaseModel):
     dbname: str = Field("postgres", description="Default name for the database")
     collection_name: str = Field("mem0", description="Default name for the collection")
-    embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
+    embedding_model_dims: Optional[int] = Field(None, description="Dimensions of the embedding model. When None, inferred from the configured embedder at Memory init time.")
     user: Optional[str] = Field(None, description="Database user")
     password: Optional[str] = Field(None, description="Database password")
     host: Optional[str] = Field(None, description="Database host. Default is localhost")
