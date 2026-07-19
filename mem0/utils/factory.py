@@ -86,8 +86,7 @@ class LlmFactory:
             config = config_class(**kwargs)
         elif isinstance(config, dict):
             # Merge dict config with kwargs
-            config.update(kwargs)
-            config = config_class(**config)
+            config = config_class(**{**config, **kwargs})
         elif isinstance(config, BaseLlmConfig):
             # Convert base config to provider-specific config if needed
             if config_class != BaseLlmConfig:
