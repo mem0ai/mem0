@@ -149,6 +149,13 @@ def test_base_config_conversion_does_not_send_both(mock_anthropic_client):
         ("claude-fable-5", False),
         ("claude-mythos-5", False),
         ("claude-mythos-preview", False),
+        # Legacy "claude-3-*" naming puts the version before the family; all of
+        # these models support sampling params and must not be disabled.
+        ("claude-3-5-sonnet-20240620", True),
+        ("claude-3-7-sonnet-20250219", True),
+        ("claude-3-5-haiku-20241022", True),
+        ("claude-3-opus-20240229", True),
+        ("claude-3-haiku-20240307", True),
     ],
 )
 def test_enable_sampling_parameters_for_current_models(mock_anthropic_client, model, expected):

@@ -52,6 +52,14 @@ class AnthropicLLM(LLMBase):
 
         model_name = self.config.model.lower()
         model_name_parts = model_name.rsplit("[", 1)[0].split("-")
+
+        # Legacy "claude-3-*" ids (e.g. claude-3-5-sonnet, claude-3-opus) put the
+        # version numbers before the family name, so the family-position parsing
+        # below misreads them. They all support sampling parameters; the new
+        # "claude-<family>-<major>-<minor>" naming is handled after this.
+        if len(model_name_parts) > 1 and model_name_parts[1].isdigit():
+            return True
+
         _, family, major, minor, *_ = (*model_name_parts, "", "", "", "")
 
         # Use model_name if only provided a family name, e.g., opus
