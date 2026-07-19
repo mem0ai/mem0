@@ -117,3 +117,89 @@ def test_embed_batch_strips_newlines(mock_genai, config):
     embedder.embed_batch(["line one\nline two"])
 
     mock_genai.assert_called_once_with(model="test_model", contents=["line one line two"], config=ANY)
+
+
+def _single_embedding_response():
+    emb = type("Embedding", (), {"values": [0.1, 0.2, 0.3]})()
+    return type("Response", (), {"embeddings": [emb]})()
+
+
+def _task_type_of(mock_genai):
+    return mock_genai.call_args.kwargs["config"].task_type
+
+
+def test_embed_defaults_to_semantic_similarity(mock_genai, config):
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(config).embed("hello")
+
+    assert _task_type_of(mock_genai) == "SEMANTIC_SIMILARITY"
+
+
+def test_embed_search_uses_retrieval_query(mock_genai, config):
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(config).embed("hello", "search")
+
+    assert _task_type_of(mock_genai) == "RETRIEVAL_QUERY"
+
+
+@pytest.mark.parametrize("action", ["add", "update"])
+def test_embed_add_and_update_use_retrieval_document(mock_genai, config, action):
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(config).embed("hello", action)
+
+    assert _task_type_of(mock_genai) == "RETRIEVAL_DOCUMENT"
+
+
+def test_embed_respects_config_task_type_override(mock_genai):
+    cfg = BaseEmbedderConfig(
+        api_key="dummy_api_key",
+        model="test_model",
+        embedding_dims=786,
+        memory_search_embedding_type="CODE_RETRIEVAL_QUERY",
+    )
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(cfg).embed("hello", "search")
+
+    assert _task_type_of(mock_genai) == "CODE_RETRIEVAL_QUERY"
+
+
+def test_embed_invalid_memory_action_raises(mock_genai, config):
+    embedder = GoogleGenAIEmbedding(config)
+
+    with pytest.raises(ValueError, match="Invalid memory action: bogus"):
+        embedder.embed("hello", "bogus")
+
+
+def test_embed_batch_defaults_to_retrieval_document(mock_genai, config):
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(config).embed_batch(["hello"])
+
+    assert _task_type_of(mock_genai) == "RETRIEVAL_DOCUMENT"
+
+
+def test_embed_batch_search_uses_retrieval_query(mock_genai, config):
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(config).embed_batch(["hello"], "search")
+
+    assert _task_type_of(mock_genai) == "RETRIEVAL_QUERY"
+
+
+def test_embed_batch_update_uses_retrieval_document(mock_genai, config):
+    mock_genai.return_value = _single_embedding_response()
+
+    GoogleGenAIEmbedding(config).embed_batch(["hello"], "update")
+
+    assert _task_type_of(mock_genai) == "RETRIEVAL_DOCUMENT"
+
+
+def test_embed_batch_invalid_memory_action_raises(mock_genai, config):
+    embedder = GoogleGenAIEmbedding(config)
+
+    with pytest.raises(ValueError, match="Invalid memory action: bogus"):
+        embedder.embed_batch(["hello"], "bogus")
