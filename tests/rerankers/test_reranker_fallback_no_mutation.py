@@ -1,7 +1,7 @@
 """Reranker failure fallback must not mutate caller-owned document dicts (#6362)."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 def _docs():
