@@ -178,6 +178,24 @@ class TestMilvusDB:
         assert call_args[1]['data']['id'] == vector_id
         assert call_args[1]['data']['vectors'] == vector
         assert call_args[1]['data']['metadata'] == payload
+        # Fresh collections get BM25 schema; text is included for sparse search.
+        assert call_args[1]['data']['text'] == "Updated memory"
+
+    def test_update_omits_text_on_legacy_schema(self, milvus_db, mock_milvus_client):
+        """Pre-v3 collections without BM25 must not receive a top-level text field."""
+        milvus_db._has_bm25_schema = False
+        vector_id = "legacy_id"
+        vector = [0.2] * 1536
+        payload = {"user_id": "bob", "data": "Legacy memory"}
+
+        milvus_db.update(vector_id=vector_id, vector=vector, payload=payload)
+
+        mock_milvus_client.upsert.assert_called_once()
+        data = mock_milvus_client.upsert.call_args[1]["data"]
+        assert data["id"] == vector_id
+        assert data["vectors"] == vector
+        assert data["metadata"] == payload
+        assert "text" not in data
 
     def test_delete(self, milvus_db, mock_milvus_client):
         """Test vector deletion."""

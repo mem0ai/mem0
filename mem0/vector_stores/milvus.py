@@ -298,10 +298,15 @@ class MilvusDB(VectorStoreBase):
             if payload is None:
                 payload = existing[0].get("metadata")
 
-        text = ""
-        if payload:
-            text = (payload.get("text_lemmatized") or payload.get("data", ""))[:65535]
-        schema = {"id": vector_id, "vectors": vector, "metadata": payload, "text": text}
+        # Only include the `text` field when the collection's schema has it —
+        # legacy collections created pre-v3 reject unknown top-level fields.
+        # Mirror the guard used by insert().
+        schema = {"id": vector_id, "vectors": vector, "metadata": payload}
+        if self._has_bm25_schema:
+            text = ""
+            if payload:
+                text = (payload.get("text_lemmatized") or payload.get("data", ""))[:65535]
+            schema["text"] = text
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
     def get(self, vector_id) -> Optional[OutputData]:
