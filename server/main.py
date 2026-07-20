@@ -343,22 +343,15 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
     try:
         llm = get_memory_instance().llm
         prompt = (
-            "You are configuring a memory system. Given the use case below, produce two things:
-"
+            "You are configuring a memory system. Given the use case below, produce two things:\n"
             "1. INSTRUCTIONS: A short paragraph of custom instructions telling the memory extraction system "
-            "what kinds of facts, preferences, and context to prioritize. Be specific to the use case.
-"
+            "what kinds of facts, preferences, and context to prioritize. Be specific to the use case.\n"
             "2. TEST_MESSAGE: A single realistic sentence a user in this use case would say, suitable for "
-            "testing that the memory system works.
-
-"
-            "Respond in exactly this format (no markdown, no extra text):
-"
-            "INSTRUCTIONS: <your instructions>
-"
-            f"TEST_MESSAGE: <your test message>
-
-Use case: {req.use_case}"
+            "testing that the memory system works.\n\n"
+            "Respond in exactly this format (no markdown, no extra text):\n"
+            "INSTRUCTIONS: <your instructions>\n"
+            "TEST_MESSAGE: <your test message>\n\n"
+            f"Use case: {req.use_case}"
         )
         response = llm.generate_response([{"role": "user", "content": prompt}])
         return parse_generate_instructions_response(response)
