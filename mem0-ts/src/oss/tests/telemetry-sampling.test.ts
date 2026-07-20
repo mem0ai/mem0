@@ -61,6 +61,13 @@ describe("telemetry sampling", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it("notice_displayed event fires even at the highest random value", async () => {
+      randomSpy.mockReturnValue(0.999);
+      const { captureClientEvent } = await import("../src/utils/telemetry");
+      await captureClientEvent("notice_displayed", makeInstance());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it("init event payload has sample_rate: 1.0", async () => {
       randomSpy.mockReturnValue(0.999);
       const { captureClientEvent } = await import("../src/utils/telemetry");

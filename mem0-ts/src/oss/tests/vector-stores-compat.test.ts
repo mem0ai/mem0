@@ -600,6 +600,45 @@ describe("Supabase – backward compat with mocked client", () => {
     await Promise.all([p1, p2]);
     // No crash = idempotent (Supabase init runs test insert only once)
   });
+
+  it("constructor does not emit an unhandled rejection when init fails", async () => {
+    jest.resetModules();
+    jest.doMock("@supabase/supabase-js", () => {
+      const failing = {
+        from: jest.fn().mockReturnValue({
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockResolvedValue({
+              error: { code: "42P01", message: "no table" },
+            }),
+          }),
+          delete: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ error: null }),
+          }),
+        }),
+      };
+      return { createClient: jest.fn().mockReturnValue(failing) };
+    });
+    const FailingSupabaseDB =
+      require("../src/vector_stores/supabase").SupabaseDB;
+
+    const rejections: unknown[] = [];
+    const onUnhandled = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const store = new FailingSupabaseDB({
+        supabaseUrl: "https://example.supabase.co",
+        supabaseKey: "fake-key",
+        tableName: "memories",
+        collectionName: "test",
+      });
+      expect(store).toBeDefined();
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    } finally {
+      process.removeListener("unhandledRejection", onUnhandled);
+    }
+
+    expect(rejections).toEqual([]);
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -681,7 +720,3738 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 6. Vectorize — mock Cloudflare client, test idempotent init
+// 6. Databricks — mock SQL + REST clients, test interface + idempotent init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Databricks – backward compat with mocked clients", () => {
+  let DatabricksVectorStore: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    jest.doMock("@databricks/sql", () => {
+      let migrationUserId: string | undefined;
+
+      const executeStatement = jest
+        .fn()
+        .mockImplementation(async (sql: string) => {
+          const normalized = sql.replace(/\s+/g, " ").trim();
+
+          if (
+            normalized.startsWith("CREATE SCHEMA IF NOT EXISTS") ||
+            normalized.startsWith("CREATE TABLE IF NOT EXISTS") ||
+            normalized.startsWith("ALTER TABLE main.default.memories")
+          ) {
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM main.default.memory_migrations LIMIT 1",
+            )
+          ) {
+            return {
+              fetchAll: jest
+                .fn()
+                .mockResolvedValue(
+                  migrationUserId ? [{ user_id: migrationUserId }] : [],
+                ),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith("DELETE FROM main.default.memory_migrations")
+          ) {
+            migrationUserId = undefined;
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "INSERT INTO main.default.memory_migrations (user_id)",
+            )
+          ) {
+            const match = normalized.match(/VALUES \('([^']*)'\)/);
+            migrationUserId = match ? match[1] : undefined;
+            return {
+              fetchAll: jest.fn().mockResolvedValue([]),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }
+
+          return {
+            fetchAll: jest.fn().mockResolvedValue([]),
+            close: jest.fn().mockResolvedValue(undefined),
+          };
+        });
+
+      const session = {
+        executeStatement,
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const client = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        openSession: jest.fn().mockResolvedValue(session),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+
+      client.connect.mockResolvedValue(client);
+
+      return {
+        DBSQLClient: jest.fn().mockImplementation(() => client),
+        __mockClient: client,
+        __mockSession: session,
+      };
+    });
+
+    jest.doMock("axios", () => {
+      let endpointExists = false;
+      let endpointPendingReadyResponses = 0;
+      let indexExists = false;
+      let indexPendingReadyResponses = 0;
+      let syncPendingReadyResponses = 0;
+      let indexNeverReady = false;
+      let pagedQueryResponses: any[] = [];
+
+      const defaultQueryResponse = {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.98],
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.75],
+          ],
+        },
+      };
+
+      const httpClient = {
+        get: jest.fn().mockImplementation(async (url: string) => {
+          if (url === "/endpoints/mem0_vector_search") {
+            if (!endpointExists) {
+              const error: any = new Error("missing endpoint");
+              error.response = { status: 404 };
+              throw error;
+            }
+            if (endpointPendingReadyResponses > 0) {
+              endpointPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "mem0_vector_search",
+                  endpoint_status: { state: "PROVISIONING" },
+                },
+              };
+            }
+            return {
+              data: {
+                name: "mem0_vector_search",
+                endpoint_status: { state: "ONLINE" },
+              },
+            };
+          }
+
+          if (url === "/indexes/main.default.memories") {
+            if (!indexExists) {
+              const error: any = new Error("missing index");
+              error.response = { status: 404 };
+              throw error;
+            }
+            if (indexNeverReady) {
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
+            }
+            if (indexPendingReadyResponses > 0) {
+              indexPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
+            }
+            if (syncPendingReadyResponses > 0) {
+              syncPendingReadyResponses -= 1;
+              return {
+                data: {
+                  name: "main.default.memories",
+                  status: { ready: false },
+                },
+              };
+            }
+            return {
+              data: {
+                name: "main.default.memories",
+                status: { ready: true },
+              },
+            };
+          }
+
+          throw new Error(`Unexpected Databricks GET ${url}`);
+        }),
+        post: jest.fn().mockImplementation(async (url: string, body: any) => {
+          if (url === "/endpoints") {
+            endpointExists = true;
+            endpointPendingReadyResponses = 1;
+            return { data: { endpoint: body.name } };
+          }
+
+          if (url === "/indexes") {
+            indexExists = true;
+            indexPendingReadyResponses = 1;
+            return { data: { index: body.name } };
+          }
+
+          if (url === "/indexes/main.default.memories/sync") {
+            syncPendingReadyResponses = 1;
+            return { data: { status: "queued" } };
+          }
+
+          if (url === "/indexes/main.default.memories/query") {
+            return {
+              data:
+                pagedQueryResponses.shift() ??
+                JSON.parse(JSON.stringify(defaultQueryResponse)),
+            };
+          }
+
+          if (url === "/indexes/main.default.memories/query-next-page") {
+            return {
+              data:
+                pagedQueryResponses.shift() ??
+                JSON.parse(JSON.stringify(defaultQueryResponse)),
+            };
+          }
+
+          throw new Error(`Unexpected Databricks POST ${url}`);
+        }),
+        delete: jest.fn().mockImplementation(async (url: string) => {
+          if (url === "/indexes/main.default.memories") {
+            indexExists = false;
+            return { data: {} };
+          }
+          throw new Error(`Unexpected Databricks DELETE ${url}`);
+        }),
+      };
+
+      const create = jest.fn().mockReturnValue(httpClient);
+      const authPost = jest.fn().mockResolvedValue({
+        data: { access_token: "oauth-token", expires_in: 3600 },
+      });
+
+      return {
+        __esModule: true,
+        default: { create, post: authPost },
+        create,
+        post: authPost,
+        __mockHttpClient: httpClient,
+        __setPagedQueryResponses: (responses: any[]) => {
+          pagedQueryResponses = responses.map((response) =>
+            JSON.parse(JSON.stringify(response)),
+          );
+        },
+        __setIndexNeverReady: (value: boolean) => {
+          indexNeverReady = value;
+        },
+        __mockAuthPost: authPost,
+      };
+    });
+
+    DatabricksVectorStore =
+      require("../src/vector_stores/databricks").DatabricksVectorStore;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const databricksSql = require("@databricks/sql");
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    const clientInstance = databricksSql.DBSQLClient.mock.results[0].value;
+    const session = databricksSql.__mockSession;
+    const httpClient = axiosModule.__mockHttpClient;
+    expect(clientInstance.connect).toHaveBeenCalledTimes(1);
+    expect(clientInstance.openSession).toHaveBeenCalledTimes(1);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/endpoints/mem0_vector_search",
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories",
+      ).length,
+    ).toBeGreaterThan(1);
+    expect(httpClient.post).toHaveBeenCalledWith("/endpoints", {
+      name: "mem0_vector_search",
+      endpoint_type: "STANDARD",
+    });
+    expect(httpClient.post).toHaveBeenCalledWith("/indexes", {
+      name: "main.default.memories",
+      endpoint_name: "mem0_vector_search",
+      primary_key: "memory_id",
+      index_type: "DELTA_SYNC",
+      delta_sync_index_spec: {
+        source_table: "main.default.memories",
+        pipeline_type: "TRIGGERED",
+        columns_to_sync: [
+          "memory_id",
+          "payload",
+          "text_lemmatized",
+          "user_id",
+          "agent_id",
+          "run_id",
+        ],
+        embedding_vector_columns: [
+          {
+            name: "embedding",
+            embedding_dimension: 3,
+          },
+        ],
+      },
+    });
+    expect(
+      session.executeStatement.mock.calls.some(
+        ([sql]: [string]) =>
+          sql.includes("ALTER TABLE main.default.memories") &&
+          sql.includes("delta.enableChangeDataFeed"),
+      ),
+    ).toBe(true);
+  });
+
+  it("retries loading @databricks/sql after a failed dynamic import instead of caching the rejection", async () => {
+    let shouldFail = true;
+    jest.doMock("@databricks/sql", () => {
+      if (shouldFail) {
+        throw new Error("Cannot find module '@databricks/sql'");
+      }
+      const session = {
+        executeStatement: jest.fn().mockResolvedValue({
+          fetchAll: jest.fn().mockResolvedValue([]),
+          close: jest.fn().mockResolvedValue(undefined),
+        }),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      const client = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        openSession: jest.fn().mockResolvedValue(session),
+        close: jest.fn().mockResolvedValue(undefined),
+      };
+      client.connect.mockResolvedValue(client);
+      return { DBSQLClient: jest.fn().mockImplementation(() => client) };
+    });
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await expect((store as any).getSqlModule()).rejects.toThrow(
+      "The '@databricks/sql' package is required to use the Databricks vector store. " +
+        "Install it with: npm install @databricks/sql (original error: Cannot find module '@databricks/sql')",
+    );
+
+    shouldFail = false;
+    const sqlModule = await (store as any).getSqlModule();
+    expect(typeof sqlModule.DBSQLClient).toBe("function");
+  });
+
+  it("executeSql(): reconnects on the next call after a session failure instead of reusing a dead session", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    const openSessionSpy = jest.spyOn(store as any, "openSession");
+
+    session.executeStatement.mockRejectedValueOnce(
+      new Error("session expired"),
+    );
+    await expect((store as any).executeSql("SELECT 1")).rejects.toThrow(
+      "session expired",
+    );
+    expect(openSessionSpy).not.toHaveBeenCalled();
+
+    await (store as any).executeSql("SELECT 1");
+    expect(openSessionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("getSession(): retries after a failed connection attempt instead of caching the rejection", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    // Simulate the warehouse dropping so the next getSession() must reconnect from scratch
+    // (this clears both the cached session and any in-flight session promise).
+    (store as any).resetSession();
+
+    let attempts = 0;
+    jest.spyOn(store as any, "openSession").mockImplementation(async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error("warehouse cold start");
+      }
+      return databricksSql.__mockSession;
+    });
+
+    // First connection attempt fails (e.g. a cold/auto-suspended warehouse at startup)...
+    await expect((store as any).getSession()).rejects.toThrow(
+      "warehouse cold start",
+    );
+
+    // ...the next call must open a fresh session rather than replay the rejected promise.
+    // Without getSession()'s catch-and-reset, openSession would never be called a second time.
+    const session = await (store as any).getSession();
+    expect(session).toBe(databricksSql.__mockSession);
+    expect(attempts).toBe(2);
+  });
+
+  it("supports service-principal credentials for REST and SQL setup", async () => {
+    const axiosModule = require("axios");
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    await store.insert([[1, 0, 0]], ["id-1"], [{ user_id: "u1" }]);
+    await store.search([1, 0, 0], 1);
+
+    expect(axiosModule.__mockAuthPost).toHaveBeenCalledWith(
+      "https://workspace.databricks.com/oidc/v1/token",
+      expect.any(URLSearchParams),
+      expect.objectContaining({
+        auth: {
+          username: "client-id",
+          password: "client-secret",
+        },
+      }),
+    );
+    const authDetails = axiosModule.__mockAuthPost.mock.calls.map(
+      ([, params]: [string, URLSearchParams]) =>
+        params.get("authorization_details"),
+    );
+    const readDetails = JSON.stringify([
+      {
+        type: "unity_catalog_permission",
+        securable_type: "table",
+        securable_object_name: "main.default.memories",
+        operation: "ReadVectorIndex",
+      },
+    ]);
+    const writeDetails = JSON.stringify([
+      {
+        type: "unity_catalog_permission",
+        securable_type: "table",
+        securable_object_name: "main.default.memories",
+        operation: "WriteVectorIndex",
+      },
+    ]);
+
+    expect(authDetails).toContain(null);
+    expect(authDetails).toContain(readDetails);
+    expect(authDetails).toContain(writeDetails);
+    expect(databricksSql.__mockClient.connect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authType: "databricks-oauth",
+        oauthClientId: "client-id",
+        oauthClientSecret: "client-secret",
+      }),
+    );
+  });
+
+  it("shapes Databricks SQL writes, syncs triggered indexes, and normalizes search results", async () => {
+    const databricksSql = require("@databricks/sql");
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      // Non-zero: a 0ms poll skips the sleep entirely, so a sync would drain within the
+      // microtask queue and never overlap the next write. 1ms models a real readiness wait.
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const session = databricksSql.__mockSession;
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO main.default.memories"),
+    );
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("'id-1'"),
+    );
+    expect(session.executeStatement).toHaveBeenCalledWith(
+      expect.stringContaining("array(1, 0, 0)"),
+    );
+    await store.update("id-1", [0, 1, 0], { user_id: "u1", topic: "beta" });
+    await store.delete("id-1");
+
+    const results = await store.search([1, 0, 0], 5, {
+      user_id: "u1",
+      topic: "alpha",
+    });
+    const httpClient = axiosModule.__mockHttpClient;
+    const syncPosts = httpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+    );
+    // insert/update/delete each request a sync, but writes that land while one is already
+    // in flight coalesce into it -- so three writes never cost three pipeline runs.
+    expect(syncPosts.length).toBeGreaterThanOrEqual(1);
+    expect(syncPosts.length).toBeLessThan(3);
+    expect(
+      httpClient.get.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories",
+      ).length,
+    ).toBeGreaterThan(4);
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/indexes/main.default.memories/query",
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        filters_json: JSON.stringify({ user_id: "u1" }),
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("keeps metadata-only filters local for standard endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, { topic: "alpha" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        query_type: "ANN",
+        query_vector: [1, 0, 0],
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("applies multiple local metadata operators on the same field", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            [
+              "id-1",
+              JSON.stringify({ user_id: "u1", importance: 1.0, topic: "high" }),
+              0.99,
+            ],
+            [
+              "id-2",
+              JSON.stringify({
+                user_id: "u1",
+                importance: 0.75,
+                topic: "within-range",
+              }),
+              0.98,
+            ],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, {
+      importance: { gte: 0.5, lte: 0.9 },
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-2",
+        payload: { user_id: "u1", importance: 0.75, topic: "within-range" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("paginates when local-only filters need matches beyond the first page", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.99],
+          ],
+          next_page_token: "page-2",
+        },
+      },
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.98],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 1, { topic: "alpha" });
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.some(
+        ([url]: [string]) =>
+          url === "/indexes/main.default.memories/query-next-page",
+      ),
+    ).toBe(true);
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("paginates across Databricks result pages when topK exceeds the first page", async () => {
+    const axiosModule = require("axios");
+    axiosModule.__setPagedQueryResponses([
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-1", JSON.stringify({ user_id: "u1", topic: "alpha" }), 0.99],
+          ],
+          next_page_token: "page-2",
+        },
+      },
+      {
+        result: {
+          manifest: {
+            columns: [{ name: "memory_id" }, { name: "payload" }],
+          },
+          data_array: [
+            ["id-2", JSON.stringify({ user_id: "u2", topic: "beta" }), 0.98],
+          ],
+        },
+      },
+    ]);
+
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 1001);
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        num_results: 1001,
+      }),
+    );
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.some(
+        ([url]: [string]) =>
+          url === "/indexes/main.default.memories/query-next-page",
+      ),
+    ).toBe(true);
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.99,
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("caps full-text local-fallback requests at Databricks' 200-result limit", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.keywordSearch("alpha", 5, { topic: "alpha" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        num_results: 200,
+        query_type: "FULL_TEXT",
+        query_text: "alpha",
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("uses SQL-like filters for storage-optimized endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+    const query = new Array(16).fill(0);
+    query[0] = 1;
+
+    const results = await store.search(query, 5, {
+      user_id: "u1",
+      topic: "alpha",
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        columns: ["memory_id", "payload"],
+        filters: "user_id = 'u1'",
+        query_type: "ANN",
+        query_vector: query,
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("translates storage-optimized array shorthand filters into IN clauses", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+    const query = new Array(16).fill(0);
+    query[0] = 1;
+
+    await store.search(query, 5, {
+      user_id: ["u1", "u2"],
+    });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        filters: "user_id IN ('u1', 'u2')",
+      }),
+    );
+    expect(queryCall?.[1]).not.toHaveProperty("filters_json");
+  });
+
+  it("falls back to local filtering for logical operators", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const orResults = await store.search([1, 0, 0], 5, {
+      $or: [{ user_id: "u1" }, { topic: "beta" }],
+    });
+    const notResults = await store.search([1, 0, 0], 5, {
+      $not: [{ user_id: "u2" }],
+    });
+    const queryCalls = axiosModule.__mockHttpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCalls).toHaveLength(2);
+    expect(queryCalls[0][1]).not.toHaveProperty("filters_json");
+    expect(queryCalls[1][1]).not.toHaveProperty("filters_json");
+    expect(orResults.map((result: any) => result.id)).toEqual(["id-1", "id-2"]);
+    expect(notResults.map((result: any) => result.id)).toEqual(["id-1"]);
+  });
+
+  it("keeps memory_id filters aligned between Databricks and local fallback", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    const results = await store.search([1, 0, 0], 5, { memory_id: "id-1" });
+    const queryCall = axiosModule.__mockHttpClient.post.mock.calls.find(
+      ([url]: [string]) => url === "/indexes/main.default.memories/query",
+    );
+
+    expect(queryCall?.[1]).toEqual(
+      expect.objectContaining({
+        filters_json: JSON.stringify({ memory_id: "id-1" }),
+      }),
+    );
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.98,
+      },
+    ]);
+  });
+
+  it("omits columns_to_sync for storage-optimized endpoints", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 16,
+      endpointType: "STORAGE_OPTIMIZED",
+    });
+
+    await store.initialize();
+
+    expect(axiosModule.__mockHttpClient.post).toHaveBeenCalledWith("/indexes", {
+      name: "main.default.memories",
+      endpoint_name: "mem0_vector_search",
+      primary_key: "memory_id",
+      index_type: "DELTA_SYNC",
+      delta_sync_index_spec: {
+        source_table: "main.default.memories",
+        pipeline_type: "TRIGGERED",
+        columns_to_sync: undefined,
+        embedding_vector_columns: [
+          {
+            name: "embedding",
+            embedding_dimension: 16,
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects invalid storage-optimized embedding dimensions", () => {
+    expect(
+      () =>
+        new DatabricksVectorStore({
+          workspaceUrl: "https://workspace.databricks.com",
+          httpPath: "/sql/1.0/warehouses/test",
+          accessToken: "dapi-test",
+          catalog: "main",
+          schema: "default",
+          collectionName: "memories",
+          dimension: 3,
+          endpointType: "STORAGE_OPTIMIZED",
+        }),
+    ).toThrow("require dimensions divisible by 16");
+  });
+
+  it("rejects HYBRID vector search without query text", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      queryType: "HYBRID",
+      syncPollIntervalMs: 0,
+    });
+
+    await expect(store.search([1, 0, 0], 5)).rejects.toThrow(
+      "Databricks HYBRID search requires query_text",
+    );
+    expect(
+      axiosModule.__mockHttpClient.post.mock.calls.find(
+        ([url]: [string]) => url === "/indexes/main.default.memories/query",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("roundtrips migration user ids", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+  });
+
+  it("escapes backslashes and quotes in SQL string literals (injection-safe)", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    // The id/user_id carry a single quote and a backslash. Databricks SQL treats
+    // "\" as an escape char, so without doubling it, "\'" would break out of the
+    // literal (injection) and any backslash would be dropped on write.
+    await store.insert([[1, 0, 0]], ["a'b\\c"], [{ user_id: "x'y\\z" }]);
+
+    const session = databricksSql.__mockSession;
+    const insertSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0])
+      .find((sql: string) => sql.includes("INSERT INTO main.default.memories"));
+
+    expect(insertSql).toBeDefined();
+    // Backslash doubled AND quote doubled: 'a''b\\c'
+    expect(insertSql).toContain("'a''b\\\\c'");
+    // The un-escaped single-backslash form (the breakout vector) must be absent.
+    expect(insertSql).not.toContain("'a''b\\c'");
+  });
+
+  it("pushes session filters into the SQL WHERE clause when listing", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.list({ user_id: "u1" }, 10);
+
+    const listSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+
+    expect(listSql).toBeDefined();
+    expect(listSql).toContain("WHERE user_id = 'u1'");
+  });
+
+  it("list(): pushes null-safe ne/nin predicates into the WHERE clause", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+
+    session.executeStatement.mockClear();
+    await store.list({ agent_id: { ne: "a2" } }, 10);
+    const neSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(neSql).toBeDefined();
+    expect(neSql).toContain("(agent_id IS NULL OR agent_id != 'a2')");
+    expect(neSql).not.toContain("WHERE agent_id != 'a2'");
+
+    session.executeStatement.mockClear();
+    await store.list({ agent_id: { nin: ["a2", "a3"] } }, 10);
+    const ninSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(ninSql).toBeDefined();
+    expect(ninSql).toContain(
+      "(agent_id IS NULL OR agent_id NOT IN ('a2', 'a3'))",
+    );
+    expect(ninSql).not.toContain("WHERE agent_id NOT IN ('a2', 'a3')");
+  });
+
+  it("list(): bounds the SQL scan with LIMIT topK when the filter fully pushes down", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+
+    session.executeStatement.mockClear();
+    await store.list({ user_id: "u1" });
+    const defaultTopKSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(defaultTopKSql).toContain("LIMIT 100");
+
+    session.executeStatement.mockClear();
+    await store.list({ user_id: "u1" }, 7);
+    const customTopKSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+    expect(customTopKSql).toContain("LIMIT 7");
+  });
+
+  it("list(): rejects a topK that isn't a positive integer before it reaches SQL", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    for (const badTopK of [
+      0,
+      -1,
+      2.5,
+      NaN,
+      "10; DROP TABLE t" as unknown as number,
+    ]) {
+      await expect(store.list({ user_id: "u1" }, badTopK)).rejects.toThrow(
+        `Databricks vector store: topK must be a positive integer, got ${badTopK}`,
+      );
+    }
+  });
+
+  it("list(): falls back to the 10k scan ceiling (no WHERE) when $or can't be pushed down", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.list({ $or: [{ user_id: "u1" }, { topic: "beta" }] });
+
+    const listSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("SELECT memory_id, payload FROM main.default.memories"),
+      );
+
+    expect(listSql).toBeDefined();
+    expect(listSql).not.toContain("WHERE");
+    expect(listSql).toContain("LIMIT 10000");
+  });
+
+  it("provisions a dedicated text_lemmatized column for BM25 keyword search", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+
+    const session = databricksSql.__mockSession;
+    const createSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) =>
+        sql.startsWith("CREATE TABLE IF NOT EXISTS main.default.memories"),
+      );
+
+    expect(createSql).toBeDefined();
+    expect(createSql).toContain("text_lemmatized STRING");
+  });
+
+  it("writes lemmatized text on insert and refreshes it on update", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ data: "running shoes", textLemmatized: "run shoe" }],
+    );
+
+    const insertSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("INSERT INTO"));
+
+    expect(insertSql).toContain(
+      "(memory_id, embedding, payload, text_lemmatized, user_id, agent_id, run_id)",
+    );
+    expect(insertSql).toContain("'run shoe'");
+
+    session.executeStatement.mockClear();
+    await store.update("id-1", [0, 1, 0], {
+      data: "walking boots",
+      textLemmatized: "walk boot",
+    });
+
+    const updateSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("UPDATE"));
+
+    expect(updateSql).toContain("text_lemmatized = 'walk boot'");
+  });
+
+  it("falls back to payload.data when textLemmatized is absent", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    await store.initialize();
+    const session = databricksSql.__mockSession;
+    session.executeStatement.mockClear();
+
+    await store.insert([[1, 0, 0]], ["id-1"], [{ data: "plain text" }]);
+
+    const insertSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0].replace(/\s+/g, " ").trim())
+      .find((sql: string) => sql.startsWith("INSERT INTO"));
+
+    expect(insertSql).toContain("'plain text'");
+  });
+
+  it("coalesces triggered-index syncs across sequential deletes", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    const httpClient = axiosModule.__mockHttpClient;
+    httpClient.post.mockClear();
+
+    // deleteAll() awaits each deleteMemory in turn -- exactly this shape.
+    for (let index = 0; index < 8; index += 1) {
+      await store.delete(`id-${index}`);
+    }
+    await store.search([1, 0, 0], 5);
+
+    const syncPosts = httpClient.post.mock.calls.filter(
+      ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+    );
+
+    expect(syncPosts.length).toBeGreaterThanOrEqual(1);
+    expect(syncPosts.length).toBeLessThan(8);
+  });
+
+  it("starts one sync for concurrent writers, and still drains the second write", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    const httpClient = axiosModule.__mockHttpClient;
+    httpClient.post.mockClear();
+
+    const syncPosts = () =>
+      httpClient.post.mock.calls.filter(
+        ([url]: [string]) => url === "/indexes/main.default.memories/sync",
+      ).length;
+
+    await Promise.all([
+      store.insert([[1, 0, 0]], ["id-a"], [{ data: "alpha" }]),
+      store.insert([[0, 1, 0]], ["id-b"], [{ data: "beta" }]),
+    ]);
+
+    // Both writers ran before any sync settled. Exactly one drain may own the pipeline --
+    // if both had raced past the guard they would each have POSTed their own sync.
+    expect(syncPosts()).toBe(1);
+
+    // The second writer's rows are not lost: the live drain re-checks the queue and syncs again.
+    await store.search([1, 0, 0], 5);
+    expect(syncPosts()).toBe(2);
+  });
+
+  it("does not block writes on index readiness, and surfaces sync failures on the next read", async () => {
+    const axiosModule = require("axios");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+      syncTimeoutMs: 10,
+    });
+
+    await store.initialize();
+    // Every readiness poll from here on reports not-ready, so the sync can only time out.
+    axiosModule.__setIndexNeverReady(true);
+
+    // The write still resolves: it schedules the sync, it does not wait for it.
+    await expect(
+      store.insert([[1, 0, 0]], ["id-1"], [{ data: "alpha" }]),
+    ).resolves.toBeUndefined();
+
+    // The reader is what pays -- and inherits the deferred failure.
+    await expect(store.search([1, 0, 0], 5)).rejects.toThrow();
+
+    // The error is consumed once, not latched forever.
+    axiosModule.__setIndexNeverReady(false);
+    await expect(store.search([1, 0, 0], 5)).resolves.toBeDefined();
+  });
+
+  it("update() does not null out session columns on a partial payload", async () => {
+    const databricksSql = require("@databricks/sql");
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 1,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+    // Partial payload -- omits user_id/agent_id/run_id, the way a caller updating just one
+    // field would. Mirrors Python's `excluded_keys`: these must survive untouched.
+    await store.update("id-1", [0, 1, 0], { topic: "beta" });
+
+    const session = databricksSql.__mockSession;
+    const updateSql = session.executeStatement.mock.calls
+      .map((call: [string]) => call[0])
+      .find((sql: string) => sql.includes("UPDATE"));
+
+    expect(updateSql).toBeDefined();
+    expect(updateSql).not.toMatch(/\buser_id\s*=/);
+    expect(updateSql).not.toMatch(/\bagent_id\s*=/);
+    expect(updateSql).not.toMatch(/\brun_id\s*=/);
+    expect(updateSql).toMatch(/embedding\s*=/);
+    expect(updateSql).toMatch(/payload\s*=/);
+  });
+
+  it("list() rejects an unsafe-integer topK that would slip past Number.isInteger", async () => {
+    const store = new DatabricksVectorStore({
+      workspaceUrl: "https://workspace.databricks.com",
+      httpPath: "/sql/1.0/warehouses/test",
+      accessToken: "dapi-test",
+      catalog: "main",
+      schema: "default",
+      collectionName: "memories",
+      dimension: 3,
+      syncPollIntervalMs: 0,
+    });
+
+    // 1e21 is Number.isInteger()-true but not representable exactly, and stringifies as
+    // "1e+21" -- meaningless (and unguarded) as a SQL LIMIT.
+    await expect(store.list({ user_id: "u1" }, 1e21)).rejects.toThrow(
+      /topK must be a positive integer/,
+    );
+    // Sanity: a normal topK is still accepted (does not throw).
+    await expect(store.list({ user_id: "u1" }, 10)).resolves.toBeDefined();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Cassandra — mock client, test interface + idempotent init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Cassandra – backward compat with mocked client", () => {
+  let CassandraDB: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    jest.doMock("cassandra-driver", () => {
+      const rows = new Map<
+        string,
+        { id: string; vector: number[]; payload: string }
+      >();
+      const memoryRows = () =>
+        Array.from(rows.entries())
+          .filter(([key]) => key.startsWith("memories:"))
+          .map(([, row]) => row);
+
+      class MockClient {
+        connect = jest.fn().mockResolvedValue(undefined);
+
+        execute = jest
+          .fn()
+          .mockImplementation(
+            async (
+              query: string,
+              params: any[] = [],
+              options: Record<string, any> = {},
+            ) => {
+              const normalized = query.replace(/\s+/g, " ").trim();
+
+              if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+                return { rows: [] };
+              }
+
+              if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "INSERT INTO mem0.memories (id, vector, payload) VALUES (?, ?, ?)",
+                )
+              ) {
+                rows.set(`memories:${params[0]}`, {
+                  id: params[0],
+                  vector: params[1],
+                  payload: params[2],
+                });
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT id, payload FROM mem0.memories WHERE id = ?",
+                )
+              ) {
+                const row = rows.get(`memories:${params[0]}`);
+                return {
+                  rows: row ? [{ id: row.id, payload: row.payload }] : [],
+                };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT id, vector, payload FROM mem0.memories",
+                )
+              ) {
+                return {
+                  rows: memoryRows().map((row) => ({
+                    ...row,
+                  })),
+                };
+              }
+
+              if (
+                normalized.startsWith("SELECT id, payload FROM mem0.memories")
+              ) {
+                return {
+                  rows: memoryRows().map((row) => ({
+                    id: row.id,
+                    payload: row.payload,
+                  })),
+                };
+              }
+
+              if (normalized.startsWith("DROP TABLE IF EXISTS mem0.memories")) {
+                for (const key of Array.from(rows.keys())) {
+                  if (key.startsWith("memories:")) {
+                    rows.delete(key);
+                  }
+                }
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith("DELETE FROM mem0.memories WHERE id = ?")
+              ) {
+                rows.delete(`memories:${params[0]}`);
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "INSERT INTO mem0.memory_migrations (id, user_id) VALUES (?, ?)",
+                )
+              ) {
+                rows.set(`migrations:${params[0]}`, {
+                  id: params[0],
+                  vector: [0],
+                  payload: JSON.stringify({ user_id: params[1] }),
+                });
+                return { rows: [] };
+              }
+
+              if (
+                normalized.startsWith(
+                  "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+                )
+              ) {
+                const row = rows.get(`migrations:${params[0]}`);
+                if (!row) {
+                  return { rows: [] };
+                }
+                return {
+                  rows: [{ user_id: JSON.parse(row.payload).user_id }],
+                };
+              }
+
+              throw new Error(
+                `Unexpected Cassandra query: ${normalized} prepare=${options.prepare}`,
+              );
+            },
+          );
+      }
+
+      return {
+        __esModule: true,
+        default: {
+          Client: jest.fn().mockImplementation(() => new MockClient()),
+          auth: {
+            PlainTextAuthProvider: jest
+              .fn()
+              .mockImplementation((username: string, password: string) => ({
+                username,
+                password,
+              })),
+          },
+        },
+      };
+    });
+
+    CassandraDB = require("../src/vector_stores/cassandra").CassandraDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new CassandraDB({
+      client: {
+        execute: jest.fn().mockResolvedValue({ rows: [] }),
+      },
+      collectionName: "memories",
+      dimension: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const cassandraDriver = require("cassandra-driver");
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    const clientInstance = cassandraDriver.default.Client.mock.results[0].value;
+    expect(clientInstance.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("shapes Cassandra writes and normalizes search results", async () => {
+    const cassandraDriver = require("cassandra-driver");
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[1, 0, 0]],
+      ["id-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const clientInstance = cassandraDriver.default.Client.mock.results[0].value;
+    expect(clientInstance.execute).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "INSERT INTO mem0.memories (id, vector, payload)",
+      ),
+      ["id-1", [1, 0, 0], JSON.stringify({ user_id: "u1", topic: "alpha" })],
+      { prepare: true },
+    );
+
+    const results = await store.search([1, 0, 0], 5, { user_id: "u1" });
+    expect(results).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+    ]);
+  });
+
+  it("roundtrips migration user ids", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+  });
+
+  it("supports get, update, delete, and list", async () => {
+    const store = new CassandraDB({
+      contactPoints: ["127.0.0.1"],
+      localDataCenter: "datacenter1",
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 0, 0],
+        [0, 1, 0],
+      ],
+      ["id-1", "id-2"],
+      [
+        { user_id: "u1", topic: "alpha" },
+        { user_id: "u2", topic: "beta" },
+      ],
+    );
+
+    expect(await store.get("missing")).toBeNull();
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "alpha" },
+    });
+
+    await store.update("id-1", [0, 0, 1], {
+      user_id: "u1",
+      topic: "gamma",
+    });
+    expect(await store.get("id-1")).toEqual({
+      id: "id-1",
+      payload: { user_id: "u1", topic: "gamma" },
+    });
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 10);
+    expect(count).toBe(1);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "gamma" },
+      },
+    ]);
+
+    await store.delete("id-2");
+    expect(await store.get("id-2")).toBeNull();
+
+    await store.deleteCol();
+    const [afterDrop, afterDropCount] = await store.list(undefined, 10);
+    expect(afterDrop).toEqual([]);
+    expect(afterDropCount).toBe(0);
+  });
+
+  it("scans paged search and list results", async () => {
+    const execute = jest
+      .fn()
+      .mockImplementation(
+        async (
+          query: string,
+          _params: any[] = [],
+          options: Record<string, any> = {},
+        ) => {
+          const normalized = query.replace(/\s+/g, " ").trim();
+
+          if (normalized.startsWith("CREATE KEYSPACE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (normalized.startsWith("CREATE TABLE IF NOT EXISTS")) {
+            return { rows: [] };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT id, vector, payload FROM mem0.memories",
+            )
+          ) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    vector: [1, 0, 0],
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  vector: [0, 1, 0],
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (normalized.startsWith("SELECT id, payload FROM mem0.memories")) {
+            if (!options.pageState) {
+              return {
+                rows: [
+                  {
+                    id: "id-1",
+                    payload: JSON.stringify({ user_id: "u1", topic: "alpha" }),
+                  },
+                ],
+                pageState: "page-2",
+              };
+            }
+
+            return {
+              rows: [
+                {
+                  id: "id-2",
+                  payload: JSON.stringify({ user_id: "u2", topic: "beta" }),
+                },
+              ],
+              pageState: null,
+            };
+          }
+
+          if (
+            normalized.startsWith(
+              "SELECT user_id FROM mem0.memory_migrations WHERE id = ?",
+            )
+          ) {
+            return { rows: [] };
+          }
+
+          throw new Error(`Unexpected Cassandra query: ${normalized}`);
+        },
+      );
+    const store = new CassandraDB({
+      client: { execute },
+      collectionName: "memories",
+      dimension: 3,
+    });
+
+    const searchResults = await store.search([1, 0, 0], 5);
+    expect(searchResults).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 1,
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+        score: 0,
+      },
+    ]);
+
+    const [listed, count] = await store.list(undefined, 10);
+    expect(count).toBe(2);
+    expect(listed).toEqual([
+      {
+        id: "id-1",
+        payload: { user_id: "u1", topic: "alpha" },
+      },
+      {
+        id: "id-2",
+        payload: { user_id: "u2", topic: "beta" },
+      },
+    ]);
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: undefined,
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, vector, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, payload"),
+      [],
+      expect.objectContaining({
+        autoPage: false,
+        fetchSize: 500,
+        pageState: "page-2",
+      }),
+    );
+  });
+
+  it("rejects unsafe identifiers", () => {
+    expect(
+      () =>
+        new CassandraDB({
+          client: {
+            execute: jest.fn().mockResolvedValue({ rows: [] }),
+          },
+          keyspace: "bad-name",
+          collectionName: "memories",
+          dimension: 3,
+        }),
+    ).toThrow("Invalid keyspace");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 6. S3 Vectors — mock AWS client, test interface + init
+// ───────────────────────────────────────────────────────────────────────────
+describe("S3 Vectors – backward compat with mocked client", () => {
+  function createMockS3VectorsClient(options?: {
+    queryDistance?: number;
+    queryDistanceMetric?: "cosine" | "euclidean";
+  }) {
+    const buckets = new Set<string>();
+    const indexes = new Map<
+      string,
+      {
+        dimension: number;
+        distanceMetric: string;
+      }
+    >();
+    const vectors = new Map<
+      string,
+      {
+        key: string;
+        data: { float32: number[] };
+        metadata: Record<string, any>;
+      }
+    >();
+
+    const vectorMapKey = (indexName: string, key: string) =>
+      `${indexName}:${key}`;
+
+    return {
+      send: jest.fn().mockImplementation(async (command: any) => {
+        const name = command.constructor.name;
+        const input = command.input;
+
+        switch (name) {
+          case "GetVectorBucketCommand":
+            if (!buckets.has(input.vectorBucketName)) {
+              const error: any = new Error("Bucket not found");
+              error.name = "NotFoundException";
+              throw error;
+            }
+            return {};
+          case "CreateVectorBucketCommand":
+            if (buckets.has(input.vectorBucketName)) {
+              const error: any = new Error("Bucket exists");
+              error.name = "ConflictException";
+              throw error;
+            }
+            buckets.add(input.vectorBucketName);
+            return {};
+          case "GetIndexCommand":
+            if (!indexes.has(input.indexName)) {
+              const error: any = new Error("Index not found");
+              error.name = "NotFoundException";
+              throw error;
+            }
+            return {};
+          case "CreateIndexCommand":
+            if (indexes.has(input.indexName)) {
+              const error: any = new Error("Index exists");
+              error.name = "ConflictException";
+              throw error;
+            }
+            indexes.set(input.indexName, {
+              dimension: input.dimension,
+              distanceMetric: input.distanceMetric,
+            });
+            return {};
+          case "PutVectorsCommand":
+            for (const vector of input.vectors || []) {
+              vectors.set(vectorMapKey(input.indexName, vector.key), {
+                key: vector.key,
+                data: vector.data,
+                metadata: vector.metadata || {},
+              });
+            }
+            return {};
+          case "QueryVectorsCommand":
+            return {
+              distanceMetric: options?.queryDistanceMetric ?? "cosine",
+              vectors: [
+                {
+                  key: "doc-1",
+                  metadata: { user_id: "u1", topic: "alpha" },
+                  distance: options?.queryDistance ?? 0.25,
+                },
+              ],
+            };
+          case "GetVectorsCommand":
+            return {
+              vectors: (input.keys || [])
+                .map((key: string) =>
+                  vectors.get(vectorMapKey(input.indexName, key)),
+                )
+                .filter(Boolean),
+            };
+          case "DeleteVectorsCommand":
+            for (const key of input.keys || []) {
+              vectors.delete(vectorMapKey(input.indexName, key));
+            }
+            return {};
+          case "DeleteIndexCommand":
+            indexes.delete(input.indexName);
+            for (const key of Array.from(vectors.keys())) {
+              if (key.startsWith(`${input.indexName}:`)) {
+                vectors.delete(key);
+              }
+            }
+            return {};
+          case "ListVectorsCommand":
+            return {
+              vectors: Array.from(vectors.values())
+                .filter((entry) =>
+                  vectorMapKey(input.indexName, entry.key).startsWith(
+                    `${input.indexName}:`,
+                  ),
+                )
+                .map((entry) => ({
+                  key: entry.key,
+                  metadata: entry.metadata,
+                })),
+            };
+          default:
+            throw new Error(`Unexpected S3Vectors command: ${name}`);
+        }
+      }),
+    };
+  }
+
+  function findCommandInput(
+    client: { send: jest.Mock },
+    commandName: string,
+  ): Record<string, any> | undefined {
+    const match = client.send.mock.calls.find(
+      ([command]) => command.constructor.name === commandName,
+    );
+    return match?.[0]?.input;
+  }
+
+  it("implements full VectorStore interface", () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const store = new S3Vectors({
+      client: createMockS3VectorsClient(),
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+
+    await Promise.all([p1, p2, p3]);
+
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "CreateVectorBucketCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "CreateIndexCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "GetVectorBucketCommand",
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "GetIndexCommand",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("shapes S3 write requests and normalizes search results", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [[0.1, 0.2, 0.3]],
+      ["doc-1"],
+      [{ user_id: "u1", topic: "alpha" }],
+    );
+
+    const putInput = findCommandInput(mockClient, "PutVectorsCommand");
+    expect(putInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      vectors: [
+        {
+          key: "doc-1",
+          data: { float32: [0.1, 0.2, 0.3] },
+          metadata: { user_id: "u1", topic: "alpha" },
+        },
+      ],
+    });
+
+    const results = await store.search([0.1, 0.2, 0.3], 5, { user_id: "u1" });
+
+    const queryInput = findCommandInput(mockClient, "QueryVectorsCommand");
+    expect(queryInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      queryVector: { float32: [0.1, 0.2, 0.3] },
+      topK: 5,
+      filter: { user_id: { $eq: "u1" } },
+      returnMetadata: true,
+      returnDistance: true,
+    });
+    expect(results).toEqual([
+      {
+        id: "doc-1",
+        payload: { user_id: "u1", topic: "alpha" },
+        score: 0.75,
+      },
+    ]);
+  });
+
+  it("normalizes euclidean distances without collapsing scores to zero", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const store = new S3Vectors({
+      client: createMockS3VectorsClient({
+        queryDistance: 1.5,
+        queryDistanceMetric: "euclidean",
+      }),
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+      distanceMetric: "cosine",
+    });
+
+    const [result] = await store.search([0.1, 0.2, 0.3], 1);
+
+    expect(result).toEqual({
+      id: "doc-1",
+      payload: { user_id: "u1", topic: "alpha" },
+      score: 0.4,
+    });
+  });
+
+  it("normalizes empty in and nin operands before search hits AWS", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    const baselineQueryCalls = mockClient.send.mock.calls.filter(
+      ([command]) => command.constructor.name === "QueryVectorsCommand",
+    ).length;
+    const emptyInResults = await store.search([0.1, 0.2, 0.3], 5, {
+      topic: { in: [] },
+    });
+    expect(emptyInResults).toEqual([]);
+    expect(
+      mockClient.send.mock.calls.filter(
+        ([command]) => command.constructor.name === "QueryVectorsCommand",
+      ),
+    ).toHaveLength(baselineQueryCalls);
+
+    await store.search([0.1, 0.2, 0.3], 5, {
+      topic: { nin: [] },
+    });
+
+    const queryInput = findCommandInput(mockClient, "QueryVectorsCommand");
+    expect(queryInput).toMatchObject({
+      vectorBucketName: "test-bucket",
+      indexName: "test-index",
+      queryVector: { float32: [0.1, 0.2, 0.3] },
+      topK: 5,
+      returnMetadata: true,
+      returnDistance: true,
+    });
+    expect(queryInput.filter).toBeUndefined();
+  });
+  it("applies client-side list filters, including empty $nin operands", async () => {
+    const { S3Vectors } = require("../src/vector_stores/s3_vectors");
+    const mockClient = createMockS3VectorsClient();
+    const store = new S3Vectors({
+      client: mockClient,
+      vectorBucketName: "test-bucket",
+      collectionName: "test-index",
+      embeddingModelDims: 3,
+    });
+
+    await store.initialize();
+    await store.insert(
+      [
+        [0.1, 0.2, 0.3],
+        [0.3, 0.2, 0.1],
+      ],
+      ["doc-1", "doc-2"],
+      [
+        { user_id: "u1", topic: "alpha", tags: ["keep"] },
+        { user_id: "u2", topic: "beta", tags: ["skip"] },
+      ],
+    );
+
+    const [allRows, allCount] = await store.list({ topic: { nin: [] } }, 10);
+    expect(allCount).toBe(2);
+    expect(allRows.map((row) => row.id)).toEqual(["doc-1", "doc-2"]);
+
+    const [filteredRows, filteredCount] = await store.list(
+      {
+        $and: [{ topic: { nin: ["beta"] } }, { tags: { in: ["keep"] } }],
+      },
+      10,
+    );
+
+    expect(filteredCount).toBe(1);
+    expect(filteredRows).toEqual([
+      {
+        id: "doc-1",
+        payload: { user_id: "u1", topic: "alpha", tags: ["keep"] },
+      },
+    ]);
+  });
+});
+
+// 6. Neptune Analytics — mock NeptuneGraph client, test interface + init
+// ───────────────────────────────────────────────────────────────────────────
+describe("Neptune Analytics – backward compat with mocked client", () => {
+  // `@aws-sdk/client-neptune-graph` is an optional peer loaded via dynamic `import()`
+  // (see neptune_analytics.ts). Register a default virtual mock so every test that
+  // exercises `executeQuery()` -- even ones that inject their own `config.client` --
+  // can resolve `sdk.ExecuteQueryCommand` without the real package being installed.
+  // Tests that care about the AWS client constructor itself override this locally
+  // with their own `jest.doMock(..., { virtual: true })` before requiring the module.
+  beforeEach(() => {
+    jest.resetModules();
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
+
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: class NeptuneGraphClient {
+          constructor(public config: any) {}
+
+          async send() {
+            throw new Error(
+              "Neptune Analytics tests must inject a mock `client`; the default virtual SDK has no server to talk to.",
+            );
+          }
+        },
+      }),
+      { virtual: true },
+    );
+  });
+
+  afterEach(() => {
+    jest.resetModules();
+  });
+
+  function createMockResponse(body: Record<string, any>) {
+    return {
+      payload: {
+        transformToString: jest.fn().mockResolvedValue(JSON.stringify(body)),
+      },
+    };
+  }
+
+  function createMockNeptuneClient(options?: {
+    failInsertUpsert?: boolean;
+    throwInsertUpsert?: boolean;
+    failUpdateUpsert?: boolean;
+    failPayloadWrite?: boolean;
+  }) {
+    const nodes = new Map<
+      string,
+      {
+        embedding?: number[];
+        labels: string[];
+        properties: Record<string, any>;
+      }
+    >();
+    let storedUserId: string | undefined;
+
+    const getPropertyValue = (
+      node: { labels: string[]; properties: Record<string, any> },
+      property: string,
+    ) => {
+      if (property === "~label") {
+        return node.labels;
+      }
+
+      return node.properties[property];
+    };
+
+    const matchesFilter = (
+      node: { labels: string[]; properties: Record<string, any> },
+      filter: any,
+    ): boolean => {
+      if (!filter) {
+        return true;
+      }
+
+      if (Array.isArray(filter.andAll)) {
+        return filter.andAll.every((entry: any) => matchesFilter(node, entry));
+      }
+
+      if (Array.isArray(filter.orAll)) {
+        return filter.orAll.some((entry: any) => matchesFilter(node, entry));
+      }
+
+      const propertyMatcher = (
+        property: string,
+        predicate: (value: any) => boolean,
+      ) => {
+        const value = getPropertyValue(node, property);
+        if (property === "~label") {
+          return (
+            Array.isArray(value) && value.some((label) => predicate(label))
+          );
+        }
+
+        return predicate(value);
+      };
+
+      if (filter.equals) {
+        return propertyMatcher(
+          filter.equals.property,
+          (value) => value === filter.equals.value,
+        );
+      }
+
+      if (filter.notEquals) {
+        return propertyMatcher(
+          filter.notEquals.property,
+          (value) => value !== filter.notEquals.value,
+        );
+      }
+
+      if (filter.greaterThan) {
+        return propertyMatcher(
+          filter.greaterThan.property,
+          (value) =>
+            typeof value === "number" && value > filter.greaterThan.value,
+        );
+      }
+
+      if (filter.greaterThanOrEquals) {
+        return propertyMatcher(
+          filter.greaterThanOrEquals.property,
+          (value) =>
+            typeof value === "number" &&
+            value >= filter.greaterThanOrEquals.value,
+        );
+      }
+
+      if (filter.lessThan) {
+        return propertyMatcher(
+          filter.lessThan.property,
+          (value) => typeof value === "number" && value < filter.lessThan.value,
+        );
+      }
+
+      if (filter.lessThanOrEquals) {
+        return propertyMatcher(
+          filter.lessThanOrEquals.property,
+          (value) =>
+            typeof value === "number" && value <= filter.lessThanOrEquals.value,
+        );
+      }
+
+      if (filter.in) {
+        return propertyMatcher(filter.in.property, (value) =>
+          filter.in.value.includes(value),
+        );
+      }
+
+      if (filter.notIn) {
+        return propertyMatcher(
+          filter.notIn.property,
+          (value) => !filter.notIn.value.includes(value),
+        );
+      }
+
+      if (filter.stringContains) {
+        return propertyMatcher(
+          filter.stringContains.property,
+          (value) =>
+            typeof value === "string" &&
+            value.includes(filter.stringContains.value),
+        );
+      }
+
+      if (filter.startsWith) {
+        return propertyMatcher(
+          filter.startsWith.property,
+          (value) =>
+            typeof value === "string" &&
+            value.startsWith(filter.startsWith.value),
+        );
+      }
+
+      return false;
+    };
+
+    const toNodeRecord = (
+      id: string,
+      node: { labels: string[]; properties: Record<string, any> },
+    ): Record<string, any> => ({
+      "~id": id,
+      "~labels": [...node.labels],
+      "~properties": { ...node.properties },
+    });
+
+    const matchesListParameters = (
+      properties: Record<string, any>,
+      parameters: Record<string, any>,
+    ) =>
+      Object.entries(parameters)
+        .filter(([key]) => key.startsWith("filter_"))
+        .every(([key, value]) => {
+          const match = key.match(/^filter_(?:eq_)?(.+)_\d+$/);
+          if (!match) {
+            return true;
+          }
+
+          return properties[match[1]] === value;
+        });
+
+    const extractStructuredArgument = (
+      queryString: string,
+      key: string,
+    ): any => {
+      const keyIndex = queryString.indexOf(`${key}:`);
+      if (keyIndex < 0) {
+        return undefined;
+      }
+
+      const objectStart = queryString.indexOf("{", keyIndex);
+      if (objectStart < 0) {
+        return undefined;
+      }
+
+      let depth = 0;
+      for (let index = objectStart; index < queryString.length; index += 1) {
+        const char = queryString[index];
+        if (char === "{") {
+          depth += 1;
+        } else if (char === "}") {
+          depth -= 1;
+          if (depth === 0) {
+            const literal = queryString.slice(objectStart, index + 1);
+            const jsonLiteral = literal.replace(
+              /([{\[,]\s*)([A-Za-z_][A-Za-z0-9_]*)(\s*:)/g,
+              '$1"$2"$3',
+            );
+            return JSON.parse(jsonLiteral);
+          }
+        }
+      }
+
+      return undefined;
+    };
+
+    return {
+      send: jest.fn().mockImplementation(async (command: any) => {
+        const queryString = String(command.input.queryString || "");
+        const parameters = command.input.parameters || {};
+        const collectionLabelMatch = queryString.match(/MERGE \(n:`([^`]+)`/);
+        const collectionLabel = collectionLabelMatch?.[1] || "MEM0_VECTOR_test";
+
+        if (
+          queryString.includes("UNWIND $nodeIds AS nodeId") &&
+          queryString.includes("RETURN nodeId")
+        ) {
+          return createMockResponse({
+            results: (parameters.nodeIds || [])
+              .filter((nodeId: string) => nodes.has(nodeId))
+              .map((nodeId: string) => ({ nodeId })),
+          });
+        }
+
+        if (
+          queryString.includes("UNWIND $nodeIds AS nodeId") &&
+          queryString.includes("DETACH DELETE n")
+        ) {
+          for (const nodeId of parameters.nodeIds || []) {
+            nodes.delete(nodeId);
+          }
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes("CALL neptune.algo.vectors.upsert") &&
+          Array.isArray(parameters.rows) &&
+          queryString.includes("RETURN success")
+        ) {
+          const createsNode = queryString.includes("MERGE");
+          const processedRows: any[] = [];
+          for (const row of parameters.rows) {
+            const existing = nodes.get(row.node_id);
+            if (!existing && !createsNode) {
+              continue;
+            }
+            nodes.set(row.node_id, {
+              embedding: row.embedding,
+              labels: existing?.labels || [collectionLabel],
+              properties: existing ? existing.properties : {},
+            });
+            processedRows.push(row);
+          }
+
+          if (options?.throwInsertUpsert) {
+            throw new Error("Neptune upsert rejected");
+          }
+
+          return createMockResponse({
+            results: processedRows.map(() => ({
+              success: !options?.failInsertUpsert,
+            })),
+          });
+        }
+
+        if (
+          queryString.includes("UNWIND $rows AS row") &&
+          queryString.includes("SET n += row.properties")
+        ) {
+          if (!options?.failPayloadWrite) {
+            for (const row of parameters.rows || []) {
+              const existing = nodes.get(row.node_id);
+              nodes.set(row.node_id, {
+                embedding: existing?.embedding,
+                labels: existing?.labels || [collectionLabel],
+                properties: existing
+                  ? { ...existing.properties, ...row.properties }
+                  : { ...row.properties },
+              });
+            }
+          }
+
+          return createMockResponse({ results: [{ n: {} }] });
+        }
+
+        if (
+          queryString.includes("CALL neptune.algo.vectors.upsert") &&
+          parameters.vectorId
+        ) {
+          if (options?.failUpdateUpsert) {
+            return createMockResponse({ results: [{ success: false }] });
+          }
+
+          const existing = nodes.get(parameters.vectorId);
+          if (existing) {
+            nodes.set(parameters.vectorId, {
+              embedding: parameters.embedding,
+              labels: existing.labels,
+              properties: parameters.properties || existing.properties,
+            });
+          }
+          return createMockResponse({ results: [{ success: true }] });
+        }
+
+        if (queryString.includes("topK.byEmbedding")) {
+          const vertexFilter = extractStructuredArgument(
+            queryString,
+            "vertexFilter",
+          );
+          const match = [...nodes.entries()].find(([, node]) =>
+            matchesFilter(node, vertexFilter),
+          );
+
+          return createMockResponse({
+            results: match
+              ? [
+                  {
+                    node: toNodeRecord(match[0], match[1]),
+                    score: 0.25,
+                  },
+                ]
+              : [],
+          });
+        }
+
+        if (queryString.includes("pg_schema")) {
+          const labels = new Set<string>();
+          for (const node of nodes.values()) {
+            for (const label of node.labels) {
+              labels.add(label);
+            }
+          }
+          if (storedUserId) {
+            labels.add("MEM0_VECTOR_memory_migrations");
+          }
+          return createMockResponse({
+            results: [{ result: [...labels] }],
+          });
+        }
+
+        if (
+          queryString.includes(
+            "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+          ) &&
+          queryString.includes("RETURN n") &&
+          queryString.includes("LIMIT 1")
+        ) {
+          const node = nodes.get(parameters.vectorId);
+          return createMockResponse({
+            results: node
+              ? [{ n: toNodeRecord(parameters.vectorId, node) }]
+              : [],
+          });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("RETURN count(n) AS count")
+        ) {
+          const count = [...nodes.values()].filter((node) =>
+            matchesListParameters(node.properties, parameters),
+          ).length;
+
+          return createMockResponse({ results: [{ count }] });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("RETURN n") &&
+          queryString.includes("LIMIT $limit")
+        ) {
+          const results = [...nodes.entries()]
+            .filter(([, node]) =>
+              matchesListParameters(node.properties, parameters),
+            )
+            .slice(0, parameters.limit || 100)
+            .map(([id, node]) => ({ n: toNodeRecord(id, node) }));
+
+          return createMockResponse({ results });
+        }
+
+        if (
+          queryString.includes(
+            "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+          ) &&
+          queryString.includes("SET n = $properties")
+        ) {
+          if (options?.failPayloadWrite) {
+            throw new Error("Neptune property write rejected");
+          }
+
+          const existing = nodes.get(parameters.vectorId);
+          if (existing) {
+            nodes.set(parameters.vectorId, {
+              embedding: existing.embedding,
+              labels: existing.labels,
+              properties: { ...parameters.properties },
+            });
+          }
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes(
+            "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+          ) &&
+          queryString.includes("DETACH DELETE n")
+        ) {
+          nodes.delete(parameters.vectorId);
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_test`)") &&
+          queryString.includes("DETACH DELETE n")
+        ) {
+          nodes.clear();
+          return createMockResponse({ results: [] });
+        }
+
+        if (
+          queryString.includes("MATCH (n:`MEM0_VECTOR_memory_migrations`") &&
+          queryString.includes("RETURN n")
+        ) {
+          return createMockResponse({
+            results: storedUserId
+              ? [
+                  {
+                    n: toNodeRecord(parameters.userNodeId, {
+                      labels: ["MEM0_VECTOR_memory_migrations"],
+                      properties: {
+                        user_id: storedUserId,
+                      },
+                    }),
+                  },
+                ]
+              : [],
+          });
+        }
+
+        if (
+          queryString.includes("MERGE (n:`MEM0_VECTOR_memory_migrations`") &&
+          queryString.includes("SET n.user_id = $userId")
+        ) {
+          storedUserId = parameters.userId;
+          return createMockResponse({ results: [] });
+        }
+
+        return createMockResponse({ results: [{ success: true }] });
+      }),
+    };
+  }
+
+  it("implements full VectorStore interface", () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+
+    expect(p1).toBe(p2);
+    expect(p2).toBe(p3);
+
+    await Promise.all([p1, p2, p3]);
+    expect(mockClient.send).not.toHaveBeenCalled();
+  });
+
+  it("passes custom HTTPS endpoints to the AWS client when graphIdentifier is provided", async () => {
+    jest.resetModules();
+
+    const send = jest
+      .fn()
+      .mockResolvedValue(createMockResponse({ results: [] }));
+    const neptuneGraphClient = jest.fn().mockReturnValue({ send });
+
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
+
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: neptuneGraphClient,
+      }),
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    const store = new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+      collectionName: "test",
+      dimension: 3,
+      region: "us-east-1",
+      profile: "dev-profile",
+      maxAttempts: 3,
+    });
+    await store.initialize();
+
+    // The client is now constructed lazily on first use, not in the constructor.
+    await store.search([1, 2, 3], 1);
+
+    expect(neptuneGraphClient).toHaveBeenCalledWith({
+      endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+      maxAttempts: 3,
+      profile: "dev-profile",
+      region: "us-east-1",
+    });
+  });
+
+  it("rejects HTTPS endpoints without an explicit graphIdentifier", () => {
+    jest.resetModules();
+
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
+
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: jest.fn().mockReturnValue({
+          send: jest.fn(),
+        }),
+      }),
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    expect(
+      () =>
+        new NeptuneAnalyticsVectorStore({
+          endpoint: "https://example.us-east-1.neptune-graph.amazonaws.com",
+          collectionName: "test",
+          dimension: 3,
+        }),
+    ).toThrow(
+      "Neptune Analytics HTTPS endpoints require graphIdentifier; pass graphIdentifier separately or use neptune-graph://<graph-id>.",
+    );
+  });
+
+  it("derives graphIdentifier from a neptune-graph endpoint URI", async () => {
+    jest.resetModules();
+
+    const send = jest
+      .fn()
+      .mockResolvedValue(createMockResponse({ results: [] }));
+    const neptuneGraphClient = jest.fn().mockReturnValue({ send });
+
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => ({
+        ExecuteQueryCommand: class ExecuteQueryCommand {
+          input: any;
+
+          constructor(input: any) {
+            this.input = input;
+          }
+        },
+        NeptuneGraphClient: neptuneGraphClient,
+      }),
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      endpoint: "neptune-graph://g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+      region: "us-east-1",
+    });
+
+    await store.search([1, 2, 3], 1);
+
+    expect(neptuneGraphClient).toHaveBeenCalledWith({
+      region: "us-east-1",
+    });
+    expect(send).toHaveBeenCalled();
+    expect(send.mock.calls[0][0].input.graphIdentifier).toBe("g-1234567890");
+  });
+
+  it("does not construct the Neptune client or load the SDK until the first query", async () => {
+    jest.resetModules();
+
+    let clientConstructions = 0;
+    let sdkLoads = 0;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => {
+        sdkLoads++;
+        return {
+          ExecuteQueryCommand: class ExecuteQueryCommand {
+            input: any;
+
+            constructor(input: any) {
+              this.input = input;
+            }
+          },
+          NeptuneGraphClient: class NeptuneGraphClient {
+            constructor(public config: any) {
+              clientConstructions++;
+            }
+
+            async send() {
+              return createMockResponse({ results: [] });
+            }
+          },
+        };
+      },
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    const store = new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    expect(clientConstructions).toBe(0);
+    expect(sdkLoads).toBe(0);
+
+    await store.search([1, 2, 3], 1);
+
+    expect(sdkLoads).toBe(1);
+    expect(clientConstructions).toBe(1);
+  });
+
+  it("retries constructing the Neptune client after a failed SDK load instead of caching the rejection", async () => {
+    jest.resetModules();
+
+    let shouldFail = true;
+    jest.doMock(
+      "@aws-sdk/client-neptune-graph",
+      () => {
+        if (shouldFail) {
+          throw new Error("Cannot find module '@aws-sdk/client-neptune-graph'");
+        }
+        return {
+          ExecuteQueryCommand: class ExecuteQueryCommand {
+            input: any;
+
+            constructor(input: any) {
+              this.input = input;
+            }
+          },
+          NeptuneGraphClient: class NeptuneGraphClient {
+            constructor(public config: any) {}
+
+            async send() {
+              return createMockResponse({ results: [] });
+            }
+          },
+        };
+      },
+      { virtual: true },
+    );
+
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+
+    const store = new NeptuneAnalyticsVectorStore({
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    // First use fails because the optional SDK can't be loaded...
+    await expect((store as any).getClient()).rejects.toThrow(
+      "The '@aws-sdk/client-neptune-graph' package is required",
+    );
+
+    // ...but a later call must retry rather than replay the cached rejection. Without
+    // getClient()'s catch-and-reset this second call would throw the same stale error.
+    shouldFail = false;
+    const client = await (store as any).getClient();
+    expect(client).toBeDefined();
+    expect(typeof client.send).toBe("function");
+  });
+
+  it("shapes Neptune write requests and normalizes search results", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", label: "topic-a", priority: 7, user_id: "u1" }],
+    );
+
+    expect(mockClient.send).toHaveBeenCalled();
+    const insertCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes("MERGE"),
+      );
+    const vectorCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes(
+          "CALL neptune.algo.vectors.upsert",
+        ),
+      );
+    expect(insertCall).toBeDefined();
+    expect(insertCall.input.queryString).toContain("MERGE");
+    expect(insertCall.input.queryString).not.toContain("FOREACH");
+    expect(insertCall.input.parameters.rows[0].properties.label).toBe(
+      "topic-a",
+    );
+    expect(insertCall.input.parameters.rows[0].embedding).toEqual([1, 2, 3]);
+
+    expect(vectorCall).toBeDefined();
+    expect(vectorCall.input.queryString).toContain(
+      "CALL neptune.algo.vectors.upsert",
+    );
+    expect(vectorCall.input.queryString).toContain(
+      "WITH n, row.embedding AS embedding",
+    );
+    expect(vectorCall.input.queryString).not.toContain("MERGE");
+
+    const results = await store.search([1, 2, 3], 1, {
+      $or: [{ user_id: "u2" }, { priority: { gte: 5 } }],
+      data: { contains: "alp" },
+    });
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual({
+      id: "id-1",
+      payload: expect.objectContaining({
+        data: "alpha",
+        label: "topic-a",
+        user_id: "u1",
+      }),
+      score: 0.8,
+    });
+
+    const searchCall =
+      mockClient.send.mock.calls[mockClient.send.mock.calls.length - 1];
+    const searchQuery = String(searchCall[0].input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(searchQuery).toContain("topK.byEmbedding");
+    expect(searchCall[0].input.parameters).toBeUndefined();
+    expect(searchQuery).toContain("topK: 1");
+    expect(searchQuery).toContain("embedding: [1, 2, 3]");
+    expect(searchQuery).toContain(
+      'property: "~label", value: "MEM0_VECTOR_test"',
+    );
+    expect(searchQuery).toContain('property: "user_id", value: "u2"');
+    expect(searchQuery).toContain('property: "priority", value: 5');
+    expect(searchQuery).toContain(
+      'stringContains: { property: "data", value: "alp" }',
+    );
+  });
+
+  it("escapes adversarial Neptune collection and filter identifiers", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = {
+      send: jest.fn().mockImplementation(async (command: any) => {
+        const queryString = String(command.input.queryString || "");
+        if (queryString.includes("RETURN count(n) AS count")) {
+          return createMockResponse({ results: [{ count: 0 }] });
+        }
+
+        return createMockResponse({ results: [] });
+      }),
+    };
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient as any,
+      graphIdentifier: "g-1234567890",
+      collectionName: "memo`graph",
+      dimension: 3,
+    });
+
+    await store.list({ "topic`name": ["alpha`1", "beta(2)"] }, 2);
+    await store.search([1, 2, 3], 4, {
+      "topic`name": { eq: "lookup`value" },
+    });
+
+    const listCall = mockClient.send.mock.calls.find(([command]: [any]) =>
+      String(command.input.queryString || "").includes("LIMIT $limit"),
+    )?.[0];
+    const searchCall = mockClient.send.mock.calls.find(([command]: [any]) =>
+      String(command.input.queryString || "").includes("topK.byEmbedding"),
+    )?.[0];
+
+    expect(listCall).toBeDefined();
+    expect(searchCall).toBeDefined();
+
+    const listQuery = String(listCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    const searchQuery = String(searchCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+
+    expect(listQuery).toContain("MATCH (n:`MEM0_VECTOR_memo``graph`)");
+    expect(listQuery).toContain("n.`topic``name` IN $filter_in_topic_name_1");
+    expect(listCall.input.parameters.filter_in_topic_name_1).toEqual([
+      "alpha`1",
+      "beta(2)",
+    ]);
+
+    expect(searchQuery).toContain("topK.byEmbedding");
+    expect(searchQuery).toContain("vertexFilter: {");
+    expect(searchQuery).toContain('property: "topic`name"');
+    expect(searchQuery).toContain('value: "lookup`value"');
+  });
+
+  it("serializes complex list filters into Cypher clauses and parameters", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.list(
+      {
+        $and: [
+          {
+            $or: [{ priority: { gte: 5 } }, { data: { startsWith: "alp" } }],
+          },
+          { $not: [{ archived: true }] },
+          { label: { contains: "topic" } },
+          { tag: ["a", "b"] },
+          { optional: "*" },
+        ],
+      },
+      7,
+    );
+
+    const listCall = mockClient.send.mock.calls.find(
+      ([command]: [any]) =>
+        String(command.input.queryString || "").includes("LIMIT $limit") &&
+        String(command.input.queryString || "").includes("RETURN n"),
+    )?.[0];
+    const countCall = mockClient.send.mock.calls.find(([command]: [any]) =>
+      String(command.input.queryString || "").includes(
+        "RETURN count(n) AS count",
+      ),
+    )?.[0];
+
+    expect(listCall).toBeDefined();
+    expect(countCall).toBeDefined();
+
+    const listQuery = String(listCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+    const countQuery = String(countCall.input.queryString || "").replace(
+      /\s+/g,
+      " ",
+    );
+
+    expect(listQuery).toContain("WHERE (");
+    expect(listQuery).toContain("n.`priority` >= $filter_gte_priority_1");
+    expect(listQuery).toContain(
+      "toString(n.`data`) STARTS WITH $filter_startsWith_data_2",
+    );
+    expect(listQuery).toContain("NOT (n.`archived` = $filter_archived_3)");
+    expect(listQuery).toContain(
+      "toString(n.`label`) CONTAINS $filter_contains_label_4",
+    );
+    expect(listQuery).toContain("n.`tag` IN $filter_in_tag_5");
+    expect(listQuery).toContain("n.`optional` IS NOT NULL");
+    expect(countQuery).toContain("RETURN count(n) AS count");
+    expect(listCall.input.parameters).toEqual({
+      filter_gte_priority_1: 5,
+      filter_startsWith_data_2: "alp",
+      filter_archived_3: true,
+      filter_contains_label_4: "topic",
+      filter_in_tag_5: ["a", "b"],
+      limit: 7,
+    });
+    expect(countCall.input.parameters).toEqual({
+      filter_gte_priority_1: 5,
+      filter_startsWith_data_2: "alp",
+      filter_archived_3: true,
+      filter_contains_label_4: "topic",
+      filter_in_tag_5: ["a", "b"],
+    });
+  });
+
+  it("replaces payloads on update and supports user-id storage", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1", stale: "remove-me" }],
+    );
+
+    const created = await store.get("id-1");
+    expect(created).not.toBeNull();
+    expect(created!.payload).toEqual(
+      expect.objectContaining({
+        data: "alpha",
+        user_id: "u1",
+      }),
+    );
+
+    await store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" });
+
+    const updated = await store.get("id-1");
+    expect(updated).not.toBeNull();
+    expect(updated!.payload).toEqual(
+      expect.objectContaining({
+        data: "beta",
+        user_id: "u1",
+      }),
+    );
+    expect(updated!.payload.stale).toBeUndefined();
+
+    const combinedUpdateCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      );
+    expect(
+      combinedUpdateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes(
+          "CALL neptune.algo.vectors.upsert",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      combinedUpdateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("SET n = $properties"),
+      ),
+    ).toBe(true);
+    expect(
+      combinedUpdateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("FOREACH"),
+      ),
+    ).toBe(false);
+
+    const [listed, count] = await store.list({ user_id: "u1" });
+    expect(count).toBe(1);
+    expect(listed[0].id).toBe("id-1");
+
+    const generatedUserId = await store.getUserId();
+    expect(typeof generatedUserId).toBe("string");
+    expect(generatedUserId.length).toBeGreaterThan(0);
+
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
+
+    await store.delete("id-1");
+    expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("supports payload-only and vector-only Neptune updates", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1", stale: "remove-me" }],
+    );
+
+    await store.update("id-1", [], { data: "payload-only", user_id: "u1" });
+    expect((await store.get("id-1"))!.payload).toEqual(
+      expect.objectContaining({
+        data: "payload-only",
+        user_id: "u1",
+      }),
+    );
+
+    await store.update("id-1", [3, 2, 1], {});
+    expect((await store.get("id-1"))!.payload).toEqual(
+      expect.objectContaining({
+        data: "payload-only",
+        user_id: "u1",
+      }),
+    );
+
+    const updateCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      );
+    expect(
+      updateCalls.some((command: any) =>
+        String(command.input.queryString || "").includes("SET n = $properties"),
+      ),
+    ).toBe(true);
+    expect(
+      updateCalls.some(
+        (command: any) =>
+          String(command.input.queryString || "").includes(
+            "CALL neptune.algo.vectors.upsert",
+          ) && !("properties" in (command.input.parameters || {})),
+      ),
+    ).toBe(true);
+  });
+
+  it("deletes the full Neptune collection with deleteCol()", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 2, 3],
+        [3, 2, 1],
+      ],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", user_id: "u1" },
+        { data: "beta", user_id: "u1" },
+      ],
+    );
+
+    await store.deleteCol();
+
+    const [listed, count] = await store.list({ user_id: "u1" });
+    expect(listed).toEqual([]);
+    expect(count).toBe(0);
+
+    const deleteColCall = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .find((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test`)",
+        ),
+      );
+    expect(deleteColCall).toBeDefined();
+    expect(deleteColCall.input.queryString).toContain("DETACH DELETE n");
+  });
+
+  it("returns a real total count for list pagination", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [
+        [1, 2, 3],
+        [3, 2, 1],
+      ],
+      ["id-1", "id-2"],
+      [
+        { data: "alpha", user_id: "u1" },
+        { data: "beta", user_id: "u1" },
+      ],
+    );
+
+    const [listed, count] = await store.list({ user_id: "u1" }, 1);
+    expect(listed).toHaveLength(1);
+    expect(count).toBe(2);
+  });
+
+  it("reads a persisted user id on a fresh store instance", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.setUserId("persisted-user");
+
+    const freshStore = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    expect(await freshStore.getUserId()).toBe("persisted-user");
+  });
+
+  it("rolls back the payload when Neptune rejects an update upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failUpdateUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    await expect(
+      store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
+    ).rejects.toThrow("Update failed in Neptune Analytics");
+
+    // Neptune's vector index isn't transactional: the payload write already lands by the
+    // time the vector step rejects. Without compensation the new metadata would be stuck
+    // pointing at the stale embedding, so a failed update rolls the payload back to what
+    // it was before the call instead of leaving the two desynced.
+    const afterFailedUpsert = await store.get("id-1");
+    expect(afterFailedUpsert).not.toBeNull();
+    expect(afterFailedUpsert!.payload).toEqual(
+      expect.objectContaining({
+        data: "alpha",
+        user_id: "u1",
+      }),
+    );
+  });
+
+  it("does not leave a phantom record when Neptune rejects an insert upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failInsertUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.insert([[1, 2, 3]], ["id-1"], [{ data: "alpha", user_id: "u1" }]),
+    ).rejects.toThrow("Insert failed in Neptune Analytics");
+
+    expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("does not leave a phantom record when Neptune throws during insert upsert", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ throwInsertUpsert: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.insert([[1, 2, 3]], ["id-1"], [{ data: "alpha", user_id: "u1" }]),
+    ).rejects.toThrow("Neptune upsert rejected");
+
+    expect(await store.get("id-1")).toBeNull();
+  });
+
+  it("does not leave a phantom record when the property write fails", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient({ failPayloadWrite: true }),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    const results = await store.search([1, 2, 3], 1);
+    expect(results).toEqual([]);
+  });
+
+  it("does not make the embedding durable when the update payload write fails", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient({ failPayloadWrite: true });
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(
+      store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" }),
+    ).rejects.toThrow();
+
+    const upsertCalls = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "neptune.algo.vectors.upsert",
+        ),
+      );
+    expect(upsertCalls).toHaveLength(0);
+  });
+
+  it("writes the Neptune payload before the vector on a combined update", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const mockClient = createMockNeptuneClient();
+    const store = new NeptuneAnalyticsVectorStore({
+      client: mockClient,
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await store.insert(
+      [[1, 2, 3]],
+      ["id-1"],
+      [{ data: "alpha", user_id: "u1" }],
+    );
+
+    await store.update("id-1", [3, 2, 1], { data: "beta", user_id: "u1" });
+
+    const updateQueries = mockClient.send.mock.calls
+      .map(([command]: [any]) => command)
+      .filter((command: any) =>
+        String(command.input.queryString || "").includes(
+          "MATCH (n:`MEM0_VECTOR_test` {`~id`: $vectorId})",
+        ),
+      )
+      .map((command: any) => String(command.input.queryString || ""));
+
+    const payloadIndex = updateQueries.findIndex((queryString: string) =>
+      queryString.includes("SET n = $properties"),
+    );
+    const vectorIndex = updateQueries.findIndex((queryString: string) =>
+      queryString.includes("CALL neptune.algo.vectors.upsert"),
+    );
+
+    expect(payloadIndex).toBeGreaterThanOrEqual(0);
+    expect(vectorIndex).toBeGreaterThan(payloadIndex);
+  });
+
+  it("throws for unsupported Neptune search and list filter shapes", async () => {
+    const {
+      NeptuneAnalyticsVectorStore,
+    } = require("../src/vector_stores/neptune_analytics");
+    const store = new NeptuneAnalyticsVectorStore({
+      client: createMockNeptuneClient(),
+      graphIdentifier: "g-1234567890",
+      collectionName: "test",
+      dimension: 3,
+    });
+
+    await expect(store.search([1, 2, 3], 1, { optional: "*" })).rejects.toThrow(
+      "Neptune Analytics vector search does not support property-existence filters.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { icontains: "alp" } }),
+    ).rejects.toThrow(
+      "Neptune Analytics vector search does not support case-insensitive contains filters.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { regex: "alp" } }),
+    ).rejects.toThrow("Unsupported Neptune Analytics filter operator: regex");
+    await expect(
+      store.search([1, 2, 3], 1, {
+        $not: [{ data: { contains: "alp" } }],
+      }),
+    ).rejects.toThrow(
+      "Neptune Analytics cannot negate this filter shape for vector search.",
+    );
+    await expect(
+      store.search([1, 2, 3], 1, { data: { eq: () => "alp" } }),
+    ).rejects.toThrow(
+      "Unsupported Neptune Analytics algorithm value type: function",
+    );
+    await expect(store.list({ data: { icontains: "alp" } })).rejects.toThrow(
+      "Neptune Analytics list filters do not support case-insensitive contains filters.",
+    );
+    await expect(store.list({ data: { regex: "alp" } })).rejects.toThrow(
+      "Unsupported Neptune Analytics filter operator: regex",
+    );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Vectorize — mock Cloudflare client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;
@@ -759,7 +4529,7 @@ describe("Vectorize – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 7. LangchainVectorStore — mock Langchain client, verify no-op init
+// 8. LangchainVectorStore — mock Langchain client, verify no-op init
 // ───────────────────────────────────────────────────────────────────────────
 describe("LangchainVectorStore – backward compat", () => {
   it("implements full VectorStore interface", () => {
@@ -866,7 +4636,302 @@ describe("LangchainVectorStore – backward compat", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// 8. Memory class — ensure it works with each provider via mocked factories
+// 8. AzureMySQL — mock mysql2 pool, test interface + idempotent init + CRUD
+// ───────────────────────────────────────────────────────────────────────────
+describe("AzureMySQL – backward compat with mocked client", () => {
+  let AzureMySQLDB: any;
+  let mockPool: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    const rows = new Map<
+      string,
+      { id: string; vector: string; payload: string }
+    >();
+    let userId: string | null = null;
+
+    mockPool = {
+      execute: jest
+        .fn()
+        .mockImplementation(async (sql: string, params?: any[]) => {
+          const q = sql.trim().toUpperCase();
+
+          if (
+            q.startsWith("CREATE TABLE") ||
+            q.startsWith("CREATE FULLTEXT") ||
+            q.startsWith("DROP TABLE")
+          ) {
+            return [{ affectedRows: 0 }, []];
+          }
+
+          // INSERT into main table (ON DUPLICATE KEY)
+          if (q.startsWith("INSERT INTO `") && q.includes("ON DUPLICATE KEY")) {
+            const [id, vector, payload] = params!;
+            rows.set(id, { id, vector, payload });
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // INSERT into memory_migrations
+          if (q.startsWith("INSERT INTO MEMORY_MIGRATIONS")) {
+            userId = params![0];
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // SELECT id, payload FROM table WHERE id = ? (single-row get by PK)
+          if (
+            q.startsWith("SELECT ID, PAYLOAD FROM") &&
+            q.includes("WHERE ID = ?")
+          ) {
+            const row = rows.get(params![0]);
+            return [row ? [row] : [], []];
+          }
+
+          // SELECT id, vector, payload FROM table (search with optional filters)
+          if (q.startsWith("SELECT ID, VECTOR, PAYLOAD FROM")) {
+            return [[...rows.values()], []];
+          }
+
+          if (q.includes("MATCH(TEXT_LEMMATIZED) AGAINST")) {
+            const term = String(params?.[0] ?? "").toLowerCase();
+            const limit = Number(params?.[params!.length - 1] ?? rows.size);
+            const matched = [...rows.values()]
+              .filter((row) => {
+                const payload = JSON.parse(row.payload);
+                return String(payload.textLemmatized ?? "")
+                  .toLowerCase()
+                  .includes(term);
+              })
+              .slice(0, limit)
+              .map((row) => ({ ...row, score: 1 }));
+            return [matched, []];
+          }
+
+          // SELECT id, payload FROM table (list with LIMIT)
+          if (q.startsWith("SELECT ID, PAYLOAD FROM")) {
+            return [
+              [...rows.values()].slice(0, params![params!.length - 1]),
+              [],
+            ];
+          }
+
+          // SELECT COUNT(*)
+          if (q.startsWith("SELECT COUNT(*)")) {
+            return [[{ cnt: rows.size }], []];
+          }
+
+          // UPDATE
+          if (q.startsWith("UPDATE `")) {
+            const [vector, payload, id] = params!;
+            if (rows.has(id)) {
+              rows.set(id, { id, vector, payload });
+            }
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // DELETE
+          if (q.startsWith("DELETE FROM `")) {
+            rows.delete(params![0]);
+            return [{ affectedRows: 1 }, []];
+          }
+
+          // SELECT user_id FROM memory_migrations
+          if (q.startsWith("SELECT USER_ID FROM MEMORY_MIGRATIONS")) {
+            return [userId ? [{ user_id: userId }] : [], []];
+          }
+
+          return [[], []];
+        }),
+      getConnection: jest.fn().mockImplementation(async () => ({
+        beginTransaction: jest.fn().mockResolvedValue(undefined),
+        execute: jest
+          .fn()
+          .mockImplementation(async (sql: string, params?: any[]) => {
+            return mockPool.execute(sql, params);
+          }),
+        commit: jest.fn().mockResolvedValue(undefined),
+        rollback: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn(),
+      })),
+      end: jest.fn().mockResolvedValue(undefined),
+    };
+
+    jest.doMock("mysql2/promise", () => ({
+      createPool: jest.fn().mockReturnValue(mockPool),
+    }));
+
+    AzureMySQLDB = require("../src/vector_stores/azure_mysql").AzureMySQLDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.keywordSearch).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent", async () => {
+    const mysql2 = require("mysql2/promise");
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+
+    // createPool called only once despite 3 initialize() calls
+    expect(mysql2.createPool).toHaveBeenCalledTimes(1);
+  });
+
+  it("full CRUD cycle", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    const vec1 = [1, 0, 0, 0];
+    const vec2 = [0, 1, 0, 0];
+
+    // Insert
+    await store.insert(
+      [vec1, vec2],
+      ["id-1", "id-2"],
+      [{ data: "alpha" }, { data: "beta" }],
+    );
+
+    // Get
+    const item = await store.get("id-1");
+    expect(item).not.toBeNull();
+    expect(item!.id).toBe("id-1");
+
+    // Search — vec1 should rank first
+    const results = await store.search(vec1, 2);
+    expect(results.length).toBeGreaterThan(0);
+
+    // Update
+    await store.update("id-1", [0, 0, 1, 0], { data: "updated" });
+
+    // List
+    const [listed, count] = await store.list();
+    expect(listed.length).toBeGreaterThan(0);
+    expect(count).toBeGreaterThan(0);
+
+    // Delete
+    await store.delete("id-2");
+
+    // DeleteCol
+    await store.deleteCol();
+  });
+
+  it("keywordSearch matches textLemmatized payloads", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    await store.insert(
+      [[1, 0, 0, 0]],
+      ["id-1"],
+      [
+        {
+          data: "alpha",
+          textLemmatized: "alpha normalized",
+        },
+      ],
+    );
+
+    const results = await store.keywordSearch("normalized", 5);
+    expect(results).not.toBeNull();
+    expect(results![0].id).toBe("id-1");
+  });
+
+  it("getUserId and setUserId roundtrip", async () => {
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+    });
+    await store.initialize();
+
+    await store.setUserId("custom-user");
+    const retrieved = await store.getUserId();
+    expect(retrieved).toBe("custom-user");
+  });
+
+  it("uses mysql_clear_password semantics for Azure tokens", async () => {
+    jest.doMock("@azure/identity", () => ({
+      DefaultAzureCredential: jest.fn().mockImplementation(() => ({
+        getToken: jest.fn().mockResolvedValue({ token: "aad-token" }),
+      })),
+    }));
+
+    const mysql2 = require("mysql2/promise");
+    const store = new AzureMySQLDB({
+      host: "localhost",
+      user: "test",
+      database: "testdb",
+      collectionName: "memories",
+      embeddingModelDims: 4,
+      useAzureCredential: true,
+    });
+    await store.initialize();
+
+    const poolConfig = mysql2.createPool.mock.calls[0][0];
+    const plugin = poolConfig.authPlugins.mysql_clear_password();
+    expect(plugin()).toEqual(Buffer.from("aad-token\0"));
+  });
+
+  it("rejects invalid collectionName at construction", () => {
+    expect(
+      () =>
+        new AzureMySQLDB({
+          host: "localhost",
+          user: "test",
+          database: "testdb",
+          collectionName: "drop--table",
+          embeddingModelDims: 4,
+        }),
+    ).toThrow("Invalid collectionName");
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// 9. Memory class — ensure it works with each provider via mocked factories
 // ───────────────────────────────────────────────────────────────────────────
 describe("Memory class – backward compat with all providers", () => {
   function createMockEmbedder(dims: number) {
@@ -923,6 +4988,7 @@ describe("Memory class – backward compat with all providers", () => {
 
     jest.doMock("../src/utils/telemetry", () => ({
       captureClientEvent: jest.fn().mockResolvedValue(undefined),
+      isTelemetryEnabled: jest.fn(() => false),
     }));
 
     MemoryClass = require("../src/memory").Memory;
@@ -1008,12 +5074,13 @@ describe("Memory class – backward compat with all providers", () => {
   });
 
   it("all public methods work after initialization", async () => {
+    const memoryId = "3f0d5b6a-9c1e-4a2b-8d7f-1e2c3a4b5c6d";
     const mockVStore = createMockVectorStore();
     mockVStore.search.mockResolvedValue([
-      { id: "id-1", payload: { memory: "test", hash: "h" }, score: 0.9 },
+      { id: memoryId, payload: { memory: "test", hash: "h" }, score: 0.9 },
     ]);
     mockVStore.get.mockResolvedValue({
-      id: "id-1",
+      id: memoryId,
       payload: {
         memory: "test",
         hash: "h",
@@ -1024,7 +5091,7 @@ describe("Memory class – backward compat with all providers", () => {
     mockVStore.list.mockResolvedValue([
       [
         {
-          id: "id-1",
+          id: memoryId,
           payload: {
             memory: "test",
             hash: "h",
@@ -1058,15 +5125,15 @@ describe("Memory class – backward compat with all providers", () => {
     expect(searchResult).toBeDefined();
 
     // get
-    const item = await mem.get("id-1");
+    const item = await mem.get(memoryId);
     expect(item).toBeDefined();
 
     // update
-    const updateResult = await mem.update("id-1", "new data");
+    const updateResult = await mem.update(memoryId, { text: "new data" });
     expect(updateResult.message).toBe("Memory updated successfully!");
 
     // delete
-    const deleteResult = await mem.delete("id-1");
+    const deleteResult = await mem.delete(memoryId);
     expect(deleteResult.message).toBe("Memory deleted successfully!");
 
     // deleteAll
@@ -1074,7 +5141,7 @@ describe("Memory class – backward compat with all providers", () => {
     expect(deleteAllResult.message).toBe("Memories deleted successfully!");
 
     // history
-    const history = await mem.history("id-1");
+    const history = await mem.history(memoryId);
     expect(Array.isArray(history)).toBe(true);
   });
 
@@ -1102,6 +5169,92 @@ describe("Memory class – backward compat with all providers", () => {
     expect(mockVectorStoreFactory.create).toHaveBeenCalledTimes(2);
     // Second store should also have initialize called
     expect(mockVStore2.initialize).toHaveBeenCalled();
+  });
+
+  it("derives a separate Databricks entity table when provider casing differs", async () => {
+    const primaryStore = createMockVectorStore();
+    const entityStore = createMockVectorStore();
+    mockVectorStoreFactory.create
+      .mockReturnValueOnce(primaryStore)
+      .mockReturnValueOnce(entityStore);
+
+    const mem = new MemoryClass({
+      embedder: { provider: "openai", config: { apiKey: "k" } },
+      vectorStore: {
+        provider: "Databricks",
+        config: {
+          workspaceUrl: "https://workspace.databricks.com",
+          httpPath: "/sql/1.0/warehouses/test",
+          accessToken: "dapi-test",
+          collectionName: "memories",
+          tableName: "memory_rows",
+          dimension: 1536,
+        },
+      },
+      llm: { provider: "openai", config: { apiKey: "k" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+    await (mem as any).getEntityStore();
+
+    expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+      2,
+      "databricks",
+      expect.objectContaining({
+        collectionName: "memories_entities",
+        tableName: "memory_rows_entities",
+      }),
+    );
+    expect(entityStore.initialize).toHaveBeenCalled();
+  });
+
+  // optional-peers.test.ts proves no optional peer is imported at module scope. This asserts the
+  // other half for Databricks: the driver is still loaded lazily (memoized dynamic import, with
+  // retry-on-failure via getSqlModule()) rather than dropped entirely or made static/eager.
+  it("still loads the optional @databricks/sql driver lazily", () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, "../src/vector_stores/databricks.ts"),
+      "utf8",
+    );
+    expect(source).toContain('import("@databricks/sql")');
+  });
+
+  it("sends file-based entities to their own DB when provider casing differs", async () => {
+    const primaryStore = createMockVectorStore();
+    const entityStore = createMockVectorStore();
+    mockVectorStoreFactory.create
+      .mockReturnValueOnce(primaryStore)
+      .mockReturnValueOnce(entityStore);
+
+    const mem = new MemoryClass({
+      embedder: { provider: "openai", config: { apiKey: "k" } },
+      vectorStore: {
+        provider: "Memory",
+        config: {
+          collectionName: "memories",
+          dbPath: "/tmp/mem0-casing.db",
+          dimension: 1536,
+        },
+      },
+      llm: { provider: "openai", config: { apiKey: "k" } },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+    await (mem as any).getEntityStore();
+
+    // Un-normalized, the `=== "memory"` check misses, dbPath is left alone, and entities land
+    // in the very file they are supposed to be split out of.
+    expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+      2,
+      "memory",
+      expect.objectContaining({
+        collectionName: "memories_entities",
+        dbPath: "/tmp/mem0-casing_entities.db",
+      }),
+    );
+    expect(entityStore.initialize).toHaveBeenCalled();
   });
 
   it("propagates init error to public methods", async () => {
@@ -1133,5 +5286,154 @@ describe("Memory class – backward compat with all providers", () => {
     );
 
     consoleSpy.mockRestore();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// WeaviateDB — mock client, behavioral surface checks
+// ───────────────────────────────────────────────────────────────────────────
+describe("WeaviateDB – backward compat with mocked client", () => {
+  let WeaviateDB: any;
+  let mockClient: any;
+  let mockCol: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    mockCol = {
+      data: {
+        insertMany: jest.fn().mockResolvedValue({}),
+        deleteById: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      query: {
+        nearVector: jest.fn().mockResolvedValue({ objects: [] }),
+        bm25: jest.fn().mockResolvedValue({ objects: [] }),
+        fetchObjectById: jest.fn().mockResolvedValue(null),
+        fetchObjects: jest.fn().mockResolvedValue({ objects: [] }),
+      },
+      filter: {
+        byProperty: jest
+          .fn()
+          .mockReturnValue({ equal: jest.fn().mockReturnValue({}) }),
+      },
+    };
+
+    mockClient = {
+      collections: {
+        exists: jest.fn().mockResolvedValue(false),
+        create: jest.fn().mockResolvedValue({}),
+        get: jest.fn().mockReturnValue(mockCol),
+        delete: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    jest.doMock("weaviate-client", () => ({
+      default: {
+        connectToLocal: jest.fn().mockResolvedValue(mockClient),
+        connectToWeaviateCloud: jest.fn().mockResolvedValue(mockClient),
+        connectToCustom: jest.fn().mockResolvedValue(mockClient),
+        ApiKey: jest.fn().mockReturnValue({}),
+        configure: {
+          vectorizer: { none: jest.fn().mockReturnValue({}) },
+          vectorIndex: { hnsw: jest.fn().mockReturnValue({}) },
+        },
+      },
+      Filters: { and: jest.fn().mockReturnValue({ __mock: "filter" }) },
+      __esModule: true,
+    }));
+
+    WeaviateDB = require("../src/vector_stores/weaviate").WeaviateDB;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("implements full VectorStore interface", () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    expect(typeof store.insert).toBe("function");
+    expect(typeof store.search).toBe("function");
+    expect(typeof store.keywordSearch).toBe("function");
+    expect(typeof store.get).toBe("function");
+    expect(typeof store.update).toBe("function");
+    expect(typeof store.delete).toBe("function");
+    expect(typeof store.deleteCol).toBe("function");
+    expect(typeof store.list).toBe("function");
+    expect(typeof store.getUserId).toBe("function");
+    expect(typeof store.setUserId).toBe("function");
+    expect(typeof store.initialize).toBe("function");
+  });
+
+  it("initialize() is idempotent (same promise returned)", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    const p1 = store.initialize();
+    const p2 = store.initialize();
+    const p3 = store.initialize();
+    await Promise.all([p1, p2, p3]);
+    expect(mockClient.collections.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("insert shapes insertMany request correctly", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    await store.insert([[0.1, 0.2, 0.3]], ["id-1"], [{ data: "hello" }]);
+    expect(mockCol.data.insertMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "id-1",
+          properties: { data: "hello" },
+          vectors: [0.1, 0.2, 0.3],
+        }),
+      ]),
+    );
+  });
+
+  it("search normalizes nearVector result to id/payload/score", async () => {
+    mockCol.query.nearVector.mockResolvedValue({
+      objects: [
+        {
+          uuid: "id-1",
+          properties: { data: "x" },
+          metadata: { distance: 0.2 },
+        },
+      ],
+    });
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 3,
+    });
+    await store.initialize();
+    const results = await store.search([0.1, 0.2, 0.3], 1);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      id: "id-1",
+      payload: { data: "x" },
+      score: 0.8,
+    });
+  });
+
+  it("getUserId / setUserId roundtrip", async () => {
+    const store = new WeaviateDB({
+      client: mockClient,
+      collectionName: "test",
+      embeddingModelDims: 768,
+    });
+    await store.setUserId("custom-user");
+    expect(await store.getUserId()).toBe("custom-user");
   });
 });

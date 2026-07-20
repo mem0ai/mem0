@@ -37,6 +37,7 @@ class Qdrant(VectorStoreBase):
         path: str = None,
         url: str = None,
         api_key: str = None,
+        https: bool | None = None,
         on_disk: bool = False,
     ):
         """
@@ -51,6 +52,8 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
+            https (bool, optional): Whether to force HTTPS on or off. Explicit schemes in url take precedence.
+                Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
         """
@@ -66,6 +69,8 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
+            if https is not None:
+                params["https"] = https
 
             if not params:
                 params["path"] = path
@@ -93,7 +98,10 @@ class Qdrant(VectorStoreBase):
                 self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
                 logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
             except ImportError:
-                logger.warning("fastembed not installed — BM25 keyword search disabled. Install with: pip install fastembed")
+                logger.warning(
+                    "fastembed not installed - BM25 keyword search disabled. "
+                    'Install it with: pip install "mem0ai[extras]"'
+                )
                 self._bm25_encoder = False  # sentinel: tried and failed
             except Exception as e:
                 logger.warning(f"Failed to load BM25 encoder: {e}")
@@ -186,6 +194,43 @@ class Qdrant(VectorStoreBase):
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
+
+        # Pre-compute BM25 sparse vectors in a single batch call. fastembed's
+        # embed() accepts a list of texts, so batching avoids per-row encoder
+        # overhead (model dispatch, tokenizer setup, etc.).
+        bm25_sparse_vectors: list[Optional[SparseVector]] = [None] * len(vectors)
+        if self._has_bm25_slot and payloads:
+            texts_for_bm25: list[str] = []
+            indices_for_bm25: list[int] = []
+            for idx, payload in enumerate(payloads):
+                text = payload.get("text_lemmatized") or payload.get("data", "")
+                if text:
+                    texts_for_bm25.append(text)
+                    indices_for_bm25.append(idx)
+
+            if texts_for_bm25:
+                encoder = self._get_bm25_encoder()
+                if encoder is not None:
+                    try:
+                        sparse_results = list(encoder.embed(texts_for_bm25))
+                        if len(sparse_results) != len(texts_for_bm25):
+                            logger.warning(
+                                f"BM25 batch returned {len(sparse_results)} results for "
+                                f"{len(texts_for_bm25)} texts; falling back to per-row encoding"
+                            )
+                            raise ValueError("count mismatch")
+                        for i, sparse in enumerate(sparse_results):
+                            bm25_sparse_vectors[indices_for_bm25[i]] = SparseVector(
+                                indices=sparse.indices.tolist(),
+                                values=sparse.values.tolist(),
+                            )
+                    except Exception as e:
+                        # Fall back to per-row encoding so a single bad input
+                        # doesn't drop BM25 for the whole batch.
+                        logger.debug(f"Batch BM25 encoding failed, falling back to per-row: {e}")
+                        for i, text in enumerate(texts_for_bm25):
+                            bm25_sparse_vectors[indices_for_bm25[i]] = self._encode_bm25(text)
+
         points = []
         for idx, vector in enumerate(vectors):
             payload = payloads[idx] if payloads else {}
@@ -193,12 +238,8 @@ class Qdrant(VectorStoreBase):
 
             # Build named vectors: dense + optional BM25 sparse (only if collection has the slot).
             named_vectors = {"": vector}
-            if self._has_bm25_slot:
-                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-                if text_for_bm25:
-                    sparse = self._encode_bm25(text_for_bm25)
-                    if sparse is not None:
-                        named_vectors["bm25"] = sparse
+            if self._has_bm25_slot and bm25_sparse_vectors[idx] is not None:
+                named_vectors["bm25"] = bm25_sparse_vectors[idx]
 
             points.append(PointStruct(id=point_id, vector=named_vectors, payload=payload))
 
@@ -471,6 +512,7 @@ class Qdrant(VectorStoreBase):
             if self._has_bm25_slot:
                 text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
                 if text_for_bm25:
+                    # Single-item update: per-row encoding is correct here; see insert() for the batch path.
                     sparse = self._encode_bm25(text_for_bm25)
                     if sparse is not None:
                         named_vectors["bm25"] = sparse

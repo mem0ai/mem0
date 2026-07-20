@@ -119,6 +119,13 @@ class TestScoreAndRank:
         scored = score_and_rank([], {}, {}, threshold=0.1, top_k=10)
         assert scored == []
 
+    def test_none_score_treated_as_zero(self):
+        """Defensive: score=None must not crash on None < threshold comparison."""
+        results = [{"id": "a", "score": None, "payload": {"data": "mem a"}}]
+        # Should not raise TypeError; None score is treated as 0.0 and filtered out
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert scored == []
+
     def test_score_clamped_to_1(self):
         results = [{"id": "a", "score": 1.0, "payload": {}}]
         bm25 = {"a": 1.0}

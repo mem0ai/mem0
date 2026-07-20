@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
+from mem0.utils.http import build_http_client
 
 
 class BaseLlmConfig(ABC):

@@ -2,7 +2,9 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
+from mem0.configs.vector_stores.azure_mysql import AzureMySQLConfig
 from mem0.vector_stores.azure_mysql import AzureMySQL, OutputData
 
 
@@ -268,3 +270,63 @@ def test_output_data_model():
     assert data.id == "test_id"
     assert data.score == 0.95
     assert data.payload == {"text": "test"}
+
+
+INJECTION_PAYLOADS = [
+    "memories; DROP TABLE users; --",
+    "memories` OR 1=1; --",
+    "memories:Label {prop: 'val'}) DELETE n; --",
+    "valid_name OR 1=1",
+    "1_starts_with_digit",
+    "has space",
+    "",
+]
+
+class TestAzureMySQLConfigCollectionNameValidation:
+    def test_accepts_valid_identifier(self):
+        config = AzureMySQLConfig(
+            collection_name="valid_name",
+            host="host",
+            user="user",
+            database="db",
+            password="pw",
+        )
+        assert config.collection_name == "valid_name"
+
+    @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+    def test_rejects_injection_payload(self, payload):
+        with pytest.raises(ValidationError, match="Invalid collection_name"):
+            AzureMySQLConfig(
+                collection_name=payload,
+                host="host",
+                user="user",
+                database="db",
+                password="pw",
+            )
+
+
+class TestAzureMySQLFilterKeySanitization:
+    """Non-identifier filter keys are interpolated into the JSON_EXTRACT path,
+    so every method that builds a filter clause must drop them before they run."""
+
+    _FILTERS = {"user_id": "u1", "evil') OR '1'='1": "x"}
+
+    @staticmethod
+    def _executed_blob(instance):
+        cursor = instance.connection_pool.connection().cursor()
+        return " ".join(repr(c.args) + repr(c.kwargs) for c in cursor.execute.call_args_list)
+
+    def test_search_drops_invalid_key(self, azure_mysql_instance):
+        azure_mysql_instance.search(query="q", vectors=[0.1, 0.2, 0.3], filters=self._FILTERS)
+        blob = self._executed_blob(azure_mysql_instance)
+        assert "$.user_id" in blob and "OR '1'='1" not in blob
+
+    def test_keyword_search_drops_invalid_key(self, azure_mysql_instance):
+        azure_mysql_instance.keyword_search(query="q", filters=self._FILTERS)
+        blob = self._executed_blob(azure_mysql_instance)
+        assert "$.user_id" in blob and "OR '1'='1" not in blob
+
+    def test_list_drops_invalid_key(self, azure_mysql_instance):
+        azure_mysql_instance.list(filters=self._FILTERS)
+        blob = self._executed_blob(azure_mysql_instance)
+        assert "$.user_id" in blob and "OR '1'='1" not in blob

@@ -2,6 +2,7 @@
   "name": "mem0-dashboard",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.2",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -59,7 +60,7 @@
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
     "use-debounce": "^10.0.4",
-    "uuid": "^9.0.1",
+    "uuid": "^11.1.1",
     "vaul": "^0.9.1",
     "zod": "^3.23.8"
   },

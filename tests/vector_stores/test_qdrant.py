@@ -18,6 +18,7 @@ from qdrant_client.models import (
     PointStruct,
     PointVectors,
     Range,
+    SparseVector,
     SparseVectorParams,
     VectorParams,
 )
@@ -85,6 +86,98 @@ class TestQdrant(unittest.TestCase):
             self.assertIsInstance(point, PointStruct)
 
         self.assertEqual(points[0].payload, payloads[0])
+
+    def test_insert_batches_bm25_encoding(self):
+        """BM25 encoding must be done in a single batch call, not per-row.
+
+        Regression test for the optimization that switched from looping over
+        `_encode_bm25(text)` to a single `encoder.embed(all_texts)` call.
+        """
+        # Pretend the collection has the bm25 sparse slot (set up by create_col
+        # on a v3 collection) and stub the encoder to return predictable sparse
+        # vectors mimicking fastembed's output (objects with .indices/.values).
+        self.qdrant._has_bm25_slot = True
+
+        encoder_mock = MagicMock()
+        encoder_mock.embed.return_value = iter(
+            [
+                MagicMock(indices=MagicMock(tolist=lambda: [1, 2]), values=MagicMock(tolist=lambda: [0.5, 0.3])),
+                MagicMock(indices=MagicMock(tolist=lambda: [3]), values=MagicMock(tolist=lambda: [0.8])),
+            ]
+        )
+        self.qdrant._bm25_encoder = encoder_mock
+
+        vectors = [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+        payloads = [
+            {"data": "hello world"},
+            {"text_lemmatized": "foo bar"},
+            {"key": "no text — should skip BM25"},
+        ]
+        ids = [str(uuid.uuid4()) for _ in range(3)]
+
+        self.qdrant.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # 1. encoder.embed must be called exactly once (batched), not per-row.
+        encoder_mock.embed.assert_called_once()
+        called_texts = encoder_mock.embed.call_args[0][0]
+        self.assertEqual(called_texts, ["hello world", "foo bar"])
+
+        # 2. Resulting points carry the right named vectors:
+        #    - Rows with text get both "" (dense) and "bm25" sparse.
+        #    - Row without text gets dense only.
+        points = self.client_mock.upsert.call_args[1]["points"]
+        self.assertEqual(len(points), 3)
+        self.assertIn("bm25", points[0].vector)
+        self.assertEqual(points[0].vector["bm25"].indices, [1, 2])
+        self.assertEqual(points[0].vector["bm25"].values, [0.5, 0.3])
+        self.assertIn("bm25", points[1].vector)
+        self.assertEqual(points[1].vector["bm25"].indices, [3])
+        self.assertNotIn("bm25", points[2].vector)
+
+    def test_insert_skips_bm25_when_slot_missing(self):
+        """Pre-v3 collections (no bm25 slot) must not invoke the encoder at all."""
+        self.qdrant._has_bm25_slot = False
+        encoder_mock = MagicMock()
+        self.qdrant._bm25_encoder = encoder_mock
+
+        self.qdrant.insert(
+            vectors=[[0.1, 0.2]],
+            payloads=[{"data": "hello"}],
+            ids=[str(uuid.uuid4())],
+        )
+
+        encoder_mock.embed.assert_not_called()
+        points = self.client_mock.upsert.call_args[1]["points"]
+        self.assertNotIn("bm25", points[0].vector)
+
+    def test_insert_falls_back_to_per_row_on_batch_failure(self):
+        """If batch encoding raises, each row should be re-encoded individually
+        so a single bad input doesn't drop BM25 for the whole batch."""
+        self.qdrant._has_bm25_slot = True
+
+        # Batch call raises; per-row _encode_bm25 should be used as fallback.
+        encoder_mock = MagicMock()
+        encoder_mock.embed.side_effect = RuntimeError("batch failed")
+        self.qdrant._bm25_encoder = encoder_mock
+
+        # Use a real SparseVector — PointStruct validates the vector dict via
+        # Pydantic, which would coerce a bare MagicMock into [] (MagicMock is
+        # iterable). _encode_bm25's real return type is SparseVector.
+        fallback_sparse = SparseVector(indices=[7], values=[0.9])
+        with patch.object(self.qdrant, "_encode_bm25", return_value=fallback_sparse) as fallback:
+            self.qdrant.insert(
+                vectors=[[0.1, 0.2], [0.3, 0.4]],
+                payloads=[{"data": "a"}, {"data": "b"}],
+                ids=[str(uuid.uuid4()), str(uuid.uuid4())],
+            )
+
+        encoder_mock.embed.assert_called_once()
+        self.assertEqual(fallback.call_count, 2)
+        self.assertEqual([c.args[0] for c in fallback.call_args_list], ["a", "b"])
+        points = self.client_mock.upsert.call_args[1]["points"]
+        for point in points:
+            self.assertEqual(point.vector["bm25"].indices, [7])
+            self.assertEqual(point.vector["bm25"].values, [0.9])
 
     def test_search(self):
         vectors = [[0.1, 0.2]]
@@ -932,3 +1025,19 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         types = {type(c.range) for c in result.must}
         self.assertIn(DatetimeRange, types)
         self.assertIn(Range, types)
+
+    def test_missing_fastembed_warns_with_extras_install_hint(self):
+        """When fastembed is missing, the BM25 warning must point at the mem0 optional group
+        that actually provides it (`mem0ai[extras]`), not the bare `fastembed` package -
+        fastembed is declared under [extras], so that is the discoverable install path."""
+        self.qdrant._bm25_encoder = None
+        # Setting the module to None in sys.modules makes `from fastembed import ...` raise ImportError.
+        with patch.dict("sys.modules", {"fastembed": None}):
+            with self.assertLogs("mem0.vector_stores.qdrant", level="WARNING") as cm:
+                result = self.qdrant._get_bm25_encoder()
+        self.assertIsNone(result)  # encoder unavailable -> None
+        self.assertIs(self.qdrant._bm25_encoder, False)  # sentinel: tried and failed, do not retry
+        joined = "\n".join(cm.output)
+        self.assertIn("mem0ai[extras]", joined)  # points at the right install
+        self.assertNotIn("pip install fastembed", joined)  # not the bare package
+        self.assertNotIn("\u2014", joined)  # no em-dash

@@ -1,23 +1,22 @@
 name: opencode-plugin checks
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'mem0-plugin/.opencode-plugin/**'
+      - 'integrations/mem0-plugin/.opencode-plugin/**'
       - '.github/workflows/opencode-plugin-checks.yml'
-  pull_request:
-    paths:
-      - 'mem0-plugin/.opencode-plugin/**'
-      - '.github/workflows/opencode-plugin-checks.yml'
+  workflow_call:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mem0-plugin/.opencode-plugin
+        working-directory: integrations/mem0-plugin/.opencode-plugin
     steps:
       - uses: actions/checkout@v4
 

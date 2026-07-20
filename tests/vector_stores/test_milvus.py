@@ -107,6 +107,14 @@ class TestMilvusDB:
         assert 'metadata["category"] == "work"' in filter_str
         assert ' and ' in filter_str
 
+    def test_create_filter_wildcard_conditions(self, milvus_db):
+        """Test filter creation with wildcard conditions."""
+        filters = {"user_id": "alice", "run_id": "*"}
+        filter_str = milvus_db._create_filter(filters)
+
+        assert 'metadata["user_id"] == "alice"' in filter_str
+        assert 'metadata["run_id"] == "*"' not in filter_str
+
     def test_search_with_filters(self, milvus_db, mock_milvus_client):
         """Test search with metadata filters (reproduces user's bug scenario)."""
         # Setup mock return value
@@ -178,7 +186,7 @@ class TestMilvusDB:
         
         mock_milvus_client.delete.assert_called_once_with(
             collection_name="test_collection",
-            ids=vector_id
+            ids=[vector_id]
         )
 
     def test_get(self, milvus_db, mock_milvus_client):
@@ -189,10 +197,16 @@ class TestMilvusDB:
         ]
         
         result = milvus_db.get(vector_id)
-        
+
         assert result.id == vector_id
         assert result.payload == {"user_id": "alice"}
         assert result.score is None
+
+    def test_get_missing_returns_none(self, milvus_db, mock_milvus_client):
+        """get() must return None (not raise IndexError) for an unknown id."""
+        mock_milvus_client.get.return_value = []
+
+        assert milvus_db.get("missing") is None
 
     def test_list_with_filters(self, milvus_db, mock_milvus_client):
         """Test listing memories with filters."""
@@ -303,6 +317,33 @@ class TestMilvusDB:
 
         with pytest.raises(ValueError, match="no vector data"):
             milvus_db.update(vector_id="test_id", vector=None, payload={"data": "test"})
+
+    def test_create_filter_rejects_expression_injection(self, milvus_db):
+        """Crafted string value must not break out of the quoted expression."""
+        with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+            milvus_db._create_filter({"user_id": {"$ne": ""}})
+
+    def test_create_filter_rejects_malicious_key(self, milvus_db):
+        """Keys with special characters must be rejected."""
+        with pytest.raises(ValueError, match="Invalid filter key"):
+            milvus_db._create_filter({'"] == "") or true or ("': "x"})
+
+    def test_create_filter_escapes_quotes_in_value(self, milvus_db):
+        """Double-quotes inside string values must be escaped."""
+        result = milvus_db._create_filter({"user_id": 'alice"}'})
+        assert '\\"' in result
+        assert 'alice\\"' in result
+
+    def test_create_filter_escapes_backslash_and_quote(self, milvus_db):
+        """Backslashes and double-quotes in the same value must both be escaped."""
+        result = milvus_db._create_filter({"user_id": r'alice\path"beta'})
+        assert result == r'(metadata["user_id"] == "alice\\path\"beta")'
+
+    def test_create_filter_renders_boolean(self, milvus_db):
+        """Boolean values must be rendered unquoted in the backend's expected format."""
+        result = milvus_db._create_filter({"active": True, "deleted": False})
+        assert '(metadata["active"] == True)' in result
+        assert '(metadata["deleted"] == False)' in result
 
     def test_collection_already_exists(self, mock_milvus_client):
         """Test that existing collection is not recreated."""

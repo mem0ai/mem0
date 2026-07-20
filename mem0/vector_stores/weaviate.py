@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel
@@ -297,15 +297,9 @@ class Weaviate(VectorStoreBase):
             collection.data.update(uuid=vector_id, properties=payload)
 
         if vector:
-            existing_data = self.get(vector_id)
-            if existing_data:
-                existing_data = dict(existing_data)
-                if "id" in existing_data:
-                    del existing_data["id"]
-                existing_payload: Mapping[str, str] = existing_data
-                collection.data.update(uuid=vector_id, properties=existing_payload, vector=vector)
+            collection.data.update(uuid=vector_id, vector=vector)
 
-    def get(self, vector_id):
+    def get(self, vector_id) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -313,7 +307,7 @@ class Weaviate(VectorStoreBase):
             vector_id: ID of the vector to retrieve.
 
         Returns:
-            dict: Retrieved vector and metadata.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         vector_id = get_valid_uuid(vector_id)
         collection = self.client.collections.get(str(self.collection_name))
@@ -322,9 +316,8 @@ class Weaviate(VectorStoreBase):
             uuid=vector_id,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
         )
-        # results = {}
-        # print("reponse",response)
-        # for obj in response.objects:
+        if response is None:
+            return None
         payload = response.properties.copy()
         payload["id"] = str(response.uuid).split("'")[0]
         results = OutputData(
@@ -343,7 +336,6 @@ class Weaviate(VectorStoreBase):
         """
         collections = self.client.collections.list_all()
         logger.debug(f"collections: {collections}")
-        print(f"collections: {collections}")
         return {"collections": [{"name": col.name} for col in collections]}
 
     def delete_col(self):
@@ -389,4 +381,4 @@ class Weaviate(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.create_col()
+        self.create_col(self.embedding_model_dims)
