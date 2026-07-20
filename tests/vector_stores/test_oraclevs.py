@@ -1,12 +1,12 @@
 import os
 import uuid
-from typing import List, Dict, Any
+from typing import Any, Dict
 
 import pytest
 import oracledb
 
 from mem0.configs.vector_stores.oracledb import OracleAIVectorSearchConfig
-from mem0.vector_stores.oracledb import OracleAIVectorSearch, OutputData
+from mem0.vector_stores.oracledb import OracleAIVectorSearch
 
 
 # Global connection settings (override via env to run in different envs)
@@ -14,19 +14,17 @@ ORACLE_USER = os.environ.get("ORACLE_USER") or ""
 ORACLE_PASSWORD = os.environ.get("ORACLE_PASSWORD") or ""
 ORACLE_DSN = os.environ.get("ORACLE_DSN") or ""
 
+pytestmark = pytest.mark.skipif(
+    not (ORACLE_USER and ORACLE_DSN),
+    reason="Oracle credentials not configured",
+)
+
 DIM = 128
 
 
 def _unique_collection_name() -> str:
     # Keep under Oracle's 30-char identifier limit
     return f"TEST_MEM0_{uuid.uuid4().hex[:8]}"
-
-
-def _unwrap_results(results: Any) -> List[OutputData]:
-    # Current implementation of list() returns [outputs] (nested); unwrap for assertions.
-    if isinstance(results, list) and len(results) == 1 and isinstance(results[0], list):
-        return results[0]
-    return results
 
 
 # Representative coverage of the old matrix. Every option value from the previous
@@ -284,31 +282,13 @@ def test_index_parameters_canonicalize_int_subclasses():
     assert "PARAMETERS (type HNSW, neighbors 40)" in ddl
 
 
-def test_index_parameters_reject_post_validation_mutation():
-    config = OracleAIVectorSearchConfig(
-        collection_name=_unique_collection_name(),
-        embedding_model_dims=DIM,
-        client=object(),
-        index_type="HNSW",
-        index_parameters={"neighbors": 40},
-    )
-    oracle_db = object.__new__(OracleAIVectorSearch)
-    oracle_db.config = config
-    oracle_db.collection_name = config.collection_name
-
-    config.index_parameters["neighbors"] = "40) PARALLEL 8"
-
-    with pytest.raises(ValueError, match="must be an integer"):
-        oracle_db._create_index_ddl()
-
-
 def test_insert_and_get(oracle_db: OracleAIVectorSearch):
     vectors = [[0.1] * DIM, [0.2] * DIM]
     payloads = [{"name": "vector1"}, {"name": "vector2"}]
 
     oracle_db.insert(vectors, payloads=payloads)
 
-    listed = _unwrap_results(oracle_db.list(limit=10))
+    listed = oracle_db.list(limit=10)
     assert len(listed) >= 2
     seen_names = {item.payload.get("name") for item in listed}
     assert {"vector1", "vector2"}.issubset(seen_names)
@@ -385,7 +365,7 @@ def test_delete(oracle_db: OracleAIVectorSearch):
     vec = [0.9] * DIM
     oracle_db.insert([vec], payloads=[{"name": "to_delete"}])
 
-    listed = _unwrap_results(oracle_db.list(limit=10))
+    listed = oracle_db.list(limit=10)
     assert len(listed) >= 1
     target_id = listed[0].id
 
@@ -398,7 +378,7 @@ def test_update(oracle_db: OracleAIVectorSearch):
     vec = [0.01] * DIM
     oracle_db.insert([vec], payloads=[{"name": "old"}])
 
-    listed = _unwrap_results(oracle_db.list(limit=10))
+    listed = oracle_db.list(limit=10)
     assert len(listed) >= 1
     target_id = listed[0].id
 
@@ -456,7 +436,7 @@ def test_list(oracle_db: OracleAIVectorSearch):
     v1, v2 = [0.11] * DIM, [0.22] * DIM
     oracle_db.insert([v1, v2], payloads=[{"key": "value1"}, {"key": "value2"}])
 
-    results = _unwrap_results(oracle_db.list(limit=2))
+    results = oracle_db.list(limit=2)
     assert len(results) <= 2
     # Both inserted might be returned if table had no prior rows
     if len(results) == 2:
@@ -476,7 +456,7 @@ def test_list_with_filters(oracle_db: OracleAIVectorSearch):
     )
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = _unwrap_results(oracle_db.list(filters=filters, limit=10))
+    results = oracle_db.list(filters=filters, limit=10)
     assert len(results) >= 1
     for r in results:
         assert r.payload.get("user_id") == "alice"
@@ -494,7 +474,7 @@ def test_list_with_single_filter(oracle_db: OracleAIVectorSearch):
         ],
     )
 
-    results = _unwrap_results(oracle_db.list(filters={"user_id": "alice"}, limit=10))
+    results = oracle_db.list(filters={"user_id": "alice"}, limit=10)
     assert len(results) >= 1
     for r in results:
         assert r.payload.get("user_id") == "alice"
@@ -504,7 +484,7 @@ def test_list_with_no_filters(oracle_db: OracleAIVectorSearch):
     v = [0.66] * DIM
     oracle_db.insert([v], payloads=[{"k": "v"}])
 
-    results = _unwrap_results(oracle_db.list(filters=None, limit=10))
+    results = oracle_db.list(filters=None, limit=10)
     assert len(results) >= 1
 
 

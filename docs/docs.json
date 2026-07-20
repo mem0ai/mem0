@@ -207,6 +207,7 @@
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
@@ -226,8 +227,7 @@
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neon",
                               "components/vectordbs/dbs/neptune_analytics",
-                              "components/vectordbs/dbs/turbopuffer",
-                              "components/vectordbs/dbs/oracledb"
+                              "components/vectordbs/dbs/turbopuffer"
                             ]
                           }
                         ]

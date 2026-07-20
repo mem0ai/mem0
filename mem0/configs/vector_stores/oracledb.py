@@ -82,7 +82,8 @@ class OracleAIVectorSearchConfig(BaseModel):
 
     connection_params: Optional[dict] = Field(None, description="Database connection parameters, including auth.")
     use_connection_pool: Optional[bool] = Field(
-        True, description="Oracle Connection or ConnectionPool (overrides connection string and individual parameters)"
+        True,
+        description="Create a ConnectionPool instead of a single Connection when no client is provided",
     )
 
     client: Optional[Any] = Field(
@@ -141,9 +142,6 @@ class OracleAIVectorSearchConfig(BaseModel):
             raise ValueError("`embedding_model_dims` must be bigger than 0")
 
         return self
-
-    def canonical_index_parameters(self) -> Optional[dict]:
-        return _validate_index_parameters(self.index_type, self.index_parameters)
 
     @model_validator(mode="before")
     @classmethod

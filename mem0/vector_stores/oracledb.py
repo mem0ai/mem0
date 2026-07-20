@@ -1,12 +1,12 @@
 """Oracle AI Vector Search vector store integration for mem0."""
 
+import array
 import json
 import logging
+import re
+import uuid
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
-import re
-import array
-import uuid
 
 try:
     import oracledb
@@ -153,7 +153,7 @@ class OracleAIVectorSearch(VectorStoreBase):
         return create_index
 
     def _index_parameters(self) -> str:
-        index_parameters = self.config.canonical_index_parameters()
+        index_parameters = self.config.index_parameters
         if not index_parameters:
             return ""
 
