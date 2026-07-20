@@ -7,6 +7,7 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreConfig,
 } from "../types";
 import {
   EmbedderFactory,
@@ -79,7 +80,18 @@ import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
-// Entity params that must be passed via filters - check both snake_case and camelCase
+export class LLMError extends Error {
+  readonly cause?: unknown;
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = "LLMError";
+    this.cause = options.cause;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// Entity params that must be passed via filters check both snake_case and camelCase
 const ENTITY_PARAMS = [
   "user_id",
   "agent_id",
@@ -275,18 +287,24 @@ export class Memory {
 
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
+      const entityProvider = this.config.vectorStore.provider;
       const entityCollectionName = `${this.collectionName}_entities`;
-      const entityConfig = {
+      const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
       // For file-based stores (memory/SQLite), always use a separate DB for entities
-      if (this.config.vectorStore.provider === "memory") {
+      if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
         entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
+      if (entityProvider === "databricks") {
+        entityConfig.tableName = entityConfig.tableName
+          ? `${entityConfig.tableName}_entities`
+          : entityCollectionName;
+      }
       this._entityStore = VectorStoreFactory.create(
-        this.config.vectorStore.provider,
+        entityProvider,
         entityConfig,
       );
       await this._entityStore.initialize();
@@ -871,7 +889,7 @@ export class Memory {
       )) as string;
     } catch (e) {
       console.error("LLM extraction failed:", e);
-      return [];
+      throw new LLMError(`LLM extraction failed: ${e}`, { cause: e });
     }
 
     // Parse response
@@ -1736,7 +1754,7 @@ export class Memory {
     await this.db.reset();
 
     // Check provider before attempting deleteCol
-    if (this.config.vectorStore.provider.toLowerCase() !== "langchain") {
+    if (this.config.vectorStore.provider !== "langchain") {
       try {
         await this.vectorStore.deleteCol();
       } catch (e) {

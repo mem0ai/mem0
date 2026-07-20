@@ -1,9 +1,11 @@
-import { Client } from "@elastic/elasticsearch";
+import type { Client } from "@elastic/elasticsearch";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
 interface ElasticsearchConfig extends VectorStoreConfig {
-  client?: Client;
+  /** Pre-configured Elasticsearch client instance (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  client?: any;
   host?: string;
   port?: number;
   cloudId?: string;
@@ -41,17 +43,28 @@ function validateFilter(key: string, value: unknown): void {
 }
 
 export class ElasticsearchDB implements VectorStore {
-  private client: Client;
+  private client!: Client;
+  private readonly config: ElasticsearchConfig;
   private readonly collectionName: string;
   private readonly dimension: number;
   private readonly autoCreateIndex: boolean;
   private _initPromise?: Promise<void>;
 
   constructor(config: ElasticsearchConfig) {
+    this.config = config;
     this.collectionName = config.collectionName;
     this.dimension = config.dimension || config.embeddingModelDims || 1536;
     this.autoCreateIndex = config.autoCreateIndex !== false;
 
+    this.initialize().catch(console.error);
+  }
+
+  // The client is created lazily on first initialize() so the optional
+  // `@elastic/elasticsearch` peer is only loaded when the store is actually used.
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+
+    const config = this.config;
     if (config.client) {
       this.client = config.client;
     } else {
@@ -87,10 +100,17 @@ export class ElasticsearchDB implements VectorStore {
         params.headers = config.headers;
       }
 
-      this.client = new Client(params);
-    }
+      let sdk: any;
+      try {
+        sdk = await import("@elastic/elasticsearch");
+      } catch {
+        throw new Error(
+          "The '@elastic/elasticsearch' package is required to use the Elasticsearch vector store. Install it with: npm install @elastic/elasticsearch",
+        );
+      }
 
-    this.initialize().catch(console.error);
+      this.client = new sdk.Client(params);
+    }
   }
 
   async initialize(): Promise<void> {
@@ -101,6 +121,7 @@ export class ElasticsearchDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     try {
       if (this.autoCreateIndex) {
         await this.ensureIndex(this.collectionName, this.dimension);
@@ -149,6 +170,7 @@ export class ElasticsearchDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     const operations: any[] = [];
     for (let i = 0; i < vectors.length; i++) {
       operations.push(
@@ -165,6 +187,7 @@ export class ElasticsearchDB implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const searchBody: Record<string, any> = {
       knn: {
         field: "vector",
@@ -195,6 +218,7 @@ export class ElasticsearchDB implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     try {
       const response = await this.client.get({
         index: this.collectionName,
@@ -215,6 +239,7 @@ export class ElasticsearchDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     const doc: Record<string, any> = {};
     if (vector) doc.vector = vector;
     if (payload) doc.metadata = payload;
@@ -227,6 +252,7 @@ export class ElasticsearchDB implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     await this.client.delete({
       index: this.collectionName,
       id: vectorId,
@@ -234,6 +260,7 @@ export class ElasticsearchDB implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     await this.client.indices.delete({ index: this.collectionName });
   }
 
@@ -241,6 +268,7 @@ export class ElasticsearchDB implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const query: Record<string, any> = { query: { match_all: {} } };
 
     if (filters && Object.keys(filters).length > 0) {
@@ -275,6 +303,7 @@ export class ElasticsearchDB implements VectorStore {
   }
 
   async getUserId(): Promise<string> {
+    await this.initialize();
     try {
       const response = await this.client.search({
         index: "memory_migrations",
@@ -308,6 +337,7 @@ export class ElasticsearchDB implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     try {
       const response = await this.client.search({
         index: "memory_migrations",

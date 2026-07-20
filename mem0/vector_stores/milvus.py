@@ -159,7 +159,10 @@ class MilvusDB(VectorStoreBase):
         for key, value in filters.items():
             if not self._SAFE_FILTER_KEY.match(key):
                 raise ValueError(f"Invalid filter key: {key!r}")
-            if isinstance(value, str):
+            if value == "*":
+                # Wildcard - match any value (MilvusDB doesn't have direct wildcard, so we skip this filter)
+                continue
+            elif isinstance(value, str):
                 escaped = value.replace("\\", "\\\\").replace('"', '\\"')
                 operands.append(f'(metadata["{key}"] == "{escaped}")')
             elif isinstance(value, (int, float, bool)):

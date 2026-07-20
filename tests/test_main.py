@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory
+from mem0.memory.main import Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -432,6 +432,28 @@ class TestEntityIdValidation:
         memory_instance.delete_all(user_id="  alice  ")
 
         memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+
+    def test_validate_coerces_non_string_entity_id(self):
+        """Integer (and other non-string) ids are coerced to str, not crashed on."""
+        assert _validate_and_trim_entity_id(42, "user_id") == "42"
+        assert _validate_and_trim_entity_id(0, "user_id") == "0"
+
+    def test_delete_all_coerces_integer_user_id_before_list(self, memory_instance):
+        """delete_all should accept an integer user_id and scope by its str form."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.delete_all(user_id=42)
+
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+
+    def test_get_all_coerces_integer_user_id(self, memory_instance):
+        """get_all should accept an integer user_id in filters and scope by its str form."""
+        memory_instance.vector_store.list = Mock(return_value=([], None))
+
+        memory_instance.get_all(filters={"user_id": 42})
+
+        _, kwargs = memory_instance.vector_store.list.call_args
+        assert kwargs["filters"]["user_id"] == "42"
 
 
 class TestSearchParamValidation:

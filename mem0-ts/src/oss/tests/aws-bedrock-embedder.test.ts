@@ -101,6 +101,22 @@ describe("AWSBedrockEmbedder", () => {
     expect(request).toEqual({ inputText: "hello", dimensions: 512 });
   });
 
+  it("omits dimensions for Titan V2 when embeddingDims is unset", async () => {
+    mockSend.mockResolvedValue({
+      body: responseBody({ embedding: [0.1, 0.2] }),
+    });
+
+    const embedder = new AWSBedrockEmbedder({
+      model: "amazon.titan-embed-text-v2:0",
+    });
+    await embedder.embed("hello");
+
+    const request = JSON.parse(
+      mockInvokeModelCommand.mock.calls[0][0].body,
+    ) as Record<string, unknown>;
+    expect(request).toEqual({ inputText: "hello" });
+  });
+
   it("does not forward dimensions to Titan V1", async () => {
     mockSend.mockResolvedValue({
       body: responseBody({ embedding: [0.1, 0.2] }),
@@ -181,6 +197,7 @@ describe("AWSBedrockEmbedder", () => {
 
     const embedder = new AWSBedrockEmbedder({
       model: "cohere.embed-v4:0",
+      embeddingDims: 512,
     });
     const result = await embedder.embedBatch(["hello", "world"]);
 
@@ -192,11 +209,58 @@ describe("AWSBedrockEmbedder", () => {
       texts: ["hello", "world"],
       input_type: "search_document",
       embedding_types: ["float"],
+      output_dimension: 512,
     });
     expect(result).toEqual([
       [0.7, 0.8],
       [0.9, 1.0],
     ]);
+  });
+
+  it("chunks Cohere batch inputs at the Bedrock limit", async () => {
+    mockSend
+      .mockResolvedValueOnce({
+        body: responseBody({
+          embeddings: Array.from({ length: 96 }, (_, i) => [i]),
+        }),
+      })
+      .mockResolvedValueOnce({
+        body: responseBody({
+          embeddings: [[96]],
+        }),
+      });
+
+    const embedder = new AWSBedrockEmbedder({
+      model: "cohere.embed-english-v3",
+    });
+    const result = await embedder.embedBatch(
+      Array.from({ length: 97 }, (_, i) => `text-${i}`),
+    );
+
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    const firstRequest = JSON.parse(
+      mockInvokeModelCommand.mock.calls[0][0].body,
+    ) as Record<string, unknown>;
+    const secondRequest = JSON.parse(
+      mockInvokeModelCommand.mock.calls[1][0].body,
+    ) as Record<string, unknown>;
+    expect(firstRequest.texts).toHaveLength(96);
+    expect(secondRequest.texts).toEqual(["text-96"]);
+    expect(result).toHaveLength(97);
+  });
+
+  it("throws when Cohere returns fewer embeddings than inputs", async () => {
+    mockSend.mockResolvedValue({
+      body: responseBody({ embeddings: [[0.1, 0.2]] }),
+    });
+
+    const embedder = new AWSBedrockEmbedder({
+      model: "cohere.embed-english-v3",
+    });
+
+    await expect(embedder.embedBatch(["hello", "world"])).rejects.toThrow(
+      "AWS Bedrock model cohere.embed-english-v3 returned no embedding for one or more inputs",
+    );
   });
 
   it("preserves input order for Titan batch embeddings", async () => {

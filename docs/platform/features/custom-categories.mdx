@@ -1,6 +1,6 @@
 ---
 title: Custom Categories
-description: "Replace default memory tags with custom category labels that match your product terminology at the project level."
+description: "Replace default memory tags with custom category labels that match your product terminology, set once per project or per individual add call."
 ---
 
 # Custom Categories
@@ -14,9 +14,7 @@ Mem0 automatically tags every memory, but the default labels (travel, sports, mu
   - You’re moving from the open-source version and want the same labels here.
 </Info>
 
-<Warning>
-  Per-request overrides (`custom_categories=...` on `client.add`) are not supported on the managed API yet. Set categories at the project level, then ingest memories as usual.
-</Warning>
+You can set the list once for the whole project, or pass a different list on an individual `add` call.
 
 ## Configure access
 
@@ -27,7 +25,20 @@ Mem0 automatically tags every memory, but the default labels (travel, sports, mu
 
 - **Default list**: Each project starts with 15 broad categories like `travel`, `sports`, and `music`.
 - **Project override**: When you call `project.update(custom_categories=[...])`, that list replaces the defaults for future memories.
-- **Automatic tags**: As new memories come in, Mem0 picks the closest matches from your list and saves them in the `categories` field.
+- **Per-call override**: When you pass `custom_categories=[...]` to `client.add(...)`, that list is used for the memories extracted from that call.
+- **Automatic tags**: As new memories come in, Mem0 picks the closest matches from the active list and saves them in the `categories` field.
+
+### Which list wins
+
+Mem0 resolves the category catalog for each `add` call in this order, and stops at the first one it finds:
+
+1. `custom_categories` passed on the `add` call
+2. `custom_categories` set on the project
+3. The built-in default catalog
+
+A per-call list **fully replaces** the project list for that call. The two are not merged, so a memory added with a per-call list can only be tagged with categories from that list.
+
+Categories are applied at ingestion time. Changing the project list, or passing a new per-call list, does not re-tag memories that already exist.
 
 <Note>
   Default catalog: `personal_details`, `family`, `professional_details`, `sports`, `travel`, `food`, `music`, `health`, `technology`, `hobbies`, `fashion`, `entertainment`, `milestones`, `user_preferences`, `misc`.
@@ -84,6 +95,82 @@ print(categories)
 ```
 </CodeGroup>
 
+`get` echoes back the shape you set. `update` also accepts a plain list of names, such as `["billing", "support"]`, in which case `get` returns that same list of names. Descriptions are optional here, and the classifier uses them to disambiguate when it has them.
+
+<Warning>
+  `add` is stricter than `update`. Every entry in a per-call `custom_categories` list must be an object mapping a name to a description. Passing bare names to `add` fails with `400 Expected a dictionary of items but got type "str"`.
+</Warning>
+
+### 3. Override categories on a single add call
+
+Pass `custom_categories` directly to `add` when one call needs a different catalog than the project default. The memories created by that call are tagged from the list you pass, and the project list is left untouched.
+
+<CodeGroup>
+```python Python
+health_messages = [
+    {"role": "user", "content": "My doctor bumped my metformin to 1000mg and I see her again on the 14th."},
+    {"role": "assistant", "content": "Noted the new dosage and the follow-up appointment."},
+]
+
+health_categories = [
+    {"symptoms": "Reported physical or mental symptoms"},
+    {"medications": "Prescriptions, dosages, and adherence"},
+    {"appointments": "Scheduled visits and follow-ups"},
+]
+
+client.add(
+    health_messages,
+    user_id="alice",
+    custom_categories=health_categories,
+)
+```
+
+```javascript JavaScript
+const healthMessages = [
+  { role: "user", content: "My doctor bumped my metformin to 1000mg and I see her again on the 14th." },
+  { role: "assistant", content: "Noted the new dosage and the follow-up appointment." },
+];
+
+const healthCategories = [
+  { symptoms: "Reported physical or mental symptoms" },
+  { medications: "Prescriptions, dosages, and adherence" },
+  { appointments: "Scheduled visits and follow-ups" },
+];
+
+await client.add(healthMessages, {
+  userId: "alice",
+  customCategories: healthCategories,
+});
+```
+
+```text Resulting categories
+["medications", "appointments"]
+```
+</CodeGroup>
+
+The memory is tagged from `health_categories` alone. The project catalog is not consulted for this call, and it is not modified.
+
+#### Per-user categories inside one project
+
+The main reason to reach for a per-call list is to give different users, tenants, or entities their own vocabulary without splitting them across projects. Keep one project, and pass the list that fits the entity you are writing for.
+
+<CodeGroup>
+```python Python
+patient_categories = [
+    {"symptoms": "Reported physical or mental symptoms"},
+    {"medications": "Prescriptions, dosages, and adherence"},
+]
+
+clinician_categories = [
+    {"caseload": "Patients under this clinician's care"},
+    {"availability": "Shift patterns and on-call windows"},
+]
+
+client.add("My metformin is now 1000mg.", user_id="alice", custom_categories=patient_categories)
+client.add("I'm on call Tuesdays and Thursdays.", user_id="dr-reyes", custom_categories=clinician_categories)
+```
+</CodeGroup>
+
 ## See it in action
 
 ### Add a memory (uses the project catalog automatically)
@@ -104,46 +191,57 @@ client.add(messages, user_id="alice")
 
 ### Retrieve memories and inspect categories
 
+`get_all` returns a paginated object. The memories are under `results`, and each one carries its own `categories` list.
+
 <CodeGroup>
 ```python Code
-memories = client.get_all(filters={"user_id": "alice"})
+response = client.get_all(filters={"user_id": "alice"})
+
+for memory in response["results"]:
+    print(memory["memory"], memory["categories"])
 ```
 
-```json Output
-["lifestyle_management_concerns", "seeking_structure"]
+```text Output
+User introduced herself as Alice and expressed a desire for help organizing her daily schedule. ['lifestyle_management_concerns', 'seeking_structure', 'personal_information']
+User feels overwhelmed trying to balance work responsibilities, regular exercise, and a social life, indicating difficulty managing time across these areas. ['lifestyle_management_concerns']
+User's goals include becoming more productive at work, maintaining a consistent workout routine, and preserving enough energy for friends and hobbies. ['lifestyle_management_concerns', 'seeking_structure']
 ```
 </CodeGroup>
+
+Extraction is model driven, so the exact wording and the number of memories vary between runs. The categories are drawn from the active list.
 
 <Info>
   **Sample memory payload**
   ```json
   {
-    "id": "33d2***",
-    "memory": "Trying to balance work and workouts",
+    "id": "638008c4-***",
+    "memory": "User is seeking to balance work responsibilities with regular workout sessions and requests a personalized schedule to manage both.",
     "user_id": "alice",
     "metadata": null,
-    "categories": ["wellness"],  // ← matches the custom category we set
-    "created_at": "2025-11-01T02:13:32.828364-07:00",
-    "updated_at": "2025-11-01T02:13:32.830896-07:00",
+    "categories": ["lifestyle_management_concerns", "seeking_structure"],
+    "created_at": "2026-07-10T06:13:12-07:00",
+    "updated_at": "2026-07-10T06:13:20-07:00",
     "expiration_date": null,
     "structured_attributes": {
-      "day": 1,
-      "hour": 9,
-      "year": 2025,
-      "month": 11,
+      "year": 2026,
+      "month": 7,
+      "day": 10,
+      "hour": 13,
       "minute": 13,
-      "quarter": 4,
-      "is_weekend": true,
-      "day_of_week": "saturday",
-      "day_of_year": 305,
-      "week_of_year": 44
+      "day_of_week": "friday",
+      "week_of_year": 28,
+      "day_of_year": 191,
+      "quarter": 3,
+      "is_weekend": false
     }
   }
   ```
 </Info>
 
+Categorization runs asynchronously, a moment after the memory itself is written. A memory fetched immediately after `add` may not show up in `get_all` yet, or can come back with `categories: null` and pick up its tags a moment later. Poll until `categories` is populated rather than reading once.
+
 <Note>
-  Need ad-hoc labels for a single call? Store them in `metadata` until per-request overrides become available.
+  Need ad-hoc labels for a single call? Pass `custom_categories` on that `add` call. Use `metadata` instead when the label is a fixed value you already know, rather than something the classifier should infer.
 </Note>
 
 ## Default categories (fallback)
@@ -208,10 +306,12 @@ client.project.get(["custom_categories"])
 
 ```json Output
 {
-    "custom_categories": None
+    "custom_categories": null
 }
 ```
 </CodeGroup>
+
+A project that has never set a list returns `null`. One you have reset with `project.update(custom_categories=[])` returns `[]`. Both mean the default catalog is active.
 
 ## Verify the feature is working
 
@@ -223,7 +323,8 @@ client.project.get(["custom_categories"])
 
 - Keep category descriptions concise but specific; the classifier uses them to disambiguate.
 - Review memories with empty `categories` to see where you might extend or rename your list.
-- Stick with project-level overrides until per-request support is released; mixing approaches causes confusion.
+- Set the catalog your app uses most often at the project level, and reserve per-call lists for the calls that genuinely need a different vocabulary.
+- If a per-call list should also keep the project categories, include them in the list you pass. Passing a list replaces, it does not extend.
 
 <CardGroup cols={2}>
   <Card title="Advanced Memory Operations" icon="wand-magic-sparkles" href="/platform/advanced-memory-operations">

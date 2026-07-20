@@ -1,4 +1,4 @@
-import { MongoClient, Collection, Db } from "mongodb";
+import type { MongoClient, Collection, Db } from "mongodb";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -8,13 +8,16 @@ export interface MongoDBConfig extends VectorStoreConfig {
   collectionName?: string;
   embeddingModelDims?: number;
   dimension?: number;
-  client?: MongoClient;
+  /** Pre-configured MongoDB client instance (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  client?: any;
 }
 
 export class MongoDB implements VectorStore {
-  private client: MongoClient;
-  private db: Db;
+  private client!: MongoClient;
+  private db!: Db;
   private collection!: Collection;
+  private readonly config: MongoDBConfig;
   private readonly collectionName: string;
   private readonly dbName: string;
   private readonly embeddingModelDims: number;
@@ -22,17 +25,33 @@ export class MongoDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: MongoDBConfig) {
+    this.config = config;
     this.collectionName = config.collectionName || "mem0";
     this.dbName = config.dbName || "mem0_db";
     this.embeddingModelDims =
       config.embeddingModelDims || config.dimension || 1536;
     this.indexName = `${this.collectionName}_vector_index`;
+    // The client/db are created lazily on first initialize() so the optional
+    // `mongodb` peer is only loaded when the store is actually used.
+  }
 
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+
+    const config = this.config;
     if (config.client) {
       this.client = config.client;
     } else {
+      let sdk: any;
+      try {
+        sdk = await import("mongodb");
+      } catch {
+        throw new Error(
+          "The 'mongodb' package is required to use the MongoDB vector store. Install it with: npm install mongodb",
+        );
+      }
       const url = config.url || "mongodb://localhost:27017";
-      this.client = new MongoClient(url, { appName: "Mem0" });
+      this.client = new sdk.MongoClient(url, { appName: "Mem0" });
     }
 
     this.db = this.client.db(this.dbName);
@@ -46,6 +65,7 @@ export class MongoDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     try {
       const collections = await this.db
         .listCollections({ name: this.collectionName })

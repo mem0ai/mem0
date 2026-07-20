@@ -35,6 +35,7 @@ import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
 import { XAILLM } from "../llms/xai";
 import { SarvamLLM } from "../llms/sarvam";
+import { AWSBedrockLLM } from "../llms/aws_bedrock";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { TogetherLLM } from "../llms/together";
@@ -55,6 +56,8 @@ import { HuggingFaceEmbedder } from "../embeddings/huggingface";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { DatabricksVectorStore } from "../vector_stores/databricks";
+import { NeptuneAnalyticsVectorStore } from "../vector_stores/neptune_analytics";
 import { VertexAIEmbedder } from "../embeddings/vertexai";
 import { ElasticsearchDB } from "../vector_stores/elasticsearch";
 import { OpenSearchDB } from "../vector_stores/opensearch";
@@ -131,6 +134,8 @@ export class LLMFactory {
         return new XAILLM(config);
       case "sarvam":
         return new SarvamLLM(config);
+      case "aws_bedrock":
+        return new AWSBedrockLLM(config);
       case "litellm":
         return new LiteLLM(config);
       case "minimax":
@@ -172,6 +177,11 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "databricks":
+        return new DatabricksVectorStore(config as any);
+      case "neptune":
+      case "neptune-analytics":
+        return new NeptuneAnalyticsVectorStore(config as any);
       case "elasticsearch":
         return new ElasticsearchDB(config as any);
       case "opensearch":

@@ -5,6 +5,7 @@ const DEFAULT_MODEL = "amazon.titan-embed-text-v1";
 const DEFAULT_REGION = "us-west-2";
 const BEDROCK_RUNTIME_PACKAGE = "@aws-sdk/client-bedrock-runtime";
 const NON_COHERE_BATCH_CONCURRENCY = 4;
+const COHERE_BATCH_SIZE = 96;
 
 type BedrockEmbeddingResponse = {
   embedding?: number[];
@@ -108,6 +109,10 @@ export class AWSBedrockEmbedder implements Embedder {
         texts,
         input_type: "search_document",
         ...(this.isCohereV4Model() && { embedding_types: ["float"] }),
+        ...(this.isCohereV4Model() &&
+          this.embeddingDims !== undefined && {
+            output_dimension: this.embeddingDims,
+          }),
       };
     }
 
@@ -173,7 +178,15 @@ export class AWSBedrockEmbedder implements Embedder {
 
   async embedBatch(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
-    if (this.isCohereModel()) return this.invoke(texts);
+    if (this.isCohereModel()) {
+      const results: number[][] = [];
+      for (let i = 0; i < texts.length; i += COHERE_BATCH_SIZE) {
+        results.push(
+          ...(await this.invoke(texts.slice(i, i + COHERE_BATCH_SIZE))),
+        );
+      }
+      return results;
+    }
 
     const results: number[][] = new Array(texts.length);
     let nextIndex = 0;

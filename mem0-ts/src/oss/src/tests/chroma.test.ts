@@ -1,60 +1,42 @@
-// jest.mock is hoisted above variable declarations, so shared mock functions
-// are attached to the module-level `__mocks__` object populated inside the
-// factory. The hoisted mock reaches them through this stable reference.
+// The provider imports `chromadb` lazily (await import) only on first use, so
+// the jest.mock factory no longer runs at module-eval time. Create the shared
+// mock handles at module top-level (not inside the factory) so `beforeEach` can
+// reach them before the lazy import has fired; the factory, which runs on first
+// use, just returns references to them.
+const add = jest.fn().mockResolvedValue(undefined);
+const query = jest
+  .fn()
+  .mockResolvedValue({ ids: [[]], distances: [[]], metadatas: [[]] });
+const get = jest.fn().mockResolvedValue({ ids: [], metadatas: [] });
+const update = jest.fn().mockResolvedValue(undefined);
+const upsert = jest.fn().mockResolvedValue(undefined);
+const deleteFn = jest.fn().mockResolvedValue(undefined);
 
-const __mocks__: {
-  add: jest.Mock;
-  query: jest.Mock;
-  get: jest.Mock;
-  update: jest.Mock;
-  upsert: jest.Mock;
-  deleteFn: jest.Mock;
-  getOrCreateCollection: jest.Mock;
-  deleteCollection: jest.Mock;
-  ChromaClient: jest.Mock;
-  CloudClient: jest.Mock;
-} = {} as any;
+const collectionHandle = { add, query, get, update, upsert, delete: deleteFn };
+const getOrCreateCollection = jest.fn().mockResolvedValue(collectionHandle);
+const deleteCollection = jest.fn().mockResolvedValue(undefined);
 
-jest.mock("chromadb", () => {
-  const add = jest.fn().mockResolvedValue(undefined);
-  const query = jest
-    .fn()
-    .mockResolvedValue({ ids: [[]], distances: [[]], metadatas: [[]] });
-  const get = jest.fn().mockResolvedValue({ ids: [], metadatas: [] });
-  const update = jest.fn().mockResolvedValue(undefined);
-  const upsert = jest.fn().mockResolvedValue(undefined);
-  const deleteFn = jest.fn().mockResolvedValue(undefined);
+const clientImpl = () => ({ getOrCreateCollection, deleteCollection });
+const ChromaClient = jest.fn().mockImplementation(clientImpl);
+const CloudClient = jest.fn().mockImplementation(clientImpl);
 
-  const collectionHandle = {
-    add,
-    query,
-    get,
-    update,
-    upsert,
-    delete: deleteFn,
-  };
-  const getOrCreateCollection = jest.fn().mockResolvedValue(collectionHandle);
-  const deleteCollection = jest.fn().mockResolvedValue(undefined);
+const __mocks__ = {
+  add,
+  query,
+  get,
+  update,
+  upsert,
+  deleteFn,
+  getOrCreateCollection,
+  deleteCollection,
+  ChromaClient,
+  CloudClient,
+};
 
-  const clientImpl = () => ({ getOrCreateCollection, deleteCollection });
-  const ChromaClient = jest.fn().mockImplementation(clientImpl);
-  const CloudClient = jest.fn().mockImplementation(clientImpl);
-
-  Object.assign(__mocks__, {
-    add,
-    query,
-    get,
-    update,
-    upsert,
-    deleteFn,
-    getOrCreateCollection,
-    deleteCollection,
-    ChromaClient,
-    CloudClient,
-  });
-
-  return { ChromaClient, CloudClient };
-});
+jest.mock("chromadb", () => ({
+  ChromaClient: __mocks__.ChromaClient,
+  CloudClient: __mocks__.CloudClient,
+}));
 
 import { ChromaDB } from "../vector_stores/chroma";
 import { VectorStoreFactory } from "../utils/factory";
@@ -127,8 +109,10 @@ describe("VectorStoreFactory", () => {
 });
 
 describe("Constructor", () => {
-  it("builds a local ChromaClient with host and port", () => {
-    makeDb({ host: "localhost", port: 8000 });
+  // The client is built lazily on first use, so trigger initialize() before
+  // asserting how it was constructed.
+  it("builds a local ChromaClient with host and port", async () => {
+    await initDb({ host: "localhost", port: 8000 });
     expect(__mocks__.ChromaClient).toHaveBeenCalledWith({
       host: "localhost",
       port: 8000,
@@ -136,8 +120,8 @@ describe("Constructor", () => {
     expect(__mocks__.CloudClient).not.toHaveBeenCalled();
   });
 
-  it("passes ssl and path through to ChromaClient when provided", () => {
-    makeDb({ host: "example.com", port: 443, ssl: true, path: "/db" });
+  it("passes ssl and path through to ChromaClient when provided", async () => {
+    await initDb({ host: "example.com", port: 443, ssl: true, path: "/db" });
     expect(__mocks__.ChromaClient).toHaveBeenCalledWith({
       host: "example.com",
       port: 443,
@@ -146,12 +130,13 @@ describe("Constructor", () => {
     });
   });
 
-  it("builds a CloudClient when apiKey and tenant are set", () => {
-    new ChromaDB({
+  it("builds a CloudClient when apiKey and tenant are set", async () => {
+    const db = new ChromaDB({
       collectionName: "test-collection",
       apiKey: "key-123",
       tenant: "tenant-abc",
     } as any);
+    await db.initialize();
     expect(__mocks__.CloudClient).toHaveBeenCalledWith({
       apiKey: "key-123",
       tenant: "tenant-abc",
@@ -160,13 +145,14 @@ describe("Constructor", () => {
     expect(__mocks__.ChromaClient).not.toHaveBeenCalled();
   });
 
-  it("honors an explicit cloud database name", () => {
-    new ChromaDB({
+  it("honors an explicit cloud database name", async () => {
+    const db = new ChromaDB({
       collectionName: "test-collection",
       apiKey: "key-123",
       tenant: "tenant-abc",
       database: "custom-db",
     } as any);
+    await db.initialize();
     expect(__mocks__.CloudClient).toHaveBeenCalledWith(
       expect.objectContaining({ database: "custom-db" }),
     );

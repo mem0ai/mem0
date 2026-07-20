@@ -1,19 +1,27 @@
-import { EmbeddingModel, FlagEmbedding } from "fastembed";
+import type { FlagEmbedding } from "fastembed";
 import { Embedder } from "./base";
 import { EmbeddingConfig } from "../types";
 
-const DEFAULT_MODEL = EmbeddingModel.BGESmallENV15;
-type FastEmbedModel = Exclude<EmbeddingModel, EmbeddingModel.CUSTOM>;
-
-// FastEmbed only ships a fixed set of ONNX models. Keep the list handy so we can
-// reject unknown model names up front with a clear message instead of letting
-// FlagEmbedding.init fail later with an opaque download error.
-const SUPPORTED_MODELS = Object.values(EmbeddingModel).filter(
-  (model) => model !== EmbeddingModel.CUSTOM,
-) as FastEmbedModel[];
+// FastEmbed only ships a fixed set of ONNX models (fastembed's `EmbeddingModel`
+// enum, minus CUSTOM). Mirrored here as literals so an invalid model name can
+// be rejected synchronously in the constructor — with a clear message instead
+// of a `FlagEmbedding.init()` download error — without eagerly importing the
+// optional 'fastembed' package just to read its enum. Keep in sync if
+// fastembed adds a model.
+const SUPPORTED_MODELS = [
+  "fast-all-MiniLM-L6-v2",
+  "fast-bge-base-en",
+  "fast-bge-base-en-v1.5",
+  "fast-bge-small-en",
+  "fast-bge-small-en-v1.5",
+  "fast-bge-small-zh-v1.5",
+  "fast-multilingual-e5-large",
+] as const;
+type FastEmbedModel = (typeof SUPPORTED_MODELS)[number];
+const DEFAULT_MODEL: FastEmbedModel = "fast-bge-small-en-v1.5";
 
 export class FastEmbedEmbedder implements Embedder {
-  private modelName: FastEmbedModel;
+  private readonly modelName: FastEmbedModel;
   private embeddingModel?: Promise<FlagEmbedding>;
 
   constructor(config: EmbeddingConfig) {
@@ -32,15 +40,30 @@ export class FastEmbedEmbedder implements Embedder {
 
   private getEmbeddingModel(): Promise<FlagEmbedding> {
     if (!this.embeddingModel) {
-      this.embeddingModel = FlagEmbedding.init({
-        model: this.modelName,
-      }).catch((error) => {
+      this.embeddingModel = this.initEmbeddingModel().catch((error) => {
         this.embeddingModel = undefined;
         throw error;
       });
     }
 
     return this.embeddingModel;
+  }
+
+  /**
+   * Lazily import the optional `fastembed` peer and initialize the model, so
+   * consumers that never touch FastEmbed don't need it installed.
+   */
+  private async initEmbeddingModel(): Promise<FlagEmbedding> {
+    let sdk: any;
+    try {
+      sdk = await import("fastembed");
+    } catch {
+      throw new Error(
+        "The 'fastembed' package is required to use the FastEmbed embedder. Install it with: npm install fastembed",
+      );
+    }
+
+    return sdk.FlagEmbedding.init({ model: this.modelName });
   }
 
   private normalizeInput(text: string): string {
