@@ -129,45 +129,45 @@ def remove_code_blocks(content: str) -> str:
 
 
 
+# Keys that identify the mem0 extraction payload object. When prose around the
+# JSON itself contains standalone valid-JSON snippets (a schema echo, a config
+# example), we must return the object carrying one of these keys rather than the
+# first object we happen to parse (issue #5998).
+_PAYLOAD_KEYS = ("memory", "facts")
+
+
 def _find_balanced_json_object(text):
     """
-    Scan ``text`` for the first brace-balanced ``{...}`` span that parses as
-    valid JSON, ignoring braces that appear inside JSON string literals.
+    Scan ``text`` for balanced ``{...}`` spans that parse as valid JSON and
+    return the mem0 payload object.
 
-    Returns the matching substring, or ``None`` if no balanced, parseable JSON
-    object is found. This lets us recover the real payload when an LLM wraps
-    its JSON in prose that itself contains braces (issue #5998).
+    Uses ``json.JSONDecoder().raw_decode`` (stdlib, C-speed, linear per
+    candidate) to parse the object that starts at each ``{``, so a long run of
+    unbalanced braces cannot make extraction quadratic. Among the parseable
+    objects it prefers the one carrying a payload key (``memory``/``facts``);
+    otherwise it returns the last (outermost/trailing) object, which is where
+    LLMs place the answer after any prose preamble.
+
+    Returns the matching substring, or ``None`` if no parseable JSON object is
+    found.
     """
-    for start in range(len(text)):
-        if text[start] != "{":
+    decoder = json.JSONDecoder()
+    fallback = None
+    idx = text.find("{")
+    while idx != -1:
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            idx = text.find("{", idx + 1)
             continue
-        depth = 0
-        in_string = False
-        escape = False
-        for i in range(start, len(text)):
-            ch = text[i]
-            if in_string:
-                if escape:
-                    escape = False
-                elif ch == "\\":
-                    escape = True
-                elif ch == '"':
-                    in_string = False
-                continue
-            if ch == '"':
-                in_string = True
-            elif ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[start : i + 1]
-                    try:
-                        json.loads(candidate, strict=False)
-                    except json.JSONDecodeError:
-                        break
-                    return candidate
-    return None
+        if isinstance(obj, dict):
+            candidate = text[idx:end]
+            if any(k in obj for k in _PAYLOAD_KEYS):
+                return candidate
+            # Keep the last parseable object as a fallback (trailing answer).
+            fallback = candidate
+        idx = text.find("{", end)
+    return fallback
 
 
 def extract_json(text):
