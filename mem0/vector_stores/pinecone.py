@@ -358,13 +358,7 @@ class PineconeDB(VectorStoreBase):
         return self.client.list_indexes()
 
     def delete_col(self):
-        """Delete an index/collection.
-
-        When a namespace is configured, only that namespace's vectors are cleared
-        (Pinecone's namespace-scoped delete) so other tenants sharing the same index
-        are left untouched and the index itself is never dropped. Without a
-        namespace, the whole index is dropped (previous, single-tenant behavior).
-        """
+        """Delete the index, or clear only the configured namespace if one is set."""
         try:
             if self.namespace is not None:
                 self.index.delete(delete_all=True, namespace=self.namespace)
@@ -429,8 +423,7 @@ class PineconeDB(VectorStoreBase):
             int: Total number of vectors.
         """
         stats = self.index.describe_index_stats()
-        if self.namespace:
-            # Safely get the namespace stats and return vector_count, defaulting to 0 if not found
+        if self.namespace is not None:
             namespace_summary = (stats.namespaces or {}).get(self.namespace)
             if namespace_summary:
                 return namespace_summary.vector_count or 0
@@ -439,12 +432,8 @@ class PineconeDB(VectorStoreBase):
 
     def reset(self):
         """
-        Reset the index by deleting its data and recreating it.
-
-        When a namespace is configured, `delete_col()` clears only that namespace and
-        the index itself still exists, so no recreation is needed.
+        Reset the index by deleting and recreating it.
         """
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        if self.namespace is None:
-            self.create_col(self.embedding_model_dims, self.metric)
+        self.create_col(self.embedding_model_dims, self.metric)

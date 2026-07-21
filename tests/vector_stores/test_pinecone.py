@@ -139,49 +139,35 @@ def test_list_cols(pinecone_db):
     pinecone_db.client.list_indexes.assert_called()
 
 
-def test_delete_col_without_namespace_drops_index(pinecone_db):
-    """No namespace configured: preserve today's behavior (drop the whole index)."""
-    pinecone_db.namespace = None
+@pytest.mark.parametrize(
+    "namespace,drops_whole_index",
+    [(None, True), ("test_namespace", False), ("", False)],
+)
+def test_delete_col_scopes_to_namespace(pinecone_db, namespace, drops_whole_index):
+    pinecone_db.namespace = namespace
     pinecone_db.delete_col()
-    pinecone_db.client.delete_index.assert_called_with("test_index")
+    if drops_whole_index:
+        pinecone_db.client.delete_index.assert_called_with("test_index")
+    else:
+        pinecone_db.index.delete.assert_called_with(delete_all=True, namespace=namespace)
+        pinecone_db.client.delete_index.assert_not_called()
 
 
-def test_delete_col_with_namespace_scopes_to_namespace(pinecone_db):
-    """Namespace configured: only that namespace is cleared, other tenants' data (and
-    the index itself) must survive -- the index must NEVER be dropped."""
-    pinecone_db.delete_col()
-    pinecone_db.index.delete.assert_called_with(delete_all=True, namespace="test_namespace")
-    pinecone_db.client.delete_index.assert_not_called()
-
-
-def test_delete_col_namespace_delete_error_handled_gracefully(pinecone_db):
-    """Any error from the namespace-scoped delete (e.g. a namespace that was never
-    written to) must be swallowed, matching this method's existing try/except pattern
-    on the whole-index branch -- not propagate and crash the caller's reset()."""
+def test_delete_col_namespace_delete_error_is_swallowed(pinecone_db):
     pinecone_db.index.delete.side_effect = Exception("Namespace not found")
-    pinecone_db.delete_col()  # must not raise
-
-
-def test_delete_col_empty_string_namespace_scopes_not_whole_index(pinecone_db):
-    """An explicitly-configured empty-string namespace (Pinecone's addressable default
-    namespace) is still "a namespace" -- it must NOT fall through to the whole-index
-    drop, which would destroy every other tenant's named namespace sharing this index."""
-    pinecone_db.namespace = ""
     pinecone_db.delete_col()
-    pinecone_db.index.delete.assert_called_with(delete_all=True, namespace="")
-    pinecone_db.client.delete_index.assert_not_called()
 
 
-def test_reset_with_namespace_does_not_recreate_index(pinecone_db, mock_pinecone_client):
-    """Namespaced reset: the index is never dropped, so it does not need recreating."""
+def test_reset_with_namespace_does_not_drop_or_recreate_index(pinecone_db, mock_pinecone_client):
+    mock_pinecone_client.list_indexes.return_value.names.return_value = ["test_index"]
     mock_pinecone_client.create_index.reset_mock()
     pinecone_db.reset()
     pinecone_db.index.delete.assert_called_with(delete_all=True, namespace="test_namespace")
+    mock_pinecone_client.delete_index.assert_not_called()
     mock_pinecone_client.create_index.assert_not_called()
 
 
 def test_reset_without_namespace_drops_and_recreates_index(pinecone_db, mock_pinecone_client):
-    """No namespace: preserve today's behavior (drop then recreate the index)."""
     pinecone_db.namespace = None
     mock_pinecone_client.list_indexes.return_value.names.return_value = []
     pinecone_db.reset()
@@ -233,6 +219,17 @@ def test_count_with_none_vector_count(pinecone_db):
     count = pinecone_db.count()
     assert count == 0
     pinecone_db.index.describe_index_stats.assert_called_once()
+
+
+def test_count_with_empty_string_namespace(pinecone_db):
+    pinecone_db.namespace = ""
+    stats_mock = MagicMock()
+    stats_mock.namespaces = {"": MagicMock(vector_count=3)}
+    stats_mock.total_vector_count = 99
+    pinecone_db.index.describe_index_stats.return_value = stats_mock
+
+    count = pinecone_db.count()
+    assert count == 3
 
 
 def test_list_error_returns_list_not_dict(pinecone_db):
