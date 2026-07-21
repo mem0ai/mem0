@@ -138,6 +138,17 @@ ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
 
 
+def _strip_identity_keys(metadata: Dict[str, Any], existing_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop identity keys from caller metadata; they are immutable after creation (issues #4490, #6277)."""
+    clean = {}
+    for key, value in metadata.items():
+        if key not in _IDENTITY_KEYS:
+            clean[key] = value
+        elif value != existing_payload.get(key):
+            logger.warning(f"update(): ignoring metadata['{key}'] - identity fields are immutable after creation")
+    return clean
+
+
 def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
     """Reject top-level entity parameters - must use filters instead."""
     invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
@@ -1786,6 +1797,8 @@ class Memory(MemoryBase):
             memory_id (str): ID of the memory to update.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+                ``user_id``/``agent_id``/``run_id``/``actor_id`` are ignored here - they are
+                immutable after creation.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
             data (str, optional): Deprecated alias for ``text``. Will be removed in the next
                 major release; use ``text`` instead.
@@ -1994,8 +2007,7 @@ class Memory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            # Identity keys are immutable after creation (issues #4490, #6277).
-            new_metadata.update({k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS})
+            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -3414,6 +3426,8 @@ class AsyncMemory(MemoryBase):
             memory_id (str): ID of the memory to update.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+                ``user_id``/``agent_id``/``run_id``/``actor_id`` are ignored here - they are
+                immutable after creation.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
             data (str, optional): Deprecated alias for ``text``. Will be removed in the next
                 major release; use ``text`` instead.
@@ -3657,8 +3671,7 @@ class AsyncMemory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            # Identity keys are immutable after creation (issues #4490, #6277).
-            new_metadata.update({k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS})
+            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
