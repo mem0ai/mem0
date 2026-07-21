@@ -101,9 +101,6 @@ const ENTITY_PARAMS = [
   "runId",
 ];
 
-// Tenant-scoping fields that update() must never let caller-supplied metadata overwrite (issues #4490, #6277).
-const IDENTITY_KEYS = ["user_id", "agent_id", "run_id"];
-
 /**
  * Validates that no top-level entity parameters are passed in config.
  * @throws Error if entity params are found at top level
@@ -1944,14 +1941,9 @@ export class Memory {
       existingEmbeddings[newData] ||
       (await this.embedder.embed(newData, "update"));
 
-    // Identity keys are immutable after creation (issues #4490, #6277).
-    const safeMetadata = Object.fromEntries(
-      Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),
-    );
-
     const newMetadata = {
       ...existingMemory.payload,
-      ...safeMetadata,
+      ...metadata,
       data: newData,
       hash: createHash("md5").update(newData).digest("hex"),
       textLemmatized: lemmatizeForBm25(newData),

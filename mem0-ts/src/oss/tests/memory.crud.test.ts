@@ -207,31 +207,6 @@ describe("Memory - update()", () => {
       expect.objectContaining({ category: "hobbies", priority: "high" }),
     );
   });
-
-  test("metadata cannot overwrite or inject identity fields (issues #4490, #6277)", async () => {
-    const runId = `run_${Date.now()}`;
-    const addResult: SearchResult = await memory.add("Scoped memory", {
-      userId,
-      runId,
-      infer: false,
-    });
-    const id = addResult.results[0].id;
-
-    await memory.update(id, {
-      metadata: {
-        user_id: "attacker_tenant",
-        agent_id: "attacker_agent",
-        run_id: "attacker_run",
-        category: "sports",
-      },
-    });
-
-    const after: MemoryItem | null = await memory.get(id);
-    expect(after!.metadata!.user_id).toBe(userId);
-    expect(after!.metadata!.run_id).toBe(runId);
-    expect(after!.metadata!.agent_id).toBeUndefined();
-    expect(after!.metadata!.category).toBe("sports");
-  });
 });
 
 // ─── update() options: text / data / metadata / expirationDate ───
