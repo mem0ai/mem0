@@ -24,3 +24,41 @@ jobs:
           issue-form: ${{ steps.issue-parser.outputs.jsonString }}
           token: ${{ secrets.GITHUB_TOKEN }}
           config-path: .github/advanced-issue-labeler.yml
+
+      - name: Infer component from text when the form was not used
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {
+              COMPONENT_LABELS,
+              inferComponentLabels,
+              loadKeywords,
+            } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/infer-component-labels.js`);
+
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = issue.labels.map((label) => label.name || label);
+            if (existing.some((name) => COMPONENT_LABELS.includes(name))) {
+              core.info(`Component label already present: ${existing.join(', ')}`);
+              return;
+            }
+
+            const keywords = loadKeywords(`${process.env.GITHUB_WORKSPACE}/.github/component-keywords.json`);
+            const labels = inferComponentLabels(`${issue.title}\n\n${issue.body || ''}`, keywords);
+
+            if (labels.length === 0) {
+              core.info('No component could be inferred from the issue text');
+              return;
+            }
+
+            core.info(`Inferred: ${labels.join(', ')}`);
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels,
+            });
