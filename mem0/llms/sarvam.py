@@ -28,7 +28,14 @@ class SarvamLLM(LLMBase):
             getattr(self.config, "sarvam_base_url", None) or os.getenv("SARVAM_API_BASE") or "https://api.sarvam.ai/v1"
         )
 
-    def generate_response(self, messages: List[Dict[str, str]], response_format=None, **kwargs) -> str:
+    def generate_response(
+        self,
+        messages: List[Dict[str, str]],
+        response_format=None,
+        tools: Optional[List[Dict]] = None,
+        tool_choice: str = "auto",
+        **kwargs,
+    ) -> str:
         """
         Generate a response based on the given messages using Sarvam-M.
 
@@ -36,6 +43,8 @@ class SarvamLLM(LLMBase):
             messages (list): List of message dicts containing 'role' and 'content'.
             response_format (str or object, optional): Format of the response.
                                                      Currently not used by Sarvam API.
+            tools (list, optional): List of tools that the model can call. Not supported by Sarvam.
+            tool_choice (str, optional): Tool choice method. Not supported by Sarvam.
             **kwargs: Additional provider-specific parameters forwarded to the Sarvam
                 request payload (matches the ``LLMBase.generate_response`` contract).
 
@@ -78,7 +87,8 @@ class SarvamLLM(LLMBase):
         params.update(kwargs)
 
         try:
-            response = requests.post(url, headers=headers, json=params, timeout=30)
+            proxies = getattr(self.config, "http_client_proxies", None)
+            response = requests.post(url, headers=headers, json=params, timeout=30, proxies=proxies)
             response.raise_for_status()
 
             result = response.json()
