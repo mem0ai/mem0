@@ -23,10 +23,10 @@ jobs:
           script: |
             const allowed = new Set([
               'sdk-python', 'sdk-typescript', 'vector-store', 'openclaw',
-              'rest-api', 'openmemory', 'documentation', 'ci',
+              'rest-api', 'openmemory', 'documentation', 'ci', 'cli', 'integrations',
             ]);
             const body = context.payload.pull_request.body || '';
-            const matches = [...body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*#(\d+)/gi)];
+            const matches = [...body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*(?:#|https:\/\/github\.com\/mem0ai\/mem0\/issues\/)(\d+)/gi)];
             const numbers = [...new Set(matches.map((m) => Number(m[1])))];
 
             const labels = new Set();

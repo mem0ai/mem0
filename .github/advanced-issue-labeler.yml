@@ -8,7 +8,7 @@ policy:
           - name: 'sdk-typescript'
             keys: ['TypeScript SDK']
           - name: 'vector-store'
-            keys: ['Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)']
+            keys: ['Vector Store (Qdrant / PGVector / Redis / Chroma)']
           - name: 'openclaw'
             keys: ['OpenClaw']
           - name: 'rest-api'

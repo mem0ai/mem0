@@ -22,6 +22,5 @@ jobs:
       - uses: redhat-plumbers-in-action/advanced-issue-labeler@v3
         with:
           issue-form: ${{ steps.issue-parser.outputs.jsonString }}
-          section: component
           token: ${{ secrets.GITHUB_TOKEN }}
           config-path: .github/advanced-issue-labeler.yml

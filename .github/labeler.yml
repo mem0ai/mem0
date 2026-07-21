@@ -22,6 +22,14 @@ openclaw:
   - changed-files:
       - any-glob-to-any-file: 'integrations/openclaw/**'
 
+integrations:
+  - changed-files:
+      - any-glob-to-any-file: 'integrations/**'
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: 'cli/**'
+
 documentation:
   - changed-files:
       - any-glob-to-any-file: 'docs/**'

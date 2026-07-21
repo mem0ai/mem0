@@ -462,6 +462,7 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 | Workflow | File | Purpose |
 |----------|------|---------|
 | Issue Labeler | `issue-labeler.yml` | Automatic issue labeling |
+| PR Labeler | `pr-labeler.yml` | Path-based PR labeling plus propagating labels from linked issues |
 | Stale Bot | `stale.yml` | Marks stale issues and PRs |
 | llms.txt Check | `docs-llms-txt-check.yml` | Blocks PRs touching `docs/**/*.mdx` when `docs/llms.txt` is out of sync. Fix locally with `python scripts/check-llms-txt-coverage.py --write`. |
 
