@@ -11,7 +11,7 @@ body:
       options:
         - Core / Python SDK
         - TypeScript SDK
-        - Vector Store (Qdrant / PGVector / Redis / Chroma)
+        - Vector Store
         - OpenClaw
         - REST API
         - Other
