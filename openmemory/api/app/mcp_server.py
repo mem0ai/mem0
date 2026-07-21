@@ -177,9 +177,9 @@ async def search_memory(query: str) -> str:
             embeddings = memory_client.embedding_model.embed(query, "search")
 
             hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
+                query=query,
+                vectors=embeddings,
+                top_k=10,
                 filters=filters,
             )
 
