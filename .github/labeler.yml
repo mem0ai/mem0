@@ -1,14 +1,23 @@
-vector-store:
-  - changed-files:
-      - any-glob-to-any-file: 'mem0/vector_stores/**'
-
 sdk-python:
   - changed-files:
-      - any-glob-to-any-file: ['mem0/**', 'tests/**']
+      - any-glob-to-any-file:
+          - 'mem0/**'
+          - 'tests/**'
+          - 'cli/python/**'
+          - 'pyproject.toml'
+          - 'poetry.lock'
 
 sdk-typescript:
   - changed-files:
-      - any-glob-to-any-file: 'mem0-ts/**'
+      - any-glob-to-any-file:
+          - 'mem0-ts/**'
+          - 'cli/node/**'
+
+vector-store:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'mem0/vector_stores/**'
+          - 'mem0-ts/src/oss/src/vector_stores/**'
 
 rest-api:
   - changed-files:
@@ -18,16 +27,22 @@ openmemory:
   - changed-files:
       - any-glob-to-any-file: 'openmemory/**'
 
+integrations:
+  - changed-files:
+      - any-glob-to-any-file: 'integrations/**'
+
 plugin:
   - changed-files:
       - any-glob-to-any-file:
           - 'integrations/mem0-plugin/**'
           - 'integrations/openclaw/**'
           - 'integrations/pi-agent-plugin/**'
-
-integrations:
-  - changed-files:
-      - any-glob-to-any-file: 'integrations/vercel-ai-sdk/**'
+          - 'skills/**'
+          - '.agents/**'
+          - '.claude-plugin/**'
+          - '.codex-plugin/**'
+          - '.cursor-plugin/**'
+          - 'marketplace.json'
 
 cli:
   - changed-files:
@@ -35,8 +50,14 @@ cli:
 
 documentation:
   - changed-files:
-      - any-glob-to-any-file: 'docs/**'
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - 'examples/**'
+          - '*.md'
 
 ci:
   - changed-files:
-      - any-glob-to-any-file: '.github/**'
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'scripts/**'
+          - '.pre-commit-config.yaml'

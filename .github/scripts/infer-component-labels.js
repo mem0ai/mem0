@@ -31,9 +31,18 @@ function scoreGroup(text, group) {
   return winner;
 }
 
+const UMBRELLA = { plugin: 'integrations' };
+
 function inferComponentLabels(text, keywords) {
   if (!text) return [];
-  return [scoreGroup(text, keywords.language), scoreGroup(text, keywords.area)].filter(Boolean);
+  const labels = [scoreGroup(text, keywords.language), scoreGroup(text, keywords.area)].filter(
+    Boolean,
+  );
+  for (const label of labels.slice()) {
+    const parent = UMBRELLA[label];
+    if (parent && !labels.includes(parent)) labels.push(parent);
+  }
+  return labels;
 }
 
 function loadKeywords(file) {
