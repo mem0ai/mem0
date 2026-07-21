@@ -426,23 +426,16 @@ _ATTACKER_UPDATE_METADATA = {
     "category": "sports",
 }
 
+# Omits agent_id/actor_id on purpose, so one payload covers both overwriting and injecting an identity field.
 _EXISTING_UPDATE_PAYLOAD = {
     "data": "old memory",
     "user_id": "tenant_a",
-    "agent_id": "agent_a",
     "run_id": "run_a",
-    "actor_id": "actor_a",
 }
 
 
-def test_update_memory_metadata_cannot_overwrite_identity_fields(mocker):
-    """Regression: metadata passed to update() must never overwrite a memory's
-    user_id/agent_id/run_id/actor_id. These fields scope every search()/
-    get_all()/delete_all() call, so letting caller metadata overwrite them
-    would silently move a memory into another tenant's scope and make it
-    unreachable via the original tenant's delete_all(). Extends the existing
-    actor_id protection (issue #4490) to the sibling identity fields.
-    """
+def test_update_memory_metadata_cannot_change_identity_fields(mocker):
+    """Regression: metadata passed to update() must never overwrite or inject user_id/agent_id/run_id/actor_id."""
     memory = _build_memory_instance(mocker, Memory)
     memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
 
@@ -450,17 +443,16 @@ def test_update_memory_metadata_cannot_overwrite_identity_fields(mocker):
 
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["user_id"] == "tenant_a"
-    assert payload["agent_id"] == "agent_a"
     assert payload["run_id"] == "run_a"
-    assert payload["actor_id"] == "actor_a"
-    # Benign metadata keys still pass through normally.
+    assert "agent_id" not in payload
+    assert "actor_id" not in payload
     assert payload["category"] == "sports"
     assert payload["data"] == "new memory"
 
 
 @pytest.mark.asyncio
-async def test_async_update_memory_metadata_cannot_overwrite_identity_fields(mocker):
-    """Async counterpart of test_update_memory_metadata_cannot_overwrite_identity_fields."""
+async def test_async_update_memory_metadata_cannot_change_identity_fields(mocker):
+    """Async counterpart of test_update_memory_metadata_cannot_change_identity_fields."""
     memory = _build_memory_instance(mocker, AsyncMemory)
     memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
 
@@ -468,57 +460,9 @@ async def test_async_update_memory_metadata_cannot_overwrite_identity_fields(moc
 
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["user_id"] == "tenant_a"
-    assert payload["agent_id"] == "agent_a"
     assert payload["run_id"] == "run_a"
-    assert payload["actor_id"] == "actor_a"
-    assert payload["category"] == "sports"
-    assert payload["data"] == "new memory"
-
-
-# A memory scoped by only run_id, the normal case for add()'s "at least one
-# of user_id/agent_id/run_id" validation (main.py:357-363) — it never had
-# user_id/agent_id set, so there is no existing value to guard against.
-_RUN_ID_ONLY_UPDATE_PAYLOAD = {
-    "data": "old memory",
-    "run_id": "run_a",
-}
-
-
-def test_update_memory_metadata_cannot_inject_identity_fields(mocker):
-    """Regression: metadata passed to update() must not be able to inject a
-    user_id/agent_id/run_id/actor_id that the memory never had, not just
-    overwrite one it already had. A memory scoped by run_id alone has no
-    existing user_id/agent_id to guard against, so the naive "re-assert
-    whatever already existed" fix lets attacker-supplied identity keys land
-    unopposed, granting the memory an additional reachable tenant scope.
-    """
-    memory = _build_memory_instance(mocker, Memory)
-    memory.vector_store.get.return_value = MagicMock(payload=dict(_RUN_ID_ONLY_UPDATE_PAYLOAD))
-
-    memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
-
-    payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert "user_id" not in payload
     assert "agent_id" not in payload
     assert "actor_id" not in payload
-    assert payload["run_id"] == "run_a"
-    assert payload["category"] == "sports"
-    assert payload["data"] == "new memory"
-
-
-@pytest.mark.asyncio
-async def test_async_update_memory_metadata_cannot_inject_identity_fields(mocker):
-    """Async counterpart of test_update_memory_metadata_cannot_inject_identity_fields."""
-    memory = _build_memory_instance(mocker, AsyncMemory)
-    memory.vector_store.get.return_value = MagicMock(payload=dict(_RUN_ID_ONLY_UPDATE_PAYLOAD))
-
-    await memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
-
-    payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert "user_id" not in payload
-    assert "agent_id" not in payload
-    assert "actor_id" not in payload
-    assert payload["run_id"] == "run_a"
     assert payload["category"] == "sports"
     assert payload["data"] == "new memory"
 

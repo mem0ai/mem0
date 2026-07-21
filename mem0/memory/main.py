@@ -134,9 +134,7 @@ _SENSITIVE_SUFFIXES = (
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 
-# Tenant-scoping fields that update() must never let caller-supplied metadata
-# set or overwrite (issues #4490, #6277): they determine every search()/
-# get_all()/delete_all() call's scope.
+# Tenant-scoping fields that update() must never let caller-supplied metadata overwrite (issues #4490, #6277).
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
 
 
@@ -1996,18 +1994,8 @@ class Memory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            # actor_id/user_id/agent_id/run_id are immutable after creation
-            # (issue #4490, extended here to the tenant-scoping trio): they
-            # scope every search()/get_all()/delete_all() call, so letting
-            # caller-supplied metadata set or overwrite them would silently
-            # move a memory into another tenant's scope (or inject a new
-            # scope for memories that never had one) and make it unreachable
-            # via the original tenant's delete_all(). Strip them from the
-            # incoming metadata before merging, since new_metadata already
-            # carries whichever of them existing_memory.payload had.
-            new_metadata.update(
-                {k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS}
-            )
+            # Identity keys are immutable after creation (issues #4490, #6277).
+            new_metadata.update({k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS})
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -3669,18 +3657,8 @@ class AsyncMemory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            # actor_id/user_id/agent_id/run_id are immutable after creation
-            # (issue #4490, extended here to the tenant-scoping trio): they
-            # scope every search()/get_all()/delete_all() call, so letting
-            # caller-supplied metadata set or overwrite them would silently
-            # move a memory into another tenant's scope (or inject a new
-            # scope for memories that never had one) and make it unreachable
-            # via the original tenant's delete_all(). Strip them from the
-            # incoming metadata before merging, since new_metadata already
-            # carries whichever of them existing_memory.payload had.
-            new_metadata.update(
-                {k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS}
-            )
+            # Identity keys are immutable after creation (issues #4490, #6277).
+            new_metadata.update({k: v for k, v in metadata.items() if k not in _IDENTITY_KEYS})
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
