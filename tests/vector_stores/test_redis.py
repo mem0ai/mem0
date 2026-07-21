@@ -234,6 +234,12 @@ def test_search_and_keyword_search_request_updated_at():
     """search()/keyword_search() must include updated_at in return_fields (#6059)."""
     db, mock_index = _make_redis_db()
 
+    def _capture_query(**kwargs):
+        # Capture constructor kwargs; avoid MagicMock.return_fields being a method.
+        obj = MagicMock(name="Query")
+        obj.return_fields = list(kwargs.get("return_fields") or [])
+        return obj
+
     mock_index.query.return_value = [
         {
             "memory_id": "m1",
@@ -247,10 +253,12 @@ def test_search_and_keyword_search_request_updated_at():
         }
     ]
 
-    results = db.search("q", [0.1, 0.2, 0.3], top_k=1)
+    with patch("mem0.vector_stores.redis.VectorQuery", side_effect=_capture_query) as VQ:
+        results = db.search("q", [0.1, 0.2, 0.3], top_k=1)
+
     assert results[0].payload.get("updated_at") is not None
-    vq = mock_index.query.call_args[0][0]
-    assert "updated_at" in vq.return_fields
+    assert VQ.call_count == 1
+    assert "updated_at" in VQ.call_args.kwargs["return_fields"]
 
     mock_index.query.reset_mock()
     mock_index.query.return_value = [
@@ -265,10 +273,12 @@ def test_search_and_keyword_search_request_updated_at():
             "text_score": 0.9,
         }
     ]
-    results = db.keyword_search("hello", top_k=1)
+    with patch("mem0.vector_stores.redis.TextQuery", side_effect=_capture_query) as TQ:
+        results = db.keyword_search("hello", top_k=1)
+
     assert results[0].payload.get("updated_at") is not None
-    tq = mock_index.query.call_args[0][0]
-    assert "updated_at" in tq.return_fields
+    assert TQ.call_count == 1
+    assert "updated_at" in TQ.call_args.kwargs["return_fields"]
 
 
 def test_insert_persists_updated_at():
