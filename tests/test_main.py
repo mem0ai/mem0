@@ -431,7 +431,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "alice"}, top_k=1000
+        )
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -444,7 +446,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "42"}, top_k=1000
+        )
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""

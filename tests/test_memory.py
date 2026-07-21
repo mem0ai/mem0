@@ -1570,3 +1570,159 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
 
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for delete_all pagination (issue #4869)
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_memory(id_: str):
+    """Create a mock memory object with the given id."""
+    m = MagicMock()
+    m.id = id_
+    m.payload = {"data": f"memory-{id_}", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    return m
+
+
+class _StatefulVectorStore:
+    """Simulates a vector store that shrinks as memories are deleted.
+
+    list() returns at most `page_size` items regardless of top_k,
+    mimicking real stores that enforce internal pagination limits.
+    delete() removes an item from the store.
+    """
+
+    def __init__(self, memories, page_size=2):
+        self._store = list(memories)
+        self._page_size = page_size
+        self.list_call_count = 0
+        self.deleted_ids = []
+
+    def list(self, filters=None, top_k=None):
+        self.list_call_count += 1
+        # Real vector stores enforce their own internal page size cap
+        limit = min(top_k or self._page_size, self._page_size)
+        page = self._store[:limit]
+        return (page, None)
+
+    def delete(self, vector_id):
+        self._store = [m for m in self._store if m.id != vector_id]
+        self.deleted_ids.append(vector_id)
+
+    def get(self, vector_id):
+        for m in self._store:
+            if m.id == vector_id:
+                return m
+        return None
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_sync_delete_all_paginates_through_all_memories(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Sync delete_all must iterate through all pages, not just the first."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    # 5 memories, page_size=2 → requires 3 list() calls (2+2+1) + 1 empty = 4
+    memories = [_make_mock_memory(f"m{i}") for i in range(5)]
+    store = _StatefulVectorStore(memories, page_size=2)
+    mock_vector_factory.return_value = store
+
+    from mem0.memory.main import Memory
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    result = memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert len(store.deleted_ids) == 5
+    assert store.list_call_count == 4  # 3 pages with data + 1 empty page to stop
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_sync_delete_all_stops_when_first_page_empty(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Sync delete_all with no matching memories should call list() once and delete nothing."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    store = _StatefulVectorStore([], page_size=2)
+    mock_vector_factory.return_value = store
+
+    from mem0.memory.main import Memory
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    result = memory.delete_all(user_id="no-memories-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert store.list_call_count == 1
+    assert len(store.deleted_ids) == 0
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_paginates_through_all_memories(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Async delete_all must delete inside the loop so the store shrinks between pages."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    # 5 memories, page_size=2 → requires multiple iterations
+    memories = [_make_mock_memory(f"m{i}") for i in range(5)]
+    store = _StatefulVectorStore(memories, page_size=2)
+    mock_vector_factory.return_value = store
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    result = await memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert len(store.deleted_ids) == 5
+    # Must have called list() multiple times (proves pagination, not single-call)
+    assert store.list_call_count >= 3
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_stops_when_first_page_empty(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Async delete_all with no matching memories should call list() once."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    store = _StatefulVectorStore([], page_size=2)
+    mock_vector_factory.return_value = store
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    result = await memory.delete_all(user_id="no-memories-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert store.list_call_count == 1
+    assert len(store.deleted_ids) == 0
