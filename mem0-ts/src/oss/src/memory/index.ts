@@ -512,7 +512,7 @@ export class Memory {
     const parts: string[] = [];
     for (const key of Object.keys(filters).sort()) {
       const val = (filters as any)[key];
-      if (val) parts.push(`${key}=${val}`);
+      if (val && typeof val !== "object") parts.push(`${key}=${val}`);
     }
     return parts.join("&");
   }
