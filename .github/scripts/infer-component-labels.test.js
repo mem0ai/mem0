@@ -90,6 +90,11 @@ ${cliRegressionCase.body}`;
   assert.ok(!inferred.includes('cli'), `expected 'cli' absent (body contains 'Mem0 client', a substring of the removed 'mem0 cli' term), got ${JSON.stringify(inferred)}`);
 });
 
+run('#6472 terseAbbreviationIsLabeled', () => {
+  const text = 'test: issue in ts sdk\n\ntest issue in ts sdk';
+  assert.deepStrictEqual(inferComponentLabels(text, keywords), ['sdk-typescript']);
+});
+
 run('noKeywordMatchReturnsEmptyArray', () => {
   const text = 'The weather today is sunny and I went for a walk in the park with my dog.';
   assert.deepStrictEqual(inferComponentLabels(text, keywords), []);
@@ -105,4 +110,4 @@ ${failures} test(s) failed.`);
   process.exit(1);
 }
 console.log(`
-All ${cases.length + 3} tests passed.`);
+All ${cases.length + 4} tests passed.`);

@@ -7,7 +7,7 @@
     ],
     "sdk-typescript": [
       "typescript", "javascript", "pnpm", "yarn", "node.js", "nodejs",
-      "mem0-ts", "mem0ai/oss", "tsconfig", "await import",
+      "mem0-ts", "mem0ai/oss", "tsconfig", "ts sdk", "await import",
       "=> {", "undefined is not"
     ]
   },
