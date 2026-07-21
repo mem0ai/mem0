@@ -126,11 +126,16 @@ class RedisDB(VectorStoreBase):
             # Start with required fields
             created_at_str = payload.get("created_at")
             created_at_ts = int(datetime.fromisoformat(created_at_str).timestamp()) if created_at_str else 0
+            updated_at_str = payload.get("updated_at")
+            updated_at_ts = (
+                int(datetime.fromisoformat(updated_at_str).timestamp()) if updated_at_str else created_at_ts
+            )
             entry = {
                 "memory_id": id,
                 "hash": payload.get("hash", ""),
                 "memory": payload.get("data", ""),
                 "created_at": created_at_ts,
+                "updated_at": updated_at_ts,
                 "embedding": np.array(vector, dtype=np.float32).tobytes(),
             }
 
@@ -155,7 +160,7 @@ class RedisDB(VectorStoreBase):
         v = VectorQuery(
             vector=np.array(vectors, dtype=np.float32).tobytes(),
             vector_field_name="embedding",
-            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
+            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at", "updated_at"],
             filter_expression=filter,
             num_results=top_k,
         )
@@ -209,7 +214,7 @@ class RedisDB(VectorStoreBase):
         t = TextQuery(
             text=query,
             text_field_name="memory",
-            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
+            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at", "updated_at"],
             filter_expression=filter_expression,
             num_results=top_k,
         )
