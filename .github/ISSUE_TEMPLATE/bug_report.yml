@@ -9,7 +9,7 @@ body:
       label: Component
       description: Which part of mem0 is affected?
       options:
-        - Core / Python SDK
+        - Python SDK
         - TypeScript SDK
         - Vector Store
         - OpenClaw

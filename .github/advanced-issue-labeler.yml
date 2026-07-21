@@ -4,7 +4,7 @@ policy:
         block-list: ['Other']
         label:
           - name: 'sdk-python'
-            keys: ['Core / Python SDK']
+            keys: ['Python SDK']
           - name: 'sdk-typescript'
             keys: ['TypeScript SDK']
           - name: 'vector-store'
