@@ -49,9 +49,8 @@ Filters use a nested JSON structure with logical operators at the root:
 ### Content fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `categories` | `eq`, `ne`, `in`, `contains` | `{"categories": {"in": ["finance"]}}` |
+| `categories` | `eq`, `ne`, `in` (matches any category in the list), `contains` (case-insensitive) | `{"categories": {"in": ["finance"]}}` |
 | `metadata` | `eq`, `ne`, `contains` | `{"metadata": {"key": "value"}}` |
-| `keywords` | `contains`, `icontains` | `{"keywords": {"icontains": "invoice"}}` |
 
 ### Special fields
 | Field | Operators | Example |
@@ -120,26 +119,6 @@ filters = {
 Find memories containing specific text, categories, or metadata values.
 
 <AccordionGroup>
-  <Accordion title="Text search">
-    ```python
-    # Case-insensitive match
-    filters = {
-        "AND": [
-            {"user_id": "user_123"},
-            {"keywords": {"icontains": "pizza"}}
-        ]
-    }
-
-    # Case-sensitive match
-    filters = {
-        "AND": [
-            {"user_id": "user_123"},
-            {"keywords": {"contains": "Invoice_2024"}}
-        ]
-    }
-    ```
-  </Accordion>
-
   <Accordion title="Categories">
     ```python
     # Match against category list
@@ -254,10 +233,8 @@ Combine various filters for complex queries across different dimensions.
     ```
   </Accordion>
 
-  <Accordion title="All entities populated (single entity scope)">
+  <Accordion title="All entities populated">
     ```python
-    # Require user_id plus non-null run/app IDs
-    # (Memories are stored separately per entity, so scope one dimension at a time.)
     filters = {
         "AND": [
             {"user_id": "user_123"},
@@ -266,6 +243,7 @@ Combine various filters for complex queries across different dimensions.
         ]
     }
     ```
+    Matches records where `user_id` equals `user_123` and `run_id`/`app_id` are both non-null. It does not require other entity fields to be null.
   </Accordion>
 </AccordionGroup>
 
@@ -276,11 +254,9 @@ Level up foundational patterns with compound filters that coordinate entity scop
 <AccordionGroup>
   <Accordion title="Multi-dimensional filtering">
     ```python
-    # Invoice memories in Q1 2024
     filters = {
         "AND": [
             {"user_id": "user_123"},
-            {"keywords": {"icontains": "invoice"}},
             {"categories": {"in": ["finance"]}},
             {"created_at": {"gte": "2024-01-01T00:00:00Z"}},
             {"created_at": {"lt": "2024-04-01T00:00:00Z"}}
@@ -330,7 +306,7 @@ Level up foundational patterns with compound filters that coordinate entity scop
 ## Best practices
 
 <Callout type="tip" icon="lightbulb" color="#26A17B">
-The root must be `AND`, `OR`, or `NOT` with an array of conditions.
+The root does not have to be `AND`, `OR`, or `NOT`. A bare filter like `{"user_id": "alice"}` works on its own; wrap conditions in a logical operator only when you need to combine more than one.
 </Callout>
 
 <Callout type="tip" icon="lightbulb" color="#26A17B">
@@ -338,7 +314,9 @@ Use `"*"` to match any non-null value for a field.
 </Callout>
 
 <Callout type="warning" icon="exclamation-triangle" color="#E74C3C">
-Memories are stored per-entity (user, agent, app, run). Combining `user_id` **and** `agent_id` in the same `AND` clause returns no results because no record contains both values at once. Query one entity scope at a time or use `OR` logic for parallel lookups.
+Combining `user_id` **and** `agent_id` in the same `AND` clause only returns records that have both values set. Memories created by a normal `client.add` never do: each extracted fact is attributed to its speaker, so it carries `user_id` or `agent_id`, not both. Use `OR` to match either scope. Only [Direct Import](/platform/features/direct-import) (`infer=False`) writes both fields on one record.
+
+A filter object with both an `AND` key and a sibling `OR` key at the same level silently drops the `OR` branch today. Nest the `OR` inside the `AND` array instead of placing them as siblings.
 </Callout>
 
 ## Troubleshooting
@@ -347,7 +325,7 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
   <Accordion title="Missing results with agent_id">
     **Problem**: Filtered by `user_id` but don't see agent memories.
 
-    **Solution**: User and agent memories are stored as separate records. Use OR to query both scopes:
+    **Solution**: A `user_id` filter only matches records that have that `user_id` set; it won't surface memories written with only `agent_id`. Use OR to query both scopes:
     ```python
     {"OR": [{"user_id": "user_123"}, {"agent_id": "agent_name"}]}
     ```
@@ -363,7 +341,7 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
   </Accordion>
 
   <Accordion title="Case-insensitive search">
-    **Solution**: Swap to `icontains` to normalize casing.
+    **Solution**: The `keywords` filter (including `icontains`) is currently broken (it returns a server error). Use the `query` argument on `search()` for text relevance instead.
   </Accordion>
 
   <Accordion title="Date range between two dates">
@@ -388,7 +366,7 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
 
 <AccordionGroup>
   <Accordion title="Do I need AND/OR/NOT?">
-    Yes. The root must be a logical operator with an array.
+    No. A bare filter like `{"user_id": "u1"}` works on its own. Add `AND`, `OR`, or `NOT` only when you need to combine more than one condition.
   </Accordion>
 
   <Accordion title="What does * match?">
@@ -408,7 +386,7 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
   </Accordion>
 
   <Accordion title="How to search text?">
-    Use `keywords` with `contains` (case-sensitive) or `icontains` (case-insensitive).
+    The `keywords` filter is currently broken (it returns a server error). Use the `query` argument on `search()` for text relevance instead.
   </Accordion>
 
 <Accordion title="Can I nest AND/OR?">
@@ -428,6 +406,6 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
 
 ## Known limitations
 
-- Entity filters operate on a single scope per record. Use separate queries or `OR` logic to compare users vs agents.
+- Filters only constrain the fields you mention; unmentioned entity fields are not required to be null. A record carries `user_id` or `agent_id` (never both) unless it came from Direct Import, plus whatever `app_id` and `run_id` were passed.
 - Metadata supports only bare/`eq`, `contains`, and `ne` comparisons.
 - Wildcards (`"*"` ) match only records where the field is already non-null.
