@@ -3,17 +3,35 @@ title: AWS Bedrock
 description: "Configure AWS Bedrock as an embedding provider in Mem0 with IAM credentials and boto3 authentication."
 ---
 
-To use AWS Bedrock embedding models, you need to have the appropriate AWS credentials and permissions. The embeddings implementation relies on the `boto3` library.
+To use AWS Bedrock embedding models, you need the appropriate AWS credentials and permissions. Python uses `boto3`, and TypeScript uses `@aws-sdk/client-bedrock-runtime`.
+
+Both SDKs support the Amazon Titan and Cohere embedding model families.
 
 ### Setup
-- Ensure you have model access from the [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess)
-- Authenticate the boto3 client using a method described in the [AWS documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html)
+
+- Model access is automatic: Bedrock enables serverless foundation models on first invocation in AWS commercial regions, and the [Model access page has been retired](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html). Cohere models are served from AWS Marketplace, so an account's first invocation must come from a principal with the `aws-marketplace:Subscribe` permission; after that, any user in the account can invoke them. Browse the models available to you in the [Bedrock model catalog](https://console.aws.amazon.com/bedrock/).
+- Install the AWS client for your language:
+
+  <CodeGroup>
+  ```bash Python
+  pip install boto3
+  ```
+
+  ```bash TypeScript
+  npm install @aws-sdk/client-bedrock-runtime
+  ```
+  </CodeGroup>
+
+  In TypeScript this package is an optional peer dependency, so it is only required when you actually use the Bedrock embedder.
+
 - Set up environment variables for authentication:
   ```bash
   export AWS_REGION=us-east-1
   export AWS_ACCESS_KEY_ID=your-access-key
   export AWS_SECRET_ACCESS_KEY=your-secret-key
   ```
+
+Both SDKs fall back to the standard AWS credential chain (environment variables, shared config, SSO, or an instance role) when you do not pass credentials in the config, so you rarely need to hardcode keys. See the [boto3 credentials guide](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html) for the Python resolution order.
 
 ### Usage
 
@@ -48,7 +66,45 @@ messages = [
 ]
 m.add(messages, user_id="alice")
 ```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+// Credentials are read from the AWS default chain (AWS_REGION,
+// AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SSO, or an instance role).
+const memory = new Memory({
+  embedder: {
+    provider: "aws_bedrock",
+    config: {
+      model: "amazon.titan-embed-text-v2:0",
+      awsRegion: "us-west-2",
+    },
+  },
+});
+
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about thriller movies? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: "alice" });
+```
 </CodeGroup>
+
+### Choosing a model
+
+| Model | Notes |
+| --- | --- |
+| `amazon.titan-embed-text-v1` | Default. Fixed 1536-dimension output. |
+| `amazon.titan-embed-text-v2:0` | Supports a configurable output size of 256, 512, or 1024. |
+| `cohere.embed-english-v3` | English text. Embeds up to 96 texts per request. |
+| `cohere.embed-multilingual-v3` | Multilingual text. Embeds up to 96 texts per request. |
+| `cohere.embed-v4:0` | Text. Embeds up to 96 texts per request. Supports a configurable output size of 256, 512, 1024, or 1536. TypeScript only. |
+
+Custom output sizes are model specific. In Python, only Titan Text Embeddings V2 accepts one. In TypeScript, Titan Text Embeddings V2 and Cohere Embed v4 both do, and `embeddingDims` is ignored on Titan V1 and on Cohere v3, which have no such parameter. When you do set it, make sure your vector store dimension matches, otherwise inserts will fail.
+
+Bedrock caps a Cohere embedding call at 96 texts. The TypeScript SDK splits larger batches into multiple requests for you, so a 200 text batch becomes 3 calls.
 
 ### Config
 
@@ -63,5 +119,17 @@ Here are the parameters available for configuring AWS Bedrock embedder:
 | `aws_access_key_id` | AWS access key ID for authentication | `None` |
 | `aws_secret_access_key` | AWS secret access key for authentication | `None` |
 | `aws_session_token` | AWS session token for temporary credentials | `None` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `amazon.titan-embed-text-v1` |
+| `awsRegion` | AWS region for the Bedrock client. Falls back to the `AWS_REGION` environment variable | `us-west-2` |
+| `embeddingDims` | Output vector size. Titan Text Embeddings V2 (256, 512, or 1024) and Cohere Embed v4 (256, 512, 1024, or 1536) only | `undefined` |
+| `awsAccessKeyId` | AWS access key ID for authentication | `undefined` |
+| `awsSecretAccessKey` | AWS secret access key for authentication | `undefined` |
+| `awsSessionToken` | AWS session token for temporary credentials | `undefined` |
+
+Omit the three credential fields to use the AWS default credential chain. If you do pass them, `awsAccessKeyId` and `awsSecretAccessKey` are both required.
 </Tab>
 </Tabs>

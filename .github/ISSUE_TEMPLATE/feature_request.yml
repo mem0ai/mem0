@@ -12,11 +12,8 @@ body:
         - Core / Python SDK
         - TypeScript SDK
         - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
-        - Graph Memory (Neo4j, Memgraph, etc.)
-        - Ollama / Local Models
         - OpenClaw
         - REST API
-        - Benchmarks / Evals
         - Other
     validations:
       required: true

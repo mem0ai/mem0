@@ -1,6 +1,6 @@
-import cassandra from "cassandra-driver";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 const MIGRATION_ROW_ID = "mem0-user";
 const SAFE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
@@ -18,7 +18,9 @@ interface CassandraConfig extends VectorStoreConfig {
   protocolVersion?: number;
   loadBalancingPolicy?: any;
   client?: CassandraClientLike;
-  driver?: typeof cassandra;
+  /** Pre-configured Cassandra driver module (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  driver?: any;
 }
 
 interface CassandraClientLike {
@@ -38,7 +40,7 @@ interface CassandraVector {
 
 export class CassandraDB implements VectorStore {
   private static readonly PAGE_SIZE = 500;
-  private readonly driver: typeof cassandra;
+  private readonly driver?: any;
   private readonly contactPoints?: string[];
   private readonly port: number;
   private readonly username?: string;
@@ -54,7 +56,7 @@ export class CassandraDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: CassandraConfig) {
-    this.driver = config.driver || cassandra;
+    this.driver = config.driver;
     this.contactPoints = config.contactPoints;
     this.port = config.port || 9042;
     this.username = config.username;
@@ -85,7 +87,7 @@ export class CassandraDB implements VectorStore {
 
   private async _doInitialize(): Promise<void> {
     if (!this.client) {
-      this.client = this.createClient();
+      this.client = await this.createClient();
     }
     if (typeof this.client.connect === "function") {
       await this.client.connect();
@@ -326,7 +328,8 @@ export class CassandraDB implements VectorStore {
     );
   }
 
-  private createClient(): CassandraClientLike {
+  private async createClient(): Promise<CassandraClientLike> {
+    const driver = this.driver ?? (await this.loadDriver());
     const clientConfig: Record<string, any> = {};
 
     if (this.secureConnectBundle) {
@@ -363,13 +366,24 @@ export class CassandraDB implements VectorStore {
       };
     }
     if (this.username && this.password) {
-      clientConfig.authProvider = new this.driver.auth.PlainTextAuthProvider(
+      clientConfig.authProvider = new driver.auth.PlainTextAuthProvider(
         this.username,
         this.password,
       );
     }
 
-    return new this.driver.Client(clientConfig);
+    return new driver.Client(clientConfig);
+  }
+
+  // Loaded dynamically: cassandra-driver is an optional peer dependency, so a static
+  // value import would break `import { Memory } from "mem0ai/oss"` for everyone else.
+  private async loadDriver(): Promise<any> {
+    const sdk = await loadPeer(
+      "cassandra-driver",
+      "Cassandra vector store",
+      () => import("cassandra-driver"),
+    );
+    return sdk.default ?? sdk;
   }
 
   private validateIdentifier(name: string, label: string): string {

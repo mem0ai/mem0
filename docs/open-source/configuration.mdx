@@ -148,7 +148,7 @@ See the full catalog in <Link href="/components/llms/overview">Components</Link>
 - Qdrant connection errors: confirm port `6333` is exposed and the API key (if set) matches.
 - Empty search results: verify the embedder model name. A mismatch causes dimension errors.
 - `Unknown reranker` (Python): upgrade the SDK with `pip install --upgrade mem0ai` to load the latest provider registry.
-- `Cannot find module` (Node): import from the OSS entry point, `import { Memory } from "mem0ai/oss"`, not `"mem0ai"`.
+- `Cannot find module` (Node): two common causes. First, import from the OSS entry point, `import { Memory } from "mem0ai/oss"`, not `"mem0ai"`. Second, provider SDKs are optional peer dependencies loaded on demand, so install the one for the provider you configured (for example `npm install @qdrant/js-client-rest` for Qdrant). Installing `mem0ai` alone only pulls in the providers used by default; you do not need SDKs for providers you never select.
 
 <CardGroup cols={2}>
   <Card

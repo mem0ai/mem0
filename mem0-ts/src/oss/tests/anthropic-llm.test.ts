@@ -23,11 +23,16 @@ describe("AnthropicLLM (unit)", () => {
 
   // Regression #5665: a configured baseURL must reach the Anthropic client so
   // proxy/gateway users are not silently bypassed (TS parity with #5626).
-  it("forwards baseURL to the Anthropic client when set", () => {
-    new AnthropicLLM({
+  // The client is constructed lazily on first use, so drive generateResponse.
+  it("forwards baseURL to the Anthropic client when set", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+    const llm = new AnthropicLLM({
       apiKey: "test-key",
       baseURL: "https://proxy.example/v1",
     });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
 
     expect(mockConstructor).toHaveBeenCalledTimes(1);
     const ctorArgs = mockConstructor.mock.calls[0][0];
@@ -37,8 +42,12 @@ describe("AnthropicLLM (unit)", () => {
 
   // When no baseURL is configured the client must not receive a baseURL key
   // (so the SDK default endpoint is used).
-  it("does NOT set baseURL when none is configured", () => {
-    new AnthropicLLM({ apiKey: "test-key" });
+  it("does NOT set baseURL when none is configured", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
 
     expect(mockConstructor).toHaveBeenCalledTimes(1);
     const ctorArgs = mockConstructor.mock.calls[0][0];

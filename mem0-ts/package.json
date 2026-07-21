@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "3.0.13",
+  "version": "3.1.0",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -151,6 +151,42 @@
     "@aws-sdk/client-bedrock-runtime": ">=3.0.0 <3.968.0"
   },
   "peerDependenciesMeta": {
+    "@qdrant/js-client-rest": {
+      "optional": true
+    },
+    "redis": {
+      "optional": true
+    },
+    "@supabase/supabase-js": {
+      "optional": true
+    },
+    "cloudflare": {
+      "optional": true
+    },
+    "@azure/search-documents": {
+      "optional": true
+    },
+    "@azure/identity": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "groq-sdk": {
+      "optional": true
+    },
+    "@mistralai/mistralai": {
+      "optional": true
+    },
+    "ollama": {
+      "optional": true
+    },
     "mysql2": {
       "optional": true
     },
@@ -167,6 +203,54 @@
       "optional": true
     },
     "@aws-sdk/client-neptune-graph": {
+      "optional": true
+    },
+    "chromadb": {
+      "optional": true
+    },
+    "mongodb": {
+      "optional": true
+    },
+    "weaviate-client": {
+      "optional": true
+    },
+    "cassandra-driver": {
+      "optional": true
+    },
+    "@pinecone-database/pinecone": {
+      "optional": true
+    },
+    "@aws-sdk/client-s3vectors": {
+      "optional": true
+    },
+    "@turbopuffer/turbopuffer": {
+      "optional": true
+    },
+    "@upstash/vector": {
+      "optional": true
+    },
+    "@elastic/elasticsearch": {
+      "optional": true
+    },
+    "@opensearch-project/opensearch": {
+      "optional": true
+    },
+    "cohere-ai": {
+      "optional": true
+    },
+    "zeroentropy": {
+      "optional": true
+    },
+    "fastembed": {
+      "optional": true
+    },
+    "@google-cloud/aiplatform": {
+      "optional": true
+    },
+    "@huggingface/transformers": {
+      "optional": true
+    },
+    "iovalkey": {
       "optional": true
     }
   },

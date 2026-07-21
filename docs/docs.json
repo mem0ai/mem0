@@ -84,8 +84,6 @@
                         "pages": [
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
-                          "platform/features/criteria-retrieval",
-                          "platform/features/contextual-add",
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay"
                         ]
@@ -609,6 +607,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/platform/features/contextual-add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
     {
       "source": "/changelog/openclaw",
       "destination": "/changelog/sdk"
@@ -1228,6 +1230,10 @@
     {
       "source": "/open-source/multimodal-support",
       "destination": "/open-source/features/multimodal-support"
+    },
+    {
+      "source": "/platform/features/criteria-retrieval",
+      "destination": "/platform/features/advanced-retrieval"
     }
   ]
 }
