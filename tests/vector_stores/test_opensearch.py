@@ -596,35 +596,11 @@ class TestOpenSearchFilterValidation(unittest.TestCase):
         self.client_mock.search.assert_called_once()
 
 
-class TestOpenSearchCustomFilters(unittest.TestCase):
-    """Custom (non-identity) filter keys must be honored, not silently dropped.
-
-    Regression tests: search/keyword_search/list previously iterated a
-    hardcoded ["user_id", "run_id", "agent_id"] list, so any other filter key
-    was ignored and the query ran unfiltered on that dimension.
-    """
+class TestOpenSearchCustomFilters(TestOpenSearchFilterValidation):
+    """Custom (non-identity) filter keys must be honored, not silently dropped."""
 
     def setUp(self):
-        self.client_mock = MagicMock(spec=OpenSearch)
-        self.client_mock.indices = MagicMock()
-        self.client_mock.indices.exists = MagicMock(return_value=False)
-        self.client_mock.indices.create = MagicMock()
-        self.client_mock.search = MagicMock()
-        self.client_mock.search.return_value = {"hits": {"hits": []}}
-
-        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
-        self.mock_os = patcher.start()
-        self.addCleanup(patcher.stop)
-
-        self.os_db = OpenSearchDB(
-            host="localhost",
-            port=9200,
-            collection_name="test_collection",
-            embedding_model_dims=1536,
-            verify_certs=False,
-            use_ssl=False,
-        )
-        self.client_mock.reset_mock()
+        super().setUp()
         self.client_mock.search.return_value = {"hits": {"hits": []}}
 
     def _search_body(self):
@@ -647,8 +623,7 @@ class TestOpenSearchCustomFilters(unittest.TestCase):
         self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
 
     def test_non_string_filter_values_use_plain_field(self):
-        """Dynamic object mappings only create .keyword sub-fields for strings,
-        so int/float/bool values must match against the field itself."""
+        """Non-string identity/scalar values must match against the plain payload field, not .keyword."""
         self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"age": 30, "archived": False})
         clauses = self._search_body()["query"]["bool"]["filter"]
         self.assertIn({"term": {"payload.age": 30}}, clauses)
@@ -657,3 +632,24 @@ class TestOpenSearchCustomFilters(unittest.TestCase):
     def test_custom_filter_keys_still_validated(self):
         with self.assertRaises(ValueError):
             self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"bad key!": "x"})
+
+    def test_search_ignores_or_operator_filter(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "$or": [{"a": 1}]})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_search_ignores_operator_shaped_filter_value(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "score": {"gte": 5}})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_search_ignores_wildcard_filter_value(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "category": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_list_ignores_or_operator_filter(self):
+        self.os_db.list(filters={"user_id": "alice", "$or": [{"a": 1}]})
+        self.client_mock.search.assert_called_once()
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])

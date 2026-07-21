@@ -16,6 +16,7 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 
 _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
+_IDENTITY_FILTER_KEYS = ("user_id", "agent_id", "run_id")
 
 
 def _validate_filter(key: str, value) -> None:
@@ -29,20 +30,17 @@ def _validate_filter(key: str, value) -> None:
 
 
 def _build_filter_clauses(filters):
-    """Build term clauses from every filter key, not just the identity keys.
-
-    The ``payload`` mapping is a dynamic object, so only string values get a
-    ``.keyword`` sub-field; non-string values (int/float/bool) must match
-    against the field itself.
-    """
+    """Build term clauses from every filter key, not just the identity keys."""
     filter_clauses = []
-    if filters:
-        for key, value in filters.items():
-            if value is None:
-                continue
-            _validate_filter(key, value)
-            field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
-            filter_clauses.append({"term": {field: value}})
+    for key, value in (filters or {}).items():
+        if value is None:
+            continue
+        if key not in _IDENTITY_FILTER_KEYS and (not isinstance(value, (str, int, float, bool)) or value == "*"):
+            logger.debug(f"Ignoring non-scalar or wildcard filter value for key {key!r}")
+            continue
+        _validate_filter(key, value)
+        field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
+        filter_clauses.append({"term": {field: value}})
     return filter_clauses
 
 
