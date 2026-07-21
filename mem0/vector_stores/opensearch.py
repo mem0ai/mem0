@@ -28,6 +28,24 @@ def _validate_filter(key: str, value) -> None:
         )
 
 
+def _build_filter_clauses(filters):
+    """Build term clauses from every filter key, not just the identity keys.
+
+    The ``payload`` mapping is a dynamic object, so only string values get a
+    ``.keyword`` sub-field; non-string values (int/float/bool) must match
+    against the field itself.
+    """
+    filter_clauses = []
+    if filters:
+        for key, value in filters.items():
+            if value is None:
+                continue
+            _validate_filter(key, value)
+            field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
+            filter_clauses.append({"term": {field: value}})
+    return filter_clauses
+
+
 class OutputData(BaseModel):
     id: str
     score: float
@@ -204,13 +222,7 @@ class OpenSearchDB(VectorStoreBase):
         query_body = {"size": top_k * 2, "query": None}
 
         # Prepare filter conditions if applicable
-        filter_clauses = []
-        if filters:
-            for key in ["user_id", "run_id", "agent_id"]:
-                value = filters.get(key)
-                if value:
-                    _validate_filter(key, value)
-                    filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+        filter_clauses = _build_filter_clauses(filters)
 
         # Combine knn with filters if needed
         if filter_clauses:
@@ -255,13 +267,7 @@ class OpenSearchDB(VectorStoreBase):
         }
 
         # Apply filters consistently with the existing search() method
-        filter_clauses = []
-        if filters:
-            for key in ["user_id", "run_id", "agent_id"]:
-                value = filters.get(key)
-                if value:
-                    _validate_filter(key, value)
-                    filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+        filter_clauses = _build_filter_clauses(filters)
 
         if filter_clauses:
             bool_query["filter"] = filter_clauses
@@ -370,13 +376,7 @@ class OpenSearchDB(VectorStoreBase):
             """List all memories with optional filters."""
             query: Dict = {"query": {"match_all": {}}}
 
-            filter_clauses = []
-            if filters:
-                for key in ["user_id", "run_id", "agent_id"]:
-                    value = filters.get(key)
-                    if value:
-                        _validate_filter(key, value)
-                        filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+            filter_clauses = _build_filter_clauses(filters)
 
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
