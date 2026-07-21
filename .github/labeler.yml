@@ -33,10 +33,10 @@ integrations:
 
 plugin:
   - changed-files:
+      - all-globs-to-any-file:
+          - 'integrations/**'
+          - '!integrations/vercel-ai-sdk/**'
       - any-glob-to-any-file:
-          - 'integrations/mem0-plugin/**'
-          - 'integrations/openclaw/**'
-          - 'integrations/pi-agent-plugin/**'
           - 'skills/**'
           - '.agents/**'
           - '.claude-plugin/**'
