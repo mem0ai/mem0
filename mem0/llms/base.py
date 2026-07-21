@@ -35,7 +35,7 @@ class LLMBase(ABC):
         if not hasattr(self.config, "model"):
             raise ValueError("Configuration must have a 'model' attribute")
 
-        if not hasattr(self.config, "api_key") and not hasattr(self.config, "api_key"):
+        if not hasattr(self.config, "api_key"):
             # Check if API key is available via environment variable
             # This will be handled by individual providers
             pass
