@@ -1,6 +1,7 @@
 import type { Client } from "@opensearch-project/opensearch";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 type OpenSearchAuth =
   | {
@@ -98,14 +99,11 @@ export class OpenSearchDB implements VectorStore {
           ? { username: config.user, password: config.password }
           : undefined);
 
-      let sdk: any;
-      try {
-        sdk = await import("@opensearch-project/opensearch");
-      } catch {
-        throw new Error(
-          "The '@opensearch-project/opensearch' package is required to use the OpenSearch vector store. Install it with: npm install @opensearch-project/opensearch",
-        );
-      }
+      const sdk = await loadPeer(
+        "@opensearch-project/opensearch",
+        "OpenSearch vector store",
+        () => import("@opensearch-project/opensearch"),
+      );
 
       this.client = new sdk.Client({
         node: `${useSSL ? "https" : "http"}://${host}:${port}`,

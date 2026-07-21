@@ -12,6 +12,7 @@ import type {
 } from "@mochow/mochow-sdk-node";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 type MochowSdk = typeof import("@mochow/mochow-sdk-node");
 
@@ -156,14 +157,11 @@ export class BaiduDB implements VectorStore {
   // value import would break `import { Memory } from "mem0ai/oss"` for everyone else.
   private async loadSdk(): Promise<MochowSdk> {
     if (!this.sdk) {
-      let module: MochowSdk & { default?: MochowSdk };
-      try {
-        module = await import("@mochow/mochow-sdk-node");
-      } catch {
-        throw new Error(
-          "The Baidu vector store requires the '@mochow/mochow-sdk-node' package. Install it with: npm install @mochow/mochow-sdk-node",
-        );
-      }
+      const module: MochowSdk & { default?: MochowSdk } = await loadPeer(
+        "@mochow/mochow-sdk-node",
+        "Baidu vector store",
+        () => import("@mochow/mochow-sdk-node"),
+      );
       this.sdk = module.default ?? module;
     }
     return this.sdk;

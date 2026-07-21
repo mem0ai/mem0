@@ -1,5 +1,6 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 const MIGRATION_ROW_ID = "mem0-user";
 const SAFE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
@@ -377,14 +378,11 @@ export class CassandraDB implements VectorStore {
   // Loaded dynamically: cassandra-driver is an optional peer dependency, so a static
   // value import would break `import { Memory } from "mem0ai/oss"` for everyone else.
   private async loadDriver(): Promise<any> {
-    let sdk: any;
-    try {
-      sdk = await import("cassandra-driver");
-    } catch {
-      throw new Error(
-        "The 'cassandra-driver' package is required to use the Cassandra vector store. Install it with: npm install cassandra-driver",
-      );
-    }
+    const sdk = await loadPeer(
+      "cassandra-driver",
+      "Cassandra vector store",
+      () => import("cassandra-driver"),
+    );
     return sdk.default ?? sdk;
   }
 

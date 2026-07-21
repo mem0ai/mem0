@@ -4,6 +4,22 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-07-13" description="TypeScript provider expansion">
+
+**TypeScript OSS SDK: 26 New Providers, Reranking, and Zero-Dependency Imports**
+
+TypeScript SDK v3.1.0 is the largest provider release for the OSS SDK so far, closing most of the remaining gap with the Python SDK. Python SDK v2.0.12 ships alongside it with fixes and security patches.
+
+- **17 new vector stores:** Pinecone, Weaviate, Milvus, Chroma, MongoDB, Elasticsearch, OpenSearch, Databricks, AWS Neptune Analytics, S3 Vectors, Azure MySQL, Google Vertex AI Vector Search, Turbopuffer, Upstash Vector, Valkey, Cassandra, and Baidu Mochow.
+- **5 new LLM providers:** AWS Bedrock, xAI Grok, Together, vLLM, and Sarvam.
+- **4 new embedding providers:** Vertex AI, HuggingFace, FastEmbed, and Together.
+- **Reranking in TypeScript:** Four rerankers (Cohere, ZeroEntropy, cross-encoder, and LLM-based) with per-search rerank via a `rerank` option on `search()`.
+- **Install only what you use:** Importing `mem0ai/oss` no longer pulls in any provider SDK. Provider packages are resolved lazily on first use, so an app that configures only OpenAI and Qdrant does not need the other provider SDKs installed.
+
+See [SDK & Tools](/changelog/sdk) for version details and PR links.
+
+</Update>
+
 <Update label="2026-06-27" description="SDK memory expiration">
 
 **SDK Memory Expiration: Expiring Memories Across Python and TypeScript**

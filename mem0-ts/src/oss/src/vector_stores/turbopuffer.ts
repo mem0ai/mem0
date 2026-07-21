@@ -1,5 +1,6 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface TurbopufferConfig extends VectorStoreConfig {
   apiKey?: string;
@@ -48,14 +49,11 @@ export class TurbopufferDB implements VectorStore {
   }
 
   private async createClient(): Promise<any> {
-    let sdk: any;
-    try {
-      sdk = await import("@turbopuffer/turbopuffer");
-    } catch {
-      throw new Error(
-        "The '@turbopuffer/turbopuffer' package is required to use the Turbopuffer vector store. Install it with: npm install @turbopuffer/turbopuffer",
-      );
-    }
+    const sdk = await loadPeer(
+      "@turbopuffer/turbopuffer",
+      "Turbopuffer vector store",
+      () => import("@turbopuffer/turbopuffer"),
+    );
 
     // @turbopuffer/turbopuffer ships `Turbopuffer` as both the default export
     // and a named export pointing at the same class. Use `.default` since

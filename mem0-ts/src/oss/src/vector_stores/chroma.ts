@@ -1,6 +1,7 @@
 import type { ChromaClient, CloudClient } from "chromadb";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface ChromaConfig extends VectorStoreConfig {
   /** Pre-configured ChromaDB client instance. */
@@ -65,14 +66,11 @@ export class ChromaDB implements VectorStore {
       return config.client;
     }
 
-    let sdk: any;
-    try {
-      sdk = await import("chromadb");
-    } catch {
-      throw new Error(
-        "The 'chromadb' package is required to use the Chroma vector store. Install it with: npm install chromadb",
-      );
-    }
+    const sdk = await loadPeer(
+      "chromadb",
+      "Chroma vector store",
+      () => import("chromadb"),
+    );
 
     if (config.apiKey && config.tenant) {
       return new sdk.CloudClient({

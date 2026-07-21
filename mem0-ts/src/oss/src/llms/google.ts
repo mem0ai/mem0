@@ -1,14 +1,26 @@
-import { GoogleGenAI } from "@google/genai";
+import type { GoogleGenAI } from "@google/genai";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 export class GoogleLLM implements LLM {
-  private google: GoogleGenAI;
+  private google!: GoogleGenAI;
   private model: string;
+  private readonly apiKey: string | undefined;
 
   constructor(config: LLMConfig) {
-    this.google = new GoogleGenAI({ apiKey: config.apiKey });
+    this.apiKey = config.apiKey;
     this.model = config.model || "gemini-2.0-flash";
+  }
+
+  private async ensureClient(): Promise<void> {
+    if (this.google) return;
+    const sdk = await loadPeer(
+      "@google/genai",
+      "Google LLM",
+      () => import("@google/genai"),
+    );
+    this.google = new sdk.GoogleGenAI({ apiKey: this.apiKey });
   }
 
   private formatContents(messages: Message[]) {
@@ -30,6 +42,7 @@ export class GoogleLLM implements LLM {
     responseFormat?: { type: string },
     tools?: any[],
   ): Promise<string | LLMResponse> {
+    await this.ensureClient();
     const contents = this.formatContents(messages);
 
     // Build config with tools if provided
@@ -72,6 +85,7 @@ export class GoogleLLM implements LLM {
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
+    await this.ensureClient();
     const completion = await this.google.models.generateContent({
       contents: this.formatContents(messages),
       model: this.model,

@@ -101,6 +101,10 @@ const ENTITY_PARAMS = [
   "runId",
 ];
 
+// Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
+// in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
+const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
+
 /**
  * Validates that no top-level entity parameters are passed in config.
  * @throws Error if entity params are found at top level
@@ -1941,9 +1945,14 @@ export class Memory {
       existingEmbeddings[newData] ||
       (await this.embedder.embed(newData, "update"));
 
+    // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367).
+    const sanitizedMetadata = Object.fromEntries(
+      Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),
+    );
+
     const newMetadata = {
       ...existingMemory.payload,
-      ...metadata,
+      ...sanitizedMetadata,
       data: newData,
       hash: createHash("md5").update(newData).digest("hex"),
       textLemmatized: lemmatizeForBm25(newData),

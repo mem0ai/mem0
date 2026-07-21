@@ -1,6 +1,7 @@
 import type { Index, QueryResult, Vector } from "@upstash/vector";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface UpstashVectorConfig extends VectorStoreConfig {
   collectionName: string;
@@ -42,14 +43,11 @@ export class UpstashVector implements VectorStore {
     if (config.client) {
       this.client = config.client;
     } else {
-      let sdk: any;
-      try {
-        sdk = await import("@upstash/vector");
-      } catch {
-        throw new Error(
-          "The '@upstash/vector' package is required to use the Upstash Vector store. Install it with: npm install @upstash/vector",
-        );
-      }
+      const sdk = await loadPeer(
+        "@upstash/vector",
+        "Upstash Vector store",
+        () => import("@upstash/vector"),
+      );
       this.client = new sdk.Index({
         url: config.url,
         token: config.token,

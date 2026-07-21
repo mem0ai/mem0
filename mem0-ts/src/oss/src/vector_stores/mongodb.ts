@@ -1,6 +1,7 @@
 import type { MongoClient, Collection, Db } from "mongodb";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 export interface MongoDBConfig extends VectorStoreConfig {
   url?: string;
@@ -42,14 +43,11 @@ export class MongoDB implements VectorStore {
     if (config.client) {
       this.client = config.client;
     } else {
-      let sdk: any;
-      try {
-        sdk = await import("mongodb");
-      } catch {
-        throw new Error(
-          "The 'mongodb' package is required to use the MongoDB vector store. Install it with: npm install mongodb",
-        );
-      }
+      const sdk = await loadPeer(
+        "mongodb",
+        "MongoDB vector store",
+        () => import("mongodb"),
+      );
       const url = config.url || "mongodb://localhost:27017";
       this.client = new sdk.MongoClient(url, { appName: "Mem0" });
     }

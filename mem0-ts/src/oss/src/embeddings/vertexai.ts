@@ -1,6 +1,7 @@
 import type { PredictionServiceClient } from "@google-cloud/aiplatform";
 import { Embedder } from "./base";
 import { VertexAIConfig } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 type AIPlatform = typeof import("@google-cloud/aiplatform");
 type ClientOptions = NonNullable<
@@ -105,15 +106,11 @@ export class VertexAIEmbedder implements Embedder {
   }
 
   private async createClient(): Promise<void> {
-    let aiplatform: AIPlatform;
-    try {
-      aiplatform = await import("@google-cloud/aiplatform");
-    } catch (err) {
-      throw new Error(
-        "Failed to import '@google-cloud/aiplatform'. Please install it to use the Vertex AI embedding provider: " +
-          (err as Error).message,
-      );
-    }
+    const aiplatform: AIPlatform = await loadPeer(
+      "@google-cloud/aiplatform",
+      "Vertex AI embedding provider",
+      () => import("@google-cloud/aiplatform"),
+    );
 
     const client = new aiplatform.PredictionServiceClient(this.clientOptions);
 

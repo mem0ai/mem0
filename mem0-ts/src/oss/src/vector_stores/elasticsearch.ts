@@ -1,6 +1,7 @@
 import type { Client } from "@elastic/elasticsearch";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface ElasticsearchConfig extends VectorStoreConfig {
   /** Pre-configured Elasticsearch client instance (typed as `any` to keep the
@@ -100,14 +101,11 @@ export class ElasticsearchDB implements VectorStore {
         params.headers = config.headers;
       }
 
-      let sdk: any;
-      try {
-        sdk = await import("@elastic/elasticsearch");
-      } catch {
-        throw new Error(
-          "The '@elastic/elasticsearch' package is required to use the Elasticsearch vector store. Install it with: npm install @elastic/elasticsearch",
-        );
-      }
+      const sdk = await loadPeer(
+        "@elastic/elasticsearch",
+        "Elasticsearch vector store",
+        () => import("@elastic/elasticsearch"),
+      );
 
       this.client = new sdk.Client(params);
     }

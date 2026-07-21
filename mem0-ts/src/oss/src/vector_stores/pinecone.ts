@@ -1,6 +1,7 @@
 import type { Pinecone, Index } from "@pinecone-database/pinecone";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 const MIGRATIONS_NAMESPACE = "__mem0_migrations__";
 const MIGRATIONS_RECORD_ID = "mem0-user-id";
@@ -82,14 +83,11 @@ export class PineconeDB implements VectorStore {
       this.client = config.client;
     } else {
       const apiKey = config.apiKey || process.env.PINECONE_API_KEY;
-      let sdk: any;
-      try {
-        sdk = await import("@pinecone-database/pinecone");
-      } catch {
-        throw new Error(
-          "The '@pinecone-database/pinecone' package is required to use the Pinecone vector store. Install it with: npm install @pinecone-database/pinecone",
-        );
-      }
+      const sdk = await loadPeer(
+        "@pinecone-database/pinecone",
+        "Pinecone vector store",
+        () => import("@pinecone-database/pinecone"),
+      );
       this.client = new sdk.Pinecone({ apiKey });
     }
   }

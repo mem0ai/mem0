@@ -1,6 +1,7 @@
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreResult } from "../types";
 import { ValkeyConfig } from "../types/valkey";
+import { loadPeer } from "../utils/load_peer";
 
 interface ValkeyClient {
   call: (...args: (string | number | Buffer)[]) => Promise<unknown>;
@@ -142,14 +143,8 @@ function formatTimestamp(timestamp: number, timezone: string = "UTC"): string {
   return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}${sign}${offHH}:${offMM}`;
 }
 
-async function loadIovalkey(): Promise<typeof import("iovalkey")> {
-  try {
-    return await import("iovalkey");
-  } catch {
-    throw new Error(
-      "iovalkey is required for the Valkey vector store. Install it with: npm install iovalkey",
-    );
-  }
+function loadIovalkey(): Promise<typeof import("iovalkey")> {
+  return loadPeer("iovalkey", "Valkey vector store", () => import("iovalkey"));
 }
 
 export class ValkeyDB implements VectorStore {
