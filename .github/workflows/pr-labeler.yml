@@ -4,6 +4,10 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, edited]
 
+concurrency:
+  group: pr-labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -26,24 +30,22 @@ jobs:
               'rest-api', 'openmemory', 'documentation', 'ci', 'cli', 'integrations',
             ]);
             const umbrella = { plugin: 'integrations' };
-            const body = context.payload.pull_request.body || '';
-            const matches = [...body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*(?:#|https:\/\/github\.com\/mem0ai\/mem0\/issues\/)(\d+)/gi)];
-            const numbers = [...new Set(matches.map((m) => Number(m[1])))];
+            const { repository } = await github.graphql(
+              `query ($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 20) {
+                      nodes { labels(first: 50) { nodes { name } } }
+                    }
+                  }
+                }
+              }`,
+              { owner: context.repo.owner, repo: context.repo.repo, number: context.issue.number },
+            );
 
             const labels = new Set();
-            for (const issue_number of numbers) {
-              let issue;
-              try {
-                ({ data: issue } = await github.rest.issues.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number,
-                }));
-              } catch {
-                continue;
-              }
-              if (issue.pull_request) continue;
-              for (const label of issue.labels) {
+            for (const issue of repository.pullRequest.closingIssuesReferences.nodes) {
+              for (const label of issue.labels.nodes) {
                 if (allowed.has(label.name)) labels.add(label.name);
               }
             }

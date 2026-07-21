@@ -1,16 +1,8 @@
 const fs = require('fs');
 
-const COMPONENT_LABELS = [
-  'sdk-python',
-  'sdk-typescript',
-  'vector-store',
-  'plugin',
-  'rest-api',
-  'openmemory',
-  'cli',
-  'integrations',
-  'documentation',
-];
+function componentLabels(keywords) {
+  return Object.values(keywords).flatMap(Object.keys);
+}
 
 function toMatcher(term) {
   const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -49,4 +41,4 @@ function loadKeywords(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-module.exports = { COMPONENT_LABELS, inferComponentLabels, loadKeywords };
+module.exports = { componentLabels, inferComponentLabels, loadKeywords };

@@ -16,10 +16,12 @@ jobs:
 
       - uses: stefanbuck/github-issue-parser@v3
         id: issue-parser
+        continue-on-error: true
         with:
           template-path: .github/ISSUE_TEMPLATE/bug_report.yml
 
       - uses: redhat-plumbers-in-action/advanced-issue-labeler@v3
+        continue-on-error: true
         with:
           issue-form: ${{ steps.issue-parser.outputs.jsonString }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -30,7 +32,7 @@ jobs:
         with:
           script: |
             const {
-              COMPONENT_LABELS,
+              componentLabels,
               inferComponentLabels,
               loadKeywords,
             } = require(`${process.env.GITHUB_WORKSPACE}/.github/scripts/infer-component-labels.js`);
@@ -41,13 +43,14 @@ jobs:
               issue_number: context.issue.number,
             });
 
+            const keywords = loadKeywords(`${process.env.GITHUB_WORKSPACE}/.github/component-keywords.json`);
+            const known = componentLabels(keywords);
             const existing = issue.labels.map((label) => label.name || label);
-            if (existing.some((name) => COMPONENT_LABELS.includes(name))) {
+            if (existing.some((name) => known.includes(name))) {
               core.info(`Component label already present: ${existing.join(', ')}`);
               return;
             }
 
-            const keywords = loadKeywords(`${process.env.GITHUB_WORKSPACE}/.github/component-keywords.json`);
             const labels = inferComponentLabels(`${issue.title}\n\n${issue.body || ''}`, keywords);
 
             if (labels.length === 0) {
