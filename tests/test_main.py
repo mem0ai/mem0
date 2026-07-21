@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.memory.main import Memory, AsyncMemory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -540,3 +540,91 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+
+def test_search_rerank_uses_full_candidate_pool(memory_instance):
+    """Regression: search(rerank=True) must hand the reranker the full candidate
+    pool (more than ``limit``), not the already-truncated top-``limit`` set.
+    """
+    POOL_AVAILABLE = 40
+    FINAL_LIMIT = 5
+
+    def fake_search_vector_store(query, filters, limit, *args, **kwargs):
+        return [
+            {"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01}
+            for i in range(min(limit, POOL_AVAILABLE))
+        ]
+
+    memory_instance._search_vector_store = Mock(side_effect=fake_search_vector_store)
+    memory_instance.reranker = Mock()
+    memory_instance.reranker.rerank.side_effect = lambda query, memories, limit: memories[:limit]
+
+    with patch("mem0.memory.main.detect_temporal_usage_from_search", return_value=None), \
+         patch("mem0.memory.main.detect_scale_threshold_from_top_k", return_value=None), \
+         patch("mem0.memory.main.display_first_run_notice"), \
+         patch("mem0.memory.main.capture_event"):
+        results = memory_instance.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
+
+    reranked_input = memory_instance.reranker.rerank.call_args[0][1]
+    assert len(reranked_input) > FINAL_LIMIT
+    assert memory_instance.reranker.rerank.call_args[0][2] == FINAL_LIMIT
+    assert len(results["results"]) == FINAL_LIMIT
+
+def test_search_rerank_failure_still_respects_limit(memory_instance):
+    """When reranking is enabled we over-fetch a candidate pool; if the rerank
+    call fails, the fallback must trim back to ``limit``.
+    """
+    FINAL_LIMIT = 5
+
+    def fake_search_vector_store(query, filters, limit, *args, **kwargs):
+        return [{"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01} for i in range(limit)]
+
+    memory_instance._search_vector_store = Mock(side_effect=fake_search_vector_store)
+    memory_instance.reranker = Mock()
+    memory_instance.reranker.rerank.side_effect = RuntimeError("rerank API down")
+
+    with patch("mem0.memory.main.detect_temporal_usage_from_search", return_value=None), \
+         patch("mem0.memory.main.detect_scale_threshold_from_top_k", return_value=None), \
+         patch("mem0.memory.main.display_first_run_notice"), \
+         patch("mem0.memory.main.capture_event"):
+        results = memory_instance.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
+
+    assert len(results["results"]) == FINAL_LIMIT
+
+@pytest.mark.asyncio
+async def test_async_search_rerank_uses_full_candidate_pool():
+    """Async counterpart of test_search_rerank_uses_full_candidate_pool."""
+    with patch("mem0.utils.factory.EmbedderFactory") as mock_embedder, \
+         patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store, \
+         patch("mem0.utils.factory.LlmFactory") as mock_llm, \
+         patch("mem0.memory.telemetry.capture_event"):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        memory_instance = AsyncMemory(config)
+
+        POOL_AVAILABLE = 40
+        FINAL_LIMIT = 5
+
+        async def fake_search_vector_store(query, filters, limit, *args, **kwargs):
+            return [
+                {"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01}
+                for i in range(min(limit, POOL_AVAILABLE))
+            ]
+
+        memory_instance._search_vector_store = Mock(side_effect=fake_search_vector_store)
+        memory_instance.reranker = Mock()
+        memory_instance.reranker.rerank.side_effect = lambda query, memories, limit: memories[:limit]
+
+        with patch("mem0.memory.main.detect_temporal_usage_from_search", return_value=None), \
+             patch("mem0.memory.main.detect_scale_threshold_from_top_k", return_value=None), \
+             patch("mem0.memory.main.display_first_run_notice_async"):
+            results = await memory_instance.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
+
+        reranked_input = memory_instance.reranker.rerank.call_args[0][1]
+        assert len(reranked_input) > FINAL_LIMIT
+        assert memory_instance.reranker.rerank.call_args[0][2] == FINAL_LIMIT
+        assert len(results["results"]) == FINAL_LIMIT
