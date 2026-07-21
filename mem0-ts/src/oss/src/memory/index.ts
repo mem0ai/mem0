@@ -133,13 +133,8 @@ function validateAndTrimEntityId(
   value: string | number | undefined | null,
   name: string,
 ): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  // Callers commonly pass integer ids (e.g. a database primary key). Coerce to
-  // string at this single validation point so scoping stays consistent across
-  // add/search/getAll/deleteAll instead of crashing on `.trim()`. Mirrors the
-  // Python SDK's _validate_and_trim_entity_id.
-  const stringValue = typeof value === "string" ? value : String(value);
-  const trimmed = stringValue.trim();
+  if (value == null) return undefined;
+  const trimmed = String(value).trim();
   if (trimmed === "") {
     throw new Error(
       `Invalid ${name}: cannot be empty or whitespace-only. Provide a valid identifier.`,

@@ -254,8 +254,6 @@ describe("Memory Input Validation", () => {
   });
 
   describe("non-string entity ID coercion", () => {
-    // Callers commonly pass integer ids (e.g. a database primary key). These
-    // must be coerced to string, not crash on `.trim()`, matching the Python SDK.
     it("coerces an integer user_id in getAll filters to its string form", async () => {
       const listSpy = jest
         .spyOn((memory as any).vectorStore, "list")
