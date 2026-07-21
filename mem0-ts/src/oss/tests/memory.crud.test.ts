@@ -209,10 +209,7 @@ describe("Memory - update()", () => {
   });
 
   // Regression: metadata passed to update() must never overwrite a memory's
-  // user_id/agent_id/run_id. These fields scope every search()/getAll()/
-  // deleteAll() call, so letting caller metadata overwrite them would silently
-  // move a memory into another tenant's scope and make it unreachable via the
-  // original tenant. Mirrors the Python P0 fix (issues #6277 / #6278).
+  // identity fields (issues #6277 / #6278).
   test("metadata cannot overwrite identity fields (tenant isolation)", async () => {
     const tenantA = `tenant_a_${Date.now()}`;
     const tenantB = `tenant_b_${Date.now()}`;
@@ -241,12 +238,10 @@ describe("Memory - update()", () => {
     expect(bList.results.map((m) => m.id)).not.toContain(id);
   });
 
-  // A memory created with only some identity fields (e.g. run_id only — allowed,
-  // since add()/getAll() require just one of user_id/agent_id/run_id) must not
-  // let update() metadata *inject* a brand-new identity key, granting the memory
-  // a scope it never had. Covers the injection case (not just overwrite) and
-  // actor_id, matching #6367 / the Python fix in #6278.
-  test("metadata cannot inject a new identity field on update", async () => {
+  // A memory created with only some identity fields (e.g. run_id only) must not
+  // let update() metadata inject a brand-new identity key. The default vector
+  // store promotes camelCase aliases to snake_case on read, so both casings must be covered.
+  test("metadata cannot inject an identity field on update (snake_case or camelCase)", async () => {
     const runId = `run_only_${Date.now()}`;
     const attacker = `attacker_${Date.now()}`;
     const addResult: SearchResult = await memory.add("Run-scoped secret", {
@@ -255,13 +250,16 @@ describe("Memory - update()", () => {
     });
     const id = addResult.results[0].id;
 
-    // Memory has no user_id/agent_id/actor_id — metadata tries to inject them.
+    // Memory has no user_id/agent_id/actor_id — metadata tries to inject them,
+    // in both snake_case and camelCase.
     await memory.update(id, {
       text: "Updated text",
       metadata: {
         user_id: attacker,
         agent_id: attacker,
         actor_id: attacker,
+        userId: attacker,
+        agentId: attacker,
       },
     });
 
@@ -272,43 +270,6 @@ describe("Memory - update()", () => {
     expect(runList.results.map((m) => m.id)).toContain(id);
 
     // ...and the injected identity scopes must not resolve to it.
-    const userList: SearchResult = await memory.getAll({
-      filters: { user_id: attacker },
-    });
-    expect(userList.results.map((m) => m.id)).not.toContain(id);
-
-    const agentList: SearchResult = await memory.getAll({
-      filters: { agent_id: attacker },
-    });
-    expect(agentList.results.map((m) => m.id)).not.toContain(id);
-  });
-
-  // The default vector store promotes camelCase aliases (userId/agentId/runId)
-  // to their snake_case identity keys on read (normalizePayload). So stripping
-  // only snake_case keys leaves an injection path open via the camelCase alias.
-  // Metadata must not inject an identity scope through either casing.
-  test("metadata cannot inject an identity field via camelCase alias", async () => {
-    const runId = `run_camel_${Date.now()}`;
-    const attacker = `attacker_camel_${Date.now()}`;
-    const addResult: SearchResult = await memory.add("Run-scoped secret", {
-      runId,
-      infer: false,
-    });
-    const id = addResult.results[0].id;
-
-    // camelCase aliases attempt to inject new scopes.
-    await memory.update(id, {
-      text: "Updated text",
-      metadata: { userId: attacker, agentId: attacker },
-    });
-
-    // Still reachable under its original run_id scope...
-    const runList: SearchResult = await memory.getAll({
-      filters: { run_id: runId },
-    });
-    expect(runList.results.map((m) => m.id)).toContain(id);
-
-    // ...and the injected scopes must not resolve to it, through either casing.
     const userList: SearchResult = await memory.getAll({
       filters: { user_id: attacker },
     });
