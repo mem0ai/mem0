@@ -9,7 +9,7 @@ policy:
             keys: ['TypeScript SDK']
           - name: 'vector-store'
             keys: ['Vector Store']
-          - name: 'openclaw'
-            keys: ['OpenClaw']
+          - name: 'plugin'
+            keys: ['Plugin']
           - name: 'rest-api'
             keys: ['REST API']

@@ -18,13 +18,16 @@ openmemory:
   - changed-files:
       - any-glob-to-any-file: 'openmemory/**'
 
-openclaw:
+plugin:
   - changed-files:
-      - any-glob-to-any-file: 'integrations/openclaw/**'
+      - any-glob-to-any-file:
+          - 'integrations/mem0-plugin/**'
+          - 'integrations/openclaw/**'
+          - 'integrations/pi-agent-plugin/**'
 
 integrations:
   - changed-files:
-      - any-glob-to-any-file: 'integrations/**'
+      - any-glob-to-any-file: 'integrations/vercel-ai-sdk/**'
 
 cli:
   - changed-files:

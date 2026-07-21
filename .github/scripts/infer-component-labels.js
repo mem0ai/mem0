@@ -4,7 +4,7 @@ const COMPONENT_LABELS = [
   'sdk-python',
   'sdk-typescript',
   'vector-store',
-  'openclaw',
+  'plugin',
   'rest-api',
   'openmemory',
   'cli',

@@ -12,7 +12,7 @@ body:
         - Python SDK
         - TypeScript SDK
         - Vector Store
-        - OpenClaw
+        - Plugin
         - REST API
         - Other
     validations:
