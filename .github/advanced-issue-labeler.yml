@@ -1,14 +1,15 @@
-# Maps dropdown selections to GitHub labels
-# Used by the advanced-issue-labeler GitHub Action
-
-component:
-  - label: "sdk-python"
-    matcher: "Core / Python SDK"
-  - label: "sdk-typescript"
-    matcher: "TypeScript SDK"
-  - label: "vector-store"
-    matcher: "Vector Store"
-  - label: "openclaw"
-    matcher: "OpenClaw"
-  - label: "rest-api"
-    matcher: "REST API"
+policy:
+  - section:
+      - id: ['component']
+        block-list: ['Other']
+        label:
+          - name: 'sdk-python'
+            keys: ['Python SDK']
+          - name: 'sdk-typescript'
+            keys: ['TypeScript SDK']
+          - name: 'vector-store'
+            keys: ['Vector Store']
+          - name: 'openclaw'
+            keys: ['OpenClaw']
+          - name: 'rest-api'
+            keys: ['REST API']

@@ -1,0 +1,39 @@
+vector-store:
+  - changed-files:
+      - any-glob-to-any-file: 'mem0/vector_stores/**'
+
+sdk-python:
+  - changed-files:
+      - any-glob-to-any-file: ['mem0/**', 'tests/**']
+
+sdk-typescript:
+  - changed-files:
+      - any-glob-to-any-file: 'mem0-ts/**'
+
+rest-api:
+  - changed-files:
+      - any-glob-to-any-file: 'server/**'
+
+openmemory:
+  - changed-files:
+      - any-glob-to-any-file: 'openmemory/**'
+
+openclaw:
+  - changed-files:
+      - any-glob-to-any-file: 'integrations/openclaw/**'
+
+integrations:
+  - changed-files:
+      - any-glob-to-any-file: 'integrations/**'
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: 'cli/**'
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: 'docs/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'

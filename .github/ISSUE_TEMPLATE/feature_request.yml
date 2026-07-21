@@ -9,9 +9,9 @@ body:
       label: Component
       description: Which part of mem0 does this relate to?
       options:
-        - Core / Python SDK
+        - Python SDK
         - TypeScript SDK
-        - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
+        - Vector Store
         - OpenClaw
         - REST API
         - Other

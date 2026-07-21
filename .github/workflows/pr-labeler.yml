@@ -1,0 +1,57 @@
+name: PR Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Propagate labels from linked issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const allowed = new Set([
+              'sdk-python', 'sdk-typescript', 'vector-store', 'openclaw',
+              'rest-api', 'openmemory', 'documentation', 'ci', 'cli', 'integrations',
+            ]);
+            const body = context.payload.pull_request.body || '';
+            const matches = [...body.matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*(?:#|https:\/\/github\.com\/mem0ai\/mem0\/issues\/)(\d+)/gi)];
+            const numbers = [...new Set(matches.map((m) => Number(m[1])))];
+
+            const labels = new Set();
+            for (const issue_number of numbers) {
+              let issue;
+              try {
+                ({ data: issue } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number,
+                }));
+              } catch {
+                continue;
+              }
+              if (issue.pull_request) continue;
+              for (const label of issue.labels) {
+                if (allowed.has(label.name)) labels.add(label.name);
+              }
+            }
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [...labels],
+              });
+            }
