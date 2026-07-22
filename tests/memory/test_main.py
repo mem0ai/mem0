@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -1177,4 +1179,118 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         )
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
+        )
+
+
+class TestConcurrentAddDedupRace:
+    """Regression tests for the hash-dedup TOCTOU race in _add_to_vector_store.
+
+    The Phase 1 existing-memory snapshot is taken before the LLM extraction call.
+    Without a fresh recheck immediately before insert, two concurrent add() calls
+    extracting the identical fact both pass dedup against the same stale snapshot
+    and both insert, producing a permanent duplicate memory.
+    """
+
+    @staticmethod
+    def _make_fake_store():
+        store = []
+        store_lock = threading.Lock()
+
+        def fake_search(query, vectors, top_k, filters):
+            with store_lock:
+                return [MagicMock(payload={"hash": r["hash"]}, id=r["id"]) for r in store]
+
+        def fake_insert(vectors, ids, payloads):
+            with store_lock:
+                for i, p in zip(ids, payloads):
+                    store.append({"id": i, "hash": p["hash"]})
+
+        return store, fake_search, fake_insert
+
+    def test_concurrent_add_same_fact_does_not_duplicate(self, mocker):
+        memory = _build_memory_instance(mocker, Memory)
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+
+        store, fake_search, fake_insert = self._make_fake_store()
+        memory.vector_store.search = Mock(side_effect=fake_search)
+        memory.vector_store.insert = Mock(side_effect=fake_insert)
+        memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+
+        def slow_generate_response(**kwargs):
+            # Simulates real LLM latency — the window during which a second,
+            # concurrent add() call can race past the same stale dedup snapshot.
+            time.sleep(0.1)
+            return '{"memory": [{"text": "User likes coffee"}]}'
+
+        memory.llm.generate_response = Mock(side_effect=slow_generate_response)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+
+        errors = []
+
+        def worker():
+            try:
+                memory._add_to_vector_store(
+                    messages=[{"role": "user", "content": "I really like coffee"}],
+                    metadata={"user_id": "u1"},
+                    filters={"user_id": "u1"},
+                    infer=True,
+                )
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=5)
+
+        assert not errors, f"worker thread raised: {errors}"
+        assert len(store) == 1, (
+            f"expected exactly 1 persisted memory after two concurrent add() calls "
+            f"for the same fact, got {len(store)}: {store}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_concurrent_add_same_fact_does_not_duplicate(self, mocker):
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+
+        store, fake_search, fake_insert = self._make_fake_store()
+        memory.vector_store.search = Mock(side_effect=fake_search)
+        memory.vector_store.insert = Mock(side_effect=fake_insert)
+        memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+
+        def slow_generate_response(**kwargs):
+            time.sleep(0.1)
+            return '{"memory": [{"text": "User likes coffee"}]}'
+
+        memory.llm.generate_response = Mock(side_effect=slow_generate_response)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+
+        await asyncio.gather(
+            memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I really like coffee"}],
+                metadata={"user_id": "u1"},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            ),
+            memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I really like coffee"}],
+                metadata={"user_id": "u1"},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            ),
+        )
+
+        assert len(store) == 1, (
+            f"expected exactly 1 persisted memory after two concurrent add() calls "
+            f"for the same fact, got {len(store)}: {store}"
         )
