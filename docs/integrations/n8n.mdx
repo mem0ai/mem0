@@ -1,0 +1,72 @@
+---
+title: n8n
+description: "Add long-term memory to n8n workflows and AI Agents with the Mem0 community node, no code required."
+---
+
+The [`n8n-nodes-mem0`](https://www.npmjs.com/package/n8n-nodes-mem0) community node brings [Mem0](https://mem0.ai) memory to [n8n](https://n8n.io). Add, search, and manage long-term memories inside any workflow, and use it as a tool for the n8n AI Agent.
+
+## Overview
+
+The node wraps the hosted Mem0 REST API and supports six operations on the **Memory** resource:
+
+| Operation | Endpoint |
+| --- | --- |
+| **Add** | `POST /v3/memories/add/` |
+| **Search** | `POST /v3/memories/search/` |
+| **Get** | `GET /v1/memories/{id}/` |
+| **Get Many** | `POST /v3/memories/` |
+| **Update** | `PUT /v1/memories/{id}/` |
+| **Delete** | `DELETE /v1/memories/{id}/` |
+
+It is marked `usableAsTool`, so the n8n AI Agent (Tools Agent) can call it directly to remember and recall information.
+
+## Installation
+
+Install it like any n8n community node:
+
+1. In n8n, go to **Settings → Community Nodes → Install**.
+2. Enter `n8n-nodes-mem0` and confirm.
+
+The node then appears in the nodes panel under the AI category.
+
+## Authentication
+
+Create a **Mem0 API** credential in n8n:
+
+- **API Key**: from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">Mem0 API Key dashboard</a>. Sent as `Authorization: Token <key>`.
+- **Base URL**: defaults to `https://api.mem0.ai`.
+
+## Operations
+
+### Add
+
+Extracts and stores memories from one or more messages. Provide at least one entity id (**User ID**, **Agent ID**, **Run ID**, or **App ID** in Additional Fields); the node validates this before calling the API. Additional Fields also expose **Metadata (JSON)** and **Infer** (run LLM extraction, or store verbatim).
+
+Extraction is asynchronous. **Wait for Completion** (on by default) polls the event until it finishes and returns the resulting memories; turn it off to return immediately with the event ID.
+
+### Search
+
+Semantic search over stored memories. Provide a **Query**, a **User ID** (required, the API needs an entity filter), and an optional **Limit**.
+
+### Get Many
+
+Lists memories for a **User ID** with **Page** and **Page Size** controls.
+
+### Get / Update / Delete
+
+Operate on a single memory by **Memory ID**. Update accepts new **Text** and/or **Metadata (JSON)**.
+
+## Choosing a `userId`
+
+The `userId` is a stable string you choose to identify whose memories these are. It is not looked up in the dashboard. Common choices are your app's internal user ID, an email, or a UUID. Use the same value across Add, Search, and Get Many so recall works.
+
+<CardGroup cols={2}>
+  <Card title="Zapier Integration" icon="bolt" href="/integrations/zapier">
+    Add memory to Zaps across thousands of apps
+  </Card>
+  <Card title="Flowise Integration" icon="blocks" href="/integrations/flowise">
+    Add memory to Flowise chatflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

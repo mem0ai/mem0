@@ -1,0 +1,21 @@
+{
+	"node": "n8n-nodes-mem0.mem0",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["AI"],
+	"subcategories": {
+		"AI": ["Memory"]
+	},
+	"resources": {
+		"primaryDocumentation": [
+			{
+				"url": "https://docs.mem0.ai/integrations/n8n"
+			}
+		],
+		"credentialDocumentation": [
+			{
+				"url": "https://docs.mem0.ai/integrations/n8n"
+			}
+		]
+	}
+}
