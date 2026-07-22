@@ -1,0 +1,61 @@
+---
+title: Zapier
+description: "Add, search, and manage Mem0 memories from any Zap using the Mem0 Zapier app, no code required."
+---
+
+The [Mem0](https://mem0.ai) Zapier app lets you add, search, list, and delete long-term memories from any [Zapier](https://zapier.com) workflow. Wire "remember" and "recall" into thousands of apps without writing code.
+
+## Overview
+
+The app wraps the hosted Mem0 REST API and exposes four actions:
+
+| Type | Action | Endpoint |
+| --- | --- | --- |
+| Create | **Add Memory** | `POST /v3/memories/add/` |
+| Create | **Delete Memory** | `DELETE /v1/memories/{id}/` |
+| Search | **Search Memories** | `POST /v3/memories/search/` |
+| Search | **Get Memories** | `POST /v3/memories/` |
+
+## Authentication
+
+The app uses API key authentication. Grab a key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">Mem0 API Key dashboard</a> and paste it when connecting your Mem0 account in Zapier. The key is sent as `Authorization: Token <key>` on every request.
+
+## Actions
+
+### Add Memory
+
+Extracts and stores memories from a message. Fields:
+
+- **Content** (required): the message text to extract memories from.
+- **Role**: `user`, `assistant`, or `system`.
+- **User ID / Agent ID / Run ID**: entity the memory belongs to.
+- **Metadata (JSON)**: optional structured metadata.
+- **Infer**: run LLM extraction (default) or store the message verbatim.
+- **Wait for Completion**: off by default. Extraction is asynchronous, so the action returns immediately with an event ID. Turn this on to poll until extraction finishes and return the resulting memories. Extraction can take longer than a single Zapier step is allowed to run, so a timeout here does not mean the add failed; it usually still completes on the server.
+
+### Search Memories
+
+Semantic search over stored memories. Provide a **Query**, a **User ID** (required, the API needs an entity filter), and an optional **Limit**.
+
+### Get Memories
+
+Lists stored memories for a user. Provide a **User ID** (required), a **Limit** (page size), and a **Page** (1-based) to page through larger result sets.
+
+### Delete Memory
+
+Deletes a single memory by its **Memory ID**.
+
+## Choosing a `userId`
+
+The `user_id` is a stable string you choose to identify whose memories these are. It is not looked up in the dashboard. Common choices are your app's internal user ID, an email, or a UUID. Use the same value across Add, Search, and Get so recall works.
+
+<CardGroup cols={2}>
+  <Card title="n8n Integration" icon="diagram-project" href="/integrations/n8n">
+    Build workflows with the Mem0 n8n community node
+  </Card>
+  <Card title="Flowise Integration" icon="blocks" href="/integrations/flowise">
+    Add memory to Flowise chatflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

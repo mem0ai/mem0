@@ -348,6 +348,7 @@
                     "pages": [
                       "integrations/dify",
                       "integrations/flowise",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",
