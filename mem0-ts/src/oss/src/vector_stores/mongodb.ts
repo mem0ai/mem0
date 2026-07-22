@@ -119,6 +119,7 @@ export class MongoDB implements VectorStore {
           // ignore
         }
 
+        // ponytail: an existing index keeps its old mapping; drop and recreate to pick up new fields
         if (!foundTextIndex) {
           await this.collection.createSearchIndex({
             name: textIndexName,
@@ -131,6 +132,7 @@ export class MongoDB implements VectorStore {
                     fields: {
                       data: { type: "string" },
                       text_lemmatized: { type: "string" },
+                      textLemmatized: { type: "string" },
                     },
                   },
                 },
@@ -287,9 +289,9 @@ export class MongoDB implements VectorStore {
             text: {
               query: query,
               path: [
-                "payload.textLemmatized",
-                "payload.text_lemmatized",
                 "payload.data",
+                "payload.text_lemmatized",
+                "payload.textLemmatized",
               ],
             },
           },

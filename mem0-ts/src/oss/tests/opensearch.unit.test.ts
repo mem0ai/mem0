@@ -164,10 +164,15 @@ describe("OpenSearchDB", () => {
       ([arg]: any[]) => arg.index === collectionName,
     );
     expect(searchCall).toBeDefined();
-    expect(searchCall![0].body.query.bool.should).toEqual([
-      { match: { "payload.textLemmatized": "stud french" } },
-      { match: { "payload.text_lemmatized": "stud french" } },
-      { match: { "payload.data": "stud french" } },
-    ]);
+    const should = searchCall![0].body.query.bool.should;
+    expect(should).toContainEqual({
+      match: { "payload.textLemmatized": "stud french" },
+    });
+    expect(should).toContainEqual({
+      match: { "payload.text_lemmatized": "stud french" },
+    });
+    expect(should).toContainEqual({
+      match: { "payload.data": "stud french" },
+    });
   });
 });

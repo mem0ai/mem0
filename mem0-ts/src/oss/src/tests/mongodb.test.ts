@@ -86,6 +86,22 @@ describe("MongoDB Vector Store", () => {
     expect(mockCreateSearchIndex).toHaveBeenCalledTimes(2);
   });
 
+  it("should map payload.textLemmatized in the text search index", async () => {
+    await store.initialize();
+
+    const textIndexCall = mockCreateSearchIndex.mock.calls.find(
+      ([arg]: any[]) => arg.name === "test_col_text_search_index",
+    );
+    expect(textIndexCall).toBeDefined();
+    expect(textIndexCall![0].definition.mappings.fields.payload.fields).toEqual(
+      {
+        data: { type: "string" },
+        text_lemmatized: { type: "string" },
+        textLemmatized: { type: "string" },
+      },
+    );
+  });
+
   it("should insert documents correctly", async () => {
     mockInsertMany.mockResolvedValue({ insertedCount: 2 });
 
@@ -198,9 +214,9 @@ describe("MongoDB Vector Store", () => {
           text: {
             query: "test",
             path: [
-              "payload.textLemmatized",
-              "payload.text_lemmatized",
               "payload.data",
+              "payload.text_lemmatized",
+              "payload.textLemmatized",
             ],
           },
         },

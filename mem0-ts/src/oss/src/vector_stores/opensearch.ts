@@ -274,9 +274,9 @@ export class OpenSearchDB implements VectorStore {
     await this.initialize();
     const boolQuery: Record<string, any> = {
       should: [
-        { match: { "payload.textLemmatized": query } },
-        { match: { "payload.text_lemmatized": query } },
         { match: { "payload.data": query } },
+        { match: { "payload.text_lemmatized": query } },
+        { match: { "payload.textLemmatized": query } },
       ],
       minimum_should_match: 1,
     };
