@@ -97,6 +97,12 @@ _DELETE_ALL_PAGE_SIZE = 1000
 # Safety cap so eventual-consistency lag cannot spin forever.
 _DELETE_ALL_MAX_ITERATIONS = 10_000
 
+# On stores with refresh lag (Elasticsearch/OpenSearch), a page can come back
+# fully composed of already-seen ids while later unseen rows are still hidden.
+# Allow a bounded number of such no-progress pages before concluding the drain
+# is complete, so stale pages don't cause us to silently leave data behind.
+_DELETE_ALL_MAX_NO_PROGRESS = 3
+
 
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
@@ -1897,20 +1903,29 @@ class Memory(MemoryBase):
         # inside the loop so the result set shrinks between list() calls.
         total_deleted = 0
         seen_ids: set = set()
+        no_progress = 0
         for _ in range(_DELETE_ALL_MAX_ITERATIONS):
             listed = self.vector_store.list(filters=filters, top_k=_DELETE_ALL_PAGE_SIZE)
-            batch = _vector_store_list_rows(listed)
-            batch = [m for m in batch if getattr(m, "id", None) not in seen_ids]
-            if not batch:
+            rows = _vector_store_list_rows(listed)
+            if not rows:
                 break
+            batch = [m for m in rows if getattr(m, "id", None) not in seen_ids]
+            if not batch:
+                # Every row on this page was already deleted this run. On stores
+                # with refresh lag the deleted rows can linger while newer rows
+                # stay hidden, so retry a bounded number of times before giving
+                # up rather than breaking on the first all-seen page.
+                no_progress += 1
+                if no_progress >= _DELETE_ALL_MAX_NO_PROGRESS:
+                    break
+                continue
+            no_progress = 0
             for memory in batch:
-                try:
-                    self._delete_memory(memory.id)
-                    seen_ids.add(memory.id)
-                    total_deleted += 1
-                except Exception as e:
-                    logger.warning("Failed to delete memory %s: %s", memory.id, e)
-                    seen_ids.add(memory.id)
+                # Preserve the pre-pagination contract: surface delete failures
+                # instead of reporting success with residual memories.
+                self._delete_memory(memory.id)
+                seen_ids.add(memory.id)
+                total_deleted += 1
 
         logger.info(f"Deleted {total_deleted} memories")
 
@@ -3542,14 +3557,23 @@ class AsyncMemory(MemoryBase):
         total_deleted = 0
         total_errors = 0
         seen_ids: set = set()
+        no_progress = 0
         for _ in range(_DELETE_ALL_MAX_ITERATIONS):
             listed = await asyncio.to_thread(
                 self.vector_store.list, filters=filters, top_k=_DELETE_ALL_PAGE_SIZE
             )
-            batch = _vector_store_list_rows(listed)
-            batch = [m for m in batch if getattr(m, "id", None) not in seen_ids]
-            if not batch:
+            rows = _vector_store_list_rows(listed)
+            if not rows:
                 break
+            batch = [m for m in rows if getattr(m, "id", None) not in seen_ids]
+            if not batch:
+                # All rows already handled this run; retry a bounded number of
+                # times to tolerate refresh lag before concluding the drain.
+                no_progress += 1
+                if no_progress >= _DELETE_ALL_MAX_NO_PROGRESS:
+                    break
+                continue
+            no_progress = 0
 
             results = await asyncio.gather(
                 *[self._delete_memory(memory.id, skip_entity_cleanup=True) for memory in batch],
