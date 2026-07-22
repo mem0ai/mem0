@@ -267,6 +267,36 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     });
   });
 
+  it("skips a wildcard '*' filter value and keeps the rest", async () => {
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    client.searchResponse = { results: [] };
+    const store = makeStore(client, { metricType: "COSINE" });
+    await store.initialize();
+
+    // "*" means match-any: it must be dropped, not emitted as `== "*"` (which
+    // matches nothing), leaving only the real agent_id clause.
+    await store.search([0.1, 0.2, 0.3], 5, {
+      user_id: "*",
+      agent_id: "a1",
+    });
+
+    const searchCall = client.calls.find((c) => c.method === "search")!;
+    expect(searchCall.args.filter).toBe('(metadata["agent_id"] == "a1")');
+  });
+
+  it("omits the filter entirely when every value is a wildcard", async () => {
+    const client = new FakeMilvusClient({ existing: ["mem0"] });
+    const store = makeStore(client);
+    await store.initialize();
+
+    await store.list({ user_id: "*" });
+
+    // All clauses dropped, so list() falls back to its match-all "" filter
+    // rather than a literal `(metadata["user_id"] == "*")` that matches nothing.
+    const queryCall = client.calls.filter((c) => c.method === "query").pop()!;
+    expect(queryCall.args.filter).toBe("");
+  });
+
   it("normalises L2 distances into a 0..1 similarity score", async () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     client.searchResponse = {

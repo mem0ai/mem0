@@ -235,6 +235,13 @@ export class Milvus implements VectorStore {
       if (!Milvus.SAFE_FILTER_KEY.test(key)) {
         throw new Error(`Invalid filter key: ${JSON.stringify(key)}`);
       }
+      if (value === "*") {
+        // Wildcard - match any value. Milvus has no direct wildcard, so skip
+        // the clause rather than emitting a literal `== "*"` that matches
+        // nothing. Mirrors the Python provider (#6187) and the chroma/pinecone
+        // stores.
+        continue;
+      }
       if (typeof value === "string") {
         // Escape backslashes before quotes so a value can't break out of the
         // string literal (order matters, exactly as in the Python provider).
