@@ -468,6 +468,18 @@ class Memory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+
+        # Propagate the resolved embedding dimension from the embedder to the
+        # vector store config so the collection/table is created with the correct
+        # vector size. Without this, the vector store's default (1536) is used
+        # regardless of the actual embedder, causing silent data loss when the
+        # dimensions don't match (e.g. Gemini 768-dim into a vector(1536) column).
+        embedder_dims = getattr(self.embedding_model.config, "embedding_dims", None)
+        if embedder_dims is not None:
+            vs_config = self.config.vector_store.config
+            if hasattr(vs_config, "embedding_model_dims"):
+                vs_config.embedding_model_dims = embedder_dims
+
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -2128,6 +2140,18 @@ class AsyncMemory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+
+        # Propagate the resolved embedding dimension from the embedder to the
+        # vector store config so the collection/table is created with the correct
+        # vector size. Without this, the vector store's default (1536) is used
+        # regardless of the actual embedder, causing silent data loss when the
+        # dimensions don't match (e.g. Gemini 768-dim into a vector(1536) column).
+        embedder_dims = getattr(self.embedding_model.config, "embedding_dims", None)
+        if embedder_dims is not None:
+            vs_config = self.config.vector_store.config
+            if hasattr(vs_config, "embedding_model_dims"):
+                vs_config.embedding_model_dims = embedder_dims
+
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
