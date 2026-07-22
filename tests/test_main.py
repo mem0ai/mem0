@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.memory.main import Memory, _DELETE_ALL_PAGE_SIZE, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -431,7 +431,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "alice"}, top_k=_DELETE_ALL_PAGE_SIZE
+        )
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -444,7 +446,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "42"}, top_k=_DELETE_ALL_PAGE_SIZE
+        )
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""
