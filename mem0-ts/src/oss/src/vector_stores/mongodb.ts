@@ -286,7 +286,11 @@ export class MongoDB implements VectorStore {
             index: textIndexName,
             text: {
               query: query,
-              path: ["payload.data", "payload.text_lemmatized"],
+              path: [
+                "payload.textLemmatized",
+                "payload.text_lemmatized",
+                "payload.data",
+              ],
             },
           },
         },

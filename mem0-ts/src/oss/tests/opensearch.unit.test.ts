@@ -153,4 +153,21 @@ describe("OpenSearchDB", () => {
 
     await expect(store.get("missing")).resolves.toBeNull();
   });
+
+  it("keywordSearch queries lemmatized payload fields", async () => {
+    const client = createClient();
+    const store = await createStore(client);
+
+    await store.keywordSearch("stud french", 5, { user_id: "alice" });
+
+    const searchCall = client.search.mock.calls.find(
+      ([arg]: any[]) => arg.index === collectionName,
+    );
+    expect(searchCall).toBeDefined();
+    expect(searchCall![0].body.query.bool.should).toEqual([
+      { match: { "payload.textLemmatized": "stud french" } },
+      { match: { "payload.text_lemmatized": "stud french" } },
+      { match: { "payload.data": "stud french" } },
+    ]);
+  });
 });

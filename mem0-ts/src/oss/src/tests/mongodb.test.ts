@@ -197,7 +197,11 @@ describe("MongoDB Vector Store", () => {
           index: "test_col_text_search_index",
           text: {
             query: "test",
-            path: ["payload.data", "payload.text_lemmatized"],
+            path: [
+              "payload.textLemmatized",
+              "payload.text_lemmatized",
+              "payload.data",
+            ],
           },
         },
       },

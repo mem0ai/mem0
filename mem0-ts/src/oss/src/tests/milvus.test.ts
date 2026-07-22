@@ -432,12 +432,18 @@ describe("Milvus vector store (TS OSS SDK)", () => {
       ["a"],
       [{ data: "hello world", text_lemmatized: "hello world lemma" }],
     );
+    await store.insert(
+      [[0.2, 0.3, 0.4]],
+      ["c"],
+      [{ data: "hello world", textLemmatized: "hello world camel" }],
+    );
     // Falls back to raw data when there is no lemmatized text.
     await store.insert([[0.4, 0.5, 0.6]], ["b"], [{ data: "just data" }]);
 
     const insertCalls = client.calls.filter((c) => c.method === "insert");
     expect(insertCalls[0].args.data[0].text).toBe("hello world lemma");
-    expect(insertCalls[1].args.data[0].text).toBe("just data");
+    expect(insertCalls[1].args.data[0].text).toBe("hello world camel");
+    expect(insertCalls[2].args.data[0].text).toBe("just data");
   });
 
   it("writes the BM25 text field on update for a BM25 collection", async () => {

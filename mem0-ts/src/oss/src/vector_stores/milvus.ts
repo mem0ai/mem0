@@ -251,15 +251,24 @@ export class Milvus implements VectorStore {
     return operands.length > 0 ? operands.join(" and ") : undefined;
   }
 
-  /**
-   * Text fed to the BM25 sparse index for a payload. Prefers the lemmatized
-   * text, falls back to the raw memory `data`, and truncates to the VarChar
-   * limit (mirrors the Python provider).
-   */
   private bm25Text(payload?: Record<string, any>): string {
-    if (!payload) return "";
-    const raw = payload.text_lemmatized || payload.data || "";
-    return String(raw).slice(0, 65535);
+    if (!payload) {
+      return "";
+    }
+    const data = typeof payload.data === "string" ? payload.data : "";
+    if (
+      typeof payload.textLemmatized === "string" &&
+      payload.textLemmatized.length > 0
+    ) {
+      return payload.textLemmatized.slice(0, 65535);
+    }
+    if (
+      typeof payload.text_lemmatized === "string" &&
+      payload.text_lemmatized.length > 0
+    ) {
+      return payload.text_lemmatized.slice(0, 65535);
+    }
+    return data.slice(0, 65535);
   }
 
   async insert(
