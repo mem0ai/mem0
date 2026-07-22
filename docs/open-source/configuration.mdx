@@ -36,6 +36,10 @@ pip install qdrant-client   # Python only
 docker run -p 6333:6333 qdrant/qdrant
 ```
 
+Use Qdrant server mode for production. Embedded `path` mode is suitable for local prototypes and tests, but its data is
+not a replacement for a monitored, backed-up Qdrant service. When reusing a collection, its unnamed dense vector must
+match `embedding_model_dims` and cosine distance; Mem0 fails non-destructively when the schema is incompatible.
+
 ## Define your configuration
 
 Each component takes a `provider` and a `config`. Keys are `snake_case` in Python and `camelCase` in TypeScript. Pass the config when you create `Memory`:
