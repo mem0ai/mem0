@@ -83,7 +83,9 @@ export class MongoDB implements VectorStore {
     };
   }
 
-  private textSearchIndexMappingIsCurrent(index: Record<string, unknown>): boolean {
+  private textSearchIndexMappingIsCurrent(
+    index: Record<string, unknown>,
+  ): boolean {
     const definition =
       (index.latestDefinition as Record<string, unknown> | undefined) ??
       (index.definition as Record<string, unknown> | undefined);
@@ -164,9 +166,7 @@ export class MongoDB implements VectorStore {
 
         if (!existingTextIndex) {
           await this.collection.createSearchIndex(textSearchIndex);
-        } else if (
-          !this.textSearchIndexMappingIsCurrent(existingTextIndex)
-        ) {
+        } else if (!this.textSearchIndexMappingIsCurrent(existingTextIndex)) {
           await this.collection.dropSearchIndex(textIndexName);
           await this.collection.createSearchIndex(textSearchIndex);
         }
