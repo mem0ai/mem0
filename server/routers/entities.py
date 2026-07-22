@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from schemas import MessageResponse
 from server_state import get_memory_instance
+from mem0.vector_stores.utils import normalize_list_result
 
 router = APIRouter(prefix="/entities", tags=["entities"])
 
@@ -27,7 +28,7 @@ class Entity(BaseModel):
 
 def _iter_payloads() -> list[dict[str, Any]]:
     results = get_memory_instance().vector_store.list(top_k=SCAN_LIMIT)
-    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    rows = normalize_list_result(results)
     return [getattr(row, "payload", None) or {} for row in rows]
 
 

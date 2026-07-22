@@ -20,6 +20,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.vector_stores.utils import normalize_list_result
 from models import RequestLog, User
 from pydantic import BaseModel, Field
 from rate_limit import limiter
@@ -38,6 +39,7 @@ from server_state import (
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
+from vector_store_config import build_vector_store_config
 
 load_dotenv()
 
@@ -104,31 +106,15 @@ elif not ADMIN_API_KEY:
 
 telemetry.log_status()
 
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
-
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+VECTOR_STORE, LOCKED_CONFIG_COMPONENTS = build_vector_store_config(os.environ)
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
-    "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
-    },
+    "vector_store": VECTOR_STORE,
     "llm": {
         "provider": "openai",
         "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
@@ -139,7 +125,18 @@ DEFAULT_CONFIG = {
 
 
 set_session_factory(SessionLocal)
-initialize_state(DEFAULT_CONFIG)
+initialize_state(DEFAULT_CONFIG, locked_components=LOCKED_CONFIG_COMPONENTS)
+
+vector_config = VECTOR_STORE["config"]
+vector_mode = "explicit-local" if vector_config.get("path") else "remote"
+logging.info(
+    "Mem0 vector store configured (provider=%s, mode=%s, collection=%s, dimensions=%s, environment_locked=%s)",
+    VECTOR_STORE["provider"],
+    vector_mode,
+    vector_config.get("collection_name"),
+    vector_config.get("embedding_model_dims", "provider-default"),
+    "vector_store" in LOCKED_CONFIG_COMPONENTS,
+)
 
 
 app = FastAPI(
@@ -331,8 +328,13 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
     """Set memory configuration. Requires admin role."""
-    _validate_bundled_providers(config)
-    update_config(config)
+    try:
+        _validate_bundled_providers(config)
+        update_config(config)
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
+    except Exception:
+        raise upstream_error()
     return {"message": "Configuration set successfully"}
 
 
@@ -403,7 +405,7 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     results = get_memory_instance().vector_store.list(top_k=limit)
-    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    rows = normalize_list_result(results)
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
