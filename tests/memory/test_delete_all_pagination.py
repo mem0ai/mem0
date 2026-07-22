@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from mem0.memory import main as memory_main
-from mem0.memory.main import AsyncMemory, Memory, _DELETE_ALL_PAGE_SIZE
+from mem0.memory.main import (
+    AsyncMemory,
+    Memory,
+    _DELETE_ALL_PAGE_SIZE,
+)
 
 
 def _make_sync_memory():
@@ -129,11 +133,19 @@ def test_sync_delete_all_tolerates_stale_all_seen_page(monkeypatch):
     monkeypatch.setattr(memory_main, "capture_event", MagicMock())
     monkeypatch.setattr(memory_main, "detect_decay_usage_from_delete_all", MagicMock(return_value=None))
     monkeypatch.setattr(memory_main, "display_first_run_notice", MagicMock())
+    # Assert we actually wait between no-progress pages so the retry spans the
+    # backend's refresh window instead of firing three instant list() calls.
+    sleep_mock = MagicMock()
+    monkeypatch.setattr(memory_main.time, "sleep", sleep_mock)
 
     Memory.delete_all(memory, user_id="u1")
 
     deleted_ids = [c.args[0] for c in memory._delete_memory.call_args_list]
     assert deleted_ids == ["m0", "m1"]
+    # One no-progress page (the stale repeat of m0) triggers one backoff sleep
+    # with a positive delay before the previously-hidden m1 becomes visible.
+    assert sleep_mock.call_count == 1
+    assert sleep_mock.call_args.args[0] > 0
 
 
 @pytest.mark.asyncio
@@ -174,3 +186,31 @@ async def test_async_delete_all_is_load_bearing_with_stateful_store(monkeypatch)
     # the loop would run until the iteration cap; instead it drains cleanly.
     assert store._ids == []
     assert memory._delete_memory.await_count == 5
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_awaits_backoff_on_stale_page(monkeypatch):
+    memory = _make_async_memory()
+    row = SimpleNamespace(id="a0")
+    later = SimpleNamespace(id="a1")
+    # Stale all-seen page must trigger a bounded async backoff so the retry
+    # spans the backend refresh window rather than firing instantly.
+    memory.vector_store.list.side_effect = [
+        ([row], None),
+        ([row], None),
+        ([later], None),
+        ([], None),
+    ]
+    monkeypatch.setattr(memory_main, "capture_event", MagicMock())
+    monkeypatch.setattr(memory_main, "detect_decay_usage_from_delete_all", MagicMock(return_value=None))
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", AsyncMock())
+    monkeypatch.setattr(memory_main, "display_decay_usage_notice_async", AsyncMock())
+    sleep_mock = AsyncMock()
+    monkeypatch.setattr(memory_main.asyncio, "sleep", sleep_mock)
+
+    await AsyncMemory.delete_all(memory, user_id="u1")
+
+    deleted_ids = [c.args[0] for c in memory._delete_memory.await_args_list]
+    assert deleted_ids == ["a0", "a1"]
+    assert sleep_mock.await_count == 1
+    assert sleep_mock.await_args.args[0] > 0

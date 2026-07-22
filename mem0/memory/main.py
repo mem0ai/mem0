@@ -103,6 +103,13 @@ _DELETE_ALL_MAX_ITERATIONS = 10_000
 # is complete, so stale pages don't cause us to silently leave data behind.
 _DELETE_ALL_MAX_NO_PROGRESS = 3
 
+# Backoff (seconds) applied between no-progress pages. Without a wait, all
+# retries can fire faster than a backend's visibility refresh (which can take
+# seconds), so the bounded counter alone provides no real timing tolerance for
+# Elasticsearch/OpenSearch-style refresh lag. A small linear backoff gives the
+# store time to expose newly-visible rows before we conclude the drain.
+_DELETE_ALL_NO_PROGRESS_BACKOFF = 0.5
+
 
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
@@ -1918,6 +1925,10 @@ class Memory(MemoryBase):
                 no_progress += 1
                 if no_progress >= _DELETE_ALL_MAX_NO_PROGRESS:
                     break
+                # Give the backend time to refresh before re-listing, so the
+                # bounded retry actually spans the visibility window.
+                if _DELETE_ALL_NO_PROGRESS_BACKOFF:
+                    time.sleep(_DELETE_ALL_NO_PROGRESS_BACKOFF * no_progress)
                 continue
             no_progress = 0
             for memory in batch:
@@ -3572,6 +3583,10 @@ class AsyncMemory(MemoryBase):
                 no_progress += 1
                 if no_progress >= _DELETE_ALL_MAX_NO_PROGRESS:
                     break
+                # Await a bounded backoff so the retry actually spans the
+                # backend's refresh window instead of firing instantly.
+                if _DELETE_ALL_NO_PROGRESS_BACKOFF:
+                    await asyncio.sleep(_DELETE_ALL_NO_PROGRESS_BACKOFF * no_progress)
                 continue
             no_progress = 0
 
