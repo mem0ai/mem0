@@ -191,4 +191,20 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("records the ADD history event with updatedAt set to createdAt", async () => {
+    const result: SearchResult = await memory.add("I deploy on Fridays", {
+      userId,
+    });
+    const memoryId = result.results[0].id;
+
+    const history = await memory.history(memoryId);
+    const addEntry = history.find((h: any) => h.action === "ADD");
+    expect(addEntry).toBeDefined();
+    // A freshly added memory carries updatedAt == createdAt, so its ADD history
+    // event must record the same. It used to be written with updated_at NULL
+    // while the stored memory had it set, so the two disagreed.
+    expect(addEntry.created_at).toBeTruthy();
+    expect(addEntry.updated_at).toBe(addEntry.created_at);
+  });
 });

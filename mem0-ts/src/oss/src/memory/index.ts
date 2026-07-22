@@ -1055,7 +1055,10 @@ export class Memory {
       newValue: r.text as string | null,
       action: "ADD",
       createdAt: r.payload.createdAt as string | undefined,
-      updatedAt: undefined as string | undefined,
+      // An ADD carries updatedAt equal to createdAt (both set on the payload
+      // above). Leaving it undefined recorded the ADD event with updated_at
+      // NULL while the stored memory had it set, so the two disagreed.
+      updatedAt: r.payload.updatedAt as string | undefined,
       isDeleted: 0,
     }));
 
@@ -1072,6 +1075,7 @@ export class Memory {
               hr.newValue,
               "ADD",
               hr.createdAt,
+              hr.updatedAt,
             );
           } catch (e) {
             console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
