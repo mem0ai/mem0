@@ -280,17 +280,43 @@ def test_delete(memory_instance):
 
 def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
-    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.list = Mock(side_effect=[(mock_memories, None), ([], None)])
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    memory_instance._delete_memory.assert_any_call("1", mock_memories[0])
+    memory_instance._delete_memory.assert_any_call("2", mock_memories[1])
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_drains_multiple_pages(memory_instance):
+    first_page = [Mock(id="1"), Mock(id="2")]
+    second_page = [Mock(id="3")]
+    memory_instance.vector_store.list = Mock(
+        side_effect=[(first_page, "next"), [second_page], ([], None)]
+    )
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(agent_id="agent")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert [call.args[0] for call in memory_instance._delete_memory.call_args_list] == ["1", "2", "3"]
+
+
+def test_delete_all_fails_after_repeated_zero_progress(memory_instance, monkeypatch):
+    memory = Mock(id="stuck")
+    memory_instance.vector_store.list = Mock(return_value=([memory], None))
+    memory_instance._delete_memory = Mock(side_effect=RuntimeError("cannot delete"))
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_STALE_ITERATIONS", 2)
+
+    with pytest.raises(RuntimeError, match="made no progress"):
+        memory_instance.delete_all(run_id="run")
 
 
 def test_get_all(memory_instance):
@@ -431,7 +457,7 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"}, top_k=1000)
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -444,7 +470,7 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"}, top_k=1000)
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""

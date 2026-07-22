@@ -73,6 +73,7 @@ from mem0.utils.scoring import (
     score_and_rank,
 )
 from mem0.vector_stores.base import VectorStoreBase
+from mem0.vector_stores.utils import normalize_list_result
 
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
@@ -80,14 +81,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
-
-
-def _vector_store_list_rows(listed):
-    if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
-        return listed[0]
-    if isinstance(listed, (list, tuple)):
-        return listed
-    return []
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -136,6 +129,11 @@ ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 
 # Tenant-scoping fields that update() must never let caller-supplied metadata overwrite (issues #4490, #6277).
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
+
+DELETE_ALL_PAGE_SIZE = 1_000
+DELETE_ALL_MAX_ITERATIONS = 10_000
+DELETE_ALL_MAX_STALE_ITERATIONS = 3
+DELETE_ALL_ASYNC_CONCURRENCY = 20
 
 
 def _strip_identity_keys(metadata: Dict[str, Any], existing_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -567,7 +565,7 @@ class Memory(MemoryBase):
             return {}
 
         rows_by_text = {}
-        for row in _vector_store_list_rows(listed):
+        for row in normalize_list_result(listed):
             payload = getattr(row, "payload", None) or {}
             text = payload.get("data")
             if not isinstance(text, str):
@@ -1296,18 +1294,7 @@ class Memory(MemoryBase):
     def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
         memories_result = self.vector_store.list(filters=filters, top_k=limit)
 
-        # Handle different vector store return formats by inspecting first element
-        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
-            first_element = memories_result[0]
-
-            # If first element is a container, unwrap one level
-            if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
+        actual_memories = normalize_list_result(memories_result)
 
         promoted_payload_keys = [
             "user_id",
@@ -1886,13 +1873,44 @@ class Memory(MemoryBase):
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        deleted_ids = set()
+        deleted_count = 0
+        stale_iterations = 0
 
-        logger.info(f"Deleted {len(memories)} memories")
+        for _ in range(DELETE_ALL_MAX_ITERATIONS):
+            memories = normalize_list_result(
+                self.vector_store.list(filters=filters, top_k=DELETE_ALL_PAGE_SIZE)
+            )
+            if not memories:
+                break
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+            pending_by_id = {memory.id: memory for memory in memories if memory.id not in deleted_ids}
+            pending = list(pending_by_id.values())
+            successful_this_page = 0
+            for memory in pending:
+                try:
+                    self._delete_memory(memory.id, memory)
+                except Exception as exc:
+                    logger.warning("Failed to delete memory id=%s: %s", memory.id, exc)
+                else:
+                    deleted_ids.add(memory.id)
+                    deleted_count += 1
+                    successful_this_page += 1
+
+            if successful_this_page:
+                stale_iterations = 0
+            else:
+                stale_iterations += 1
+                if stale_iterations >= DELETE_ALL_MAX_STALE_ITERATIONS:
+                    raise RuntimeError(
+                        "Unable to delete all matching memories because the vector store made no progress."
+                    )
+        else:
+            raise RuntimeError("Unable to delete all matching memories before the safety iteration limit.")
+
+        logger.info("Deleted %d memories", deleted_count)
+
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -2206,7 +2224,7 @@ class AsyncMemory(MemoryBase):
             return {}
 
         rows_by_text = {}
-        for row in _vector_store_list_rows(listed):
+        for row in normalize_list_result(listed):
             payload = getattr(row, "payload", None) or {}
             text = payload.get("data")
             if not isinstance(text, str):
@@ -2928,18 +2946,7 @@ class AsyncMemory(MemoryBase):
     async def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
 
-        # Handle different vector store return formats by inspecting first element
-        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
-            first_element = memories_result[0]
-
-            # If first element is a container, unwrap one level
-            if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
+        actual_memories = normalize_list_result(memories_result)
 
         promoted_payload_keys = [
             "user_id",
@@ -3515,26 +3522,58 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        deleted_ids = set()
+        deleted_count = 0
+        stale_iterations = 0
+        semaphore = asyncio.Semaphore(DELETE_ALL_ASYNC_CONCURRENCY)
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
+        async def delete_one(memory):
+            async with semaphore:
+                try:
+                    await self._delete_memory(memory.id, memory, skip_entity_cleanup=True)
+                except Exception as exc:
+                    return memory.id, exc
+                return memory.id, None
 
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        for _ in range(DELETE_ALL_MAX_ITERATIONS):
+            listed = await asyncio.to_thread(
+                self.vector_store.list,
+                filters=filters,
+                top_k=DELETE_ALL_PAGE_SIZE,
+            )
+            memories = normalize_list_result(listed)
+            if not memories:
+                break
+
+            pending_by_id = {memory.id: memory for memory in memories if memory.id not in deleted_ids}
+            pending = list(pending_by_id.values())
+            results = await asyncio.gather(*(delete_one(memory) for memory in pending))
+            successful_this_page = 0
+            for memory_id, error in results:
+                if error is not None:
+                    logger.warning("Failed to delete memory id=%s: %s", memory_id, error)
+                    continue
+                deleted_ids.add(memory_id)
+                deleted_count += 1
+                successful_this_page += 1
+
+            if successful_this_page:
+                stale_iterations = 0
+            else:
+                stale_iterations += 1
+                if stale_iterations >= DELETE_ALL_MAX_STALE_ITERATIONS:
+                    raise RuntimeError(
+                        "Unable to delete all matching memories because the vector store made no progress."
+                    )
+        else:
+            raise RuntimeError("Unable to delete all matching memories before the safety iteration limit.")
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
-        if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
-            for err in errors:
-                logger.warning("Delete error: %s", err)
+        logger.info("Deleted %d memories", deleted_count)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
-
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
