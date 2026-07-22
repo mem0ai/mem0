@@ -431,8 +431,7 @@ describe("BaiduDB reads", () => {
       ],
     });
 
-    // A non-L2 metric already returns a higher-is-better score, so it passes
-    // through untouched; this keeps the envelope-mapping assertion about shape.
+    // Non-L2 metrics already return a higher-is-better score and pass through untouched.
     const results = await makeStore(client, { metricType: "COSINE" }).search(
       [1, 2, 3],
       5,
@@ -450,10 +449,7 @@ describe("BaiduDB reads", () => {
   });
 
   it("converts an L2 distance into a similarity score (higher = better)", async () => {
-    // On the default L2 metric, Mochow returns raw distances (lower = closer).
-    // search() must convert them to similarity scores (higher = better) to
-    // satisfy the VectorStore contract, otherwise the memory layer ranks and
-    // thresholds them backwards. Mirrors the Python provider (#6435).
+    // Mirrors the Python provider (#6435): 1 / (1 + distance), so closer scores higher.
     const client = fakeClient();
     client.vectorSearch.mockResolvedValue({
       ...OK,
@@ -465,10 +461,20 @@ describe("BaiduDB reads", () => {
 
     const results = await makeStore(client).search([1, 2, 3], 2);
 
-    // 1 / (1 + distance): the closer memory must score higher than the far one.
     expect(results[0].score).toBeCloseTo(1 / 1.5, 10);
     expect(results[1].score).toBeCloseTo(1 / 3.0, 10);
-    expect(results[0].score!).toBeGreaterThan(results[1].score!);
+  });
+
+  it("leaves an unscored L2 row's score undefined instead of treating it as the closest match", async () => {
+    const client = fakeClient();
+    client.vectorSearch.mockResolvedValue({
+      ...OK,
+      rows: [{ row: { id: "unscored", metadata: {} } }],
+    });
+
+    const results = await makeStore(client).search([1, 2, 3], 1);
+
+    expect(results[0].score).toBeUndefined();
   });
 
   it("omits the filter when no filters are supplied", async () => {

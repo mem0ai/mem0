@@ -453,12 +453,13 @@ export class BaiduDB implements VectorStore {
     return (response.rows ?? []).map((result) => ({
       id: String(result.row.id),
       payload: resultPayload(result.row),
-      // Mochow returns the raw L2 distance (lower = closer). Convert it to a
-      // similarity score (higher = better) to satisfy the VectorStore contract,
-      // mirroring the Python provider and the milvus store. Non-L2 metrics
-      // already return a higher-is-better score, so they pass through untouched.
+      // L2 is a distance (lower = closer); the VectorStore contract wants higher = better.
       score:
-        this.metricType === "L2" ? 1 / (1 + (result.score ?? 0)) : result.score,
+        this.metricType === "L2"
+          ? result.score != null
+            ? 1 / (1 + result.score)
+            : undefined
+          : result.score,
     }));
   }
 
