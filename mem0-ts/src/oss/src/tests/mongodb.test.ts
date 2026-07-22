@@ -5,6 +5,7 @@ const mockFindOne = jest.fn();
 const mockUpdateOne = jest.fn();
 const mockListSearchIndexes = jest.fn();
 const mockCreateSearchIndex = jest.fn();
+const mockDropSearchIndex = jest.fn();
 const mockDrop = jest.fn();
 const mockToArray = jest.fn();
 const mockLimit = jest.fn().mockReturnThis();
@@ -26,6 +27,7 @@ const mockCollection = {
   updateOne: mockUpdateOne,
   listSearchIndexes: mockListSearchIndexes,
   createSearchIndex: mockCreateSearchIndex,
+  dropSearchIndex: mockDropSearchIndex,
   drop: mockDrop,
   find: mockFind,
   aggregate: mockAggregate,
@@ -74,6 +76,25 @@ describe("MongoDB Vector Store", () => {
     await store.close();
   });
 
+  const expectedTextSearchIndexDefinition = {
+    name: "test_col_text_search_index",
+    definition: {
+      mappings: {
+        dynamic: false,
+        fields: {
+          payload: {
+            type: "document",
+            fields: {
+              data: { type: "string" },
+              textLemmatized: { type: "string" },
+              text_lemmatized: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+  };
+
   it("should initialize client and check/create collection and indexes", async () => {
     await store.initialize();
 
@@ -84,6 +105,67 @@ describe("MongoDB Vector Store", () => {
     });
     expect(mockCollection.deleteOne).toHaveBeenCalledWith({ _id: 0 });
     expect(mockCreateSearchIndex).toHaveBeenCalledTimes(2);
+    expect(mockCreateSearchIndex).toHaveBeenCalledWith(
+      expectedTextSearchIndexDefinition,
+    );
+  });
+
+  it("should drop and recreate a stale text search index on upgrade", async () => {
+    mockListCollections.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([{ name: "test_col" }]),
+    });
+    mockListSearchIndexes.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([
+        { name: "test_col_vector_index" },
+        {
+          name: "test_col_text_search_index",
+          definition: {
+            mappings: {
+              dynamic: false,
+              fields: {
+                payload: {
+                  type: "document",
+                  fields: {
+                    data: { type: "string" },
+                    text_lemmatized: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      ]),
+    });
+
+    await store.initialize();
+
+    expect(mockDropSearchIndex).toHaveBeenCalledWith(
+      "test_col_text_search_index",
+    );
+    expect(mockCreateSearchIndex).toHaveBeenCalledTimes(1);
+    expect(mockCreateSearchIndex).toHaveBeenCalledWith(
+      expectedTextSearchIndexDefinition,
+    );
+  });
+
+  it("should not recreate a text search index that already has textLemmatized", async () => {
+    mockListCollections.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([{ name: "test_col" }]),
+    });
+    mockListSearchIndexes.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([
+        { name: "test_col_vector_index" },
+        {
+          name: "test_col_text_search_index",
+          latestDefinition: expectedTextSearchIndexDefinition.definition,
+        },
+      ]),
+    });
+
+    await store.initialize();
+
+    expect(mockDropSearchIndex).not.toHaveBeenCalled();
+    expect(mockCreateSearchIndex).not.toHaveBeenCalled();
   });
 
   it("should map payload.textLemmatized in the text search index", async () => {
