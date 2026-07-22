@@ -90,6 +90,14 @@ def _vector_store_list_rows(listed):
     return []
 
 
+# Page size for delete_all pagination. Vector stores typically default list()
+# to ~100 hits; delete_all must loop with an explicit top_k to drain all matches.
+_DELETE_ALL_PAGE_SIZE = 1000
+
+# Safety cap so eventual-consistency lag cannot spin forever.
+_DELETE_ALL_MAX_ITERATIONS = 10_000
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -1885,14 +1893,28 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Paginate: most vector stores cap list() (often ~100). Delete each page
+        # inside the loop so the result set shrinks between list() calls.
+        total_deleted = 0
+        seen_ids: set = set()
+        for _ in range(_DELETE_ALL_MAX_ITERATIONS):
+            listed = self.vector_store.list(filters=filters, top_k=_DELETE_ALL_PAGE_SIZE)
+            batch = _vector_store_list_rows(listed)
+            batch = [m for m in batch if getattr(m, "id", None) not in seen_ids]
+            if not batch:
+                break
+            for memory in batch:
+                try:
+                    self._delete_memory(memory.id)
+                    seen_ids.add(memory.id)
+                    total_deleted += 1
+                except Exception as e:
+                    logger.warning("Failed to delete memory %s: %s", memory.id, e)
+                    seen_ids.add(memory.id)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {total_deleted} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(total_deleted)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3515,26 +3537,41 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        # Paginate like sync: delete each page before asking for the next so
+        # stores without offset/cursor still drain fully.
+        total_deleted = 0
+        total_errors = 0
+        seen_ids: set = set()
+        for _ in range(_DELETE_ALL_MAX_ITERATIONS):
+            listed = await asyncio.to_thread(
+                self.vector_store.list, filters=filters, top_k=_DELETE_ALL_PAGE_SIZE
+            )
+            batch = _vector_store_list_rows(listed)
+            batch = [m for m in batch if getattr(m, "id", None) not in seen_ids]
+            if not batch:
+                break
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            results = await asyncio.gather(
+                *[self._delete_memory(memory.id, skip_entity_cleanup=True) for memory in batch],
+                return_exceptions=True,
+            )
+            for memory, result in zip(batch, results):
+                seen_ids.add(memory.id)
+                if isinstance(result, BaseException):
+                    total_errors += 1
+                    logger.warning("Failed to delete memory %s: %s", memory.id, result)
+                else:
+                    total_deleted += 1
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
-        if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
-            for err in errors:
-                logger.warning("Delete error: %s", err)
+        if total_errors:
+            logger.warning("Failed to delete %d memories during delete_all", total_errors)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info(f"Deleted {total_deleted} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(total_deleted)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
