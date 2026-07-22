@@ -72,7 +72,11 @@ def upstream_error() -> UpstreamError:
     exc = sys.exc_info()[1]
     code, message = _classify(exc)
     rid = request_id_var.get()
-    logging.exception("Upstream provider error (code=%s)", code)
+    logging.error(
+        "Upstream provider error (code=%s, exception_type=%s)",
+        code,
+        type(exc).__name__ if exc is not None else "None",
+    )
     return UpstreamError(code=code, detail=message, request_id=rid)
 
 

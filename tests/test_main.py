@@ -287,8 +287,8 @@ def test_delete_all(memory_instance):
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
-    memory_instance._delete_memory.assert_any_call("1", mock_memories[0])
-    memory_instance._delete_memory.assert_any_call("2", mock_memories[1])
+    memory_instance._delete_memory.assert_any_call("1", mock_memories[0], strict_entity_cleanup=True)
+    memory_instance._delete_memory.assert_any_call("2", mock_memories[1], strict_entity_cleanup=True)
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
@@ -317,6 +317,65 @@ def test_delete_all_fails_after_repeated_zero_progress(memory_instance, monkeypa
 
     with pytest.raises(RuntimeError, match="made no progress"):
         memory_instance.delete_all(run_id="run")
+
+
+def test_delete_all_retries_history_after_vector_was_deleted(memory_instance):
+    memory = Mock(
+        id="mem-1",
+        payload={"data": "one", "user_id": "alice", "created_at": "2026-01-01T00:00:00+00:00"},
+    )
+    memory_instance.vector_store.list = Mock(side_effect=[([memory], None), ([], None)])
+    memory_instance.vector_store.delete = Mock()
+    memory_instance.db = Mock()
+    memory_instance.db.add_history.side_effect = [RuntimeError("history unavailable"), None]
+    memory_instance._entity_store = Mock()
+    memory_instance._entity_store.list.return_value = ([], None)
+
+    result = memory_instance.delete_all(user_id="alice")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    memory_instance.vector_store.delete.assert_called_once_with(vector_id="mem-1")
+    assert memory_instance.db.add_history.call_count == 2
+
+
+def test_delete_all_never_reports_success_when_history_cannot_be_written(memory_instance, monkeypatch):
+    memory = Mock(
+        id="mem-1",
+        payload={"data": "one", "user_id": "alice", "created_at": "2026-01-01T00:00:00+00:00"},
+    )
+    calls = 0
+
+    def list_memories(**kwargs):
+        nonlocal calls
+        calls += 1
+        return ([memory], None) if calls == 1 else ([], None)
+
+    memory_instance.vector_store.list = Mock(side_effect=list_memories)
+    memory_instance.vector_store.delete = Mock()
+    memory_instance.db = Mock()
+    memory_instance.db.add_history.side_effect = RuntimeError("history unavailable")
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_STALE_ITERATIONS", 2)
+
+    with pytest.raises(RuntimeError, match="made no progress"):
+        memory_instance.delete_all(user_id="alice")
+
+    memory_instance.vector_store.delete.assert_called_once_with(vector_id="mem-1")
+
+
+def test_delete_all_stops_at_safety_iteration_limit(memory_instance, monkeypatch):
+    counter = 0
+
+    def endless_pages(**kwargs):
+        nonlocal counter
+        counter += 1
+        return ([Mock(id=f"mem-{counter}")], None)
+
+    memory_instance.vector_store.list = Mock(side_effect=endless_pages)
+    memory_instance._delete_memory = Mock()
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_ITERATIONS", 2)
+
+    with pytest.raises(RuntimeError, match="safety iteration limit"):
+        memory_instance.delete_all(user_id="alice")
 
 
 def test_get_all(memory_instance):

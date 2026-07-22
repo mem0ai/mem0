@@ -21,7 +21,7 @@ from qdrant_client.models import (
     VectorParams,
 )
 
-from mem0.vector_stores.base import VectorStoreBase
+from mem0.vector_stores.base import VectorStoreBase, VectorStoreConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -59,23 +59,33 @@ class Qdrant(VectorStoreBase):
         """
         if client:
             self.client = client
-            self.is_local = False
+            self.is_local = bool(path and not url and not host)
         else:
-            params = {}
-            if api_key:
-                params["api_key"] = api_key
-            if url:
-                params["url"] = url
-            if host and port:
-                params["host"] = host
-                params["port"] = port
-            if https is not None:
-                params["https"] = https
+            has_url = bool(url)
+            has_host = bool(host)
+            has_path = bool(path)
+            if has_url and (has_host or port is not None):
+                raise VectorStoreConfigurationError("Qdrant url and host/port modes cannot be configured together.")
+            if has_path and (has_url or has_host or port is not None):
+                raise VectorStoreConfigurationError(
+                    "Qdrant local path and remote endpoint modes cannot be configured together."
+                )
+            if has_path and (api_key is not None or https is not None):
+                raise VectorStoreConfigurationError("Qdrant local path mode cannot use api_key or https.")
+            if has_host != (port is not None):
+                raise VectorStoreConfigurationError("Qdrant host mode requires both host and port.")
 
-            if not params:
-                params["path"] = path
+            if has_path:
+                params = {"path": path}
                 self.is_local = True
             else:
+                if not has_url and not has_host:
+                    raise VectorStoreConfigurationError("Qdrant requires a url, host and port, or local path.")
+                params = {"url": url} if has_url else {"host": host, "port": port}
+                if api_key is not None:
+                    params["api_key"] = api_key
+                if https is not None:
+                    params["https"] = https
                 self.is_local = False
 
             self.client = QdrantClient(**params)
@@ -134,48 +144,63 @@ class Qdrant(VectorStoreBase):
             on_disk (bool): Enables persistent storage.
             distance (Distance, optional): Distance metric for vector similarity. Defaults to Distance.COSINE.
         """
-        # Skip creating collection if already exists
         response = self.list_cols()
         for collection in response.collections:
             if collection.name == self.collection_name:
                 logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 info = self.client.get_collection(self.collection_name)
-                self._validate_existing_collection(info, vector_size, distance)
-                sparse_cfg = info.config.params.sparse_vectors
-                self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
-                if not self._has_bm25_slot:
-                    logger.warning(
-                        f"Collection '{self.collection_name}' predates v3 hybrid search (no 'bm25' sparse slot). "
-                        "BM25 keyword scoring will be disabled for this collection; semantic search works normally. "
-                        "To enable hybrid search, use a fresh collection."
-                    )
-                self._create_filter_indexes()
+                self._prepare_existing_collection(info, vector_size, distance)
                 return
 
-        self.client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
-            sparse_vectors_config={
-                "bm25": SparseVectorParams(
-                    modifier=models.Modifier.IDF,
-                ),
-            },
-        )
+        try:
+            created = self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+                sparse_vectors_config={
+                    "bm25": SparseVectorParams(
+                        modifier=models.Modifier.IDF,
+                    ),
+                },
+            )
+        except Exception as exc:
+            if getattr(exc, "status_code", None) != 409:
+                raise
+            info = self.client.get_collection(self.collection_name)
+            self._prepare_existing_collection(info, vector_size, distance)
+            return
+
+        if created is False:
+            info = self.client.get_collection(self.collection_name)
+            self._prepare_existing_collection(info, vector_size, distance)
+            return
+
         self._has_bm25_slot = True
         self._create_filter_indexes()
+
+    def _prepare_existing_collection(self, info, vector_size: int, distance: Distance) -> None:
+        self._validate_existing_collection(info, vector_size, distance)
+        sparse_cfg = info.config.params.sparse_vectors
+        self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
+        if not self._has_bm25_slot:
+            logger.warning(
+                f"Collection '{self.collection_name}' predates v3 hybrid search (no 'bm25' sparse slot). "
+                "BM25 keyword scoring will be disabled for this collection; semantic search works normally. "
+                "To enable hybrid search, use a fresh collection."
+            )
+        self._create_filter_indexes(info)
 
     def _validate_existing_collection(self, info, expected_size: int, expected_distance: Distance) -> None:
         """Fail non-destructively when an existing collection is incompatible with this adapter."""
         vectors_config = info.config.params.vectors
         if isinstance(vectors_config, dict):
             vector_names = ", ".join(sorted(vectors_config)) or "none"
-            raise ValueError(
+            raise VectorStoreConfigurationError(
                 f"Qdrant collection '{self.collection_name}' uses named dense vectors ({vector_names}), but Mem0 "
                 "requires one unnamed dense vector. Select a compatible collection or perform an operator-managed "
                 "migration."
             )
         if not isinstance(vectors_config, VectorParams):
-            raise ValueError(
+            raise VectorStoreConfigurationError(
                 f"Qdrant collection '{self.collection_name}' has an unsupported dense vector configuration. "
                 "Select a compatible collection or perform an operator-managed migration."
             )
@@ -186,14 +211,14 @@ class Qdrant(VectorStoreBase):
         actual_distance_value = getattr(actual_distance, "value", actual_distance)
 
         if actual_size != expected_size or actual_distance_value != expected_distance_value:
-            raise ValueError(
+            raise VectorStoreConfigurationError(
                 f"Qdrant collection '{self.collection_name}' is incompatible: expected dimension {expected_size} "
                 f"and distance {expected_distance_value}, found dimension {actual_size} and distance "
                 f"{actual_distance_value}. Select the matching embedding model or collection, or perform an "
                 "operator-managed migration."
             )
 
-    def _create_filter_indexes(self):
+    def _create_filter_indexes(self, collection_info=None):
         """Create indexes for commonly used filter fields to enable filtering."""
         # Only create payload indexes for remote Qdrant servers
         if self.is_local:
@@ -201,17 +226,52 @@ class Qdrant(VectorStoreBase):
             return
 
         common_fields = ["user_id", "agent_id", "run_id", "actor_id"]
+        payload_schema = getattr(collection_info, "payload_schema", None)
+        payload_schema = payload_schema if isinstance(payload_schema, dict) else {}
 
         for field in common_fields:
+            existing_schema = payload_schema.get(field)
+            if existing_schema is not None:
+                data_type = getattr(existing_schema, "data_type", existing_schema)
+                data_type = getattr(data_type, "value", data_type)
+                if str(data_type).lower() != "keyword":
+                    raise VectorStoreConfigurationError(
+                        f"Qdrant collection '{self.collection_name}' payload field '{field}' must use a keyword "
+                        "index. Select a compatible collection or perform an operator-managed migration."
+                    )
+                continue
             try:
                 self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name=field,
-                    field_schema="keyword"
+                    field_schema="keyword",
                 )
                 logger.info(f"Created index for {field} in collection {self.collection_name}")
-            except Exception as e:
-                logger.debug(f"Index for {field} might already exist: {e}")
+            except Exception as exc:
+                try:
+                    refreshed_schema = getattr(
+                        self.client.get_collection(self.collection_name),
+                        "payload_schema",
+                        {},
+                    )
+                    refreshed_schema = refreshed_schema if isinstance(refreshed_schema, dict) else {}
+                    refreshed = refreshed_schema.get(field)
+                    refreshed_type = getattr(refreshed, "data_type", refreshed)
+                    refreshed_type = getattr(refreshed_type, "value", refreshed_type)
+                    if refreshed is not None and str(refreshed_type).lower() == "keyword":
+                        continue
+                except Exception:
+                    pass
+                logger.error(
+                    "Failed to ensure Qdrant payload index for field '%s' in collection '%s' (%s)",
+                    field,
+                    self.collection_name,
+                    type(exc).__name__,
+                )
+                raise RuntimeError(
+                    f"Failed to ensure required Qdrant payload index for field '{field}' in collection "
+                    f"'{self.collection_name}'."
+                ) from exc
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """
@@ -600,13 +660,14 @@ class Qdrant(VectorStoreBase):
         """
         return self.client.get_collection(collection_name=self.collection_name)
 
-    def list(self, filters: dict = None, top_k: int = 100) -> list:
+    def list(self, filters: dict = None, top_k: int = 100, offset=None) -> list:
         """
         List all vectors in a collection.
 
         Args:
             filters (dict, optional): Filters to apply to the list. Defaults to None.
             top_k (int, optional): Number of vectors to return. Defaults to 100.
+            offset: Qdrant scroll offset returned by a previous call. Defaults to None.
 
         Returns:
             list: List of vectors.
@@ -616,6 +677,7 @@ class Qdrant(VectorStoreBase):
             collection_name=self.collection_name,
             scroll_filter=query_filter,
             limit=top_k,
+            offset=offset,
             with_payload=True,
             with_vectors=False,
         )

@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
@@ -675,10 +676,85 @@ async def test_async_update_propagates_vector_store_failure(mock_sqlite, mock_ll
     mock_vector_store.update.assert_not_called()
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@pytest.mark.parametrize("memory_class_name", ["Memory", "AsyncMemory"])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_qdrant_dimension_follows_resolved_embedder_when_omitted(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    memory_class_name,
+):
+    embedder = MagicMock()
+    embedder.config.embedding_dims = 768
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+    config = MemoryConfig(vector_store={"provider": "qdrant", "config": {"path": "/tmp/qdrant"}})
+
+    from mem0.memory.main import AsyncMemory, Memory as MemoryClass
+
+    memory_class = MemoryClass if memory_class_name == "Memory" else AsyncMemory
+    memory_class(config)
+
+    vector_config = mock_vector_factory.call_args.args[1]
+    assert vector_config.embedding_model_dims == 768
+
+
+@pytest.mark.parametrize("memory_class_name", ["Memory", "AsyncMemory"])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+def test_explicit_qdrant_dimension_mismatch_fails_before_vector_connection(
+    mock_vector_factory,
+    mock_embedder_factory,
+    memory_class_name,
+):
+    embedder = MagicMock()
+    embedder.config.embedding_dims = 768
+    mock_embedder_factory.return_value = embedder
+    config = MemoryConfig(
+        vector_store={
+            "provider": "qdrant",
+            "config": {"path": "/tmp/qdrant", "embedding_model_dims": 1024},
+        }
+    )
+
+    from mem0.memory.main import AsyncMemory, Memory as MemoryClass
+
+    memory_class = MemoryClass if memory_class_name == "Memory" else AsyncMemory
+    with pytest.raises(ValueError, match="expects 1024, embedder produces 768"):
+        memory_class(config)
+
+    mock_vector_factory.assert_not_called()
+
+
+@pytest.mark.parametrize("memory_class_name", ["Memory", "AsyncMemory"])
+def test_from_config_validation_log_does_not_expose_qdrant_secret(memory_class_name, caplog):
+    from mem0.memory.main import AsyncMemory, Memory as MemoryClass
+
+    memory_class = MemoryClass if memory_class_name == "Memory" else AsyncMemory
+    secret = "S3CR3T-log-sentinel"
+    with pytest.raises(PydanticValidationError):
+        memory_class.from_config(
+            {
+                "vector_store": {
+                    "provider": "qdrant",
+                    "config": {"url": "https://qdrant", "api_key": secret, "unsupported": True},
+                }
+            }
+        )
+
+    assert secret not in caplog.text
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Regression test for issue #3723: adding with infer=False should not trigger duplicate embedding calls.
@@ -965,7 +1041,9 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     """
     mock_embedder_factory.return_value = MagicMock()
     mock_vector_store = MagicMock()
-    mock_vector_factory.return_value = mock_vector_store
+    mock_entity_store = MagicMock()
+    mock_entity_store.list.return_value = ([], None)
+    mock_vector_factory.side_effect = [mock_vector_store, mock_entity_store]
     mock_llm_factory.return_value = MagicMock()
     mock_sqlite.return_value = MagicMock()
 
@@ -999,10 +1077,88 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     assert mock_vector_store.delete.call_count == 4
 
 
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
+@pytest.mark.asyncio
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_delete_all_retries_history_without_redeleting_vector(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+):
+    mock_embedder_factory.return_value = MagicMock()
+    vector_store = MagicMock()
+    entity_store = MagicMock()
+    entity_store.list.return_value = ([], None)
+    mock_vector_factory.side_effect = [vector_store, entity_store]
+    mock_llm_factory.return_value = MagicMock()
+    history_db = MagicMock()
+    history_db.add_history.side_effect = [RuntimeError("history unavailable"), None]
+    mock_sqlite.return_value = history_db
+    memory_row = MagicMock(
+        id="mem-1",
+        payload={"data": "one", "user_id": "alice", "created_at": "2026-01-01T00:00:00+00:00"},
+    )
+    vector_store.list.side_effect = [([memory_row], None), ([], None)]
+
+    from mem0.memory.main import AsyncMemory
+
+    memory = AsyncMemory(MemoryConfig())
+    result = await memory.delete_all(user_id="alice")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    vector_store.delete.assert_called_once_with(vector_id="mem-1")
+    assert history_db.add_history.call_count == 2
+
+
+@pytest.mark.asyncio
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_delete_all_never_reports_success_after_permanent_history_failure(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    monkeypatch,
+):
+    mock_embedder_factory.return_value = MagicMock()
+    vector_store = MagicMock()
+    mock_vector_factory.return_value = vector_store
+    mock_llm_factory.return_value = MagicMock()
+    history_db = MagicMock()
+    history_db.add_history.side_effect = RuntimeError("history unavailable")
+    mock_sqlite.return_value = history_db
+    memory_row = MagicMock(
+        id="mem-1",
+        payload={"data": "one", "user_id": "alice", "created_at": "2026-01-01T00:00:00+00:00"},
+    )
+    calls = 0
+
+    def list_memories(**kwargs):
+        nonlocal calls
+        calls += 1
+        return ([memory_row], None) if calls == 1 else ([], None)
+
+    vector_store.list.side_effect = list_memories
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_STALE_ITERATIONS", 2)
+
+    from mem0.memory.main import AsyncMemory
+
+    memory = AsyncMemory(MemoryConfig())
+    with pytest.raises(RuntimeError, match="made no progress"):
+        await memory.delete_all(user_id="alice")
+
+    vector_store.delete.assert_called_once_with(vector_id="mem-1")
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
 class TestProcessMetadataFiltersMerge:
     """Regression tests for issue #3952: multiple operators on the same key must be merged."""
 
@@ -1473,8 +1629,6 @@ class TestAsyncDeleteAllEntityRace:
         mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
         mock_vector_store.list.side_effect = [([mem_a, mem_b],), ([],)]
         mock_vector_store.get.side_effect = lambda vector_id: {"mem-a": mem_a, "mem-b": mem_b}[vector_id]
-        mock_vector_factory.return_value = mock_vector_store
-
         mock_entity_store = MagicMock()
         entity_row = MagicMock()
         entity_row.id = "entity-alice"
@@ -1483,18 +1637,62 @@ class TestAsyncDeleteAllEntityRace:
             "user_id": "alice",
             "linked_memory_ids": ["mem-a", "mem-b"],
         }
-        mock_entity_store.list.return_value = ([entity_row],)
+        mock_entity_store.list.side_effect = [([entity_row],), ([], None)]
+        mock_vector_factory.side_effect = [mock_vector_store, mock_entity_store]
 
         from mem0.memory.main import AsyncMemory
         config = MemoryConfig()
         memory = AsyncMemory(config)
-        memory._entity_store = mock_entity_store
 
         await memory.delete_all(user_id="alice")
 
+        assert mock_vector_factory.call_count == 2
         mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
 
         assert mock_vector_store.delete.call_count == 2
+
+    @pytest.mark.asyncio
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    async def test_async_entity_cleanup_drains_multiple_pages_after_restart(
+        self,
+        mock_sqlite,
+        mock_llm_factory,
+        mock_vector_factory,
+        mock_embedder_factory,
+        monkeypatch,
+    ):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+        memory_store = MagicMock()
+        memory_store.list.return_value = ([], None)
+        entity_store = MagicMock()
+        remaining = {
+            f"entity-{index}": MagicMock(id=f"entity-{index}", payload={"user_id": "alice"})
+            for index in range(5)
+        }
+
+        def list_entities(**kwargs):
+            return (list(remaining.values())[:2], None)
+
+        def delete_entity(vector_id):
+            remaining.pop(vector_id)
+
+        entity_store.list.side_effect = list_entities
+        entity_store.delete.side_effect = delete_entity
+        mock_vector_factory.side_effect = [memory_store, entity_store]
+        monkeypatch.setattr("mem0.memory.main.ENTITY_CLEANUP_PAGE_SIZE", 2)
+
+        from mem0.memory.main import AsyncMemory
+
+        memory = AsyncMemory(MemoryConfig())
+        await memory.delete_all(user_id="alice")
+
+        assert not remaining
+        assert entity_store.delete.call_count == 5
 
 
 @pytest.mark.asyncio

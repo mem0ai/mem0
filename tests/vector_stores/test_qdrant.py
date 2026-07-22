@@ -169,6 +169,60 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.create_collection.assert_not_called()
         self.client_mock.delete_collection.assert_not_called()
 
+    def test_concurrent_collection_creation_revalidates_winner(self):
+        class ConflictError(RuntimeError):
+            status_code = 409
+
+        self.client_mock.get_collections.return_value = MagicMock(collections=[])
+        self.client_mock.create_collection.reset_mock()
+        self.client_mock.create_collection.side_effect = ConflictError("already exists")
+        info = MagicMock()
+        info.config.params.vectors = VectorParams(size=128, distance=Distance.COSINE)
+        info.config.params.sparse_vectors = {"bm25": SparseVectorParams(modifier=models.Modifier.IDF)}
+        self.client_mock.get_collection.return_value = info
+
+        self.qdrant.create_col(vector_size=128, on_disk=True)
+
+        self.client_mock.get_collection.assert_called_with("test_collection")
+        self.client_mock.delete_collection.assert_not_called()
+
+    def test_existing_keyword_payload_indexes_are_reused(self):
+        self.qdrant.is_local = False
+        info = MagicMock()
+        info.payload_schema = {
+            "user_id": "keyword",
+            "agent_id": "keyword",
+            "run_id": "keyword",
+            "actor_id": "keyword",
+        }
+        self.client_mock.create_payload_index.reset_mock()
+
+        self.qdrant._create_filter_indexes(info)
+
+        self.client_mock.create_payload_index.assert_not_called()
+
+    def test_incompatible_payload_index_fails_non_destructively(self):
+        self.qdrant.is_local = False
+        info = MagicMock()
+        info.payload_schema = {"user_id": "integer"}
+
+        with self.assertRaisesRegex(ValueError, "user_id.*keyword"):
+            self.qdrant._create_filter_indexes(info)
+
+        self.client_mock.delete_collection.assert_not_called()
+
+    def test_payload_index_creation_failure_is_not_hidden(self):
+        self.qdrant.is_local = False
+        info = MagicMock()
+        info.payload_schema = {}
+        self.client_mock.create_payload_index.side_effect = RuntimeError("permission denied")
+        refreshed = MagicMock()
+        refreshed.payload_schema = {}
+        self.client_mock.get_collection.return_value = refreshed
+
+        with self.assertRaisesRegex(RuntimeError, "required Qdrant payload index"):
+            self.qdrant._create_filter_indexes(info)
+
     def test_insert(self):
         vectors = [[0.1, 0.2], [0.3, 0.4]]
         payloads = [{"key": "value1"}, {"key": "value2"}]

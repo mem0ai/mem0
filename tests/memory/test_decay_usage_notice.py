@@ -18,7 +18,8 @@ def make_async_memory():
     memory = AsyncMemory.__new__(AsyncMemory)
     memory.vector_store = MagicMock()
     memory._delete_memory = AsyncMock()
-    memory._entity_store = None
+    memory._entity_store = MagicMock()
+    memory._entity_store.list.return_value = ([], None)
     return memory
 
 

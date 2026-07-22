@@ -1,7 +1,9 @@
 import json
 import logging
 from copy import deepcopy
-from typing import Mapping
+from typing import Mapping, Type
+
+from pydantic import ValidationError
 
 
 def _collection_name(environ: Mapping[str, str]) -> str:
@@ -19,7 +21,7 @@ def _parse_json_object(raw_config: str) -> dict:
     return parsed
 
 
-def _validate_qdrant_config(config: dict) -> None:
+def _validate_qdrant_config(config: dict, error_type: Type[Exception] = RuntimeError) -> None:
     url = config.get("url")
     host = config.get("host")
     port = config.get("port")
@@ -35,17 +37,45 @@ def _validate_qdrant_config(config: dict) -> None:
             port = int(port)
             config["port"] = port
         if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
-            raise RuntimeError("Qdrant host configuration requires a port between 1 and 65535.")
+            raise error_type("Qdrant host configuration requires a port between 1 and 65535.")
     elif port is not None:
-        raise RuntimeError("Qdrant port requires a non-empty host.")
+        raise error_type("Qdrant port requires a non-empty host.")
 
     if not has_remote and not has_path:
-        raise RuntimeError("Qdrant requires a non-empty url, host and port, or an explicit local path.")
+        raise error_type("Qdrant requires a non-empty url, host and port, or an explicit local path.")
+    if has_url and has_host:
+        raise error_type("Qdrant url and host/port modes cannot be configured together.")
     if has_remote and has_path:
-        raise RuntimeError("Qdrant remote endpoint and local path modes cannot be configured together.")
+        raise error_type("Qdrant remote endpoint and local path modes cannot be configured together.")
 
     if has_path:
+        remote_only = [key for key in ("api_key", "https") if config.get(key) is not None]
+        if remote_only:
+            raise error_type(
+                "Qdrant local path mode cannot use remote-only option(s): " + ", ".join(sorted(remote_only)) + "."
+            )
         logging.warning("Qdrant explicit local path mode is enabled; use a remote Qdrant server in production.")
+
+
+def validate_server_config(config: dict) -> None:
+    """Validate server-only invariants after startup/runtime configuration merges."""
+    vector_store = config.get("vector_store")
+    if not isinstance(vector_store, dict) or vector_store.get("provider") != "qdrant":
+        return
+
+    qdrant_config = vector_store.get("config")
+    if not isinstance(qdrant_config, dict):
+        raise ValueError("Qdrant vector-store configuration must be a JSON object.")
+    _validate_qdrant_config(qdrant_config, error_type=ValueError)
+
+
+def sanitized_validation_error_message(exc: ValidationError) -> str:
+    """Render Pydantic errors without their input values, which may contain credentials."""
+    issues = []
+    for error in exc.errors(include_url=False, include_context=False, include_input=False):
+        location = ".".join(str(part) for part in error.get("loc", ())) or "configuration"
+        issues.append(f"{location}: {error.get('msg', 'Invalid value')}")
+    return "Invalid configuration" + (f": {'; '.join(issues)}" if issues else ".")
 
 
 def build_vector_store_config(environ: Mapping[str, str]) -> tuple[dict, set[str]]:

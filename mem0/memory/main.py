@@ -72,7 +72,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
-from mem0.vector_stores.base import VectorStoreBase
+from mem0.vector_stores.base import VectorStoreBase, VectorStoreConfigurationError
 from mem0.vector_stores.utils import normalize_list_result
 
 # Suppress SWIG deprecation warnings globally
@@ -134,6 +134,19 @@ DELETE_ALL_PAGE_SIZE = 1_000
 DELETE_ALL_MAX_ITERATIONS = 10_000
 DELETE_ALL_MAX_STALE_ITERATIONS = 3
 DELETE_ALL_ASYNC_CONCURRENCY = 20
+ENTITY_CLEANUP_PAGE_SIZE = 1_000
+
+
+class _DeleteHistoryError(RuntimeError):
+    def __init__(self, memory):
+        super().__init__("Memory vector was deleted, but its history entry could not be persisted.")
+        self.memory = memory
+
+
+class _DeleteEntityError(RuntimeError):
+    def __init__(self, memory):
+        super().__init__("Memory vector and history were deleted, but entity cleanup did not complete.")
+        self.memory = memory
 
 
 def _strip_identity_keys(metadata: Dict[str, Any], existing_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -431,6 +444,30 @@ _UNSET = object()
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
 
 
+def _resolve_qdrant_embedding_dimension(config: MemoryConfig, embedding_model) -> None:
+    """Make Qdrant's declared dimension match the resolved embedder before connecting."""
+    if config.vector_store.provider != "qdrant":
+        return
+
+    vector_config = config.vector_store.config
+    embedder_config = getattr(embedding_model, "config", None)
+    actual_dimension = getattr(embedder_config, "embedding_dims", None)
+    if not isinstance(actual_dimension, int) or isinstance(actual_dimension, bool) or actual_dimension <= 0:
+        return
+
+    configured_dimension = getattr(vector_config, "embedding_model_dims", None)
+    fields_set = getattr(vector_config, "model_fields_set", set())
+    dimension_was_explicit = "embedding_model_dims" in fields_set and configured_dimension is not None
+    if dimension_was_explicit and configured_dimension != actual_dimension:
+        raise VectorStoreConfigurationError(
+            "Qdrant embedding dimension does not match the resolved embedder: "
+            f"vector store expects {configured_dimension}, embedder produces {actual_dimension}. "
+            "Select a matching embedding model/dimension or collection."
+        )
+
+    vector_config.embedding_model_dims = actual_dimension
+
+
 class _OSSProject:
     def update(
         self,
@@ -466,6 +503,7 @@ class Memory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+        _resolve_qdrant_embedding_dimension(self.config, self.embedding_model)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -622,7 +660,7 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
 
-    def _remove_memory_from_entity_store(self, memory_id, filters):
+    def _remove_memory_from_entity_store(self, memory_id, filters, strict=False):
         """Strip `memory_id` from every entity record scoped to `filters`.
 
         For each entity whose `linked_memory_ids` contains `memory_id`:
@@ -630,52 +668,69 @@ class Memory(MemoryBase):
           - otherwise re-embed the entity text and update the payload
             (the vector store's update() requires a vector).
 
-        No-op if the entity store has never been initialized in this process.
-        Errors on individual entities are swallowed at debug level; outer
-        failures are swallowed at warning level so the primary delete/update
-        path is never broken by entity cleanup.
+        The entity store is initialized lazily even in a fresh process. When
+        ``strict`` is true, any incomplete cleanup is surfaced to delete_all.
         """
-        if self._entity_store is None:
-            return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        failed = 0
         try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    payload = getattr(row, "payload", None) or {}
-                    linked = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked, list) or memory_id not in linked:
-                        continue
-                    remaining = [mid for mid in linked if mid != memory_id]
-                    if not remaining:
-                        try:
-                            self.entity_store.delete(vector_id=row.id)
-                        except Exception as e:
-                            logger.debug(f"Entity delete failed for id={row.id}: {e}")
-                    else:
+            store = self.entity_store
+            offset = None
+            seen_ids = set()
+            requested = ENTITY_CLEANUP_PAGE_SIZE
+            for _ in range(DELETE_ALL_MAX_ITERATIONS):
+                if self.config.vector_store.provider == "qdrant":
+                    listed = store.list(filters=search_filters, top_k=ENTITY_CLEANUP_PAGE_SIZE, offset=offset)
+                else:
+                    listed = store.list(filters=search_filters, top_k=requested)
+                rows = normalize_list_result(listed)
+                new_rows = [row for row in rows if getattr(row, "id", None) not in seen_ids]
+                if not new_rows:
+                    break
+
+                for row in new_rows:
+                    seen_ids.add(getattr(row, "id", None))
+                    try:
+                        payload = getattr(row, "payload", None) or {}
+                        linked = payload.get("linked_memory_ids", [])
+                        if not isinstance(linked, list) or memory_id not in linked:
+                            continue
+                        remaining = [mid for mid in linked if mid != memory_id]
+                        if not remaining:
+                            store.delete(vector_id=row.id)
+                            continue
+
                         entity_text = payload.get("data")
                         if not isinstance(entity_text, str) or not entity_text:
-                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup")
+                            failed += 1
                             continue
-                        try:
-                            vec = self.embedding_model.embed(entity_text, "update")
-                        except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
-                            continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
-                        try:
-                            self.entity_store.update(
-                                vector_id=row.id,
-                                vector=vec,
-                                payload=new_payload,
-                            )
-                        except Exception as e:
-                            logger.debug(f"Entity update failed for id={row.id}: {e}")
-                except Exception as e:
-                    logger.debug(f"Entity cleanup error: {e}")
-        except Exception as e:
-            logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
+                        vector = self.embedding_model.embed(entity_text, "update")
+                        store.update(
+                            vector_id=row.id,
+                            vector=vector,
+                            payload={**payload, "linked_memory_ids": remaining},
+                        )
+                    except Exception as exc:
+                        failed += 1
+                        logger.debug("Entity cleanup operation failed (%s)", type(exc).__name__)
+
+                if self.config.vector_store.provider == "qdrant":
+                    offset = listed[1] if isinstance(listed, tuple) and len(listed) == 2 else None
+                    if offset is None:
+                        break
+                else:
+                    if len(rows) < requested:
+                        break
+                    requested += ENTITY_CLEANUP_PAGE_SIZE
+            else:
+                failed += 1
+        except Exception as exc:
+            failed += 1
+            logger.warning("Entity store cleanup failed (%s)", type(exc).__name__)
+
+        if failed and strict:
+            raise RuntimeError(f"Entity cleanup did not complete ({failed} failed operation(s)).")
+        return failed == 0
 
     def _link_entities_for_memory(self, memory_id, text, filters):
         """Extract entities from `text` and link them to `memory_id` in the
@@ -704,8 +759,8 @@ class Memory(MemoryBase):
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
             config = MemoryConfig(**config_dict)
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
+        except ValidationError:
+            logger.error("Configuration validation failed")
             raise
         return cls(config)
 
@@ -1872,39 +1927,90 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
         deleted_ids = set()
+        known_ids = set()
+        pending_history = {}
+        pending_entities = {}
         deleted_count = 0
         stale_iterations = 0
 
         for _ in range(DELETE_ALL_MAX_ITERATIONS):
-            memories = normalize_list_result(
-                self.vector_store.list(filters=filters, top_k=DELETE_ALL_PAGE_SIZE)
-            )
-            if not memories:
+            progress = 0
+            failed_this_iteration = 0
+
+            for memory_id, memory in list(pending_history.items()):
+                try:
+                    self._record_delete_history(memory_id, memory)
+                except Exception:
+                    failed_this_iteration += 1
+                    continue
+                pending_history.pop(memory_id)
+                progress += 1
+                payload = memory.payload or {}
+                entity_filters = {key: payload[key] for key in ("user_id", "agent_id", "run_id") if payload.get(key)}
+                try:
+                    self._remove_memory_from_entity_store(memory_id, entity_filters, strict=True)
+                except Exception:
+                    pending_entities[memory_id] = memory
+                else:
+                    deleted_ids.add(memory_id)
+                    deleted_count += 1
+
+            for memory_id, memory in list(pending_entities.items()):
+                payload = memory.payload or {}
+                entity_filters = {key: payload[key] for key in ("user_id", "agent_id", "run_id") if payload.get(key)}
+                try:
+                    self._remove_memory_from_entity_store(memory_id, entity_filters, strict=True)
+                except Exception:
+                    failed_this_iteration += 1
+                    continue
+                pending_entities.pop(memory_id)
+                deleted_ids.add(memory_id)
+                deleted_count += 1
+                progress += 1
+
+            memories = normalize_list_result(self.vector_store.list(filters=filters, top_k=DELETE_ALL_PAGE_SIZE))
+            if not memories and not pending_history and not pending_entities:
                 break
 
-            pending_by_id = {memory.id: memory for memory in memories if memory.id not in deleted_ids}
+            known_ids.update(memory.id for memory in memories)
+            pending_by_id = {
+                memory.id: memory
+                for memory in memories
+                if memory.id not in deleted_ids
+                and memory.id not in pending_history
+                and memory.id not in pending_entities
+            }
             pending = list(pending_by_id.values())
-            successful_this_page = 0
             for memory in pending:
                 try:
-                    self._delete_memory(memory.id, memory)
-                except Exception as exc:
-                    logger.warning("Failed to delete memory id=%s: %s", memory.id, exc)
+                    self._delete_memory(memory.id, memory, strict_entity_cleanup=True)
+                except _DeleteHistoryError as exc:
+                    pending_history[memory.id] = exc.memory
+                    progress += 1
+                except _DeleteEntityError as exc:
+                    pending_entities[memory.id] = exc.memory
+                    progress += 1
+                except Exception:
+                    failed_this_iteration += 1
                 else:
                     deleted_ids.add(memory.id)
                     deleted_count += 1
-                    successful_this_page += 1
+                    progress += 1
 
-            if successful_this_page:
+            logger.info(
+                "Delete-all progress: requested=%d deleted=%d pending=%d failed=%d",
+                len(known_ids),
+                deleted_count,
+                len(pending_history) + len(pending_entities),
+                failed_this_iteration,
+            )
+            if progress:
                 stale_iterations = 0
             else:
                 stale_iterations += 1
                 if stale_iterations >= DELETE_ALL_MAX_STALE_ITERATIONS:
-                    raise RuntimeError(
-                        "Unable to delete all matching memories because the vector store made no progress."
-                    )
+                    raise RuntimeError("Unable to delete all matching memories because deletion made no progress.")
         else:
             raise RuntimeError("Unable to delete all matching memories before the safety iteration limit.")
 
@@ -2065,33 +2171,40 @@ class Memory(MemoryBase):
 
         return memory_id
 
-    def _delete_memory(self, memory_id, existing_memory=None):
+    def _record_delete_history(self, memory_id, existing_memory):
+        payload = existing_memory.payload or {}
+        self.db.add_history(
+            memory_id,
+            payload.get("data", ""),
+            None,
+            "DELETE",
+            created_at=_normalize_iso_timestamp_to_utc(payload.get("created_at")),
+            updated_at=datetime.now(timezone.utc).isoformat(),
+            actor_id=payload.get("actor_id"),
+            role=payload.get("role"),
+            is_deleted=1,
+        )
+
+    def _delete_memory(self, memory_id, existing_memory=None, strict_entity_cleanup=False):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = self.vector_store.get(vector_id=memory_id)
             if existing_memory is None:
                 raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-        prev_value = existing_memory.payload.get("data", "")
-        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
-        updated_at = datetime.now(timezone.utc).isoformat()
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
         self.vector_store.delete(vector_id=memory_id)
-        self.db.add_history(
-            memory_id,
-            prev_value,
-            None,
-            "DELETE",
-            created_at=created_at,
-            updated_at=updated_at,
-            actor_id=existing_memory.payload.get("actor_id"),
-            role=existing_memory.payload.get("role"),
-            is_deleted=1,
-        )
+        try:
+            self._record_delete_history(memory_id, existing_memory)
+        except Exception:
+            raise _DeleteHistoryError(existing_memory) from None
 
         # Entity-store cleanup: strip this memory's id from any entity records
         # that linked to it. Non-fatal — the helper swallows errors.
-        self._remove_memory_from_entity_store(memory_id, session_filters)
+        try:
+            self._remove_memory_from_entity_store(memory_id, session_filters, strict=strict_entity_cleanup)
+        except Exception:
+            raise _DeleteEntityError(existing_memory) from None
 
         return memory_id
 
@@ -2146,6 +2259,7 @@ class AsyncMemory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+        _resolve_qdrant_embedding_dimension(self.config, self.embedding_model)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -2291,64 +2405,120 @@ class AsyncMemory(MemoryBase):
         concurrent _delete_memory coroutines each try to read-modify-write
         the same entity rows' linked_memory_ids lists.
         """
-        if self._entity_store is None:
-            return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
-                except Exception as e:
-                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
-        except Exception as e:
-            logger.warning(f"Bulk entity store cleanup failed: {e}")
+        store = self.entity_store
+        semaphore = asyncio.Semaphore(DELETE_ALL_ASYNC_CONCURRENCY)
+        previous_page_ids = None
+        repeated_pages = 0
 
-    async def _remove_memory_from_entity_store(self, memory_id, filters):
-        """Async variant of `Memory._remove_memory_from_entity_store`."""
-        if self._entity_store is None:
-            return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
+        async def delete_entity(row):
+            async with semaphore:
                 try:
-                    payload = getattr(row, "payload", None) or {}
-                    linked = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked, list) or memory_id not in linked:
-                        continue
-                    remaining = [mid for mid in linked if mid != memory_id]
-                    if not remaining:
-                        try:
-                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
-                        except Exception as e:
-                            logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
-                    else:
+                    await asyncio.to_thread(store.delete, vector_id=row.id)
+                except Exception:
+                    return False
+                return True
+
+        for _ in range(DELETE_ALL_MAX_ITERATIONS):
+            try:
+                listed = await asyncio.to_thread(
+                    store.list,
+                    filters=search_filters,
+                    top_k=ENTITY_CLEANUP_PAGE_SIZE,
+                )
+            except Exception as exc:
+                logger.warning("Bulk entity-store listing failed (%s)", type(exc).__name__)
+                raise RuntimeError("Bulk entity-store cleanup could not list matching entities.") from None
+
+            rows = normalize_list_result(listed)
+            if not rows:
+                return
+            page_ids = tuple(sorted(str(row.id) for row in rows))
+            if page_ids == previous_page_ids:
+                repeated_pages += 1
+                if repeated_pages >= DELETE_ALL_MAX_STALE_ITERATIONS:
+                    raise RuntimeError("Bulk entity-store cleanup repeatedly returned the same records.")
+            else:
+                previous_page_ids = page_ids
+                repeated_pages = 0
+            results = await asyncio.gather(*(delete_entity(row) for row in rows))
+            deleted = sum(results)
+            if deleted == 0:
+                raise RuntimeError("Bulk entity-store cleanup made no forward progress.")
+            logger.info(
+                "Bulk entity cleanup: requested=%d deleted=%d failed=%d", len(rows), deleted, len(rows) - deleted
+            )
+
+        raise RuntimeError("Bulk entity-store cleanup exceeded the safety iteration limit.")
+
+    async def _remove_memory_from_entity_store(self, memory_id, filters, strict=False):
+        """Async variant of `Memory._remove_memory_from_entity_store`."""
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        failed = 0
+        try:
+            store = self.entity_store
+            offset = None
+            seen_ids = set()
+            requested = ENTITY_CLEANUP_PAGE_SIZE
+            for _ in range(DELETE_ALL_MAX_ITERATIONS):
+                if self.config.vector_store.provider == "qdrant":
+                    listed = await asyncio.to_thread(
+                        store.list,
+                        filters=search_filters,
+                        top_k=ENTITY_CLEANUP_PAGE_SIZE,
+                        offset=offset,
+                    )
+                else:
+                    listed = await asyncio.to_thread(store.list, filters=search_filters, top_k=requested)
+                rows = normalize_list_result(listed)
+                new_rows = [row for row in rows if getattr(row, "id", None) not in seen_ids]
+                if not new_rows:
+                    break
+
+                for row in new_rows:
+                    seen_ids.add(getattr(row, "id", None))
+                    try:
+                        payload = getattr(row, "payload", None) or {}
+                        linked = payload.get("linked_memory_ids", [])
+                        if not isinstance(linked, list) or memory_id not in linked:
+                            continue
+                        remaining = [mid for mid in linked if mid != memory_id]
+                        if not remaining:
+                            await asyncio.to_thread(store.delete, vector_id=row.id)
+                            continue
+
                         entity_text = payload.get("data")
                         if not isinstance(entity_text, str) or not entity_text:
-                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup (async)")
+                            failed += 1
                             continue
-                        try:
-                            vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
-                        except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
-                            continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
-                        try:
-                            await asyncio.to_thread(
-                                self.entity_store.update,
-                                vector_id=row.id,
-                                vector=vec,
-                                payload=new_payload,
-                            )
-                        except Exception as e:
-                            logger.debug(f"Entity update failed for id={row.id} (async): {e}")
-                except Exception as e:
-                    logger.debug(f"Entity cleanup error (async): {e}")
-        except Exception as e:
-            logger.warning(f"Entity store cleanup failed for memory_id={memory_id} (async): {e}")
+                        vector = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
+                        await asyncio.to_thread(
+                            store.update,
+                            vector_id=row.id,
+                            vector=vector,
+                            payload={**payload, "linked_memory_ids": remaining},
+                        )
+                    except Exception as exc:
+                        failed += 1
+                        logger.debug("Async entity cleanup operation failed (%s)", type(exc).__name__)
+
+                if self.config.vector_store.provider == "qdrant":
+                    offset = listed[1] if isinstance(listed, tuple) and len(listed) == 2 else None
+                    if offset is None:
+                        break
+                else:
+                    if len(rows) < requested:
+                        break
+                    requested += ENTITY_CLEANUP_PAGE_SIZE
+            else:
+                failed += 1
+        except Exception as exc:
+            failed += 1
+            logger.warning("Async entity-store cleanup failed (%s)", type(exc).__name__)
+
+        if failed and strict:
+            raise RuntimeError(f"Entity cleanup did not complete ({failed} failed operation(s)).")
+        return failed == 0
 
     async def _link_entities_for_memory(self, memory_id, text, filters):
         """Async variant of `Memory._link_entities_for_memory`."""
@@ -2373,8 +2543,8 @@ class AsyncMemory(MemoryBase):
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
             config = MemoryConfig(**config_dict)
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
+        except ValidationError:
+            logger.error("Configuration validation failed")
             raise
         return cls(config)
 
@@ -3523,6 +3693,8 @@ class AsyncMemory(MemoryBase):
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         deleted_ids = set()
+        known_ids = set()
+        pending_history = {}
         deleted_count = 0
         stale_iterations = 0
         semaphore = asyncio.Semaphore(DELETE_ALL_ASYNC_CONCURRENCY)
@@ -3536,40 +3708,75 @@ class AsyncMemory(MemoryBase):
                 return memory.id, None
 
         for _ in range(DELETE_ALL_MAX_ITERATIONS):
+            progress = 0
+            failed_this_iteration = 0
+
+            async def retry_history(item):
+                memory_id, memory = item
+                async with semaphore:
+                    try:
+                        await self._record_delete_history(memory_id, memory)
+                    except Exception:
+                        return memory_id, False
+                    return memory_id, True
+
+            if pending_history:
+                history_results = await asyncio.gather(*(retry_history(item) for item in pending_history.items()))
+                for memory_id, succeeded in history_results:
+                    if not succeeded:
+                        failed_this_iteration += 1
+                        continue
+                    pending_history.pop(memory_id)
+                    deleted_ids.add(memory_id)
+                    deleted_count += 1
+                    progress += 1
+
             listed = await asyncio.to_thread(
                 self.vector_store.list,
                 filters=filters,
                 top_k=DELETE_ALL_PAGE_SIZE,
             )
             memories = normalize_list_result(listed)
-            if not memories:
+            if not memories and not pending_history:
                 break
 
-            pending_by_id = {memory.id: memory for memory in memories if memory.id not in deleted_ids}
+            known_ids.update(memory.id for memory in memories)
+            pending_by_id = {
+                memory.id: memory
+                for memory in memories
+                if memory.id not in deleted_ids and memory.id not in pending_history
+            }
             pending = list(pending_by_id.values())
             results = await asyncio.gather(*(delete_one(memory) for memory in pending))
-            successful_this_page = 0
             for memory_id, error in results:
+                if isinstance(error, _DeleteHistoryError):
+                    pending_history[memory_id] = error.memory
+                    progress += 1
+                    continue
                 if error is not None:
-                    logger.warning("Failed to delete memory id=%s: %s", memory_id, error)
+                    failed_this_iteration += 1
                     continue
                 deleted_ids.add(memory_id)
                 deleted_count += 1
-                successful_this_page += 1
+                progress += 1
 
-            if successful_this_page:
+            logger.info(
+                "Async delete-all progress: requested=%d deleted=%d pending=%d failed=%d",
+                len(known_ids),
+                deleted_count,
+                len(pending_history),
+                failed_this_iteration,
+            )
+            if progress:
                 stale_iterations = 0
             else:
                 stale_iterations += 1
                 if stale_iterations >= DELETE_ALL_MAX_STALE_ITERATIONS:
-                    raise RuntimeError(
-                        "Unable to delete all matching memories because the vector store made no progress."
-                    )
+                    raise RuntimeError("Unable to delete all matching memories because deletion made no progress.")
         else:
             raise RuntimeError("Unable to delete all matching memories before the safety iteration limit.")
 
-        if self._entity_store is not None:
-            await self._bulk_clear_entity_store(filters)
+        await self._bulk_clear_entity_store(filters)
 
         logger.info("Deleted %d memories", deleted_count)
 
@@ -3752,34 +3959,51 @@ class AsyncMemory(MemoryBase):
 
         return memory_id
 
-    async def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
+    async def _record_delete_history(self, memory_id, existing_memory):
+        payload = existing_memory.payload or {}
+        await asyncio.to_thread(
+            self.db.add_history,
+            memory_id,
+            payload.get("data", ""),
+            None,
+            "DELETE",
+            created_at=_normalize_iso_timestamp_to_utc(payload.get("created_at")),
+            updated_at=datetime.now(timezone.utc).isoformat(),
+            actor_id=payload.get("actor_id"),
+            role=payload.get("role"),
+            is_deleted=1,
+        )
+
+    async def _delete_memory(
+        self,
+        memory_id,
+        existing_memory=None,
+        skip_entity_cleanup=False,
+        strict_entity_cleanup=False,
+    ):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
             if existing_memory is None:
                 raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
-        prev_value = existing_memory.payload.get("data", "")
-        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
-        updated_at = datetime.now(timezone.utc).isoformat()
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
-        await asyncio.to_thread(
-            self.db.add_history,
-            memory_id,
-            prev_value,
-            None,
-            "DELETE",
-            created_at=created_at,
-            updated_at=updated_at,
-            actor_id=existing_memory.payload.get("actor_id"),
-            role=existing_memory.payload.get("role"),
-            is_deleted=1,
-        )
+        try:
+            await self._record_delete_history(memory_id, existing_memory)
+        except Exception:
+            raise _DeleteHistoryError(existing_memory) from None
 
         if not skip_entity_cleanup:
-            await self._remove_memory_from_entity_store(memory_id, session_filters)
+            try:
+                await self._remove_memory_from_entity_store(
+                    memory_id,
+                    session_filters,
+                    strict=strict_entity_cleanup,
+                )
+            except Exception:
+                raise _DeleteEntityError(existing_memory) from None
 
         return memory_id
 

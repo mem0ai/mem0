@@ -17,7 +17,18 @@ def test_normalize_list_result_supported_shapes():
     assert normalize_list_result((tuple(rows), "next")) == rows
 
 
-@pytest.mark.parametrize("result", [{}, "rows", 1, (SimpleNamespace(id="one"), None), ([1], None, "extra")])
+@pytest.mark.parametrize(
+    "result",
+    [
+        {},
+        "rows",
+        1,
+        (SimpleNamespace(id="one"), None),
+        ([1], None, "extra"),
+        [[SimpleNamespace(id="one")], {"unexpected": "offset"}],
+        ([SimpleNamespace(id="one")], object()),
+    ],
+)
 def test_normalize_list_result_rejects_malformed_shapes(result):
     with pytest.raises(TypeError, match="vector-store list result"):
         normalize_list_result(result)

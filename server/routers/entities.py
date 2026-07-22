@@ -7,7 +7,7 @@ from errors import upstream_error
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from schemas import MessageResponse
-from server_state import get_memory_instance
+from server_state import memory_instance_lease
 from mem0.vector_stores.utils import normalize_list_result
 
 router = APIRouter(prefix="/entities", tags=["entities"])
@@ -27,7 +27,8 @@ class Entity(BaseModel):
 
 
 def _iter_payloads() -> list[dict[str, Any]]:
-    results = get_memory_instance().vector_store.list(top_k=SCAN_LIMIT)
+    with memory_instance_lease() as memory:
+        results = memory.vector_store.list(top_k=SCAN_LIMIT)
     rows = normalize_list_result(results)
     return [getattr(row, "payload", None) or {} for row in rows]
 
@@ -71,7 +72,8 @@ def list_entities(_auth=Depends(verify_auth)):
 @router.delete("/{entity_type}/{entity_id}", response_model=MessageResponse)
 def delete_entity(entity_type: EntityType, entity_id: str, _auth=Depends(require_admin)):
     try:
-        get_memory_instance().delete_all(**{TYPE_TO_FIELD[entity_type]: entity_id})
+        with memory_instance_lease() as memory:
+            memory.delete_all(**{TYPE_TO_FIELD[entity_type]: entity_id})
     except Exception:
         raise upstream_error()
     return MessageResponse(message="Entity deleted")

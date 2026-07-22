@@ -89,7 +89,8 @@ VECTOR_STORE_CONFIG={"url":"https://qdrant.example.internal:6333","api_key":"...
 
 `embedding_model_dims` must match both the configured embedder and the existing collection. Mem0 validates an existing
 collection's dimension and cosine distance and fails without modifying it when they are incompatible. For a private CA,
-mount the CA bundle and point `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` at it.
+mount the CA bundle and point `SSL_CERT_FILE` at it. Set `REQUESTS_CA_BUNDLE` as well only when another configured
+provider uses Python Requests; Qdrant's httpx transport uses `SSL_CERT_FILE`.
 
 Setting `VECTOR_STORE_PROVIDER` or `VECTOR_STORE_CONFIG` makes the vector store environment-managed. Persisted runtime
 overrides cannot replace it, and `POST /configure` rejects vector-store updates until those variables are removed.

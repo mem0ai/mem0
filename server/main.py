@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.vector_stores.utils import normalize_list_result
 from models import RequestLog, User
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError as PydanticValidationError
 from rate_limit import limiter
 from routers import api_keys as api_keys_router
 from routers import auth as auth_router
@@ -31,15 +31,15 @@ from routers import requests as requests_router
 from schemas import MessageResponse
 from server_state import (
     get_current_config,
-    get_memory_instance,
     initialize_state,
+    memory_instance_lease,
     set_session_factory,
     update_config,
 )
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
-from vector_store_config import build_vector_store_config
+from vector_store_config import build_vector_store_config, sanitized_validation_error_message
 
 load_dotenv()
 
@@ -127,11 +127,12 @@ DEFAULT_CONFIG = {
 set_session_factory(SessionLocal)
 initialize_state(DEFAULT_CONFIG, locked_components=LOCKED_CONFIG_COMPONENTS)
 
-vector_config = VECTOR_STORE["config"]
+effective_vector_store = get_current_config()["vector_store"]
+vector_config = effective_vector_store["config"]
 vector_mode = "explicit-local" if vector_config.get("path") else "remote"
 logging.info(
     "Mem0 vector store configured (provider=%s, mode=%s, collection=%s, dimensions=%s, environment_locked=%s)",
-    VECTOR_STORE["provider"],
+    effective_vector_store["provider"],
     vector_mode,
     vector_config.get("collection_name"),
     vector_config.get("embedding_model_dims", "provider-default"),
@@ -210,7 +211,10 @@ class GenerateInstructionsRequest(BaseModel):
 def _client_error(exc: Exception) -> HTTPException:
     """Map core validation / not-found errors to 4xx so clients can tell a bad
     request from an upstream outage. 'not found' is a 404, everything else a 400."""
-    detail = str(exc)
+    if isinstance(exc, PydanticValidationError):
+        detail = sanitized_validation_error_message(exc)
+    else:
+        detail = str(exc)
     status_code = 404 if isinstance(exc, ValueError) and "not found" in detail.lower() else 400
     return HTTPException(status_code=status_code, detail=detail)
 
@@ -331,6 +335,8 @@ def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
     try:
         _validate_bundled_providers(config)
         update_config(config)
+    except HTTPException:
+        raise
     except (ValueError, Mem0ValidationError) as e:
         raise _client_error(e)
     except Exception:
@@ -342,18 +348,18 @@ def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
 def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify_auth)):
     """Generate custom instructions and a contextual test message tailored to a use case."""
     try:
-        llm = get_memory_instance().llm
-        prompt = (
-            "You are configuring a memory system. Given the use case below, produce two things:\n"
-            "1. INSTRUCTIONS: A short paragraph of custom instructions telling the memory extraction system "
-            "what kinds of facts, preferences, and context to prioritize. Be specific to the use case.\n"
-            "2. TEST_MESSAGE: A single realistic sentence a user in this use case would say, suitable for "
-            "testing that the memory system works.\n\n"
-            "Respond in exactly this format (no markdown, no extra text):\n"
-            "INSTRUCTIONS: <your instructions>\n"
-            f"TEST_MESSAGE: <your test message>\n\nUse case: {req.use_case}"
-        )
-        response = llm.generate_response([{"role": "user", "content": prompt}])
+        with memory_instance_lease() as memory:
+            prompt = (
+                "You are configuring a memory system. Given the use case below, produce two things:\n"
+                "1. INSTRUCTIONS: A short paragraph of custom instructions telling the memory extraction system "
+                "what kinds of facts, preferences, and context to prioritize. Be specific to the use case.\n"
+                "2. TEST_MESSAGE: A single realistic sentence a user in this use case would say, suitable for "
+                "testing that the memory system works.\n\n"
+                "Respond in exactly this format (no markdown, no extra text):\n"
+                "INSTRUCTIONS: <your instructions>\n"
+                f"TEST_MESSAGE: <your test message>\n\nUse case: {req.use_case}"
+            )
+            response = memory.llm.generate_response([{"role": "user", "content": prompt}])
         instructions = response
         test_message = "I like to hike on weekends."
         if "INSTRUCTIONS:" in response and "TEST_MESSAGE:" in response:
@@ -373,7 +379,8 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
 
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
-        response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        with memory_instance_lease() as memory:
+            response = memory.add(messages=[m.model_dump() for m in memory_create.messages], **params)
         if response.get("results"):
             telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)
@@ -404,7 +411,8 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
-    results = get_memory_instance().vector_store.list(top_k=limit)
+    with memory_instance_lease() as memory:
+        results = memory.vector_store.list(top_k=limit)
     rows = normalize_list_result(results)
     return {"results": [_serialize_memory(row) for row in rows]}
 
@@ -434,7 +442,8 @@ def get_all_memories(
         if top_k is not None:
             params["top_k"] = top_k
         params["show_expired"] = show_expired
-        return get_memory_instance().get_all(**params)
+        with memory_instance_lease() as memory:
+            return memory.get_all(**params)
     except HTTPException:
         raise
     except Exception:
@@ -445,7 +454,8 @@ def get_all_memories(
 def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
-        return get_memory_instance().get(memory_id)
+        with memory_instance_lease() as memory:
+            return memory.get(memory_id)
     except Exception:
         raise upstream_error()
 
@@ -476,7 +486,8 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
             params["explain"] = search_req.explain
         if search_req.show_expired is not None:
             params["show_expired"] = search_req.show_expired
-        return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+        with memory_instance_lease() as memory:
+            return memory.search(query=search_req.query, filters=filters, **params)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -497,7 +508,8 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
             params["metadata"] = updated_memory.metadata
         if "expiration_date" in fields_set:
             params["expiration_date"] = updated_memory.expiration_date
-        return get_memory_instance().update(**params)
+        with memory_instance_lease() as memory:
+            return memory.update(**params)
     except (ValueError, Mem0ValidationError) as e:
         raise _client_error(e)
     except Exception:
@@ -508,7 +520,8 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
 def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
     try:
-        return get_memory_instance().history(memory_id=memory_id)
+        with memory_instance_lease() as memory:
+            return memory.history(memory_id=memory_id)
     except Exception:
         raise upstream_error()
 
@@ -517,7 +530,8 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
 def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Delete a specific memory by ID."""
     try:
-        get_memory_instance().delete(memory_id=memory_id)
+        with memory_instance_lease() as memory:
+            memory.delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
     except (ValueError, Mem0ValidationError) as e:
         raise _client_error(e)
@@ -536,10 +550,9 @@ def delete_all_memories(
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
-        get_memory_instance().delete_all(**params)
+        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
+        with memory_instance_lease() as memory:
+            memory.delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
     except Exception:
         raise upstream_error()
@@ -549,7 +562,8 @@ def delete_all_memories(
 def reset_memory(_auth=Depends(require_admin)):
     """Completely reset stored memories. Requires admin role."""
     try:
-        get_memory_instance().reset()
+        with memory_instance_lease() as memory:
+            memory.reset()
         return {"message": "All memories reset"}
     except Exception:
         raise upstream_error()

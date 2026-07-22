@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 
 def normalize_list_result(result: Any) -> list:
@@ -10,12 +11,17 @@ def normalize_list_result(result: Any) -> list:
     if not result:
         return []
 
-    first = result[0]
-    if isinstance(first, (list, tuple)):
-        if len(result) > 2:
-            raise TypeError(f"Malformed vector-store list result container: {type(result).__name__}")
-        return list(first)
-
     if isinstance(result, tuple):
+        if len(result) == 1 and isinstance(result[0], (list, tuple)):
+            return list(result[0])
+        if len(result) == 2 and isinstance(result[0], (list, tuple)):
+            offset = result[1]
+            if offset is None or (isinstance(offset, (str, int, UUID)) and not isinstance(offset, bool)):
+                return list(result[0])
         raise TypeError("Malformed vector-store list result container: tuple")
+
+    if len(result) == 1 and isinstance(result[0], (list, tuple)):
+        return list(result[0])
+    if any(isinstance(item, (list, tuple)) for item in result):
+        raise TypeError("Malformed vector-store list result container: list")
     return list(result)
