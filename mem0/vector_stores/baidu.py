@@ -224,8 +224,15 @@ class BaiduDB(VectorStoreBase):
         output = []
         for row in res.rows:
             row_data = row.get("row", {})
+            # Mochow returns the raw L2 distance (lower = closer). Convert it to a
+            # similarity score (higher = better) to satisfy the VectorStoreBase
+            # contract, mirroring the milvus provider. Non-L2 metrics already
+            # return a higher-is-better score.
+            raw_score = row.get("score", 0.0)
+            if self.metric_type in (MetricType.L2, "L2"):
+                raw_score = 1.0 / (1.0 + raw_score)
             output_data = OutputData(
-                id=row_data.get("id"), score=row.get("score", 0.0), payload=row_data.get("metadata", {})
+                id=row_data.get("id"), score=raw_score, payload=row_data.get("metadata", {})
             )
             output.append(output_data)
 

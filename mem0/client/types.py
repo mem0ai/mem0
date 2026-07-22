@@ -107,4 +107,3 @@ class ProjectUpdateOptions(BaseModel):
     memory_depth: Optional[str] = Field(default=None, description="Memory depth configuration")
     usecase_setting: Optional[Any] = Field(default=None, description="Use case specific settings")
     multilingual: Optional[bool] = Field(default=None, description="Whether to enable multilingual support")
-    retrieval_criteria: Optional[List[Any]] = Field(default=None, description="Criteria for memory retrieval")

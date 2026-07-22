@@ -19,7 +19,7 @@ client = MemoryClient(api_key="your-api-key")
 ```
 
 <Note>
-Define custom categories at the **project level** with `client.project.update()` before adding memories. Categories apply to all future memories: Mem0 auto-assigns them based on content semantics.
+Define custom categories at the **project level** with `client.project.update()` before adding memories. Categories apply to all future memories: Mem0 auto-assigns them based on content semantics. You can also pass `custom_categories` on a single `client.add()` call to override the project list for just those memories. See [Custom Categories](/platform/features/custom-categories).
 </Note>
 
 ---
@@ -95,6 +95,10 @@ Start with 3-5 clear categories that match how your team thinks. Too many catego
 </Tip>
 
 These categories are now available project-wide. Every memory can be tagged with one or more categories.
+
+<Tip>
+Need a different vocabulary for one tenant or one kind of conversation? Pass `custom_categories=[...]` to `client.add()`. That list replaces the project list for the memories created by that call, and it does not change the project configuration.
+</Tip>
 
 ---
 

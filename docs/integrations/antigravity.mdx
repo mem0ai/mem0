@@ -65,7 +65,9 @@ The plugin uses the same shell scripts as Claude Code, Cursor, and Codex: hooks 
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
 | **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tools |
 | **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Stop** | `Stop` | Stores a session summary when the session ends |
+| **Stop** | `Stop` | Stores a session summary at the end of every assistant turn (not just at session end) |
+
+What you type is stored as yours. What the agent produces — session summaries and compaction summaries — is stored as the assistant's, so its suggestions never become your stated preferences.
 
 ## Troubleshooting
 

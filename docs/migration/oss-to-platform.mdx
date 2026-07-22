@@ -339,21 +339,22 @@ The Platform introduces powerful capabilities not available in OSS:
     </Info>
     ```python
     # Set custom categories for your project
-    client.projects.update_categories(
-        project_id="proj_123",
-        categories=[
-            "Customer Preferences",
-            "Product Feedback",
-            "Support Issues",
-            "Feature Requests"
+    client.project.update(
+        custom_categories=[
+            {"customer_preferences": "Likes, dislikes, and product preferences"},
+            {"product_feedback": "Feature requests and complaints about the product"},
+            {"support_issues": "Problems reported and how they were resolved"}
         ]
     )
 
-    # Memories will use these categories
+    # Mem0 assigns these categories automatically as memories come in
+    client.add("User wants dark mode in dashboard", user_id="alex")
+
+    # Or pass a different catalog for a single call
     client.add(
         "User wants dark mode in dashboard",
         user_id="alex",
-        categories=["Customer Preferences"]
+        custom_categories=[{"ui_requests": "Requests about interface and appearance"}]
     )
     ```
   </Accordion>

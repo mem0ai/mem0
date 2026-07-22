@@ -2,26 +2,37 @@
 title: "Neptune Analytics"
 description: "Use AWS Neptune Analytics as a vector store in Mem0, combining graph analytics with vector search capabilities."
 ---
-# Neptune Analytics Vector Store
 
-[Neptune Analytics](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/what-is-neptune-analytics.html/) is a memory-optimized graph database engine for analytics. With Neptune Analytics, you can get insights and find trends by processing large amounts of graph data in seconds, including vector search.
+[Neptune Analytics](https://docs.aws.amazon.com/neptune-analytics/latest/userguide/what-is-neptune-analytics.html) is a memory-optimized graph database engine for analytics. With Neptune Analytics, you can get insights and find trends by processing large amounts of graph data in seconds, including vector search.
 
+### Installation
 
-## Installation
+The Neptune Analytics provider needs the AWS Neptune Graph client. Install it alongside `mem0ai`:
 
-```bash
+<CodeGroup>
+```bash Python
 pip install mem0ai[vector-stores]
 ```
 
-## Usage
+```bash TypeScript
+npm install @aws-sdk/client-neptune-graph
+```
+</CodeGroup>
 
-```python
+### Usage
+
+Configure AWS credentials in your environment (environment variables, shared config file, an IAM role, or an instance profile). Both SDKs pick them up automatically through the standard AWS credential chain.
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
 config = {
     "vector_store": {
         "provider": "neptune",
         "config": {
             "collection_name": "mem0",
-            "endpoint": f"neptune-graph://my-graph-identifier",
+            "endpoint": "neptune-graph://g-abc123xyz0",
         },
     },
 }
@@ -29,18 +40,90 @@ config = {
 m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about a thriller movies? They can be quite engaging."},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
     {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
-## Parameters
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
 
-Let's see the available parameters for the `neptune` config:
+const config = {
+  vectorStore: {
+    provider: 'neptune',
+    config: {
+      collectionName: 'mem0',
+      graphIdentifier: 'g-abc123xyz0',
+      // Any other key here (region, credentials, maxAttempts, ...) is
+      // forwarded to the underlying NeptuneGraphClient constructor.
+      region: 'us-east-1',
+    },
+  },
+};
 
+const memory = new Memory(config);
+const messages = [
+  { role: "user", content: "I'm planning to watch a movie tonight. Any recommendations?" },
+  { role: "assistant", content: "How about a thriller movie? They can be quite engaging." },
+  { role: "user", content: "I'm not a big fan of thriller movies but I love sci-fi movies." },
+  { role: "assistant", content: "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future." },
+];
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
+### Config
+
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `collection_name` | The name of the collection to store the vectors | `mem0` |
-| `endpoint` | Connection URL for the Neptune Analytics service | `neptune-graph://my-graph-identifier` |
+| `endpoint` | Connection URL for the Neptune Analytics service, must be `neptune-graph://<graph-id>` | Required |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collectionName` | The name of the collection to store the vectors | `memories` |
+| `graphIdentifier` | Graph ID, e.g. `g-abc123xyz0`. Takes priority over `endpoint`. | Required, unless `endpoint` supplies it |
+| `endpoint` | Either `neptune-graph://<graph-id>` (or a bare graph ID) to supply the graph ID, or an `https://` service endpoint to override the AWS endpoint. An `https://` value must be paired with `graphIdentifier`. | `undefined` |
+| `dimension` | Embedding vector dimension | Auto-detected from the embedder when omitted |
+| `client` | A pre-built `NeptuneGraphClient` to use instead of constructing one | `undefined` |
+| any other key | Forwarded as-is to the [`NeptuneGraphClient`](https://www.npmjs.com/package/@aws-sdk/client-neptune-graph) constructor, e.g. `region`, `credentials`, `maxAttempts` | N/A |
+</Tab>
+</Tabs>
+
+Both SDKs store vectors on graph nodes labeled `MEM0_VECTOR_<collection_name>`. Point them at the same
+graph with the same `collection_name` — the defaults differ, `mem0` in Python and `memories` in
+TypeScript — and `get()`, `list()`, and `delete()` interoperate across SDKs.
+
+<Note>
+`search()` is not currently cross-SDK compatible. The TypeScript provider filters on Neptune's reserved
+`~label` metafield, while the Python provider filters on a synthetic `label` property that only Python's
+own `insert()` writes. Python's `search()` therefore cannot see nodes written by the TypeScript provider.
+</Note>
+
+### IAM Permissions
+
+Your AWS identity (user or role) needs a policy that allows the [`ExecuteQuery`](https://docs.aws.amazon.com/neptune-analytics/latest/apiref/API_ExecuteQuery.html) actions used for reads, writes, and deletes:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "neptune-graph:ReadDataViaQuery",
+        "neptune-graph:WriteDataViaQuery",
+        "neptune-graph:DeleteDataViaQuery"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+For production, scope the resource ARN down to your specific graph.
