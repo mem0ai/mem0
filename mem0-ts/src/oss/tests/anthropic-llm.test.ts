@@ -72,6 +72,37 @@ describe("AnthropicLLM (unit)", () => {
     expect(callArgs.tool_choice).toBeUndefined();
   });
 
+  // Regression: thinking-enabled models emit a thinking block before the text
+  // block. Indexing content[0] threw "Unexpected response type"; the text block
+  // must be found by type instead (TS parity with #6481).
+  it("returns the text block when a thinking block precedes it (no tools)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        { type: "thinking", thinking: "Let me reason about this." },
+        { type: "text", text: '{"facts": ["fact1"]}' },
+      ],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse([
+      { role: "user", content: "Hello" },
+    ]);
+
+    expect(result).toBe('{"facts": ["fact1"]}');
+  });
+
+  // A response carrying no text block at all must resolve to "" rather than throw.
+  it("returns an empty string when no text block is present (no tools)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "thinking", thinking: "Thinking only." }],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    await expect(
+      llm.generateResponse([{ role: "user", content: "Hello" }]),
+    ).resolves.toBe("");
+  });
+
   // Bug #1 regression: bare string "auto" must NOT be sent; object form required
   it("forwards tool_choice as { type: 'auto' } (not bare string) when tools are provided", async () => {
     mockCreate.mockResolvedValueOnce({

@@ -100,12 +100,16 @@ export class AnthropicLLM implements LLM {
       return { content, role: "assistant", toolCalls };
     }
 
-    const firstBlock = response.content[0];
-    if (firstBlock.type === "text") {
-      return firstBlock.text;
-    } else {
-      throw new Error("Unexpected response type from Anthropic API");
+    // Thinking-enabled responses put a thinking block before the text block,
+    // and a response can carry no text block at all, so find the text block
+    // like the tools branch above instead of indexing content[0]. Mirrors the
+    // Python provider (#6481).
+    for (const block of response.content) {
+      if (block.type === "text") {
+        return block.text;
+      }
     }
+    return "";
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
