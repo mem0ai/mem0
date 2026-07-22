@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from mem0.configs.vector_stores.qdrant import QdrantConfig
+from mem0.vector_stores.configs import VectorStoreConfig
 from mem0.vector_stores import qdrant as qdrant_module
 
 
@@ -35,3 +36,19 @@ def test_qdrant_passes_explicit_https_to_client(monkeypatch):
         port=6333,
         https=False,
     )
+
+
+def test_remote_qdrant_config_does_not_inject_local_path():
+    config = VectorStoreConfig(
+        provider="qdrant",
+        config={"url": "https://qdrant.internal:6333", "api_key": "test-key"},
+    )
+
+    assert config.config.url == "https://qdrant.internal:6333"
+    assert config.config.path is None
+
+
+def test_default_sdk_qdrant_config_keeps_explicit_local_fallback():
+    config = VectorStoreConfig(provider="qdrant")
+
+    assert config.config.path == "/tmp/qdrant"

@@ -59,8 +59,12 @@ class VectorStoreConfig(BaseModel):
                 raise ValueError(f"Invalid config type for provider {provider}")
             return self
 
-        # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
-        if "path" not in config and "path" in config_class.__annotations__:
+        # Keep the SDK's local default, but do not inject a local path when an
+        # explicit remote Qdrant endpoint was supplied.
+        has_remote_qdrant = provider == "qdrant" and (
+            config.get("url") or (config.get("host") and config.get("port"))
+        )
+        if "path" not in config and "path" in config_class.__annotations__ and not has_remote_qdrant:
             config["path"] = f"/tmp/{provider}"
 
         self.config = config_class(**config)

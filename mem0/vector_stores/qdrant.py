@@ -140,6 +140,7 @@ class Qdrant(VectorStoreBase):
             if collection.name == self.collection_name:
                 logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
                 info = self.client.get_collection(self.collection_name)
+                self._validate_existing_collection(info, vector_size, distance)
                 sparse_cfg = info.config.params.sparse_vectors
                 self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
                 if not self._has_bm25_slot:
@@ -162,6 +163,35 @@ class Qdrant(VectorStoreBase):
         )
         self._has_bm25_slot = True
         self._create_filter_indexes()
+
+    def _validate_existing_collection(self, info, expected_size: int, expected_distance: Distance) -> None:
+        """Fail non-destructively when an existing collection is incompatible with this adapter."""
+        vectors_config = info.config.params.vectors
+        if isinstance(vectors_config, dict):
+            vector_names = ", ".join(sorted(vectors_config)) or "none"
+            raise ValueError(
+                f"Qdrant collection '{self.collection_name}' uses named dense vectors ({vector_names}), but Mem0 "
+                "requires one unnamed dense vector. Select a compatible collection or perform an operator-managed "
+                "migration."
+            )
+        if not isinstance(vectors_config, VectorParams):
+            raise ValueError(
+                f"Qdrant collection '{self.collection_name}' has an unsupported dense vector configuration. "
+                "Select a compatible collection or perform an operator-managed migration."
+            )
+
+        actual_size = vectors_config.size
+        actual_distance = vectors_config.distance
+        expected_distance_value = getattr(expected_distance, "value", expected_distance)
+        actual_distance_value = getattr(actual_distance, "value", actual_distance)
+
+        if actual_size != expected_size or actual_distance_value != expected_distance_value:
+            raise ValueError(
+                f"Qdrant collection '{self.collection_name}' is incompatible: expected dimension {expected_size} "
+                f"and distance {expected_distance_value}, found dimension {actual_size} and distance "
+                f"{actual_distance_value}. Select the matching embedding model or collection, or perform an "
+                "operator-managed migration."
+            )
 
     def _create_filter_indexes(self):
         """Create indexes for commonly used filter fields to enable filtering."""

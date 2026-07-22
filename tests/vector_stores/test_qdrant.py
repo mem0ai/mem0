@@ -95,6 +95,80 @@ class TestQdrant(unittest.TestCase):
             sparse_vectors_config=expected_sparse_config,
         )
 
+    def test_existing_collection_with_matching_dense_config_is_reused(self):
+        collection = MagicMock()
+        collection.name = "test_collection"
+        self.client_mock.get_collections.return_value = MagicMock(
+            collections=[collection]
+        )
+        info = MagicMock()
+        info.config.params.vectors = VectorParams(size=128, distance=Distance.COSINE, on_disk=True)
+        info.config.params.sparse_vectors = {"bm25": SparseVectorParams(modifier=models.Modifier.IDF)}
+        self.client_mock.get_collection.return_value = info
+        self.client_mock.create_collection.reset_mock()
+
+        self.qdrant.create_col(vector_size=128, on_disk=True)
+
+        self.client_mock.create_collection.assert_not_called()
+        self.client_mock.delete_collection.assert_not_called()
+        self.assertTrue(self.qdrant._has_bm25_slot)
+
+    def test_existing_collection_dimension_mismatch_fails_non_destructively(self):
+        collection = MagicMock()
+        collection.name = "test_collection"
+        self.client_mock.get_collections.return_value = MagicMock(
+            collections=[collection]
+        )
+        info = MagicMock()
+        info.config.params.vectors = VectorParams(size=1536, distance=Distance.COSINE)
+        info.config.params.sparse_vectors = {}
+        self.client_mock.get_collection.return_value = info
+        self.client_mock.create_collection.reset_mock()
+
+        with self.assertRaisesRegex(ValueError, "expected dimension 128.*found dimension 1536"):
+            self.qdrant.create_col(vector_size=128, on_disk=True)
+
+        self.client_mock.create_collection.assert_not_called()
+        self.client_mock.delete_collection.assert_not_called()
+
+    def test_existing_collection_distance_mismatch_fails_non_destructively(self):
+        collection = MagicMock()
+        collection.name = "test_collection"
+        self.client_mock.get_collections.return_value = MagicMock(
+            collections=[collection]
+        )
+        info = MagicMock()
+        info.config.params.vectors = VectorParams(size=128, distance=Distance.DOT)
+        info.config.params.sparse_vectors = {}
+        self.client_mock.get_collection.return_value = info
+        self.client_mock.create_collection.reset_mock()
+
+        with self.assertRaisesRegex(ValueError, "expected dimension 128.*Cosine.*Dot"):
+            self.qdrant.create_col(vector_size=128, on_disk=True)
+
+        self.client_mock.create_collection.assert_not_called()
+        self.client_mock.delete_collection.assert_not_called()
+
+    def test_existing_named_vector_collection_is_rejected(self):
+        collection = MagicMock()
+        collection.name = "test_collection"
+        self.client_mock.get_collections.return_value = MagicMock(
+            collections=[collection]
+        )
+        info = MagicMock()
+        info.config.params.vectors = {
+            "dense": VectorParams(size=128, distance=Distance.COSINE),
+        }
+        info.config.params.sparse_vectors = {}
+        self.client_mock.get_collection.return_value = info
+        self.client_mock.create_collection.reset_mock()
+
+        with self.assertRaisesRegex(ValueError, "uses named dense vectors.*dense"):
+            self.qdrant.create_col(vector_size=128, on_disk=True)
+
+        self.client_mock.create_collection.assert_not_called()
+        self.client_mock.delete_collection.assert_not_called()
+
     def test_insert(self):
         vectors = [[0.1, 0.2], [0.3, 0.4]]
         payloads = [{"key": "value1"}, {"key": "value2"}]
