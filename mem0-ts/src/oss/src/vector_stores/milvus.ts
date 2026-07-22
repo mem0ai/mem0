@@ -251,6 +251,11 @@ export class Milvus implements VectorStore {
     return operands.length > 0 ? operands.join(" and ") : undefined;
   }
 
+  /**
+   * Text fed to the BM25 sparse index for a payload. Prefers `textLemmatized`
+   * (TS memory payloads), then `text_lemmatized`, then raw `data`; truncates
+   * to the VarChar limit.
+   */
   private bm25Text(payload?: Record<string, any>): string {
     if (!payload) {
       return "";
