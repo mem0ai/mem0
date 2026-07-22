@@ -29,6 +29,7 @@ from mem0.vector_stores.qdrant import Qdrant
 class TestQdrant(unittest.TestCase):
     def setUp(self):
         self.client_mock = MagicMock(spec=QdrantClient)
+        self.client_mock.collection_exists.return_value = False
         self.qdrant = Qdrant(
             collection_name="test_collection",
             embedding_model_dims=128,
@@ -44,7 +45,7 @@ class TestQdrant(unittest.TestCase):
             with open(sentinel, "w", encoding="utf-8") as f:
                 f.write("keep")
             mock_client = MagicMock()
-            mock_client.get_collections.return_value = MagicMock(collections=[])
+            mock_client.collection_exists.return_value = False
             with patch("mem0.vector_stores.qdrant.QdrantClient", return_value=mock_client):
                 Qdrant(
                     collection_name="c",
@@ -96,11 +97,7 @@ class TestQdrant(unittest.TestCase):
         )
 
     def test_existing_collection_with_matching_dense_config_is_reused(self):
-        collection = MagicMock()
-        collection.name = "test_collection"
-        self.client_mock.get_collections.return_value = MagicMock(
-            collections=[collection]
-        )
+        self.client_mock.collection_exists.return_value = True
         info = MagicMock()
         info.config.params.vectors = VectorParams(size=128, distance=Distance.COSINE, on_disk=True)
         info.config.params.sparse_vectors = {"bm25": SparseVectorParams(modifier=models.Modifier.IDF)}
@@ -114,11 +111,7 @@ class TestQdrant(unittest.TestCase):
         self.assertTrue(self.qdrant._has_bm25_slot)
 
     def test_existing_collection_dimension_mismatch_fails_non_destructively(self):
-        collection = MagicMock()
-        collection.name = "test_collection"
-        self.client_mock.get_collections.return_value = MagicMock(
-            collections=[collection]
-        )
+        self.client_mock.collection_exists.return_value = True
         info = MagicMock()
         info.config.params.vectors = VectorParams(size=1536, distance=Distance.COSINE)
         info.config.params.sparse_vectors = {}
@@ -132,11 +125,7 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.delete_collection.assert_not_called()
 
     def test_existing_collection_distance_mismatch_fails_non_destructively(self):
-        collection = MagicMock()
-        collection.name = "test_collection"
-        self.client_mock.get_collections.return_value = MagicMock(
-            collections=[collection]
-        )
+        self.client_mock.collection_exists.return_value = True
         info = MagicMock()
         info.config.params.vectors = VectorParams(size=128, distance=Distance.DOT)
         info.config.params.sparse_vectors = {}
@@ -150,11 +139,7 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.delete_collection.assert_not_called()
 
     def test_existing_named_vector_collection_is_rejected(self):
-        collection = MagicMock()
-        collection.name = "test_collection"
-        self.client_mock.get_collections.return_value = MagicMock(
-            collections=[collection]
-        )
+        self.client_mock.collection_exists.return_value = True
         info = MagicMock()
         info.config.params.vectors = {
             "dense": VectorParams(size=128, distance=Distance.COSINE),
@@ -173,7 +158,7 @@ class TestQdrant(unittest.TestCase):
         class ConflictError(RuntimeError):
             status_code = 409
 
-        self.client_mock.get_collections.return_value = MagicMock(collections=[])
+        self.client_mock.collection_exists.return_value = False
         self.client_mock.create_collection.reset_mock()
         self.client_mock.create_collection.side_effect = ConflictError("already exists")
         info = MagicMock()
@@ -623,6 +608,7 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
 
     def setUp(self):
         self.client_mock = MagicMock(spec=QdrantClient)
+        self.client_mock.collection_exists.return_value = False
         self.qdrant = Qdrant(
             collection_name="test_collection",
             embedding_model_dims=128,
@@ -1076,6 +1062,7 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
 
     def setUp(self):
         self.client_mock = MagicMock(spec=QdrantClient)
+        self.client_mock.collection_exists.return_value = False
         self.qdrant = Qdrant(
             collection_name="test_collection",
             embedding_model_dims=128,

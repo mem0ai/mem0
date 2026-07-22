@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -8,7 +8,7 @@ class VectorStoreConfig(BaseModel):
         description="Provider of the vector store (e.g., 'qdrant', 'chroma', 'upstash_vector')",
         default="qdrant",
     )
-    config: Optional[Dict] = Field(description="Configuration for the specific vector store", default=None)
+    config: Optional[Any] = Field(description="Configuration for the specific vector store", default=None)
 
     _provider_configs: Dict[str, str] = {
         "qdrant": "QdrantConfig",
@@ -59,12 +59,18 @@ class VectorStoreConfig(BaseModel):
                 raise ValueError(f"Invalid config type for provider {provider}")
             return self
 
+        # Provider validators may normalize top-level values. Copy the mapping
+        # without cloning runtime objects such as an existing Qdrant client.
+        config = config.copy()
+
         # Keep the SDK's local default, but do not inject a local path when an
         # explicit remote Qdrant endpoint was supplied.
-        has_remote_qdrant = provider == "qdrant" and (
-            config.get("url") or (config.get("host") and config.get("port"))
+        has_qdrant_target = provider == "qdrant" and (
+            config.get("client") is not None
+            or config.get("url")
+            or (config.get("host") and config.get("port"))
         )
-        if "path" not in config and "path" in config_class.__annotations__ and not has_remote_qdrant:
+        if "path" not in config and "path" in config_class.__annotations__ and not has_qdrant_target:
             config["path"] = f"/tmp/{provider}"
 
         self.config = config_class(**config)

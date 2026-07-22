@@ -26,6 +26,33 @@ from mem0.vector_stores.base import VectorStoreBase, VectorStoreConfigurationErr
 logger = logging.getLogger(__name__)
 
 
+def _is_local_client(client, path=None, url=None, host=None) -> bool:
+    """Detect Qdrant local mode when an already-constructed client is supplied."""
+    internal_client = getattr(client, "_client", None)
+    internal_type = type(internal_client).__name__
+    if internal_type == "QdrantLocal":
+        return True
+    if internal_type == "QdrantRemote":
+        return False
+
+    init_options = getattr(client, "init_options", None)
+    if isinstance(init_options, dict):
+        return init_options.get("location") == ":memory:" or init_options.get("path") is not None
+
+    return bool(path and not url and not host)
+
+
+def _validate_collection_name(collection_name: str) -> None:
+    if (
+        not isinstance(collection_name, str)
+        or not collection_name.strip()
+        or any(ord(character) < 32 or ord(character) == 127 for character in collection_name)
+    ):
+        raise VectorStoreConfigurationError(
+            "Qdrant collection_name must be non-empty and contain no control characters."
+        )
+
+
 class Qdrant(VectorStoreBase):
     def __init__(
         self,
@@ -57,9 +84,10 @@ class Qdrant(VectorStoreBase):
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
         """
+        _validate_collection_name(collection_name)
         if client:
             self.client = client
-            self.is_local = bool(path and not url and not host)
+            self.is_local = _is_local_client(client, path=path, url=url, host=host)
         else:
             has_url = bool(url)
             has_host = bool(host)
@@ -99,6 +127,23 @@ class Qdrant(VectorStoreBase):
         # collection is rejected by Qdrant ("Not existing vector name error: bm25").
         self._has_bm25_slot = False
         self.create_col(embedding_model_dims, on_disk)
+
+    def _collection_exists(self) -> bool:
+        """Use the constant-size existence probe, with compatibility fallback for older servers/clients."""
+        collection_exists = getattr(self.client, "collection_exists", None)
+        if callable(collection_exists):
+            try:
+                return bool(collection_exists(self.collection_name))
+            except Exception as exc:
+                if getattr(exc, "status_code", None) != 404:
+                    raise
+
+        response = self.list_cols()
+        for collection in response.collections:
+            name = collection.get("name") if isinstance(collection, dict) else getattr(collection, "name", None)
+            if name == self.collection_name:
+                return True
+        return False
 
     def _get_bm25_encoder(self):
         """Lazy-load the BM25 sparse text encoder (fastembed)."""
@@ -144,13 +189,11 @@ class Qdrant(VectorStoreBase):
             on_disk (bool): Enables persistent storage.
             distance (Distance, optional): Distance metric for vector similarity. Defaults to Distance.COSINE.
         """
-        response = self.list_cols()
-        for collection in response.collections:
-            if collection.name == self.collection_name:
-                logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
-                info = self.client.get_collection(self.collection_name)
-                self._prepare_existing_collection(info, vector_size, distance)
-                return
+        if self._collection_exists():
+            logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
+            info = self.client.get_collection(self.collection_name)
+            self._prepare_existing_collection(info, vector_size, distance)
+            return
 
         try:
             created = self.client.create_collection(

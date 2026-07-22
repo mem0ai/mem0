@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class QdrantConfig(BaseModel):
@@ -27,6 +27,13 @@ class QdrantConfig(BaseModel):
             "Does not delete the local database path."
         ),
     )
+
+    @field_validator("collection_name")
+    @classmethod
+    def validate_collection_name(cls, value: str) -> str:
+        if not value.strip() or any(ord(character) < 32 or ord(character) == 127 for character in value):
+            raise ValueError("Qdrant collection_name must be non-empty and contain no control characters.")
+        return value
 
     @model_validator(mode="before")
     @classmethod

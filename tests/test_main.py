@@ -283,12 +283,13 @@ def test_delete_all(memory_instance):
     memory_instance.vector_store.list = Mock(side_effect=[(mock_memories, None), ([], None)])
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
+    memory_instance._bulk_clear_entity_store = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
-    memory_instance._delete_memory.assert_any_call("1", mock_memories[0], strict_entity_cleanup=True)
-    memory_instance._delete_memory.assert_any_call("2", mock_memories[1], strict_entity_cleanup=True)
+    memory_instance._delete_memory.assert_any_call("1", mock_memories[0], skip_entity_cleanup=True)
+    memory_instance._delete_memory.assert_any_call("2", mock_memories[1], skip_entity_cleanup=True)
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
@@ -302,6 +303,7 @@ def test_delete_all_drains_multiple_pages(memory_instance):
         side_effect=[(first_page, "next"), [second_page], ([], None)]
     )
     memory_instance._delete_memory = Mock()
+    memory_instance._bulk_clear_entity_store = Mock()
 
     result = memory_instance.delete_all(agent_id="agent")
 
@@ -313,6 +315,7 @@ def test_delete_all_fails_after_repeated_zero_progress(memory_instance, monkeypa
     memory = Mock(id="stuck")
     memory_instance.vector_store.list = Mock(return_value=([memory], None))
     memory_instance._delete_memory = Mock(side_effect=RuntimeError("cannot delete"))
+    memory_instance._bulk_clear_entity_store = Mock()
     monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_STALE_ITERATIONS", 2)
 
     with pytest.raises(RuntimeError, match="made no progress"):
@@ -372,6 +375,7 @@ def test_delete_all_stops_at_safety_iteration_limit(memory_instance, monkeypatch
 
     memory_instance.vector_store.list = Mock(side_effect=endless_pages)
     memory_instance._delete_memory = Mock()
+    memory_instance._bulk_clear_entity_store = Mock()
     monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_ITERATIONS", 2)
 
     with pytest.raises(RuntimeError, match="safety iteration limit"):
@@ -513,6 +517,7 @@ class TestEntityIdValidation:
     def test_delete_all_trims_user_id_before_list(self, memory_instance):
         """delete_all should trim leading/trailing whitespace on entity IDs."""
         memory_instance.vector_store.list = Mock(return_value=([], None))
+        memory_instance._bulk_clear_entity_store = Mock()
 
         memory_instance.delete_all(user_id="  alice  ")
 
@@ -526,6 +531,7 @@ class TestEntityIdValidation:
     def test_delete_all_coerces_integer_user_id_before_list(self, memory_instance):
         """delete_all should accept an integer user_id and scope by its str form."""
         memory_instance.vector_store.list = Mock(return_value=([], None))
+        memory_instance._bulk_clear_entity_store = Mock()
 
         memory_instance.delete_all(user_id=42)
 

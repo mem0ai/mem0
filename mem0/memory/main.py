@@ -269,8 +269,8 @@ def _safe_deepcopy_config(config):
     """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects."""
     try:
         return deepcopy(config)
-    except Exception as e:
-        logger.debug(f"Deepcopy failed, using dict-based cloning: {e}")
+    except Exception as exc:
+        logger.debug("Deepcopy failed, using dict-based cloning (%s)", type(exc).__name__)
 
         config_class = type(config)
 
@@ -598,8 +598,8 @@ class Memory(MemoryBase):
         """Return existing entity rows keyed by normalized payload data."""
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
-        except Exception as e:
-            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
+        except Exception as exc:
+            logger.debug("Exact entity lookup failed; using semantic dedup (%s)", type(exc).__name__)
             return {}
 
         rows_by_text = {}
@@ -731,6 +731,47 @@ class Memory(MemoryBase):
         if failed and strict:
             raise RuntimeError(f"Entity cleanup did not complete ({failed} failed operation(s)).")
         return failed == 0
+
+    def _bulk_clear_entity_store(self, filters):
+        """Drain entity records for a scope once after delete_all has removed its memories."""
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        store = self.entity_store
+        previous_page_ids = None
+        repeated_pages = 0
+
+        for _ in range(DELETE_ALL_MAX_ITERATIONS):
+            try:
+                listed = store.list(filters=search_filters, top_k=ENTITY_CLEANUP_PAGE_SIZE)
+            except Exception as exc:
+                logger.warning("Bulk entity-store listing failed (%s)", type(exc).__name__)
+                raise RuntimeError("Bulk entity-store cleanup could not list matching entities.") from None
+
+            rows = normalize_list_result(listed)
+            if not rows:
+                return
+            page_ids = tuple(sorted(str(row.id) for row in rows))
+            if page_ids == previous_page_ids:
+                repeated_pages += 1
+                if repeated_pages >= DELETE_ALL_MAX_STALE_ITERATIONS:
+                    raise RuntimeError("Bulk entity-store cleanup repeatedly returned the same records.")
+            else:
+                previous_page_ids = page_ids
+                repeated_pages = 0
+
+            deleted = 0
+            for row in rows:
+                try:
+                    store.delete(vector_id=row.id)
+                except Exception:
+                    continue
+                deleted += 1
+            if deleted == 0:
+                raise RuntimeError("Bulk entity-store cleanup made no forward progress.")
+            logger.info(
+                "Bulk entity cleanup: requested=%d deleted=%d failed=%d", len(rows), deleted, len(rows) - deleted
+            )
+
+        raise RuntimeError("Bulk entity-store cleanup exceeded the safety iteration limit.")
 
     def _link_entities_for_memory(self, memory_id, text, filters):
         """Extract entities from `text` and link them to `memory_id` in the
@@ -1930,7 +1971,6 @@ class Memory(MemoryBase):
         deleted_ids = set()
         known_ids = set()
         pending_history = {}
-        pending_entities = {}
         deleted_count = 0
         stale_iterations = 0
 
@@ -1945,32 +1985,12 @@ class Memory(MemoryBase):
                     failed_this_iteration += 1
                     continue
                 pending_history.pop(memory_id)
-                progress += 1
-                payload = memory.payload or {}
-                entity_filters = {key: payload[key] for key in ("user_id", "agent_id", "run_id") if payload.get(key)}
-                try:
-                    self._remove_memory_from_entity_store(memory_id, entity_filters, strict=True)
-                except Exception:
-                    pending_entities[memory_id] = memory
-                else:
-                    deleted_ids.add(memory_id)
-                    deleted_count += 1
-
-            for memory_id, memory in list(pending_entities.items()):
-                payload = memory.payload or {}
-                entity_filters = {key: payload[key] for key in ("user_id", "agent_id", "run_id") if payload.get(key)}
-                try:
-                    self._remove_memory_from_entity_store(memory_id, entity_filters, strict=True)
-                except Exception:
-                    failed_this_iteration += 1
-                    continue
-                pending_entities.pop(memory_id)
                 deleted_ids.add(memory_id)
                 deleted_count += 1
                 progress += 1
 
             memories = normalize_list_result(self.vector_store.list(filters=filters, top_k=DELETE_ALL_PAGE_SIZE))
-            if not memories and not pending_history and not pending_entities:
+            if not memories and not pending_history:
                 break
 
             known_ids.update(memory.id for memory in memories)
@@ -1979,17 +1999,13 @@ class Memory(MemoryBase):
                 for memory in memories
                 if memory.id not in deleted_ids
                 and memory.id not in pending_history
-                and memory.id not in pending_entities
             }
             pending = list(pending_by_id.values())
             for memory in pending:
                 try:
-                    self._delete_memory(memory.id, memory, strict_entity_cleanup=True)
+                    self._delete_memory(memory.id, memory, skip_entity_cleanup=True)
                 except _DeleteHistoryError as exc:
                     pending_history[memory.id] = exc.memory
-                    progress += 1
-                except _DeleteEntityError as exc:
-                    pending_entities[memory.id] = exc.memory
                     progress += 1
                 except Exception:
                     failed_this_iteration += 1
@@ -2002,7 +2018,7 @@ class Memory(MemoryBase):
                 "Delete-all progress: requested=%d deleted=%d pending=%d failed=%d",
                 len(known_ids),
                 deleted_count,
-                len(pending_history) + len(pending_entities),
+                len(pending_history),
                 failed_this_iteration,
             )
             if progress:
@@ -2013,6 +2029,8 @@ class Memory(MemoryBase):
                     raise RuntimeError("Unable to delete all matching memories because deletion made no progress.")
         else:
             raise RuntimeError("Unable to delete all matching memories before the safety iteration limit.")
+
+        self._bulk_clear_entity_store(filters)
 
         logger.info("Deleted %d memories", deleted_count)
 
@@ -2185,7 +2203,13 @@ class Memory(MemoryBase):
             is_deleted=1,
         )
 
-    def _delete_memory(self, memory_id, existing_memory=None, strict_entity_cleanup=False):
+    def _delete_memory(
+        self,
+        memory_id,
+        existing_memory=None,
+        strict_entity_cleanup=False,
+        skip_entity_cleanup=False,
+    ):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = self.vector_store.get(vector_id=memory_id)
@@ -2201,10 +2225,11 @@ class Memory(MemoryBase):
 
         # Entity-store cleanup: strip this memory's id from any entity records
         # that linked to it. Non-fatal — the helper swallows errors.
-        try:
-            self._remove_memory_from_entity_store(memory_id, session_filters, strict=strict_entity_cleanup)
-        except Exception:
-            raise _DeleteEntityError(existing_memory) from None
+        if not skip_entity_cleanup:
+            try:
+                self._remove_memory_from_entity_store(memory_id, session_filters, strict=strict_entity_cleanup)
+            except Exception:
+                raise _DeleteEntityError(existing_memory) from None
 
         return memory_id
 
@@ -2333,8 +2358,8 @@ class AsyncMemory(MemoryBase):
         """Return existing entity rows keyed by normalized payload data."""
         try:
             listed = self.entity_store.list(filters=filters, top_k=10000)
-        except Exception as e:
-            logger.debug(f"Exact entity lookup failed, falling back to semantic dedup: {e}")
+        except Exception as exc:
+            logger.debug("Exact entity lookup failed; using semantic dedup (%s)", type(exc).__name__)
             return {}
 
         rows_by_text = {}
