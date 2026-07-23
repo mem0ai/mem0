@@ -35,11 +35,11 @@ export const handleBadResponses = (
 	}
 	if (response.status >= 400) {
 		const data = (response.data as Record<string, unknown>) || {};
-		const detail = (data.detail ||
-			data.error ||
-			data.message ||
-			response.content ||
-			'unknown error') as string;
+		const raw =
+			data.detail || data.error || data.message || response.content || 'unknown error';
+		// DRF sometimes returns detail as an object/array; stringify so the
+		// thrown message never renders as "[object Object]".
+		const detail = typeof raw === 'string' ? raw : JSON.stringify(raw);
 		throw new z.errors.Error(
 			`Mem0 API request failed (HTTP ${response.status}): ${detail}`,
 			'Mem0ApiError',

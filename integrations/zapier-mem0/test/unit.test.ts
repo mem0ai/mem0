@@ -124,6 +124,18 @@ describe('search / get array-shape enforcement (offline)', () => {
 		} as any);
 		expect(z.requests[0].params).toEqual({ page: 2, page_size: 10 });
 	});
+
+	it('search and get_memories return [] on a null/empty body (no crash)', async () => {
+		const zSearch = makeZ([{ data: null }]);
+		const found = await searchMemories.operation.perform(zSearch, {
+			inputData: { query: 'x', user_id: 'u1' },
+		} as any);
+		expect(found).toEqual([]);
+
+		const zGet = makeZ([{ data: null }]);
+		const all = await getMemories.operation.perform(zGet, { inputData: { user_id: 'u1' } } as any);
+		expect(all).toEqual([]);
+	});
 });
 
 describe('delete_memory (offline)', () => {

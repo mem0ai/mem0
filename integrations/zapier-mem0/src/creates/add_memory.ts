@@ -77,7 +77,9 @@ const perform = async (z: ZObject, bundle: Bundle): Promise<AddResponse | EventR
 		body,
 	});
 
-	const data = response.data as AddResponse;
+	// Default to an empty object so an empty/no-content 2xx body can't crash the
+	// `.status` / `.event_id` reads below.
+	const data = (response.data ?? {}) as AddResponse;
 
 	// Add returns {event_id, status:PENDING|RUNNING}; poll only when opted in.
 	if (wait && data.event_id && data.status !== 'SUCCEEDED' && data.status !== 'FAILED') {
@@ -160,6 +162,7 @@ export default {
 					'longer than Zapier allows this step to run, and a timeout does not mean the add failed.',
 			},
 		],
-		sample: { status: 'SUCCEEDED', event_id: '00000000-0000-0000-0000-000000000000', results: [] },
+		// Default (no-wait) returns the accepted event; the wait path returns the resolved event.
+		sample: { event_id: '00000000-0000-0000-0000-000000000000', status: 'PENDING' },
 	},
 };

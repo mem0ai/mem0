@@ -16,8 +16,9 @@ const perform = async (z: ZObject, bundle: Bundle): Promise<Memory[]> => {
 		},
 		body,
 	});
-	const data = response.data as Memory[] | { results?: Memory[] };
-	return Array.isArray(data) ? data : data.results || [];
+	// Guard against a null/empty body; always return an array.
+	const data = response.data as Memory[] | { results?: Memory[] } | null;
+	return Array.isArray(data) ? data : data?.results ?? [];
 };
 
 export default {

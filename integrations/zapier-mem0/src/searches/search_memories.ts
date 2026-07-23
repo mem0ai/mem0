@@ -16,9 +16,9 @@ const perform = async (z: ZObject, bundle: Bundle): Promise<Memory[]> => {
 		method: 'POST',
 		body,
 	});
-	// Searches must return an array.
-	const data = response.data as Memory[] | { results?: Memory[] };
-	return Array.isArray(data) ? data : data.results || [];
+	// Searches must return an array; guard against a null/empty body.
+	const data = response.data as Memory[] | { results?: Memory[] } | null;
+	return Array.isArray(data) ? data : data?.results ?? [];
 };
 
 export default {
