@@ -14,9 +14,10 @@
     "strictNullChecks": true,
     "preserveConstEnums": true,
     "esModuleInterop": true,
+    "isolatedModules": true,
     "resolveJsonModule": true,
-    "incremental": true,
-    "declaration": true,
+    "incremental": false,
+    "declaration": false,
     "sourceMap": true,
     "skipLibCheck": true,
     "outDir": "./dist/"

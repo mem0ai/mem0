@@ -8,10 +8,10 @@ import {
 	INodeTypeDescription,
 	JsonObject,
 	NodeApiError,
+	NodeConnectionTypes,
 	NodeOperationError,
 	sleep,
 } from 'n8n-workflow';
-import { captureEvent } from './telemetry';
 
 // Poll settings for asynchronous (infer=true) memory addition.
 const POLL_INTERVAL_MS = 1500;
@@ -31,8 +31,8 @@ export class Mem0 implements INodeType {
 		},
 		// Makes the node available to the AI Agent (Tools Agent) node.
 		usableAsTool: true,
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [
 			{
 				name: 'mem0Api',
@@ -264,12 +264,22 @@ export class Mem0 implements INodeType {
 				description: 'Restrict the listing to this user (required — the API needs an entity filter)',
 			},
 			{
+				displayName: 'Return All',
+				name: 'returnAll',
+				type: 'boolean',
+				default: false,
+				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
+				description: 'Whether to return all results or only up to a given limit',
+			},
+			{
 				displayName: 'Page',
 				name: 'page',
 				type: 'number',
 				typeOptions: { minValue: 1 },
 				default: 1,
-				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
+				displayOptions: {
+					show: { resource: ['memory'], operation: ['getAll'], returnAll: [false] },
+				},
 			},
 			{
 				displayName: 'Page Size',
@@ -315,13 +325,6 @@ export class Mem0 implements INodeType {
 		const credentials = await this.getCredentials('mem0Api');
 		const baseUrl = (credentials.baseUrl as string) || 'https://api.mem0.ai';
 
-		// Anonymous, fire-and-forget usage telemetry (opt out with MEM0_TELEMETRY=false).
-		if (items.length) {
-			captureEvent(`n8n.${this.getNodeParameter('operation', 0) as string}`, credentials.apiKey as string, {
-				items: items.length,
-			});
-		}
-
 		const request = async (
 			method: IHttpRequestMethods,
 			url: string,
@@ -333,7 +336,8 @@ export class Mem0 implements INodeType {
 				url: `${baseUrl}${url}`,
 				json: true,
 				...(body ? { body } : {}),
-				...(qs ? { qs } : {}),
+				// First-party usage attribution: the backend reads `source` (same as OpenClaw).
+				qs: { source: 'N8N', ...(qs ?? {}) },
 			};
 			return (await this.helpers.httpRequestWithAuthentication.call(
 				this,
@@ -440,12 +444,25 @@ export class Mem0 implements INodeType {
 					responseData = Array.isArray(resp.results) ? (resp.results as IDataObject[]) : [];
 				} else if (operation === 'getAll') {
 					const userId = this.getNodeParameter('userId', i, '') as string;
-					const page = this.getNodeParameter('page', i, 1) as number;
+					const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 					const pageSize = this.getNodeParameter('pageSize', i, 50) as number;
 					const body: IDataObject = {};
 					if (userId) body.filters = { user_id: userId };
-					const resp = await request('POST', '/v3/memories/', body, { page, page_size: pageSize });
-					responseData = Array.isArray(resp.results) ? (resp.results as IDataObject[]) : [];
+					if (returnAll) {
+						// Page through until a short/empty page or no `next` (hard-capped for safety).
+						const all: IDataObject[] = [];
+						for (let page = 1; page <= 10000; page++) {
+							const resp = await request('POST', '/v3/memories/', body, { page, page_size: pageSize });
+							const results = Array.isArray(resp.results) ? (resp.results as IDataObject[]) : [];
+							all.push(...results);
+							if (results.length < pageSize || !resp.next) break;
+						}
+						responseData = all;
+					} else {
+						const page = this.getNodeParameter('page', i, 1) as number;
+						const resp = await request('POST', '/v3/memories/', body, { page, page_size: pageSize });
+						responseData = Array.isArray(resp.results) ? (resp.results as IDataObject[]) : [];
+					}
 				} else if (operation === 'get') {
 					const memoryId = this.getNodeParameter('memoryId', i) as string;
 					responseData = await request('GET', `/v1/memories/${memoryId}/`);
@@ -484,8 +501,7 @@ export class Mem0 implements INodeType {
 					returnData.push({ json: { error: (error as Error).message }, pairedItem: { item: i } });
 					continue;
 				}
-				if (error instanceof NodeApiError || error instanceof NodeOperationError) throw error;
-				throw new NodeApiError(this.getNode(), error as JsonObject);
+				throw new NodeApiError(this.getNode(), error as JsonObject, { itemIndex: i });
 			}
 		}
 

@@ -44,6 +44,10 @@ A typical loop:
 
 Memory writes are asynchronous by default; allow a moment after an Add before searching for the same content.
 
+## Telemetry
+
+This node sends no third-party telemetry. Its API requests are tagged with `source: "N8N"` so Mem0 can see aggregate usage of the integration. No separate analytics service is contacted and nothing else is collected.
+
 ## Resources
 
 - [Mem0 documentation](https://docs.mem0.ai)

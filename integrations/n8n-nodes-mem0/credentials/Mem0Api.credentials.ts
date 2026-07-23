@@ -1,5 +1,6 @@
 import {
 	IAuthenticateGeneric,
+	Icon,
 	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
@@ -9,6 +10,8 @@ export class Mem0Api implements ICredentialType {
 	name = 'mem0Api';
 
 	displayName = 'Mem0 API';
+
+	icon: Icon = 'file:mem0.svg';
 
 	documentationUrl = 'https://docs.mem0.ai/platform/quickstart';
 

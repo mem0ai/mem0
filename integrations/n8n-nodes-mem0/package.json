@@ -31,6 +31,7 @@
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
     "lintfix": "eslint nodes credentials package.json --fix",
+    "test": "jest",
     "prepublishOnly": "npm run build && npm run lint"
   },
   "files": [
@@ -46,14 +47,17 @@
     ]
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^8.57.0",
+    "jest": "^29.7.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",
     "gulp": "^5.0.0",
     "n8n-workflow": "*",
     "prettier": "^3.3.0",
     "rimraf": "^5.0.0",
+    "ts-jest": "^29.2.5",
     "typescript": "^5.5.0"
   },
   "peerDependencies": {
