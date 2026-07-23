@@ -3,6 +3,7 @@
 import array
 import json
 import logging
+import math
 import re
 import uuid
 from contextlib import contextmanager
@@ -134,6 +135,25 @@ class OracleAIVectorSearch(VectorStoreBase):
     def _catalog_name(name: str) -> str:
         return name.replace('"', "")
 
+    @staticmethod
+    def _convert_distance_to_score(distance: float, metric: str) -> float:
+        """Convert an Oracle VECTOR_DISTANCE value to a higher-is-better score."""
+        metric_upper = metric.upper()
+
+        if metric_upper == "COSINE":
+            return max(0.0, min(1.0, 1.0 - distance))
+        if metric_upper == "EUCLIDEAN":
+            return 1.0 / (1.0 + max(0.0, distance))
+        if metric_upper == "EUCLIDEAN_SQUARED":
+            return 1.0 / (1.0 + math.sqrt(max(0.0, distance)))
+        if metric_upper in {"HAMMING", "MANHATTAN"}:
+            return 1.0 / (1.0 + max(0.0, distance))
+        if metric_upper == "DOT":
+            # Oracle's DOT distance is the negated inner product.
+            return -distance
+
+        raise ValueError(f"Unsupported distance metric: {metric}")
+
     def _create_index_ddl(self) -> str:
         accuracy_str = ""
         if self.config.index_accuracy:
@@ -261,7 +281,7 @@ class OracleAIVectorSearch(VectorStoreBase):
             OutputData(
                 id=row[0],
                 payload=self._load_payload(row[1]),
-                score=float(row[2]),
+                score=self._convert_distance_to_score(float(row[2]), distance_metric),
             )
             for row in rows
         ]

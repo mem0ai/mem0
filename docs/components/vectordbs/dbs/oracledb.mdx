@@ -73,4 +73,6 @@ Here are the parameters available for configuring Oracle AI Vector Search:
 - When you provide a pre-built `client`, mem0 will use it instead of creating a new connection or pool.
 - Set the index type with `index_type`, not `index_parameters`. See the [Oracle `CREATE VECTOR INDEX` reference](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/create-vector-index.html).
 - `connection_params` must follow `python-oracledb` conventions (`user`, `password`, `dsn` and more).
-- The returned `score` from searches is Oracle’s `VECTOR_DISTANCE` (lower means closer/more similar).
+- Search results convert Oracle's `VECTOR_DISTANCE` to a similarity `score` where higher values mean greater
+  similarity. Cosine and non-negative distance metrics return scores in `[0, 1]`; `DOT` returns the inner product,
+  which may fall outside that range.

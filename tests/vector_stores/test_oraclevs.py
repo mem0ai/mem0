@@ -1,6 +1,9 @@
 import os
 import uuid
+from contextlib import nullcontext
+from types import SimpleNamespace
 from typing import Any, Dict
+from unittest.mock import MagicMock
 
 import pytest
 import oracledb
@@ -14,7 +17,7 @@ ORACLE_USER = os.environ.get("ORACLE_USER") or ""
 ORACLE_PASSWORD = os.environ.get("ORACLE_PASSWORD") or ""
 ORACLE_DSN = os.environ.get("ORACLE_DSN") or ""
 
-pytestmark = pytest.mark.skipif(
+requires_oracle_credentials = pytest.mark.skipif(
     not (ORACLE_USER and ORACLE_DSN),
     reason="Oracle credentials not configured",
 )
@@ -87,9 +90,7 @@ def _build_oracle_db(case: Dict[str, Any], *, do_create_index: bool) -> OracleAI
         config_kwargs["index_accuracy"] = case["index_accuracy"]
     if case.get("index_parameters"):
         config_kwargs["index_parameters"] = (
-            {"neighbors": 40, "efconstruction": 64}
-            if case["index_type"] == "HNSW"
-            else {"neighbor_partitions": 10}
+            {"neighbors": 40, "efconstruction": 64} if case["index_type"] == "HNSW" else {"neighbor_partitions": 10}
         )
 
     if case.get("use_connection_pool"):
@@ -110,6 +111,9 @@ def oracle_db(request):
     Uses a single representative config and skips vector-index creation to avoid
     repeated DDL lock contention on the shared Oracle instance.
     """
+    if not (ORACLE_USER and ORACLE_DSN):
+        pytest.skip("Oracle credentials not configured")
+
     db = _build_oracle_db(request.param, do_create_index=False)
 
     try:
@@ -122,6 +126,7 @@ def oracle_db(request):
             pass
 
 
+@requires_oracle_credentials
 @pytest.mark.parametrize("case", REPRESENTATIVE_CASES, ids=lambda case: case["name"])
 def test_initialize_create_col(case: Dict[str, Any]):
     oracle_db = _build_oracle_db(case, do_create_index=False)
@@ -130,9 +135,7 @@ def test_initialize_create_col(case: Dict[str, Any]):
         # Verify config normalization and DDL generation for each representative case
         collection_name = oracle_db.collection_name.strip('"')
         expected_index_name = (
-            f'"{collection_name}_IDX"'
-            if case["custom_index_name"]
-            else f'"{collection_name}_VEC_IDX"'
+            f'"{collection_name}_IDX"' if case["custom_index_name"] else f'"{collection_name}_VEC_IDX"'
         )
         assert oracle_db.config.embedding_model_dims == DIM
         assert oracle_db.config.distance_metric in ("COSINE", "EUCLIDEAN")
@@ -165,6 +168,7 @@ def test_initialize_create_col(case: Dict[str, Any]):
             pass
 
 
+@requires_oracle_credentials
 def test_create_col_with_index_smoke():
     case = REPRESENTATIVE_CASES[1]
     oracle_db = _build_oracle_db(case, do_create_index=True)
@@ -180,6 +184,7 @@ def test_create_col_with_index_smoke():
             pass
 
 
+@requires_oracle_credentials
 def test_index_parameters_are_structured_and_allowlisted():
     conn_params = {"user": ORACLE_USER, "password": ORACLE_PASSWORD, "dsn": ORACLE_DSN}
     collection_name = _unique_collection_name()
@@ -199,6 +204,7 @@ def test_index_parameters_are_structured_and_allowlisted():
         oracle_db.delete_col()
 
 
+@requires_oracle_credentials
 def test_ivf_index_parameters_are_structured_and_allowlisted():
     conn_params = {"user": ORACLE_USER, "password": ORACLE_PASSWORD, "dsn": ORACLE_DSN}
     collection_name = _unique_collection_name()
@@ -218,8 +224,7 @@ def test_ivf_index_parameters_are_structured_and_allowlisted():
     try:
         ddl = oracle_db._create_index_ddl()
         assert (
-            "PARAMETERS (type IVF, neighbor partitions 10, samples_per_partition 4, "
-            "min_vectors_per_partition 2)"
+            "PARAMETERS (type IVF, neighbor partitions 10, samples_per_partition 4, min_vectors_per_partition 2)"
         ) in ddl
     finally:
         oracle_db.delete_col()
@@ -280,6 +285,48 @@ def test_index_parameters_canonicalize_int_subclasses():
     assert type(config.index_parameters["neighbors"]) is int
     assert "PARALLEL 8" not in ddl
     assert "PARAMETERS (type HNSW, neighbors 40)" in ddl
+
+
+@pytest.mark.parametrize(
+    ("metric", "distance", "expected_score"),
+    [
+        ("COSINE", 0.25, 0.75),
+        ("cosine", -0.01, 1.0),
+        ("COSINE", 1.25, 0.0),
+        ("EUCLIDEAN", 3.0, 0.25),
+        ("EUCLIDEAN", -0.01, 1.0),
+        ("EUCLIDEAN_SQUARED", 9.0, 0.25),
+        ("HAMMING", 3.0, 0.25),
+        ("MANHATTAN", 3.0, 0.25),
+        ("DOT", -0.75, 0.75),
+        ("DOT", 0.25, -0.25),
+    ],
+)
+def test_convert_distance_to_score(metric, distance, expected_score):
+    assert OracleAIVectorSearch._convert_distance_to_score(distance, metric) == pytest.approx(expected_score)
+
+
+def test_convert_distance_to_score_rejects_unknown_metric():
+    with pytest.raises(ValueError, match="Unsupported distance metric: UNKNOWN"):
+        OracleAIVectorSearch._convert_distance_to_score(0.5, "UNKNOWN")
+
+
+def test_search_returns_similarity_scores():
+    cursor = MagicMock()
+    cursor.fetchall.return_value = [
+        ("close", '{"label": "close"}', 0.1),
+        ("far", '{"label": "far"}', 0.8),
+    ]
+
+    store = object.__new__(OracleAIVectorSearch)
+    store.collection_name = '"MEM0"'
+    store.config = SimpleNamespace(distance_metric="COSINE")
+    store._get_cursor = MagicMock(return_value=nullcontext(cursor))
+
+    results = store.search(query="unused", vectors=[1.0, 0.0], limit=2)
+
+    assert [result.score for result in results] == pytest.approx([0.9, 0.2])
+    assert results[0].score > results[1].score
 
 
 def test_insert_and_get(oracle_db: OracleAIVectorSearch):
@@ -509,6 +556,7 @@ def test_update_accepts_empty_payload(oracle_db: OracleAIVectorSearch):
     assert result.payload == {}
 
 
+@requires_oracle_credentials
 def test_does_not_close_caller_supplied_pool():
     pool = oracledb.create_pool(
         min=1,
@@ -537,6 +585,7 @@ def test_does_not_close_caller_supplied_pool():
             pool.close()
 
 
+@requires_oracle_credentials
 def test_documentation():
     from mem0 import Memory
 
