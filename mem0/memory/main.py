@@ -110,6 +110,14 @@ _DELETE_ALL_MAX_NO_PROGRESS = 3
 # store time to expose newly-visible rows before we conclude the drain.
 _DELETE_ALL_NO_PROGRESS_BACKOFF = 0.5
 
+# Max times a single id may fail deletion before we stop retrying it and count
+# it as a hard error. A transient concurrent-delete miss stays eligible for a
+# few retries (see async delete_all), but an id whose delete keeps failing must
+# not be re-listed and re-attempted every iteration up to _DELETE_ALL_MAX_
+# ITERATIONS, which would hammer the backend. After this many failures the id
+# is marked seen so the drain can conclude instead of spinning.
+_DELETE_ALL_MAX_ID_FAILURES = 3
+
 
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
@@ -3568,6 +3576,7 @@ class AsyncMemory(MemoryBase):
         total_deleted = 0
         total_errors = 0
         seen_ids: set = set()
+        failure_counts: dict = {}
         no_progress = 0
         for _ in range(_DELETE_ALL_MAX_ITERATIONS):
             listed = await asyncio.to_thread(
@@ -3596,12 +3605,23 @@ class AsyncMemory(MemoryBase):
             )
             for memory, result in zip(batch, results):
                 if isinstance(result, BaseException):
-                    # Do not mark seen on failure — leave residual IDs eligible
-                    # for retry on the next list page (async concurrent deletes
-                    # can fail without surfacing; marking early silently drops
-                    # them while delete_all still reports success).
+                    # Do not mark seen on a transient failure — leave residual
+                    # IDs eligible for retry on the next list page (async
+                    # concurrent deletes can fail without surfacing; marking
+                    # early silently drops them while delete_all still reports
+                    # success). But bound per-id retries: an id whose delete
+                    # keeps failing is marked seen after a few attempts so it
+                    # doesn't get re-listed and re-attempted every iteration.
                     total_errors += 1
+                    failure_counts[memory.id] = failure_counts.get(memory.id, 0) + 1
                     logger.warning("Failed to delete memory %s: %s", memory.id, result)
+                    if failure_counts[memory.id] >= _DELETE_ALL_MAX_ID_FAILURES:
+                        seen_ids.add(memory.id)
+                        logger.warning(
+                            "Giving up on memory %s after %d failed delete attempts",
+                            memory.id,
+                            failure_counts[memory.id],
+                        )
                 else:
                     seen_ids.add(memory.id)
                     total_deleted += 1

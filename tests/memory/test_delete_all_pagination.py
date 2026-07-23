@@ -247,3 +247,30 @@ async def test_async_delete_all_retries_failed_delete(monkeypatch):
     assert memory._delete_memory.await_count == 2
     assert attempts["n"] == 2
 
+
+@pytest.mark.asyncio
+async def test_async_delete_all_caps_persistent_failures(monkeypatch):
+    """An id whose delete keeps failing is capped, not retried every iteration."""
+    from mem0.memory.main import _DELETE_ALL_MAX_ID_FAILURES
+
+    memory = _make_async_memory()
+    row = SimpleNamespace(id="always-fails")
+    # The store keeps returning the same undeletable row on every list() call.
+    memory.vector_store.list.side_effect = lambda *a, **k: ([row], None)
+
+    async def _delete(memory_id, skip_entity_cleanup=False):
+        raise RuntimeError("permanent backend failure")
+
+    memory._delete_memory = AsyncMock(side_effect=_delete)
+    monkeypatch.setattr(memory_main, "capture_event", MagicMock())
+    monkeypatch.setattr(memory_main, "detect_decay_usage_from_delete_all", MagicMock(return_value=None))
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", AsyncMock())
+    monkeypatch.setattr(memory_main, "display_decay_usage_notice_async", AsyncMock())
+
+    await AsyncMemory.delete_all(memory, user_id="u1")
+
+    # Without the cap this id would be re-attempted up to _DELETE_ALL_MAX_
+    # ITERATIONS (10k). With it, the id is marked seen after the cap and the
+    # drain concludes, so total attempts stay bounded to the cap.
+    assert memory._delete_memory.await_count == _DELETE_ALL_MAX_ID_FAILURES
+
