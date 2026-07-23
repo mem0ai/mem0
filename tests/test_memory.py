@@ -1704,6 +1704,64 @@ class TestEntityTypeMergeGate:
         assert inserted_payload["entity_type"] == "NOUN"
 
     @pytest.mark.asyncio
+    @patch("mem0.memory.main.extract_entities_batch")
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    async def test_async_phase7d_different_type_inserts_instead_of_update(
+        self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap, mock_extract
+    ):
+        """Async Phase 7d (AsyncMemory._add_to_vector_store) must not merge
+        entities with different entity_type."""
+        from mem0.memory.main import AsyncMemory
+
+        mock_embedder = MagicMock()
+        mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock_emb.return_value = mock_embedder
+
+        mock_vector_store = MagicMock()
+        mock_vector_store.search.return_value = []
+        mock_vs.return_value = mock_vector_store
+
+        mock_llm_inst = MagicMock()
+        mock_llm_inst.generate_response.return_value = json.dumps({
+            "memory": [{"text": "Python is a snake", "event": "ADD"}]
+        })
+        mock_llm.return_value = mock_llm_inst
+        mock_sqlite.return_value = MagicMock()
+
+        mock_extract.return_value = [
+            [("NOUN", "python")]
+        ]
+
+        config = MemoryConfig()
+        m = AsyncMemory(config)
+        entity_store = MagicMock()
+        entity_store.search_batch.return_value = [
+            [MockVectorMemory(
+                "entity-1",
+                {"data": "python", "entity_type": "PROPER", "linked_memory_ids": ["mem-A"]},
+                score=0.99,
+            )]
+        ]
+        m._entity_store = entity_store
+
+        await m._add_to_vector_store(
+            messages=[{"role": "user", "content": "Python is a snake"}],
+            metadata={"user_id": "u1"},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        entity_store.update.assert_not_called()
+        entity_store.insert.assert_called_once()
+        inserted_payload = entity_store.insert.call_args.kwargs["payloads"][0]
+        assert inserted_payload["entity_type"] == "NOUN"
+
+    @pytest.mark.asyncio
     async def test_async_upsert_entity_different_type_creates_new(self):
         """_upsert_entity_async must not merge entities with different entity_type."""
         from mem0.memory.main import AsyncMemory

@@ -624,7 +624,14 @@ class Memory(MemoryBase):
             if match:
                 payload = match.payload or {}
                 if entity_type and payload.get("entity_type") and payload["entity_type"] != entity_type:
-                    pass
+                    logger.warning(
+                        "Skipping merge for entity %r: stored entity_type %r != new "
+                        "entity_type %r. A duplicate entity will be created instead of "
+                        "merging (this can happen after an entity_type vocabulary change).",
+                        entity_text,
+                        payload.get("entity_type"),
+                        entity_type,
+                    )
                 else:
                     matched = True
                     linked_ids = payload.get("linked_memory_ids", [])
@@ -1162,7 +1169,14 @@ class Memory(MemoryBase):
                             payload = match.payload or {}
                             existing_type = payload.get("entity_type")
                             if entity_type and existing_type and existing_type != entity_type:
-                                pass
+                                logger.warning(
+                                    "Skipping merge for entity %r: stored entity_type %r != new "
+                                    "entity_type %r. A duplicate entity will be created instead of "
+                                    "merging (this can happen after an entity_type vocabulary change).",
+                                    entity_text,
+                                    existing_type,
+                                    entity_type,
+                                )
                             else:
                                 matched = True
                                 linked = set(payload.get("linked_memory_ids", []))
@@ -2299,7 +2313,14 @@ class AsyncMemory(MemoryBase):
             if match:
                 payload = match.payload or {}
                 if entity_type and payload.get("entity_type") and payload["entity_type"] != entity_type:
-                    pass
+                    logger.warning(
+                        "Skipping merge for entity %r: stored entity_type %r != new "
+                        "entity_type %r. A duplicate entity will be created instead of "
+                        "merging (this can happen after an entity_type vocabulary change).",
+                        entity_text,
+                        payload.get("entity_type"),
+                        entity_type,
+                    )
                 else:
                     matched = True
                     linked_ids = payload.get("linked_memory_ids", [])
@@ -2830,7 +2851,14 @@ class AsyncMemory(MemoryBase):
                             payload = match.payload or {}
                             existing_type = payload.get("entity_type")
                             if entity_type and existing_type and existing_type != entity_type:
-                                pass
+                                logger.warning(
+                                    "Skipping merge for entity %r: stored entity_type %r != new "
+                                    "entity_type %r. A duplicate entity will be created instead of "
+                                    "merging (this can happen after an entity_type vocabulary change).",
+                                    entity_text,
+                                    existing_type,
+                                    entity_type,
+                                )
                             else:
                                 matched = True
                                 linked = set(payload.get("linked_memory_ids", []))
