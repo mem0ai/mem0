@@ -509,11 +509,21 @@ class Memory(MemoryBase):
         # Entity store is initialized lazily on first use
         self._entity_store = None
 
-        # Serializes the dedup-recheck + insert step in _add_to_vector_store so
-        # concurrent add() calls extracting the same fact can't both pass a
-        # stale dedup snapshot and both insert (see issue tracking the
-        # hash-dedup TOCTOU race).
-        self._add_lock = threading.Lock()
+        # Per-scope locks for the dedup-recheck + insert step in
+        # _add_to_vector_store, so concurrent add() calls extracting the same
+        # fact can't both pass a stale dedup snapshot and both insert (the
+        # hash-dedup TOCTOU race). Keyed by session scope so add() calls for
+        # different user_id/agent_id/run_id — which can never hash-collide —
+        # don't serialize against each other; only same-scope callers do.
+        #
+        # Scope of protection: these locks live on the Memory instance, so they
+        # only serialize callers sharing one instance in one process. They do
+        # NOT coordinate across multiple workers/replicas (e.g. this repo's
+        # server/ and openmemory/ scale-out deployments, which hold the client
+        # as a per-process singleton) — closing that cross-process window would
+        # need a shared/distributed lock and is out of scope here.
+        self._add_locks = {}
+        self._add_locks_guard = threading.Lock()
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -1032,13 +1042,20 @@ class Memory(MemoryBase):
             self.db.save_messages(messages, session_scope)
             return []
 
-        # Phase 5: Hash dedup + Phase 6: Batch persist, serialized.
+        # Phase 5: Hash dedup + Phase 6: Batch persist, serialized per scope.
         # The Phase 1 snapshot (existing_results) can go stale by the time we get
         # here (an LLM round-trip + embedding calls have happened since). Holding
-        # self._add_lock and re-checking hashes fresh right before insert closes
-        # that TOCTOU window: two concurrent add() calls extracting the same fact
-        # can no longer both pass dedup and both insert a permanent duplicate.
-        with self._add_lock:
+        # the session-scoped lock and re-checking hashes fresh right before insert
+        # closes that TOCTOU window: two concurrent add() calls extracting the
+        # same fact can no longer both pass dedup and both insert a permanent
+        # duplicate. Only same-scope callers serialize here (see __init__).
+        with self._add_locks_guard:
+            add_lock = self._add_locks.get(session_scope)
+            if add_lock is None:
+                add_lock = threading.Lock()
+                self._add_locks[session_scope] = add_lock
+
+        with add_lock:
             fresh_existing = self.vector_store.search(
                 query=parsed_messages,
                 vectors=query_embedding,
@@ -2195,11 +2212,20 @@ class AsyncMemory(MemoryBase):
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
 
-        # Serializes the dedup-recheck + insert step in _add_to_vector_store so
-        # concurrent add() calls extracting the same fact can't both pass a
-        # stale dedup snapshot and both insert (see issue tracking the
-        # hash-dedup TOCTOU race).
-        self._add_lock = asyncio.Lock()
+        # Per-scope locks for the dedup-recheck + insert step in
+        # _add_to_vector_store, so concurrent add() calls extracting the same
+        # fact can't both pass a stale dedup snapshot and both insert (the
+        # hash-dedup TOCTOU race). Keyed by session scope so add() calls for
+        # different user_id/agent_id/run_id — which can never hash-collide —
+        # don't serialize against each other; only same-scope callers do.
+        #
+        # Scope of protection: these locks live on the AsyncMemory instance, so
+        # they only serialize callers sharing one instance in one process/event
+        # loop. They do NOT coordinate across multiple workers/replicas (e.g.
+        # this repo's server/ and openmemory/ scale-out deployments, which hold
+        # the client as a per-process singleton) — closing that cross-process
+        # window would need a shared/distributed lock and is out of scope here.
+        self._add_locks = {}
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2701,13 +2727,21 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 5: Hash dedup + Phase 6: Batch persist, serialized.
+        # Phase 5: Hash dedup + Phase 6: Batch persist, serialized per scope.
         # The Phase 1 snapshot (existing_results) can go stale by the time we get
         # here (an LLM round-trip + embedding calls have happened since). Holding
-        # self._add_lock and re-checking hashes fresh right before insert closes
-        # that TOCTOU window: two concurrent add() calls extracting the same fact
-        # can no longer both pass dedup and both insert a permanent duplicate.
-        async with self._add_lock:
+        # the session-scoped lock and re-checking hashes fresh right before insert
+        # closes that TOCTOU window: two concurrent add() calls extracting the
+        # same fact can no longer both pass dedup and both insert a permanent
+        # duplicate. Only same-scope callers serialize here (see __init__).
+        # The get/set below has no await between the check and the assignment, so
+        # it is atomic within a single event loop — no extra guard lock needed.
+        add_lock = self._add_locks.get(session_scope)
+        if add_lock is None:
+            add_lock = asyncio.Lock()
+            self._add_locks[session_scope] = add_lock
+
+        async with add_lock:
             fresh_existing = await asyncio.to_thread(
                 self.vector_store.search,
                 query=parsed_messages,

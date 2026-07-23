@@ -1195,15 +1195,27 @@ class TestConcurrentAddDedupRace:
     def _make_fake_store():
         store = []
         store_lock = threading.Lock()
+        scope_keys = ("user_id", "agent_id", "run_id")
+
+        def _scope(payload):
+            return tuple(payload.get(k) for k in scope_keys)
 
         def fake_search(query, vectors, top_k, filters):
+            # Mirror a real backend: results are scoped by the entity filters,
+            # so a different user_id/agent_id/run_id never sees another scope's
+            # rows (and thus can't falsely dedup against them).
+            want = tuple((filters or {}).get(k) for k in scope_keys)
             with store_lock:
-                return [MagicMock(payload={"hash": r["hash"]}, id=r["id"]) for r in store]
+                return [
+                    MagicMock(payload={"hash": r["hash"]}, id=r["id"])
+                    for r in store
+                    if r["scope"] == want
+                ]
 
         def fake_insert(vectors, ids, payloads):
             with store_lock:
                 for i, p in zip(ids, payloads):
-                    store.append({"id": i, "hash": p["hash"]})
+                    store.append({"id": i, "hash": p["hash"], "scope": _scope(p)})
 
         return store, fake_search, fake_insert
 
@@ -1294,3 +1306,36 @@ class TestConcurrentAddDedupRace:
             f"expected exactly 1 persisted memory after two concurrent add() calls "
             f"for the same fact, got {len(store)}: {store}"
         )
+
+    def test_different_scopes_use_separate_locks_and_both_persist(self, mocker):
+        """add() calls for different scopes must not serialize on one lock, and
+        must not falsely dedup against each other (different user_id can't
+        hash-collide). Each scope gets its own lock entry."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+
+        store, fake_search, fake_insert = self._make_fake_store()
+        memory.vector_store.search = Mock(side_effect=fake_search)
+        memory.vector_store.insert = Mock(side_effect=fake_insert)
+        memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        memory.llm.generate_response = Mock(
+            return_value='{"memory": [{"text": "User likes coffee"}]}'
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+
+        for uid in ("u1", "u2"):
+            memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I really like coffee"}],
+                metadata={"user_id": uid},
+                filters={"user_id": uid},
+                infer=True,
+            )
+
+        # Both scopes persisted their own memory (no false cross-scope dedup)...
+        assert len(store) == 2, f"expected 1 memory per distinct scope, got {store}"
+        # ...and each distinct scope got its own lock, not one shared instance lock.
+        assert len(memory._add_locks) == 2
