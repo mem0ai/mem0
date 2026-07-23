@@ -81,6 +81,7 @@ class APIError extends Error {
 interface ClientOptions {
   apiKey: string;
   host?: string;
+  headers?: Record<string, string>;
 }
 
 export default class MemoryClient {
@@ -113,11 +114,12 @@ export default class MemoryClient {
     this.headers = {
       Authorization: `Token ${this.apiKey}`,
       "Content-Type": "application/json",
+      ...options.headers,
     };
 
     this.client = axios.create({
       baseURL: this.host,
-      headers: { Authorization: `Token ${this.apiKey}` },
+      headers: { Authorization: `Token ${this.apiKey}`, ...options.headers },
       timeout: 60000,
     });
 
@@ -188,6 +190,7 @@ export default class MemoryClient {
     const response = await fetch(url, {
       ...options,
       headers: {
+        ...this.headers,
         ...options.headers,
         Authorization: `Token ${this.apiKey}`,
         "Mem0-User-ID": this.telemetryId,
