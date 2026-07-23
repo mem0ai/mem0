@@ -962,6 +962,13 @@ class Memory(MemoryBase):
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
+            if len(mem_embeddings_list) != len(mem_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d memory texts — "
+                    "unmatched texts are skipped rather than silently dropped",
+                    len(mem_embeddings_list),
+                    len(mem_texts),
+                )
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             # Fallback: embed individually
@@ -2596,6 +2603,13 @@ class AsyncMemory(MemoryBase):
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
             mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+            if len(mem_embeddings_list) != len(mem_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d memory texts — "
+                    "unmatched texts are skipped rather than silently dropped",
+                    len(mem_embeddings_list),
+                    len(mem_texts),
+                )
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
