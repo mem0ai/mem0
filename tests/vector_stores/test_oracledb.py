@@ -8,9 +8,11 @@ from unittest.mock import MagicMock
 import oracledb
 import pytest
 
-from mem0.configs.vector_stores.oracledb import OracleAIVectorSearchConfig
+from mem0.configs.vector_stores.oracledb import (
+    OracleAIVectorSearchConfig,
+    _quote_identifier,
+)
 from mem0.vector_stores.oracledb import OracleAIVectorSearch, _convert_distance_to_score
-
 
 # Global Oracle connection settings (override via env to run in different environments)
 ORACLE_USER = os.environ.get("ORACLE_USER") or ""
@@ -398,6 +400,54 @@ def test_build_filters_wildcard_requires_field_existence():
 
     assert clause == """WHERE JSON_EXISTS(payload, '$."run_id"')"""
     assert params == {}
+
+
+def test_build_filters_rejects_empty_metadata_key():
+    store = object.__new__(OracleAIVectorSearch)
+
+    with pytest.raises(ValueError, match="Invalid metadata key"):
+        store._build_filters({"": "alice"})
+
+
+@pytest.mark.parametrize(
+    ("collection_name", "expected"),
+    [
+        ("MEM0", (None, "MEM0")),
+        ("SCHEMA.MEM0", ("SCHEMA", "MEM0")),
+        ('"my.table"', (None, "my.table")),
+    ],
+)
+def test_split_collection_name(collection_name, expected):
+    store = object.__new__(OracleAIVectorSearch)
+    store.collection_name = _quote_identifier(collection_name)
+
+    assert store._split_collection_name() == expected
+
+
+def test_col_info_looks_up_the_unqualified_table_name():
+    cursor = MagicMock()
+    cursor.fetchone.return_value = ("MEM0", 7, "1.5 MB")
+
+    store = object.__new__(OracleAIVectorSearch)
+    store.collection_name = _quote_identifier("SCHEMA.MEM0")
+    store._get_cursor = MagicMock(return_value=nullcontext(cursor))
+
+    info = store.col_info()
+
+    assert info == {"name": "MEM0", "count": 7, "size": "1.5 MB"}
+    assert cursor.execute.call_args.kwargs == {"table_name": "MEM0", "owner": "SCHEMA"}
+
+
+def test_col_info_raises_when_collection_is_missing():
+    cursor = MagicMock()
+    cursor.fetchone.return_value = None
+
+    store = object.__new__(OracleAIVectorSearch)
+    store.collection_name = _quote_identifier("MEM0")
+    store._get_cursor = MagicMock(return_value=nullcontext(cursor))
+
+    with pytest.raises(ValueError, match="not found"):
+        store.col_info()
 
 
 def test_build_filters_combines_wildcard_and_scalar_equality():

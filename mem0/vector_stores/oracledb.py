@@ -31,7 +31,7 @@ class OutputData(BaseModel):
 
 
 # Allow letters, digits, underscore, dot, brackets, comma, *, space (for 'to')
-METADATA_PATTERN = re.compile(r"[a-zA-Z0-9_\.\[\],\s\*]*")
+METADATA_PATTERN = re.compile(r"[a-zA-Z0-9_\.\[\],\s\*]+")
 
 
 def _validate_metadata_key(metadata_key: str) -> None:
@@ -247,9 +247,9 @@ class OracleAIVectorSearch(VectorStoreBase):
 
         if not (hasattr(self.client, "thin") and self.client.thin):
             if oracledb.clientversion()[:2] < (23, 4):
-                raise Exception(
-                    f"Oracle DB client driver version {oracledb.clientversion()} not \
-                    supported, must be >=23.4 for vector support"
+                raise RuntimeError(
+                    f"Oracle DB client driver version {'.'.join(map(str, oracledb.clientversion()))} "
+                    "not supported, must be >=23.4 for vector support"
                 )
 
         if isinstance(self.client, oracledb.Connection):
@@ -516,6 +516,8 @@ class OracleAIVectorSearch(VectorStoreBase):
         Returns:
             Dict[str, Any]: Collection information.
         """
+        owner, table_name = self._split_collection_name()
+
         sql = f"""
         SELECT
             table_name,
@@ -526,18 +528,26 @@ class OracleAIVectorSearch(VectorStoreBase):
             WHERE segment_name = :table_name
             AND segment_type = 'TABLE'
             ) AS total_size
-        FROM user_tables
+        FROM all_tables
         WHERE table_name = :table_name
+        AND owner = NVL(:owner, USER)
         """
 
         with self._get_cursor() as cursor:
-            cursor.execute(
-                sql,
-                table_name=self.collection_name.replace('"', ""),
-            )
+            cursor.execute(sql, table_name=table_name, owner=owner)
             result = cursor.fetchone()
 
+        if result is None:
+            raise ValueError(f"Collection {self.collection_name} not found")
+
         return {"name": result[0], "count": result[1], "size": result[2]}
+
+    def _split_collection_name(self) -> tuple[Optional[str], str]:
+        """Split the quoted collection name into its optional owner and table parts."""
+        segments = re.findall(r'"([^"]+)"', self.collection_name)
+        if len(segments) > 1:
+            return segments[-2], segments[-1]
+        return None, segments[-1]
 
     def list(self, filters: Optional[Dict[str, Any]] = None, top_k: Optional[int] = 100) -> List[List[OutputData]]:
         """
@@ -545,10 +555,10 @@ class OracleAIVectorSearch(VectorStoreBase):
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
-            List[OutputData]: List of vectors.
+            List[List[OutputData]]: A single-element list holding the list of vectors.
         """
         filter_clause, params = self._build_filters(filters)
 
