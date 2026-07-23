@@ -5,14 +5,14 @@ from types import SimpleNamespace
 from typing import Any, Dict
 from unittest.mock import MagicMock
 
-import pytest
 import oracledb
+import pytest
 
 from mem0.configs.vector_stores.oracledb import OracleAIVectorSearchConfig
-from mem0.vector_stores.oracledb import OracleAIVectorSearch
+from mem0.vector_stores.oracledb import OracleAIVectorSearch, _convert_distance_to_score
 
 
-# Global connection settings (override via env to run in different envs)
+# Global Oracle connection settings (override via env to run in different environments)
 ORACLE_USER = os.environ.get("ORACLE_USER") or ""
 ORACLE_PASSWORD = os.environ.get("ORACLE_PASSWORD") or ""
 ORACLE_DSN = os.environ.get("ORACLE_DSN") or ""
@@ -90,7 +90,7 @@ def _build_oracle_db(case: Dict[str, Any], *, do_create_index: bool) -> OracleAI
         config_kwargs["index_accuracy"] = case["index_accuracy"]
     if case.get("index_parameters"):
         config_kwargs["index_parameters"] = (
-            {"neighbors": 40, "efconstruction": 64} if case["index_type"] == "HNSW" else {"neighbor_partitions": 10}
+            {"neighbors": 40, "efconstruction": 64} if case["index_type"] == "HNSW" else {"neighbor partitions": 10}
         )
 
     if case.get("use_connection_pool"):
@@ -215,7 +215,7 @@ def test_ivf_index_parameters_are_structured_and_allowlisted():
         do_create_index=False,
         index_type="IVF",
         index_parameters={
-            "neighbor_partitions": 10,
+            "neighbor partitions": 10,
             "samples_per_partition": 4,
             "min_vectors_per_partition": 2,
         },
@@ -233,7 +233,7 @@ def test_ivf_index_parameters_are_structured_and_allowlisted():
 def test_index_parameters_reject_unsupported_fragments():
     conn_params = {"user": ORACLE_USER, "password": ORACLE_PASSWORD, "dsn": ORACLE_DSN}
 
-    with pytest.raises(ValueError, match="unsupported keys"):
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
         OracleAIVectorSearch(
             collection_name=_unique_collection_name(),
             embedding_model_dims=DIM,
@@ -243,19 +243,19 @@ def test_index_parameters_reject_unsupported_fragments():
             index_parameters={"parallel": "8 NOLOGGING"},
         )
 
-    with pytest.raises(ValueError, match="must be an integer"):
+    with pytest.raises(ValueError, match="Input should be a valid integer"):
         OracleAIVectorSearch(
             collection_name=_unique_collection_name(),
             embedding_model_dims=DIM,
             connection_params=conn_params,
             do_create_index=False,
             index_type="IVF",
-            index_parameters={"neighbor_partitions": "10) PARALLEL 8"},
+            index_parameters={"neighbor partitions": "10) PARALLEL 8"},
         )
 
 
 def test_index_parameters_reject_non_string_keys():
-    with pytest.raises(ValueError, match="keys must be strings"):
+    with pytest.raises(ValueError, match="Keys should be strings"):
         OracleAIVectorSearchConfig(
             collection_name=_unique_collection_name(),
             embedding_model_dims=DIM,
@@ -287,6 +287,48 @@ def test_index_parameters_canonicalize_int_subclasses():
     assert "PARAMETERS (type HNSW, neighbors 40)" in ddl
 
 
+def test_ivf_index_parameters_use_oracle_ddl_names():
+    config = OracleAIVectorSearchConfig(
+        collection_name=_unique_collection_name(),
+        embedding_model_dims=DIM,
+        client=object(),
+        index_type="ivf",
+        index_parameters={
+            "neighbor partitions": 10,
+            "samples_per_partition": 4,
+            "min_vectors_per_partition": 2,
+        },
+    )
+    oracle_db = object.__new__(OracleAIVectorSearch)
+    oracle_db.config = config
+    oracle_db.collection_name = config.collection_name
+
+    assert config.index_type == "IVF"
+    assert config.index_parameters == {
+        "neighbor partitions": 10,
+        "samples_per_partition": 4,
+        "min_vectors_per_partition": 2,
+    }
+    assert (
+        oracle_db._index_parameters()
+        == "type IVF, neighbor partitions 10, samples_per_partition 4, min_vectors_per_partition 2"
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("distance_metric", None),
+        ("index_type", None),
+        ("use_connection_pool", None),
+        ("collection_name", None),
+    ],
+)
+def test_config_rejects_none_for_non_optional_fields(field, value):
+    with pytest.raises(ValueError):
+        OracleAIVectorSearchConfig(client=object(), **{field: value})
+
+
 @pytest.mark.parametrize(
     ("metric", "distance", "expected_score"),
     [
@@ -303,30 +345,72 @@ def test_index_parameters_canonicalize_int_subclasses():
     ],
 )
 def test_convert_distance_to_score(metric, distance, expected_score):
-    assert OracleAIVectorSearch._convert_distance_to_score(distance, metric) == pytest.approx(expected_score)
+    assert _convert_distance_to_score(distance, metric) == pytest.approx(expected_score)
 
 
 def test_convert_distance_to_score_rejects_unknown_metric():
     with pytest.raises(ValueError, match="Unsupported distance metric: UNKNOWN"):
-        OracleAIVectorSearch._convert_distance_to_score(0.5, "UNKNOWN")
+        _convert_distance_to_score(0.5, "UNKNOWN")
 
 
-def test_search_returns_similarity_scores():
-    cursor = MagicMock()
-    cursor.fetchall.return_value = [
+def test_search_and_list_follow_base_contract():
+    search_cursor = MagicMock()
+    search_cursor.fetchall.return_value = [
         ("close", '{"label": "close"}', 0.1),
         ("far", '{"label": "far"}', 0.8),
+    ]
+    list_cursor = MagicMock()
+    list_cursor.fetchall.return_value = [
+        ("listed", '{"name": "listed"}'),
     ]
 
     store = object.__new__(OracleAIVectorSearch)
     store.collection_name = '"MEM0"'
     store.config = SimpleNamespace(distance_metric="COSINE")
-    store._get_cursor = MagicMock(return_value=nullcontext(cursor))
+    store._get_cursor = MagicMock(
+        side_effect=[
+            nullcontext(search_cursor),
+            nullcontext(list_cursor),
+        ]
+    )
 
-    results = store.search(query="unused", vectors=[1.0, 0.0], limit=2)
+    search_results = store.search(query="unused", vectors=[1.0, 0.0], top_k=2)
+    list_results = store.list(top_k=2)
 
-    assert [result.score for result in results] == pytest.approx([0.9, 0.2])
-    assert results[0].score > results[1].score
+    assert [result.score for result in search_results] == pytest.approx([0.9, 0.2])
+    assert search_results[0].score > search_results[1].score
+    assert isinstance(list_results[0], list)
+    assert list_results[0][0].payload["name"] == "listed"
+
+
+def test_build_filters_wildcard_requires_field_existence():
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, params = store._build_filters({"run_id": "*"})
+
+    assert clause == """WHERE JSON_EXISTS(payload, '$."run_id"')"""
+    assert params == {}
+
+
+def test_build_filters_combines_wildcard_and_scalar_equality():
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, params = store._build_filters({"user_id": "alice", "run_id": "*"})
+
+    assert """JSON_EXISTS(payload, '$?(@."user_id" == $f_0)' PASSING :f_0 AS "f_0")""" in clause
+    assert """JSON_EXISTS(payload, '$."run_id"')""" in clause
+    assert " AND " in clause
+    assert params == {"f_0": "alice"}
+
+
+def test_build_filters_rejects_operator_dictionary():
+    store = object.__new__(OracleAIVectorSearch)
+
+    with pytest.raises(
+        ValueError,
+        match="Oracle vector store does not yet support operator filters for field 'created_at'",
+    ):
+        store._build_filters({"created_at": {"gte": "2024-01-01"}})
 
 
 def test_insert_and_get(oracle_db: OracleAIVectorSearch):
@@ -335,7 +419,7 @@ def test_insert_and_get(oracle_db: OracleAIVectorSearch):
 
     oracle_db.insert(vectors, payloads=payloads)
 
-    listed = oracle_db.list(limit=10)
+    listed = oracle_db.list(top_k=10)[0]
     assert len(listed) >= 2
     seen_names = {item.payload.get("name") for item in listed}
     assert {"vector1", "vector2"}.issubset(seen_names)
@@ -360,7 +444,7 @@ def test_search(oracle_db: OracleAIVectorSearch):
     ]
     oracle_db.insert([pos_vec, neg_vec, mid_vec], payloads=payloads)
 
-    results = oracle_db.search("unused", vectors=pos_vec, limit=3)
+    results = oracle_db.search("unused", vectors=pos_vec, top_k=3)
     assert isinstance(results, list)
     assert len(results) >= 1
 
@@ -377,7 +461,7 @@ def test_search_with_filters(oracle_db: OracleAIVectorSearch):
     oracle_db.insert([vec, vec], payloads=payloads)
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = oracle_db.search("unused", vectors=vec, limit=5, filters=filters)
+    results = oracle_db.search("unused", vectors=vec, top_k=5, filters=filters)
 
     assert len(results) >= 1
     for r in results:
@@ -394,7 +478,7 @@ def test_search_with_single_filter(oracle_db: OracleAIVectorSearch):
     ]
     oracle_db.insert([vec, vec], payloads=payloads)
 
-    results = oracle_db.search("unused", vectors=vec, limit=5, filters={"user_id": "alice"})
+    results = oracle_db.search("unused", vectors=vec, top_k=5, filters={"user_id": "alice"})
     assert len(results) >= 1
     for r in results:
         assert r.payload.get("user_id") == "alice"
@@ -404,7 +488,7 @@ def test_search_with_no_filters(oracle_db: OracleAIVectorSearch):
     vec = [0.33] * DIM
     oracle_db.insert([vec], payloads=[{"k": "v"}])
 
-    results = oracle_db.search("unused", vectors=vec, limit=1, filters=None)
+    results = oracle_db.search("unused", vectors=vec, top_k=1, filters=None)
     assert len(results) == 1
 
 
@@ -412,7 +496,7 @@ def test_delete(oracle_db: OracleAIVectorSearch):
     vec = [0.9] * DIM
     oracle_db.insert([vec], payloads=[{"name": "to_delete"}])
 
-    listed = oracle_db.list(limit=10)
+    listed = oracle_db.list(top_k=10)[0]
     assert len(listed) >= 1
     target_id = listed[0].id
 
@@ -425,7 +509,7 @@ def test_update(oracle_db: OracleAIVectorSearch):
     vec = [0.01] * DIM
     oracle_db.insert([vec], payloads=[{"name": "old"}])
 
-    listed = oracle_db.list(limit=10)
+    listed = oracle_db.list(top_k=10)[0]
     assert len(listed) >= 1
     target_id = listed[0].id
 
@@ -483,11 +567,13 @@ def test_list(oracle_db: OracleAIVectorSearch):
     v1, v2 = [0.11] * DIM, [0.22] * DIM
     oracle_db.insert([v1, v2], payloads=[{"key": "value1"}, {"key": "value2"}])
 
-    results = oracle_db.list(limit=2)
-    assert len(results) <= 2
+    results = oracle_db.list(top_k=2)
+    assert isinstance(results[0], list)
+    listed = results[0]
+    assert len(listed) <= 2
     # Both inserted might be returned if table had no prior rows
-    if len(results) == 2:
-        payloads = [r.payload for r in results]
+    if len(listed) == 2:
+        payloads = [r.payload for r in listed]
         keys = {p.get("key") for p in payloads}
         assert keys.issubset({"value1", "value2"})
 
@@ -503,7 +589,7 @@ def test_list_with_filters(oracle_db: OracleAIVectorSearch):
     )
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = oracle_db.list(filters=filters, limit=10)
+    results = oracle_db.list(filters=filters, top_k=10)[0]
     assert len(results) >= 1
     for r in results:
         assert r.payload.get("user_id") == "alice"
@@ -521,7 +607,7 @@ def test_list_with_single_filter(oracle_db: OracleAIVectorSearch):
         ],
     )
 
-    results = oracle_db.list(filters={"user_id": "alice"}, limit=10)
+    results = oracle_db.list(filters={"user_id": "alice"}, top_k=10)[0]
     assert len(results) >= 1
     for r in results:
         assert r.payload.get("user_id") == "alice"
@@ -531,19 +617,19 @@ def test_list_with_no_filters(oracle_db: OracleAIVectorSearch):
     v = [0.66] * DIM
     oracle_db.insert([v], payloads=[{"k": "v"}])
 
-    results = oracle_db.list(filters=None, limit=10)
+    results = oracle_db.list(filters=None, top_k=10)[0]
     assert len(results) >= 1
 
 
-def test_list_returns_flat_output(oracle_db: OracleAIVectorSearch):
-    oracle_db.insert([[0.12] * DIM], payloads=[{"name": "flat"}])
+def test_list_returns_nested_output(oracle_db: OracleAIVectorSearch):
+    oracle_db.insert([[0.12] * DIM], payloads=[{"name": "nested"}])
 
-    results = oracle_db.list(limit=10)
+    results = oracle_db.list(top_k=10)
 
     assert isinstance(results, list)
     assert results
-    assert not isinstance(results[0], list)
-    assert results[0].payload["name"] == "flat"
+    assert isinstance(results[0], list)
+    assert results[0][0].payload["name"] == "nested"
 
 
 def test_update_accepts_empty_payload(oracle_db: OracleAIVectorSearch):

@@ -66,7 +66,7 @@ Here are the parameters available for configuring Oracle AI Vector Search:
 | `do_create_index` | Whether to create a vector index on the collection | `True` |
 | `index_type` | Vector index type. `HNSW` or `IVF` | `HNSW` |
 | `index_name` | Name of the vector index. Defaults to `<collection_name>_VEC_IDX` | `None` |
-| `index_parameters` | Structured index parameters. For HNSW: `neighbors`, `efconstruction`; for IVF: `neighbor_partitions`, `samples_per_partition`, `min_vectors_per_partition` | `None` |
+| `index_parameters` | Structured index parameters. For HNSW: `neighbors`, `efconstruction`; for IVF: `neighbor partitions`, `samples_per_partition`, `min_vectors_per_partition` | `None` |
 | `index_accuracy` | Target index accuracy (1–100), used with `WITH TARGET ACCURACY <n>` | `None` |
 
 **Notes**
@@ -76,3 +76,5 @@ Here are the parameters available for configuring Oracle AI Vector Search:
 - Search results convert Oracle's `VECTOR_DISTANCE` to a similarity `score` where higher values mean greater
   similarity. Cosine and non-negative distance metrics return scores in `[0, 1]`; `DOT` returns the inner product,
   which may fall outside that range.
+- Metadata filters currently support scalar equality, implicit `AND`, and `"*"` field-existence matching. Operator
+  dictionaries such as `{"created_at": {"gte": "2024-01-01"}}` are not yet supported and raise `ValueError`.

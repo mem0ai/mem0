@@ -1,9 +1,9 @@
 """Pydantic configuration for the Oracle AI Vector Search integration."""
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def _quote_identifier(name: str) -> str:
@@ -22,66 +22,26 @@ def _quote_identifier(name: str) -> str:
     return ".".join(groups)
 
 
-ALLOWED_DISTANCE_METRICS = {"EUCLIDEAN", "EUCLIDEAN_SQUARED", "COSINE", "DOT", "HAMMING", "MANHATTAN"}
-ALLOWED_INDEX_TYPES = {"HNSW", "IVF"}
-ALLOWED_HNSW_INDEX_PARAMETERS = {"neighbors", "efconstruction"}
-ALLOWED_IVF_INDEX_PARAMETERS = {"neighbor_partitions", "samples_per_partition", "min_vectors_per_partition"}
+class HnswParams(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    neighbors: Optional[int] = Field(None, ge=2, le=2048)
+    efconstruction: Optional[int] = Field(None, ge=1, le=65535)
 
 
-def _validate_int_parameter(parameters: dict, key: str, min_value: int, max_value: Optional[int] = None) -> None:
-    if key not in parameters:
-        return
+class IvfParams(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
 
-    value = parameters[key]
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"`index_parameters.{key}` must be an integer")
-    if value < min_value:
-        raise ValueError(f"`index_parameters.{key}` must be at least {min_value}")
-    if max_value is not None and value > max_value:
-        raise ValueError(f"`index_parameters.{key}` must be at most {max_value}")
-    parameters[key] = int(value)
-
-
-def _validate_index_parameters(index_type: str, index_parameters: Optional[dict]) -> Optional[dict]:
-    if index_parameters is None:
-        return None
-    if not isinstance(index_parameters, dict):
-        raise ValueError("`index_parameters` must be a dictionary")
-
-    parameters = dict(index_parameters)
-    invalid_keys = [key for key in parameters if not isinstance(key, str)]
-    if invalid_keys:
-        raise ValueError(
-            "`index_parameters` keys must be strings: {}".format(
-                ", ".join(sorted(repr(key) for key in invalid_keys))
-            )
-        )
-
-    allowed_parameters = ALLOWED_HNSW_INDEX_PARAMETERS if index_type == "HNSW" else ALLOWED_IVF_INDEX_PARAMETERS
-    extra_parameters = set(parameters) - allowed_parameters
-    if extra_parameters:
-        raise ValueError(
-            "`index_parameters` contains unsupported keys for {}: {}".format(
-                index_type, ", ".join(sorted(extra_parameters))
-            )
-        )
-
-    if index_type == "HNSW":
-        _validate_int_parameter(parameters, "neighbors", 2, 2048)
-        _validate_int_parameter(parameters, "efconstruction", 1, 65535)
-    else:
-        _validate_int_parameter(parameters, "neighbor_partitions", 1, 10000000)
-        _validate_int_parameter(parameters, "samples_per_partition", 1)
-        _validate_int_parameter(parameters, "min_vectors_per_partition", 0)
-
-    return parameters
+    neighbor_partitions: Optional[int] = Field(None, alias="neighbor partitions", ge=1, le=10_000_000)
+    samples_per_partition: Optional[int] = Field(None, ge=1)
+    min_vectors_per_partition: Optional[int] = Field(None, ge=0)
 
 
 class OracleAIVectorSearchConfig(BaseModel):
     """Configuration required to connect to an Oracle database with vector search enabled."""
 
     connection_params: Optional[dict] = Field(None, description="Database connection parameters, including auth.")
-    use_connection_pool: Optional[bool] = Field(
+    use_connection_pool: bool = Field(
         True,
         description="Create a ConnectionPool instead of a single Connection when no client is provided",
     )
@@ -90,21 +50,26 @@ class OracleAIVectorSearchConfig(BaseModel):
         None, description="Oracle Connection or ConnectionPool (overrides connection string and individual parameters)"
     )
 
-    collection_name: Optional[str] = Field("mem0", description="Default name for the collection")
+    collection_name: str = Field("mem0", description="Default name for the collection")
     embedding_model_dims: int = Field(1536, description="Dimension of the embedding vectors")
-    distance_metric: Optional[str] = Field(
+    distance_metric: Literal["EUCLIDEAN", "EUCLIDEAN_SQUARED", "COSINE", "DOT", "HAMMING", "MANHATTAN"] = Field(
         "COSINE",
         description="Similarity metric: EUCLIDEAN, EUCLIDEAN_SQUARED, COSINE, DOT, HAMMING or MANHATTAN. Defaults to COSINE",
     )
 
     do_create_index: Optional[bool] = Field(True, description="Optional whether to create index")
-    index_type: Optional[str] = Field("HNSW", description="Optional index type, HNSW or IVF")
+    index_type: Literal["HNSW", "IVF"] = Field("HNSW", description="Optional index type, HNSW or IVF")
     index_name: Optional[str] = Field(None, description="Optional custom name for the vector index")
     index_parameters: Optional[dict] = Field(
         None,
         description="Optional structured CREATE VECTOR INDEX parameters",
     )
     index_accuracy: Optional[int] = Field(None, description="Optional index accuracy")
+
+    @field_validator("distance_metric", "index_type", mode="before")
+    @classmethod
+    def _normalize_uppercase(cls, value: Any) -> Any:
+        return value.upper() if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def _validate_model(self):
@@ -113,27 +78,18 @@ class OracleAIVectorSearchConfig(BaseModel):
         if not self.connection_params and not self.client:
             raise ValueError("Must provide at least one of `connection_params` and `client`")
 
-        if self.distance_metric is None:
-            raise ValueError("`distance_metric` must not be None")
-        distance_metric = self.distance_metric.upper()
-        if distance_metric not in ALLOWED_DISTANCE_METRICS:
-            raise ValueError(f"`distance_metric` must be one of: {ALLOWED_DISTANCE_METRICS}")
-        self.distance_metric = distance_metric
-
-        if self.index_type is None:
-            raise ValueError("`index_type` must not be None")
-        index_type = self.index_type.upper()
-        if index_type not in ALLOWED_INDEX_TYPES:
-            raise ValueError(f"`index_type` must be one of: {ALLOWED_INDEX_TYPES}")
-        self.index_type = index_type
-
         if self.index_name is None:
             self.index_name = f"{self.collection_name}_VEC_IDX"
 
         self.index_name = _quote_identifier(self.index_name)
         self.collection_name = _quote_identifier(self.collection_name)
 
-        self.index_parameters = _validate_index_parameters(self.index_type, self.index_parameters)
+        if self.index_parameters is not None:
+            parameter_model = HnswParams if self.index_type == "HNSW" else IvfParams
+            self.index_parameters = parameter_model.model_validate(self.index_parameters).model_dump(
+                by_alias=True,
+                exclude_none=True,
+            )
 
         if self.index_accuracy and not (0 < self.index_accuracy <= 100):
             raise ValueError("`index_accuracy` must be between 1 and 100")

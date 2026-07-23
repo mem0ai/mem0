@@ -42,6 +42,21 @@ def _validate_metadata_key(metadata_key: str) -> None:
             "and array wildcards '[*]' are allowed."
         )
 
+_SCORE_FROM_DISTANCE = {
+    "COSINE": lambda d: max(0.0, min(1.0, 1.0 - d)),
+    "EUCLIDEAN": lambda d: 1.0 / (1.0 + max(0.0, d)),
+    "EUCLIDEAN_SQUARED": lambda d: 1.0 / (1.0 + math.sqrt(max(0.0, d))),
+    "HAMMING": lambda d: 1.0 / (1.0 + max(0.0, d)),
+    "MANHATTAN": lambda d: 1.0 / (1.0 + max(0.0, d)),
+    "DOT": lambda d: -d,
+}
+
+def _convert_distance_to_score(distance: float, metric: str) -> float:
+    try:
+        return _SCORE_FROM_DISTANCE[metric.upper()](distance)
+    except KeyError:
+        raise ValueError(f"Unsupported distance metric: {metric}") from None
+
 
 class OracleAIVectorSearch(VectorStoreBase):
     """Oracle AI Vector Search backend for mem0."""
@@ -83,14 +98,11 @@ class OracleAIVectorSearch(VectorStoreBase):
                 db_version = tuple([int(v) for v in conn.version.split(".")])
 
         if db_version < (23, 4):
-            raise Exception(
-                f"Oracle DB version {oracledb.__version__} not supported, \
-                must be >=23.4 for vector support"
+            raise ValueError(
+                f"Oracle DB version {'.'.join(map(str, db_version))} not supported, must be >=23.4 for vector support"
             )
 
-        collections = self.list_cols()
-        if self._catalog_name(self.collection_name) not in {self._catalog_name(name) for name in collections}:
-            self.create_col()
+        self.create_col()
 
     @contextmanager
     def _get_cursor(self, commit: bool = False):
@@ -135,25 +147,6 @@ class OracleAIVectorSearch(VectorStoreBase):
     def _catalog_name(name: str) -> str:
         return name.replace('"', "")
 
-    @staticmethod
-    def _convert_distance_to_score(distance: float, metric: str) -> float:
-        """Convert an Oracle VECTOR_DISTANCE value to a higher-is-better score."""
-        metric_upper = metric.upper()
-
-        if metric_upper == "COSINE":
-            return max(0.0, min(1.0, 1.0 - distance))
-        if metric_upper == "EUCLIDEAN":
-            return 1.0 / (1.0 + max(0.0, distance))
-        if metric_upper == "EUCLIDEAN_SQUARED":
-            return 1.0 / (1.0 + math.sqrt(max(0.0, distance)))
-        if metric_upper in {"HAMMING", "MANHATTAN"}:
-            return 1.0 / (1.0 + max(0.0, distance))
-        if metric_upper == "DOT":
-            # Oracle's DOT distance is the negated inner product.
-            return -distance
-
-        raise ValueError(f"Unsupported distance metric: {metric}")
-
     def _create_index_ddl(self) -> str:
         accuracy_str = ""
         if self.config.index_accuracy:
@@ -178,18 +171,7 @@ class OracleAIVectorSearch(VectorStoreBase):
             return ""
 
         parameters = [f"type {self.config.index_type}"]
-        if self.config.index_type == "HNSW":
-            if "neighbors" in index_parameters:
-                parameters.append(f"neighbors {index_parameters['neighbors']}")
-            if "efconstruction" in index_parameters:
-                parameters.append(f"efconstruction {index_parameters['efconstruction']}")
-        else:
-            if "neighbor_partitions" in index_parameters:
-                parameters.append(f"neighbor partitions {index_parameters['neighbor_partitions']}")
-            if "samples_per_partition" in index_parameters:
-                parameters.append(f"samples_per_partition {index_parameters['samples_per_partition']}")
-            if "min_vectors_per_partition" in index_parameters:
-                parameters.append(f"min_vectors_per_partition {index_parameters['min_vectors_per_partition']}")
+        parameters.extend(f"{key} {value}" for key, value in index_parameters.items())
 
         return ", ".join(parameters)
 
@@ -227,14 +209,11 @@ class OracleAIVectorSearch(VectorStoreBase):
         if ids is not None and len(ids) != len(vectors):
             raise ValueError(f"ID count must match vector count. Expected {len(vectors)} got {len(ids)}.")
 
-        _ids = ids
-        if not _ids:
-            _ids = [str(uuid.uuid4()) for _ in vectors]
-
-        data = []
-        for vector, payload, _id in zip(vectors, payloads or [{}] * len(vectors), _ids):
-            document = {"id": _id, "vector": array.array("f", vector), "payload": payload}
-            data.append(document)
+        ids = ids or [str(uuid.uuid4()) for _ in vectors]
+        data = [
+            {"id": _id, "vector": array.array("f", vector), "payload": payload}
+            for vector, payload, _id in zip(vectors, payloads or [{}] * len(vectors), ids)
+        ]
 
         with self._get_cursor(commit=True) as cursor:
             cursor.setinputsizes(
@@ -249,7 +228,7 @@ class OracleAIVectorSearch(VectorStoreBase):
         self,
         query: str,
         vectors: List[float],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[OutputData]:
         """
@@ -258,7 +237,7 @@ class OracleAIVectorSearch(VectorStoreBase):
         Args:
             query (str): Query string
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -270,18 +249,18 @@ class OracleAIVectorSearch(VectorStoreBase):
 
         sql = (
             f"SELECT id, payload, VECTOR_DISTANCE(vector, :query_vec, {distance_metric}) distance "
-            f"FROM {self.collection_name} {filter_clause} ORDER BY VECTOR_DISTANCE(vector, :query_vec, {distance_metric}) FETCH FIRST :limit ROWS ONLY"
+            f"FROM {self.collection_name} {filter_clause} ORDER BY distance FETCH APPROX FIRST :limit ROWS ONLY"
         )
 
         with self._get_cursor() as cursor:
-            cursor.execute(sql, query_vec=array.array("f", vectors), limit=limit, **params)
+            cursor.execute(sql, query_vec=array.array("f", vectors), limit=top_k, **params)
             rows = cursor.fetchall()
 
         return [
             OutputData(
                 id=row[0],
                 payload=self._load_payload(row[1]),
-                score=self._convert_distance_to_score(float(row[2]), distance_metric),
+                score=_convert_distance_to_score(float(row[2]), distance_metric),
             )
             for row in rows
         ]
@@ -306,6 +285,15 @@ class OracleAIVectorSearch(VectorStoreBase):
                 else:
                     path_parts.append(f'."{part}"')
             json_path = "".join(path_parts)
+
+            if value == "*":
+                clauses.append(f"JSON_EXISTS(payload, '${json_path}')")
+                continue
+
+            if isinstance(value, dict):
+                raise ValueError(
+                    f"Oracle vector store does not yet support operator filters for field {key!r}"
+                )
 
             # Use JSON_EXISTS with PASSING BY VALUE to preserve types
             clauses.append(f"JSON_EXISTS(payload, '$?(@{json_path} == ${param})' PASSING :{param} AS \"{param}\")")
@@ -341,18 +329,16 @@ class OracleAIVectorSearch(VectorStoreBase):
             return
 
         with self._get_cursor(commit=True) as cursor:
+            sets, params = [], {"vector_id": vector_id}
             if vector is not None:
+                sets.append("vector = :vector")
+                params["vector"] = array.array("f", vector)
                 cursor.setinputsizes(vector=oracledb.DB_TYPE_VECTOR)
-                cursor.execute(
-                    f"UPDATE {self.collection_name} SET vector = :vector WHERE id = :vector_id",
-                    {"vector": array.array("f", vector), "vector_id": vector_id},
-                )
             if payload is not None:
+                sets.append("payload = :payload")
+                params["payload"] = payload
                 cursor.setinputsizes(payload=oracledb.DB_TYPE_JSON)
-                cursor.execute(
-                    f"UPDATE {self.collection_name} SET payload = :payload WHERE id = :vector_id",
-                    {"payload": payload, "vector_id": vector_id},
-                )
+            cursor.execute(f"UPDATE {self.collection_name} SET {', '.join(sets)} WHERE id = :vector_id", params)
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """
@@ -421,7 +407,7 @@ class OracleAIVectorSearch(VectorStoreBase):
 
         return {"name": result[0], "count": result[1], "size": result[2]}
 
-    def list(self, filters: Optional[Dict[str, Any]] = None, limit: Optional[int] = None) -> List[OutputData]:
+    def list(self, filters: Optional[Dict[str, Any]] = None, top_k: Optional[int] = 100) -> List[List[OutputData]]:
         """
         List all vectors in a collection.
 
@@ -435,9 +421,9 @@ class OracleAIVectorSearch(VectorStoreBase):
         filter_clause, params = self._build_filters(filters)
 
         limit_clause = ""
-        if limit is not None:
+        if top_k is not None:
             limit_clause = " FETCH FIRST :limit ROWS ONLY"
-            params["limit"] = limit
+            params["limit"] = top_k
 
         sql = f"SELECT id, payload FROM {self.collection_name} {filter_clause} {limit_clause}"
 
@@ -445,7 +431,7 @@ class OracleAIVectorSearch(VectorStoreBase):
             cursor.execute(sql, **params)
             rows = cursor.fetchall()
 
-        return [OutputData(id=row[0], score=None, payload=self._load_payload(row[1])) for row in rows]
+        return [[OutputData(id=row[0], score=None, payload=self._load_payload(row[1])) for row in rows]]
 
     def reset(self) -> None:
         """Reset the index by deleting and recreating it."""
