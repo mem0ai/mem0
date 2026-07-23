@@ -36,6 +36,7 @@
   "jest": {
     "testEnvironment": "node",
     "testMatch": ["**/test/**/*.test.ts"],
+    "setupFiles": ["<rootDir>/test/setup.ts"],
     "transform": {
       "^.+\\.tsx?$": ["ts-jest", {}]
     }

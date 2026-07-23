@@ -11,7 +11,8 @@ export default {
 		{
 			key: 'apiKey',
 			label: 'Mem0 API Key',
-			type: 'string',
+			// `password` so Zapier masks the key in the connection UI (it is a secret).
+			type: 'password',
 			required: true,
 			helpText:
 				'Your Mem0 API key (starts with `m0-`). Create one at [app.mem0.ai](https://app.mem0.ai) → Settings → API Keys.',
