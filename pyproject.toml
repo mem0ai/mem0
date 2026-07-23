@@ -147,7 +147,6 @@ test = [
 
 [tool.ruff]
 line-length = 120
-exclude = ["openmemory/"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["mem0", "mem0_cli"]
