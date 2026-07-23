@@ -32,6 +32,9 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MEM0_RESOLVED_USER_ID=\"${MEM0_RESOLVED_USER_ID:-${USER:-default}}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_PROJECT_ID=\"${MEM0_PROJECT_ID:-unknown}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_BRANCH=\"${MEM0_BRANCH:-unknown}\"" >> "$CLAUDE_ENV_FILE"
+  if [ -n "${MEM0_API_BASE:-}" ]; then
+    echo "export MEM0_API_BASE=\"$MEM0_API_BASE\"" >> "$CLAUDE_ENV_FILE"
+  fi
   if [ -n "${MEM0_API_KEY:-}" ]; then
     echo "export MEM0_API_KEY=\"$MEM0_API_KEY\"" >> "$CLAUDE_ENV_FILE"
   fi
@@ -41,6 +44,15 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   _UID="${MEM0_RESOLVED_USER_ID:-${USER:-default}}"
   _PID="${MEM0_PROJECT_ID:-unknown}"
   _BR="${MEM0_BRANCH:-unknown}"
+  if [ -n "${MEM0_API_BASE:-}" ]; then
+    _SETUP_HELP="- Set \`MEM0_API_KEY\` to a self-hosted server API key (prefix \`m0sk_\`)
+- Confirm \`MEM0_API_BASE=${MEM0_API_BASE}\` is reachable from this machine"
+  else
+    _SETUP_HELP="- **Reinstall the plugin**: Uninstall and reinstall — Claude Code will prompt for your API key during setup (stored securely in keychain)
+- **Desktop app**: Click the environment dropdown next to the prompt box → hover over **Local** → click the **gear icon** → add \`MEM0_API_KEY=m0-...\`
+- **CLI**: Add \`export MEM0_API_KEY=m0-...\` to your shell profile (~/.zshrc or ~/.bashrc)
+- Get a key at https://app.mem0.ai/dashboard/api-keys"
+  fi
   cat <<BANNER
 ## Mem0 — Setup Required
 
@@ -53,10 +65,7 @@ Mem0 — Setup Required | user=${_UID} | project=${_PID} | branch=${_BR} | auth=
 \`\`\`
 
 MEM0_API_KEY is not set. To configure:
-- **Reinstall the plugin**: Uninstall and reinstall — Claude Code will prompt for your API key during setup (stored securely in keychain)
-- **Desktop app**: Click the environment dropdown next to the prompt box → hover over **Local** → click the **gear icon** → add \`MEM0_API_KEY=m0-...\`
-- **CLI**: Add \`export MEM0_API_KEY=m0-...\` to your shell profile (~/.zshrc or ~/.bashrc)
-- Get a key at https://app.mem0.ai/dashboard/api-keys
+${_SETUP_HELP}
 
 Then invoke the \`mem0:onboard\` skill to complete setup.
 BANNER
@@ -71,26 +80,22 @@ fi
 
 MEM0_COUNT="?"
 if command -v python3 >/dev/null 2>&1; then
-  MEM0_COUNT=$(python3 -c "
-import json, os, urllib.request, urllib.error
+  MEM0_COUNT=$(PYTHONPATH="$SCRIPT_DIR" python3 -c "
+import os
+from _api import list_memories
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
 global_search = os.environ.get('MEM0_GLOBAL_SEARCH', 'false') == 'true'
 
 def get_count(filters):
-    body = json.dumps({'filters': filters}).encode()
-    req = urllib.request.Request(
-        'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
-        headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
-        data=body, method='POST',
-    )
-    with urllib.request.urlopen(req, timeout=5) as r:
-        data = json.loads(r.read())
-        if isinstance(data, dict) and 'count' in data:
-            return data['count']
-        if isinstance(data, list):
-            return len(data)
+    _status, data = list_memories(api_key, {'filters': filters, 'page': 1, 'page_size': 1000}, timeout=5)
+    if isinstance(data, dict) and 'count' in data:
+        return data['count']
+    if isinstance(data, dict) and 'results' in data:
+        return len(data['results'])
+    if isinstance(data, list):
+        return len(data)
     return 0
 
 try:

@@ -11,17 +11,15 @@ Output: Compact timeline text to stdout (empty if nothing found)
 
 from __future__ import annotations
 
-import json
 import os
 import sys
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _api import list_memories
 from _formatting import TYPE_ICONS, format_age
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_project_id
 
-API_URL = "https://api.mem0.ai"
 MAX_RECENT = 10
 MAX_SUMMARIES = 3
 FETCH_TIMEOUT = 5
@@ -36,24 +34,17 @@ def fetch_recent_memories(api_key: str, user_id: str, project_id: str) -> list[d
     else:
         filters = {"AND": [{"user_id": user_id}, {"app_id": project_id}]}
 
-    body = json.dumps({"filters": filters}).encode()
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/?page=1&page_size={MAX_RECENT}",
-        data=body,
-        headers={
-            "Authorization": f"Token {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as r:
-            result = json.loads(r.read())
-            if isinstance(result, dict) and "results" in result:
-                return result["results"][:MAX_RECENT]
-            if isinstance(result, list):
-                return result[:MAX_RECENT]
-            return []
+        _status, result = list_memories(
+            api_key,
+            {"filters": filters, "page": 1, "page_size": MAX_RECENT},
+            timeout=FETCH_TIMEOUT,
+        )
+        if isinstance(result, dict) and "results" in result:
+            return result["results"][:MAX_RECENT]
+        if isinstance(result, list):
+            return result[:MAX_RECENT]
+        return []
     except Exception:
         return []
 
