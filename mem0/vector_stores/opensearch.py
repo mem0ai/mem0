@@ -35,8 +35,16 @@ def _build_filter_clauses(filters):
     for key, value in (filters or {}).items():
         if value is None:
             continue
-        if key not in _IDENTITY_FILTER_KEYS and (not isinstance(value, (str, int, float, bool)) or value == "*"):
-            logger.debug(f"Ignoring non-scalar or wildcard filter value for key {key!r}")
+        if value == "*":
+            # "Any value" wildcard (a documented Platform pattern): match
+            # documents where the field exists — as opensearch.ts already
+            # does for every key — instead of a literal, near-always-empty
+            # term match on the string "*".
+            _validate_filter(key, value)
+            filter_clauses.append({"exists": {"field": f"payload.{key}"}})
+            continue
+        if key not in _IDENTITY_FILTER_KEYS and not isinstance(value, (str, int, float, bool)):
+            logger.debug(f"Ignoring non-scalar filter value for key {key!r}")
             continue
         _validate_filter(key, value)
         field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
