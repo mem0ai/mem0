@@ -45,13 +45,14 @@ class MemorySearch:
                         query,
                         user_id=user_id,
                         top_k=self.top_k,
+                        filters={"user_id": user_id},
                         filter_memories=self.filter_memories,
                         enable_graph=True,
                         output_format="v1.1",
                     )
                 else:
                     memories = self.mem0_client.search(
-                        query, user_id=user_id, top_k=self.top_k, filter_memories=self.filter_memories
+                        query, user_id=user_id, top_k=self.top_k, filters={"user_id": user_id}, filter_memories=self.filter_memories
                     )
                 break
             except Exception as e:
@@ -69,7 +70,7 @@ class MemorySearch:
                     "timestamp": memory["metadata"]["timestamp"],
                     "score": round(memory["score"], 2),
                 }
-                for memory in memories
+                for memory in memories["results"]
             ]
             graph_memories = None
         else:

@@ -69,10 +69,11 @@ class MemoryADD:
                 _ = self.mem0_client.add(
                     message, user_id=user_id, version="v2", metadata=metadata, enable_graph=self.is_graph
                 )
+                time.sleep(1)
                 return
             except Exception as e:
                 if attempt < retries - 1:
-                    time.sleep(1)  # Wait before retrying
+                    time.sleep(10)  # Wait before retrying
                     continue
                 else:
                     raise e

@@ -7,6 +7,9 @@ from openai import OpenAI
 
 from mem0.memory.utils import extract_json
 
+from dotenv import load_dotenv
+load_dotenv()
+
 client = OpenAI()
 
 ACCURACY_PROMPT = """
