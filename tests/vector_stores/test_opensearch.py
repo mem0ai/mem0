@@ -424,10 +424,24 @@ class TestOpenSearchDB(unittest.TestCase):
 
     @patch("mem0.vector_stores.opensearch.logger")
     def test_search_error_logs_with_exc_info(self, mock_logger):
-        """Search error logging should include exc_info for full stack trace."""
+        """Search errors should log with exc_info and re-raise."""
         self.client_mock.search.side_effect = Exception("Search failed")
-        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
-        self.assertEqual(results, [])
+
+        with self.assertRaises(Exception):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
+
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_keyword_search_error_returns_none(self, mock_logger):
+        """Keyword search errors should log with exc_info and degrade to None."""
+        self.client_mock.search.side_effect = Exception("Keyword search failed")
+
+        results = self.os_db.keyword_search(query="test", top_k=5)
+
+        self.assertIsNone(results)
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args
         self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
