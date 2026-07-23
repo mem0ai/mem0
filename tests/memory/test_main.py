@@ -1339,3 +1339,40 @@ class TestConcurrentAddDedupRace:
         assert len(store) == 2, f"expected 1 memory per distinct scope, got {store}"
         # ...and each distinct scope got its own lock, not one shared instance lock.
         assert len(memory._add_locks) == 2
+
+    @pytest.mark.asyncio
+    async def test_async_different_scopes_use_separate_locks_and_both_persist(self, mocker):
+        """Async twin: different scopes must not falsely dedup against each other
+        and must each get their own lock entry."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+
+        store, fake_search, fake_insert = self._make_fake_store()
+        memory.vector_store.search = Mock(side_effect=fake_search)
+        memory.vector_store.insert = Mock(side_effect=fake_insert)
+        memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3]])
+        memory.llm.generate_response = Mock(
+            return_value='{"memory": [{"text": "User likes coffee"}]}'
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+
+        await asyncio.gather(
+            *(
+                memory._add_to_vector_store(
+                    messages=[{"role": "user", "content": "I really like coffee"}],
+                    metadata={"user_id": uid},
+                    effective_filters={"user_id": uid},
+                    infer=True,
+                )
+                for uid in ("u1", "u2")
+            )
+        )
+
+        # Both scopes persisted their own memory (no false cross-scope dedup)...
+        assert len(store) == 2, f"expected 1 memory per distinct scope, got {store}"
+        # ...and each distinct scope got its own lock, not one shared instance lock.
+        assert len(memory._add_locks) == 2
