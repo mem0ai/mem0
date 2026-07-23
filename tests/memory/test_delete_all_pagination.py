@@ -214,3 +214,36 @@ async def test_async_delete_all_awaits_backoff_on_stale_page(monkeypatch):
     assert deleted_ids == ["a0", "a1"]
     assert sleep_mock.await_count == 1
     assert sleep_mock.await_args.args[0] > 0
+
+@pytest.mark.asyncio
+async def test_async_delete_all_retries_failed_delete(monkeypatch):
+    """Failed async deletes must not be marked seen — residual IDs retry next page."""
+    memory = _make_async_memory()
+    row = SimpleNamespace(id="fail-me")
+    # First pass: delete fails; row remains in store. Second pass: delete succeeds.
+    memory.vector_store.list.side_effect = [
+        ([row], None),
+        ([row], None),
+        ([], None),
+    ]
+    attempts = {"n": 0}
+
+    async def _delete(memory_id, skip_entity_cleanup=False):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("transient backend failure")
+        return None
+
+    memory._delete_memory = AsyncMock(side_effect=_delete)
+    monkeypatch.setattr(memory_main, "capture_event", MagicMock())
+    monkeypatch.setattr(memory_main, "detect_decay_usage_from_delete_all", MagicMock(return_value=None))
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", AsyncMock())
+    monkeypatch.setattr(memory_main, "display_decay_usage_notice_async", AsyncMock())
+
+    await AsyncMemory.delete_all(memory, user_id="u1")
+
+    # If seen_ids were marked on the failed first attempt, the second list page
+    # would filter the id out and never retry — await_count would stay 1.
+    assert memory._delete_memory.await_count == 2
+    assert attempts["n"] == 2
+

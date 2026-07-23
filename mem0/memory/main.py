@@ -3595,11 +3595,15 @@ class AsyncMemory(MemoryBase):
                 return_exceptions=True,
             )
             for memory, result in zip(batch, results):
-                seen_ids.add(memory.id)
                 if isinstance(result, BaseException):
+                    # Do not mark seen on failure — leave residual IDs eligible
+                    # for retry on the next list page (async concurrent deletes
+                    # can fail without surfacing; marking early silently drops
+                    # them while delete_all still reports success).
                     total_errors += 1
                     logger.warning("Failed to delete memory %s: %s", memory.id, result)
                 else:
+                    seen_ids.add(memory.id)
                     total_deleted += 1
 
         if self._entity_store is not None:
