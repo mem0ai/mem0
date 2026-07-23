@@ -33,8 +33,8 @@ class BaseEmbedderConfig(ABC):
         memory_search_embedding_type: Optional[str] = None,
         # Gemini specific
         output_dimensionality: Optional[str] = None,
-        # LM Studio specific
-        lmstudio_base_url: Optional[str] = "http://localhost:1234/v1",
+        # LM Studio specific — default resolved in LMStudioEmbedding (config > env > localhost)
+        lmstudio_base_url: Optional[str] = None,
         # AWS Bedrock specific
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
@@ -70,7 +70,7 @@ class BaseEmbedderConfig(ABC):
         :type memory_update_embedding_type: Optional[str], optional
         :param memory_search_embedding_type: The type of embedding to use for the search memory action, defaults to None
         :type memory_search_embedding_type: Optional[str], optional
-        :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
+        :param lmstudio_base_url: LM Studio base URL; when unset, LMStudioEmbedding applies LMSTUDIO_BASE_URL env then localhost
         :type lmstudio_base_url: Optional[str], optional
         """
 

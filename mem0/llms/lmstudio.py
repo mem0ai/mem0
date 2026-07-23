@@ -39,12 +39,8 @@ class LMStudioLLM(LLMBase):
         )
         self.config.api_key = self.config.api_key or "lm-studio"
 
-        # config > LMSTUDIO_BASE_URL env > localhost default (mirror DeepSeek/VLLM)
-        base_url = (
-            self.config.lmstudio_base_url
-            or os.getenv("LMSTUDIO_BASE_URL")
-            or "http://localhost:1234/v1"
-        )
+        # config > LMSTUDIO_BASE_URL env > localhost default (mirror DeepSeek)
+        base_url = self.config.lmstudio_base_url or os.getenv("LMSTUDIO_BASE_URL") or "http://localhost:1234/v1"
         self.config.lmstudio_base_url = base_url
         self.client = OpenAI(base_url=base_url, api_key=self.config.api_key)
 

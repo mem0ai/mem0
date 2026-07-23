@@ -3,12 +3,14 @@
  * LM Studio Embedder — unit tests (mocked OpenAI).
  */
 
+import OpenAI from "openai";
 import { LMStudioEmbedder } from "../src/embeddings/lmstudio";
 
 const mockEmbedding = [0.1, 0.2, 0.3, 0.4, 0.5];
 const mockCreate = jest.fn().mockResolvedValue({
   data: [{ embedding: mockEmbedding }],
 });
+const MockOpenAI = OpenAI as unknown as jest.Mock;
 
 jest.mock("openai", () => {
   return jest.fn().mockImplementation(() => ({
@@ -17,7 +19,47 @@ jest.mock("openai", () => {
 });
 
 describe("LMStudioEmbedder (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  const originalEnv = process.env.LMSTUDIO_BASE_URL;
+
+  beforeEach(() => {
+    mockCreate.mockClear();
+    MockOpenAI.mockClear();
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  afterAll(() => {
+    if (originalEnv === undefined) {
+      delete process.env.LMSTUDIO_BASE_URL;
+    } else {
+      process.env.LMSTUDIO_BASE_URL = originalEnv;
+    }
+  });
+
+  it("honors LMSTUDIO_BASE_URL when config baseURL is unset", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://remote-lms:1234/v1";
+    new LMStudioEmbedder({ model: "nomic-embed-text" });
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://remote-lms:1234/v1" }),
+    );
+  });
+
+  it("prefers config baseURL over LMSTUDIO_BASE_URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://env-host:1234/v1";
+    new LMStudioEmbedder({
+      model: "nomic-embed-text",
+      baseURL: "http://cfg-host:1234/v1",
+    });
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://cfg-host:1234/v1" }),
+    );
+  });
+
+  it("defaults to localhost when config and env are unset", () => {
+    new LMStudioEmbedder({ model: "nomic-embed-text" });
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://localhost:1234/v1" }),
+    );
+  });
 
   it("embed() calls OpenAI with encoding_format float and returns vector", async () => {
     const embedder = new LMStudioEmbedder({

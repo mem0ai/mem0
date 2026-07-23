@@ -55,6 +55,6 @@ class LMStudioConfig(BaseLlmConfig):
         )
 
         # LM Studio-specific parameters
-        # Keep unset so LMStudioLLM can apply config > env > default (see VLLM #6256).
+        # Keep unset so LMStudioLLM can apply config > env > default (mirror DeepSeek).
         self.lmstudio_base_url = lmstudio_base_url
         self.lmstudio_response_format = lmstudio_response_format
