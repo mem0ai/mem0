@@ -276,6 +276,7 @@ export class OpenSearchDB implements VectorStore {
       should: [
         { match: { "payload.data": query } },
         { match: { "payload.text_lemmatized": query } },
+        { match: { "payload.textLemmatized": query } },
       ],
       minimum_should_match: 1,
     };

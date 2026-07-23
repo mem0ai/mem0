@@ -7,6 +7,23 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-07-22" description="v2.0.13">
+
+**Bug Fixes:**
+- **Vector Stores:** Fix `reset()` silently leaving stale vectors behind on local (on-disk) Qdrant when the old collection directory could not be removed, for example an open file handle on Windows or NFS ([#6412](https://github.com/mem0ai/mem0/pull/6412))
+- **Core:** Stop `update()` metadata from overwriting or injecting `user_id`, `agent_id`, `run_id`, or `actor_id`. These identity fields are immutable after creation, so passing them in `metadata` can no longer move a memory into a different tenant's scope ([#6278](https://github.com/mem0ai/mem0/pull/6278))
+- **Vector Stores:** Scope Pinecone `delete_col()`/`reset()` to the configured namespace instead of deleting the whole index, so resetting a namespaced Pinecone store no longer wipes out the other namespaces sharing that index ([#6287](https://github.com/mem0ai/mem0/pull/6287))
+- **Vector Stores:** Convert Baidu Mochow's raw L2 distance into a similarity score in `search()` (`1 / (1 + distance)`), so closer matches rank higher instead of lower, matching the Milvus provider and the rest of the `VectorStoreBase` contract ([#6435](https://github.com/mem0ai/mem0/pull/6435))
+- **LLMs:** Read `OPENAI_BASE_URL` (was `OPENAI_API_BASE`) in `OpenAIStructuredLLM`, matching the official OpenAI SDK's environment variable and the rest of the OpenAI-compatible providers ([#6322](https://github.com/mem0ai/mem0/pull/6322))
+
+**Improvements:**
+- **LLMs:** Remove a dead, no-op `api_key` attribute check from `LLMBase.__init__` ([#6460](https://github.com/mem0ai/mem0/pull/6460))
+
+**Changes:**
+- **Client:** Remove the `retrieval_criteria` parameter from `MemoryClient.update_project()`/`AsyncMemoryClient.update_project()` and `Project.update()`/`AsyncProject.update()`. It was accepted and forwarded but never affected retrieval, so removing it is not a behavior change ([#6313](https://github.com/mem0ai/mem0/pull/6313))
+
+</Update>
+
 <Update label="2026-07-13" description="v2.0.12">
 
 **New Features:**
@@ -1128,6 +1145,23 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-07-22" description="v3.1.1">
+
+**New Features:**
+- **Embeddings:** Add an AWS Bedrock embedding provider ([#6185](https://github.com/mem0ai/mem0/pull/6185))
+
+**Bug Fixes:**
+- **Packaging:** Finish the lazy-loading work started in v3.1.0. The remaining LLMs (Anthropic, Google, Groq, LangChain, Mistral, Ollama), embedders (Google, LangChain, Ollama, Vertex AI), vector stores (Azure AI Search, Azure MySQL, Baidu, LangChain, Qdrant, Redis, Supabase, Valkey, Vectorize), and the Supabase history store still imported their SDKs at module load, so importing `mem0ai/oss` required every provider package to be installed ([#6389](https://github.com/mem0ai/mem0/pull/6389))
+- **Vector Stores:** Convert Baidu Mochow's raw L2 distance into a similarity score in `search()` (`1 / (1 + distance)`), so closer matches rank higher instead of lower. A row the backend returns without a score is now left `undefined` instead of being treated as the closest match ([#6485](https://github.com/mem0ai/mem0/pull/6485))
+- **Memory (OSS):** Coerce non-string entity IDs (e.g. a numeric `user_id`) to strings instead of crashing on `.trim()` ([#6263](https://github.com/mem0ai/mem0/pull/6263))
+- **Memory (OSS):** Stop `update()` metadata from overwriting or injecting `user_id`, `agent_id`, `run_id`, or `actor_id` (in either snake_case or camelCase). These identity fields are immutable after creation, so passing them in `metadata` can no longer move a memory into a different tenant's scope ([#6343](https://github.com/mem0ai/mem0/pull/6343))
+- **Vector Stores:** Scope Pinecone `deleteCol()`/`reset()` to the configured namespace instead of deleting the whole index, so resetting a namespaced Pinecone store no longer wipes out the other namespaces sharing that index ([#6287](https://github.com/mem0ai/mem0/pull/6287))
+
+**Changes:**
+- **Client:** Remove the unused `retrievalCriteria` field from `PromptUpdatePayload`. It was accepted and forwarded but never affected retrieval, so removing it is not a behavior change ([#6313](https://github.com/mem0ai/mem0/pull/6313))
+
+</Update>
+
 <Update label="2026-07-13" description="v3.1.0">
 
 The largest provider release for the TypeScript OSS SDK so far: 17 new vector stores, 5 new LLM providers, 4 new embedders, and reranking support. Importing `mem0ai/oss` no longer pulls in any provider SDK, so you only install what you actually configure.
@@ -2083,6 +2117,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="OpenCode">
+
+<Update label="2026-07-22" description="OpenCode plugin v0.2.2">
+
+**Fixes:**
+- **Shell-profile API key recovery:** When `MEM0_API_KEY` isn't set in the process environment, the plugin now falls back to reading it from `.zshrc`, `.bashrc`, `.zprofile`, `.bash_profile`, or `.profile`, fixing startup failures on clients (e.g. Desktop) that launch without shell-exported environment variables.
+
+</Update>
 
 <Update label="2026-06-30" description="OpenCode plugin v0.2.1">
 

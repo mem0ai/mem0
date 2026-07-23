@@ -316,6 +316,11 @@ export class PineconeDB implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
+    if (this.namespace) {
+      await this.initialize();
+      await this.namespacedIndex().deleteAll();
+      return;
+    }
     if (this._initPromise) {
       await this._initPromise.catch(() => {});
     }
