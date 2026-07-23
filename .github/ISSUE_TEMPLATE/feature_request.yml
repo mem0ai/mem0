@@ -9,14 +9,11 @@ body:
       label: Component
       description: Which part of mem0 does this relate to?
       options:
-        - Core / Python SDK
+        - Python SDK
         - TypeScript SDK
-        - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
-        - Graph Memory (Neo4j, Memgraph, etc.)
-        - Ollama / Local Models
-        - OpenClaw
+        - Vector Store
+        - Plugin
         - REST API
-        - Benchmarks / Evals
         - Other
     validations:
       required: true

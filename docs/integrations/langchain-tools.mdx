@@ -98,20 +98,9 @@ add_result = add_tool.invoke(add_input)
 
 ```json Output
 {
-  "results": [
-    {
-      "memory": "Name is Alex",
-      "event": "ADD"
-    },
-    {
-      "memory": "Is a vegetarian", 
-      "event": "ADD"
-    },
-    {
-      "memory": "Is allergic to nuts",
-      "event": "ADD"
-    }
-  ]
+  "message": "Memory processing has been queued for background execution",
+  "status": "PENDING",
+  "event_id": "3a1b2c3d-4e5f-6789-abcd-ef0123456789"
 }
 ```
 </CodeGroup>
@@ -173,23 +162,25 @@ result = search_tool.invoke(search_input)
 ```
 
 ```json Output
-[
-  {
-    "id": "1a75e827-7eca-45ea-8c5c-cfd43299f061",
-    "memory": "Name is Alex",
-    "user_id": "alex", 
-    "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
-    "metadata": {
-      "food": "vegan"
-    },
-    "categories": [
-      "personal_details"
-    ],
-    "created_at": "2024-11-27T16:53:43.276872-08:00",
-    "updated_at": "2024-11-27T16:53:43.276885-08:00",
-    "score": 0.3810526501504994
-  }
-]
+{
+  "results": [
+    {
+      "id": "1a75e827-7eca-45ea-8c5c-cfd43299f061",
+      "memory": "Name is Alex",
+      "user_id": "alex",
+      "hash": "d0fccc8fa47f7a149ee95750c37bb0ca",
+      "metadata": {
+        "food": "vegan"
+      },
+      "categories": [
+        "personal_details"
+      ],
+      "created_at": "2024-11-27T16:53:43.276872-08:00",
+      "updated_at": "2024-11-27T16:53:43.276885-08:00",
+      "score": 0.3810526501504994
+    }
+  ]
+}
 ```
 </CodeGroup>
 
@@ -326,3 +317,4 @@ Each tool provides structured input validation through Pydantic models and retur
   </Card>
 </CardGroup>
 
+<Snippet file="star-on-github.mdx" />

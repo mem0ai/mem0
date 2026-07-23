@@ -1,6 +1,7 @@
-import { QdrantClient } from "@qdrant/js-client-rest";
+import type { QdrantClient } from "@qdrant/js-client-rest";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 import * as fs from "fs";
 
 // BM25 keyword search via Qdrant's built-in server-side inference (requires
@@ -63,7 +64,8 @@ const KEY_MAP: Record<string, string> = {
 };
 
 export class Qdrant implements VectorStore {
-  private client: QdrantClient;
+  private client!: QdrantClient;
+  private readonly config: QdrantConfig;
   private readonly collectionName: string;
   private dimension: number;
   private _initPromise?: Promise<void>;
@@ -73,47 +75,57 @@ export class Qdrant implements VectorStore {
   private _isRemote = true;
 
   constructor(config: QdrantConfig) {
-    if (config.client) {
-      // Pre-configured client - to be treated as remote (mirrors Python is_local=False).
-      this.client = config.client;
-    } else {
-      const params: Record<string, any> = {};
-      if (config.apiKey) {
-        params.apiKey = config.apiKey;
-      }
-      if (config.url) {
-        params.url = config.url;
-        // Workaround for qdrant/qdrant-js#59: explicitly pass port to avoid "Illegal host" error
-        try {
-          const parsedUrl = new URL(config.url);
-          params.port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : 6333;
-        } catch (_) {
-          params.port = 6333;
-        }
-      }
-      if (config.host && config.port) {
-        params.host = config.host;
-        params.port = config.port;
-      }
-      if (!Object.keys(params).length) {
-        this._isRemote = false;
-        params.path = config.path;
-        if (!config.onDisk && config.path) {
-          if (
-            fs.existsSync(config.path) &&
-            fs.statSync(config.path).isDirectory()
-          ) {
-            fs.rmSync(config.path, { recursive: true });
-          }
-        }
-      }
-
-      this.client = new QdrantClient(params);
-    }
-
+    this.config = config;
     this.collectionName = config.collectionName;
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
     this.initialize().catch(console.error);
+  }
+
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+    const config = this.config;
+    if (config.client) {
+      // pre-configured client → treat as remote (mirrors Python is_local=False).
+      this.client = config.client;
+      return;
+    }
+    const params: Record<string, any> = {};
+    if (config.apiKey) {
+      params.apiKey = config.apiKey;
+    }
+    if (config.url) {
+      params.url = config.url;
+      // Workaround for qdrant/qdrant-js#59: explicitly pass port to avoid "Illegal host" error
+      try {
+        const parsedUrl = new URL(config.url);
+        params.port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : 6333;
+      } catch (_) {
+        params.port = 6333;
+      }
+    }
+    if (config.host && config.port) {
+      params.host = config.host;
+      params.port = config.port;
+    }
+    if (!Object.keys(params).length) {
+      this._isRemote = false;
+      params.path = config.path;
+      if (!config.onDisk && config.path) {
+        if (
+          fs.existsSync(config.path) &&
+          fs.statSync(config.path).isDirectory()
+        ) {
+          fs.rmSync(config.path, { recursive: true });
+        }
+      }
+    }
+
+    const sdk = await loadPeer(
+      "@qdrant/js-client-rest",
+      "Qdrant vector store",
+      () => import("@qdrant/js-client-rest"),
+    );
+    this.client = new sdk.QdrantClient(params);
   }
 
   /**
@@ -284,6 +296,7 @@ export class Qdrant implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     const points = vectors.map((vector, idx) => {
       const payload = payloads[idx] || {};
       return {
@@ -354,6 +367,7 @@ export class Qdrant implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     const queryFilter = this.createFilter(filters);
     const results = await this.client.search(this.collectionName, {
       vector: query,
@@ -369,6 +383,7 @@ export class Qdrant implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     const results = await this.client.retrieve(this.collectionName, {
       ids: [vectorId],
       with_payload: true,
@@ -387,6 +402,7 @@ export class Qdrant implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     const point = {
       id: vectorId,
       // Re-encode BM25 so edited memories don't keep a stale sparse vector.
@@ -400,12 +416,14 @@ export class Qdrant implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     await this.client.delete(this.collectionName, {
       points: [vectorId],
     });
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     await this.client.deleteCollection(this.collectionName);
   }
 
@@ -413,6 +431,7 @@ export class Qdrant implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     const scrollRequest = {
       limit: topK,
       filter: this.createFilter(filters),
@@ -445,6 +464,7 @@ export class Qdrant implements VectorStore {
   }
 
   async getUserId(): Promise<string> {
+    await this.initialize();
     try {
       // Ensure collection exists (idempotent — handles race conditions)
       await this.ensureCollection("memory_migrations", 1);
@@ -482,6 +502,7 @@ export class Qdrant implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     try {
       // Get existing point ID
       const result = await this.client.scroll("memory_migrations", {
@@ -616,6 +637,7 @@ export class Qdrant implements VectorStore {
 
   private async _doInitialize(): Promise<void> {
     try {
+      await this.ensureClient();
       await this.ensureCollection(this.collectionName, this.dimension, true);
       await this.ensureCollection("memory_migrations", 1);
     } catch (error) {

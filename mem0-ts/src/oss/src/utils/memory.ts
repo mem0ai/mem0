@@ -31,9 +31,11 @@ const parse_vision_messages = async (messages: Message[]) => {
         typeof message.content === "object" &&
         message.content.type === "image_url"
       ) {
-        const description = await get_image_description(
-          message.content.image_url.url,
-        );
+        const imageUrl = message.content.image_url?.url;
+        if (!imageUrl) {
+          throw new Error("image_url content part is missing image_url.url");
+        }
+        const description = await get_image_description(imageUrl);
         new_message.content =
           typeof description === "string"
             ? description

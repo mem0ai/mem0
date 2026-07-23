@@ -9,12 +9,10 @@ body:
       label: Component
       description: Which part of mem0 is affected?
       options:
-        - Core / Python SDK
+        - Python SDK
         - TypeScript SDK
-        - Vector Store (Qdrant, PGVector, Redis, Chroma, etc.)
-        - Graph Memory (Neo4j, Memgraph, etc.)
-        - Ollama / Local Models
-        - OpenClaw
+        - Vector Store
+        - Plugin
         - REST API
         - Other
     validations:
