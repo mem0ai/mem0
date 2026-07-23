@@ -35,6 +35,7 @@ class VectorStoreConfig(BaseModel):
         "langchain": "LangchainConfig",
         "s3_vectors": "S3VectorsConfig",
         "turbopuffer": "TurbopufferConfig",
+        "tencent": "TencentVectorDBConfig",
     }
 
     @model_validator(mode="after")

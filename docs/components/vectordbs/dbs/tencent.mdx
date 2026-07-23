@@ -1,0 +1,64 @@
+---
+title: "Tencent Vector DB"
+description: "Use Tencent Vector DB as a scalable, high-performance vector database in Mem0."
+---
+
+[Tencent Vector DB](https://cloud.tencent.com/product/vdb) is a fully managed, enterprise-grade vector database service designed for storing, retrieving, and analyzing high-dimensional vector data. It is highly optimized for AI applications like recommendation engines, semantic search, and LLM memory enhancement.
+
+### Usage
+
+Install the required client package alongside `mem0ai`:
+
+```bash
+pip install tcvectordb
+```
+
+```python Python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "tencent",
+        "config": {
+            "url": "http://127.0.0.1:4000",
+            "key": "your-tencent-vdb-key",
+            "collection_name": "mem0_collection",
+            "embedding_model_dims": 1536,
+            "metric_type": "COSINE",
+            "database_name": "default",
+            "index_type": "HNSW",
+            "index_params": {"m": 16, "efconstruction": 200}
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Tencent Vector DB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `url` | Connection URL of the Tencent Vector DB instance | *Required* |
+| `key` | API Key/Token of the Tencent Vector DB instance | *Required* |
+| `collection_name` | Name of the collection | `"mem0"` |
+| `embedding_model_dims` | Dimension of the dense vector | `1536` |
+| `metric_type` | Distance metric for similarity search (`COSINE`, `L2`, `IP`) | `"COSINE"` |
+| `username` | Username for database authentication | `"root"` |
+| `database_name` | Target database name | `"default"` |
+| `read_consistency` | Read consistency level (`EVENTUAL_CONSISTENCY`, `STRONG_CONSISTENCY`) | `"EVENTUAL_CONSISTENCY"` |
+| `timeout` | Connection timeout in seconds | `30` |
+| `shard` | Number of shards for the collection | `1` |
+| `replicas` | Number of replicas for the collection | `2` |
+| `index_type` | Index algorithm type (`HNSW`, `IVF_FLAT`, `IVF_PQ`, `IVF_SQ8`, `IVF_RABITQ`, `FLAT`) | `"HNSW"` |
+| `index_params` | Custom parameter dictionary for the selected index type. See the [Tencent Vector DB Index Parameters Documentation](https://cloud.tencent.com/document/product/1709/95428) for detailed options. | `None` |
+| `sparse_language` | Language parameter for the BM25 sparse vector encoder (`en`, `zh`) | `"en"` |
