@@ -1548,13 +1548,21 @@ export class Memory {
         payload: mem.payload || {},
       }));
 
-    // Step 8: Score and rank
+    // Step 8: Score and rank.
+    // When a reranker will run, return the full over-fetched pool (internalLimit)
+    // instead of truncating to `topK` here, so the reranker can surface relevant
+    // memories the first-stage scorer ranked below `topK`. Without this,
+    // scoreAndRank truncates to `topK` before Step 10, so reranking could only
+    // reorder the final results, never improve recall. The DB fetch is NOT
+    // re-widened — internalLimit is still computed once from `topK`.
+    const rerankActive = Boolean(config.rerank && this.reranker);
+    const returnK = rerankActive ? internalLimit : topK;
     const scoredResults = scoreAndRank(
       candidates,
       bm25Scores,
       entityBoosts,
       threshold ?? 0.1,
-      topK,
+      returnK,
       explain,
     );
 
@@ -1594,11 +1602,15 @@ export class Memory {
       });
 
     // Step 10: Optionally re-rank with the configured reranker. Opt-in per
-    // search via `rerank: true`; a no-op when no reranker is configured.
+    // search via `rerank: true`; a no-op when no reranker is configured. The
+    // reranker receives the full candidate pool (Step 8) and narrows it back to
+    // `topK`.
     const invokeReranker = Boolean(
       config.rerank && this.reranker && results.length > 0,
     );
-    let finalResults = results;
+    // When reranking, `results` holds the full over-fetched pool; if the rerank
+    // call fails we must trim back to `topK` rather than leak the whole pool.
+    let finalResults = rerankActive ? results.slice(0, topK) : results;
     if (invokeReranker) {
       try {
         const ranked = await this.reranker!.rerank(
