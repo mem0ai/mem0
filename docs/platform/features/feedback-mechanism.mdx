@@ -183,7 +183,7 @@ try {
     if (error.errorCode === "HTTP_400") {
         console.log("memory_id is not a valid UUID");
     } else if (error.errorCode === "HTTP_500") {
-        console.log("memory_id was not found or not accessible");
+        console.log("Server error - the memory_id may not exist or be inaccessible, or it may be transient; retry if it persists");
     } else {
         console.log(`Unexpected error: ${error.message}`);
     }
@@ -195,7 +195,7 @@ try {
 ### Handling an unknown or malformed `memory_id`
 
 - A malformed `memory_id` (not a valid UUID) returns a clean `400` with `{"error": "Invalid memory_id"}`.
-- A well-formed but non-existent `memory_id` (or one that doesn't belong to your org or project) currently returns an unhandled `500 Internal Server Error`, not a `404`. Treat any `5xx` from this endpoint as "the memory_id was not found or not accessible" until this is fixed server-side, and only call `feedback` with a `memory_id` you just read from a `get_all` or `search` response.
+- A well-formed but non-existent `memory_id` (or one that doesn't belong to your org or project) currently returns a `500 Internal Server Error` instead of a `404`. This is a server-side bug being tracked in [MEM-5745](https://linear.app/mem0/issue/MEM-5745). A `5xx` can also be a transient server error, so don't treat it as a definitive "not found"; to avoid the case entirely, only call `feedback` with a `memory_id` you just read from a `get_all` or `search` response.
 
 ## Feedback Analytics
 

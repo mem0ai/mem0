@@ -27,7 +27,7 @@ To keep separate memory profiles per participant, scope each participant's messa
 
 ### Basic Group Chat
 
-Scope each participant's messages with their own `user_id`:
+Scope each participant's messages with their own `user_id` and a shared `run_id` for the session. Call `add()` once per participant:
 
 <CodeGroup>
 
@@ -36,10 +36,19 @@ from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
 
-alice_messages = [
-    {"role": "user", "content": "Hey team, I think we should use React for the frontend"},
-]
-response = client.add(alice_messages, user_id="alice", run_id="group_chat_1")
+# Each participant gets their own user_id; run_id ties them to one session
+client.add(
+    [{"role": "user", "content": "Hey team, I think we should use React for the frontend"}],
+    user_id="alice", run_id="group_chat_1",
+)
+client.add(
+    [{"role": "user", "content": "I'd prefer Vue.js for our use case"}],
+    user_id="bob", run_id="group_chat_1",
+)
+response = client.add(
+    [{"role": "user", "content": "Consider Angular, it has great enterprise support"}],
+    user_id="charlie", run_id="group_chat_1",
+)
 print(response)
 ```
 
@@ -52,7 +61,34 @@ print(response)
 
 </CodeGroup>
 
-`add()` is asynchronous: it queues extraction and returns immediately. Poll `get_all` (see below) once processing completes to see the extracted memories.
+`add()` is asynchronous: it queues extraction and returns immediately. Poll `get_all` (see below) once processing completes to see the extracted memories. Each participant's memory is scoped to the `user_id` you passed, so filtering by `run_id` returns all three, and filtering by a single `user_id` returns just that participant.
+
+### The `name` field does not change scope
+
+The `name` field is stored as extraction context only. Attribution follows the `user_id`/`agent_id`/`run_id` you pass to `add()`, never the `name`. Passing two different names in one `add()` call does **not** split the memories across two profiles:
+
+<CodeGroup>
+
+```python Python
+# BOTH messages are scoped to user_id="team_session", NOT to "alice"/"bob"
+client.add(
+    [
+        {"role": "user", "name": "Alice", "content": "I strongly prefer React"},
+        {"role": "user", "name": "Bob", "content": "I strongly prefer Vue"},
+    ],
+    user_id="team_session", run_id="group_chat_2",
+)
+
+# Every extracted memory lands under user_id="team_session"
+client.get_all(filters={"AND": [{"user_id": "team_session"}]})
+
+# Nothing is stored under user_id="alice" or user_id="bob"
+client.get_all(filters={"AND": [{"user_id": "alice"}]})  # -> no results from this call
+```
+
+</CodeGroup>
+
+To keep Alice's and Bob's memories in separate profiles, call `add()` once per participant with their own `user_id`, as shown in [Basic Group Chat](#basic-group-chat) above.
 
 ## Retrieving Group Chat Memories
 

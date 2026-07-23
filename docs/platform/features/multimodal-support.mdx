@@ -10,7 +10,7 @@ Mem0 extends its capabilities beyond text by supporting multimodal data, includi
 When a user submits an image or document, Mem0 processes it to extract textual information and other pertinent details. These details are then added to the user's memory, enhancing the system's ability to understand and recall multimodal inputs.
 
 <Warning>
-Multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) requires the default `infer=True`. Combining structured multimodal `content` with `infer=False` (Direct Import) is not supported: those messages are silently skipped rather than rejected, so the call succeeds and the content is simply missing from the results.
+Multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) requires the default `infer=True`. Do not combine structured multimodal `content` with `infer=False` (Direct Import): the Direct Import path expects plain-text `content` and rejects structured multimodal messages with a `400`.
 </Warning>
 
 <CodeGroup>
