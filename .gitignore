@@ -186,3 +186,9 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+# --- 실험 산출물 (delta9043) ---
+evaluation/dataset/
+evaluation/logs/
+evaluation/results/
+evaluation/evaluation_metrics.json
