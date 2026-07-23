@@ -55,5 +55,7 @@ class LMStudioConfig(BaseLlmConfig):
         )
 
         # LM Studio-specific parameters
-        self.lmstudio_base_url = lmstudio_base_url or "http://localhost:1234/v1"
+        # Do NOT default here: keep `None` so LMStudioLLM can resolve
+        # config > LMSTUDIO_BASE_URL env > default (see #6526).
+        self.lmstudio_base_url = lmstudio_base_url
         self.lmstudio_response_format = lmstudio_response_format
