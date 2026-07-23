@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Dict, List, Optional, Union
 
 from openai import OpenAI
@@ -38,7 +39,14 @@ class LMStudioLLM(LLMBase):
         )
         self.config.api_key = self.config.api_key or "lm-studio"
 
-        self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)
+        # config > LMSTUDIO_BASE_URL env > localhost default (mirror DeepSeek/VLLM)
+        base_url = (
+            self.config.lmstudio_base_url
+            or os.getenv("LMSTUDIO_BASE_URL")
+            or "http://localhost:1234/v1"
+        )
+        self.config.lmstudio_base_url = base_url
+        self.client = OpenAI(base_url=base_url, api_key=self.config.api_key)
 
     def _parse_response(self, response, tools):
         """
