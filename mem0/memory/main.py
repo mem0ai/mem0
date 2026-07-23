@@ -1481,14 +1481,16 @@ class Memory(MemoryBase):
         )
 
         search_start = time.perf_counter()
-        # When reranking, retrieve a larger candidate pool so the reranker can
-        # surface relevant memories the first-stage scorer ranked below `limit`.
-        # The reranker then narrows the pool back down to `limit`. Without this,
-        # score_and_rank truncates to `limit` before the reranker runs, so
-        # reranking could only reorder the final results, never improve recall.
-        retrieval_limit = max(limit * 4, 60) if (rerank and self.reranker) else limit
+        # When reranking, return the full candidate pool that _search_vector_store
+        # already over-fetches internally, so the reranker can surface relevant
+        # memories the first-stage scorer ranked below `limit`. The reranker then
+        # narrows the pool back down to `limit`. Without this, score_and_rank
+        # truncates to `limit` before the reranker runs, so reranking could only
+        # reorder the final results, never improve recall.
+        rerank_pool = bool(rerank and self.reranker)
         original_memories = self._search_vector_store(
-            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
+            query, effective_filters, limit, threshold, explain=explain,
+            show_expired=show_expired, rerank_pool=rerank_pool,
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
@@ -1623,7 +1625,8 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
+    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False,
+                             rerank_pool=False):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1637,6 +1640,11 @@ class Memory(MemoryBase):
 
         # Step 3: Semantic search (over-fetch for scoring pool)
         internal_limit = max(limit * 4, 60)
+        # When feeding a reranker, return the whole over-fetched pool instead of
+        # truncating to `limit`, so the reranker can rescue candidates the
+        # first-stage scorer ranked below `limit`. This does NOT re-widen the DB
+        # fetch — `internal_limit` is still computed from the original `limit`.
+        return_k = internal_limit if rerank_pool else limit
         semantic_results = self.vector_store.search(
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
@@ -1680,7 +1688,7 @@ class Memory(MemoryBase):
             bm25_scores=bm25_scores,
             entity_boosts=entity_boosts,
             threshold=threshold,
-            top_k=limit,
+            top_k=return_k,
             explain=explain,
         )
 
@@ -3139,14 +3147,16 @@ class AsyncMemory(MemoryBase):
         )
 
         search_start = time.perf_counter()
-        # When reranking, retrieve a larger candidate pool so the reranker can
-        # surface relevant memories the first-stage scorer ranked below `limit`.
-        # The reranker then narrows the pool back down to `limit`. Without this,
-        # score_and_rank truncates to `limit` before the reranker runs, so
-        # reranking could only reorder the final results, never improve recall.
-        retrieval_limit = max(limit * 4, 60) if (rerank and self.reranker) else limit
+        # When reranking, return the full candidate pool that _search_vector_store
+        # already over-fetches internally, so the reranker can surface relevant
+        # memories the first-stage scorer ranked below `limit`. The reranker then
+        # narrows the pool back down to `limit`. Without this, score_and_rank
+        # truncates to `limit` before the reranker runs, so reranking could only
+        # reorder the final results, never improve recall.
+        rerank_pool = bool(rerank and self.reranker)
         original_memories = await self._search_vector_store(
-            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
+            query, effective_filters, limit, threshold, explain=explain,
+            show_expired=show_expired, rerank_pool=rerank_pool,
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
@@ -3284,7 +3294,8 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
+    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False,
+                                   rerank_pool=False):
         if threshold is None:
             threshold = 0.1
 
@@ -3297,6 +3308,11 @@ class AsyncMemory(MemoryBase):
 
         # Step 3: Semantic search (over-fetch)
         internal_limit = max(limit * 4, 60)
+        # When feeding a reranker, return the whole over-fetched pool instead of
+        # truncating to `limit`, so the reranker can rescue candidates the
+        # first-stage scorer ranked below `limit`. This does NOT re-widen the DB
+        # fetch — `internal_limit` is still computed from the original `limit`.
+        return_k = internal_limit if rerank_pool else limit
         semantic_results = await asyncio.to_thread(
             self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
@@ -3340,7 +3356,7 @@ class AsyncMemory(MemoryBase):
             bm25_scores=bm25_scores,
             entity_boosts=entity_boosts,
             threshold=threshold,
-            top_k=limit,
+            top_k=return_k,
             explain=explain,
         )
 

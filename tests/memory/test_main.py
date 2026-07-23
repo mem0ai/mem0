@@ -1199,12 +1199,17 @@ def test_search_rerank_uses_full_candidate_pool(mocker):
     POOL_AVAILABLE = 40
     FINAL_LIMIT = 5
 
-    # Faithfully model _search_vector_store: score_and_rank truncates its output
-    # to the ``limit`` it is called with (capped by however many candidates exist).
-    def fake_search_vector_store(query, filters, limit, *args, **kwargs):
+    # Faithfully model _search_vector_store: it over-fetches internal_limit =
+    # max(limit*4, 60) from the store, then score_and_rank returns that whole
+    # pool when rerank_pool=True, else truncates to ``limit``. Critically, the
+    # over-fetch is computed from the ORIGINAL limit passed in — so passing a
+    # pre-widened limit here (the double-widening bug) would over-fetch again.
+    def fake_search_vector_store(query, filters, limit, *args, rerank_pool=False, **kwargs):
+        internal_limit = max(limit * 4, 60)
+        return_k = internal_limit if rerank_pool else limit
         return [
             {"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01}
-            for i in range(min(limit, POOL_AVAILABLE))
+            for i in range(min(return_k, POOL_AVAILABLE))
         ]
 
     memory._search_vector_store = mocker.MagicMock(side_effect=fake_search_vector_store)
@@ -1215,6 +1220,13 @@ def test_search_rerank_uses_full_candidate_pool(mocker):
 
     results = memory.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
 
+    # _search_vector_store must be called with the ORIGINAL limit (not a
+    # pre-widened one) plus rerank_pool=True, so the over-fetch happens exactly
+    # once — guards against the double-widening regression.
+    call = memory._search_vector_store.call_args
+    passed_limit = call.args[2] if len(call.args) > 2 else call.kwargs["limit"]
+    assert passed_limit == FINAL_LIMIT
+    assert call.kwargs.get("rerank_pool") is True
     # The reranker must have received the full pool (> final limit)...
     reranked_input = memory.reranker.rerank.call_args[0][1]
     assert len(reranked_input) > FINAL_LIMIT
@@ -1237,8 +1249,10 @@ def test_search_rerank_failure_still_respects_limit(mocker):
 
     FINAL_LIMIT = 5
 
-    def fake_search_vector_store(query, filters, limit, *args, **kwargs):
-        return [{"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01} for i in range(limit)]
+    def fake_search_vector_store(query, filters, limit, *args, rerank_pool=False, **kwargs):
+        internal_limit = max(limit * 4, 60)
+        return_k = internal_limit if rerank_pool else limit
+        return [{"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01} for i in range(return_k)]
 
     memory._search_vector_store = mocker.MagicMock(side_effect=fake_search_vector_store)
     memory.reranker = mocker.MagicMock()
@@ -1246,6 +1260,8 @@ def test_search_rerank_failure_still_respects_limit(mocker):
 
     results = memory.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
 
+    # Over-fetched pool (> limit) minus a failed rerank must trim back to limit,
+    # not leak the whole pool.
     assert len(results["results"]) == FINAL_LIMIT
 
 
@@ -1261,10 +1277,12 @@ async def test_async_search_rerank_uses_full_candidate_pool(mocker):
     POOL_AVAILABLE = 40
     FINAL_LIMIT = 5
 
-    async def fake_search_vector_store(query, filters, limit, *args, **kwargs):
+    async def fake_search_vector_store(query, filters, limit, *args, rerank_pool=False, **kwargs):
+        internal_limit = max(limit * 4, 60)
+        return_k = internal_limit if rerank_pool else limit
         return [
             {"id": str(i), "memory": f"doc{i}", "score": 1.0 - i * 0.01}
-            for i in range(min(limit, POOL_AVAILABLE))
+            for i in range(min(return_k, POOL_AVAILABLE))
         ]
 
     memory._search_vector_store = mocker.MagicMock(side_effect=fake_search_vector_store)
@@ -1273,6 +1291,11 @@ async def test_async_search_rerank_uses_full_candidate_pool(mocker):
 
     results = await memory.search("q", filters={"user_id": "u"}, top_k=FINAL_LIMIT, rerank=True)
 
+    # Original limit passed once, rerank_pool set → no double-widening.
+    call = memory._search_vector_store.call_args
+    passed_limit = call.args[2] if len(call.args) > 2 else call.kwargs["limit"]
+    assert passed_limit == FINAL_LIMIT
+    assert call.kwargs.get("rerank_pool") is True
     reranked_input = memory.reranker.rerank.call_args[0][1]
     assert len(reranked_input) > FINAL_LIMIT
     assert memory.reranker.rerank.call_args[0][2] == FINAL_LIMIT
