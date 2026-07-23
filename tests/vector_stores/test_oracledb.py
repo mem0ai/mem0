@@ -374,11 +374,19 @@ def test_search_and_list_follow_base_contract():
         ]
     )
 
-    search_results = store.search(query="unused", vectors=[1.0, 0.0], top_k=2)
+    search_results = store.search(
+        query="unused",
+        vectors=[1.0, 0.0],
+        top_k=2,
+        filters={"score": {"gte": 5}},
+    )
     list_results = store.list(top_k=2)
 
     assert [result.score for result in search_results] == pytest.approx([0.9, 0.2])
     assert search_results[0].score > search_results[1].score
+    search_sql = search_cursor.execute.call_args.args[0]
+    assert "@ >= $f_0" in search_sql
+    assert search_cursor.execute.call_args.kwargs["f_0"] == 5
     assert isinstance(list_results[0], list)
     assert list_results[0][0].payload["name"] == "listed"
 
@@ -397,20 +405,163 @@ def test_build_filters_combines_wildcard_and_scalar_equality():
 
     clause, params = store._build_filters({"user_id": "alice", "run_id": "*"})
 
-    assert """JSON_EXISTS(payload, '$?(@."user_id" == $f_0)' PASSING :f_0 AS "f_0")""" in clause
+    assert """JSON_EXISTS(payload, '$."user_id"?(@ == $f_0)' PASSING :f_0 AS "f_0")""" in clause
     assert """JSON_EXISTS(payload, '$."run_id"')""" in clause
     assert " AND " in clause
     assert params == {"f_0": "alice"}
 
 
-def test_build_filters_rejects_operator_dictionary():
+@pytest.mark.parametrize(
+    ("operator", "predicate"),
+    [
+        ("eq", "@ == $f_0"),
+        ("ne", "@ != $f_0"),
+        ("gt", "@ > $f_0"),
+        ("gte", "@ >= $f_0"),
+        ("lt", "@ < $f_0"),
+        ("lte", "@ <= $f_0"),
+    ],
+)
+def test_build_filters_comparison_operators(operator, predicate):
     store = object.__new__(OracleAIVectorSearch)
 
-    with pytest.raises(
-        ValueError,
-        match="Oracle vector store does not yet support operator filters for field 'created_at'",
-    ):
-        store._build_filters({"created_at": {"gte": "2024-01-01"}})
+    clause, params = store._build_filters({"score": {operator: 5}})
+
+    assert predicate in clause
+    assert params == {"f_0": 5}
+
+
+def test_build_filters_combines_comparisons_for_same_field():
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, params = store._build_filters({"score": {"gte": 5, "lt": 10}})
+
+    assert '$."score"?(@ >= $f_0 && @ < $f_1)' in clause
+    assert params == {"f_0": 5, "f_1": 10}
+
+
+@pytest.mark.parametrize(
+    ("operator", "expected"),
+    [
+        ("in", "JSON_EXISTS"),
+        ("nin", "NOT (JSON_EXISTS"),
+    ],
+)
+def test_build_filters_membership_operators_expand_binds(operator, expected):
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, params = store._build_filters({"category": {operator: ["work", "personal"]}})
+
+    assert expected in clause
+    assert "@ in ($f_0, $f_1)" in clause
+    assert params == {"f_0": "work", "f_1": "personal"}
+
+
+def test_build_filters_string_operators():
+    store = object.__new__(OracleAIVectorSearch)
+
+    contains_clause, contains_params = store._build_filters({"title": {"contains": "Meeting"}})
+    icontains_clause, icontains_params = store._build_filters({"title": {"icontains": "Meet.ing"}})
+
+    assert "@ has substring $f_0" in contains_clause
+    assert contains_params == {"f_0": "Meeting"}
+    assert "@.lower() has substring $f_0" in icontains_clause
+    assert icontains_params == {"f_0": "meet.ing"}
+
+
+def test_build_filters_operator_eq_treats_asterisk_as_literal():
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, params = store._build_filters({"status": {"eq": "*"}})
+
+    assert "@ == $f_0" in clause
+    assert params == {"f_0": "*"}
+
+
+@pytest.mark.parametrize(
+    ("filters", "predicate", "params"),
+    [
+        ({"nullable": None}, "@ == null", {}),
+        ({"nullable": {"eq": None}}, "@ == null", {}),
+        ({"nullable": {"ne": None}}, "@ != null", {}),
+        ({"nullable": {"in": [None, "set"]}}, "@ in (null, $f_0)", {"f_0": "set"}),
+    ],
+)
+def test_build_filters_supports_json_null(filters, predicate, params):
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, actual_params = store._build_filters(filters)
+
+    assert predicate in clause
+    assert actual_params == params
+
+
+def test_build_filters_nested_logical_operators_share_bind_namespace():
+    store = object.__new__(OracleAIVectorSearch)
+    filters = {
+        "user_id": "alice",
+        "$or": [
+            {"score": {"gte": 5}},
+            {
+                "$and": [
+                    {"status": {"eq": "active"}},
+                    {"category": "work"},
+                ]
+            },
+        ],
+        "$not": [{"archived": {"eq": "yes"}}],
+    }
+
+    clause, params = store._build_filters(filters)
+
+    assert " OR " in clause
+    assert " AND " in clause
+    assert "NOT (" in clause
+    assert params == {
+        "f_0": "alice",
+        "f_1": 5,
+        "f_2": "active",
+        "f_3": "work",
+        "f_4": "yes",
+    }
+
+
+def test_build_filters_accepts_unprocessed_logical_operator_names():
+    store = object.__new__(OracleAIVectorSearch)
+
+    clause, params = store._build_filters(
+        {
+            "AND": [
+                {"score": {"gte": 5}},
+                {"OR": [{"category": "work"}, {"category": "personal"}]},
+            ]
+        }
+    )
+
+    assert " AND " in clause
+    assert " OR " in clause
+    assert params == {"f_0": 5, "f_1": "work", "f_2": "personal"}
+
+
+@pytest.mark.parametrize(
+    ("filters", "message"),
+    [
+        ({"score": {"between": [1, 2]}}, "Unsupported Oracle filter operator"),
+        ({"score": {}}, "must not be empty"),
+        ({"score": {"in": []}}, "requires a non-empty list"),
+        ({"title": {"contains": 5}}, "requires a string value"),
+        ({"score": {"gte": [5]}}, "requires a scalar value"),
+        ({"score": {"gte": None}}, "does not support null"),
+        ({"$xor": [{"score": 5}]}, "Unsupported Oracle logical filter operator"),
+        ({"$or": []}, "requires a non-empty list"),
+        ({"bad-key": "value"}, "Invalid metadata key"),
+    ],
+)
+def test_build_filters_rejects_invalid_filter_shapes(filters, message):
+    store = object.__new__(OracleAIVectorSearch)
+
+    with pytest.raises(ValueError, match=message):
+        store._build_filters(filters)
 
 
 def test_insert_and_get(oracle_db: OracleAIVectorSearch):
@@ -492,6 +643,139 @@ def test_search_with_no_filters(oracle_db: OracleAIVectorSearch):
     assert len(results) == 1
 
 
+def test_extended_filtering(oracle_db: OracleAIVectorSearch):
+    vector = [0.42] * DIM
+    oracle_db.insert(
+        [vector] * 4,
+        payloads=[
+            {
+                "name": "Alpha Meeting",
+                "score": 10,
+                "category": "work",
+                "status": "active",
+                "run_id": "r1",
+                "enabled": True,
+                "nullable": None,
+                "ratio": 1.25,
+                "created_at": "2025-01-15",
+                "profile": {"department": "Engineering", "skills": ["Python", "SQL"]},
+            },
+            {
+                "name": "beta meeting",
+                "score": 5,
+                "category": "personal",
+                "status": "inactive",
+                "enabled": False,
+                "nullable": "set",
+                "ratio": 2.5,
+                "created_at": "2024-12-31",
+                "profile": {"department": "Engineering", "skills": ["Java"]},
+            },
+            {
+                "name": "Gamma",
+                "score": 20,
+                "category": "work",
+                "status": "active",
+                "run_id": "r3",
+                "enabled": True,
+                "ratio": 3.75,
+                "created_at": "2025-06-01",
+                "profile": {"department": "Sales", "skills": ["Python"]},
+            },
+            {
+                "name": "Literal",
+                "score": 12,
+                "category": "other",
+                "status": "*",
+                "enabled": False,
+                "nullable": "value",
+                "ratio": 4.0,
+                "created_at": "2026-01-01",
+                "profile": {"department": "Support", "skills": []},
+            },
+        ],
+        ids=["alpha", "beta", "gamma", "literal"],
+    )
+
+    def matching_names(filters):
+        results = oracle_db.list(filters=filters, top_k=10)[0]
+        return {result.payload["name"] for result in results}
+
+    assert matching_names({"score": {"gte": 6, "lt": 20}}) == {"Alpha Meeting", "Literal"}
+    assert matching_names({"category": {"eq": "work"}}) == {"Alpha Meeting", "Gamma"}
+    assert matching_names({"category": {"ne": "work"}}) == {"beta meeting", "Literal"}
+    assert matching_names({"score": {"lte": 10}}) == {"Alpha Meeting", "beta meeting"}
+    assert matching_names({"category": {"in": ["work", "personal"]}}) == {
+        "Alpha Meeting",
+        "beta meeting",
+        "Gamma",
+    }
+    assert matching_names({"category": {"nin": ["work", "personal"]}}) == {"Literal"}
+    assert matching_names({"name": {"contains": "Meeting"}}) == {"Alpha Meeting"}
+    assert matching_names({"name": {"icontains": "meeting"}}) == {"Alpha Meeting", "beta meeting"}
+    assert matching_names({"run_id": "*"}) == {"Alpha Meeting", "Gamma"}
+    assert matching_names({"status": {"eq": "*"}}) == {"Literal"}
+    assert matching_names({"profile.department": {"eq": "Engineering"}}) == {
+        "Alpha Meeting",
+        "beta meeting",
+    }
+    assert matching_names({"profile.skills[*]": {"eq": "Python"}}) == {"Alpha Meeting", "Gamma"}
+    assert matching_names({"enabled": {"eq": True}}) == {"Alpha Meeting", "Gamma"}
+    assert matching_names({"nullable": {"eq": None}}) == {"Alpha Meeting"}
+    assert matching_names({"nullable": {"ne": None}}) == {"beta meeting", "Literal"}
+    assert matching_names({"nullable": {"in": [None, "set"]}}) == {"Alpha Meeting", "beta meeting"}
+    assert matching_names({"created_at": {"gte": "2025-01-01", "lt": "2026-01-01"}}) == {
+        "Alpha Meeting",
+        "Gamma",
+    }
+    assert matching_names({"ratio": {"gt": 1.25, "lte": 3.75}}) == {"beta meeting", "Gamma"}
+    assert matching_names({"score": {"gte": 10, "in": [10, 12]}}) == {"Alpha Meeting", "Literal"}
+    assert matching_names(
+        {
+            "$or": [
+                {"score": {"lt": 6}},
+                {"score": {"gt": 15}},
+            ]
+        }
+    ) == {"beta meeting", "Gamma"}
+    assert matching_names({"$not": [{"category": {"eq": "personal"}}]}) == {
+        "Alpha Meeting",
+        "Gamma",
+        "Literal",
+    }
+    assert matching_names(
+        {
+            "AND": [
+                {"score": {"gte": 10}},
+                {
+                    "OR": [
+                        {"category": "work"},
+                        {"status": {"eq": "*"}},
+                    ]
+                },
+            ]
+        }
+    ) == {"Alpha Meeting", "Gamma", "Literal"}
+    assert matching_names(
+        {
+            "AND": [
+                {"enabled": {"eq": True}},
+                {
+                    "OR": [
+                        {"profile.department": {"eq": "Engineering"}},
+                        {
+                            "AND": [
+                                {"score": {"gt": 15}},
+                                {"NOT": [{"category": {"eq": "personal"}}]},
+                            ]
+                        },
+                    ]
+                },
+            ]
+        }
+    ) == {"Alpha Meeting", "Gamma"}
+
+
 def test_delete(oracle_db: OracleAIVectorSearch):
     vec = [0.9] * DIM
     oracle_db.insert([vec], payloads=[{"name": "to_delete"}])
@@ -503,6 +787,22 @@ def test_delete(oracle_db: OracleAIVectorSearch):
     oracle_db.delete(vector_id=target_id)
     got = oracle_db.get(vector_id=target_id)
     assert got is None
+
+
+def test_reset_recreates_empty_usable_collection(oracle_db: OracleAIVectorSearch):
+    vector = [0.15] * DIM
+    oracle_db.insert([vector], ids=["before-reset"], payloads=[{"name": "before"}])
+    assert oracle_db.get("before-reset") is not None
+
+    oracle_db.reset()
+
+    assert oracle_db.get("before-reset") is None
+    assert oracle_db.list(top_k=10) == [[]]
+
+    oracle_db.insert([vector], ids=["after-reset"], payloads=[{"name": "after"}])
+    result = oracle_db.get("after-reset")
+    assert result is not None
+    assert result.payload["name"] == "after"
 
 
 def test_update(oracle_db: OracleAIVectorSearch):

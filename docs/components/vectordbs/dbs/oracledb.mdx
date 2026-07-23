@@ -76,5 +76,6 @@ Here are the parameters available for configuring Oracle AI Vector Search:
 - Search results convert Oracle's `VECTOR_DISTANCE` to a similarity `score` where higher values mean greater
   similarity. Cosine and non-negative distance metrics return scores in `[0, 1]`; `DOT` returns the inner product,
   which may fall outside that range.
-- Metadata filters currently support scalar equality, implicit `AND`, and `"*"` field-existence matching. Operator
-  dictionaries such as `{"created_at": {"gte": "2024-01-01"}}` are not yet supported and raise `ValueError`.
+- Metadata filters support scalar equality, `"*"` field-existence matching, comparison operators (`eq`, `ne`, `gt`,
+  `gte`, `lt`, `lte`), membership operators (`in`, `nin`), string operators (`contains`, `icontains`), and logical
+  groups (`AND`, `OR`, `NOT`). Multiple fields are implicitly combined with `AND`.

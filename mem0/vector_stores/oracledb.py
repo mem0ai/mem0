@@ -42,6 +42,7 @@ def _validate_metadata_key(metadata_key: str) -> None:
             "and array wildcards '[*]' are allowed."
         )
 
+
 _SCORE_FROM_DISTANCE = {
     "COSINE": lambda d: max(0.0, min(1.0, 1.0 - d)),
     "EUCLIDEAN": lambda d: 1.0 / (1.0 + max(0.0, d)),
@@ -51,11 +52,171 @@ _SCORE_FROM_DISTANCE = {
     "DOT": lambda d: -d,
 }
 
+
 def _convert_distance_to_score(distance: float, metric: str) -> float:
     try:
         return _SCORE_FROM_DISTANCE[metric.upper()](distance)
     except KeyError:
         raise ValueError(f"Unsupported distance metric: {metric}") from None
+
+
+_FIELD_OPERATORS = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
+_COMPARISON_OPERATORS = {
+    "eq": "==",
+    "ne": "!=",
+    "gt": ">",
+    "gte": ">=",
+    "lt": "<",
+    "lte": "<=",
+}
+_LOGICAL_OPERATORS = {
+    "$and": "and",
+    "$or": "or",
+    "$not": "not",
+    "AND": "and",
+    "OR": "or",
+    "NOT": "not",
+}
+
+
+def _json_path(metadata_key: str) -> str:
+    _validate_metadata_key(metadata_key)
+
+    path_parts: List[str] = []
+    for part in metadata_key.split("."):
+        if part.endswith("[*]"):
+            path_parts.append(f'."{part[:-3]}"[*]')
+        else:
+            path_parts.append(f'."{part}"')
+    return "".join(path_parts)
+
+
+def _bind_filter_value(value: Any, params: Dict[str, Any]) -> tuple[str, str]:
+    param = f"f_{len(params)}"
+    params[param] = value
+    return f"${param}", f':{param} AS "{param}"'
+
+
+def _json_exists(json_path: str, predicate: str, passings: List[str]) -> str:
+    passing_clause = f" PASSING {', '.join(passings)}" if passings else ""
+    return f"JSON_EXISTS(payload, '${json_path}?({predicate})'{passing_clause})"
+
+
+def _validate_scalar_operand(operator: str, value: Any) -> None:
+    if isinstance(value, (dict, list, tuple, set)):
+        raise ValueError(f"Oracle filter operator {operator!r} requires a scalar value")
+
+
+def _build_field_condition(metadata_key: str, value: Any, params: Dict[str, Any]) -> str:
+    json_path = _json_path(metadata_key)
+
+    if value == "*":
+        return f"JSON_EXISTS(payload, '${json_path}')"
+
+    if not isinstance(value, dict):
+        _validate_scalar_operand("eq", value)
+        if value is None:
+            return _json_exists(json_path, "@ == null", [])
+        variable, passing = _bind_filter_value(value, params)
+        return _json_exists(json_path, f"@ == {variable}", [passing])
+
+    if not value:
+        raise ValueError(f"Operator filter for field {metadata_key!r} must not be empty")
+
+    unsupported = set(value) - _FIELD_OPERATORS
+    if unsupported:
+        raise ValueError(
+            f"Unsupported Oracle filter operator(s) for field {metadata_key!r}: "
+            f"{', '.join(sorted(map(str, unsupported)))}"
+        )
+
+    predicates: List[str] = []
+    passings: List[str] = []
+    additional_clauses: List[str] = []
+
+    for operator, operand in value.items():
+        if operator in _COMPARISON_OPERATORS:
+            _validate_scalar_operand(operator, operand)
+            if operand is None:
+                if operator not in {"eq", "ne"}:
+                    raise ValueError(f"Oracle filter operator {operator!r} does not support null")
+                predicates.append(f"@ {_COMPARISON_OPERATORS[operator]} null")
+                continue
+            variable, passing = _bind_filter_value(operand, params)
+            predicates.append(f"@ {_COMPARISON_OPERATORS[operator]} {variable}")
+            passings.append(passing)
+            continue
+
+        if operator in {"in", "nin"}:
+            if not isinstance(operand, (list, tuple)) or not operand:
+                raise ValueError(f"Oracle filter operator {operator!r} requires a non-empty list")
+
+            variables: List[str] = []
+            list_passings: List[str] = []
+            for item in operand:
+                _validate_scalar_operand(operator, item)
+                if item is None:
+                    variables.append("null")
+                    continue
+                variable, passing = _bind_filter_value(item, params)
+                variables.append(variable)
+                list_passings.append(passing)
+
+            membership = _json_exists(json_path, f"@ in ({', '.join(variables)})", list_passings)
+            if operator == "in":
+                additional_clauses.append(membership)
+            else:
+                additional_clauses.append(f"NOT ({membership})")
+            continue
+
+        if not isinstance(operand, str):
+            raise ValueError(f"Oracle filter operator {operator!r} requires a string value")
+
+        if operator == "contains":
+            variable, passing = _bind_filter_value(operand, params)
+            predicates.append(f"@ has substring {variable}")
+            passings.append(passing)
+        else:
+            variable, passing = _bind_filter_value(operand.lower(), params)
+            predicates.append(f"@.lower() has substring {variable}")
+            passings.append(passing)
+
+    clauses = list(additional_clauses)
+    if predicates:
+        clauses.insert(0, _json_exists(json_path, " && ".join(predicates), passings))
+
+    if len(clauses) == 1:
+        return clauses[0]
+    return "(" + " AND ".join(clauses) + ")"
+
+
+def _build_filter_group(filters: Dict[str, Any], params: Dict[str, Any]) -> str:
+    if not isinstance(filters, dict) or not filters:
+        raise ValueError("Oracle filter groups must be non-empty dictionaries")
+
+    clauses: List[str] = []
+    for key, value in filters.items():
+        if key in _LOGICAL_OPERATORS:
+            if not isinstance(value, list) or not value:
+                raise ValueError(f"Logical filter operator {key!r} requires a non-empty list")
+
+            nested = [_build_filter_group(condition, params) for condition in value]
+            logical_operator = _LOGICAL_OPERATORS[key]
+            if logical_operator == "not":
+                clauses.append(f"NOT ({' OR '.join(nested)})")
+            else:
+                joiner = " AND " if logical_operator == "and" else " OR "
+                clauses.append("(" + joiner.join(nested) + ")")
+            continue
+
+        if key.startswith("$"):
+            raise ValueError(f"Unsupported Oracle logical filter operator: {key}")
+
+        clauses.append(_build_field_condition(key, value, params))
+
+    if len(clauses) == 1:
+        return clauses[0]
+    return "(" + " AND ".join(clauses) + ")"
 
 
 class OracleAIVectorSearch(VectorStoreBase):
@@ -269,37 +430,8 @@ class OracleAIVectorSearch(VectorStoreBase):
         if not filters:
             return "", {}
 
-        clauses: List[str] = []
         params: Dict[str, Any] = {}
-
-        for idx, (key, value) in enumerate(filters.items()):
-            _validate_metadata_key(key)
-            param = f"f_{idx}"
-
-            # Build JSON path like @."a"."b" or @."a"[*]."b"
-            path_parts: List[str] = []
-            for part in key.split("."):
-                if part.endswith("[*]"):
-                    base = part[:-3]
-                    path_parts.append(f'."{base}"[*]')
-                else:
-                    path_parts.append(f'."{part}"')
-            json_path = "".join(path_parts)
-
-            if value == "*":
-                clauses.append(f"JSON_EXISTS(payload, '${json_path}')")
-                continue
-
-            if isinstance(value, dict):
-                raise ValueError(
-                    f"Oracle vector store does not yet support operator filters for field {key!r}"
-                )
-
-            # Use JSON_EXISTS with PASSING BY VALUE to preserve types
-            clauses.append(f"JSON_EXISTS(payload, '$?(@{json_path} == ${param})' PASSING :{param} AS \"{param}\")")
-            params[param] = value
-
-        return ("WHERE " + " AND ".join(clauses), params)
+        return "WHERE " + _build_filter_group(filters, params), params
 
     def delete(self, vector_id: str) -> None:
         """
