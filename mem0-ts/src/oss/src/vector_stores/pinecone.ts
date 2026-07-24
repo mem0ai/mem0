@@ -182,7 +182,11 @@ export class PineconeDB implements VectorStore {
         continue;
       }
 
-      if (value === "*") continue;
+      // Documented contract: "*" means the field must exist (any value).
+      if (value === "*") {
+        result[key] = { $exists: true };
+        continue;
+      }
 
       if (Array.isArray(value)) {
         result[key] = { $in: value };

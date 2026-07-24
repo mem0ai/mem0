@@ -98,9 +98,9 @@ export class MemoryVectorStore implements VectorStore {
 
     // Handle non-dict values
     if (typeof value !== "object" || value === null) {
-      // Wildcard: match any value
+      // "*" = field-exists; do not match missing/null/undefined values.
       if (value === "*") {
-        return true;
+        return payloadValue !== undefined && payloadValue !== null;
       }
       // Simple equality
       return payloadValue === value;

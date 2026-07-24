@@ -236,10 +236,8 @@ export class Milvus implements VectorStore {
         throw new Error(`Invalid filter key: ${JSON.stringify(key)}`);
       }
       if (value === "*") {
-        // Wildcard - match any value. Milvus has no direct wildcard, so skip
-        // the clause rather than emitting a literal `== "*"` that matches
-        // nothing. Mirrors the Python provider (#6187) and the chroma/pinecone
-        // stores.
+        // Field-exists (docs contract). Milvus 2.x supports exists() on JSON keys.
+        operands.push(`exists metadata["${key}"]`);
         continue;
       }
       if (typeof value === "string") {
