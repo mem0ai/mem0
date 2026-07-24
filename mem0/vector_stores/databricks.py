@@ -460,6 +460,29 @@ class Databricks(VectorStoreBase):
             logger.error(f"Insert operation failed: {e}")
             raise
 
+    @staticmethod
+    def _filters_to_json(filters: Optional[dict]) -> Optional[str]:
+        """Serialize filters for filters_json, dropping '*' wildcard entries.
+
+        Databricks Vector Search has no "field exists" operator, so the best
+        available translation for the "any value" wildcard is to not constrain
+        the field at all. Passing '*' through would build a literal string
+        match that returns nothing.
+        """
+        if not filters:
+            return None
+        effective = {}
+        for key, value in filters.items():
+            if value == "*":
+                logger.debug(
+                    "Dropping '*' wildcard filter for key %r: Databricks Vector Search "
+                    "cannot express 'field exists', so the wildcard matches all rows.",
+                    key,
+                )
+                continue
+            effective[key] = value
+        return json.dumps(effective) if effective else None
+
     def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None) -> List[MemoryResult]:
         """
         Search for similar vectors or text using the Databricks Vector Search index.
@@ -474,7 +497,7 @@ class Databricks(VectorStoreBase):
             List of MemoryResult objects.
         """
         try:
-            filters_json = json.dumps(filters) if filters else None
+            filters_json = self._filters_to_json(filters)
 
             # Choose query mode per Databricks SDK contract:
             # - query_text: for Delta Sync Index with model endpoint
@@ -540,7 +563,7 @@ class Databricks(VectorStoreBase):
             return None
 
         try:
-            filters_json = json.dumps(filters) if filters else None
+            filters_json = self._filters_to_json(filters)
 
             sdk_results = self.client.vector_search_indexes.query_index(
                 index_name=self.fully_qualified_index_name,
@@ -794,7 +817,7 @@ class Databricks(VectorStoreBase):
             List containing list of MemoryResult objects.
         """
         try:
-            filters_json = json.dumps(filters) if filters else None
+            filters_json = self._filters_to_json(filters)
             num_results = top_k or 100
             columns = self.column_names
             # Use query_text for Delta Sync with model endpoint, query_vector otherwise
