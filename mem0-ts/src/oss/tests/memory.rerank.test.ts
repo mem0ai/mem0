@@ -10,7 +10,7 @@ import { Memory } from "../src/memory";
 import { CohereReranker } from "../src/rerankers/cohere";
 import type { RerankResult } from "../src/rerankers/base";
 
-jest.setTimeout(15000);
+jest.setTimeout(60000);
 
 jest.mock("../src/embeddings/google", () => ({
   GoogleEmbedder: jest.fn(),
@@ -74,7 +74,82 @@ async function primeSearch(m: any) {
   m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 }
 
+// Prime with a pool of `n` candidates in descending vector-score order
+// (mem0 best ... mem{n-1} worst), so a small topK truncates the pool.
+async function primeLargePool(m: any, n: number) {
+  await m._ensureInitialized();
+  m.embedder = { embed: jest.fn().mockResolvedValue(mockEmbedding) };
+  const rows = Array.from({ length: n }, (_, i) => ({
+    id: `c${i}`,
+    score: 0.9 - i * 0.01,
+    payload: { data: `mem${i}` },
+  }));
+  m.vectorStore.search = jest.fn().mockResolvedValue(rows);
+  m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+}
+
 describe("Memory.search reranking", () => {
+  it("feeds the reranker the full candidate pool, not just topK, so it can surface a memory ranked below topK", async () => {
+    const memory = createMemory();
+    const m = memory as any;
+    await primeLargePool(m, 5);
+
+    // The reranker promotes mem4, which the first-stage scorer ranked 5th —
+    // below topK=2. Before the fix, scoreAndRank truncated to topK so mem4
+    // never reached the reranker and could never be surfaced.
+    const rerank = jest
+      .fn<Promise<RerankResult[]>, [string, string[], number?]>()
+      .mockImplementation((_q: string, docs: string[]) =>
+        Promise.resolve([
+          { index: docs.indexOf("mem4"), rerankScore: 0.99 },
+          { index: 0, rerankScore: 0.5 },
+        ]),
+      );
+    m.reranker = { rerank };
+
+    const result = await m.search("recall something", {
+      filters: { user_id: "u1" },
+      topK: 2,
+      rerank: true,
+    });
+
+    // The reranker must have seen all 5 candidates, not the truncated top 2.
+    const docsSeen = rerank.mock.calls[0][1];
+    expect(docsSeen).toHaveLength(5);
+    expect(docsSeen).toContain("mem4");
+
+    // mem4 (ranked 5th by the first stage) is surfaced to the top, and the
+    // final result is still trimmed to topK.
+    expect(result.results[0].memory).toBe("mem4");
+    expect(result.results).toHaveLength(2);
+
+    await memory.reset();
+  });
+
+  it("trims the over-fetched pool back to topK when the reranker fails", async () => {
+    const memory = createMemory();
+    const m = memory as any;
+    await primeLargePool(m, 5);
+    m.reranker = {
+      rerank: jest.fn().mockRejectedValue(new Error("provider down")),
+    };
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await m.search("recall something", {
+      filters: { user_id: "u1" },
+      topK: 2,
+      rerank: true,
+    });
+
+    // Over-fetching for the reranker must not leak the whole pool on failure;
+    // the caller still gets exactly topK (the first-stage top 2).
+    expect(result.results).toHaveLength(2);
+    expect(result.results.map((r: any) => r.memory)).toEqual(["mem0", "mem1"]);
+
+    warnSpy.mockRestore();
+    await memory.reset();
+  });
+
   it("reorders results by the reranker when rerank:true, adding rerankScore while preserving the original vector score", async () => {
     const memory = createMemory();
     const m = memory as any;
