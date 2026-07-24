@@ -122,7 +122,14 @@ class TurbopufferDB(VectorStoreBase):
             dist = row_dict.pop("$dist", None)
             row_dict.pop("vector", None)
 
-            score = 1 - dist if dist is not None else None
+            if dist is None:
+                score = None
+            elif self.distance_metric == "euclidean_squared":
+                # $dist is unbounded squared-L2 (lower = closer); map to a bounded
+                # higher-is-better score, mirroring milvus/baidu. Cosine returns 1 - dist.
+                score = 1.0 / (1.0 + dist)
+            else:
+                score = 1 - dist
 
             results.append(OutputData(
                 id=row_id,
