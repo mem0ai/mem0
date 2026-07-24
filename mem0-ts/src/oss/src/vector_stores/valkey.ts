@@ -45,14 +45,39 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
-function toCamelCase(obj: Record<string, any>): Record<string, any> {
+/**
+ * Keys that must remain in snake_case — memory/index.ts reads these directly.
+ */
+const ENTITY_ID_KEYS = new Set(["user_id", "agent_id", "run_id"]);
+
+/**
+ * Timestamp keys stored as snake_case in Valkey but expected as camelCase by
+ * the rest of the SDK (memory/index.ts reads payload.createdAt / updatedAt).
+ */
+const TIMESTAMP_RENAMES: Record<string, string> = {
+  created_at: "createdAt",
+  updated_at: "updatedAt",
+};
+
+/**
+ * Selectively normalize a result payload to the canonical format expected by
+ * memory/index.ts: entity IDs in snake_case, timestamps in camelCase, and all
+ * other keys (metadata spillover) in camelCase.
+ */
+function normalizeResultPayload(obj: Record<string, any>): Record<string, any> {
   if (typeof obj !== "object" || obj === null) return obj;
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
-      value,
-    ]),
-  );
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (ENTITY_ID_KEYS.has(key)) {
+      result[key] = value;
+    } else if (Object.hasOwn(TIMESTAMP_RENAMES, key)) {
+      result[TIMESTAMP_RENAMES[key]] = value;
+    } else {
+      const camelKey = key.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+      result[camelKey] = value;
+    }
+  }
+  return result;
 }
 
 interface ValkeySearchDoc {
@@ -380,7 +405,12 @@ export class ValkeyDB implements VectorStore {
 
     if (doc.metadata) {
       try {
-        Object.assign(resultPayload, JSON.parse(doc.metadata));
+        const parsed = JSON.parse(doc.metadata);
+        // Defense-in-depth: prevent crafted metadata from overwriting entity IDs
+        for (const key of ENTITY_ID_KEYS) {
+          delete parsed[key];
+        }
+        Object.assign(resultPayload, parsed);
       } catch {
         console.warn("Failed to parse Valkey metadata:", doc.metadata);
       }
@@ -388,7 +418,7 @@ export class ValkeyDB implements VectorStore {
 
     return {
       id: doc.memory_id ?? "",
-      payload: toCamelCase(resultPayload),
+      payload: normalizeResultPayload(resultPayload),
       score,
     };
   }
