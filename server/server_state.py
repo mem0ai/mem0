@@ -7,7 +7,9 @@ from typing import Any, Callable, Dict
 from mem0 import Memory
 
 _state_lock = threading.RLock()
+_base_config: Dict[str, Any] = {}
 _current_config: Dict[str, Any] = {}
+_env_overrides: Dict[str, Any] = {}
 _memory_instance: Memory | None = None
 _session_factory: Callable | None = None
 
@@ -73,25 +75,32 @@ def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
     return merged
 
 
-def initialize_state(default_config: Dict[str, Any]) -> None:
-    global _current_config, _memory_instance
+def _compose_config(
+    base_config: Dict[str, Any],
+    persisted_overrides: Dict[str, Any],
+    env_overrides: Dict[str, Any],
+) -> Dict[str, Any]:
+    return _merge_config(_merge_config(base_config, persisted_overrides), env_overrides)
+
+
+def initialize_state(default_config: Dict[str, Any], env_overrides: Dict[str, Any] | None = None) -> None:
+    global _base_config, _current_config, _env_overrides, _memory_instance
     with _state_lock:
-        _current_config = deepcopy(default_config)
+        _base_config = deepcopy(default_config)
+        _env_overrides = deepcopy(env_overrides or {})
         overrides = _load_overrides()
-        if overrides:
-            _current_config = _merge_config(_current_config, overrides)
+        _current_config = _compose_config(_base_config, overrides, _env_overrides)
         _memory_instance = Memory.from_config(_current_config)
 
 
 def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     global _current_config, _memory_instance
     with _state_lock:
-        next_config = _merge_config(_current_config, updates)
-        _current_config = next_config
-        _memory_instance = Memory.from_config(next_config)
         overrides = _load_overrides()
         overrides = _merge_config(overrides, updates)
         _save_overrides(overrides)
+        _current_config = _compose_config(_base_config, overrides, _env_overrides)
+        _memory_instance = Memory.from_config(_current_config)
         return deepcopy(_current_config)
 
 
