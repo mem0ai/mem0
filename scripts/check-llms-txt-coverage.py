@@ -42,7 +42,7 @@ def load_ignore_prefixes() -> list[str]:
     if not IGNORE_FILE.exists():
         return []
     prefixes: list[str] = []
-    for raw in IGNORE_FILE.read_text().splitlines():
+    for raw in IGNORE_FILE.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line and not line.startswith("#"):
             prefixes.append(line)
@@ -105,7 +105,7 @@ def main() -> int:
 
     ignore_prefixes = load_ignore_prefixes()
     all_pages, included_pages = canonical_repo_pages(ignore_prefixes)
-    text = LLMS_TXT.read_text()
+    text = LLMS_TXT.read_text(encoding="utf-8")
     linked = indexed_urls(text)
 
     missing = sorted(included_pages - linked)

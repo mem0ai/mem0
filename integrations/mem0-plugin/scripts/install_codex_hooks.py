@@ -44,7 +44,7 @@ OWNER_MARKER = "mem0-plugin"
 
 
 def load_template() -> dict:
-    raw = TEMPLATE_FILE.read_text()
+    raw = TEMPLATE_FILE.read_text(encoding="utf-8")
     raw = raw.replace("${PLUGIN_ROOT}", str(PLUGIN_ROOT))
     return json.loads(raw)
 
@@ -53,7 +53,7 @@ def load_existing() -> dict:
     if not HOOKS_FILE.exists():
         return {"hooks": {}}
     try:
-        return json.loads(HOOKS_FILE.read_text())
+        return json.loads(HOOKS_FILE.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         print(f"error: failed to read {HOOKS_FILE}: {e}", file=sys.stderr)
         sys.exit(1)
@@ -85,13 +85,13 @@ def merge_template(config: dict, template: dict) -> dict:
 
 def write_config(config: dict) -> None:
     CODEX_DIR.mkdir(parents=True, exist_ok=True)
-    HOOKS_FILE.write_text(json.dumps(config, indent=2) + "\n")
+    HOOKS_FILE.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
 
 def feature_flag_enabled() -> bool:
     if not CONFIG_FILE.exists():
         return False
-    content = CONFIG_FILE.read_text()
+    content = CONFIG_FILE.read_text(encoding="utf-8")
     for line in content.splitlines():
         stripped = line.split("#", 1)[0].strip().replace(" ", "")
         if stripped == "codex_hooks=true":
