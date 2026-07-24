@@ -267,34 +267,34 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     });
   });
 
-  it("skips a wildcard '*' filter value and keeps the rest", async () => {
+  it("treats wildcard '*' as field-exists and keeps the rest", async () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     client.searchResponse = { results: [] };
     const store = makeStore(client, { metricType: "COSINE" });
     await store.initialize();
 
-    // "*" means match-any: it must be dropped, not emitted as `== "*"` (which
-    // matches nothing), leaving only the real agent_id clause.
+    // "*" means field-exists (not drop, not literal == "*").
     await store.search([0.1, 0.2, 0.3], 5, {
       user_id: "*",
       agent_id: "a1",
     });
 
     const searchCall = client.calls.find((c) => c.method === "search")!;
-    expect(searchCall.args.filter).toBe('(metadata["agent_id"] == "a1")');
+    expect(searchCall.args.filter).toBe(
+      'exists metadata["user_id"] and (metadata["agent_id"] == "a1")',
+    );
   });
 
-  it("omits the filter entirely when every value is a wildcard", async () => {
+  it("emits exists when every value is a wildcard", async () => {
     const client = new FakeMilvusClient({ existing: ["mem0"] });
     const store = makeStore(client);
     await store.initialize();
 
     await store.list({ user_id: "*" });
 
-    // All clauses dropped, so list() falls back to its match-all "" filter
-    // rather than a literal `(metadata["user_id"] == "*")` that matches nothing.
+    // Field-exists for the wildcard key rather than empty match-all or == "*".
     const queryCall = client.calls.filter((c) => c.method === "query").pop()!;
-    expect(queryCall.args.filter).toBe("");
+    expect(queryCall.args.filter).toBe('exists metadata["user_id"]');
   });
 
   it("normalises L2 distances into a 0..1 similarity score", async () => {
