@@ -274,7 +274,18 @@ export class TurbopufferDB implements VectorStore {
   private parseRows(rows: any[]): VectorStoreResult[] {
     return rows.map((row) => {
       const { id, $dist, vector, ...rest } = row;
-      const score = $dist != null ? 1 - $dist : undefined;
+      let score: number | undefined;
+      if ($dist == null) {
+        score = undefined;
+      } else if (this.distanceMetric === "euclidean_squared") {
+        // euclidean_squared $dist is an unbounded squared distance, so 1 - $dist
+        // goes negative for any $dist > 1 and inverts ranking. Convert it to a
+        // bounded higher-is-better score, mirroring the milvus/baidu stores.
+        score = 1 / (1 + $dist);
+      } else {
+        // Cosine distance is in [0, 2]; 1 - $dist stays a meaningful similarity.
+        score = 1 - $dist;
+      }
       return { id: String(id), payload: rest, score };
     });
   }
