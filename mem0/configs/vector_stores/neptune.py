@@ -37,4 +37,4 @@ class NeptuneAnalyticsConfig(BaseModel):
             )
         return v
 
-    model_config = ConfigDict(arbitrary_types_allowed=False)
+    model_config = ConfigDict(arbitrary_types_allowed=False, extra="forbid")
