@@ -8,6 +8,7 @@ from mem0.configs.prompts import (
     FACT_RETRIEVAL_PROMPT,
     USER_MEMORY_EXTRACTION_PROMPT,
 )
+from mem0.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +214,8 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
             try:
                 description = get_image_description(image_url, llm, vision_details)
                 returned_messages.append({"role": role, "content": description})
-            except Exception:
-                raise Exception(f"Error while downloading {image_url}.")
+            except Exception as e:
+                raise LLMError(f"Failed to describe image {image_url}: {e}") from e
         else:
             # Regular text content
             returned_messages.append(msg)

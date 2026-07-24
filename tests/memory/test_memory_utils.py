@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import Mock
 
+from mem0.exceptions import LLMError
 from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
@@ -113,6 +114,19 @@ class TestParseVisionMessages:
         with pytest.raises(ValueError, match=r"missing image_url\.url"):
             parse_vision_messages(messages, llm=mock_llm)
         mock_llm.generate_response.assert_not_called()
+
+    def test_image_description_failure_chains_original_cause(self):
+        # A failing vision LLM call (auth, rate-limit, timeout, ...) must not be
+        # swallowed as a generic download error: the raised LLMError has to chain
+        # the real cause so callers can inspect and handle it.
+        original = RuntimeError("401 invalid api key")
+        mock_llm = Mock()
+        mock_llm.generate_response.side_effect = original
+        messages = [{"role": "user", "content": {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}}}]
+        with pytest.raises(LLMError) as exc_info:
+            parse_vision_messages(messages, llm=mock_llm)
+        assert exc_info.value.__cause__ is original
+        assert "401 invalid api key" in str(exc_info.value)
 
 
 class TestRemoveSpacesFromEntities:
