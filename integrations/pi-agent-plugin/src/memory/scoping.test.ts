@@ -79,12 +79,21 @@ describe("resolveAddParams", () => {
     expect(resolveAddParams("session", ctx)).toEqual({ userId: "u1", appId: "a1", runId: "r1" });
   });
 
-  it("tags global scope with the reserved GLOBAL_APP_ID instead of leaving appId unset", () => {
+  it("tags global scope with the reserved sentinel appId instead of leaving appId unset", () => {
     // Regression test: resolveSearchFilters("global", ...) filters on app_id: "*",
     // which only matches non-null values. Writing without an appId would persist
     // app_id: null and make the memory permanently unreachable by that search —
     // see resolveSearchFilters's "global" test above for the read-side half.
-    expect(resolveAddParams("global", ctx)).toEqual({ userId: "u1", appId: GLOBAL_APP_ID });
+    //
+    // Assert the literal, not the imported GLOBAL_APP_ID: without the fix that
+    // import resolves to undefined, and toEqual treats an undefined-valued
+    // property as equal to a missing one — so asserting against the constant
+    // would pass against the very code this test exists to catch.
+    expect(resolveAddParams("global", ctx)).toEqual({ userId: "u1", appId: "__global__" });
+  });
+
+  it("exports the sentinel the global add path tags with", () => {
+    expect(GLOBAL_APP_ID).toBe("__global__");
   });
 });
 

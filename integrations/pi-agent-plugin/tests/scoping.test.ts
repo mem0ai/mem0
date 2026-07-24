@@ -41,7 +41,13 @@ describe("resolveAddParams", () => {
     });
   });
 
-  it("global scope tags appId with the reserved GLOBAL_APP_ID sentinel", () => {
-    expect(resolveAddParams("global", ctx)).toEqual({ userId: "kartik", appId: GLOBAL_APP_ID });
+  it("global scope tags appId with the reserved sentinel", () => {
+    // Literal, not the imported GLOBAL_APP_ID — see src/memory/scoping.test.ts
+    // for why asserting against the constant would pass on the unfixed code.
+    expect(resolveAddParams("global", ctx)).toEqual({ userId: "kartik", appId: "__global__" });
+  });
+
+  it("exports the sentinel the global add path tags with", () => {
+    expect(GLOBAL_APP_ID).toBe("__global__");
   });
 });
