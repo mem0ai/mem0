@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-import requests
 
 
 @pytest.fixture
@@ -376,16 +375,64 @@ class TestValidateApiKeyHttpError:
         request = httpx.Request("GET", "https://api.mem0.ai/v1/ping/")
         error_response = httpx.Response(503, text="<html>503 Service Unavailable</html>", request=request)
         response = MagicMock()
-        response.json.side_effect = requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0)
-        http_error = requests.exceptions.HTTPError("Server error", response=error_response)
-        response.raise_for_status.side_effect = http_error
+        response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
+        response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server error", request=request, response=error_response
+        )
 
-        with patch("mem0.client.main.requests.get", return_value=response):
+        with patch("mem0.client.main.httpx.Client") as mock_httpx:
+            mock_http_client = MagicMock()
+            mock_http_client.__enter__.return_value = mock_http_client
+            mock_http_client.get.return_value = response
+            mock_httpx.return_value = mock_http_client
+
             with patch("mem0.client.main.capture_client_event"):
                 from mem0.client.main import AsyncMemoryClient
 
                 with pytest.raises(ValueError) as exc_info:
                     AsyncMemoryClient(api_key="test-api-key")
 
-        assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
+        assert not isinstance(exc_info.value, json.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestAsyncValidateApiKeyUsesConfiguredClient:
+    """AsyncMemoryClient init must validate through a bounded, configured client.
+
+    The ping must carry a timeout (so init can't hang forever) and reuse the
+    async client's base_url/headers (so an injected client's host and auth are
+    honored) instead of firing a raw, timeout-less request at the default host.
+    """
+
+    @staticmethod
+    def _ok_response():
+        response = MagicMock()
+        response.json.return_value = {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"}
+        response.raise_for_status.return_value = None
+        return response
+
+    def test_ping_carries_timeout_and_configured_host_headers(self):
+        custom_host = "https://custom.mem0.example"
+        injected = httpx.AsyncClient()
+
+        with patch("mem0.client.main.httpx.Client") as mock_httpx:
+            mock_http_client = MagicMock()
+            mock_http_client.__enter__.return_value = mock_http_client
+            mock_http_client.get.return_value = self._ok_response()
+            mock_httpx.return_value = mock_http_client
+
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import AsyncMemoryClient
+
+                AsyncMemoryClient(api_key="test-api-key", host=custom_host, client=injected)
+
+        # A bounded timeout is passed (not None), so init can't block forever.
+        client_kwargs = mock_httpx.call_args.kwargs
+        assert client_kwargs.get("timeout") is not None
+
+        # The ping goes through the async client's configured base_url/headers.
+        assert str(client_kwargs["base_url"]) == custom_host
+        assert client_kwargs["headers"]["Authorization"] == "Token test-api-key"
+
+        # The request targets the ping endpoint via the configured client.
+        assert mock_http_client.get.call_args.args[0] == "/v1/ping/"

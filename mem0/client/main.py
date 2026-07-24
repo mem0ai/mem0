@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import httpx
-import requests
 
 from mem0.client.project import AsyncProject, Project
 from mem0.client.types import (
@@ -1048,17 +1047,21 @@ class AsyncMemoryClient:
         capture_client_event("client.init", self, {"sync_type": "async"})
 
     def _validate_api_key(self):
-        """Validate the API key by making a test request."""
+        """Validate the API key by making a test request.
+
+        Called synchronously from ``__init__``, so it cannot await the async
+        client. Uses a short-lived synchronous client that reuses the async
+        client's ``base_url`` and ``headers`` (honoring an injected client) and
+        a bounded timeout so init can never hang.
+        """
         try:
             params = self._prepare_params()
-            response = requests.get(
-                f"{self.host}/v1/ping/",
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
-                params=params,
-            )
+            with httpx.Client(
+                base_url=self.async_client.base_url,
+                headers=self.async_client.headers,
+                timeout=30,
+            ) as client:
+                response = client.get("/v1/ping/", params=params)
             response.raise_for_status()
 
             data = response.json()
@@ -1069,7 +1072,7 @@ class AsyncMemoryClient:
 
             return data.get("user_email")
 
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             try:
                 error_data = e.response.json()
                 error_message = error_data.get("detail", str(e))
