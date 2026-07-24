@@ -11,13 +11,11 @@ jest.mock("../src/embeddings/google", () => ({ GoogleEmbedder: jest.fn() }));
 jest.mock("../src/llms/google", () => ({ GoogleLLM: jest.fn() }));
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest.fn().mockImplementation(() => ({
-    generateResponse: jest
-      .fn()
-      .mockResolvedValue(
-        JSON.stringify({
-          memory: [{ id: "0", text: "Python fact", attributed_to: "user" }],
-        }),
-      ),
+    generateResponse: jest.fn().mockResolvedValue(
+      JSON.stringify({
+        memory: [{ id: "0", text: "Python fact", attributed_to: "user" }],
+      }),
+    ),
   })),
 }));
 
