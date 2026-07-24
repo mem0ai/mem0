@@ -456,6 +456,20 @@ export class Memory {
    * dedup, but still does per-entity "search for existing, update if
    * match >= 0.95 else insert new". Non-fatal errors are swallowed.
    */
+
+  /**
+   * True when both sides declare an entityType and they differ.
+   * Matching Python _upsert_entity gate (#5497): allow merge when either
+   * side lacks a type (backward compatible).
+   */
+  private _entityTypesConflict(
+    newType: string | undefined | null,
+    existingType: string | undefined | null,
+  ): boolean {
+    if (!newType || !existingType) return false;
+    return newType !== existingType;
+  }
+
   private async _linkEntitiesForMemory(
     memoryId: string,
     text: string,
@@ -500,7 +514,25 @@ export class Memory {
               ? matches[0]
               : undefined;
           const match = exactMatch ?? semanticMatch;
-          if (match) {
+          if (
+            match &&
+            this._entityTypesConflict(
+              entity.type,
+              match.payload?.entityType ?? match.payload?.entity_type,
+            )
+          ) {
+            console.debug(
+              `Skipping merge for entity '${entity.text}': stored entityType '${match.payload?.entityType ?? match.payload?.entity_type}' != new entityType '${entity.type}'. Creating a separate entity instead.`,
+            );
+            // Fall through to insert as a new entity record
+          }
+          if (
+            match &&
+            !this._entityTypesConflict(
+              entity.type,
+              match.payload?.entityType ?? match.payload?.entity_type,
+            )
+          ) {
             const payload = match.payload || {};
             const linked = new Set<string>(
               Array.isArray(payload.linkedMemoryIds)
@@ -509,6 +541,10 @@ export class Memory {
             );
             linked.add(memoryId);
             payload.linkedMemoryIds = Array.from(linked).sort();
+            // Backfill type when the stored entity has none
+            if (entity.type && !payload.entityType && !payload.entity_type) {
+              payload.entityType = entity.type;
+            }
             try {
               await entityStore.update(match.id, entityVec, payload);
             } catch (e) {
@@ -1184,12 +1220,22 @@ export class Memory {
                 ? matches[0]
                 : undefined;
             const match = exactMatch ?? semanticMatch;
-            if (match) {
+            const storedType =
+              match?.payload?.entityType ?? match?.payload?.entity_type;
+            if (match && this._entityTypesConflict(entityType, storedType)) {
+              console.debug(
+                `Skipping merge for entity '${entityText}': stored entityType '${storedType}' != new entityType '${entityType}'. Creating a separate entity instead.`,
+              );
+            }
+            if (match && !this._entityTypesConflict(entityType, storedType)) {
               // Update existing entity
               const payload = match.payload || {};
               const linked = new Set<string>(payload.linkedMemoryIds ?? []);
               for (const mid of memoryIds) linked.add(mid);
               payload.linkedMemoryIds = Array.from(linked).sort();
+              if (entityType && !payload.entityType && !payload.entity_type) {
+                payload.entityType = entityType;
+              }
               try {
                 await entityStore.update(match.id, entityVec, payload);
               } catch (e) {
