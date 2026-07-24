@@ -69,7 +69,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             "project": self.project_id,
             "location": self.region,
         }
-        
+
         # Support both credentials_path and service_account_json
         if hasattr(config, "credentials_path") and config.credentials_path:
             logger.debug("Using credentials from file: %s", config.credentials_path)
@@ -158,6 +158,35 @@ class GoogleMatchingEngine(VectorStoreBase):
         return aiplatform_v1.types.index.IndexDatapoint(
             datapoint_id=vector_id, feature_vector=vector, restricts=restrictions
         )
+
+    def _fetch_feature_vector(self, vector_id: str) -> List[float]:
+        """Fetch the stored embedding for a datapoint (used for payload-only updates)."""
+        if not self.vector_search_api_endpoint:
+            raise ValueError("vector_search_api_endpoint is required for update operation")
+
+        vector_search_client = aiplatform_v1.MatchServiceClient(
+            client_options={"api_endpoint": self.vector_search_api_endpoint},
+        )
+        datapoint = aiplatform_v1.IndexDatapoint(datapoint_id=vector_id)
+        query = aiplatform_v1.FindNeighborsRequest.Query(datapoint=datapoint, neighbor_count=1)
+        request = aiplatform_v1.FindNeighborsRequest(
+            index_endpoint=(
+                f"projects/{self.project_number}/locations/{self.region}/indexEndpoints/{self.endpoint_id}"
+            ),
+            deployed_index_id=self.deployment_index_id,
+            queries=[query],
+            return_full_datapoint=True,
+        )
+
+        response = vector_search_client.find_neighbors(request)
+        if response and response.nearest_neighbors:
+            nearest = response.nearest_neighbors[0]
+            if nearest.neighbors:
+                feature_vector = list(nearest.neighbors[0].datapoint.feature_vector)
+                if feature_vector:
+                    return feature_vector
+
+        raise ValueError(f"Existing record {vector_id} has no vector data")
 
     def insert(
         self,
@@ -357,9 +386,10 @@ class GoogleMatchingEngine(VectorStoreBase):
                 logger.error("Vector ID not found: %s", vector_id)
                 return False
 
-            datapoint = self._create_datapoint(
-                vector_id=vector_id, vector=vector if vector is not None else [], payload=payload
-            )
+            if vector is None:
+                vector = self._fetch_feature_vector(vector_id)
+
+            datapoint = self._create_datapoint(vector_id=vector_id, vector=vector, payload=payload)
 
             logger.debug("Upserting datapoint: %s", datapoint)
             self.index.upsert_datapoints(datapoints=[datapoint])

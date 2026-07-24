@@ -165,3 +165,34 @@ def test_error_handling(vector_store, mock_vertex_ai):
 
     assert isinstance(exc_info.value, exceptions.InvalidArgument)
     assert "Invalid request" in str(exc_info.value)
+
+
+def test_update_payload_only_fetches_existing_vector(vector_store, mock_vertex_ai):
+    """Payload-only update must reuse the stored embedding, not upsert an empty vector."""
+    existing_vector = [0.1, 0.2, 0.3]
+    mock_datapoint = Mock()
+    mock_datapoint.datapoint_id = "test-id"
+    mock_datapoint.feature_vector = existing_vector
+    mock_datapoint.restricts = []
+
+    mock_neighbor = Mock()
+    mock_neighbor.datapoint = mock_datapoint
+    mock_neighbor.distance = 0.0
+
+    mock_response = Mock()
+    mock_response.nearest_neighbors = [Mock(neighbors=[mock_neighbor])]
+
+    with patch("mem0.vector_stores.vertex_ai_vector_search.aiplatform_v1.MatchServiceClient") as mock_client_cls:
+        mock_client_cls.return_value.find_neighbors.return_value = mock_response
+        vector_store.get = Mock(return_value=Mock(id="test-id", payload={"user_id": "alice"}))
+
+        result = vector_store.update(
+            vector_id="test-id",
+            vector=None,
+            payload={"user_id": "alice", "data": "updated"},
+        )
+
+    assert result is True
+    upserted = mock_vertex_ai["index"].upsert_datapoints.call_args.kwargs["datapoints"][0]
+    assert len(list(upserted.feature_vector)) == len(existing_vector)
+    assert list(upserted.feature_vector) == pytest.approx(existing_vector)
