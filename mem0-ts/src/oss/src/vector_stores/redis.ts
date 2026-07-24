@@ -22,6 +22,23 @@ function escapeRedisTagValue(value: unknown): string {
   );
 }
 
+/**
+ * Translate a single metadata filter into a RediSearch condition.
+ *
+ * The documented `*` filter value means "the field exists, regardless of
+ * value" (mem0ai/mem0#6539). Tag equality would escape the star into a
+ * literal `\*` tag that matches nothing, so build a tag wildcard query
+ * instead — it matches any record with a non-empty value for the field
+ * (RediSearch does not index missing or empty tag values). The w'...'
+ * wildcard syntax requires query DIALECT 2.
+ */
+function redisFilterCondition(key: string, value: unknown): string {
+  if (value === "*") {
+    return `@${key}:{w'*'}`;
+  }
+  return `@${key}:{${escapeRedisTagValue(value)}}`;
+}
+
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
   collectionName: string;
@@ -407,12 +424,15 @@ export class RedisDB implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
+    const conditions = snakeFilters
       ? Object.entries(snakeFilters)
           .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+          .map(([key, value]) => redisFilterCondition(key, value))
+      : [];
+    // Parenthesize the prefilter: RediSearch rejects a space-joined
+    // multi-condition prefilter placed directly before =>[KNN ...] with a
+    // syntax error, so any search with two or more filters failed outright.
+    const filterExpr = conditions.length ? `(${conditions.join(" ")})` : "*";
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -659,7 +679,7 @@ export class RedisDB implements VectorStore {
     const filterExpr = snakeFilters
       ? Object.entries(snakeFilters)
           .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
+          .map(([key, value]) => redisFilterCondition(key, value))
           .join(" ")
       : "*";
 
@@ -670,6 +690,10 @@ export class RedisDB implements VectorStore {
         from: 0,
         size: topK,
       },
+      // The w'...' wildcard syntax needs query DIALECT 2; node-redis does
+      // not send DIALECT unless asked (search() above already passes it).
+      ...(snakeFilters &&
+        Object.values(snakeFilters).includes("*") && { DIALECT: 2 }),
     };
 
     const results = (await this.client.ft.search(
