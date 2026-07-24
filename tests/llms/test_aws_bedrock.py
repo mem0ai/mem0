@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
+from mem0.exceptions import LLMError
 from mem0.llms.aws_bedrock import AWSBedrockLLM, extract_provider
 from mem0.utils.factory import LlmFactory
 
@@ -37,6 +38,15 @@ def _make_llm(model: str, mock_boto3, **kwargs) -> AWSBedrockLLM:
 def _converse_response(text: str = "ok") -> dict:
     """Minimal Converse API response dict."""
     return {"output": {"message": {"content": [{"text": text}]}}}
+
+
+def _nova_body_response(text: str = "ok") -> dict:
+    """Nova response with a readable ``body`` that ``_parse_response`` can decode."""
+    import io
+    import json
+
+    body = io.BytesIO(json.dumps({"content": [{"text": text}]}).encode())
+    return {"body": body}
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +321,7 @@ class TestGenerateResponseConverse:
         assert "topP" not in kwargs["inferenceConfig"]
 
     def test_nova_includes_top_p_when_explicitly_set(self, mock_boto3):
-        mock_boto3.converse.return_value = _converse_response()
+        mock_boto3.converse.return_value = _nova_body_response()
         llm = _make_llm(
             "amazon.nova-3-mini-20241119-v1:0",
             mock_boto3,
@@ -325,7 +335,7 @@ class TestGenerateResponseConverse:
         assert kwargs["inferenceConfig"]["topP"] == 0.85
 
     def test_nova_omits_top_p_when_not_set(self, mock_boto3):
-        mock_boto3.converse.return_value = _converse_response()
+        mock_boto3.converse.return_value = _nova_body_response()
         llm = _make_llm("amazon.nova-3-mini-20241119-v1:0", mock_boto3, temperature=0.5)
 
         llm.generate_response(MESSAGES)
@@ -452,3 +462,21 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+    def test_malformed_body_raises_instead_of_returning_sentinel(self, mock_boto3):
+        """A response that cannot be parsed must raise LLMError, not return a
+        plausible-looking string that would flow downstream and be stored as a
+        memory. Regression for the old `return "Error parsing response"` path.
+        """
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        import io
+        body = io.BytesIO(b"this is not valid json")
+        response = {"body": body}
+        with pytest.raises(LLMError):
+            llm._parse_response(response, tools=None)
+
+    def test_missing_body_raises(self, mock_boto3):
+        """A response with no readable body must raise, not silently succeed."""
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        with pytest.raises(LLMError):
+            llm._parse_response({}, tools=None)
