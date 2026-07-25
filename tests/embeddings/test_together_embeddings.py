@@ -85,3 +85,23 @@ def test_explicit_config_overrides_defaults(mock_together_client):
     mock_together_client.embeddings.create.return_value = Mock(data=[Mock(embedding=[0.0] * 768)])
     embedder.embed("hello")
     mock_together_client.embeddings.create.assert_called_once_with(model="BAAI/bge-base-en-v1.5", input="hello")
+
+
+def test_together_embedder_base_url_from_env(mock_together_client, monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_BASE", "https://proxy.example/v1")
+    monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, api_key="test-key")
+    with patch("mem0.embeddings.together.Together") as mock_together:
+        mock_together.return_value = mock_together_client
+        TogetherEmbedding(config)
+        mock_together.assert_called_once_with(api_key="test-key", base_url="https://proxy.example/v1")
+
+
+def test_together_embedder_base_url_from_openai_base_url(mock_together_client, monkeypatch):
+    monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
+    monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
+    config = BaseEmbedderConfig(model=DEFAULT_MODEL, api_key="test-key", openai_base_url="https://cfg.example/v1")
+    with patch("mem0.embeddings.together.Together") as mock_together:
+        mock_together.return_value = mock_together_client
+        TogetherEmbedding(config)
+        mock_together.assert_called_once_with(api_key="test-key", base_url="https://cfg.example/v1")
