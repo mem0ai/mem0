@@ -150,6 +150,10 @@ test = [
 line-length = 120
 exclude = ["openmemory/"]
 
+[tool.ruff.lint]
+# Pinned explicitly: this was ruff's implicit default before 0.16.0 widened it.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["mem0", "mem0_cli"]
 
