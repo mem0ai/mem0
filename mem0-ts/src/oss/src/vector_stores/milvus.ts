@@ -120,6 +120,56 @@ export class Milvus implements VectorStore {
    * whether the BM25 `text`/`sparse` fields are present so keyword search
    * degrades gracefully on collections created before BM25 support.
    */
+  /**
+   * True when a Milvus server rejected the BM25 hybrid schema (pre-2.5 servers).
+   * Mirrors the Python provider's MilvusException code allowlist in #6338.
+   */
+  private isBm25SchemaRejection(err: unknown): boolean {
+    if (!err || typeof err !== "object") return false;
+    const e = err as { code?: number; error_code?: number };
+    const code = e.code ?? e.error_code;
+    // 1100: unsupported field / BM25 function rejection (issue #6183).
+    // 0: legacy SDK paths may leave code=0 while the real error lives elsewhere.
+    return code === 1100 || code === 0;
+  }
+
+  private async createDenseOnlyCol(
+    collectionName: string,
+    vectorSize: number,
+  ): Promise<void> {
+    const DataType = this.DataType || {};
+    await this.client.createCollection({
+      collection_name: collectionName,
+      fields: [
+        {
+          name: "id",
+          data_type: DataType.VarChar,
+          is_primary_key: true,
+          max_length: 512,
+        },
+        {
+          name: "vectors",
+          data_type: DataType.FloatVector,
+          dim: vectorSize,
+        },
+        {
+          name: "metadata",
+          data_type: DataType.JSON,
+        },
+      ],
+      enable_dynamic_field: true,
+      index_params: [
+        {
+          field_name: "vectors",
+          index_type: "AUTOINDEX",
+          metric_type: this.metricType,
+          index_name: "vector_index",
+        },
+      ],
+    });
+    this.hasBm25Schema = false;
+  }
+
   private async createCol(
     collectionName: string,
     vectorSize: number,
@@ -151,7 +201,7 @@ export class Milvus implements VectorStore {
     }
 
     const DataType = this.DataType || {};
-    const fields = [
+    const hybridFields = [
       {
         name: "id",
         data_type: DataType.VarChar,
@@ -181,38 +231,60 @@ export class Milvus implements VectorStore {
       },
     ];
 
-    await this.client.createCollection({
-      collection_name: collectionName,
-      fields,
-      enable_dynamic_field: true,
-      // BM25 turns the `text` field into `sparse` vectors for full-text search.
-      functions: [
-        {
-          name: "bm25",
-          type: this.FunctionType?.BM25,
-          input_field_names: ["text"],
-          output_field_names: ["sparse"],
-          params: {},
-        },
-      ],
-      index_params: [
-        {
-          field_name: "vectors",
-          index_type: "AUTOINDEX",
-          metric_type: this.metricType,
-          index_name: "vector_index",
-        },
-        {
-          field_name: "sparse",
-          index_type: "SPARSE_INVERTED_INDEX",
-          metric_type: "BM25",
-          index_name: "sparse_index",
-        },
-      ],
-    });
+    try {
+      await this.client.createCollection({
+        collection_name: collectionName,
+        fields: hybridFields,
+        enable_dynamic_field: true,
+        // BM25 turns the `text` field into `sparse` vectors for full-text search.
+        functions: [
+          {
+            name: "bm25",
+            type: this.FunctionType?.BM25,
+            input_field_names: ["text"],
+            output_field_names: ["sparse"],
+            params: {},
+          },
+        ],
+        index_params: [
+          {
+            field_name: "vectors",
+            index_type: "AUTOINDEX",
+            metric_type: this.metricType,
+            index_name: "vector_index",
+          },
+          {
+            field_name: "sparse",
+            index_type: "SPARSE_INVERTED_INDEX",
+            metric_type: "BM25",
+            index_name: "sparse_index",
+          },
+        ],
+      });
+      this.hasBm25Schema = true;
+    } catch (err) {
+      if (!this.isBm25SchemaRejection(err)) throw err;
+
+      console.warn(
+        `Failed to create collection '${collectionName}' with BM25 hybrid search ` +
+          "schema; falling back to dense-only (expected on Milvus < 2.5).",
+      );
+
+      const stillExists = await this.client.hasCollection({
+        collection_name: collectionName,
+      });
+      const partial =
+        typeof stillExists === "object" && stillExists !== null
+          ? stillExists.value
+          : stillExists;
+      if (partial) {
+        await this.client.dropCollection({ collection_name: collectionName });
+      }
+
+      await this.createDenseOnlyCol(collectionName, vectorSize);
+    }
 
     await this.client.loadCollection({ collection_name: collectionName });
-    this.hasBm25Schema = true;
   }
 
   /**

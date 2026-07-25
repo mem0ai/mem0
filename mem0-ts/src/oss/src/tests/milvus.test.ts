@@ -17,6 +17,10 @@ class FakeMilvusClient {
 
   // Allow tests to script search responses.
   public searchResponse: any = { results: [] };
+  // When true, reject hybrid-schema createCollection calls (Milvus < 2.5).
+  public rejectBm25Create = false;
+  // When set, createCollection always throws this error (transient failure tests).
+  public createCollectionError: any = null;
 
   constructor(opts?: { existing?: string[]; bm25?: string[] }) {
     // Legacy dense-only collections: no text/sparse fields.
@@ -40,6 +44,20 @@ class FakeMilvusClient {
 
   async createCollection(args: any) {
     this.calls.push({ method: "createCollection", args });
+    if (this.createCollectionError) {
+      throw this.createCollectionError;
+    }
+    const fieldNames = (args.fields || []).map((f: any) => f.name);
+    if (
+      this.rejectBm25Create &&
+      (fieldNames.includes("sparse") || fieldNames.includes("text"))
+    ) {
+      // Simulate partial create: collection appears before the server rejects BM25.
+      this.collections.add(args.collection_name);
+      const err: any = new Error("BM25 function not supported on this server");
+      err.code = 1100;
+      throw err;
+    }
     // Mirror Milvus's real server constraint: a FloatVector field's dim must be
     // in [2, 32768]. Vector fields are the ones carrying a numeric `dim`.
     for (const f of args.fields || []) {
@@ -549,5 +567,52 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     await store.insert([[1, 2, 3]], ["a"], [{ data: "d" }]);
     const insertCall = client.calls.find((c) => c.method === "insert")!;
     expect(insertCall.args.data[0].text).toBe("d");
+  });
+
+  it("falls back to dense-only when BM25 hybrid schema is rejected (Milvus < 2.5)", async () => {
+    const client = new FakeMilvusClient();
+    client.rejectBm25Create = true;
+    const store = makeStore(client);
+    await store.initialize();
+
+    const creates = client.calls.filter((c) => c.method === "createCollection");
+    expect(creates).toHaveLength(2);
+    expect(client.calls.some((c) => c.method === "dropCollection")).toBe(true);
+
+    const finalFields = creates[1].args.fields.map((f: any) => f.name);
+    expect(finalFields).toEqual(["id", "vectors", "metadata"]);
+    expect(creates[1].args.functions).toBeUndefined();
+
+    expect(await store.keywordSearch("hello")).toBeNull();
+    await store.insert([[0.1, 0.2, 0.3]], ["a"], [{ data: "dense only" }]);
+    const insertCall = client.calls.find((c) => c.method === "insert")!;
+    expect(insertCall.args.data[0].text).toBeUndefined();
+  });
+
+  it("re-raises transient create failures instead of falling back", async () => {
+    const client = new FakeMilvusClient();
+    const err: any = new Error("connection lost");
+    err.code = 2;
+    client.createCollectionError = err;
+    const store = makeStore(client);
+
+    await expect(store.initialize()).rejects.toThrow(/connection lost/);
+    expect(
+      client.calls.filter((c) => c.method === "createCollection"),
+    ).toHaveLength(1);
+  });
+
+  it("omits text on update for dense-only fallback collections", async () => {
+    const client = new FakeMilvusClient();
+    client.rejectBm25Create = true;
+    const store = makeStore(client);
+    await store.initialize();
+    await store.insert([[1, 0, 0]], ["a"], [{ data: "old" }]);
+
+    await store.update("a", [0, 1, 0], { data: "new" });
+
+    const upsertCall = client.calls.filter((c) => c.method === "upsert").pop()!;
+    expect(upsertCall.args.data[0].text).toBeUndefined();
+    expect(upsertCall.args.data[0].metadata).toEqual({ data: "new" });
   });
 });
