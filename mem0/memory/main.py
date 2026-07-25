@@ -2140,9 +2140,11 @@ class AsyncMemory(MemoryBase):
         # Serialize concurrent vector-store writes to prevent HNSW index
         # corruption when multiple add()/update()/delete() calls are in flight
         # simultaneously (e.g. in an async agent processing events in parallel).
-        # Note: Entity-store writes are not currently protected by this lock,
-        # as they target a separate collection. For multi-process deployments
-        # with high entity-linking concurrency, use server-mode Qdrant.
+        # Note: this lock is per-instance, so it serializes writes within a
+        # single-process async workload. Multi-process deployments sharing one
+        # embedded Qdrant path still need external coordination (or server-mode
+        # Qdrant). Entity-store writes are also not protected here, as they
+        # target a separate collection.
         # Salvage of #4893 by @MattGyver for issue #4892.
         self._write_lock = asyncio.Lock()
 
