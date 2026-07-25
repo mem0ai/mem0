@@ -114,13 +114,6 @@ export class Milvus implements VectorStore {
   }
 
   /**
-   * Create the collection if it does not already exist, with an AUTOINDEX
-   * dense-vector index plus a BM25 `text` -> `sparse` full-text index. Idempotent
-   * (mirrors the Python `create_col`). When the collection already exists, detect
-   * whether the BM25 `text`/`sparse` fields are present so keyword search
-   * degrades gracefully on collections created before BM25 support.
-   */
-  /**
    * True when a Milvus server rejected the BM25 hybrid schema (pre-2.5 servers).
    * Mirrors the Python provider's MilvusException code allowlist in #6338.
    */
@@ -170,6 +163,13 @@ export class Milvus implements VectorStore {
     this.hasBm25Schema = false;
   }
 
+  /**
+   * Create the collection if it does not already exist, with an AUTOINDEX
+   * dense-vector index plus a BM25 `text` -> `sparse` full-text index. Idempotent
+   * (mirrors the Python `create_col`). When the collection already exists, detect
+   * whether the BM25 `text`/`sparse` fields are present so keyword search
+   * degrades gracefully on collections created before BM25 support.
+   */
   private async createCol(
     collectionName: string,
     vectorSize: number,

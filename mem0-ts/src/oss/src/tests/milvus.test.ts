@@ -19,6 +19,8 @@ class FakeMilvusClient {
   public searchResponse: any = { results: [] };
   // When true, reject hybrid-schema createCollection calls (Milvus < 2.5).
   public rejectBm25Create = false;
+  // When true with rejectBm25Create, throw with error_code only (legacy SDK path).
+  public rejectBm25LegacyErrorCode = false;
   // When set, createCollection always throws this error (transient failure tests).
   public createCollectionError: any = null;
 
@@ -55,7 +57,11 @@ class FakeMilvusClient {
       // Simulate partial create: collection appears before the server rejects BM25.
       this.collections.add(args.collection_name);
       const err: any = new Error("BM25 function not supported on this server");
-      err.code = 1100;
+      if (this.rejectBm25LegacyErrorCode) {
+        err.error_code = 1100;
+      } else {
+        err.code = 1100;
+      }
       throw err;
     }
     // Mirror Milvus's real server constraint: a FloatVector field's dim must be
@@ -587,6 +593,19 @@ describe("Milvus vector store (TS OSS SDK)", () => {
     await store.insert([[0.1, 0.2, 0.3]], ["a"], [{ data: "dense only" }]);
     const insertCall = client.calls.find((c) => c.method === "insert")!;
     expect(insertCall.args.data[0].text).toBeUndefined();
+  });
+
+  it("falls back when BM25 rejection uses legacy error_code field", async () => {
+    const client = new FakeMilvusClient();
+    client.rejectBm25Create = true;
+    client.rejectBm25LegacyErrorCode = true;
+    const store = makeStore(client);
+    await store.initialize();
+
+    expect(
+      client.calls.filter((c) => c.method === "createCollection"),
+    ).toHaveLength(2);
+    expect(await store.keywordSearch("hello")).toBeNull();
   });
 
   it("re-raises transient create failures instead of falling back", async () => {
