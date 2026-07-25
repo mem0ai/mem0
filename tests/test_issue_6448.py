@@ -1,0 +1,6 @@
+original_memories = self._search_vector_store(
+    query, effective_filters, limit, threshold, ...
+)
+...
+if rerank and self.reranker and original_memories:
+    reranked_memories = self.reranker.rerank(query, original_memories, limit)
