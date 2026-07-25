@@ -81,7 +81,6 @@ test = [
     "pytest-asyncio>=0.23.7",
 ]
 dev = [
-    "pre-commit>=4.0",
     "ruff>=0.6.5",
     "isort>=5.13.2",
     "pytest>=8.2.2",

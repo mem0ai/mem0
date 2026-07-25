@@ -109,9 +109,7 @@ jobs:
           pip install ruff==0.16.0
       - name: Run Linting
         if: needs.check_changes.outputs.mem0_changed == 'true'
-        run: |
-          pip install pre-commit
-          make lint
+        run: make lint
       - name: Run tests and generate coverage report
         if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make test
