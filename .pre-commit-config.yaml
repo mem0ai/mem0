@@ -1,16 +1,13 @@
+# Single source of truth for lint tool versions. CI installs pre-commit and
+# runs these same pinned hooks, so local and CI always agree.
 repos:
-  - repo: local
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
     hooks:
-      - id: ruff
-        name: Ruff
-        entry: ruff check
-        language: system
-        types: [python]
-        args: [--fix] 
+      - id: ruff-check
+        args: [--fix]
 
+  - repo: https://github.com/PyCQA/isort
+    rev: 8.0.1
+    hooks:
       - id: isort
-        name: isort
-        entry: isort
-        language: system
-        types: [python]
-        args: ["--profile", "black"]
