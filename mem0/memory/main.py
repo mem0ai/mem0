@@ -9,8 +9,8 @@ import time
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Callable, Dict, Optional, Union
 
 from pydantic import ValidationError
 
@@ -296,6 +296,69 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     if parsed.tzinfo is None:
         return timestamp
     return parsed.astimezone(timezone.utc).isoformat()
+
+
+def _parse_iso_to_utc_datetime(timestamp: Optional[str]) -> Optional[datetime]:
+    """Parse an ISO-8601 timestamp into a timezone-aware UTC datetime.
+
+    Naive timestamps are assumed to be UTC. Returns None when the value is
+    missing or cannot be parsed, so callers can skip such records safely.
+    """
+    if not timestamp:
+        return None
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except (ValueError, TypeError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _resolve_cleanup_policy(
+    policy: Union[str, Callable[[Dict[str, Any]], bool]],
+    older_than: Optional[Union[int, float, timedelta]],
+) -> tuple:
+    """Resolve a ``cleanup`` policy into a ``(predicate, policy_name)`` pair.
+
+    ``predicate(record)`` returns ``(should_remove, reason)`` for a single
+    memory record (in the shape returned by ``get_all``).
+    """
+    if callable(policy):
+
+        def _predicate(record: Dict[str, Any]):
+            return bool(policy(record)), "custom predicate"
+
+        return _predicate, "custom"
+
+    if policy == "ttl":
+        if older_than is None:
+            raise ValueError(
+                "The 'ttl' cleanup policy requires `older_than` (an int/float number of "
+                "seconds or a datetime.timedelta)."
+            )
+        max_age = older_than.total_seconds() if isinstance(older_than, timedelta) else float(older_than)
+        if max_age < 0:
+            raise ValueError("`older_than` must be non-negative.")
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_age)
+
+        def _predicate(record: Dict[str, Any]):
+            created = _parse_iso_to_utc_datetime(record.get("created_at"))
+            if created is None or created >= cutoff:
+                return False, ""
+            return True, f"created_at {created.isoformat()} is older than {max_age:g}s"
+
+        return _predicate, "ttl"
+
+    if policy == "lru":
+        raise ValueError(
+            "The 'lru' cleanup policy needs per-item access metadata (last_access / hit_count), "
+            "which is not yet tracked at the SDK layer "
+            "(see https://github.com/mem0ai/mem0/issues/5611). "
+            "Use the 'ttl' policy or pass a callable predicate for now."
+        )
+
+    raise ValueError(f"Unknown cleanup policy: {policy!r}. Use 'ttl' or a callable predicate.")
 
 
 def _build_filters_and_metadata(
@@ -1856,6 +1919,76 @@ class Memory(MemoryBase):
         else:
             display_first_run_notice(self, "sync", "delete")
         return {"message": "Memory deleted successfully!"}
+
+    def cleanup(
+        self,
+        policy: Union[str, Callable[[Dict[str, Any]], bool]] = "ttl",
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        older_than: Optional[Union[int, float, timedelta]] = None,
+        top_k: int = 100,
+        dry_run: bool = False,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Prune stored memories that match a retention policy.
+
+        ``cleanup`` is a thin SDK-layer helper: it composes the existing
+        ``get_all`` and ``delete`` calls, so it works across every vector
+        backend without any backend-specific changes.
+
+        Args:
+            policy: Either a builtin policy name or a predicate.
+                - ``"ttl"``: remove memories whose ``created_at`` is older than
+                  ``older_than`` (which is required for this policy).
+                - ``Callable[[dict], bool]``: a custom predicate that receives a
+                  memory record (in the shape returned by ``get_all``) and
+                  returns ``True`` for records that should be removed.
+            filters: Entity filters identifying the scope to clean up. Must
+                contain at least one of ``user_id``, ``agent_id``, ``run_id``
+                (same contract as ``get_all``) so cleanup never runs unscoped.
+            older_than: Age threshold for the ``"ttl"`` policy, given as a number
+                of seconds or a ``datetime.timedelta``. Ignored for callable
+                policies.
+            top_k: Maximum number of memories to scan for this scope. Defaults to 100.
+            dry_run: If ``True``, report what *would* be removed without deleting
+                anything.
+
+        Returns:
+            dict: A cleanup report of the form::
+
+                {
+                    "policy": "ttl",
+                    "dry_run": False,
+                    "scanned": 12,
+                    "removed": [{"id": "...", "reason": "..."}, ...],
+                    "removed_count": 3,
+                }
+
+        Raises:
+            ValueError: If ``policy`` is unknown, if ``"ttl"`` is used without
+                ``older_than``, or if ``filters`` lacks an entity id.
+        """
+        predicate, policy_name = _resolve_cleanup_policy(policy, older_than)
+        capture_event("mem0.cleanup", self, {"policy": policy_name, "dry_run": dry_run, "sync_type": "sync"})
+
+        records = self.get_all(filters=filters, top_k=top_k, **kwargs).get("results", [])
+        removed = []
+        for record in records:
+            should_remove, reason = predicate(record)
+            if not should_remove:
+                continue
+            removed.append({"id": record["id"], "reason": reason})
+            if not dry_run:
+                self.delete(record["id"])
+
+        return {
+            "policy": policy_name,
+            "dry_run": dry_run,
+            "scanned": len(records),
+            "removed": removed,
+            "removed_count": len(removed),
+        }
 
     def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
         """
@@ -3486,6 +3619,45 @@ class AsyncMemory(MemoryBase):
         else:
             await display_first_run_notice_async(self, "async", "delete")
         return {"message": "Memory deleted successfully!"}
+
+    async def cleanup(
+        self,
+        policy: Union[str, Callable[[Dict[str, Any]], bool]] = "ttl",
+        *,
+        filters: Optional[Dict[str, Any]] = None,
+        older_than: Optional[Union[int, float, timedelta]] = None,
+        top_k: int = 100,
+        dry_run: bool = False,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Prune stored memories that match a retention policy (async).
+
+        Async counterpart of :meth:`Memory.cleanup`. Composes the existing
+        ``get_all`` and ``delete`` calls, so it works across every vector
+        backend without any backend-specific changes. See :meth:`Memory.cleanup`
+        for full argument and return-value documentation.
+        """
+        predicate, policy_name = _resolve_cleanup_policy(policy, older_than)
+        capture_event("mem0.cleanup", self, {"policy": policy_name, "dry_run": dry_run, "sync_type": "async"})
+
+        records = (await self.get_all(filters=filters, top_k=top_k, **kwargs)).get("results", [])
+        removed = []
+        for record in records:
+            should_remove, reason = predicate(record)
+            if not should_remove:
+                continue
+            removed.append({"id": record["id"], "reason": reason})
+            if not dry_run:
+                await self.delete(record["id"])
+
+        return {
+            "policy": policy_name,
+            "dry_run": dry_run,
+            "scanned": len(records),
+            "removed": removed,
+            "removed_count": len(removed),
+        }
 
     async def delete_all(self, user_id=None, agent_id=None, run_id=None):
         """
