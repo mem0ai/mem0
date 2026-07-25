@@ -81,7 +81,7 @@ test = [
     "pytest-asyncio>=0.23.7",
 ]
 dev = [
-    "ruff>=0.6.5",
+    "ruff==0.16.0",
     "isort>=5.13.2",
     "pytest>=8.2.2",
 ]
