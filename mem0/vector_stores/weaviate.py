@@ -188,7 +188,9 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
+                # Apply equality filters for all scalar metadata keys (not just
+                # user_id/agent_id/run_id). Operator-dict and list filters are a follow-up.
+                if value is not None and not isinstance(value, (dict, list)):
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.hybrid(
@@ -239,7 +241,9 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
+                # Apply equality filters for all scalar metadata keys (not just
+                # user_id/agent_id/run_id). Operator-dict and list filters are a follow-up.
+                if value is not None and not isinstance(value, (dict, list)):
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.bm25(
@@ -362,7 +366,9 @@ class Weaviate(VectorStoreBase):
         filter_conditions = []
         if filters:
             for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
+                # Apply equality filters for all scalar metadata keys (not just
+                # user_id/agent_id/run_id). Operator-dict and list filters are a follow-up.
+                if value is not None and not isinstance(value, (dict, list)):
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.fetch_objects(
