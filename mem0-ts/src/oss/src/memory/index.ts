@@ -301,7 +301,16 @@ export class Memory {
       // For file-based stores (memory/SQLite), always use a separate DB for entities
       if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
-        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
+        // Insert "_entities" before the file extension so the entity store
+        // gets its own file for ANY dbPath, not just ones ending in ".db".
+        // The old `.replace(/\.db$/, ...)` was a no-op for e.g. ".sqlite" or
+        // extensionless paths, leaving the entity store sharing the main
+        // store's file and leaking entity records into getAll()/search().
+        // ":memory:" is left as-is: each connection is already its own DB.
+        entityConfig.dbPath =
+          basePath === ":memory:"
+            ? basePath
+            : basePath.replace(/(\.[^./\\]+)?$/, "_entities$1");
       }
       if (entityProvider === "databricks") {
         entityConfig.tableName = entityConfig.tableName
