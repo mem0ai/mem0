@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
@@ -92,7 +93,46 @@ class UpstashVector(VectorStoreBase):
         )
 
     def _stringify(self, x):
-        return f'"{x}"' if isinstance(x, str) else x
+        """Render a filter value as an Upstash filter literal.
+
+        String values are quoted, with `\\` and `"` escaped first. Without the
+        escaping a value containing a double quote closes the literal early and
+        the remainder is parsed as filter syntax, so a caller who controls one
+        filter value can append clauses of their own and widen the match set
+        past the scoping filters (e.g. `user_id`).
+        """
+        if isinstance(x, str):
+            escaped = x.replace("\\", "\\\\").replace('"', '\\"')
+            return f'"{escaped}"'
+        return x
+
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+    def _build_filter_expression(self, filters: Optional[Dict]) -> Optional[str]:
+        """Build an Upstash metadata filter expression from `filters`.
+
+        Keys are restricted to identifier characters and values to scalars, so
+        neither can contribute unescaped filter syntax.
+
+        Raises:
+            ValueError: If a filter key is not an identifier, or a filter value
+                is not a str, int, float, or bool.
+        """
+        if not filters:
+            return None
+
+        operands = []
+        for key, value in filters.items():
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
+            if not isinstance(value, (str, int, float, bool)):
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
+            operands.append(f"{key} = {self._stringify(value)}")
+
+        return " AND ".join(operands)
 
     def search(
         self,
@@ -111,9 +151,12 @@ class UpstashVector(VectorStoreBase):
 
         Returns:
             List[OutputData]: Search results.
+
+        Raises:
+            ValueError: If a filter key or value is invalid.
         """
 
-        filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
+        filters_str = self._build_filter_expression(filters)
 
         response = []
 
@@ -159,14 +202,15 @@ class UpstashVector(VectorStoreBase):
 
         Returns:
             List[OutputData]: Search results, or None if sparse/BM25 search is not supported.
-        """
-        try:
-            filters_str = (
-                " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
-                if filters
-                else None
-            )
 
+        Raises:
+            ValueError: If a filter key or value is invalid.
+        """
+        # Built outside the try so an invalid filter raises consistently with
+        # search()/list() instead of being flattened into a `None` result.
+        filters_str = self._build_filter_expression(filters)
+
+        try:
             response = self.client.query(
                 data=query,
                 top_k=top_k,
@@ -251,8 +295,11 @@ class UpstashVector(VectorStoreBase):
             top_k (int, optional): Number of results to return. Defaults to 100.
         Returns:
             List[OutputData]: Search results.
+
+        Raises:
+            ValueError: If a filter key or value is invalid.
         """
-        filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
+        filters_str = self._build_filter_expression(filters)
 
         info = self.client.info()
         ns_info = info.namespaces.get(self.collection_name)

@@ -418,3 +418,87 @@ def test_env_var_only_config_builds_provider(monkeypatch):
         UpstashVector(**dumped)
 
     mock_index.assert_called_once_with("https://example.upstash.io", "tok_123")
+
+
+# --- Filter expression escaping / validation (issue #5977) ---------------------
+#
+# Filter values are interpolated into Upstash's metadata filter DSL. An
+# unescaped double quote closes the string literal early, so the rest of the
+# value is parsed as filter syntax and a caller who controls one value can
+# append clauses that widen the match past the scoping filters.
+
+
+def test_search_escapes_quotes_so_a_filter_value_cannot_inject_clauses(upstash_instance):
+    upstash_instance.client.query_many.return_value = [[]]
+
+    upstash_instance.search(
+        query="q",
+        vectors=[[0.1, 0.2]],
+        top_k=5,
+        filters={"user_id": "alice", "name": 'x" OR user_id = "bob'},
+    )
+
+    sent = upstash_instance.client.query_many.call_args.kwargs["queries"][0]["filter"]
+    # The payload must stay inside its own quoted literal.
+    assert sent == 'user_id = "alice" AND name = "x\\" OR user_id = \\"bob"'
+    # Guard the actual exploit shape rather than only the exact string.
+    assert 'OR user_id = "bob"' not in sent
+
+
+def test_keyword_search_escapes_quotes_in_filter_values(upstash_instance):
+    upstash_instance.client.query.return_value = []
+
+    upstash_instance.keyword_search(query="q", top_k=5, filters={"name": 'x" OR id = "1'})
+
+    sent = upstash_instance.client.query.call_args.kwargs["filter"]
+    assert sent == 'name = "x\\" OR id = \\"1"'
+
+
+def test_list_escapes_quotes_in_filter_values(upstash_instance):
+    upstash_instance.client.info.return_value.dimension = 4
+    upstash_instance.client.info.return_value.namespaces = {"ns": MagicMock(vector_count=1)}
+    handler = MagicMock()
+    upstash_instance.client.resumable_query.return_value = ([], handler)
+    handler.fetch_next.side_effect = [[]]
+
+    upstash_instance.list(filters={"name": 'x" OR id = "1'}, top_k=5)
+
+    sent = upstash_instance.client.resumable_query.call_args.kwargs["filter"]
+    assert sent == 'name = "x\\" OR id = \\"1"'
+
+
+def test_backslash_is_escaped_before_the_quote(upstash_instance):
+    """A pre-escaped payload must not decode back into a bare delimiter."""
+    upstash_instance.client.query_many.return_value = [[]]
+
+    upstash_instance.search(query="q", vectors=[[0.1]], filters={"name": 'a\\" OR x = "1'})
+
+    sent = upstash_instance.client.query_many.call_args.kwargs["queries"][0]["filter"]
+    # The user's backslash is doubled, so it escapes itself and not our quote.
+    assert sent == 'name = "a\\\\\\" OR x = \\"1"'
+
+
+def test_ordinary_filter_values_are_unchanged(upstash_instance):
+    """Values with no `"` or `\\` must serialise exactly as before."""
+    assert upstash_instance._build_filter_expression({"age": 30, "name": "John"}) == 'age = 30 AND name = "John"'
+    assert upstash_instance._build_filter_expression(None) is None
+    assert upstash_instance._build_filter_expression({}) is None
+    assert upstash_instance._build_filter_expression({"ok": True}) == "ok = True"
+
+
+@pytest.mark.parametrize("bad_key", ["user id", "user-id", "1abc", 'a" OR b', "", "a.b"])
+def test_rejects_filter_keys_that_are_not_identifiers(upstash_instance, bad_key):
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        upstash_instance._build_filter_expression({bad_key: "v"})
+
+
+@pytest.mark.parametrize("bad_value", [{"nested": 1}, ["a", "b"], object()])
+def test_rejects_non_scalar_filter_values(upstash_instance, bad_value):
+    with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+        upstash_instance._build_filter_expression({"k": bad_value})
+
+
+def test_keyword_search_raises_on_invalid_filter_instead_of_returning_none(upstash_instance):
+    """keyword_search swallows provider errors into None; validation must still surface."""
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        upstash_instance.keyword_search(query="q", filters={"bad key": "v"})
