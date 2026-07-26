@@ -18,7 +18,10 @@ Custom instructions let you decide exactly which facts Mem0 records from a conve
 </Warning>
 
 <Note>
-  The `custom_fact_extraction_prompt` parameter has been renamed to `custom_instructions`. If you are upgrading from an older version, update your configuration accordingly.
+  `custom_instructions` and `custom_fact_extraction_prompt` are two separate levers. Pick the one that matches how much control you need.
+
+  - **`custom_instructions`** (recommended for most cases): a short guidance string appended to the **user** prompt of the extraction call. The built-in extraction system prompt still runs, so the JSON output contract is preserved automatically.
+  - **`custom_fact_extraction_prompt`**: fully overrides the extraction **system** prompt (the built-in prompt is not sent). Use it only to dial recall down or replace the default extractor. When you set it, you own the JSON output contract: the model must return `{"memory": [{"text": "..."}, ...]}` (each item needs a `text` field, which is what the extractor reads), or the batch is dropped. Leave it unset (`None` or blank) to preserve default behavior byte for byte.
 </Note>
 
 ---
@@ -27,7 +30,7 @@ Custom instructions let you decide exactly which facts Mem0 records from a conve
 
 - **Prompt instructions:** Describe which entities or phrases to keep. Specific guidance keeps the extractor focused.
 - **Few-shot examples:** Show positive and negative cases so the model copies the right format.
-- **Structured output:** Responses return JSON with a `facts` array that Mem0 converts into individual memories.
+- **Structured output:** Responses return JSON with a `memory` array (each item a `{"text": "..."}` object) that Mem0 converts into individual memories.
 - **LLM configuration:** `custom_instructions` (Python) or `customInstructions` (TypeScript) lives alongside your model settings.
 
 <AccordionGroup>
@@ -35,7 +38,7 @@ Custom instructions let you decide exactly which facts Mem0 records from a conve
     1. State the allowed fact types.
     2. Include short examples that mirror production messages.
     3. Show both empty (`[]`) and populated outputs.
-    4. Remind the model to return JSON with a `facts` key only.
+    4. Remind the model to return JSON with a `memory` key only, where each item has a `text` field.
   </Accordion>
 </AccordionGroup>
 
@@ -52,21 +55,21 @@ Please only extract entities containing customer support information, order deta
 Here are some few shot examples:
 
 Input: Hi.
-Output: {"facts" : []}
+Output: {"memory": []}
 
 Input: The weather is nice today.
-Output: {"facts" : []}
+Output: {"memory": []}
 
 Input: My order #12345 hasn't arrived yet.
-Output: {"facts" : ["Order #12345 not received"]}
+Output: {"memory": [{"text": "Order #12345 not received"}]}
 
 Input: I'm John Doe, and I'd like to return the shoes I bought last week.
-Output: {"facts" : ["Customer name: John Doe", "Wants to return shoes", "Purchase made last week"]}
+Output: {"memory": [{"text": "Customer name: John Doe"}, {"text": "Wants to return shoes"}, {"text": "Purchase made last week"}]}
 
 Input: I ordered a red shirt, size medium, but received a blue one instead.
-Output: {"facts" : ["Ordered red shirt, size medium", "Received blue shirt instead"]}
+Output: {"memory": [{"text": "Ordered red shirt, size medium"}, {"text": "Received blue shirt instead"}]}
 
-Return the facts and customer information in a json format as shown above.
+Return the customer information as JSON with a "memory" array whose items each have a "text" field, as shown above.
 """
 ```
 
@@ -76,21 +79,21 @@ Please only extract entities containing customer support information, order deta
 Here are some few shot examples:
 
 Input: Hi.
-Output: {"facts" : []}
+Output: {"memory": []}
 
 Input: The weather is nice today.
-Output: {"facts" : []}
+Output: {"memory": []}
 
 Input: My order #12345 hasn't arrived yet.
-Output: {"facts" : ["Order #12345 not received"]}
+Output: {"memory": [{"text": "Order #12345 not received"}]}
 
 Input: I am John Doe, and I would like to return the shoes I bought last week.
-Output: {"facts" : ["Customer name: John Doe", "Wants to return shoes", "Purchase made last week"]}
+Output: {"memory": [{"text": "Customer name: John Doe"}, {"text": "Wants to return shoes"}, {"text": "Purchase made last week"}]}
 
 Input: I ordered a red shirt, size medium, but received a blue one instead.
-Output: {"facts" : ["Ordered red shirt, size medium", "Received blue shirt instead"]}
+Output: {"memory": [{"text": "Ordered red shirt, size medium"}, {"text": "Received blue shirt instead"}]}
 
-Return the facts and customer information in a json format as shown above.
+Return the customer information as JSON with a "memory" array whose items each have a "text" field, as shown above.
 `;
 ```
 </CodeGroup>
@@ -200,7 +203,7 @@ await memory.add("I like going to hikes", { userId: "user123" });
 
 ## Verify the feature is working
 
-- Log every call during rollout and confirm the `facts` array matches your schema.
+- Log every call during rollout and confirm the `memory` array matches your schema.
 - Check that unrelated messages return an empty `results` array.
 - Run regression samples whenever you edit the prompt to ensure previously accepted facts still pass.
 
@@ -210,7 +213,7 @@ await memory.add("I like going to hikes", { userId: "user123" });
 
 1. **Be precise:** Call out the exact categories or fields you want to capture.
 2. **Show negative cases:** Include examples that should produce `[]` so the model learns to skip them.
-3. **Keep JSON strict:** Avoid extra keys; only return `facts` to simplify downstream parsing.
+3. **Keep JSON strict:** Avoid extra keys; only return a JSON object with a `memory` key to simplify downstream parsing.
 4. **Version prompts:** Track prompt changes with a version number so you can roll back quickly.
 5. **Review outputs regularly:** Spot-check stored memories to catch drift early.
 

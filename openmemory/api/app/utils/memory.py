@@ -459,10 +459,16 @@ def get_memory_client(custom_instructions: str = None):
             print("Using default configuration")
             # Continue with default configuration if database config can't be loaded
 
-        # Use custom_instructions parameter first, then fall back to database value
+        # Use custom_instructions parameter first, then fall back to database value.
+        # NOTE: route into ``custom_instructions`` (append-only guidance for the
+        # user prompt), NOT ``custom_fact_extraction_prompt`` (which fully
+        # OVERRIDES the extraction system prompt and shifts JSON-contract
+        # ownership to the caller). OpenMemory's UI copy and DB key are both
+        # named ``custom_instructions``; sending short freeform text into the
+        # full-override slot silently breaks the extraction JSON contract.
         instructions_to_use = custom_instructions or db_custom_instructions
         if instructions_to_use:
-            config["custom_fact_extraction_prompt"] = instructions_to_use
+            config["custom_instructions"] = instructions_to_use
 
         # Fix Ollama URLs for Docker environment (applies to both env-var defaults and DB overrides)
         if config.get("llm", {}).get("provider") == "ollama":
