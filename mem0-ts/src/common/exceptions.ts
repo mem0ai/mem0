@@ -139,6 +139,65 @@ export class MemoryQuotaExceededError extends MemoryError {
   }
 }
 
+/**
+ * Coarse failure category for OSS Memory.add() embedding failures.
+ * Assigned at the point of detection (not parsed from the message).
+ * - provider: embed() / embedBatch() threw
+ * - validation: vector returned non-finite or wrong-dimension
+ * - internal: catch-all
+ */
+export type EmbeddingErrorClass = "provider" | "validation" | "internal";
+
+/**
+ * Raised when embedding one or more memory texts fails during OSS Memory.add(),
+ * which would otherwise cause those memories to be silently dropped.
+ * Mirrors the Python SDK EmbeddingError (see #5245 / #5509).
+ *
+ * Successful memories are persisted before this is thrown (preserve-then-raise).
+ * Callers can retry only `failedTexts`; `persistedCount` is the number actually
+ * committed via vector-store insert (not merely attempted).
+ */
+export class EmbeddingError extends MemoryError {
+  /** Texts whose embeddings failed and were therefore not persisted. */
+  readonly failedTexts: string[];
+  /** Number of memories that embedded and were actually inserted. */
+  readonly persistedCount: number;
+  /** Coarse failure category collapsed as validation > provider > internal. */
+  readonly errorClass: EmbeddingErrorClass;
+
+  constructor(
+    message: string,
+    opts: {
+      failedTexts?: string[];
+      persistedCount?: number;
+      errorClass?: EmbeddingErrorClass;
+      suggestion?: string;
+      details?: Record<string, unknown>;
+      debugInfo?: Record<string, unknown>;
+    } = {},
+  ) {
+    const failedTexts = opts.failedTexts ?? [];
+    const persistedCount = opts.persistedCount ?? 0;
+    const errorClass = opts.errorClass ?? "internal";
+    super(message, "EMBED_001", {
+      suggestion:
+        opts.suggestion ??
+        "Retry only the failed texts; successful memories were already persisted",
+      details: {
+        ...(opts.details ?? {}),
+        failedTexts,
+        persistedCount,
+        errorClass,
+      },
+      debugInfo: opts.debugInfo,
+    });
+    this.name = "EmbeddingError";
+    this.failedTexts = failedTexts;
+    this.persistedCount = persistedCount;
+    this.errorClass = errorClass;
+  }
+}
+
 // ─── HTTP Status → Exception Mapping ─────────────────────
 
 type MemoryErrorConstructor = new (

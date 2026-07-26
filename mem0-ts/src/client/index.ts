@@ -42,7 +42,11 @@ export {
   NetworkError,
   ConfigurationError,
   MemoryQuotaExceededError,
+  EmbeddingError,
   createExceptionFromResponse,
 } from "../common/exceptions";
 
-export type { MemoryErrorOptions } from "../common/exceptions";
+export type {
+  MemoryErrorOptions,
+  EmbeddingErrorClass,
+} from "../common/exceptions";

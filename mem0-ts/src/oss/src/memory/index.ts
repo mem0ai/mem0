@@ -1,6 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
 import { createHash } from "crypto";
 import {
+  EmbeddingError,
+  type EmbeddingErrorClass,
+} from "../../../common/exceptions";
+import {
   MemoryConfig,
   MemoryConfigSchema,
   MemoryItem,
@@ -79,6 +83,9 @@ import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
+
+export { EmbeddingError } from "../../../common/exceptions";
+export type { EmbeddingErrorClass } from "../../../common/exceptions";
 
 export class LLMError extends Error {
   readonly cause?: unknown;
@@ -943,21 +950,72 @@ export class Memory {
       .map((m) => m.text ?? "")
       .filter((t) => t.length > 0);
     let embedMap: Record<string, number[]> = {};
+    // Collected across the fallback path; surfaced AFTER successful memories are
+    // persisted (preserve-then-raise), so one failed item never discards the
+    // good ones. Classified at the point of detection, not from the message.
+    const embedFailures: { text: string; errorClass: EmbeddingErrorClass }[] =
+      [];
+    // A returned vector can be "successful" yet unusable: non-finite values
+    // (NaN/Infinity) or the wrong dimension. These don't throw today and get
+    // persisted as corrupt vectors (the more dangerous half of #5509). Validate
+    // at the point of return and record a `validation` failure instead.
+    const expectedDims = this.config.vectorStore.config.dimension;
+    const isValidVector = (v: number[] | undefined): boolean => {
+      if (!Array.isArray(v) || v.length === 0) return false;
+      if (typeof expectedDims === "number" && v.length !== expectedDims)
+        return false;
+      return v.every((n) => Number.isFinite(n));
+    };
+    const acceptEmbedding = (text: string, vector: number[] | undefined) => {
+      if (isValidVector(vector)) {
+        embedMap[text] = vector as number[];
+      } else {
+        console.warn(
+          `Embedding for memory text failed validation (non-finite or wrong ` +
+            `dimension); not persisting: ${JSON.stringify(text.slice(0, 80))}`,
+        );
+        embedFailures.push({ text, errorClass: "validation" });
+      }
+    };
+
     try {
       const memEmbeddingsList = await this.embedder.embedBatch(memTexts, "add");
       for (let i = 0; i < memTexts.length; i++) {
-        embedMap[memTexts[i]] = memEmbeddingsList[i];
+        acceptEmbedding(memTexts[i], memEmbeddingsList[i]);
       }
     } catch {
       // Fallback: embed individually
       for (const text of memTexts) {
         try {
-          embedMap[text] = await this.embedder.embed(text, "add");
+          acceptEmbedding(text, await this.embedder.embed(text, "add"));
         } catch (e) {
+          // The embed call threw -> provider-class failure.
           console.warn(`Failed to embed memory text: ${e}`);
+          embedFailures.push({ text, errorClass: "provider" });
         }
       }
     }
+
+    // Preserve-then-raise helper: call AFTER successful memories are persisted.
+    // Raises an EmbeddingError carrying the failed texts, how many were
+    // actually inserted, and a collapsed error class (validation > provider > internal).
+    const raiseIfEmbedFailures = (persistedCount: number): void => {
+      if (embedFailures.length === 0) return;
+      const failedTexts = embedFailures.map((f) => f.text);
+      const errorClass: EmbeddingErrorClass = embedFailures.some(
+        (f) => f.errorClass === "validation",
+      )
+        ? "validation"
+        : embedFailures.some((f) => f.errorClass === "provider")
+          ? "provider"
+          : "internal";
+      throw new EmbeddingError(
+        `Failed to embed ${failedTexts.length} of ${memTexts.length} memory ` +
+          `text(s); ${persistedCount} persisted, ${failedTexts.length} not ` +
+          `persisted. Failed: ${JSON.stringify(failedTexts)}`,
+        { failedTexts, persistedCount, errorClass },
+      );
+    };
 
     // Phase 4-5: CPU processing + hash dedup
     const existingHashes = new Set<string>();
@@ -1023,6 +1081,9 @@ export class Memory {
           );
         } catch {}
       }
+      // Nothing persisted — but if that's because embeds failed, surface it
+      // rather than returning a misleading empty success.
+      raiseIfEmbedFailures(0);
       return [];
     }
 
@@ -1031,8 +1092,12 @@ export class Memory {
     const allIds = records.map((r) => r.memoryId);
     const allPayloads = records.map((r) => r.payload);
 
+    // Track actual inserts so persistedCount does not over-report when the
+    // per-item fallback swallows individual insert errors.
+    let persistedCount = 0;
     try {
       await this.vectorStore.insert(allVectors, allIds, allPayloads);
+      persistedCount = allIds.length;
     } catch {
       // Fallback: insert one by one
       for (let i = 0; i < allIds.length; i++) {
@@ -1042,6 +1107,7 @@ export class Memory {
             [allIds[i]],
             [allPayloads[i]],
           );
+          persistedCount += 1;
         } catch (e) {
           console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
         }
@@ -1243,11 +1309,20 @@ export class Memory {
       } catch {}
     }
 
-    return records.map((r) => ({
+    const result = records.map((r) => ({
       id: r.memoryId,
       memory: r.text,
       metadata: { event: "ADD" },
     }));
+
+    // Preserve-then-raise: everything embeddable has now been persisted above.
+    // If any memory text failed to embed, surface it so the caller can retry
+    // only the failed items — without having discarded the good ones.
+    // Use the actual insert count (not records.length) so a partial insert
+    // fallback cannot over-report.
+    raiseIfEmbedFailures(persistedCount);
+
+    return result;
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {
