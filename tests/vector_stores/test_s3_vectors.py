@@ -197,6 +197,39 @@ def test_delete(mock_boto_client):
     )
 
 
+def test_list_returns_flat_list(mock_boto_client):
+    """Regression: list() must return a flat list of OutputData, not a nested list.
+
+    Previously list() returned ``[self._parse_output(...)]``, wrapping the results in
+    an extra list, so a caller iterating over list() got a single list element rather
+    than the individual vectors. See PR #5333.
+    """
+    paginator = mock_boto_client.get_paginator.return_value
+    paginator.paginate.return_value = [
+        {
+            "vectors": [
+                {"key": "id1", "metadata": {"meta": "data1"}},
+                {"key": "id2", "metadata": {"meta": "data2"}},
+            ]
+        },
+    ]
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+    results = store.list()
+
+    mock_boto_client.get_paginator.assert_called_once_with("list_vectors")
+    # Flat list of OutputData — not a nested [[...]] that broke callers iterating it.
+    assert len(results) == 2
+    assert not isinstance(
+        results[0], list
+    ), "list() must not wrap results in an extra list"
+    assert [r.id for r in results] == ["id1", "id2"]
+    assert results[0].payload["meta"] == "data1"
+
+
 def test_reset(mock_boto_client):
     """Test resetting the vector index."""
     # GIVEN: The index does not exist, so it gets created on init and reset
