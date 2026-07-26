@@ -18,6 +18,7 @@ import {
 } from "../types";
 import { Reranker } from "../rerankers/base";
 import { CohereReranker } from "../rerankers/cohere";
+import { withEmbedderRetry, withLLMRetry } from "./retryWrappers";
 import { LLMReranker } from "../rerankers/llm";
 import { ZeroEntropyReranker } from "../rerankers/zeroentropy";
 import { CrossEncoderReranker } from "../rerankers/cross_encoder";
@@ -74,6 +75,14 @@ import { WeaviateDB } from "../vector_stores/weaviate";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
+    // Wrap with the optional retry layer (no-op unless config.maxRetries > 0).
+    return withEmbedderRetry(this.instantiate(provider, config), config);
+  }
+
+  private static instantiate(
+    provider: string,
+    config: EmbeddingConfig,
+  ): Embedder {
     switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAIEmbedder(config);
@@ -106,6 +115,11 @@ export class EmbedderFactory {
 
 export class LLMFactory {
   static create(provider: string, config: LLMConfig): LLM {
+    // Wrap with the optional retry layer (no-op unless config.maxRetries > 0).
+    return withLLMRetry(this.instantiate(provider, config), config);
+  }
+
+  private static instantiate(provider: string, config: LLMConfig): LLM {
     switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAILLM(config);
