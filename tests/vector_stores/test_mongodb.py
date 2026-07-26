@@ -427,3 +427,30 @@ def test_search_allows_scalar_filter_values(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": "alice", "count": 5})
+
+
+def test_payload_filter_clause_star_means_exists():
+    clause = MongoDB._payload_filter_clause("agent_id", "*")
+    assert clause == {"payload.agent_id": {"$exists": True}}
+    assert MongoDB._payload_filter_clause("user_id", "u1") == {"payload.user_id": "u1"}
+
+
+def test_star_filter_means_field_exists(mongo_vector_fixture):
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    query_vector = [0.1] * 1536
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+    mock_collection.aggregate.return_value = []
+
+    mongo_vector.search("q", query_vector, top_k=5, filters={"agent_id": "*", "user_id": "u1"})
+    pipeline = mock_collection.aggregate.call_args[0][0]
+    match_stage = next(stage for stage in pipeline if "$match" in stage)
+    assert {"payload.agent_id": {"$exists": True}} in match_stage["$match"]["$and"]
+    assert {"payload.user_id": "u1"} in match_stage["$match"]["$and"]
+
+    # list path
+    mock_cursor = MagicMock()
+    mock_cursor.limit.return_value = []
+    mock_collection.find.return_value = mock_cursor
+    mongo_vector.list(filters={"run_id": "*"}, top_k=10)
+    find_query = mock_collection.find.call_args[0][0]
+    assert find_query == {"$and": [{"payload.run_id": {"$exists": True}}]}

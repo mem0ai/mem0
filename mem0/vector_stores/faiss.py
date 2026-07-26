@@ -434,6 +434,10 @@ class FAISS(VectorStoreBase):
             if key not in payload:
                 return False
 
+            # Documented "*" wildcard: field must exist (value already present).
+            if value == "*":
+                continue
+
             if isinstance(value, list):
                 if payload[key] not in value:
                     return False
