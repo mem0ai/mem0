@@ -35,6 +35,25 @@ def _validate_filter(key: str, value: Any) -> None:
         )
 
 
+def _build_filter_conditions(filters: Optional[Dict]) -> List[Dict[str, Any]]:
+    """Build ES filter clauses.
+
+    The documented ``"*"`` metadata filter means field-exists (same contract as
+    OpenSearch), not a literal term match on the string ``"*"``.
+    """
+    conditions: List[Dict[str, Any]] = []
+    for key, value in (filters or {}).items():
+        if value is None:
+            continue
+        _validate_filter(key, value)
+        field = f"metadata.{key}"
+        if value == "*":
+            conditions.append({"exists": {"field": field}})
+        else:
+            conditions.append({"term": {field: value}})
+    return conditions
+
+
 class ElasticsearchDB(VectorStoreBase):
     def __init__(self, **kwargs):
         config = ElasticsearchConfig(**kwargs)
@@ -166,11 +185,9 @@ class ElasticsearchDB(VectorStoreBase):
                 "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2}
             }
             if filters:
-                filter_conditions = []
-                for key, value in filters.items():
-                    _validate_filter(key, value)
-                    filter_conditions.append({"term": {f"metadata.{key}": value}})
-                search_query["knn"]["filter"] = {"bool": {"must": filter_conditions}}
+                filter_conditions = _build_filter_conditions(filters)
+                if filter_conditions:
+                    search_query["knn"]["filter"] = {"bool": {"must": filter_conditions}}
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
@@ -205,11 +222,9 @@ class ElasticsearchDB(VectorStoreBase):
         }
 
         if filters:
-            filter_conditions = []
-            for key, value in filters.items():
-                _validate_filter(key, value)
-                filter_conditions.append({"term": {f"metadata.{key}": value}})
-            bool_query["filter"] = filter_conditions
+            filter_conditions = _build_filter_conditions(filters)
+            if filter_conditions:
+                bool_query["filter"] = filter_conditions
 
         search_query = {
             "size": top_k,
@@ -276,11 +291,9 @@ class ElasticsearchDB(VectorStoreBase):
         query: Dict[str, Any] = {"query": {"match_all": {}}}
 
         if filters:
-            filter_conditions = []
-            for key, value in filters.items():
-                _validate_filter(key, value)
-                filter_conditions.append({"term": {f"metadata.{key}": value}})
-            query["query"] = {"bool": {"must": filter_conditions}}
+            filter_conditions = _build_filter_conditions(filters)
+            if filter_conditions:
+                query["query"] = {"bool": {"must": filter_conditions}}
 
         if top_k:
             query["size"] = top_k

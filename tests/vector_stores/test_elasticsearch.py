@@ -390,3 +390,26 @@ class TestElasticsearchDB(unittest.TestCase):
     def test_list_with_dict_filter_raises(self):
         with self.assertRaises(ValueError):
             self.es_db.list(filters={"user_id": {"$ne": ""}})
+
+
+    def test_star_filter_uses_exists_on_search(self):
+        """"*" must be field-exists, not a literal term on "*"."""
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.es_db.search("q", [0.1] * 1536, top_k=5, filters={"agent_id": "*", "user_id": "u1"})
+        body = self.client_mock.search.call_args.kwargs.get("body") or self.client_mock.search.call_args[1]["body"]
+        knn_filter = body["knn"]["filter"]["bool"]["must"]
+        self.assertIn({"exists": {"field": "metadata.agent_id"}}, knn_filter)
+        self.assertIn({"term": {"metadata.user_id": "u1"}}, knn_filter)
+        # Must not literal-match the string "*"
+        self.assertNotIn({"term": {"metadata.agent_id": "*"}}, knn_filter)
+
+    def test_star_filter_uses_exists_on_list(self):
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.es_db.list(filters={"run_id": "*"}, top_k=10)
+        body = self.client_mock.search.call_args.kwargs.get("body") or self.client_mock.search.call_args[1]["body"]
+        must = body["query"]["bool"]["must"]
+        self.assertEqual(must, [{"exists": {"field": "metadata.run_id"}}])
+
+    def test_star_filter_allowed_by_validate(self):
+        # "*" is a valid scalar filter value
+        _validate_filter("agent_id", "*")
