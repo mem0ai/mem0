@@ -1098,8 +1098,13 @@ class TestAddPipelineEntityEmbeddingCountGuard:
 
 
 @pytest.mark.asyncio
-async def test_async_memory_write_lock_serializes_insert(mocker):
-    """Concurrent vector_store.insert calls must not overlap under AsyncMemory."""
+async def test_async_memory_create_serializes_vector_store_insert(mocker):
+    """Driving the real _create_memory concurrently must not overlap vector_store.insert.
+
+    This exercises main.py itself (not a hand-held asyncio.Lock in the test body):
+    with the four ``async with self._write_lock`` guards in place, max concurrent
+    inserts stays at 1; strip them and this fails with max concurrent == 5.
+    """
     import asyncio
     import threading
     import time
@@ -1119,10 +1124,6 @@ async def test_async_memory_write_lock_serializes_insert(mocker):
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
     mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=mock_embedder)
 
-    mock_vs = mocker.MagicMock()
-    mock_vs.insert.side_effect = tracking_insert
-    mock_vs.search.return_value = []
-    # Memory telemetry + main store may create multiple stores
     mocker.patch(
         "mem0.utils.factory.VectorStoreFactory.create",
         side_effect=lambda *a, **k: mocker.MagicMock(insert=tracking_insert, search=mocker.MagicMock(return_value=[])),
@@ -1134,12 +1135,10 @@ async def test_async_memory_write_lock_serializes_insert(mocker):
     mem = AsyncMemory()
     assert hasattr(mem, "_write_lock")
 
-    async def locked_insert(i):
-        async with mem._write_lock:
-            await asyncio.to_thread(mem.vector_store.insert, vectors=[[0.1]], ids=[str(i)], payloads=[{}])
-
-    await asyncio.gather(*[locked_insert(i) for i in range(5)])
-    assert active["max"] == 1, f"expected serialized inserts, max concurrent={active['max']}"
+    await asyncio.gather(
+        *[mem._create_memory(f"fact {i}", existing_embeddings={}) for i in range(5)]
+    )
+    assert active["max"] == 1, f"vector_store.insert overlapped: max concurrent={active['max']}"
 
 
 def test_async_memory_init_creates_write_lock(mocker):
