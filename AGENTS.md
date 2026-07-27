@@ -26,6 +26,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `integrations/mem0-plugin/` | AI editor plugins (Claude Code, Cursor, Codex) — MCP server connection, lifecycle hooks, skills. Contains nested `.opencode-plugin/` (`@mem0/opencode-plugin`) |
 | `integrations/openclaw/` | `@mem0/openclaw-mem0` — OpenClaw plugin for Claude Code / AI editors |
 | `integrations/pi-agent-plugin/` | `@mem0/pi-agent-plugin` — Pi Agent plugin |
+| `integrations/kilo-plugin/` | `@mem0/kilo-plugin` — Kilo Code plugin (Bun; ported from the OpenCode plugin) |
 | `integrations/vercel-ai-sdk/` | `@mem0/vercel-ai-provider` — Vercel AI SDK memory provider |
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
 | `openmemory/` | Self-hosted memory platform — `api/` (FastAPI + Alembic + MCP server) and `ui/` (Next.js 15 + React 19) |
@@ -431,6 +432,7 @@ PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** 
 | OpenClaw | `openclaw-checks.yml` | Push to main (on `integrations/openclaw/`), manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
 | OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (on `integrations/mem0-plugin/.opencode-plugin/`), manual | Bun: tsc type-check + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (on `integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup build (dist artifact check) on Node 20, 22 |
+| Kilo Plugin | `kilo-plugin-checks.yml` | Push to main (on `integrations/kilo-plugin/`), manual | Bun: tsc type-check + build + dist artifact check |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage check |
 
 When adding a new package CI workflow: give it `workflow_call` (plus `push`/`workflow_dispatch` as needed, but no `pull_request` trigger), then register it in `ci-gate.yml` — a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.
@@ -450,6 +452,7 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 | OpenClaw | `openclaw-cd.yml` | `openclaw-v*` | npm (`@mem0/openclaw-mem0`) |
 | OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 | Pi Agent Plugin | `pi-agent-plugin-cd.yml` | `pi-agent-v*` | npm (`@mem0/pi-agent-plugin`) |
+| Kilo Plugin | `kilo-plugin-cd.yml` | `kilo-v*` | npm (`@mem0/kilo-plugin`) |
 
 - Package CD workflows are `workflow_dispatch`-only (inputs: `tag`, `prerelease`); they check out and build the given tag. Registry trusted-publisher settings stay pinned to each package's own workflow filename.
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.

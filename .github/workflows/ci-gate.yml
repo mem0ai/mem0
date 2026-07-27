@@ -40,6 +40,7 @@ jobs:
       openclaw: ${{ steps.filter.outputs.openclaw }}
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
+      kilo_plugin: ${{ steps.filter.outputs.kilo_plugin }}
       docs_llms_txt: ${{ steps.filter.outputs.docs_llms_txt }}
     steps:
       - uses: dorny/paths-filter@v3
@@ -78,6 +79,10 @@ jobs:
             pi_agent_plugin:
               - 'integrations/pi-agent-plugin/**'
               - '.github/workflows/pi-agent-plugin-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            kilo_plugin:
+              - 'integrations/kilo-plugin/**'
+              - '.github/workflows/kilo-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             docs_llms_txt:
               - 'docs/**/*.mdx'
@@ -136,6 +141,13 @@ jobs:
     uses: ./.github/workflows/pi-agent-plugin-checks.yml
     secrets: inherit
 
+  kilo-plugin:
+    name: Kilo Plugin
+    needs: changes
+    if: needs.changes.outputs.kilo_plugin == 'true'
+    uses: ./.github/workflows/kilo-plugin-checks.yml
+    secrets: inherit
+
   docs-llms-txt:
     name: docs llms.txt
     needs: changes
@@ -154,6 +166,7 @@ jobs:
       - openclaw
       - opencode-plugin
       - pi-agent-plugin
+      - kilo-plugin
       - docs-llms-txt
     if: always()
     runs-on: ubuntu-latest
