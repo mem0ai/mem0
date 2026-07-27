@@ -84,8 +84,6 @@
                         "pages": [
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
-                          "platform/features/criteria-retrieval",
-                          "platform/features/contextual-add",
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay"
                         ]
@@ -96,7 +94,8 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp"
+                          "platform/features/timestamp",
+                          "platform/features/memory-expiration"
                         ]
                       },
                       {
@@ -152,7 +151,8 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
-                      "open-source/features/openai_compatibility"
+                      "open-source/features/openai_compatibility",
+                      "platform/features/memory-expiration"
                     ]
                   },
                   {
@@ -207,6 +207,7 @@
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
@@ -608,6 +609,10 @@
   },
   "redirects": [
     {
+      "source": "/platform/features/contextual-add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
+    {
       "source": "/changelog/openclaw",
       "destination": "/changelog/sdk"
     },
@@ -629,7 +634,7 @@
     },
     {
       "source": "/platform/features/expiration-date",
-      "destination": "/"
+      "destination": "/platform/features/memory-expiration"
     },
     {
       "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
@@ -1222,6 +1227,14 @@
     {
       "source": "/open-source/features/supported-vector-dbs",
       "destination": "/components/vectordbs/overview"
+    },
+    {
+      "source": "/open-source/multimodal-support",
+      "destination": "/open-source/features/multimodal-support"
+    },
+    {
+      "source": "/platform/features/criteria-retrieval",
+      "destination": "/platform/features/advanced-retrieval"
     }
   ]
 }

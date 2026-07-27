@@ -1,0 +1,44 @@
+{
+  "language": {
+    "sdk-python": [
+      "python", "pip install", "pypi", "pyproject", "requirements.txt",
+      "from mem0", "import mem0", "traceback", "pydantic", "asyncmemory",
+      "poetry", "virtualenv", "venv", "conda", "pytest", "async def"
+    ],
+    "sdk-typescript": [
+      "typescript", "javascript", "pnpm", "yarn", "node.js", "nodejs",
+      "mem0-ts", "mem0ai/oss", "tsconfig", "await import",
+      "=> {", "undefined is not"
+    ]
+  },
+  "area": {
+    "plugin": [
+      "openclaw", "openclaw-mem0", "openclaw.json", "openclaw plugin",
+      "claude code", "opencode", "pi agent", "mem0-plugin",
+      "cursor plugin", "codex plugin", "editor plugin"
+    ],
+    "openmemory": [
+      "openmemory", "open memory", "localhost:8765", "localhost:3000",
+      "openmemory ui", "openmemory/api", "openmemory/ui"
+    ],
+    "cli": ["mem0-cli", "@mem0/cli", "npx mem0", "command line"],
+    "vector-store": [
+      "pgvector", "pinecone", "chroma", "chromadb", "weaviate",
+      "milvus", "faiss", "vector store", "vectorstore",
+      "elasticsearch", "supabase", "azure ai search",
+      "s3 vectors", "mongodb"
+    ],
+    "integrations": [
+      "vercel ai", "vercel-ai-sdk", "@mem0/vercel-ai-provider",
+      "llamaindex", "crewai", "autogen", "langgraph"
+    ],
+    "rest-api": [
+      "rest api", "fastapi", "docker-compose", "/v1/memories",
+      "localhost:8000", "localhost:8888", "curl -x", "http endpoint"
+    ],
+    "documentation": [
+      "docs.mem0.ai", "documentation", "typo", "readme", "docstring", "broken link",
+      "issue on docs", "docs:", "link to the docs page", "issue with current documentation"
+    ]
+  }
+}

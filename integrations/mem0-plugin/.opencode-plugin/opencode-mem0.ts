@@ -25,6 +25,7 @@ import {
 } from "./dream";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
 import {parseProjectFromRemote} from "./project";
+import {resolveApiKey} from "./api-key";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -258,7 +259,7 @@ function extractUserText(input: any, output: any): string {
 const Mem0Plugin: Plugin = async (ctx) => {
   const {$, client} = ctx;
 
-  const apiKey = process.env.MEM0_API_KEY;
+  const apiKey = resolveApiKey();
 
   if (!apiKey) {
     try {

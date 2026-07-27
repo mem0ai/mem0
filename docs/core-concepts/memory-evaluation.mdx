@@ -28,7 +28,7 @@ When new conversations arrive, the extraction pipeline processes them through si
 3. **Distill Memories**: Single-pass LLM extraction produces ADD-only facts from input + context
 4. **Deduplicate + Embed**: Hash-based deduplication, then vectorize new memories
 5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
-6. **Temporal Reasoning**: A separate temporal reasoning pass reads each new memory alongside the source conversation and its date, extracting temporal metadata — when the event occurred, whether it is ongoing or completed, how precise the timing is, and the memory type (event, state, plan, preference, relationship, absence). It is independent of extraction and can run asynchronously so writes stay fast; this metadata is stored with the memory and used later at retrieval.
+6. **Temporal Reasoning**: A separate temporal reasoning pass reads each new memory alongside the source conversation and its date, extracting temporal metadata: when the event occurred, whether it is ongoing or completed, how precise the timing is, and the memory type (event, state, plan, preference, relationship, absence). It is independent of extraction and can run asynchronously so writes stay fast; this metadata is stored with the memory and used later at retrieval.
 
 Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
@@ -51,7 +51,7 @@ When a query arrives, the retrieval pipeline scores candidates across multiple s
 3. **Entity Search**: Entity matching boosts memories linked to query entities
 4. **Temporal Reasoning**: The query's temporal intent is classified (with no extra LLM call), then each candidate is scored by how well the temporal metadata extracted at write time matches that intent.
 
-These signals are fused via rank scoring into the final top-K set. The temporal score is additive and semantic relevance always dominates — it nudges ranking toward the correct dated instance without filtering candidates out or overriding a strong semantic match, so relevant memories are never dropped. Different query types lean on different signals:
+These signals are fused via rank scoring into the final top-K set. The temporal score is additive and semantic relevance always dominates; it nudges ranking toward the correct dated instance without filtering candidates out or overriding a strong semantic match, so relevant memories are never dropped. Different query types lean on different signals:
 
 | Query Type | Primary Signal | Example |
 |---|---|---|
@@ -124,7 +124,7 @@ Temporal reasoning is the standout at a top_200 budget, reaching **97.0** on the
 
 ### Performance Summary
 
-All results use a single-pass retrieval setup — one retrieval call, one answer, no agentic loops — at a top_200 retrieval budget.
+All results use a single-pass retrieval setup (one retrieval call, one answer, no agentic loops) at a top_200 retrieval budget.
 
 | Benchmark | Score | Average tokens / query |
 |---|---|---|

@@ -61,7 +61,7 @@ client.get_all(user_id="alice")
 client.get(memory_id="<id>")
 
 # Update
-client.update(memory_id="<id>", data="Alice loves mountain hiking")
+client.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 client.delete(memory_id="<id>")
@@ -118,7 +118,7 @@ m.get_all(user_id="alice")
 m.get(memory_id="<id>")
 
 # Update
-m.update(memory_id="<id>", data="Alice loves mountain hiking")
+m.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 m.delete(memory_id="<id>")
@@ -204,9 +204,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ### Features - Advanced Retrieval
 - [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval) [Platform]: Use when the user needs keyword search, reranking, or hybrid retrieval.
-- [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval) [Platform]: Use when targeting memories by custom criteria, not just semantic similarity.
 - [Temporal Reasoning](https://docs.mem0.ai/platform/features/temporal-reasoning) [Platform]: Use when time-aware searches like last week, upcoming, or right now need better result ordering.
-- [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add) [Platform]: Use when `add()` should consider the surrounding conversation, not just the latest turn.
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
 - [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones. Opt in per project; applies at search time and never filters candidates out.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
@@ -215,6 +213,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Direct Import](https://docs.mem0.ai/platform/features/direct-import) [Platform]: Use when seeding a Mem0 project from existing data.
 - [Memory Export](https://docs.mem0.ai/platform/features/memory-export) [Platform]: Use when exporting memories via a Pydantic schema.
 - [Timestamp Support](https://docs.mem0.ai/platform/features/timestamp) [Platform]: Use when temporal queries or time-based filtering matter.
+- [Memory Expiration](https://docs.mem0.ai/platform/features/memory-expiration) [Both]: Use when a memory should stop surfacing after a known date without being deleted, e.g. trial facts, seasonal preferences, or retention windows.
 
 ### Features - Integration & Ops
 - [Webhooks](https://docs.mem0.ai/platform/features/webhooks) [Platform]: Use when another system needs to react to memory changes in real time.
@@ -238,7 +237,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Reranking](https://docs.mem0.ai/open-source/features/reranking) [OSS]: Use when configuring reranking end-to-end in OSS.
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory) [OSS]: Use when the self-hosted app needs `AsyncMemory`.
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
-- [OSS Multimodal Support](https://docs.mem0.ai/open-source/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (concept overview).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api) [OSS]: Use when exposing a self-hosted Mem0 as a FastAPI service.
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
@@ -474,6 +472,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus) [OSS]: Use for large-scale Milvus deployments.
 - [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone) [OSS]: Use when the user is on Pinecone managed.
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.
+- [Oracle AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/oracledb) [OSS]: Use when Oracle Database AI Vector Search is the backing store.
 - [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure) [OSS]: Use when the user is on Azure AI Search.
 - [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis) [OSS]: Use when Redis Stack is the backing store.
@@ -502,5 +501,6 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Custom Reranker Prompts](https://docs.mem0.ai/components/rerankers/custom-prompts) [OSS]: Use when rewriting reranker prompts.
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
 - [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
-- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
+- [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
+- [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.

@@ -253,6 +253,34 @@ describe("Memory Input Validation", () => {
     });
   });
 
+  describe("non-string entity ID coercion", () => {
+    it("coerces an integer user_id in getAll filters to its string form", async () => {
+      const listSpy = jest
+        .spyOn((memory as any).vectorStore, "list")
+        .mockResolvedValue([[], 0]);
+
+      await memory.getAll({ filters: { user_id: 42 as any } });
+
+      const passedFilters = listSpy.mock.calls[0][0] as Record<string, any>;
+      expect(passedFilters.user_id).toBe("42");
+
+      listSpy.mockRestore();
+    });
+
+    it("coerces an integer user_id in search filters to its string form", async () => {
+      const searchSpy = jest
+        .spyOn((memory as any).vectorStore, "search")
+        .mockResolvedValue([]);
+
+      await memory.search("q", { filters: { user_id: 42 as any } });
+
+      const passedFilters = searchSpy.mock.calls[0][2] as Record<string, any>;
+      expect(passedFilters.user_id).toBe("42");
+
+      searchSpy.mockRestore();
+    });
+  });
+
   describe("search() filter entity ID validation", () => {
     it("should throw error when user_id in filters is whitespace-only", async () => {
       await expect(
