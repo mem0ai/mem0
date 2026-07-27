@@ -29,7 +29,8 @@ def test_embed_with_jina_model(mock_fastembed_client):
     embedding = embedder.embed(text)
     
     mock_fastembed_client.embed.assert_called_once_with(text)
-    assert list(embedding) == [0.1, 0.2, 0.3, 0.4, 0.5]
+    assert isinstance(embedding, list)
+    assert embedding == [0.1, 0.2, 0.3, 0.4, 0.5]
 
 
 def test_embed_removes_newlines(mock_fastembed_client):
