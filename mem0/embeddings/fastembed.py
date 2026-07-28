@@ -29,4 +29,7 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0]
+        vector = embeddings[0]
+        # FastEmbed commonly returns a numpy array, but callers expect the
+        # JSON-serializable list contract shared by every other embedder.
+        return vector.tolist() if hasattr(vector, "tolist") else list(vector)
