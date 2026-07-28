@@ -321,6 +321,15 @@ class TestAzureMySQLFilterKeySanitization:
         blob = self._executed_blob(azure_mysql_instance)
         assert "$.user_id" in blob and "OR '1'='1" not in blob
 
+    def test_search_unquotes_json_scalars_before_comparing(self, azure_mysql_instance):
+        azure_mysql_instance.search(query="q", vectors=[0.1, 0.2, 0.3], filters={"user_id": "u1"})
+        cursor = azure_mysql_instance.connection_pool.connection().cursor()
+        sql, params = cursor.execute.call_args.args
+
+        assert "JSON_UNQUOTE(JSON_EXTRACT(payload, %s))" in sql
+        assert list(params[:2]) == ["$.user_id", "u1"]
+        assert '"u1"' not in params
+
     def test_keyword_search_drops_invalid_key(self, azure_mysql_instance):
         azure_mysql_instance.keyword_search(query="q", filters=self._FILTERS)
         blob = self._executed_blob(azure_mysql_instance)
