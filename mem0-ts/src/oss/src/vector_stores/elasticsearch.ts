@@ -187,6 +187,7 @@ export class ElasticsearchDB implements VectorStore {
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
     const searchBody: Record<string, any> = {
+      size: topK,
       knn: {
         field: "vector",
         query_vector: query,
@@ -206,6 +207,41 @@ export class ElasticsearchDB implements VectorStore {
     const response = await this.client.search({
       index: this.collectionName,
       ...searchBody,
+    });
+
+    return response.hits.hits.map((hit: any) => ({
+      id: hit._id,
+      score: hit._score,
+      payload: hit._source?.metadata || {},
+    }));
+  }
+
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[]> {
+    await this.initialize();
+    const boolQuery: Record<string, any> = {
+      should: [
+        { match: { "metadata.data": query } },
+        { match: { "metadata.text_lemmatized": query } },
+        { match: { "metadata.textLemmatized": query } },
+      ],
+      minimum_should_match: 1,
+    };
+
+    if (filters && Object.keys(filters).length > 0) {
+      boolQuery.filter = Object.entries(filters).map(([key, value]) => {
+        validateFilter(key, value);
+        return { term: { [`metadata.${key}`]: value } };
+      });
+    }
+
+    const response = await this.client.search({
+      index: this.collectionName,
+      size: topK,
+      query: { bool: boolQuery },
     });
 
     return response.hits.hits.map((hit: any) => ({
