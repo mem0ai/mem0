@@ -66,9 +66,9 @@ def parse_to_markdown(url):
     tools = [transform_mcp_tool(), WAIT_TOOL]
     instruction = (
         f"Parse the PDF at {url} into markdown using the Unstructured Transform tools. "
-        "Call transform_files with the URL, then poll check_transform_status, calling "
+        "Call start_transform_job with the URL, then poll check_job_status, calling "
         "wait_seconds(10) between each check, until the status is COMPLETED. Then call "
-        "get_transform_results with output_format 'md' and report the markdown download URL."
+        "get_job_results with output_format 'md' and report the markdown download URL."
     )
     resp = client.responses.create(model=MODEL, tools=tools, input=instruction)
     seen = json.dumps(resp.model_dump())
