@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import uuid
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -66,6 +67,16 @@ class TestSQLiteManager:
         assert manager.connection is not None
         assert manager.db_path == db_path
         manager.close()
+
+    def test_close_acquires_connection_lock(self, memory_manager):
+        lock = MagicMock()
+        memory_manager._lock = lock
+
+        memory_manager.close()
+
+        lock.__enter__.assert_called_once_with()
+        lock.__exit__.assert_called_once()
+        assert memory_manager.connection is None
 
     def test_table_schema_creation(self, sqlite_manager):
         """Test that history table is created with correct schema."""
