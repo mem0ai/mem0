@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
+    process_telemetry_filters,
     remove_spaces_from_entities,
     sanitize_relationship_for_cypher,
 )
@@ -32,6 +33,17 @@ class TestParseMessages:
             {"role": "assistant", "content": "a"},
         ]
         assert parse_messages(messages) == "system: sys\nuser: u\nassistant: a\n"
+
+
+class TestProcessTelemetryFilters:
+    def test_none_returns_empty_tuple_parts(self):
+        assert process_telemetry_filters(None) == ([], {})
+
+    def test_filters_returns_keys_and_hashed_entity_ids(self):
+        keys, encoded_ids = process_telemetry_filters({"user_id": "user-1", "topic": "notes"})
+
+        assert keys == ["user_id", "topic"]
+        assert encoded_ids == {"user_id": "d6d7705392bc7af633328bea8c4c6904"}
 
 
 class TestParseVisionMessages:
