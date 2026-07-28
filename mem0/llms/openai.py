@@ -32,6 +32,7 @@ class OpenAILLM(LLMBase):
                 reasoning_effort=getattr(config, 'reasoning_effort', None),
                 http_client_proxies=config.http_client_proxies,
                 is_reasoning_model=getattr(config, 'is_reasoning_model', None),
+                extra_headers=getattr(config, "extra_headers", None),
             )
 
         super().__init__(config)
@@ -39,18 +40,27 @@ class OpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-5-mini"
 
+        extra_headers = dict(self.config.extra_headers or {})
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
-            self.client = OpenAI(
-                api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=self.config.openrouter_base_url
+            if self.config.site_url and self.config.app_name:
+                extra_headers.update({
+                    "HTTP-Referer": self.config.site_url,
+                    "X-Title": self.config.app_name,
+                })
+            client_kwargs = {
+                "api_key": os.environ.get("OPENROUTER_API_KEY"),
+                "base_url": self.config.openrouter_base_url
                 or os.getenv("OPENROUTER_API_BASE")
                 or "https://openrouter.ai/api/v1",
-            )
+            }
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+            client_kwargs = {"api_key": api_key, "base_url": base_url}
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+        if extra_headers:
+            client_kwargs["default_headers"] = extra_headers
+        self.client = OpenAI(**client_kwargs)
 
     def _parse_response(self, response, tools):
         """

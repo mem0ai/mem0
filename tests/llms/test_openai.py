@@ -42,6 +42,38 @@ def test_openai_llm_base_url():
     assert str(llm.client.base_url) == config_base_url + "/"
 
 
+def test_openai_llm_passes_custom_headers_to_chat_client():
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        OpenAILLM(
+            OpenAIConfig(
+                model="gpt-4.1-nano-2025-04-14",
+                api_key="api_key",
+                extra_headers={"Helicone-Auth": "Bearer token"},
+            )
+        )
+
+        assert mock_openai.call_args.kwargs["default_headers"] == {"Helicone-Auth": "Bearer token"}
+
+
+def test_openrouter_headers_merge_with_custom_headers(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "router-key")
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        OpenAILLM(
+            OpenAIConfig(
+                model="openai/gpt-4o",
+                site_url="https://example.com",
+                app_name="Mem0 test",
+                extra_headers={"Helicone-Auth": "Bearer token"},
+            )
+        )
+
+        assert mock_openai.call_args.kwargs["default_headers"] == {
+            "Helicone-Auth": "Bearer token",
+            "HTTP-Referer": "https://example.com",
+            "X-Title": "Mem0 test",
+        }
+
+
 def test_generate_response_without_tools(mock_openai_client):
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = OpenAILLM(config)

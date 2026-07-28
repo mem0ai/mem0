@@ -31,6 +31,7 @@ class OpenAIConfig(BaseLlmConfig):
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
         store: Optional[bool] = None,
+        extra_headers: Optional[dict] = None,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
@@ -87,6 +88,7 @@ class OpenAIConfig(BaseLlmConfig):
         self.site_url = site_url
         self.app_name = app_name
         self.store = store
+        self.extra_headers = extra_headers
 
         # Response monitoring
         self.response_callback = response_callback
