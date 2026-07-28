@@ -1885,14 +1885,23 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Paginate list() — most stores default top_k=100; a single call would
+        # silently leave undeleted memories past the first page (privacy risk).
+        page_size = 1000
+        deleted_count = 0
+        while True:
+            memories = self.vector_store.list(filters=filters, top_k=page_size)[0]
+            if not memories:
+                break
+            for memory in memories:
+                self._delete_memory(memory.id)
+            deleted_count += len(memories)
+            if len(memories) < page_size:
+                break
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3515,26 +3524,43 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
-
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        # Paginate list() — most stores default top_k=100; a single call would
+        # silently leave undeleted memories past the first page (privacy risk).
+        page_size = 1000
+        deleted_ids = []
+        while True:
+            page = await asyncio.to_thread(
+                self.vector_store.list, filters=filters, top_k=page_size
+            )
+            memories = page[0]
+            if not memories:
+                break
+            delete_tasks = [
+                self._delete_memory(memory.id, skip_entity_cleanup=True)
+                for memory in memories
+            ]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            errors = [r for r in results if isinstance(r, BaseException)]
+            if errors:
+                logger.warning(
+                    "Failed to delete %d out of %d memories in page",
+                    len(errors),
+                    len(results),
+                )
+                for err in errors:
+                    logger.warning("Delete error: %s", err)
+            deleted_ids.extend(
+                m.id for m, r in zip(memories, results) if not isinstance(r, BaseException)
+            )
+            if len(memories) < page_size:
+                break
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
-        if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
-            for err in errors:
-                logger.warning("Delete error: %s", err)
+        logger.info(f"Deleted {len(deleted_ids)} memories")
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
-
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(len(deleted_ids))
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:

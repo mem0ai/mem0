@@ -293,6 +293,23 @@ def test_delete_all(memory_instance):
     assert result["message"] == "Memories deleted successfully!"
 
 
+def test_delete_all_paginates_beyond_default_top_k(memory_instance):
+    """delete_all must page through list(); default top_k=100 must not cap deletes."""
+    page1 = [Mock(id=str(i)) for i in range(1000)]
+    page2 = [Mock(id=str(i)) for i in range(1000, 1050)]
+    memory_instance.vector_store.list = Mock(side_effect=[(page1, None), (page2, None)])
+    memory_instance.vector_store.reset = Mock()
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance.vector_store.list.call_count == 2
+    memory_instance.vector_store.list.assert_any_call(filters={"user_id": "test_user"}, top_k=1000)
+    assert memory_instance._delete_memory.call_count == 1050
+    memory_instance.vector_store.reset.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!"
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
@@ -431,7 +448,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "alice"}, top_k=1000
+        )
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -444,7 +463,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "42"}, top_k=1000
+        )
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""
