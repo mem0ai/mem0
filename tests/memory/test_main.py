@@ -418,6 +418,57 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     assert payload["updated_at"] is not None
 
 
+@pytest.mark.asyncio
+async def test_async_delete_all_paginates_beyond_single_list_page(mocker):
+    """Regression test for #6627 (async): delete_all must keep listing pages
+    until every matching memory is deleted, not just the first 100."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory._entity_store = None
+
+    all_ids = [str(i) for i in range(150)]
+    remaining = list(all_ids)
+
+    def fake_list(filters=None, **kwargs):
+        # Simulate a store that returns at most 100 results per list() call.
+        return ([SimpleNamespace(id=memory_id) for memory_id in remaining[:100]], None)
+
+    async def fake_delete(memory_id, *args, **kwargs):
+        remaining.remove(memory_id)
+
+    memory.vector_store.list = Mock(side_effect=fake_list)
+    delete_mock = mocker.patch.object(memory, "_delete_memory", side_effect=fake_delete)
+
+    result = await memory.delete_all(user_id="test_user")
+
+    assert delete_mock.call_count == 150
+    deleted_ids = {call.args[0] for call in delete_mock.call_args_list}
+    assert deleted_ids == set(all_ids)
+    assert remaining == []
+    assert result["message"] == "Memories deleted successfully!"
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_stops_if_store_makes_no_progress(mocker):
+    """If the store keeps returning the same page (deletes not taking effect),
+    async delete_all should stop instead of looping forever."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory._entity_store = None
+
+    stuck_page = [SimpleNamespace(id=str(i)) for i in range(3)]
+    memory.vector_store.list = Mock(return_value=(stuck_page, None))
+
+    async def fake_delete(memory_id, *args, **kwargs):
+        return None
+
+    delete_mock = mocker.patch.object(memory, "_delete_memory", side_effect=fake_delete)
+
+    result = await memory.delete_all(user_id="test_user")
+
+    # Each memory in the stuck page is deleted exactly once before bailing out.
+    assert delete_mock.call_count == 3
+    assert result["message"] == "Memories deleted successfully!"
+
+
 _ATTACKER_UPDATE_METADATA = {
     "user_id": "attacker_tenant",
     "agent_id": "attacker_agent",

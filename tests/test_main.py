@@ -293,6 +293,45 @@ def test_delete_all(memory_instance):
     assert result["message"] == "Memories deleted successfully!"
 
 
+def test_delete_all_paginates_beyond_single_list_page(memory_instance):
+    """Regression test for #6627: delete_all must not stop at the vector store's
+    default list() page size (100) and must delete every matching memory."""
+    all_memories = [Mock(id=str(i)) for i in range(150)]
+    remaining = list(all_memories)
+
+    def fake_list(filters=None, **kwargs):
+        # Simulate a store that returns at most 100 results per list() call.
+        return (remaining[:100], None)
+
+    def fake_delete(memory_id, *args, **kwargs):
+        remaining[:] = [memory for memory in remaining if memory.id != memory_id]
+
+    memory_instance.vector_store.list = Mock(side_effect=fake_list)
+    memory_instance._delete_memory = Mock(side_effect=fake_delete)
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == 150
+    deleted_ids = {call.args[0] for call in memory_instance._delete_memory.call_args_list}
+    assert deleted_ids == {memory.id for memory in all_memories}
+    assert remaining == []
+    assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_stops_if_store_makes_no_progress(memory_instance):
+    """If the store keeps returning the same page (deletes not taking effect),
+    delete_all should stop instead of looping forever."""
+    stuck_page = [Mock(id=str(i)) for i in range(3)]
+    memory_instance.vector_store.list = Mock(return_value=(stuck_page, None))
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    # Each memory in the stuck page is deleted exactly once before bailing out.
+    assert memory_instance._delete_memory.call_count == 3
+    assert result["message"] == "Memories deleted successfully!"
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
