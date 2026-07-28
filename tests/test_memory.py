@@ -1005,6 +1005,60 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
+def test_delete_all_enumerates_beyond_default_page(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Regression test for #6627.
+
+    delete_all() must request the full ID set from the vector store, not the
+    default first page (top_k=100 on most stores), or memories beyond the page
+    are silently left undeleted.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    mock_vector_store.list.return_value = [[]]
+
+    memory.delete_all(user_id="test-user")
+
+    _, kwargs = mock_vector_store.list.call_args
+    assert kwargs.get("top_k") == 10000
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_enumerates_beyond_default_page(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Async counterpart of the #6627 regression test."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mock_vector_store.list.return_value = ([],)
+
+    await memory.delete_all(user_id="test-user")
+
+    _, kwargs = mock_vector_store.list.call_args
+    assert kwargs.get("top_k") == 10000
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
 class TestProcessMetadataFiltersMerge:
     """Regression tests for issue #3952: multiple operators on the same key must be merged."""
 

@@ -1885,8 +1885,11 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
+        # delete all vector memories and reset the collections.
+        # `list()` defaults to top_k=100 on most vector stores, which would
+        # silently leave memories beyond the first page undeleted. Pass the
+        # same large cap used elsewhere for full enumeration (#6627).
+        memories = self.vector_store.list(filters=filters, top_k=10000)[0]
         for memory in memories:
             self._delete_memory(memory.id)
 
@@ -3515,7 +3518,10 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        # `list()` defaults to top_k=100 on most vector stores, which would
+        # silently leave memories beyond the first page undeleted. Pass the
+        # same large cap used elsewhere for full enumeration (#6627).
+        memories = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=10000)
 
         delete_tasks = []
         for memory in memories[0]:
