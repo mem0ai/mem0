@@ -38,6 +38,12 @@ setup_config()
 
 # Entity parameters that must be passed via filters, not top-level
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
+DEFAULT_HOST = "https://api.mem0.ai"
+
+
+def _resolve_host(host: Optional[str]) -> str:
+    """Resolve an explicit host, environment override, or public default."""
+    return host or os.getenv("MEM0_HOST") or os.getenv("MEM0_API_URL") or DEFAULT_HOST
 
 
 def _validate_and_trim_search_query(query: str) -> str:
@@ -104,8 +110,8 @@ class MemoryClient:
             api_key: The API key for authenticating with the Mem0 API. If not
                      provided, it will attempt to use the MEM0_API_KEY
                      environment variable.
-            host: The base URL for the Mem0 API. Defaults to
-                  "https://api.mem0.ai".
+            host: The base URL for the Mem0 API. When omitted, ``MEM0_HOST``
+                  then ``MEM0_API_URL`` are checked before the public default.
             client: A custom httpx.Client instance. If provided, it will be
                     used instead of creating a new one. Note that base_url and
                     headers will be set/overridden as needed.
@@ -114,7 +120,7 @@ class MemoryClient:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai"
+        self.host = _resolve_host(host)
         self.org_id = None
         self.project_id = None
         self.user_id = get_user_id()
@@ -993,8 +999,8 @@ class AsyncMemoryClient:
             api_key: The API key for authenticating with the Mem0 API. If not
                      provided, it will attempt to use the MEM0_API_KEY
                      environment variable.
-            host: The base URL for the Mem0 API. Defaults to
-                  "https://api.mem0.ai".
+            host: The base URL for the Mem0 API. When omitted, ``MEM0_HOST``
+                  then ``MEM0_API_URL`` are checked before the public default.
             client: A custom httpx.AsyncClient instance. If provided, it will
                     be used instead of creating a new one. Note that base_url
                     and headers will be set/overridden as needed.
@@ -1003,7 +1009,7 @@ class AsyncMemoryClient:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai"
+        self.host = _resolve_host(host)
         self.org_id = None
         self.project_id = None
         self.user_id = get_user_id()
