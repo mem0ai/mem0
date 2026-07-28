@@ -1885,14 +1885,30 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Delete all matching vector memories. `vector_store.list` is paginated (most
+        # stores default to a 100-item page), so keep listing and deleting until no
+        # matching memories remain instead of trusting a single page.
+        deleted_count = 0
+        previous_page_ids: set = set()
+        while True:
+            memories = self.vector_store.list(filters=filters)[0]
+            if not memories:
+                break
+            page_ids = {memory.id for memory in memories}
+            if page_ids == previous_page_ids:
+                logger.warning(
+                    "delete_all made no progress on %d remaining memories; stopping to avoid an infinite loop",
+                    len(page_ids),
+                )
+                break
+            previous_page_ids = page_ids
+            for memory in memories:
+                self._delete_memory(memory.id)
+            deleted_count += len(memories)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3515,26 +3531,40 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
-
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        # Delete all matching vector memories. `vector_store.list` is paginated (most
+        # stores default to a 100-item page), so keep listing and deleting until no
+        # matching memories remain instead of trusting a single page.
+        attempted_count = 0
+        errors = []
+        previous_page_ids = set()
+        while True:
+            memories = (await asyncio.to_thread(self.vector_store.list, filters=filters))[0]
+            if not memories:
+                break
+            page_ids = {memory.id for memory in memories}
+            if page_ids == previous_page_ids:
+                logger.warning(
+                    "delete_all made no progress on %d remaining memories; stopping to avoid an infinite loop",
+                    len(page_ids),
+                )
+                break
+            previous_page_ids = page_ids
+            delete_tasks = [self._delete_memory(memory.id, skip_entity_cleanup=True) for memory in memories]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            attempted_count += len(results)
+            errors.extend(r for r in results if isinstance(r, BaseException))
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            logger.warning("Failed to delete %d out of %d memories", len(errors), attempted_count)
             for err in errors:
                 logger.warning("Delete error: %s", err)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info(f"Deleted {attempted_count - len(errors)} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(attempted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
