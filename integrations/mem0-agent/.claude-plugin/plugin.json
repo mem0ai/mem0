@@ -1,0 +1,21 @@
+{
+  "name": "mem0-agent",
+  "version": "0.1.0",
+  "description": "Coding-agent memory that remembers your preferences, decisions and hard-won gotchas across sessions, machines and editors",
+  "author": {
+    "name": "Mem0",
+    "url": "https://mem0.ai"
+  },
+  "homepage": "https://docs.mem0.ai",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "mem0", "context", "personalization"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "description": "Mem0 API key from https://app.mem0.ai. Stored in your OS keychain, never written to a file.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

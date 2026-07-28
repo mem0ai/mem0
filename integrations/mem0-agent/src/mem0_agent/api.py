@@ -171,4 +171,5 @@ def results_of(body: Any) -> list[dict]:
 
 def expiry_date(days: int, now: float | None = None) -> str:
     """YYYY-MM-DD in UTC, the only format the platform accepts."""
-    return time.strftime("%Y-%m-%d", time.gmtime((now or time.time()) + days * 86400))
+    base = time.time() if now is None else now
+    return time.strftime("%Y-%m-%d", time.gmtime(base + days * 86400))

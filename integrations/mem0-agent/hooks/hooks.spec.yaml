@@ -1,0 +1,135 @@
+# mem0-agent hook wiring -- the single source of truth.
+#
+# v1 hand-maintained four editor dialects (Claude Code, Cursor, Codex, Antigravity).
+# They drifted: an event existed in one file and not another, timeouts disagreed, and
+# a hook was silently non-functional in two editors for months. Nothing here is edited
+# per editor. Run `python3 hooks/generate.py` to emit the manifests into hooks/generated/,
+# and `python3 hooks/generate.py --check` in CI to fail the build when they drift.
+#
+# Field reference for `hooks:` entries
+#   event          editor lifecycle event the hook binds to
+#   matcher        regex the editor matches against the event subject (null = all)
+#   command        shell command; {placeholders} are filled per editor
+#   timeout        seconds the editor waits before killing the hook
+#   background     true = detach and return immediately; output is discarded
+#   blocking       true = the editor waits for stdout and may inject it into the session
+#   local_only     true = the hook MUST NOT touch the network (enforced via MEM0_LOCAL_ONLY=1)
+#   status_message spinner text while a blocking hook runs (omit for silent hooks)
+#   why            one line: why this hook exists at all
+
+version: 1
+policy: "v2"
+
+defaults:
+  timeout: 10
+  background: false
+  blocking: false
+  local_only: false
+
+editors:
+  - id: claude-code
+    supported: true
+    output: "generated/claude-code.hooks.json"
+    dialect: "claude-code"
+    env:
+      MEM0_EDITOR: "claude-code"
+    placeholders:
+      session_id: "$CLAUDE_SESSION_ID"
+    why: "Reference target. Nested schema: hooks -> Event -> [{matcher, hooks:[{type,command,timeout}]}]."
+
+  - id: cursor
+    supported: false
+    output: "generated/cursor.hooks.json"
+    dialect: "flat-camel"
+    env:
+      MEM0_EDITOR: "cursor"
+    placeholders:
+      session_id: "$CURSOR_SESSION_ID"
+    why: "Flat camelCase events (sessionStart) with no inner hooks array, and no SessionEnd/PreCompact equivalent. Declared so the gap is visible; unsupported until the dialect is verified end to end."
+
+  - id: codex
+    supported: false
+    output: "generated/codex.hooks.json"
+    dialect: "claude-code"
+    env:
+      MEM0_EDITOR: "codex"
+    placeholders:
+      session_id: "$CODEX_SESSION_ID"
+    why: "Same nested schema as Claude Code but hooks are installed into ~/.codex by a script rather than discovered from the package. Unsupported until that installer is rewritten for v2."
+
+  - id: antigravity
+    supported: false
+    output: "generated/antigravity.hooks.json"
+    dialect: "claude-code"
+    env:
+      MEM0_EDITOR: "antigravity"
+    placeholders:
+      session_id: "$ANTIGRAVITY_SESSION_ID"
+    why: "Ships no stable hook contract yet. Declared so it is never re-added as a hand-written fifth file."
+
+hooks:
+  - id: session-context
+    event: "SessionStart"
+    matcher: "startup|resume|compact"
+    command: "mem0-agent context --session-id {session_id}"
+    timeout: 10
+    background: false
+    blocking: true
+    local_only: false
+    status_message: "Loading mem0 context..."
+    why: "The one retrieval per session. Injects durable project knowledge plus the open-thread snapshot so the assistant starts where the last session ended."
+
+  - id: prompt-observe
+    event: "UserPromptSubmit"
+    matcher: null
+    command: "mem0-agent observe --source prompt"
+    timeout: 3
+    background: false
+    blocking: true
+    local_only: true
+    status_message: null
+    why: "Runs on the hot path of every keystroke-to-response, so it is local-only by contract: it scores the prompt for capture triggers and drains the pending assist buffer. v1 made a network search here and added latency to every single turn."
+
+  - id: bash-assist-error
+    event: "PostToolUse"
+    matcher: "Bash"
+    command: "mem0-agent assist-error"
+    timeout: 5
+    background: true
+    blocking: false
+    local_only: false
+    status_message: null
+    why: "A failing command is the highest-value retrieval moment. Detached so a lookup never stalls the tool loop; any hit is written to the session buffer and surfaced by the next UserPromptSubmit."
+
+  - id: stop-flush
+    event: "Stop"
+    matcher: null
+    command: "mem0-agent flush"
+    timeout: 5
+    background: true
+    blocking: false
+    local_only: false
+    status_message: null
+    why: "Turn boundary is the only place a candidate can be judged against how the turn actually ended. Batched so one turn costs at most one write."
+
+  - id: precompact-flush
+    event: "PreCompact"
+    matcher: null
+    command: "mem0-agent flush --reason precompact"
+    timeout: 5
+    background: true
+    blocking: false
+    local_only: false
+    status_message: null
+    why: "Compaction is where context dies. Flush the candidate buffer before it is summarized away."
+
+  - id: sessionend-flush
+    event: "SessionEnd"
+    matcher: null
+    command: "mem0-agent flush --reason end"
+    timeout: 5
+    background: true
+    blocking: false
+    local_only: false
+    status_message: null
+    why: "Last chance to persist the open-thread snapshot. Backgrounded so quitting the editor is never delayed by a network write."
