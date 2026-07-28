@@ -353,9 +353,11 @@ def test_decision_is_gated_to_balanced_and_up():
     assert classify(DECISION_WINDOW, "aggressive").mtype == "decision"
 
 
-def test_runbook_is_gated_to_aggressive_only():
+def test_verified_runbook_is_captured_from_balanced_up():
+    """A procedure the user says they verified is durable knowledge, not a stretch goal.
+    `aggressive` is for completed goals and procedures the assistant merely proposes."""
     assert classify(RUNBOOK_WINDOW, "conservative").action == "skip"
-    assert classify(RUNBOOK_WINDOW, "balanced").action == "skip"
+    assert classify(RUNBOOK_WINDOW, "balanced").mtype == "runbook"
     assert classify(RUNBOOK_WINDOW, "aggressive").mtype == "runbook"
 
 

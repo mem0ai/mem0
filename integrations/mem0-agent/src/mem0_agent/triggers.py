@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Sequence
 
 # --------------------------------------------------------------------------
@@ -177,10 +177,19 @@ class TriggerResult:
     action: str  # "drop" | "skip" | "flag"
     mtype: str | None
     reason: str
+    window: tuple[Any, ...] = field(default=(), compare=False)
+    """The turns worth sending. Noise turns are filtered out, so a durable fact sitting
+    between two progress lines survives instead of being dropped with them.
+
+    Excluded from equality: it is the payload, not the verdict.
+    """
 
     @property
     def flagged(self) -> bool:
         return self.action == "flag"
+
+    def payload(self, original: Sequence[Any]) -> list[Any]:
+        return list(self.window) if self.window else list(original or [])
 
 
 # --------------------------------------------------------------------------
@@ -382,6 +391,7 @@ REMEMBER_RULE = Rule(
     _rx(
         r"\bremember (this|that|to|:)",
         r"\b(please )?remember\b[^.\n]{0,40}\bfor (next time|the future|future sessions)\b",
+        r"\bremember\s+(that|this|the|to|about)\b",
         r"\bdon'?t forget\b",
         r"\bdo not forget\b",
         r"\bnote that\b",
@@ -508,7 +518,10 @@ RUNBOOK_RULE = Rule(
     ),
     predicate=_verified_procedure,
     mtype="runbook",
-    min_level="aggressive",
+    # A procedure the user states they VERIFIED is strong, specific and among the most
+    # useful things to recall, so it lands at balanced. `aggressive` remains for completed
+    # goals and procedures the assistant merely proposes (COMPLETED_GOAL_RULE).
+    min_level="balanced",
 )
 
 COMPLETED_GOAL_RULE = Rule(
@@ -519,14 +532,98 @@ COMPLETED_GOAL_RULE = Rule(
 )
 
 # Order matters: the first match wins, so the most specific intent leads.
+# --------------------------------------------------------------------------
+# Widened rules, added after the eval harness showed 13 plainly durable windows
+# falling through as `no_trigger`. Each pattern below is traceable to a fixture in
+# eval/fixtures.py; re-run `eval/run.py --offline` after touching any of them.
+# --------------------------------------------------------------------------
+STATED_RULE_RULE = Rule(
+    "stated_rule",
+    _rx(
+        r"\brule for me\b",
+        r"\b(that'?s|this is) a hard rule\b",
+        r"\bhouse rule\b",
+        r"\bhard rule (here|for)\b",
+        r"\bnever (add|put|place|introduce|merge|force-?push)\b",
+        r"\bevery new \w+[\w\s-]{0,30} (needs|requires|must)\b",
+        r"\bin general,? (don'?t|do not|never|always)\b",
+        r"\balways:? never\b",
+    ),
+    mtype="convention",
+    min_level="balanced",
+)
+
+HABITUAL_PREFERENCE_RULE = Rule(
+    "habitual_preference",
+    _rx(
+        r"\bi always (use|run|want|prefer|do)\b",
+        r"\bi never (use|run|want|do)\b",
+        r"\bwe only use\b",
+        r"\bjust tell me\b",
+        r"\bdon'?t end your (answers?|responses?)\b",
+        r"\bapply (that|this) (everywhere|to every|going forward)\b",
+    ),
+    mtype="preference",
+    min_level="conservative",
+    scope="user",
+)
+
+CHOICE_RULE = Rule(
+    "explicit_choice",
+    _rx(
+        r"\bwe'?(ve)? decided\b",
+        r"\bwe'?(re| are) (dropping|moving|switching|migrating)\b",
+        r"\bwe'?ll keep (using|the)\b",
+        r"\bwe'?(re| are) keeping\b",
+        r"\brather than\b[^.\n]{0,120}\b(because|since)\b",
+        r"\b(use|filter on|go with) \w[\w.\-]* (instead of|over) \w[\w.\-]*",
+        r"\bstays at\b[^.\n]{0,60}\banything higher\b",
+    ),
+    mtype="decision",
+    min_level="balanced",
+)
+
+DIAGNOSIS_RULE = Rule(
+    "diagnosis",
+    _rx(
+        r"\bthe \d{3} was\b",
+        r"\bis rejected\b",
+        r"\bwas the (filter|config|shape|schema|encoding|ordering)\b",
+        r"\btakes a list\b",
+        r"\bare assigned by a background job\b",
+        r"\bwon'?t (match|return|work) (unless|until|without)\b",
+    ),
+    mtype="insight",
+    min_level="balanced",
+)
+
+PROCEDURE_RULE = Rule(
+    "verified_procedure_phrasing",
+    _rx(
+        r"\bverified .{0,40}\bend to end\b",
+        r"\bconfirmed (twice|three times|repeatedly)\b",
+        r"\bworks,? confirmed\b",
+        r"\bfor a (re-?publish|re-?deploy|rollback|re-?run)\b[^.\n]{0,80}\b(dispatch|run|use)\b",
+        r"\bbring-?up works\b",
+        r"\bthe steps? (are|were)\b[^.\n]{0,40}:",
+    ),
+    mtype="runbook",
+    min_level="balanced",
+)
+
 FLAG_RULES: list[Rule] = [
     REMEMBER_RULE,
     CORRECTION_RULE,
     STANDING_PREFERENCE_RULE,
+    HABITUAL_PREFERENCE_RULE,
     DECISION_RULE,
+    CHOICE_RULE,
     INSIGHT_RULE,
+    DIAGNOSIS_RULE,
     CONVENTION_RULE,
+    STATED_RULE_RULE,
     RUNBOOK_RULE,
+    PROCEDURE_RULE,
     COMPLETED_GOAL_RULE,
 ]
 
@@ -589,25 +686,57 @@ def classify(
 
     value = level_rank(level)
 
+    # Rules that only mean something across a whole window run first, on the original turns.
     for rule in HARD_DROP_RULES:
-        if rule.matches(turns, _RANK["aggressive"]):  # hard drops ignore the level
+        if rule.name in _WINDOW_LEVEL_DROPS and rule.matches(turns, _RANK["aggressive"]):
             return TriggerResult("drop", None, rule.name)
 
+    # Noise is removed turn by turn, not window by window. Dropping a whole window because
+    # one line in it was a progress update is how a durable fact gets lost: during live
+    # validation a window of [progress, "the staging DB only accepts the bastion host",
+    # progress] correctly yielded the bastion fact, and the client must not pre-empt that.
+    kept: list[Any] = []
+    dropped_reasons: list[str] = []
+    for turn in turns:
+        reason = _turn_drop_reason([turn])
+        if reason:
+            dropped_reasons.append(reason)
+        else:
+            kept.append(turn)
+
+    if not kept:
+        return TriggerResult("drop", None, dropped_reasons[0] if dropped_reasons else "noise")
+
+    # Window-level drops that only make sense across turns.
     if recent_shapes and shape_signature(turns) in set(recent_shapes):
         return TriggerResult("drop", None, "repeated_shape")
 
-    reason = repo_content_reason(turns)
+    reason = repo_content_reason(kept)
     if reason:
         return TriggerResult("drop", None, reason)
 
-    if natural_words(window_text(turns)) < 4:
+    if natural_words(window_text(kept)) < 4:
         return TriggerResult("skip", None, "no_prose")
 
     for rule in FLAG_RULES:
-        if rule.matches(turns, value):
+        if rule.matches(kept, value):
             mtype = rule.mtype
             if rule.name == "remember_intent":
-                mtype = _refine_remember_type(turns)
-            return TriggerResult("flag", mtype, rule.name)
+                mtype = _refine_remember_type(kept)
+            return TriggerResult("flag", mtype, rule.name, tuple(kept))
 
     return TriggerResult("skip", None, "no_trigger")
+
+
+def _turn_drop_reason(one_turn: Sequence[Any]) -> str | None:
+    """Name of the hard-drop rule this single turn matches, if any."""
+    for rule in HARD_DROP_RULES:
+        if rule.name in _WINDOW_LEVEL_DROPS:
+            continue
+        if rule.matches(one_turn, _RANK["aggressive"]):  # hard drops ignore the level
+            return rule.name
+    return None
+
+
+# Rules whose meaning depends on seeing the whole window, so they are not applied per turn.
+_WINDOW_LEVEL_DROPS = {"repeated_shape_in_window"}

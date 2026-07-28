@@ -186,6 +186,9 @@ notebooks/*.yaml
 
 # local directories for testing
 eval/
+# ...but the plugin's evaluation harness is source, not local scratch
+!integrations/mem0-agent/eval/
+integrations/mem0-agent/eval/last_report.json
 qdrant_storage/
 .crossnote
 testing.ipynb

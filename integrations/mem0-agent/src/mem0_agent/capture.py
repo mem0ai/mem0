@@ -108,7 +108,9 @@ def observe(ctx, window: list[dict], level: str | None = None) -> TriggerResult:
     try:
         buf.note_shape(window)
         if result.action == "flag" and result.mtype:
-            buf.append(window, result.mtype, result.reason)
+            # Buffer the FILTERED window: classify strips noise turns, so a durable fact
+            # that sat between two progress lines is sent without them.
+            buf.append(result.payload(window), result.mtype, result.reason)
         ctx.log("capture_observe", action=result.action, mtype=result.mtype, reason=result.reason)
     except Exception:
         pass
