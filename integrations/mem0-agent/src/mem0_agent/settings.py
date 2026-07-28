@@ -231,7 +231,7 @@ class SessionState:
 
     def read_lines(self, name: str) -> list[dict]:
         try:
-            return [json.loads(l) for l in self._p(name).read_text().splitlines() if l.strip()]
+            return [json.loads(line) for line in self._p(name).read_text().splitlines() if line.strip()]
         except Exception:
             return []
 

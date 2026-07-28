@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, Iterable
+from typing import Iterable
 
 from .api import expiry_date, results_of
 from .config import filters as F

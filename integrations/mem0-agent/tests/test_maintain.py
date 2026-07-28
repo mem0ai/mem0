@@ -1,6 +1,5 @@
 """Consolidation must never lose data, and must never touch a pinned memory."""
 
-import pytest
 
 from mem0_agent import maintain
 from mem0_agent.maintain import jaccard, tokens

@@ -24,12 +24,32 @@ from .settings import CAPTURE_LEVELS, MEMORY_MODES, RETRIEVAL_LEVELS, Settings
 # --------------------------------------------------------------------------
 # hook plumbing
 # --------------------------------------------------------------------------
-def hook_input() -> dict:
-    """Editors hand hooks a JSON payload on stdin. Absent or malformed is fine."""
-    if sys.stdin is None or sys.stdin.isatty():
+def hook_input(timeout: float = 0.25) -> dict:
+    """Editors hand hooks a JSON payload on stdin. Absent or malformed is fine.
+
+    Never blocks. A hook's stdin is written and closed, but a manual invocation inherits
+    an open pipe with nothing in it -- reading that would hang the command forever.
+    """
+    stream = sys.stdin
+    if stream is None or not hasattr(stream, "read"):
         return {}
     try:
-        raw = sys.stdin.read()
+        if stream.isatty():
+            return {}
+    except Exception:
+        return {}
+
+    # StringIO and friends (tests) are readable immediately; real pipes get a poll.
+    if hasattr(stream, "fileno"):
+        try:
+            import select
+
+            if not select.select([stream], [], [], timeout)[0]:
+                return {}
+        except Exception:
+            pass  # not selectable (e.g. StringIO) -- fall through and read
+    try:
+        raw = stream.read()
         return json.loads(raw) if raw.strip() else {}
     except Exception:
         return {}

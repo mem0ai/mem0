@@ -313,3 +313,26 @@ def test_full_session_produces_few_memories(tmp_path):
     assert summary["sent"] >= 1
     for added in ctx.api.added:
         assert "epoch" not in added["messages"][0]["content"].lower()
+
+
+# --------------------------------------------------------------------------
+# session_state quality
+# --------------------------------------------------------------------------
+def test_open_thread_excludes_mechanical_noise():
+    """v1's session summaries were file lists. The snapshot must carry intent instead."""
+    turns = [
+        {"role": "assistant", "content": HEARTBEAT, "tool_only": False},
+        {"role": "user", "content": "Let's get the sandbox e2e suite passing today.", "tool_only": False},
+        {"role": "user", "content": "ok", "tool_only": False},
+        {"role": "assistant", "content": FILE_LIST, "tool_only": False},
+    ]
+    thread = transcript.summarize_open_thread(turns)
+    assert "sandbox e2e" in thread
+    assert "VERSION" not in thread and "chat.py" not in thread
+    assert "epoch" not in thread.lower()
+
+
+def test_open_thread_is_empty_when_there_is_only_noise():
+    turns = [{"role": "assistant", "content": HEARTBEAT, "tool_only": False},
+             {"role": "assistant", "content": FILE_LIST, "tool_only": False}]
+    assert transcript.summarize_open_thread(turns) == ""

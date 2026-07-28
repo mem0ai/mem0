@@ -86,10 +86,35 @@ def windows_since(turns: list[dict], processed: int, size: int = 4) -> list[list
     return [fresh[i:i + size] for i in range(0, len(fresh), size) if fresh[i:i + size]]
 
 
+MIN_THREAD_WORDS = 4
+
+
+def _signal_turns(turns: list[dict]) -> list[dict]:
+    """Drop the same mechanical noise the capture gate drops.
+
+    Without this the open-thread snapshot fills up with progress lines and
+    "I modified VERSION, cli.py, ..." -- the exact content the audit found made v1's
+    session summaries worthless.
+    """
+    from .triggers import _turn_drop_reason, natural_words
+
+    kept = []
+    for t in turns:
+        if t.get("tool_only") or not t.get("content"):
+            continue
+        if _turn_drop_reason([t]):
+            continue
+        if natural_words(t["content"]) < MIN_THREAD_WORDS:
+            continue  # "ok", "good catch" -- acknowledgements, not state
+        kept.append(t)
+    return kept
+
+
 def summarize_open_thread(turns: list[dict], limit: int = 3) -> str:
     """A plain-language snapshot for session_state: what we were doing, where it stopped."""
-    users = [t["content"] for t in turns if t["role"] == "user" and t["content"]]
-    assistants = [t["content"] for t in turns if t["role"] == "assistant" and t["content"]]
+    signal = _signal_turns(turns)
+    users = [t["content"] for t in signal if t["role"] == "user"]
+    assistants = [t["content"] for t in signal if t["role"] == "assistant"]
     if not users and not assistants:
         return ""
     goal = users[0][:300] if users else ""
