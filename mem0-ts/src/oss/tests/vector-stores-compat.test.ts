@@ -5257,6 +5257,47 @@ describe("Memory class – backward compat with all providers", () => {
     expect(entityStore.initialize).toHaveBeenCalled();
   });
 
+  it("separates entity DB paths for every file extension", async () => {
+    const cases = [
+      ["/tmp/mem0-path.db", "/tmp/mem0-path_entities.db"],
+      ["/tmp/mem0-path.sqlite", "/tmp/mem0-path_entities.sqlite"],
+      ["/tmp/mem0-path.sqlite3", "/tmp/mem0-path_entities.sqlite3"],
+      ["/tmp/mem0-path", "/tmp/mem0-path_entities"],
+      [":memory:", ":memory:"],
+    ];
+
+    for (const [dbPath, expectedEntityPath] of cases) {
+      const primaryStore = createMockVectorStore();
+      const entityStore = createMockVectorStore();
+      mockVectorStoreFactory.create
+        .mockReset()
+        .mockReturnValueOnce(primaryStore)
+        .mockReturnValueOnce(entityStore);
+
+      const mem = new MemoryClass({
+        embedder: { provider: "openai", config: { apiKey: "k" } },
+        vectorStore: {
+          provider: "memory",
+          config: { collectionName: "memories", dbPath, dimension: 1536 },
+        },
+        llm: { provider: "openai", config: { apiKey: "k" } },
+        disableHistory: true,
+      });
+
+      await mem.getAll({ filters: { user_id: "u1" } });
+      await (mem as any).getEntityStore();
+
+      expect(mockVectorStoreFactory.create).toHaveBeenNthCalledWith(
+        2,
+        "memory",
+        expect.objectContaining({
+          collectionName: "memories_entities",
+          dbPath: expectedEntityPath,
+        }),
+      );
+    }
+  });
+
   it("propagates init error to public methods", async () => {
     const failingEmbedder = {
       embed: jest.fn().mockRejectedValue(new Error("Embedder unreachable")),

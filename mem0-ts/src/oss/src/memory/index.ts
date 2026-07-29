@@ -301,7 +301,12 @@ export class Memory {
       // For file-based stores (memory/SQLite), always use a separate DB for entities
       if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
-        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
+        if (basePath !== ":memory:") {
+          const extension = basePath.match(/(\.[^./\\]+)$/)?.[1];
+          entityConfig.dbPath = extension
+            ? `${basePath.slice(0, -extension.length)}_entities${extension}`
+            : `${basePath}_entities`;
+        }
       }
       if (entityProvider === "databricks") {
         entityConfig.tableName = entityConfig.tableName
