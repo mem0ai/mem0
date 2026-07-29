@@ -748,6 +748,13 @@ export class Memory {
     if (agentId) filters.agent_id = metadata.agent_id = agentId;
     if (runId) filters.run_id = metadata.run_id = runId;
 
+    // Persist scopes supplied through filters as well as top-level options.
+    // The non-inference path stores metadata directly, so omitting these
+    // fields would make the resulting memory impossible to retrieve by scope.
+    for (const scope of ["user_id", "agent_id", "run_id"] as const) {
+      if (filters[scope]) metadata[scope] = filters[scope];
+    }
+
     // Normalize expiration date into the stored metadata (round-trips via get()).
     if (config.expirationDate != null) {
       metadata.expiration_date = normalizeExpirationDate(config.expirationDate);

@@ -191,4 +191,20 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("with infer=false persists scopes supplied through filters", async () => {
+    const scopedUser = `filter_scope_${Date.now()}`;
+
+    await memory.add("Scoped direct storage content", {
+      filters: { user_id: scopedUser },
+      infer: false,
+    });
+
+    const stored = await memory.getAll({ filters: { user_id: scopedUser } });
+    expect(stored.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ memory: "Scoped direct storage content" }),
+      ]),
+    );
+  });
 });
