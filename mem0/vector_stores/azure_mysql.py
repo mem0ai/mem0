@@ -298,7 +298,7 @@ class AzureMySQL(VectorStoreBase):
                     logger.warning("Skipping invalid filter key: %r", k)
                     continue
                 filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
-                filter_params.extend([f"$.{k}", json.dumps(v)])
+                filter_params.extend([f"$.{k}", v])
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
@@ -357,7 +357,7 @@ class AzureMySQL(VectorStoreBase):
                         logger.warning("Skipping invalid filter key: %r", k)
                         continue
                     filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
-                    filter_params.extend([f"$.{k}", json.dumps(v)])
+                    filter_params.extend([f"$.{k}", v])
 
             filter_clause = ""
             if filter_conditions:
@@ -516,7 +516,7 @@ class AzureMySQL(VectorStoreBase):
                     logger.warning("Skipping invalid filter key: %r", k)
                     continue
                 filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
-                filter_params.extend([f"$.{k}", json.dumps(v)])
+                filter_params.extend([f"$.{k}", v])
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 

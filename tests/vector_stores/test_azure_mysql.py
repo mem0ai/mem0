@@ -330,3 +330,24 @@ class TestAzureMySQLFilterKeySanitization:
         azure_mysql_instance.list(filters=self._FILTERS)
         blob = self._executed_blob(azure_mysql_instance)
         assert "$.user_id" in blob and "OR '1'='1" not in blob
+
+
+@pytest.mark.parametrize(
+    "method,kwargs",
+    [
+        ("search", {"query": "q", "vectors": [0.1, 0.2, 0.3]}),
+        ("keyword_search", {"query": "q"}),
+        ("list", {}),
+    ],
+)
+def test_string_filters_bind_native_scalars(azure_mysql_instance, method, kwargs):
+    getattr(azure_mysql_instance, method)(filters={"user_id": "u1"}, **kwargs)
+
+    cursor = azure_mysql_instance.connection_pool.connection().cursor()
+    filter_call = next(
+        call
+        for call in cursor.execute.call_args_list
+        if len(call.args) > 1 and "$.user_id" in call.args[1]
+    )
+    assert "u1" in filter_call.args[1]
+    assert '"u1"' not in filter_call.args[1]
