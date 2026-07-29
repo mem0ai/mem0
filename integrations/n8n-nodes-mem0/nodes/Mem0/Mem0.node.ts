@@ -164,12 +164,6 @@ export class Mem0 implements INodeType {
 						default: '',
 					},
 					{
-						displayName: 'App ID',
-						name: 'app_id',
-						type: 'string',
-						default: '',
-					},
-					{
 						displayName: 'Custom Categories',
 						name: 'custom_categories',
 						type: 'json',
@@ -185,20 +179,6 @@ export class Mem0 implements INodeType {
 						default: '',
 						description:
 							'Optional instructions that steer what the extractor keeps or ignores',
-					},
-					{
-						displayName: 'Excludes',
-						name: 'excludes',
-						type: 'string',
-						default: '',
-						description: 'Optional: skip memories matching this description',
-					},
-					{
-						displayName: 'Includes',
-						name: 'includes',
-						type: 'string',
-						default: '',
-						description: 'Optional: only extract memories matching this description',
 					},
 					{
 						displayName: 'Infer',
@@ -366,7 +346,6 @@ export class Mem0 implements INodeType {
 					const userId = this.getNodeParameter('userId', i, '') as string;
 					if (userId) body.user_id = userId;
 					if (addFields.agent_id) body.agent_id = addFields.agent_id;
-					if (addFields.app_id) body.app_id = addFields.app_id;
 					if (addFields.run_id) body.run_id = addFields.run_id;
 					if (addFields.metadata) {
 						try {
@@ -400,14 +379,11 @@ export class Mem0 implements INodeType {
 						}
 					}
 
-					if (addFields.includes) body.includes = addFields.includes;
-					if (addFields.excludes) body.excludes = addFields.excludes;
-
 					// API requires at least one entity id — fail clearly instead of a raw 4xx.
-					if (!body.user_id && !body.agent_id && !body.run_id && !body.app_id) {
+					if (!body.user_id && !body.agent_id && !body.run_id) {
 						throw new NodeOperationError(
 							this.getNode(),
-							'Add requires at least one of User ID, Agent ID, Run ID, or App ID',
+							'Add requires at least one of User ID, Agent ID, or Run ID',
 							{ itemIndex: i },
 						);
 					}

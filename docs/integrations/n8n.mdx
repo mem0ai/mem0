@@ -40,7 +40,16 @@ Create a **Mem0 API** credential in n8n:
 
 ### Add
 
-Extracts and stores memories from one or more messages. Provide at least one entity id (**User ID**, **Agent ID**, **Run ID**, or **App ID** in Additional Fields); the node validates this before calling the API. Additional Fields also expose **Metadata (JSON)** and **Infer** (run LLM extraction, or store verbatim).
+Extracts and stores memories from one or more messages. Provide at least one entity id (**User ID**, or **Agent ID** / **Run ID** in Additional Fields); the node validates this before calling the API.
+
+Additional Fields also expose:
+
+| Field | Purpose |
+| --- | --- |
+| **Metadata (JSON)** | Arbitrary JSON attached to each extracted memory |
+| **Infer** | On by default. Turn off to store messages verbatim instead of running LLM extraction |
+| **Custom Instructions** | Free-text guidance steering what the extractor keeps or ignores, for this call |
+| **Custom Categories** | JSON array of `{category: description}` objects, replacing the project-level catalog for this call |
 
 Extraction is asynchronous. **Wait for Completion** (on by default) polls the event until it finishes and returns the resulting memories; turn it off to return immediately with the event ID.
 
@@ -50,7 +59,7 @@ Semantic search over stored memories. Provide a **Query**, a **User ID** (requir
 
 ### Get Many
 
-Lists memories for a **User ID** with **Page** and **Page Size** controls.
+Lists memories for a **User ID**. Turn on **Return All** to page through every memory automatically; leave it off to fetch a single **Page**. **Page Size** applies either way.
 
 ### Get / Update / Delete
 

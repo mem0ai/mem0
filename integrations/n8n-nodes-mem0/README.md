@@ -20,14 +20,21 @@ The **Memory** resource supports:
 | --- | --- | --- |
 | **Add** | Extract and store memories from messages | `POST /v3/memories/add/` |
 | **Search** | Semantic search over stored memories | `POST /v3/memories/search/` |
-| **Get Many** | List memories for a user (paginated) | `POST /v3/memories/` |
+| **Get Many** | List memories for a user (single page, or **Return All**) | `POST /v3/memories/` |
 | **Get** | Retrieve a single memory by ID | `GET /v1/memories/{id}/` |
 | **Update** | Update a memory's text or metadata | `PUT /v1/memories/{id}/` |
 | **Delete** | Delete a single memory by ID | `DELETE /v1/memories/{id}/` |
 
 ### Add & asynchronous extraction
 
-By default, **Add** runs LLM-based extraction asynchronously — the API returns an event ID and the node polls until extraction finishes, then returns the resulting memories. Disable **Wait for Completion** to return immediately with the event ID, or set **Infer = false** (under Additional Fields) to store messages verbatim and return synchronously.
+By default, **Add** runs LLM-based extraction asynchronously: the API returns an event ID and the node polls until extraction finishes, then returns the resulting memories.
+
+Two independent controls:
+
+- **Wait for Completion** (on by default) decides whether the node polls. Turn it off to return immediately with the event ID.
+- **Infer** (on by default, under Additional Fields) decides whether the API runs LLM extraction at all. Turn it off to store the messages verbatim.
+
+**Custom Instructions** and **Custom Categories** (also under Additional Fields) steer what extraction keeps for that call.
 
 ## Credentials
 
