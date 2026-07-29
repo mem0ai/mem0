@@ -219,9 +219,25 @@ export class Mem0 implements INodeType {
 				name: 'userId',
 				type: 'string',
 				default: '',
-				required: true,
 				displayOptions: { show: { resource: ['memory'], operation: ['search'] } },
-				description: 'Restrict the search to this user (required — the API needs an entity filter)',
+				description:
+					'Restrict the search to this user. Supply at least one of User ID, Agent ID, or Run ID.',
+			},
+			{
+				displayName: 'Agent ID',
+				name: 'agentId',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['memory'], operation: ['search'] } },
+				description: 'Restrict the search to memories scoped to this agent',
+			},
+			{
+				displayName: 'Run ID',
+				name: 'runId',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['memory'], operation: ['search'] } },
+				description: 'Restrict the search to memories scoped to this session or run',
 			},
 			{
 				displayName: 'Limit',
@@ -239,9 +255,25 @@ export class Mem0 implements INodeType {
 				name: 'userId',
 				type: 'string',
 				default: '',
-				required: true,
 				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
-				description: 'Restrict the listing to this user (required — the API needs an entity filter)',
+				description:
+					'Restrict the listing to this user. Supply at least one of User ID, Agent ID, or Run ID.',
+			},
+			{
+				displayName: 'Agent ID',
+				name: 'agentId',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
+				description: 'Restrict the listing to memories scoped to this agent',
+			},
+			{
+				displayName: 'Run ID',
+				name: 'runId',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
+				description: 'Restrict the listing to memories scoped to this session or run',
 			},
 			{
 				displayName: 'Return All',
@@ -414,16 +446,27 @@ export class Mem0 implements INodeType {
 						output_format: 'v1.1',
 						top_k: this.getNodeParameter('limit', i, 50) as number,
 					};
-					const userId = this.getNodeParameter('userId', i, '') as string;
-					if (userId) body.filters = { user_id: userId };
+					body.filters = buildEntityFilters(
+						this.getNodeParameter('userId', i, '') as string,
+						this.getNodeParameter('agentId', i, '') as string,
+						this.getNodeParameter('runId', i, '') as string,
+						this,
+						i,
+					);
 					const resp = await request('POST', '/v3/memories/search/', body);
 					responseData = Array.isArray(resp.results) ? (resp.results as IDataObject[]) : [];
 				} else if (operation === 'getAll') {
-					const userId = this.getNodeParameter('userId', i, '') as string;
 					const returnAll = this.getNodeParameter('returnAll', i, false) as boolean;
 					const pageSize = this.getNodeParameter('pageSize', i, 50) as number;
-					const body: IDataObject = {};
-					if (userId) body.filters = { user_id: userId };
+					const body: IDataObject = {
+						filters: buildEntityFilters(
+							this.getNodeParameter('userId', i, '') as string,
+							this.getNodeParameter('agentId', i, '') as string,
+							this.getNodeParameter('runId', i, '') as string,
+							this,
+							i,
+						),
+					};
 					if (returnAll) {
 						// Page through until a short/empty page or no `next` (hard-capped for safety).
 						const all: IDataObject[] = [];
@@ -441,7 +484,7 @@ export class Mem0 implements INodeType {
 					}
 				} else if (operation === 'get') {
 					const memoryId = this.getNodeParameter('memoryId', i) as string;
-					responseData = await request('GET', `/v1/memories/${memoryId}/`);
+					responseData = await request('GET', `/v1/memories/${encodeURIComponent(memoryId)}/`);
 				} else if (operation === 'update') {
 					const memoryId = this.getNodeParameter('memoryId', i) as string;
 					const body: IDataObject = {};
@@ -462,10 +505,10 @@ export class Mem0 implements INodeType {
 							itemIndex: i,
 						});
 					}
-					responseData = await request('PUT', `/v1/memories/${memoryId}/`, body);
+					responseData = await request('PUT', `/v1/memories/${encodeURIComponent(memoryId)}/`, body);
 				} else if (operation === 'delete') {
 					const memoryId = this.getNodeParameter('memoryId', i) as string;
-					responseData = await request('DELETE', `/v1/memories/${memoryId}/`);
+					responseData = await request('DELETE', `/v1/memories/${encodeURIComponent(memoryId)}/`);
 				}
 
 				const arr = Array.isArray(responseData) ? responseData : [responseData];
@@ -485,6 +528,29 @@ export class Mem0 implements INodeType {
 	}
 }
 
+function buildEntityFilters(
+	userId: string,
+	agentId: string,
+	runId: string,
+	ctx: IExecuteFunctions,
+	itemIndex: number,
+): IDataObject {
+	const clauses: IDataObject[] = [];
+	if (userId) clauses.push({ user_id: userId });
+	if (agentId) clauses.push({ agent_id: agentId });
+	if (runId) clauses.push({ run_id: runId });
+
+	if (clauses.length === 0) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			'Provide at least one of User ID, Agent ID, or Run ID',
+			{ itemIndex },
+		);
+	}
+
+	return clauses.length === 1 ? clauses[0] : { OR: clauses };
+}
+
 // Polls GET /v1/event/{id}/ until the memory-addition event resolves.
 async function pollEvent(
 	request: (m: IHttpRequestMethods, u: string) => Promise<IDataObject>,
@@ -493,7 +559,7 @@ async function pollEvent(
 	itemIndex: number,
 ): Promise<IDataObject | IDataObject[]> {
 	for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-		const event = await request('GET', `/v1/event/${eventId}/`);
+		const event = await request('GET', `/v1/event/${encodeURIComponent(eventId)}/`);
 		const status = event.status as string;
 		if (status === 'SUCCEEDED') {
 			// Match the shape of search/getAll (a clean array); fall back to the envelope.

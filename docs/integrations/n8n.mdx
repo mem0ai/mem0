@@ -55,11 +55,23 @@ Extraction is asynchronous. **Wait for Completion** (on by default) polls the ev
 
 ### Search
 
-Semantic search over stored memories. Provide a **Query**, a **User ID** (required, the API needs an entity filter), and an optional **Limit**.
+Semantic search over stored memories. Provide a **Query**, at least one entity id, and an optional **Limit**.
 
 ### Get Many
 
-Lists memories for a **User ID**. Turn on **Return All** to page through every memory automatically; leave it off to fetch a single **Page**. **Page Size** applies either way.
+Lists stored memories for the entity ids you supply. Turn on **Return All** to page through every memory automatically; leave it off to fetch a single **Page**. **Page Size** applies either way.
+
+### Entity filters on Search and Get Many
+
+Both operations take **User ID**, **Agent ID**, and **Run ID**. At least one is required (the API rejects a query with no entity scope), and the node fails with a clear message before making the call if you leave all three empty.
+
+Supply several and they are combined with **OR**, so the result set is the union of the three scopes:
+
+```json
+{ "OR": [{ "user_id": "alice" }, { "agent_id": "support-bot" }] }
+```
+
+This is deliberate. Mem0 indexes each entity separately, so an `AND` across `user_id` and `agent_id` matches nothing even when a memory was written with both. To narrow rather than widen, run one operation per entity id.
 
 ### Get / Update / Delete
 

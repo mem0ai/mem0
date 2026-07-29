@@ -35,6 +35,29 @@ jobs:
       - name: Lint
         run: cd integrations/n8n-nodes-mem0 && pnpm run lint
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: integrations/n8n-nodes-mem0/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd integrations/n8n-nodes-mem0 && pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run tests
+        run: cd integrations/n8n-nodes-mem0 && pnpm test
+
   build:
     runs-on: ubuntu-latest
     steps:

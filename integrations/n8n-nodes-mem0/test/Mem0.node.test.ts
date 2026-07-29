@@ -94,6 +94,66 @@ describe('Mem0 node (offline)', () => {
 		expect(ctx.requests[0].qs.source).toBe('N8N');
 	});
 
+	it('sends a single entity id as a flat filter', async () => {
+		const ctx = makeCtx('search', { query: 'x', userId: 'u1' }, async () => ({ results: [] }));
+		await run(ctx);
+		expect(ctx.requests[0].body.filters).toEqual({ user_id: 'u1' });
+	});
+
+	it('combines entity ids with OR, never AND (entities are stored separately, so AND matches nothing)', async () => {
+		const ctx = makeCtx(
+			'search',
+			{ query: 'x', userId: 'u1', agentId: 'a1', runId: 'r1' },
+			async () => ({ results: [] }),
+		);
+		await run(ctx);
+		expect(ctx.requests[0].body.filters).toEqual({
+			OR: [{ user_id: 'u1' }, { agent_id: 'a1' }, { run_id: 'r1' }],
+		});
+	});
+
+	it('filters Get Many by agent id alone', async () => {
+		const ctx = makeCtx('getAll', { agentId: 'a1' }, async () => ({ results: [] }));
+		await run(ctx);
+		expect(ctx.requests[0].body.filters).toEqual({ agent_id: 'a1' });
+	});
+
+	it.each(['search', 'getAll'])('reports a clear error when %s has no entity id', async (op) => {
+		const ctx = makeCtx(op, { query: 'x' }, async () => ({ results: [] }), {
+			continueOnFail: true,
+		});
+		const out: any = await run(ctx);
+		expect(out[0][0].json.error).toMatch(/at least one of User ID/i);
+	});
+
+	it.each([
+		['get', 'GET'],
+		['delete', 'DELETE'],
+	])('escapes the memory id in the %s url', async (op, method) => {
+		const ctx = makeCtx(op, { memoryId: '../v1/entities' }, async () => ({}));
+		await run(ctx);
+		expect(ctx.requests[0].method).toBe(method);
+		expect(ctx.requests[0].url).toBe('https://api.mem0.ai/v1/memories/..%2Fv1%2Fentities/');
+	});
+
+	it('escapes the event id when polling', async () => {
+		const ctx = makeCtx(
+			'add',
+			{
+				'messages.message': [{ role: 'user', content: 'hi' }],
+				addFields: {},
+				userId: 'u1',
+				waitForCompletion: true,
+			},
+			async (options) => {
+				if (options.url.includes('/v3/memories/add/')) return { event_id: 'a b/c' };
+				return { status: 'SUCCEEDED', results: [] };
+			},
+		);
+		await run(ctx);
+		expect(ctx.requests[1].url).toBe('https://api.mem0.ai/v1/event/a%20b%2Fc/');
+	});
+
 	it('Return All pages through until a short page', async () => {
 		let call = 0;
 		const ctx = makeCtx('getAll', { userId: 'u1', returnAll: true, pageSize: 2 }, async () => {

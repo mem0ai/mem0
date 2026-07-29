@@ -20,7 +20,7 @@ The **Memory** resource supports:
 | --- | --- | --- |
 | **Add** | Extract and store memories from messages | `POST /v3/memories/add/` |
 | **Search** | Semantic search over stored memories | `POST /v3/memories/search/` |
-| **Get Many** | List memories for a user (single page, or **Return All**) | `POST /v3/memories/` |
+| **Get Many** | List stored memories (single page, or **Return All**) | `POST /v3/memories/` |
 | **Get** | Retrieve a single memory by ID | `GET /v1/memories/{id}/` |
 | **Update** | Update a memory's text or metadata | `PUT /v1/memories/{id}/` |
 | **Delete** | Delete a single memory by ID | `DELETE /v1/memories/{id}/` |
@@ -36,6 +36,12 @@ Two independent controls:
 
 **Custom Instructions** and **Custom Categories** (also under Additional Fields) steer what extraction keeps for that call.
 
+### Entity filters on Search & Get Many
+
+Both take **User ID**, **Agent ID**, and **Run ID**, and at least one is required — the API rejects a query with no entity scope, and the node fails with a clear message before calling it.
+
+Supplying several combines them with **OR**, giving the union of those scopes. Mem0 indexes each entity separately, so an `AND` across `user_id` and `agent_id` matches nothing even for a memory written with both. To narrow instead of widen, run one operation per entity id.
+
 ## Credentials
 
 You need a Mem0 API key. Create one at [app.mem0.ai](https://app.mem0.ai) → Settings → API Keys. The key is sent as `Authorization: Token <key>`.
@@ -46,7 +52,7 @@ This node is also **usable as a tool** by n8n's AI Agent node — attach it so a
 
 A typical loop:
 
-1. **Search** memory before answering, filtered by `User ID`.
+1. **Search** memory before answering, filtered by `User ID` (or `Agent ID` / `Run ID`).
 2. **Add** durable facts after a meaningful exchange.
 
 Memory writes are asynchronous by default; allow a moment after an Add before searching for the same content.
