@@ -164,6 +164,12 @@ export class Mem0 implements INodeType {
 						default: '',
 					},
 					{
+						displayName: 'App ID',
+						name: 'app_id',
+						type: 'string',
+						default: '',
+					},
+					{
 						displayName: 'Custom Categories',
 						name: 'custom_categories',
 						type: 'json',
@@ -179,6 +185,20 @@ export class Mem0 implements INodeType {
 						default: '',
 						description:
 							'Optional instructions that steer what the extractor keeps or ignores',
+					},
+					{
+						displayName: 'Excludes',
+						name: 'excludes',
+						type: 'string',
+						default: '',
+						description: 'Optional: skip memories matching this description',
+					},
+					{
+						displayName: 'Includes',
+						name: 'includes',
+						type: 'string',
+						default: '',
+						description: 'Optional: only extract memories matching this description',
 					},
 					{
 						displayName: 'Infer',
@@ -221,7 +241,7 @@ export class Mem0 implements INodeType {
 				default: '',
 				displayOptions: { show: { resource: ['memory'], operation: ['search'] } },
 				description:
-					'Restrict the search to this user. Supply at least one of User ID, Agent ID, or Run ID.',
+					'Restrict the search to this user. Supply at least one of User ID, Agent ID, App ID, or Run ID.',
 			},
 			{
 				displayName: 'Agent ID',
@@ -230,6 +250,14 @@ export class Mem0 implements INodeType {
 				default: '',
 				displayOptions: { show: { resource: ['memory'], operation: ['search'] } },
 				description: 'Restrict the search to memories scoped to this agent',
+			},
+			{
+				displayName: 'App ID',
+				name: 'appId',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['memory'], operation: ['search'] } },
+				description: 'Restrict the search to memories scoped to this app or project',
 			},
 			{
 				displayName: 'Run ID',
@@ -257,7 +285,7 @@ export class Mem0 implements INodeType {
 				default: '',
 				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
 				description:
-					'Restrict the listing to this user. Supply at least one of User ID, Agent ID, or Run ID.',
+					'Restrict the listing to this user. Supply at least one of User ID, Agent ID, App ID, or Run ID.',
 			},
 			{
 				displayName: 'Agent ID',
@@ -266,6 +294,14 @@ export class Mem0 implements INodeType {
 				default: '',
 				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
 				description: 'Restrict the listing to memories scoped to this agent',
+			},
+			{
+				displayName: 'App ID',
+				name: 'appId',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['memory'], operation: ['getAll'] } },
+				description: 'Restrict the listing to memories scoped to this app or project',
 			},
 			{
 				displayName: 'Run ID',
@@ -378,6 +414,7 @@ export class Mem0 implements INodeType {
 					const userId = this.getNodeParameter('userId', i, '') as string;
 					if (userId) body.user_id = userId;
 					if (addFields.agent_id) body.agent_id = addFields.agent_id;
+					if (addFields.app_id) body.app_id = addFields.app_id;
 					if (addFields.run_id) body.run_id = addFields.run_id;
 					if (addFields.metadata) {
 						try {
@@ -411,11 +448,14 @@ export class Mem0 implements INodeType {
 						}
 					}
 
+					if (addFields.includes) body.includes = addFields.includes;
+					if (addFields.excludes) body.excludes = addFields.excludes;
+
 					// API requires at least one entity id — fail clearly instead of a raw 4xx.
-					if (!body.user_id && !body.agent_id && !body.run_id) {
+					if (!body.user_id && !body.agent_id && !body.run_id && !body.app_id) {
 						throw new NodeOperationError(
 							this.getNode(),
-							'Add requires at least one of User ID, Agent ID, or Run ID',
+							'Add requires at least one of User ID, Agent ID, Run ID, or App ID',
 							{ itemIndex: i },
 						);
 					}
@@ -447,9 +487,12 @@ export class Mem0 implements INodeType {
 						top_k: this.getNodeParameter('limit', i, 50) as number,
 					};
 					body.filters = buildEntityFilters(
-						this.getNodeParameter('userId', i, '') as string,
-						this.getNodeParameter('agentId', i, '') as string,
-						this.getNodeParameter('runId', i, '') as string,
+						{
+							user_id: this.getNodeParameter('userId', i, '') as string,
+							agent_id: this.getNodeParameter('agentId', i, '') as string,
+							app_id: this.getNodeParameter('appId', i, '') as string,
+							run_id: this.getNodeParameter('runId', i, '') as string,
+						},
 						this,
 						i,
 					);
@@ -460,9 +503,12 @@ export class Mem0 implements INodeType {
 					const pageSize = this.getNodeParameter('pageSize', i, 50) as number;
 					const body: IDataObject = {
 						filters: buildEntityFilters(
-							this.getNodeParameter('userId', i, '') as string,
-							this.getNodeParameter('agentId', i, '') as string,
-							this.getNodeParameter('runId', i, '') as string,
+							{
+								user_id: this.getNodeParameter('userId', i, '') as string,
+								agent_id: this.getNodeParameter('agentId', i, '') as string,
+								app_id: this.getNodeParameter('appId', i, '') as string,
+								run_id: this.getNodeParameter('runId', i, '') as string,
+							},
 							this,
 							i,
 						),
@@ -529,21 +575,18 @@ export class Mem0 implements INodeType {
 }
 
 function buildEntityFilters(
-	userId: string,
-	agentId: string,
-	runId: string,
+	ids: Record<string, string>,
 	ctx: IExecuteFunctions,
 	itemIndex: number,
 ): IDataObject {
-	const clauses: IDataObject[] = [];
-	if (userId) clauses.push({ user_id: userId });
-	if (agentId) clauses.push({ agent_id: agentId });
-	if (runId) clauses.push({ run_id: runId });
+	const clauses: IDataObject[] = Object.entries(ids)
+		.filter(([, value]) => value)
+		.map(([key, value]) => ({ [key]: value }));
 
 	if (clauses.length === 0) {
 		throw new NodeOperationError(
 			ctx.getNode(),
-			'Provide at least one of User ID, Agent ID, or Run ID',
+			'Provide at least one of User ID, Agent ID, App ID, or Run ID',
 			{ itemIndex },
 		);
 	}

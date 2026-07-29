@@ -40,16 +40,23 @@ Create a **Mem0 API** credential in n8n:
 
 ### Add
 
-Extracts and stores memories from one or more messages. Provide at least one entity id (**User ID**, or **Agent ID** / **Run ID** in Additional Fields); the node validates this before calling the API.
+Extracts and stores memories from one or more messages. Provide at least one entity id (**User ID**, or **Agent ID** / **App ID** / **Run ID** in Additional Fields); the node validates this before calling the API.
 
 Additional Fields also expose:
 
 | Field | Purpose |
 | --- | --- |
+| **Agent ID** | Scopes the memory to an agent |
+| **App ID** | Scopes the memory to an app or project |
+| **Run ID** | Scopes the memory to a single session or run |
 | **Metadata (JSON)** | Arbitrary JSON attached to each extracted memory |
 | **Infer** | On by default. Turn off to store messages verbatim instead of running LLM extraction |
 | **Custom Instructions** | Free-text guidance steering what the extractor keeps or ignores, for this call |
 | **Custom Categories** | JSON array of `{category: description}` objects, replacing the project-level catalog for this call |
+| **Includes** | Only extract memories matching this description |
+| **Excludes** | Skip memories matching this description |
+
+**Includes** and **Excludes** filter what extraction keeps. Sending *"I am vegetarian and I never eat mushrooms. I drive a blue Toyota Corolla and my parking spot is B12"* stores three memories by default; with `Includes: "only record food and diet preferences"` it stores only the dietary one.
 
 Extraction is asynchronous. **Wait for Completion** (on by default) polls the event until it finishes and returns the resulting memories; turn it off to return immediately with the event ID.
 
@@ -63,9 +70,9 @@ Lists stored memories for the entity ids you supply. Turn on **Return All** to p
 
 ### Entity filters on Search and Get Many
 
-Both operations take **User ID**, **Agent ID**, and **Run ID**. At least one is required (the API rejects a query with no entity scope), and the node fails with a clear message before making the call if you leave all three empty.
+Both operations take **User ID**, **Agent ID**, **App ID**, and **Run ID**. At least one is required (the API rejects a query with no entity scope), and the node fails with a clear message before making the call if you leave all four empty.
 
-Supply several and they are combined with **OR**, so the result set is the union of the three scopes:
+Supply several and they are combined with **OR**, so the result set is the union of those scopes:
 
 ```json
 { "OR": [{ "user_id": "alice" }, { "agent_id": "support-bot" }] }

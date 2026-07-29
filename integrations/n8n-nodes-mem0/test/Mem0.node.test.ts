@@ -53,6 +53,44 @@ describe('Mem0 node (offline)', () => {
 		expect(out[0][0].json.error).toMatch(/at least one of User ID/i);
 	});
 
+	it('forwards app id, includes and excludes on Add', async () => {
+		const ctx = makeCtx(
+			'add',
+			{
+				'messages.message': [{ role: 'user', content: 'hi' }],
+				addFields: {
+					app_id: 'p1',
+					includes: 'only food preferences',
+					excludes: 'nothing about vehicles',
+				},
+				userId: 'u1',
+			},
+			async () => ({}),
+		);
+		await run(ctx);
+		expect(ctx.requests[0].body).toMatchObject({
+			app_id: 'p1',
+			includes: 'only food preferences',
+			excludes: 'nothing about vehicles',
+		});
+	});
+
+	it('accepts an app id alone as the entity scope on Add', async () => {
+		const ctx = makeCtx(
+			'add',
+			{
+				'messages.message': [{ role: 'user', content: 'hi' }],
+				addFields: { app_id: 'p1' },
+				userId: '',
+			},
+			async () => ({}),
+			{ continueOnFail: true },
+		);
+		const out: any = await run(ctx);
+		expect(out[0][0].json.error).toBeUndefined();
+		expect(ctx.requests[0].body.app_id).toBe('p1');
+	});
+
 	it('reports a clear error on invalid JSON in Custom Categories', async () => {
 		const ctx = makeCtx(
 			'add',
@@ -103,13 +141,19 @@ describe('Mem0 node (offline)', () => {
 	it('combines entity ids with OR, never AND (entities are stored separately, so AND matches nothing)', async () => {
 		const ctx = makeCtx(
 			'search',
-			{ query: 'x', userId: 'u1', agentId: 'a1', runId: 'r1' },
+			{ query: 'x', userId: 'u1', agentId: 'a1', appId: 'p1', runId: 'r1' },
 			async () => ({ results: [] }),
 		);
 		await run(ctx);
 		expect(ctx.requests[0].body.filters).toEqual({
-			OR: [{ user_id: 'u1' }, { agent_id: 'a1' }, { run_id: 'r1' }],
+			OR: [{ user_id: 'u1' }, { agent_id: 'a1' }, { app_id: 'p1' }, { run_id: 'r1' }],
 		});
+	});
+
+	it.each(['search', 'getAll'])('filters %s by app id alone', async (op) => {
+		const ctx = makeCtx(op, { query: 'x', appId: 'p1' }, async () => ({ results: [] }));
+		await run(ctx);
+		expect(ctx.requests[0].body.filters).toEqual({ app_id: 'p1' });
 	});
 
 	it('filters Get Many by agent id alone', async () => {
