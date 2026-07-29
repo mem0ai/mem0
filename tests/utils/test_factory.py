@@ -51,3 +51,18 @@ def test_base_to_provider_without_reasoning_fields_still_builds():
 
     assert isinstance(built, AnthropicConfig)
     assert built.model == "claude-3-5-sonnet-20240620"
+
+
+def test_dict_config_is_not_mutated_by_keyword_overrides():
+    config = {"model": "gpt-4o-mini"}
+    captured = {}
+
+    def fake_llm_class(built_config):
+        captured["config"] = built_config
+        return Mock()
+
+    with patch("mem0.utils.factory.load_class", return_value=fake_llm_class):
+        LlmFactory.create("openai", config, api_key="temporary-key")
+
+    assert config == {"model": "gpt-4o-mini"}
+    assert captured["config"].api_key == "temporary-key"
