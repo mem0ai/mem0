@@ -13,6 +13,12 @@
       "source": "./integrations/mem0-plugin",
       "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Claude workflows.",
       "version": "0.2.13"
+    },
+    {
+      "name": "mem0-agent",
+      "source": "./integrations/mem0-agent",
+      "description": "Coding-agent memory v2: gated capture, one budgeted context pack, typed and expiring memories.",
+      "version": "0.1.0"
     }
   ]
 }
