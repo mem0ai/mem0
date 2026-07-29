@@ -10,7 +10,7 @@
     "agents",
     "llm"
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://mem0.ai",
   "author": {
     "name": "Mem0",

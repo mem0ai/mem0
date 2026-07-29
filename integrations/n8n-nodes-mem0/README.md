@@ -55,4 +55,4 @@ This node sends no third-party telemetry. Its API requests are tagged with `sour
 
 ## License
 
-[MIT](./LICENSE)
+[Apache-2.0](./LICENSE)
