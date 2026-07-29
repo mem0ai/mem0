@@ -28,7 +28,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `integrations/pi-agent-plugin/` | `@mem0/pi-agent-plugin` — Pi Agent plugin |
 | `integrations/vercel-ai-sdk/` | `@mem0/vercel-ai-provider` — Vercel AI SDK memory provider |
 | `integrations/n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` — n8n community node; add / search / get / update / delete memories |
-| `integrations/zapier-mem0/` | `zapier-mem0` — Zapier Platform CLI app (deploys to Zapier, not npm); add / search / get / delete memories |
+| `integrations/zapier-mem0/` | `@mem0/zapier` — Zapier Platform CLI app (deploys to Zapier, not npm); add / search / get / delete memories |
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
 | `docs/` | Documentation site (Mintlify) |

@@ -58,6 +58,25 @@ describe('add_memory (offline)', () => {
 		expect((res as any).status).toBe('SUCCEEDED');
 	});
 
+	it('keeps polling past the old 12-attempt budget when the API is slow', async () => {
+		jest.useFakeTimers();
+		const pendingPolls = Array.from({ length: 20 }, () => ({ data: { status: 'PENDING' } }));
+		const z = makeZ([
+			{ data: { event_id: 'e1', status: 'PENDING' } },
+			...pendingPolls,
+			{ data: { status: 'SUCCEEDED', results: [{ id: 'm1' }] } },
+		]);
+		const resultPromise = addMemory.operation.perform(z, {
+			inputData: { content: 'hi', user_id: 'u1', waitForCompletion: 'true' },
+		} as any);
+		for (let i = 0; i < pendingPolls.length; i++) {
+			await jest.advanceTimersByTimeAsync(1500);
+		}
+		const res = await resultPromise;
+		expect((res as any).status).toBe('SUCCEEDED');
+		jest.useRealTimers();
+	});
+
 	it('throws a clear error on invalid JSON metadata', async () => {
 		const z = makeZ();
 		await expect(
