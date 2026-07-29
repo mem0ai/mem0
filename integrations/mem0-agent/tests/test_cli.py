@@ -125,7 +125,7 @@ def test_hook_manifest_commands_all_exist():
     """Guards against the manifest and the CLI drifting apart."""
     import pathlib
 
-    manifest = pathlib.Path(__file__).resolve().parents[1] / "hooks/generated/claude-code.hooks.json"
+    manifest = pathlib.Path(__file__).resolve().parents[1] / "hooks/hooks.json"
     data = json.loads(manifest.read_text())
     known = {"setup", "onboard", "context", "observe", "flush", "assist-error",
              "remember", "forget", "maintain", "health", "stats", "config"}

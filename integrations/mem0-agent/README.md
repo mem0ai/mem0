@@ -25,7 +25,7 @@ To wire the hooks into Claude Code, point your plugin/settings config at the gen
 manifest:
 
 ```
-hooks/generated/claude-code.hooks.json
+hooks/hooks.json
 ```
 
 Non-interactive install (CI, dotfiles, provisioning):
@@ -100,7 +100,7 @@ matcher, command, timeout, background/blocking flags, local-only contract, and o
 of *why*.
 
 ```bash
-python3 hooks/generate.py           # write hooks/generated/claude-code.hooks.json
+python3 hooks/generate.py           # write hooks/hooks.json
 python3 hooks/generate.py --check   # exit 1 if the committed manifest drifted (run in CI)
 ```
 

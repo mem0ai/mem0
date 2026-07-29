@@ -29,7 +29,7 @@ defaults:
 editors:
   - id: claude-code
     supported: true
-    output: "generated/claude-code.hooks.json"
+    output: "hooks.json"   # Claude Code auto-discovers <plugin>/hooks/hooks.json
     dialect: "claude-code"
     env:
       MEM0_EDITOR: "claude-code"
