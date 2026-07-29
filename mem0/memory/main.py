@@ -134,18 +134,30 @@ _SENSITIVE_SUFFIXES = (
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 
-# Tenant-scoping fields that update() must never let caller-supplied metadata overwrite (issues #4490, #6277).
+# Tenant-scoping fields that caller-supplied metadata must never set, on either the
+# creation or the update path (issues #4490, #6277, #6655).
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
 
 
-def _strip_identity_keys(metadata: Dict[str, Any], existing_payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Drop identity keys from caller metadata; they are immutable after creation (issues #4490, #6277)."""
+def _strip_identity_keys(
+    metadata: Dict[str, Any],
+    existing_payload: Dict[str, Any],
+    *,
+    context: str = "update()",
+) -> Dict[str, Any]:
+    """Drop identity keys from caller metadata; scope is set by the entity params, not metadata.
+
+    On the update path `existing_payload` carries the memory's current scope, so
+    re-sending an identical value is silently accepted; only a changed value warns.
+    On the creation path there is no prior payload, so pass an empty dict and every
+    identity key present in `metadata` is dropped with a warning.
+    """
     clean = {}
     for key, value in metadata.items():
         if key not in _IDENTITY_KEYS:
             clean[key] = value
         elif value != existing_payload.get(key):
-            logger.warning(f"update(): ignoring metadata['{key}'] - identity fields are immutable after creation")
+            logger.warning(f"{context}: ignoring metadata['{key}'] - identity fields cannot be set through metadata")
     return clean
 
 
@@ -314,7 +326,9 @@ def _build_filters_and_metadata(
     for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
 
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
+       It includes all provided session identifier(s) and any `input_metadata`. Identity
+       scope is set from the entity params only; identity keys in `input_metadata` are
+       dropped, so freeform metadata cannot place a memory into an unrequested scope.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
        provided session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
@@ -342,7 +356,12 @@ def _build_filters_and_metadata(
               scoped to the provided session(s) and potentially a resolved actor.
     """
 
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    # Identity scope is set below from the entity params only. Stripping the keys here
+    # stops caller metadata from placing a memory into a scope the caller did not pass,
+    # which the re-pins below cannot prevent for a param that was left unset (issue #6655).
+    base_metadata_template = (
+        _strip_identity_keys(deepcopy(input_metadata), {}, context="add()") if input_metadata else {}
+    )
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
     # ---------- validate and add all provided session ids ----------
