@@ -60,6 +60,35 @@ describe("TogetherEmbedder (unit)", () => {
     });
   });
 
+  it("uses TOGETHER_API_BASE when no base URL is configured", async () => {
+    process.env.TOGETHER_API_BASE = "https://env.together.test/v1";
+
+    const embedder = new TogetherEmbedder({ apiKey: "test-key" });
+
+    await embedder.embed("hello");
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "test-key",
+      baseURL: "https://env.together.test/v1",
+    });
+  });
+
+  it("prefers an explicit base URL over TOGETHER_API_BASE", async () => {
+    process.env.TOGETHER_API_BASE = "https://env.together.test/v1";
+
+    const embedder = new TogetherEmbedder({
+      apiKey: "test-key",
+      baseURL: "https://config.together.test/v1",
+    });
+
+    await embedder.embed("hello");
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "test-key",
+      baseURL: "https://config.together.test/v1",
+    });
+  });
+
   it("supports custom model and baseURL without forwarding embeddingDims", async () => {
     const embedder = new TogetherEmbedder({
       apiKey: "test-key",

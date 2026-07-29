@@ -17,7 +17,11 @@ export class TogetherEmbedder extends OpenAIEmbedder {
     super({
       ...openAICompatibleConfig,
       apiKey,
-      baseURL: config.baseURL || config.url || DEFAULT_BASE_URL,
+      baseURL:
+        config.baseURL ||
+        config.url ||
+        process.env.TOGETHER_API_BASE ||
+        DEFAULT_BASE_URL,
       model: config.model || DEFAULT_MODEL,
     });
   }
