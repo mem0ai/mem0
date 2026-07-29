@@ -3,8 +3,6 @@
  * LM Studio LLM — unit tests (mocked OpenAI).
  */
 
-import { LMStudioLLM } from "../src/llms/lmstudio";
-
 const mockCreate = jest.fn();
 
 jest.mock("openai", () => {
@@ -13,8 +11,39 @@ jest.mock("openai", () => {
   }));
 });
 
+import OpenAI from "openai";
+import { LMStudioLLM } from "../src/llms/lmstudio";
+
+const mockOpenAI = OpenAI as unknown as jest.Mock;
+
 describe("LMStudioLLM (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    mockOpenAI.mockClear();
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  it("uses LMSTUDIO_BASE_URL when no base URL is configured", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://gateway.example/v1";
+
+    new LMStudioLLM({});
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "lm-studio",
+      baseURL: "http://gateway.example/v1",
+    });
+  });
+
+  it("prefers an explicit base URL over LMSTUDIO_BASE_URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://gateway.example/v1";
+
+    new LMStudioLLM({ baseURL: "http://configured.example/v1" });
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "lm-studio",
+      baseURL: "http://configured.example/v1",
+    });
+  });
 
   it("generateResponse() returns a text response", async () => {
     mockCreate.mockResolvedValueOnce({

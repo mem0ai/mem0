@@ -3,8 +3,6 @@
  * LM Studio Embedder — unit tests (mocked OpenAI).
  */
 
-import { LMStudioEmbedder } from "../src/embeddings/lmstudio";
-
 const mockEmbedding = [0.1, 0.2, 0.3, 0.4, 0.5];
 const mockCreate = jest.fn().mockResolvedValue({
   data: [{ embedding: mockEmbedding }],
@@ -16,8 +14,39 @@ jest.mock("openai", () => {
   }));
 });
 
+import OpenAI from "openai";
+import { LMStudioEmbedder } from "../src/embeddings/lmstudio";
+
+const mockOpenAI = OpenAI as unknown as jest.Mock;
+
 describe("LMStudioEmbedder (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  beforeEach(() => {
+    mockCreate.mockClear();
+    mockOpenAI.mockClear();
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  it("uses LMSTUDIO_BASE_URL when no base URL is configured", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://gateway.example/v1";
+
+    new LMStudioEmbedder({});
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "lm-studio",
+      baseURL: "http://gateway.example/v1",
+    });
+  });
+
+  it("prefers an explicit base URL over LMSTUDIO_BASE_URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://gateway.example/v1";
+
+    new LMStudioEmbedder({ baseURL: "http://configured.example/v1" });
+
+    expect(mockOpenAI).toHaveBeenCalledWith({
+      apiKey: "lm-studio",
+      baseURL: "http://configured.example/v1",
+    });
+  });
 
   it("embed() calls OpenAI with encoding_format float and returns vector", async () => {
     const embedder = new LMStudioEmbedder({
