@@ -139,3 +139,46 @@ def test_hook_manifest_commands_all_exist():
                 assert sub in known, f"manifest invokes unknown subcommand {sub!r}"
                 found += 1
     assert found >= 6
+
+
+def test_session_id_accepted_on_either_side_of_the_subcommand(monkeypatch):
+    """The hook manifest writes `mem0-agent context --session-id X`. argparse only
+    accepts a top-level flag BEFORE the subcommand, so without a per-subcommand copy
+    every SessionStart hook exits 2 and the plugin silently does nothing."""
+    seen = []
+    monkeypatch.setattr(cli, "cmd_context", lambda a: seen.append(getattr(a, "session_id", None)) or 0)
+    cli.main(["context", "--session-id", "AFTER"])
+    cli.main(["--session-id", "BEFORE", "context"])
+    assert seen == ["AFTER", "BEFORE"]
+
+
+def test_every_manifest_command_parses_verbatim(monkeypatch):
+    """Every command line in the generated manifest must parse.
+
+    This is the test that would have caught SessionStart exiting 2 on install:
+    the manifest wrote the global --session-id flag after the subcommand.
+    """
+    import pathlib
+    import shlex
+
+    manifest = pathlib.Path(__file__).resolve().parents[1] / "hooks/hooks.json"
+    data = json.loads(manifest.read_text())
+
+    ran = []
+    for name in ("cmd_context", "cmd_observe", "cmd_flush", "cmd_assist_error"):
+        monkeypatch.setattr(cli, name, lambda a, _n=name: ran.append(_n) or 0)
+
+    checked = 0
+    for entries in data["hooks"].values():
+        for entry in entries:
+            for hook in entry.get("hooks", []):
+                raw = hook["command"].strip("() ").split(">/dev/null")[0]
+                tokens = shlex.split(raw)
+                idx = tokens.index("mem0-agent")
+                argv = [t for t in tokens[idx + 1:] if t != "&"]
+                # shell vars like "$CLAUDE_SESSION_ID" become a literal in the test
+                argv = ["session-x" if t.startswith("$") else t for t in argv]
+                assert cli.main(argv) == 0, f"manifest command did not run: {raw}"
+                checked += 1
+    assert checked >= 6
+    assert ran, "the manifest should invoke real subcommands"

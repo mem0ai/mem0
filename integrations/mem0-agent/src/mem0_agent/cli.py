@@ -374,7 +374,23 @@ def cmd_config(args) -> int:
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="mem0-agent", description="Coding-agent memory")
     p.add_argument("--session-id")
-    sub = p.add_subparsers(dest="cmd", required=True)
+
+    # Also accepted AFTER the subcommand, which is how hook manifests naturally write it
+    # ("mem0-agent context --session-id X"). SUPPRESS keeps the subparser from clobbering
+    # a value that was given before the subcommand.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--session-id", default=argparse.SUPPRESS,
+                        help="session identifier supplied by the editor")
+
+    _add_parser = p.add_subparsers(dest="cmd", required=True).add_parser
+
+    def add(name: str, **kw):
+        return _add_parser(name, parents=[common], **kw)
+
+    class _Sub:
+        add_parser = staticmethod(add)
+
+    sub = _Sub()
 
     sp = sub.add_parser("setup", help="apply project configuration")
     sp.set_defaults(fn=cmd_setup)
