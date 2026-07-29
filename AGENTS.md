@@ -27,6 +27,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `integrations/openclaw/` | `@mem0/openclaw-mem0` — OpenClaw plugin for Claude Code / AI editors |
 | `integrations/pi-agent-plugin/` | `@mem0/pi-agent-plugin` — Pi Agent plugin |
 | `integrations/vercel-ai-sdk/` | `@mem0/vercel-ai-provider` — Vercel AI SDK memory provider |
+| `integrations/zapier-mem0/` | `zapier-mem0` — Zapier Platform CLI app (deploys to Zapier, not npm); add / search / get / delete memories |
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
 | `docs/` | Documentation site (Mintlify) |
@@ -406,6 +407,7 @@ PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** 
 | OpenClaw | `openclaw-checks.yml` | Push to main (on `integrations/openclaw/`), manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
 | OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (on `integrations/mem0-plugin/.opencode-plugin/`), manual | Bun: tsc type-check + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (on `integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup build (dist artifact check) on Node 20, 22 |
+| Zapier App | `zapier-mem0-checks.yml` | Push to main (on `integrations/zapier-mem0/`), manual | build (tsc) + `zapier validate` + offline unit tests on Node 22 |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage check |
 
 When adding a new package CI workflow: give it `workflow_call` (plus `push`/`workflow_dispatch` as needed, but no `pull_request` trigger), then register it in `ci-gate.yml` — a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.
@@ -430,6 +432,7 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.
 - First publish of a new npm package must be done manually; OIDC works for subsequent versions.
 - To re-publish a release (e.g. after a registry settings fix), do **not** delete/recreate the GitHub release — manually dispatch the package workflow instead: `gh workflow run <package>-cd.yml --ref refs/tags/<tag> -f tag=<tag>`.
+- The **Zapier app** (`integrations/zapier-mem0`) deploys to Zapier's own platform, not npm, so it is **not** in the release router. Deploy it manually: `gh workflow run zapier-mem0-cd.yml --ref main` (requires the `ZAPIER_DEPLOY_KEY` secret).
 - When adding a new package: add its CD workflow (`workflow_dispatch` with `tag`/`prerelease` inputs), then register its tag prefix in the `case` block in `release.yml`. Keep the bare `v*` arm last.
 
 ### Utility Workflows
