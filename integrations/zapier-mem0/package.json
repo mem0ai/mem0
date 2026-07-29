@@ -1,0 +1,69 @@
+{
+  "name": "@mem0/zapier",
+  "version": "0.1.0",
+  "description": "Zapier integration for Mem0 — the memory layer for AI agents.",
+  "keywords": [
+    "zapier",
+    "mem0",
+    "memory",
+    "ai",
+    "agents"
+  ],
+  "homepage": "https://mem0.ai",
+  "author": {
+    "name": "Mem0",
+    "email": "founders@mem0.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "integrations/zapier-mem0"
+  },
+  "license": "Apache-2.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --testTimeout 180000",
+    "test:unit": "jest test/unit.test.ts"
+  },
+  "engines": {
+    "node": ">=18",
+    "npm": ">=5.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/test/**/*.test.ts"],
+    "setupFiles": ["<rootDir>/test/setup.ts"],
+    "transform": {
+      "^.+\\.tsx?$": ["ts-jest", {}]
+    }
+  },
+  "dependencies": {
+    "zapier-platform-core": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.9.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
+      "uuid@<11.1.1": ">=11.1.1",
+      "esbuild": ">=0.28.1",
+      "undici@<6.27.0": ">=6.27.0 <8.0.0",
+      "undici@>=8.0.0 <8.5.0": ">=8.5.0"
+    }
+  }
+}

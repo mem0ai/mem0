@@ -350,6 +350,7 @@
                       "integrations/dify",
                       "integrations/flowise",
                       "integrations/n8n",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",

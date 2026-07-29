@@ -41,6 +41,7 @@ jobs:
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
       n8n_nodes_mem0: ${{ steps.filter.outputs.n8n_nodes_mem0 }}
+      zapier_mem0: ${{ steps.filter.outputs.zapier_mem0 }}
       docs_llms_txt: ${{ steps.filter.outputs.docs_llms_txt }}
     steps:
       - uses: dorny/paths-filter@v3
@@ -83,6 +84,9 @@ jobs:
             n8n_nodes_mem0:
               - 'integrations/n8n-nodes-mem0/**'
               - '.github/workflows/n8n-nodes-mem0-checks.yml'
+            zapier_mem0:
+              - 'integrations/zapier-mem0/**'
+              - '.github/workflows/zapier-mem0-checks.yml'
               - '.github/workflows/ci-gate.yml'
             docs_llms_txt:
               - 'docs/**/*.mdx'
@@ -146,6 +150,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.n8n_nodes_mem0 == 'true'
     uses: ./.github/workflows/n8n-nodes-mem0-checks.yml
+  zapier-mem0:
+    name: Zapier App
+    needs: changes
+    if: needs.changes.outputs.zapier_mem0 == 'true'
+    uses: ./.github/workflows/zapier-mem0-checks.yml
     secrets: inherit
 
   docs-llms-txt:
@@ -167,6 +176,7 @@ jobs:
       - opencode-plugin
       - pi-agent-plugin
       - n8n-nodes-mem0
+      - zapier-mem0
       - docs-llms-txt
     if: always()
     runs-on: ubuntu-latest
