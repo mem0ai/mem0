@@ -170,7 +170,9 @@ def resolve_app_id(cwd: str | None = None, settings: Settings | None = None) -> 
     env override -> cwd map -> remote-hash map (self-healing after a move)
     -> owner-repo slug -> directory name.
     """
-    override = os.environ.get("MEM0_PROJECT_ID")
+    # Deliberately NOT MEM0_PROJECT_ID: the v1 plugin exports that, and while both are
+    # installed it would silently override this plugin's project scope.
+    override = os.environ.get("MEM0_AGENT_APP_ID")
     if override:
         return override.strip()
     cwd = cwd or os.getcwd()

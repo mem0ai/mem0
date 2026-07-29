@@ -1,0 +1,60 @@
+#!/bin/sh
+# Self-contained launcher. Hooks invoke this via ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent so
+# the plugin never depends on a globally-installed console script.
+#
+# A pip-installed entry point is not dependable here: under pyenv the shim resolves against
+# whichever Python version the current directory selects, so a repo with a .python-version
+# pinning a different version fails with "pyenv: mem0-agent: command not found".
+#
+# The package has no third-party dependencies, so any CPython >= 3.10 can run it straight
+# from source.
+
+set -eu
+
+PLUGIN_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)"
+SRC="$PLUGIN_ROOT/src"
+
+if [ ! -d "$SRC/mem0_agent" ]; then
+    echo "mem0-agent: package not found at $SRC" >&2
+    exit 0   # never break a hook
+fi
+
+# Does this interpreter exist and satisfy the minimum version?
+usable() {
+    [ -n "${1:-}" ] || return 1
+    command -v "$1" >/dev/null 2>&1 || return 1
+    "$1" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1
+}
+
+PY=""
+for candidate in \
+    "${MEM0_AGENT_PYTHON:-}" \
+    python3 \
+    /opt/homebrew/bin/python3 \
+    /usr/local/bin/python3 \
+    /usr/bin/python3
+do
+    if usable "$candidate"; then
+        PY="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PY" ]; then
+    # Last resort: any pyenv version that is new enough.
+    for candidate in "$HOME"/.pyenv/versions/3.1[0-9]*/bin/python3; do
+        if usable "$candidate"; then
+            PY="$candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "$PY" ]; then
+    echo "mem0-agent: no Python >= 3.10 found; set MEM0_AGENT_PYTHON" >&2
+    exit 0   # never break a hook
+fi
+
+PYTHONPATH="$SRC${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+exec "$PY" -m mem0_agent.cli "$@"

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "MEM0_EDITOR=claude-code mem0-agent context --session-id \"$CLAUDE_SESSION_ID\"",
+            "command": "MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent context --session-id \"$CLAUDE_SESSION_ID\"",
             "timeout": 10,
             "statusMessage": "Loading mem0 context..."
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "MEM0_EDITOR=claude-code MEM0_LOCAL_ONLY=1 mem0-agent observe --source prompt",
+            "command": "MEM0_EDITOR=claude-code MEM0_LOCAL_ONLY=1 ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent observe --source prompt",
             "timeout": 3
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code mem0-agent assist-error >/dev/null 2>&1 &)",
+            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent assist-error >/dev/null 2>&1 &)",
             "timeout": 5
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code mem0-agent flush >/dev/null 2>&1 &)",
+            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush >/dev/null 2>&1 &)",
             "timeout": 5
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code mem0-agent flush --reason precompact >/dev/null 2>&1 &)",
+            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason precompact >/dev/null 2>&1 &)",
             "timeout": 5
           }
         ]
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code mem0-agent flush --reason end >/dev/null 2>&1 &)",
+            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason end >/dev/null 2>&1 &)",
             "timeout": 5
           }
         ]

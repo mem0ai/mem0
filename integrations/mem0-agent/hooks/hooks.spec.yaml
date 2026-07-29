@@ -1,4 +1,4 @@
-# mem0-agent hook wiring -- the single source of truth.
+# "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent" hook wiring -- the single source of truth.
 #
 # v1 hand-maintained four editor dialects (Claude Code, Cursor, Codex, Antigravity).
 # They drifted: an event existed in one file and not another, timeouts disagreed, and
@@ -71,7 +71,7 @@ hooks:
   - id: session-context
     event: "SessionStart"
     matcher: "startup|resume|compact"
-    command: "mem0-agent context --session-id {session_id}"
+    command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent context --session-id {session_id}"
     timeout: 10
     background: false
     blocking: true
@@ -82,7 +82,7 @@ hooks:
   - id: prompt-observe
     event: "UserPromptSubmit"
     matcher: null
-    command: "mem0-agent observe --source prompt"
+    command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent observe --source prompt"
     timeout: 3
     background: false
     blocking: true
@@ -93,7 +93,7 @@ hooks:
   - id: bash-assist-error
     event: "PostToolUse"
     matcher: "Bash"
-    command: "mem0-agent assist-error"
+    command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent assist-error"
     timeout: 5
     background: true
     blocking: false
@@ -104,7 +104,7 @@ hooks:
   - id: stop-flush
     event: "Stop"
     matcher: null
-    command: "mem0-agent flush"
+    command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush"
     timeout: 5
     background: true
     blocking: false
@@ -115,7 +115,7 @@ hooks:
   - id: precompact-flush
     event: "PreCompact"
     matcher: null
-    command: "mem0-agent flush --reason precompact"
+    command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason precompact"
     timeout: 5
     background: true
     blocking: false
@@ -126,7 +126,7 @@ hooks:
   - id: sessionend-flush
     event: "SessionEnd"
     matcher: null
-    command: "mem0-agent flush --reason end"
+    command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason end"
     timeout: 5
     background: true
     blocking: false

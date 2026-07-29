@@ -134,8 +134,8 @@ def test_hook_manifest_commands_all_exist():
         for entry in entries:
             for hook in entry.get("hooks", []):
                 cmd = hook["command"]
-                assert "mem0-agent " in cmd
-                sub = cmd.split("mem0-agent ", 1)[1].split()[0]
+                assert "bin/mem0-agent " in cmd, "hooks must call the bundled launcher"
+                sub = cmd.split("bin/mem0-agent ", 1)[1].split()[0]
                 assert sub in known, f"manifest invokes unknown subcommand {sub!r}"
                 found += 1
     assert found >= 6
@@ -174,7 +174,7 @@ def test_every_manifest_command_parses_verbatim(monkeypatch):
             for hook in entry.get("hooks", []):
                 raw = hook["command"].strip("() ").split(">/dev/null")[0]
                 tokens = shlex.split(raw)
-                idx = tokens.index("mem0-agent")
+                idx = next(i for i, t in enumerate(tokens) if t.endswith("bin/mem0-agent"))
                 argv = [t for t in tokens[idx + 1:] if t != "&"]
                 # shell vars like "$CLAUDE_SESSION_ID" become a literal in the test
                 argv = ["session-x" if t.startswith("$") else t for t in argv]

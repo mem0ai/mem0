@@ -48,7 +48,10 @@ def test_every_hook_declares_its_contract(spec):
         assert entry["why"], f"{entry['id']} must say why it exists"
         assert isinstance(entry["local_only"], bool)
         assert isinstance(entry["background"], bool)
-        assert entry["command"].startswith("mem0-agent ")
+        assert entry["command"].startswith("${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent "), (
+            "hooks must call the plugin's bundled launcher, not a global console script "
+            "(a pyenv shim resolves against the directory's Python version and can vanish)"
+        )
 
 
 def test_tiny_parser_handles_quotes_comments_and_nesting():

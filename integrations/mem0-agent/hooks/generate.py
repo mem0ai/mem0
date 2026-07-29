@@ -215,8 +215,16 @@ def validate(spec: dict) -> dict:
             raise SpecError(
                 f"hook {entry['id']!r} runs on {entry['event']} and must declare local_only: true"
             )
-        if not str(entry["command"]).startswith("mem0-agent "):
-            raise SpecError(f"hook {entry['id']!r}: command must invoke the mem0-agent CLI")
+        # Commands must invoke the plugin's own bundled launcher. A bare console script is
+        # not dependable: under pyenv the shim resolves against whichever Python version the
+        # current directory selects, so a repo pinning a different version fails with
+        # "pyenv: mem0-agent: command not found".
+        cmd = str(entry["command"])
+        if not cmd.startswith("${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent "):
+            raise SpecError(
+                f"hook {entry['id']!r}: command must invoke "
+                "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent"
+            )
     return spec
 
 
