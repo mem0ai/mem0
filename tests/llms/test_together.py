@@ -34,6 +34,24 @@ def test_generate_response_without_tools(mock_together_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
+@patch("mem0.llms.together.Together")
+def test_client_receives_configured_base_url(mock_together):
+    config = BaseLlmConfig(together_base_url="https://gateway.example/v1")
+
+    TogetherLLM(config)
+
+    mock_together.assert_called_once_with(api_key=None, base_url="https://gateway.example/v1")
+
+
+@patch("mem0.llms.together.Together")
+def test_client_receives_environment_base_url(mock_together, monkeypatch):
+    monkeypatch.setenv("TOGETHER_API_BASE", "https://env.example/v1")
+
+    TogetherLLM(BaseLlmConfig())
+
+    mock_together.assert_called_once_with(api_key=None, base_url="https://env.example/v1")
+
+
 def test_generate_response_with_tools(mock_together_client):
     config = BaseLlmConfig(model="mistralai/Mixtral-8x7B-Instruct-v0.1", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = TogetherLLM(config)

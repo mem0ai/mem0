@@ -73,6 +73,24 @@ def test_default_config_applies_together_defaults(mock_together_client):
     assert embedder.config.embedding_dims == DEFAULT_EMBEDDING_DIMS
 
 
+@patch("mem0.embeddings.together.Together")
+def test_client_receives_configured_base_url(mock_together):
+    config = BaseEmbedderConfig(together_base_url="https://gateway.example/v1")
+
+    TogetherEmbedding(config)
+
+    mock_together.assert_called_once_with(api_key=None, base_url="https://gateway.example/v1")
+
+
+@patch("mem0.embeddings.together.Together")
+def test_client_receives_environment_base_url(mock_together, monkeypatch):
+    monkeypatch.setenv("TOGETHER_BASE_URL", "https://env.example/v1")
+
+    TogetherEmbedding(BaseEmbedderConfig())
+
+    mock_together.assert_called_once_with(api_key=None, base_url="https://env.example/v1")
+
+
 def test_explicit_config_overrides_defaults(mock_together_client):
     # The `config.x or default` wiring must honor user-provided values, not clobber them.
     config = BaseEmbedderConfig(model="BAAI/bge-base-en-v1.5", embedding_dims=768)
