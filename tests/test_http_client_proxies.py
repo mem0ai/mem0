@@ -37,3 +37,36 @@ def test_llm_factory_preserves_http_client_proxies():
     llm = LlmFactory.create("openai", base)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_openai_llm_forwards_http_client_to_sdk():
+    from unittest.mock import patch, MagicMock
+
+    base = BaseLlmConfig(
+        model="gpt-4o-mini",
+        api_key="sk-test",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    with patch("mem0.llms.openai.OpenAI") as mock_openai:
+        mock_openai.return_value = MagicMock()
+        llm = LlmFactory.create("openai", base)
+        assert mock_openai.called
+        kwargs = mock_openai.call_args.kwargs
+        assert kwargs.get("http_client") is llm.config.http_client
+
+
+def test_openai_embedding_forwards_http_client_to_sdk():
+    from unittest.mock import patch, MagicMock
+
+    from mem0.embeddings.openai import OpenAIEmbedding
+
+    cfg = BaseEmbedderConfig(
+        model="text-embedding-3-small",
+        api_key="sk-test",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    with patch("mem0.embeddings.openai.OpenAI") as mock_openai:
+        mock_openai.return_value = MagicMock()
+        emb = OpenAIEmbedding(cfg)
+        kwargs = mock_openai.call_args.kwargs
+        assert kwargs.get("http_client") is emb.config.http_client
