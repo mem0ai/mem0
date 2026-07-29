@@ -29,7 +29,6 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `integrations/vercel-ai-sdk/` | `@mem0/vercel-ai-provider` — Vercel AI SDK memory provider |
 | `integrations/zapier-mem0/` | `zapier-mem0` — Zapier Platform CLI app (deploys to Zapier, not npm); add / search / get / delete memories |
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
-| `openmemory/` | Self-hosted memory platform — `api/` (FastAPI + Alembic + MCP server) and `ui/` (Next.js 15 + React 19) |
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
 | `docs/` | Documentation site (Mintlify) |
 | `tests/` | Python SDK tests (pytest) |
@@ -63,7 +62,7 @@ integrations/openclaw/ ──▶ mem0ai (npm)
 - **Node.js**: v18+ (v20 or v22 recommended)
 - **pnpm**: v10+ (`npm install -g pnpm@10`) — used for all TypeScript packages
 - **Hatch**: Python build/environment tool (`pip install hatch`)
-- **Docker**: Required for `server/` and `openmemory/` development
+- **Docker**: Required for `server/` development
 
 ### Initial Setup
 
@@ -215,28 +214,6 @@ docker-compose up                  # starts all 3 services
 - **Services:** PostgreSQL with pgvector, Neo4j 5.x with APOC plugin
 - **Hot reload:** Dev Dockerfile mounts `server/` and `mem0/` for live changes
 
-### OpenMemory (`openmemory/`)
-
-```bash
-# Full stack via Docker Compose
-cd openmemory
-docker-compose up
-# Qdrant: localhost:6333
-# API (MCP): localhost:8765
-# UI: localhost:3000
-
-# Individual development
-cd openmemory/api && uvicorn main:app --reload       # FastAPI backend
-cd openmemory/ui && npm run dev                       # Next.js frontend
-
-# Tests
-cd openmemory/api && pytest tests/                   # API tests (e.g., test_mcp_server.py)
-```
-
-- **API:** FastAPI + Alembic (DB migrations) + MCP server (Model Context Protocol)
-- **UI:** Next.js 15, React 19, Radix UI, Redux Toolkit, TailwindCSS, Recharts
-- **Vector store:** Qdrant
-
 ### Documentation (`docs/`)
 
 ```bash
@@ -332,7 +309,6 @@ python -m benchmarks.beam.run --project-name my-test --backend cloud --mem0-api-
   - Root SDK: line length **120**
   - Python CLI: line length **100** with extended rule set (UP, B, SIM, RUF)
 - **isort** with `profile = "black"` for import sorting.
-- Ruff excludes `openmemory/` from root config.
 
 ### TypeScript Conventions
 
@@ -383,7 +359,6 @@ Optional layer on top of vector memory for relationship-aware retrieval. Configu
 Model Context Protocol support in multiple places:
 
 - **Remote:** MCP server at `mcp.mem0.ai`
-- **Local:** MCP server in `openmemory/api/` (FastAPI-based)
 - **Plugin:** MCP tools in `integrations/mem0-plugin/` — 9 tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`
 
 ### Plugin & Skills System
@@ -588,7 +563,7 @@ N/A
 
 - Follow existing code patterns — don't introduce new frameworks or abstractions without discussion.
 - Version bumps go in `pyproject.toml` (Python) or `package.json` (TypeScript).
-- For `server/` and `openmemory/` work, use Docker Compose for local development.
+- For `server/` work, use Docker Compose for local development.
 - Do NOT use `pip` or `conda` for dependency management — use `hatch` (see `docs/contributing/development.mdx`).
 
 ### Contributing Guides
@@ -611,5 +586,4 @@ N/A
 - Use npm or yarn in TypeScript packages — this repo uses pnpm exclusively.
 - Use `require()` for imports in TypeScript — use ES module `import` syntax.
 - Mix up linter configs: root Python SDK uses line-length 120, Python CLI uses 100, Node CLI uses Biome (not ESLint/Ruff).
-- Modify `openmemory/` database migrations without understanding the Alembic migration chain.
 - Change public APIs without updating documentation in `docs/`.
