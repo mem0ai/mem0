@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Dict, List, Optional
 
@@ -91,15 +92,63 @@ class Langchain(VectorStoreBase):
     ):
         """
         Insert vectors into the LangChain vectorstore.
+
+        ``add_embeddings`` is not part of the ``VectorStore`` contract and the
+        implementations that do have it disagree on its signature, so dispatch
+        on the actual parameter names rather than assuming one shape.
         """
-        # Check if client has add_embeddings method
-        if hasattr(self.client, "add_embeddings"):
-            # Some LangChain vectorstores have a direct add_embeddings method
-            self.client.add_embeddings(embeddings=vectors, metadatas=payloads, ids=ids)
-        else:
-            # Fallback to add_texts method
-            texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
-            self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
+        texts = self._texts_from(payloads, len(vectors))
+        add_embeddings = getattr(self.client, "add_embeddings", None)
+
+        if add_embeddings is not None:
+            params = self._named_params(add_embeddings)
+
+            # ``text_embeddings`` as (text, vector) pairs: FAISS, AzureSearch,
+            # ElasticsearchStore, OpenSearchVectorSearch, ScaNN.
+            if "text_embeddings" in params:
+                self.client.add_embeddings(text_embeddings=list(zip(texts, vectors)), metadatas=payloads, ids=ids)
+                return
+
+            # ``texts`` + ``embeddings``: PGVector, Neo4jVector, Lantern,
+            # Hologres, Kinetica, PGEmbedding, TimescaleVector. ``texts`` is
+            # required on all of them, so it must be passed.
+            if "texts" in params and "embeddings" in params:
+                self.client.add_embeddings(texts=texts, embeddings=vectors, metadatas=payloads, ids=ids)
+                return
+
+            # Unknown or unintrospectable signature (mocks, permissive wrappers):
+            # keep mem0's historical call shape.
+            if not params or "embeddings" in params:
+                self.client.add_embeddings(embeddings=vectors, metadatas=payloads, ids=ids)
+                return
+
+            logger.debug(
+                "%s.add_embeddings has an unrecognised signature %s; using add_texts instead.",
+                type(self.client).__name__,
+                sorted(params),
+            )
+
+        # Fallback to add_texts method
+        self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
+
+    @staticmethod
+    def _texts_from(payloads: Optional[List[Dict]], count: int) -> List[str]:
+        return [payload.get("data", "") for payload in payloads] if payloads else [""] * count
+
+    @staticmethod
+    def _named_params(method) -> set:
+        """Explicitly named parameters of ``method``; empty if it cannot be introspected.
+
+        ``*args``/``**kwargs`` are excluded -- every LangChain ``add_embeddings``
+        ends in ``**kwargs``, so only the named parameters identify the shape.
+        Mock objects have no usable signature and yield an empty set.
+        """
+        try:
+            parameters = inspect.signature(method).parameters
+        except (TypeError, ValueError):
+            return set()
+        variadic = (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+        return {name for name, p in parameters.items() if p.kind not in variadic}
 
     def search(self, query: str, vectors: List[List[float]], top_k: int = 5, filters: Optional[Dict] = None):
         """
@@ -149,9 +198,19 @@ class Langchain(VectorStoreBase):
     def update(self, vector_id, vector=None, payload=None):
         """
         Update a vector and its payload.
+
+        LangChain's ``VectorStore`` has no in-place update, so this is a
+        delete-then-insert. When ``vector`` is omitted -- which is how mem0
+        edits an entity's ``linked_memory_ids`` without re-embedding -- the row
+        is re-inserted from its payload text so the store embeds it itself.
+        Passing the missing vector straight through would store ``None`` where
+        the embedding belongs.
         """
         self.delete(vector_id)
-        self.insert([vector], [payload], [vector_id])
+        if vector is None:
+            self.client.add_texts(texts=self._texts_from([payload], 1), metadatas=[payload], ids=[vector_id])
+        else:
+            self.insert([vector], [payload], [vector_id])
 
     def get(self, vector_id):
         """
