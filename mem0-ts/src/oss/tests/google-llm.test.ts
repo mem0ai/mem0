@@ -236,13 +236,39 @@ describe("GoogleLLM (unit)", () => {
 
     expect(mockGenerateContent).toHaveBeenCalledWith(
       expect.objectContaining({
-        contents: [
-          { role: "model", parts: [{ text: "Be concise" }] },
-          { role: "user", parts: [{ text: "Say hello" }] },
-        ],
+        contents: [{ role: "user", parts: [{ text: "Say hello" }] }],
+        config: {
+          systemInstruction: { parts: [{ text: "Be concise" }] },
+        },
       }),
     );
     expect(result).toEqual({ content: "Hello, world", role: "model" });
+  });
+
+  it("maps assistant turns to model role and system prompts to systemInstruction", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: "ok",
+      functionCalls: null,
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    await llm.generateResponse([
+      { role: "system", content: "Follow the policy" },
+      { role: "user", content: "Question" },
+      { role: "assistant", content: "Earlier answer" },
+    ]);
+
+    expect(mockGenerateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contents: [
+          { role: "user", parts: [{ text: "Question" }] },
+          { role: "model", parts: [{ text: "Earlier answer" }] },
+        ],
+        config: {
+          systemInstruction: { parts: [{ text: "Follow the policy" }] },
+        },
+      }),
+    );
   });
 
   it("returns an empty assistant response when generateChat has no candidates", async () => {

@@ -23,18 +23,34 @@ export class GoogleLLM implements LLM {
     this.google = new sdk.GoogleGenAI({ apiKey: this.apiKey });
   }
 
-  private formatContents(messages: Message[]) {
-    return messages.map((msg) => ({
-      parts: [
-        {
-          text:
-            typeof msg.content === "string"
-              ? msg.content
-              : JSON.stringify(msg.content),
-        },
-      ],
-      role: msg.role === "system" ? "model" : "user",
-    }));
+  private formatMessages(messages: Message[]) {
+    const systemParts = messages
+      .filter((msg) => msg.role === "system")
+      .map((msg) => ({
+        text:
+          typeof msg.content === "string"
+            ? msg.content
+            : JSON.stringify(msg.content),
+      }));
+    const contents = messages
+      .filter((msg) => msg.role !== "system")
+      .map((msg) => ({
+        parts: [
+          {
+            text:
+              typeof msg.content === "string"
+                ? msg.content
+                : JSON.stringify(msg.content),
+          },
+        ],
+        role: msg.role === "assistant" ? "model" : "user",
+      }));
+
+    return {
+      contents,
+      systemInstruction:
+        systemParts.length > 0 ? { parts: systemParts } : undefined,
+    };
   }
 
   async generateResponse(
@@ -43,10 +59,13 @@ export class GoogleLLM implements LLM {
     tools?: any[],
   ): Promise<string | LLMResponse> {
     await this.ensureClient();
-    const contents = this.formatContents(messages);
+    const { contents, systemInstruction } = this.formatMessages(messages);
 
     // Build config with tools if provided
     const config: Record<string, any> = {};
+    if (systemInstruction) {
+      config.systemInstruction = systemInstruction;
+    }
     if (tools && tools.length > 0) {
       config.tools = [
         {
@@ -95,9 +114,12 @@ export class GoogleLLM implements LLM {
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     await this.ensureClient();
+    const { contents, systemInstruction } = this.formatMessages(messages);
+    const config = systemInstruction ? { systemInstruction } : undefined;
     const completion = await this.google.models.generateContent({
-      contents: this.formatContents(messages),
+      contents,
       model: this.model,
+      ...(config ? { config } : {}),
     });
     const response = completion.candidates?.[0]?.content;
     const content =
