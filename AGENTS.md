@@ -18,7 +18,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 
 | Directory | Description |
 |-----------|-------------|
-| `mem0/` | Core Python SDK (`mem0ai` on PyPI) — memory, LLMs, embeddings, vector stores, graphs, rerankers |
+| `mem0/` | Core Python SDK (`mem0ai` on PyPI) — memory, LLMs, embeddings, vector stores, and rerankers |
 | `mem0-ts/` | TypeScript SDK (`mem0ai` on npm) — client + OSS memory |
 | `cli/python/` | Python CLI (`mem0-cli` on PyPI) — Typer-based, entry point `mem0` |
 | `cli/node/` | Node CLI (`@mem0/cli` on npm) — Commander-based, entry point `mem0` |
@@ -41,11 +41,16 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 ```
 mem0 (Python SDK)          mem0-ts (TypeScript SDK)
 ├── mem0/memory/           ├── src/client/        (MemoryClient — hosted)
-├── mem0/llms/             └── src/oss/           (Memory — self-hosted)
-├── mem0/embeddings/           ├── src/llms/
-├── mem0/vector_stores/        ├── src/embeddings/
-├── mem0/graphs/               ├── src/vector_stores/
-└── mem0/reranker/             └── src/graphs/
+├── mem0/llms/             └── src/oss/src/memory/ (Memory — self-hosted)
+├── mem0/embeddings/       ├── src/oss/src/llms/
+├── mem0/vector_stores/    ├── src/oss/src/embeddings/
+└── mem0/reranker/         ├── src/oss/src/vector_stores/
+                           ├── src/oss/src/rerankers/
+                           ├── src/oss/src/storage/
+                           ├── src/oss/src/config/
+                           ├── src/oss/src/prompts/
+                           ├── src/oss/src/types/
+                           └── src/oss/src/utils/
 
 cli/python/ ──▶ mem0ai (optional, for OSS mode)
 cli/node/   ──▶ mem0ai (npm, for API calls)
@@ -302,7 +307,7 @@ python -m benchmarks.beam.run --project-name my-test --backend cloud --mem0-api-
 
 ### Python Conventions
 
-- **Provider pattern:** All providers (LLMs, embeddings, vector stores, graphs, rerankers) inherit from a `base.py` abstract class in their directory. Config classes live in `configs.py`.
+- **Provider pattern:** LLMs, embeddings, vector stores, and rerankers follow the provider base classes in their respective directories. Configuration classes live under `mem0/configs/`.
 - **Pydantic v2** for all data models and configuration.
 - **Ruff** is the single linting and formatting tool — no black, no flake8.
   - Root SDK: line length **120**
@@ -335,23 +340,34 @@ cd <package> && pnpm run typecheck    # or: tsc --noEmit
 
 ### Provider Pattern
 
-The SDK uses a consistent plugin architecture across 5 categories. Each category has a `base.py` abstract class and concrete provider implementations:
+The SDK uses a consistent plugin architecture across 4 categories. Each category has a provider registry in `mem0/utils/factory.py` and concrete implementations:
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| **LLMs** | 24 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
-| **Vector Stores** | 30 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
-| **Embeddings** | 15 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
-| **Graph Stores** | 4 | Neo4j, Memgraph, Kuzu, Apache AGE |
+| **LLMs** | 18 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
+| **Vector Stores** | 25 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
+| **Embeddings** | 11 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
 | **Rerankers** | 5 | Cohere, HuggingFace, LLM-based, Sentence Transformer, Zero Entropy |
+
+The counts above are derived from the four `provider_to_class` registries in
+`mem0/utils/factory.py`; update this table when a provider is added or removed.
 
 ### Two Usage Modes
 
 Self-hosted `Memory` / `AsyncMemory` classes and hosted-platform `MemoryClient` — both in Python and TypeScript.
 
-### Graph Memory
+### Relationship-aware retrieval
 
-Optional layer on top of vector memory for relationship-aware retrieval. Configured via the `graph` section of `MemoryConfig`.
+The current OSS memory pipeline does not use the removed graph-memory
+subsystem. During writes, `_link_entities_for_memory` extracts entities and
+stores links in the entity collection. During search, `_compute_entity_boosts`
+uses those links to rerank semantic results. The implementation is backed by
+`mem0/utils/entity_extraction.py`, `mem0/utils/scoring.py`, and
+`mem0/utils/lemmatization.py`.
+
+Graph memory was removed in #4805. Do not add a `graph` section to
+`MemoryConfig` or recreate `mem0/graphs/`; use the entity-linking and scoring
+pipeline when a change needs relationship-aware retrieval.
 
 ### MCP Integration
 
