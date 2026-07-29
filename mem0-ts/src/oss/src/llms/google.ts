@@ -59,6 +59,15 @@ export class GoogleLLM implements LLM {
       ];
     }
 
+    // Honor a requested JSON response format (parity with the Python SDK's
+    // mem0/llms/gemini.py). Gemini's structured output is opt-in via
+    // responseMimeType — without it the model is never told to emit JSON, so
+    // callers passing json_object silently get free-form text and depend on a
+    // fragile markdown-fence strip downstream.
+    if (responseFormat?.type === "json_object") {
+      config.responseMimeType = "application/json";
+    }
+
     const completion = await this.google.models.generateContent({
       contents,
       model: this.model,

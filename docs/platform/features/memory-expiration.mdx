@@ -1,9 +1,10 @@
 ---
-title: Memory Expiration
-description: "Give a memory a shelf life: set an expiration date and it stops surfacing in search once that date passes, without deleting the record."
+title: "Memory Expiration in Mem0"
+sidebarTitle: "Memory Expiration"
+description: "Set an expiration date on a Mem0 memory and it stops surfacing in search once that date passes. Nothing is deleted. Works on Platform and Open Source."
 ---
 
-# Memory Expiration
+## Why Use Memory Expiration?
 
 Some facts are only true for a while. A trial plan ends, a seasonal preference goes stale, a support ticket ages past its retention window. Set an `expiration_date` on a memory and Mem0 stops surfacing it once that date passes, so you don't need a cleanup job hunting for rows to delete.
 
@@ -18,7 +19,7 @@ Some facts are only true for a while. A trial plan ends, a seasonal preference g
 - **No expiration date means never expires.** That is the default for every memory.
 - **Malformed dates fail open**: a stored value Mem0 can't parse is treated as *not* expired. A bad date never makes a memory silently vanish.
 
-## Set an expiration date
+## How do you set an expiration date on a memory?
 
 Set it when you add the memory:
 
@@ -97,7 +98,7 @@ The same parameter and spelling work on the OSS `Memory` class. See <Link href="
   Expired memories are dropped *before* your `top_k` is applied, so Mem0 widens the internal candidate pool first and short result sets are rare. They are not impossible: if nearly every memory in a scope has expired, a call can still return fewer than `top_k` results. Pass `show_expired: true` to get the full set back.
 </Note>
 
-## Clear an expiration date
+## How do you clear or remove an expiration date?
 
 Pass an explicit `None` (Python) or `null` (TypeScript) to make the memory permanent again. The SDKs deliberately preserve that null instead of treating it as "argument not supplied".
 

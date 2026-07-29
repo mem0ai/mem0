@@ -45,7 +45,7 @@ The two most common contribution targets are the SDKs:
 | TypeScript SDK (`mem0ai`) | `mem0-ts/` | TypeScript | `pnpm`        |
 
 Other packages include the CLIs (`cli/python/`, `cli/node/`), integrations
-(`integrations/`), the self-hosted `server/`, `openmemory/`, and the docs site
+(`integrations/`), the self-hosted `server/`, and the docs site
 (`docs/`). See [AGENTS.md](./AGENTS.md) for a full map of the repository.
 
 ## Development Workflow
