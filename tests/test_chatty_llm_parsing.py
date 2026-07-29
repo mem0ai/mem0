@@ -14,6 +14,37 @@ from mem0.memory.utils import extract_json, remove_code_blocks
 
 # --- Test extract_json ---
 
+class TestExtractJsonWithReasoningBlocks:
+    """The answer is not always in the first fenced block.
+
+    Reasoning-style models routinely emit their scratch work in a code block before the answer.
+    Taking the first fence unconditionally returned the scratch work, and the caller's
+    `json.loads` then failed on text that was never meant to be JSON.
+    """
+
+    def test_reasoning_code_block_before_inline_json(self):
+        text = 'Let me think:\n```\nstep 1: recall the facts\nstep 2: answer\n```\nFinal: {"facts": ["a"]}'
+
+        assert json.loads(extract_json(text)) == {"facts": ["a"]}
+
+    def test_reasoning_code_block_before_json_code_block(self):
+        text = '```\nscratch notes\n```\n```json\n{"facts": ["a"]}\n```'
+
+        assert json.loads(extract_json(text)) == {"facts": ["a"]}
+
+    def test_json_tagged_block_wins_over_an_earlier_untagged_one(self):
+        text = '```python\nprint("hello")\n```\n```json\n{"facts": ["b"]}\n```'
+
+        assert json.loads(extract_json(text)) == {"facts": ["b"]}
+
+    def test_nothing_parseable_returns_the_old_first_block(self):
+        """With no JSON anywhere, keep returning what the caller used to see in the error."""
+        assert extract_json("```\nnot json at all\n```") == "not json at all"
+        assert extract_json("sorry, I cannot help") == "sorry, I cannot help"
+
+
+
+
 class TestExtractJson:
     """Tests for extract_json utility."""
 
