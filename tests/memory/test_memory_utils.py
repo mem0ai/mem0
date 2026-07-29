@@ -6,7 +6,12 @@ from mem0.memory.utils import (
     parse_vision_messages,
     remove_spaces_from_entities,
     sanitize_relationship_for_cypher,
+    process_telemetry_filters,
 )
+
+
+def test_process_telemetry_filters_returns_empty_tuple_for_none():
+    assert process_telemetry_filters(None) == ([], {})
 
 
 class TestParseMessages:
