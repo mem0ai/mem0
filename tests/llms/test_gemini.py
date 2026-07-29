@@ -253,6 +253,19 @@ def test_init_backward_compat_with_base_config(monkeypatch):
     mock_client_class.assert_called_once_with(api_key="legacy-key")
 
 
+def test_init_base_config_preserves_http_client_proxies(monkeypatch):
+    monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
+    with patch("mem0.llms.gemini.genai.Client"):
+        llm = GeminiLLM(
+            BaseLlmConfig(
+                model="gemini-2.0-flash",
+                http_client_proxies="http://proxy.local:8080",
+            )
+        )
+
+    assert llm.config.http_client_proxies == "http://proxy.local:8080"
+
+
 def test_init_vertexai_via_explicit_config(monkeypatch):
     """vertexai=True in GeminiConfig routes to the Vertex AI client with project/location, no api_key."""
     monkeypatch.delenv("GOOGLE_GENAI_USE_VERTEXAI", raising=False)
