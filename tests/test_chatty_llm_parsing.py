@@ -91,6 +91,13 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_json_string_with_embedded_code_fence(self):
+        payload = {"snippet": "```python\nx = 1\n```", "user_id": "u1"}
+
+        result = extract_json(json.dumps(payload))
+
+        assert json.loads(result) == payload
+
 
 # --- Test remove_code_blocks ---
 
