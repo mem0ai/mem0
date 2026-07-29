@@ -250,18 +250,33 @@ export class TurbopufferDB implements VectorStore {
   private convertFilters(filters?: SearchFilters): any {
     if (!filters || Object.keys(filters).length === 0) return null;
 
+    const operatorMap: Record<string, string> = {
+      eq: "Eq",
+      ne: "NotEq",
+      gt: "Gt",
+      gte: "Gte",
+      lt: "Lt",
+      lte: "Lte",
+      in: "In",
+      nin: "NotIn",
+    };
     const conditions: any[] = [];
     for (const [key, value] of Object.entries(filters)) {
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        !Array.isArray(value)
-      ) {
-        if ("gte" in value) conditions.push([key, "Gte", value.gte]);
-        if ("lte" in value) conditions.push([key, "Lte", value.lte]);
-        if ("gt" in value) conditions.push([key, "Gt", value.gt]);
-        if ("lt" in value) conditions.push([key, "Lt", value.lt]);
+      if (Array.isArray(value)) {
+        conditions.push([key, "In", value]);
+      } else if (typeof value === "object" && value !== null) {
+        for (const [operator, operand] of Object.entries(value)) {
+          const token = operatorMap[operator];
+          if (!token) {
+            throw new Error(
+              `Unsupported Turbopuffer filter operator "${operator}" for "${key}"`,
+            );
+          }
+          if (operator === "eq" && operand === "*") continue;
+          conditions.push([key, token, operand]);
+        }
       } else {
+        if (value === "*") continue;
         conditions.push([key, "Eq", value]);
       }
     }
