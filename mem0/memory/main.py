@@ -1889,12 +1889,18 @@ class Memory(MemoryBase):
         # Keep listing after each batch is deleted. Most vector stores cap
         # list() at 100 results by default, which silently truncates deletes.
         deleted_count = 0
+        seen_batches = set()
         while True:
             memories = self.vector_store.list(
                 filters=filters, top_k=DELETE_ALL_BATCH_SIZE
             )[0]
             if not memories:
                 break
+            batch_ids = tuple(sorted(str(memory.id) for memory in memories))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
             for memory in memories:
                 self._delete_memory(memory.id)
             deleted_count += len(memories)
