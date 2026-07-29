@@ -342,7 +342,14 @@ def _build_filters_and_metadata(
               scoped to the provided session(s) and potentially a resolved actor.
     """
 
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    # Identity scope is controlled by the explicit arguments below. Do not
+    # allow free-form metadata to inject a scope that was not supplied by the
+    # caller (the update path applies the same invariant after creation).
+    base_metadata_template = {
+        key: value
+        for key, value in (input_metadata or {}).items()
+        if key not in _IDENTITY_KEYS
+    }
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
     # ---------- validate and add all provided session ids ----------

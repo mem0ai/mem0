@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mem0.exceptions import LLMError
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import AsyncMemory, Memory, _build_filters_and_metadata
 
 
 def _setup_mocks(mocker):
@@ -451,6 +451,21 @@ def test_update_memory_metadata_cannot_change_identity_fields(mocker, caplog):
     assert payload["category"] == "sports"
     assert payload["data"] == "new memory"
     assert "ignoring metadata['user_id']" in caplog.text
+
+
+def test_add_metadata_cannot_inject_identity_fields():
+    metadata, filters = _build_filters_and_metadata(
+        user_id="tenant_a",
+        input_metadata={
+            "agent_id": "attacker_agent",
+            "run_id": "attacker_run",
+            "actor_id": "attacker_actor",
+            "category": "sports",
+        },
+    )
+
+    assert metadata == {"user_id": "tenant_a", "category": "sports"}
+    assert filters == {"user_id": "tenant_a"}
 
 
 @pytest.mark.asyncio
