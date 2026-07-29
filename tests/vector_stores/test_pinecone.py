@@ -263,3 +263,9 @@ def test_create_filter_in_operator(pinecone_db):
 def test_create_filter_ne_operator(pinecone_db):
     result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
     assert result == {"status": {"$ne": "deleted"}}
+
+
+def test_create_filter_wildcard_star_is_exists(pinecone_db):
+    """'*' is field-exists, not a literal equality match on the star character."""
+    result = pinecone_db._create_filter({"user_id": "*"})
+    assert result == {"user_id": {"$exists": True}}
