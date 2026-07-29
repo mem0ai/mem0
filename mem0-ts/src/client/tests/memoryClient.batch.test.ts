@@ -57,6 +57,30 @@ describe("MemoryClient - batchUpdate()", () => {
     const call = findFetchCall(mock, "/v1/batch/", "PUT");
     expect(getFetchBody(call!).memories).toEqual([]);
   });
+
+  test("preserves metadata in request body", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.batchUpdate([
+      {
+        memoryId: "mem_1",
+        text: "updated 1",
+        metadata: { source: "import", priority: 2 },
+      },
+    ]);
+
+    const call = findFetchCall(mock, "/v1/batch/", "PUT");
+    expect(getFetchBody(call!).memories).toEqual([
+      {
+        memory_id: "mem_1",
+        text: "updated 1",
+        metadata: { source: "import", priority: 2 },
+      },
+    ]);
+  });
 });
 
 // ─── batchDelete() ──────────────────────────────────────
