@@ -274,7 +274,12 @@ export class TurbopufferDB implements VectorStore {
   private parseRows(rows: any[]): VectorStoreResult[] {
     return rows.map((row) => {
       const { id, $dist, vector, ...rest } = row;
-      const score = $dist != null ? 1 - $dist : undefined;
+      const score =
+        $dist == null
+          ? undefined
+          : this.distanceMetric === "euclidean_squared"
+            ? 1 / (1 + $dist)
+            : 1 - $dist;
       return { id: String(id), payload: rest, score };
     });
   }
