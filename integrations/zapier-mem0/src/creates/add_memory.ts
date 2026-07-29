@@ -2,8 +2,8 @@ import type { ZObject, Bundle, AddResponse, EventResponse } from '../types';
 import { captureEvent } from '../telemetry';
 
 const POLL_INTERVAL_MS = 1500;
-// Bounded so the poll budget stays under Zapier's per-step execution timeout.
-const MAX_POLL_ATTEMPTS = 12;
+// Bounded to a 60s poll budget, under Zapier's per-step execution timeout.
+const MAX_POLL_ATTEMPTS = 40;
 
 // Polls GET /v1/event/{id}/ until the async memory-addition event resolves.
 const pollEvent = async (z: ZObject, eventId: string): Promise<EventResponse> => {
