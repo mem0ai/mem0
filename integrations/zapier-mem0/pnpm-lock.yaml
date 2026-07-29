@@ -4,6 +4,13 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  form-data@<4.0.6: '>=4.0.6'
+  uuid@<11.1.1: '>=11.1.1'
+  esbuild: '>=0.28.1'
+  undici@<6.27.0: '>=6.27.0 <8.0.0'
+  undici@>=8.0.0 <8.5.0: '>=8.5.0'
+
 importers:
 
   .:
@@ -644,8 +651,8 @@ packages:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
 
-  form-data@4.0.5:
-    resolution: {integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==}
+  form-data@4.0.6:
+    resolution: {integrity: sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==}
     engines: {node: '>= 6'}
 
   fs.realpath@1.0.0:
@@ -2223,7 +2230,7 @@ snapshots:
     dependencies:
       is-callable: 1.2.7
 
-  form-data@4.0.5:
+  form-data@4.0.6:
     dependencies:
       asynckit: 0.4.0
       combined-stream: 1.0.8
@@ -3137,7 +3144,7 @@ snapshots:
       content-disposition: 0.5.4
       dotenv: 17.2.1
       fernet: 0.3.3
-      form-data: 4.0.5
+      form-data: 4.0.6
       json-schema-to-ts: 3.1.1
       lodash: 4.18.1
       mime-types: 3.0.1
