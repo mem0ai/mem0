@@ -51,6 +51,22 @@ def test_generate_response_without_tools(mock_gemini_client: Mock):
     assert response == "I'm doing well, thank you for asking!"
 
 
+def test_generate_response_maps_assistant_role_to_model(mock_gemini_client: Mock):
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash-latest"))
+    messages = [
+        {"role": "user", "content": "What is the weather?"},
+        {"role": "assistant", "content": "It is sunny."},
+        {"role": "user", "content": "Thanks!"},
+    ]
+    mock_response = Mock(candidates=[Mock(content=Mock(parts=[Mock(text="You're welcome!")]))])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    contents = mock_gemini_client.models.generate_content.call_args.kwargs["contents"]
+    assert [content.role for content in contents] == ["user", "model", "user"]
+
+
 def test_generate_response_with_tools(mock_gemini_client: Mock):
     config = BaseLlmConfig(model="gemini-1.5-flash-latest", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = GeminiLLM(config)
