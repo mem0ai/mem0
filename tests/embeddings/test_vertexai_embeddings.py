@@ -163,7 +163,7 @@ def test_invalid_memory_action(mock_text_embedding_model, mock_config):
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_single_call(mock_text_embedding_model, mock_os_environ, mock_config):
-    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.model = "text-embedding-005"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -198,7 +198,7 @@ def test_embed_batch_empty_list(mock_text_embedding_model, mock_os_environ, mock
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_count_mismatch_raises(mock_text_embedding_model, mock_os_environ, mock_config):
-    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.model = "text-embedding-005"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -262,7 +262,7 @@ def test_embed_batch_invalid_memory_action_raises(mock_text_embedding_model, moc
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_chunking_triggers_two_api_calls(mock_text_embedding_model, mock_os_environ, mock_config):
     """300 texts must produce exactly 2 get_embeddings calls (chunks of 250 and 50)."""
-    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.model = "text-embedding-005"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -278,3 +278,24 @@ def test_embed_batch_chunking_triggers_two_api_calls(mock_text_embedding_model, 
 
     assert mock_text_embedding_model.from_pretrained.return_value.get_embeddings.call_count == 2
     assert len(result) == 300
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_gemini_embedding_uses_one_input_per_request(
+    mock_text_embedding_model, mock_os_environ, mock_config
+):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+    embedder = VertexAIEmbedding(mock_config())
+
+    def make_response(texts, output_dimensionality):
+        return [Mock(values=[0.1, 0.2]) for _ in texts]
+
+    client = mock_text_embedding_model.from_pretrained.return_value
+    client.get_embeddings.side_effect = make_response
+
+    result = embedder.embed_batch(["first", "second", "third"])
+
+    assert client.get_embeddings.call_count == 3
+    assert all(len(call.kwargs["texts"]) == 1 for call in client.get_embeddings.call_args_list)
+    assert len(result) == 3

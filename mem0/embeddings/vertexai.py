@@ -72,8 +72,9 @@ class VertexAIEmbedding(EmbeddingBase):
                 raise ValueError(f"Invalid memory action: {memory_action}")
             embedding_type = self.embedding_types[memory_action]
         all_embeddings = []
-        for i in range(0, len(texts), 250):
-            chunk = texts[i : i + 250]
+        max_instances = 1 if self.config.model.startswith("gemini-embedding") else 250
+        for i in range(0, len(texts), max_instances):
+            chunk = texts[i : i + max_instances]
             inputs = [TextEmbeddingInput(text=t, task_type=embedding_type) for t in chunk]
             results = self.model.get_embeddings(texts=inputs, output_dimensionality=self.config.embedding_dims)
             all_embeddings.extend(r.values for r in results)
