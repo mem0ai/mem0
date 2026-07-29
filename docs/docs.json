@@ -85,7 +85,8 @@
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
                           "platform/features/custom-instructions",
-                          "platform/features/memory-decay"
+                          "platform/features/memory-decay",
+                          "platform/features/dream"
                         ]
                       },
                       {
