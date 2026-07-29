@@ -116,6 +116,16 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `redisUrl` | URL for the Redis server |
 | `username` | Username for database connection |
 | `password` | Password for database connection |
+| `client` | Existing database client; for Oracle, a `node-oracledb` Connection or Pool |
+| `connectionParams` | `node-oracledb` connection or pool attributes for Oracle AI Vector Search, such as `user`, `password`, `connectString`, `poolMin`, and `poolMax` |
+| `useConnectionPool` | Create an Oracle connection pool from `connectionParams` |
+| `distanceMetric` | Oracle vector distance metric: `COSINE`, `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `DOT`, `HAMMING`, or `MANHATTAN` |
+| `doCreateIndex` | Whether Oracle AI Vector Search creates a vector index |
+| `mutateOnDuplicate` | Whether Oracle writes use `MERGE` to update duplicate IDs; defaults to `false` |
+| `indexType` | Oracle vector index type: `HNSW` or `IVF` |
+| `indexName` | Name of the Oracle vector index |
+| `indexParameters` | Oracle index tuning parameters: for HNSW, `neighbors` and `efconstruction`; for IVF, `neighbor_partitions`, `samples_per_partition`, and `min_vectors_per_partition` |
+| `indexAccuracy` | Oracle target vector-index accuracy, from 1 to 100 |
 </Tab>
 </Tabs>
 

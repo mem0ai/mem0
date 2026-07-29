@@ -127,6 +127,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "@turbopuffer/turbopuffer": "^2.0.0",
     "@types/jest": "29.5.14",
+    "@types/oracledb": "^7.0.1",
     "@types/pg": "8.11.0",
     "@upstash/vector": "^1.2.3",
     "better-sqlite3": "^12.6.2",
@@ -139,6 +140,7 @@
     "mongodb": "^7.0.0",
     "weaviate-client": "^3.0.0",
     "ollama": "^0.5.14",
+    "oracledb": "^6.0.0 || ^7.0.0",
     "pg": "8.11.3",
     "redis": "^4.6.13",
     "@elastic/elasticsearch": "^9.0.0",
@@ -185,6 +187,9 @@
       "optional": true
     },
     "ollama": {
+      "optional": true
+    },
+    "oracledb": {
       "optional": true
     },
     "mysql2": {
