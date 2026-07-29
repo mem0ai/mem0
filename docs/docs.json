@@ -1235,6 +1235,10 @@
     {
       "source": "/platform/features/criteria-retrieval",
       "destination": "/platform/features/advanced-retrieval"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations/respan"
     }
   ]
 }
