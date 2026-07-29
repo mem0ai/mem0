@@ -1,5 +1,5 @@
 {
-  "name": "n8n-nodes-mem0",
+  "name": "@mem0/n8n-nodes-mem0",
   "version": "0.1.0",
   "description": "n8n community node for Mem0 — the memory layer for AI agents. Add, search, get, update, and delete long-term memories.",
   "keywords": [
@@ -25,6 +25,9 @@
     "node": ">=20.15"
   },
   "main": "index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "npx rimraf dist && tsc && gulp build:icons",
     "dev": "tsc --watch",

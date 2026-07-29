@@ -1,5 +1,5 @@
 {
-	"node": "n8n-nodes-mem0.mem0",
+	"node": "@mem0/n8n-nodes-mem0.mem0",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": ["AI"],

@@ -20,7 +20,7 @@ function makeCtx(
 	opts: { continueOnFail?: boolean } = {},
 ): any {
 	const requests: any[] = [];
-	const node = { name: 'Mem0', type: 'n8n-nodes-mem0.mem0', typeVersion: 1 };
+	const node = { name: 'Mem0', type: '@mem0/n8n-nodes-mem0.mem0', typeVersion: 1 };
 	const ctx: any = {
 		getInputData: () => [{ json: {} }],
 		getCredentials: async () => ({ apiKey: 'm0-test', baseUrl: 'https://api.mem0.ai' }),

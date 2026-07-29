@@ -1,4 +1,4 @@
-# n8n-nodes-mem0
+# @mem0/n8n-nodes-mem0
 
 This is an n8n community node that lets you use [Mem0](https://mem0.ai) — the memory layer for AI agents — in your n8n workflows.
 
@@ -10,7 +10,7 @@ Mem0 gives your agents long-term memory: add memories from conversations, then s
 
 ## Installation
 
-Follow the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) and install `n8n-nodes-mem0`.
+Follow the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) and install `@mem0/n8n-nodes-mem0`.
 
 ## Operations
 

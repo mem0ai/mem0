@@ -27,7 +27,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `integrations/openclaw/` | `@mem0/openclaw-mem0` — OpenClaw plugin for Claude Code / AI editors |
 | `integrations/pi-agent-plugin/` | `@mem0/pi-agent-plugin` — Pi Agent plugin |
 | `integrations/vercel-ai-sdk/` | `@mem0/vercel-ai-provider` — Vercel AI SDK memory provider |
-| `integrations/n8n-nodes-mem0/` | `n8n-nodes-mem0` — n8n community node; add / search / get / update / delete memories |
+| `integrations/n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` — n8n community node; add / search / get / update / delete memories |
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
 | `openmemory/` | Self-hosted memory platform — `api/` (FastAPI + Alembic + MCP server) and `ui/` (Next.js 15 + React 19) |
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
@@ -452,7 +452,7 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 | OpenClaw | `openclaw-cd.yml` | `openclaw-v*` | npm (`@mem0/openclaw-mem0`) |
 | OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 | Pi Agent Plugin | `pi-agent-plugin-cd.yml` | `pi-agent-v*` | npm (`@mem0/pi-agent-plugin`) |
-| n8n Node | `n8n-nodes-mem0-cd.yml` | `n8n-nodes-mem0-v*` | npm (`n8n-nodes-mem0`) |
+| n8n Node | `n8n-nodes-mem0-cd.yml` | `n8n-nodes-mem0-v*` | npm (`@mem0/n8n-nodes-mem0`) |
 
 - Package CD workflows are `workflow_dispatch`-only (inputs: `tag`, `prerelease`); they check out and build the given tag. Registry trusted-publisher settings stay pinned to each package's own workflow filename.
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.
