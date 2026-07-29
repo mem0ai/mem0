@@ -464,3 +464,15 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_openai_llm_passes_proxy_client_to_openai():
+    config = OpenAIConfig(
+        model="gpt-4.1-nano-2025-04-14",
+        api_key="api_key",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    with patch("mem0.llms.openai.OpenAI") as openai:
+        OpenAILLM(config)
+
+    assert openai.call_args.kwargs["http_client"] is config.http_client

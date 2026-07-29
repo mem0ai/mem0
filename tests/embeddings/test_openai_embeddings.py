@@ -109,6 +109,14 @@ def test_embed_passes_encoding_format_float(mock_openai_client):
     assert call_kwargs.kwargs.get("encoding_format") == "float" or call_kwargs[1].get("encoding_format") == "float"
 
 
+def test_openai_embedding_passes_proxy_client_to_openai():
+    config = BaseEmbedderConfig(http_client_proxies="http://proxy.local:8080")
+    with patch("mem0.embeddings.openai.OpenAI") as openai:
+        OpenAIEmbedding(config)
+
+    assert openai.call_args.kwargs["http_client"] is config.http_client
+
+
 def test_embed_passes_dimensions_only_when_explicit(mock_openai_client):
     """Matryoshka / truncated embeddings: dimensions sent only if user sets embedding_dims (#4153)."""
     config = BaseEmbedderConfig(embedding_dims=256)
