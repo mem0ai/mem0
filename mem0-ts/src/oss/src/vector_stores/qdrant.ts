@@ -306,11 +306,40 @@ export class Qdrant implements VectorStore {
       };
     });
 
-    // `as any` here and below: the JS client types predate server-side
-    // sparse_vectors, so the named-vector + BM25-inference shapes are not typed.
-    await this.client.upsert(this.collectionName, {
-      points: points as any,
-    });
+    await this.upsertPoints(points);
+  }
+
+  // A server can accept a bm25 `sparse_vectors` config yet be unable to run
+  // inference (Qdrant < 1.15.2, or a Cloud cluster created before 2025-07-07
+  // where inference was never activated), so no version check catches it and
+  // the first upsert failure is the only signal. Retry dense-only rather than
+  // lose the write.
+  //
+  // `as any`: the JS client types predate server-side sparse_vectors, so the
+  // named-vector and BM25-inference shapes are not typed.
+  private async upsertPoints(
+    points: { id: string | number; vector: any; payload?: any }[],
+  ): Promise<void> {
+    try {
+      await this.client.upsert(this.collectionName, { points: points as any });
+    } catch (error) {
+      if (!this._hasBm25Slot) {
+        throw error;
+      }
+      this._hasBm25Slot = false;
+      console.warn(
+        `Qdrant rejected the server-side BM25 vector for collection '${this.collectionName}'; ` +
+          "disabling hybrid keyword search. This requires Qdrant >= 1.15.2 with inference enabled. " +
+          "Retrying the write with a plain dense vector.",
+      );
+      const denseOnly = points.map((p) => ({
+        ...p,
+        vector: Array.isArray(p.vector) ? p.vector : p.vector[""],
+      }));
+      await this.client.upsert(this.collectionName, {
+        points: denseOnly as any,
+      });
+    }
   }
 
   // With a bm25 slot, return named vectors so Qdrant encodes BM25 server-side;
@@ -410,9 +439,7 @@ export class Qdrant implements VectorStore {
       payload,
     };
 
-    await this.client.upsert(this.collectionName, {
-      points: [point] as any,
-    });
+    await this.upsertPoints([point]);
   }
 
   async delete(vectorId: string): Promise<void> {

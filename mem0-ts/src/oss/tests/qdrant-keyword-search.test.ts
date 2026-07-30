@@ -439,6 +439,111 @@ describe("Qdrant BM25 keyword search — query construction & filters", () => {
   });
 });
 
+describe("Qdrant BM25 keyword search — reactive downgrade on upsert failure", () => {
+  it("insert(): upsert fails once, retries with plain dense vector, disables bm25", async () => {
+    const upsert = jest
+      .fn()
+      .mockRejectedValueOnce({
+        status: 500,
+        message: "InferenceService is not initialized.",
+      })
+      .mockResolvedValueOnce(undefined);
+    const client = buildMockClient({ upsert });
+    const store = makeStore(client);
+    await store.initialize();
+
+    await store.insert(
+      [[0.1, 0.2]],
+      ["mem-1"],
+      [{ data: "hello", textLemmatized: "hello" }],
+    );
+
+    expect(upsert).toHaveBeenCalledTimes(2);
+    const retryPoint = upsert.mock.calls[1][1].points[0];
+    expect(retryPoint.vector).toEqual([0.1, 0.2]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(await store.keywordSearch("hello")).toBeNull();
+  });
+
+  it("update(): upsert fails once, retries with plain dense vector, disables bm25", async () => {
+    const upsert = jest
+      .fn()
+      .mockRejectedValueOnce({
+        status: 500,
+        message: "InferenceService is not initialized.",
+      })
+      .mockResolvedValueOnce(undefined);
+    const client = buildMockClient({ upsert });
+    const store = makeStore(client);
+    await store.initialize();
+
+    await store.update("mem-1", [0.4, 0.5], {
+      data: "updated",
+      textLemmatized: "updat",
+    });
+
+    expect(upsert).toHaveBeenCalledTimes(2);
+    const retryPoint = upsert.mock.calls[1][1].points[0];
+    expect(retryPoint.vector).toEqual([0.4, 0.5]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(await store.keywordSearch("updat")).toBeNull();
+  });
+
+  it("legacy collection (no bm25 slot): a genuine upsert failure still rejects, not swallowed", async () => {
+    const client = buildMockClient(
+      {
+        createCollection: jest.fn().mockRejectedValue({ status: 409 }),
+        upsert: jest.fn().mockRejectedValue(new Error("network down")),
+      },
+      INFO_NO_SLOT,
+    );
+    const store = makeStore(client);
+    await store.initialize();
+
+    await expect(store.insert([[0.1]], ["m"], [{ data: "x" }])).rejects.toThrow(
+      "network down",
+    );
+    expect(client.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("after a downgrade, a subsequent insert() sends a plain dense vector on the first attempt", async () => {
+    const upsert = jest
+      .fn()
+      .mockRejectedValueOnce({
+        status: 500,
+        message: "InferenceService is not initialized.",
+      })
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    const client = buildMockClient({ upsert });
+    const store = makeStore(client);
+    await store.initialize();
+
+    await store.insert([[0.1]], ["mem-1"], [{ data: "first" }]);
+    expect(upsert).toHaveBeenCalledTimes(2);
+
+    await store.insert([[0.2]], ["mem-2"], [{ data: "second" }]);
+    expect(upsert).toHaveBeenCalledTimes(3);
+    const secondInsertPoint = upsert.mock.calls[2][1].points[0];
+    expect(secondInsertPoint.vector).toEqual([0.2]);
+  });
+});
+
+describe("Qdrant BM25 keyword search — memory_migrations indexing", () => {
+  it("does not create payload indexes for memory_migrations on the existing-collection path", async () => {
+    const client = buildMockClient({
+      createCollection: jest.fn().mockRejectedValue({ status: 409 }),
+    });
+    const store = makeStore(client);
+    await store.initialize();
+
+    const migrationsIndexCalls = client.createPayloadIndex.mock.calls.filter(
+      (c) => c[0] === "memory_migrations",
+    );
+    expect(migrationsIndexCalls).toHaveLength(0);
+  });
+});
+
 describe("Qdrant BM25 keyword search — semantic (dense) path", () => {
   it("search() still targets the unnamed dense slot after BM25 init", async () => {
     const client = buildMockClient({
