@@ -343,3 +343,88 @@ def test_disabled_is_passthrough_noop(_install_providers, monkeypatch):
     result = FakeMemory().add("hi", user_id="u1")
     assert result[0]["id"] == "m1"
     assert list(_spans(_install_providers)) == []  # no spans when disabled
+
+
+# --------------------------------------------------------------------------- #
+# End-to-end trace: internal pipeline child spans nest under memory.<op>       #
+# --------------------------------------------------------------------------- #
+class _FakeEmbedder:
+    config = _EmbedCfg()
+
+    def embed(self, text, memory_action=None):
+        return [0.1, 0.2, 0.3]
+
+    def embed_batch(self, texts, memory_action=None):
+        return [[0.1, 0.2, 0.3] for _ in texts]
+
+
+class _FakeVectorStore:
+    def search(self, *a, **k):
+        return []
+
+    def insert(self, *a, **k):
+        return None
+
+
+class _FakeLLM:
+    def generate_response(self, *a, **k):
+        return "{}"
+
+
+class _PipelineCfg(_Cfg):
+    class llm:
+        provider = "openai"
+
+    class embedder:
+        provider = "openai"
+
+
+class PipelineMemory:
+    """A Memory-shaped object whose add() actually drives the components, so the
+    child-span wrapping in trace_components() produces an end-to-end trace tree."""
+
+    def __init__(self):
+        self.config = _PipelineCfg()
+        self.embedding_model = _FakeEmbedder()
+        self.vector_store = _FakeVectorStore()
+        self.llm = _FakeLLM()
+        otel.trace_components(self)
+
+    @otel.instrument("add")
+    def add(self, messages, *, user_id=None, agent_id=None, run_id=None, infer=True):
+        self.embedding_model.embed(messages, "add")
+        self.vector_store.search("q")
+        self.llm.generate_response(messages=messages)
+        self.vector_store.insert(vectors=[[0.1]], ids=["m1"], payloads=[{}])
+        return [{"id": "m1", "memory": "likes tennis", "event": "ADD"}]
+
+
+def test_end_to_end_trace_child_spans_nest_under_op(_install_providers):
+    PipelineMemory().add("I play tennis", user_id="u1")
+    spans = _spans(_install_providers)
+    by_name = {s.name: s for s in spans}
+
+    # The internal pipeline emitted child spans...
+    for child in ("memory.embed", "memory.vector_store.search", "memory.llm.generate", "memory.vector_store.insert"):
+        assert child in by_name, f"missing child span {child}"
+
+    parent = by_name["memory.add"]
+    # ...all sharing the op's trace and parented to the memory.add span.
+    for child in ("memory.embed", "memory.vector_store.search", "memory.llm.generate", "memory.vector_store.insert"):
+        cs = by_name[child]
+        assert cs.context.trace_id == parent.context.trace_id, f"{child} not in op trace"
+        assert cs.parent is not None and cs.parent.span_id == parent.context.span_id, f"{child} not child of op"
+
+    # Sub-op attributes are populated.
+    assert dict(by_name["memory.embed"].attributes)[otel.ATTR_EMBEDDING_ACTION] == "add"
+    assert dict(by_name["memory.vector_store.insert"].attributes)[otel.ATTR_DB_OPERATION] == "insert"
+    assert otel.ATTR_STORE_BACKEND in dict(by_name["memory.vector_store.search"].attributes)
+
+
+def test_component_spans_suppressed_outside_op(_install_providers):
+    # Calling a wrapped component method with no active memory span must not
+    # create a stray root span.
+    mem = PipelineMemory()
+    _install_providers["spans"].clear()
+    mem.embedding_model.embed("hello", "search")
+    assert list(_spans(_install_providers)) == []

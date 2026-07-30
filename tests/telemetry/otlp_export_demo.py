@@ -72,6 +72,9 @@ class _Cfg:
     class embedder:
         provider = "openai"
 
+    class llm:
+        provider = "openai"
+
     graph_store = None
 
 
@@ -79,58 +82,113 @@ class _Embed:
     class config:
         embedding_dims = 1536
 
+    def embed(self, text, memory_action=None):
+        return [0.01, 0.02, 0.03]
+
+    def embed_batch(self, texts, memory_action=None):
+        return [[0.01, 0.02, 0.03] for _ in texts]
+
+
+class _VectorStore:
+    def search(self, *a, **k):
+        return [{"id": "mem_1", "score": 0.88}]
+
+    def insert(self, *a, **k):
+        return None
+
+    def get(self, *a, **k):
+        return {"id": "mem_1"}
+
+    def list(self, *a, **k):
+        return {"results": [{"id": "mem_1"}, {"id": "mem_2"}]}
+
+    def update(self, *a, **k):
+        return None
+
+    def delete(self, *a, **k):
+        return None
+
+
+class _LLM:
+    def generate_response(self, *a, **k):
+        return '{"facts": ["Alex plays tennis on weekends"]}'
+
 
 class DemoMemory:
+    """Memory-shaped object whose ops actually drive the embedder / vector store
+    / LLM, so ``trace_components`` produces a real end-to-end trace tree."""
+
     def __init__(self):
         self.config = _Cfg()
         self.embedding_model = _Embed()
+        self.vector_store = _VectorStore()
+        self.llm = _LLM()
+        otel.trace_components(self)  # wrap components -> child spans
 
     @otel.instrument("add")
     def add(self, messages, *, user_id=None, agent_id=None, run_id=None, infer=True):
+        # Mirrors the real add() pipeline: embed -> recall -> LLM extract -> upsert.
+        self.embedding_model.embed(str(messages), "add")
+        self.vector_store.search("recall existing")
+        self.llm.generate_response(messages=messages)
+        self.vector_store.insert(vectors=[[0.01]], ids=["mem_1"], payloads=[{}])
         return [{"id": "mem_1", "memory": "Alex plays tennis on weekends", "event": "ADD"}]
 
     @otel.instrument("search")
     def search(self, query, *, top_k=20, filters=None, threshold=0.1):
-        return {"results": [{"id": "mem_1", "memory": "plays tennis", "score": 0.88}]}
+        self.embedding_model.embed(query, "search")
+        hits = self.vector_store.search(query)
+        return {"results": [{"id": "mem_1", "memory": "plays tennis", "score": hits[0]["score"]}]}
 
     @otel.instrument("get")
     def get(self, memory_id):
+        self.vector_store.get(vector_id=memory_id)
         return {"id": memory_id, "memory": "plays tennis"}
 
     @otel.instrument("get_all")
     def get_all(self, *, filters=None, top_k=20):
-        return {"results": [{"id": "mem_1"}, {"id": "mem_2"}]}
+        return self.vector_store.list(filters=filters, top_k=top_k)
 
     @otel.instrument("update")
     def update(self, memory_id, text=None):
+        self.embedding_model.embed(text or "", "update")
+        self.vector_store.update(vector_id=memory_id)
         return {"message": "Memory updated successfully!"}
 
     @otel.instrument("delete")
     def delete(self, memory_id):
+        self.vector_store.delete(vector_id=memory_id)
         return {"message": "Memory deleted successfully!"}
 
     @otel.instrument("search")
     def search_error(self, query, *, filters=None):
+        self.embedding_model.embed(query, "search")
         raise RuntimeError("vector store unreachable")
 
 
 def main():
     print(f"Exporting mem0 telemetry over OTLP/gRPC -> {ENDPOINT} (insecure={INSECURE})")
     mem = DemoMemory()
-    mem.add(
-        [{"role": "user", "content": "I play tennis on weekends"}],
-        user_id="alex",
-        agent_id="coach",
-    )
-    mem.search("what sports does alex play?", filters={"user_id": "alex"})
-    mem.get("mem_1")
-    mem.get_all(filters={"user_id": "alex"})
-    mem.update("mem_1", text="Alex plays tennis and padel")
-    mem.delete("mem_1")
-    try:
-        mem.search_error("boom", filters={"user_id": "alex"})
-    except RuntimeError:
-        pass
+    # Wrap the whole flow in a caller span so the export shows a full end-to-end
+    # waterfall: caller -> memory.<op> -> embed / vector_store / llm children —
+    # the exact shape a distributed trace (e.g. an MCP memory server calling
+    # mem0, which calls its backend) renders.
+    caller = otel_trace.get_tracer("mem0.demo.caller")
+    with caller.start_as_current_span("mcp-memory-server.request", kind=otel_trace.SpanKind.SERVER):
+        mem.add(
+            [{"role": "user", "content": "I play tennis on weekends"}],
+            user_id="alex",
+            agent_id="coach",
+        )
+        mem.search("what sports does alex play?", filters={"user_id": "alex"})
+        mem.get("mem_1")
+        mem.get_all(filters={"user_id": "alex"})
+        mem.update("mem_1", text="Alex plays tennis and padel")
+        mem.delete("mem_1")
+        try:
+            mem.search_error("boom", filters={"user_id": "alex"})
+        except RuntimeError:
+            pass
 
     ok = True
     ok &= tracer_provider.force_flush(timeout_millis=10_000)

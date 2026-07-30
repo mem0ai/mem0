@@ -52,6 +52,7 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.telemetry.otel import instrument as otel_instrument
+from mem0.telemetry.otel import trace_components as otel_trace_components
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -526,6 +527,9 @@ class Memory(MemoryBase):
             )
 
         capture_event("mem0.init", self, {"sync_type": "sync"})
+        # Emit child spans for the internal pipeline (embed → vector store → LLM)
+        # so each memory op renders as an end-to-end trace. No-op without [otel].
+        otel_trace_components(self)
 
     @property
     def project(self):
@@ -2172,6 +2176,9 @@ class AsyncMemory(MemoryBase):
             )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
+        # Emit child spans for the internal pipeline (embed → vector store → LLM)
+        # so each memory op renders as an end-to-end trace. No-op without [otel].
+        otel_trace_components(self)
 
     @property
     def project(self):

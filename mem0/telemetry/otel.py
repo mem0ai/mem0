@@ -96,6 +96,11 @@ ATTR_INFER = "memory.infer"
 ATTR_SCOPE_USER = "memory.scope.user_id"
 ATTR_SCOPE_AGENT = "memory.scope.agent_id"
 ATTR_SCOPE_RUN = "memory.scope.run_id"
+# Internal sub-operation (child span) attributes — these produce the *end-to-end*
+# trace tree beneath a ``memory.<op>`` span (embedding → vector store → LLM).
+ATTR_EMBEDDING_ACTION = "memory.embedding.action"
+ATTR_DB_OPERATION = "memory.db.operation"
+ATTR_LLM_MODEL = "memory.llm.model"
 
 # Metric instrument names (kept identical to the memory-semconv registry so a
 # single Weaver policy validates every mem-fork: mem0 / memU / mcp_server).
@@ -149,27 +154,21 @@ _instruments: Dict[str, Any] = {}
 def _get_tracer():
     global _tracer
     if _tracer is None:
-        _tracer = _otel_trace.get_tracer(
-            INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION, schema_url=SCHEMA_URL
-        )
+        _tracer = _otel_trace.get_tracer(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION, schema_url=SCHEMA_URL)
     return _tracer
 
 
 def _get_meter():
     global _meter
     if _meter is None:
-        _meter = _otel_metrics.get_meter(
-            INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION, schema_url=SCHEMA_URL
-        )
+        _meter = _otel_metrics.get_meter(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION, schema_url=SCHEMA_URL)
     return _meter
 
 
 def _get_logger():
     global _otel_logger
     if _otel_logger is None and _OTEL_LOGS_AVAILABLE:
-        _otel_logger = _otel_logs.get_logger(
-            INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION, schema_url=SCHEMA_URL
-        )
+        _otel_logger = _otel_logs.get_logger(INSTRUMENTATION_NAME, INSTRUMENTATION_VERSION, schema_url=SCHEMA_URL)
     return _otel_logger
 
 
@@ -456,9 +455,7 @@ def instrument(op: str) -> Callable:
                 start = time.perf_counter()
                 status = "ok"
                 error: Optional[str] = None
-                with tracer.start_as_current_span(
-                    f"memory.{op}", kind=SpanKind.CLIENT, attributes=attrs
-                ) as span:
+                with tracer.start_as_current_span(f"memory.{op}", kind=SpanKind.CLIENT, attributes=attrs) as span:
                     if query_text is not None:
                         span.set_attribute(ATTR_QUERY_TEXT, query_text)
                     try:
@@ -490,9 +487,7 @@ def instrument(op: str) -> Callable:
             start = time.perf_counter()
             status = "ok"
             error: Optional[str] = None
-            with tracer.start_as_current_span(
-                f"memory.{op}", kind=SpanKind.CLIENT, attributes=attrs
-            ) as span:
+            with tracer.start_as_current_span(f"memory.{op}", kind=SpanKind.CLIENT, attributes=attrs) as span:
                 if query_text is not None:
                     span.set_attribute(ATTR_QUERY_TEXT, query_text)
                 try:
@@ -515,3 +510,126 @@ def instrument(op: str) -> Callable:
         return sync_wrapper
 
     return decorator
+
+
+# --------------------------------------------------------------------------- #
+# End-to-end trace: child spans for the internal pipeline.                     #
+#                                                                             #
+# A ``memory.<op>`` span on its own is a single flat span. To render a real    #
+# *end-to-end* trace (embedding → vector store → LLM, the way a distributed    #
+# waterfall shows a caller → backend), we wrap the embedder / vector store /   #
+# LLM component methods so each internal call emits a **child span** under the  #
+# currently-active memory span. Because ``start_as_current_span`` reads the     #
+# active context (propagated into ``asyncio.to_thread`` worker threads via      #
+# ``contextvars``), these children nest correctly for both ``Memory`` and       #
+# ``AsyncMemory`` without touching a single call site.                         #
+# --------------------------------------------------------------------------- #
+def _inside_recording_span() -> bool:
+    """True only when a recording span (i.e. a live ``memory.<op>``) is active.
+
+    Gating on this keeps component child spans strictly *within* a memory
+    operation — component calls made during ``__init__`` never create stray
+    root spans.
+    """
+    try:
+        span = _otel_trace.get_current_span()
+        return bool(span) and span.get_span_context().is_valid and span.is_recording()
+    except Exception:  # pragma: no cover - defensive
+        return False
+
+
+def _child_span_wrapper(span_name, kind, static_attrs, dyn_attrs, func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not _ENABLED or not _inside_recording_span():
+            return func(*args, **kwargs)
+        attrs = dict(static_attrs)
+        if dyn_attrs is not None:
+            try:
+                attrs.update({k: v for k, v in dyn_attrs(args, kwargs).items() if v is not None})
+            except Exception:  # pragma: no cover - defensive
+                pass
+        with _get_tracer().start_as_current_span(span_name, kind=kind, attributes=attrs) as span:
+            try:
+                return func(*args, **kwargs)
+            except Exception as exc:
+                span.set_status(Status(StatusCode.ERROR, f"{type(exc).__name__}: {exc}"))
+                span.record_exception(exc)
+                raise
+
+    wrapper._mem0_traced = True  # idempotency guard against double-wrapping
+    return wrapper
+
+
+def trace_components(instance: Any) -> None:
+    """Wrap ``embedding_model`` / ``vector_store`` / ``llm`` methods of a Memory
+    instance so their calls emit child spans, producing an end-to-end trace.
+
+    Safe to call once per instance from ``__init__``. No-op when instrumentation
+    is disabled or the OTel API is absent, and idempotent per component method.
+    """
+    if not _ENABLED:
+        return
+
+    try:
+        backend = _store_kind(instance)
+    except Exception:  # pragma: no cover - defensive
+        backend = "unknown"
+    embed_provider = None
+    llm_provider = None
+    try:
+        embed_provider = getattr(getattr(instance.config, "embedder", None), "provider", None)
+        llm_provider = getattr(getattr(instance.config, "llm", None), "provider", None)
+    except Exception:  # pragma: no cover - defensive
+        pass
+
+    def _embed_action(args, kwargs):
+        # embed(text, memory_action) / embed_batch(texts, memory_action) — bound
+        # method, so ``self`` is not in ``args``.
+        action = args[1] if len(args) > 1 else kwargs.get("memory_action") or kwargs.get("action")
+        return {ATTR_EMBEDDING_ACTION: action}
+
+    # (component, methods, span-name builder, kind, static attrs, dyn-attr fn)
+    specs = [
+        (
+            getattr(instance, "embedding_model", None),
+            ("embed", "embed_batch"),
+            lambda m: "memory.embed",
+            SpanKind.INTERNAL,
+            {ATTR_EMBEDDING_MODEL: embed_provider},
+            _embed_action,
+        ),
+        (
+            getattr(instance, "vector_store", None),
+            ("search", "insert", "get", "list", "update", "delete", "keyword_search"),
+            lambda m: f"memory.vector_store.{m}",
+            SpanKind.CLIENT,
+            {ATTR_STORE_BACKEND: backend},
+            None,
+        ),
+        (
+            getattr(instance, "llm", None),
+            ("generate_response",),
+            lambda m: "memory.llm.generate",
+            SpanKind.CLIENT,
+            {ATTR_LLM_MODEL: llm_provider},
+            None,
+        ),
+    ]
+
+    for comp, methods, name_of, kind, static_attrs, dyn in specs:
+        if comp is None:
+            continue
+        for method_name in methods:
+            fn = getattr(comp, method_name, None)
+            if not callable(fn) or getattr(fn, "_mem0_traced", False):
+                continue
+            attrs = {k: v for k, v in static_attrs.items() if v is not None}
+            if kind is SpanKind.CLIENT and comp is getattr(instance, "vector_store", None):
+                attrs = {**attrs, ATTR_DB_OPERATION: method_name}
+            try:
+                setattr(comp, method_name, _child_span_wrapper(name_of(method_name), kind, attrs, dyn, fn))
+            except Exception:  # pragma: no cover - some clients forbid setattr
+                logger.debug("mem0 otel: could not wrap %s.%s for tracing", comp, method_name)
+
+    return
