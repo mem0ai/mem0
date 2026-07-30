@@ -294,6 +294,23 @@ describe("OracleAIVectorSearch SQL", () => {
     expect(await makeStore([], [[]]).get("missing")).toBeNull();
   });
 
+  it("generates and persists a UUID user id when none is stored", async () => {
+    const calls: Call[] = [];
+    const userId = await makeStore(calls, [[]]).getUserId();
+
+    expect(userId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    const insert = calls.find((c) =>
+      c.sql.startsWith("INSERT INTO memory_migrations"),
+    )!;
+    expect(insert.binds).toEqual({ user_id: userId });
+  });
+
+  it("returns the stored user id when one exists", async () => {
+    expect(await makeStore([], [[["alice"]]]).getUserId()).toBe("alice");
+  });
+
   it("returns rows and the total count from list", async () => {
     const calls: Call[] = [];
     const store = makeStore(calls, [[["id-1", { data: "hello" }]], [[7]]]);

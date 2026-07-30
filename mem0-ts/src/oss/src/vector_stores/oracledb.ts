@@ -1,4 +1,5 @@
 import type { Connection, Pool } from "oracledb";
+import { v4 as uuidv4 } from "uuid";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";
@@ -715,11 +716,9 @@ export class OracleAIVectorSearch implements VectorStore {
 
     if (rows.length > 0) return rows[0][0];
 
-    const randomUserId =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
-    await this.setUserId(randomUserId);
-    return randomUserId;
+    const generatedUserId = uuidv4();
+    await this.setUserId(generatedUserId);
+    return generatedUserId;
   }
 
   async setUserId(userId: string): Promise<void> {
