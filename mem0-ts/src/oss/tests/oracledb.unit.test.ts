@@ -302,7 +302,7 @@ describeIntegration("OracleAIVectorSearch integration", () => {
     }
   });
 
-  it("supports direct connections and preserves non-cosine distance scores", async () => {
+  it("supports direct connections and converts non-cosine distance scores", async () => {
     const directCollectionName = `${collectionName}_EUCLIDEAN`;
     const directStore = new OracleAIVectorSearch({
       connectionParams: oracleConfig,
@@ -336,7 +336,7 @@ describeIntegration("OracleAIVectorSearch integration", () => {
         id: "direct-1",
         payload: { kind: "direct" },
       });
-      expect(results[0]?.score).toBeCloseTo(Math.sqrt(2), 4);
+      expect(results[0]?.score).toBeCloseTo(1 / (1 + Math.sqrt(2)), 4);
     } finally {
       await directStore.deleteCol();
       await directStore.close();
@@ -859,7 +859,7 @@ describeUnit("OracleAIVectorSearch unit", () => {
     expect(mockExecute.mock.calls.at(-1)?.[0]).toContain("ORDER BY distance");
   });
 
-  it("keeps non-cosine Oracle metrics as distances", async () => {
+  it("converts Oracle distances to higher-is-better scores", async () => {
     mockExecute.mockResolvedValueOnce({ rows: [] });
     mockExecute.mockResolvedValueOnce({ rows: [] });
     mockExecute.mockResolvedValueOnce({
@@ -875,7 +875,41 @@ describeUnit("OracleAIVectorSearch unit", () => {
 
     const results = await store.search([0.1, 0.2, 0.3], 1);
 
-    expect(results[0]?.score).toBe(0.125);
+    expect(results[0]?.score).toBeCloseTo(1 / 1.125, 6);
+
+    mockExecute
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [["memory-1", { topic: "oracle" }, -0.75]],
+      });
+    const dotStore = new OracleAIVectorSearch({
+      client: mockConnection,
+      collectionName: "oracle_dot_memories",
+      dimension: 3,
+      distanceMetric: "DOT",
+      doCreateIndex: false,
+    });
+
+    const dotResults = await dotStore.search([0.1, 0.2, 0.3], 1);
+    expect(dotResults[0]?.score).toBe(0.75);
+
+    mockExecute
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [["memory-1", { topic: "oracle" }, 2]],
+      });
+    const cosineStore = new OracleAIVectorSearch({
+      client: mockConnection,
+      collectionName: "oracle_cosine_memories",
+      dimension: 3,
+      distanceMetric: "COSINE",
+      doCreateIndex: false,
+    });
+
+    const cosineResults = await cosineStore.search([0.1, 0.2, 0.3], 1);
+    expect(cosineResults[0]?.score).toBe(0);
   });
 
   it("uses VECTOR_INDEX_TRANSFORM for unfiltered searches", async () => {
@@ -891,6 +925,16 @@ describeUnit("OracleAIVectorSearch unit", () => {
     );
     expect(mockExecute.mock.calls.at(-1)?.[0]).toContain(
       "FETCH APPROX FIRST :limit ROWS ONLY",
+    );
+  });
+
+  it("uses VECTOR_INDEX_TRANSFORM when given an empty filter object", async () => {
+    const store = createStore();
+
+    await store.search([0.1, 0.2, 0.3], 1, {});
+
+    expect(mockExecute.mock.calls.at(-1)?.[0]).toContain(
+      'SELECT /*+ VECTOR_INDEX_TRANSFORM("oracle_memories") */',
     );
   });
 

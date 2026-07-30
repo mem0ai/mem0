@@ -161,7 +161,7 @@ For the full list of supported options, see the Oracle [`CREATE VECTOR INDEX`](h
 
 ### Search scores
 
-Oracle returns a distance from `VECTOR_DISTANCE`, which Mem0 converts to a `score` where higher means more similar. `COSINE` and the other non-negative metrics produce scores in the range `[0, 1]`. `DOT` returns the inner product, which can fall outside that range.
+Oracle returns a distance from `VECTOR_DISTANCE`, which Mem0 converts to a `score` where higher means more similar. `COSINE` uses `1 - distance`; `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `HAMMING`, and `MANHATTAN` use a reciprocal similarity; and `DOT` negates Oracle's distance value. The non-negative metrics produce scores in the range `[0, 1]`; `DOT` can fall outside that range.
 
 ### Metadata filters
 
