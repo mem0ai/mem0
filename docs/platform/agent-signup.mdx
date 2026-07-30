@@ -76,12 +76,7 @@ Pass `--code 123456` to skip the interactive code prompt for fully non-interacti
 
 ## Rate limits and quotas
 
-Agent Mode signups are rate-limited to **5 per day per IP address** to prevent abuse. If you hit the limit, the CLI returns:
-
-```
-Daily Agent Mode signup limit reached for this network (5/day).
-Try again from a different IP or after midnight UTC.
-```
+Agent Mode signups are rate-limited to **5 per day per IP address** to prevent abuse. If you hit the limit, the request fails with a generic **403 Forbidden** (no custom error message, no `Retry-After` header). Wait a while or try from a different network.
 
 Unclaimed agent accounts get the standard Mem0 free-tier quotas. The human owner can upgrade after claiming.
 

@@ -281,6 +281,8 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Developer Tools
 - [Dify](https://docs.mem0.ai/integrations/dify) [Both]: Use when the user is on Dify LLMOps.
 - [Flowise](https://docs.mem0.ai/integrations/flowise) [Both]: Use when the user is on Flowise no-code.
+- [n8n](https://docs.mem0.ai/integrations/n8n) [Both]: Use when the user builds workflows or AI agents in n8n.
+- [Zapier](https://docs.mem0.ai/integrations/zapier) [Both]: Use when the user automates workflows with Zapier.
 - [AgentOps](https://docs.mem0.ai/integrations/agentops) [Both]: Use when tracking agent observability with memory metadata.
 - [Respan](https://docs.mem0.ai/integrations/respan) [Both]: Use when monitoring Mem0 with Respan (formerly Keywords AI) LLM observability.
 - [Raycast](https://docs.mem0.ai/integrations/raycast) [Both]: Use when the user wants quick memory access via Raycast.
