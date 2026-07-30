@@ -288,10 +288,63 @@ def cmd_maintain(args) -> int:
     return 0
 
 
+def cmd_sessions(args) -> int:
+    """Which surfaces have actually used memory. The cross-editor verification view."""
+    from .settings import HOME
+
+    root = HOME / "sessions"
+    if not root.exists():
+        print("no sessions recorded yet")
+        return 0
+    rows = []
+    for d in root.iterdir():
+        if not d.is_dir():
+            continue
+        events = []
+        try:
+            events = [json.loads(x) for x in (d / "events.jsonl").read_text().splitlines() if x.strip()]
+        except Exception:
+            pass
+        if not events and not args.all:
+            continue
+        editors = sorted({e.get("editor") or "?" for e in events})
+        packs = [e for e in events if e.get("event") == "context"]
+        flushes = [e for e in events if e.get("event") == "flush"]
+        obs = [e for e in events if e.get("event") == "capture_observe"]
+        rows.append({
+            "session": d.name,
+            "editor": ",".join(editors) or "-",
+            "app": (events[-1].get("app_id") if events else "-") or "-",
+            "last": (events[-1].get("at") if events else "") or "",
+            "packs": len(packs),
+            "rows": sum(int(e.get("rows") or 0) for e in packs),
+            "turns": len(obs),
+            "sent": sum(int(e.get("sent") or 0) for e in flushes),
+            "mtime": d.stat().st_mtime,
+        })
+    rows.sort(key=lambda r: r["mtime"], reverse=True)
+    rows = rows[: args.limit]
+    if not rows:
+        print("no sessions with recorded activity yet")
+        return 0
+
+    print(f"{'session':22s} {'editor':14s} {'project':18s} {'packs':>5s} {'served':>6s} {'turns':>5s} {'wrote':>5s}  last")
+    for r in rows:
+        print(f"{r['session'][:22]:22s} {r['editor'][:14]:14s} {r['app'][:18]:18s} "
+              f"{r['packs']:5d} {r['rows']:6d} {r['turns']:5d} {r['sent']:5d}  {r['last']}")
+    editors = sorted({e for r in rows for e in r["editor"].split(",") if e and e != "-"})
+    print(f"\nsurfaces seen: {', '.join(editors) or 'none'}")
+    return 0
+
+
 def cmd_health(args) -> int:
     c = build(args, hook_input())
+    from .settings import resolve_api_key
+
+    _, key_source = resolve_api_key()
     checks: list[tuple[str, bool, str]] = []
-    checks.append(("credentials", c.api is not None, c.reason or "key found"))
+    checks.append(("credentials", c.api is not None,
+                   f"from {key_source}" if c.api else (c.reason or "not found")))
     if c.api:
         status, body = c.api.ping()
         ok = status == 200
@@ -440,6 +493,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sp = sub.add_parser("health", help="diagnose the memory layer")
     sp.set_defaults(fn=cmd_health)
+
+    sp = sub.add_parser("sessions", help="which editors/surfaces have used memory")
+    sp.add_argument("--limit", type=int, default=15)
+    sp.add_argument("--all", action="store_true", help="include sessions with no activity")
+    sp.set_defaults(fn=cmd_sessions)
 
     sp = sub.add_parser("stats", help="what was captured and served")
     sp.add_argument("--session", action="store_true")

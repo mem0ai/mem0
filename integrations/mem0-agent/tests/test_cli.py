@@ -115,7 +115,7 @@ def test_config_reports_and_updates(tmp_path, monkeypatch):
 def test_every_subcommand_is_registered():
     """The generated hook manifest invokes these by name; a rename must fail loudly."""
     for cmd in ("setup", "onboard", "context", "observe", "flush", "assist-error",
-                "remember", "forget", "maintain", "health", "stats", "config"):
+                "remember", "forget", "maintain", "health", "stats", "config", "sessions"):
         with pytest.raises(SystemExit) as e:
             cli.main([cmd, "--help"])
         assert e.value.code == 0
@@ -128,7 +128,7 @@ def test_hook_manifest_commands_all_exist():
     manifest = pathlib.Path(__file__).resolve().parents[1] / "hooks/hooks.json"
     data = json.loads(manifest.read_text())
     known = {"setup", "onboard", "context", "observe", "flush", "assist-error",
-             "remember", "forget", "maintain", "health", "stats", "config"}
+             "remember", "forget", "maintain", "health", "stats", "config", "sessions"}
     found = 0
     for entries in data["hooks"].values():
         for entry in entries:
@@ -182,3 +182,51 @@ def test_every_manifest_command_parses_verbatim(monkeypatch):
                 checked += 1
     assert checked >= 6
     assert ran, "the manifest should invoke real subcommands"
+
+
+def test_key_resolution_prefers_env_then_plugin_config_then_keychain(monkeypatch):
+    """The desktop app never sources your shell rc, so the plugin-config variable is what
+    makes the app and the terminal behave identically. v1 read it; v2 originally did not."""
+    from mem0_agent import settings as S
+
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
+    monkeypatch.setattr(S, "KEYRING_SERVICE", "mem0-agent-test-missing")
+
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "m0-legacy")
+    assert S.resolve_api_key() == ("m0-legacy", "plugin config (legacy)")
+
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_API_KEY", "m0-plugin")
+    assert S.resolve_api_key() == ("m0-plugin", "plugin config")
+
+    monkeypatch.setenv("MEM0_API_KEY", "m0-env")
+    assert S.resolve_api_key() == ("m0-env", "env")
+
+
+def test_no_shell_rc_is_ever_read():
+    """v1 grepped ~/.zshrc for the key and re-exported it in plaintext. Never again.
+
+    Checks real string literals only -- docstrings are allowed to mention the old
+    behaviour, since explaining why it is gone is the point of those comments.
+    """
+    import ast
+    import pathlib
+
+    rc_names = (".zshrc", ".bashrc", ".bash_profile", ".profile", ".zprofile")
+    offenders = []
+    for f in (pathlib.Path(__file__).resolve().parents[1] / "src/mem0_agent").rglob("*.py"):
+        tree = ast.parse(f.read_text())
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                doc = ast.get_docstring(node, clean=False)
+                if doc is not None:
+                    docstrings.add(doc)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if node.value in docstrings:
+                    continue
+                if any(rc in node.value for rc in rc_names):
+                    offenders.append(f"{f.name}:{node.lineno} {node.value[:40]!r}")
+    assert not offenders, f"shell rc files must never be read: {offenders}"

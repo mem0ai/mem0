@@ -93,17 +93,35 @@ class Settings:
 
 
 # --------------------------- credentials ---------------------------
-def get_api_key() -> str | None:
-    """Env first (explicit beats implicit), then the OS keychain. Never rc files."""
-    key = os.environ.get("MEM0_API_KEY")
-    if key:
-        return key.strip()
+# Order matters. The desktop app does not source your shell rc, so a key that only exists
+# as MEM0_API_KEY in .zshrc is invisible there -- the plugin option is what makes the two
+# surfaces behave the same. Shell rc files are never read.
+KEY_SOURCES: tuple[tuple[str, str], ...] = (
+    ("env", "MEM0_API_KEY"),
+    ("plugin config", "CLAUDE_PLUGIN_OPTION_API_KEY"),
+    ("plugin config (legacy)", "CLAUDE_PLUGIN_OPTION_MEM0_API_KEY"),
+)
+
+
+def resolve_api_key() -> tuple[str | None, str]:
+    """Returns (key, where it came from). The source is what diagnostics report."""
+    for label, var in KEY_SOURCES:
+        val = (os.environ.get(var) or "").strip()
+        if val:
+            return val, label
     try:
         import keyring  # optional dependency
 
-        return keyring.get_password(KEYRING_SERVICE, "api_key")
+        val = keyring.get_password(KEYRING_SERVICE, "api_key")
+        if val:
+            return val.strip(), "keychain"
     except Exception:
-        return None
+        pass
+    return None, "not found"
+
+
+def get_api_key() -> str | None:
+    return resolve_api_key()[0]
 
 
 def store_api_key(key: str) -> bool:

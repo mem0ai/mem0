@@ -50,7 +50,14 @@ class Ctx:
         return meta
 
     def log(self, event: str, **fields) -> None:
-        self.state.append("events.jsonl", {"event": event, **fields})
+        """Every event carries the editor and a timestamp, so `sessions` can prove which
+        surface -- terminal CLI, desktop app, another editor -- actually did the work."""
+        import time
+
+        self.state.append("events.jsonl", {
+            "event": event, "editor": self.editor, "app_id": self.app_id,
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S"), **fields,
+        })
 
 
 def build(session_id: str | None = None, cwd: str | None = None, *, strict: bool = False) -> Ctx:
