@@ -86,6 +86,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/oracledb": "^7.0.1",
     "@types/node": "^22.7.6",
     "@types/uuid": "^9.0.8",
     "dotenv": "^16.4.5",
@@ -139,6 +140,7 @@
     "mongodb": "^7.0.0",
     "weaviate-client": "^3.0.0",
     "ollama": "^0.5.14",
+    "oracledb": "^6.5.0 || ^7.0.0",
     "pg": "8.11.3",
     "redis": "^4.6.13",
     "@elastic/elasticsearch": "^9.0.0",
@@ -251,6 +253,9 @@
       "optional": true
     },
     "iovalkey": {
+      "optional": true
+    },
+    "oracledb": {
       "optional": true
     }
   },
