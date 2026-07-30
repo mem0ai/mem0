@@ -51,7 +51,7 @@ results = client.search(
 # Smart home assistant finding device preferences
 results = client.search(
     query="How do I like my bedroom temperature?",
-    rerank=True,           # Get most recent preferences first
+    rerank=True,           # Closest-matching preferences first
     filters={"user_id": "user123"},
 )
 
@@ -86,7 +86,7 @@ results = client.search(
 # Find learning progress for specific topics
 results = client.search(
     query="Python programming progress and difficulties",
-    rerank=True,           # Recent progress first
+    rerank=True,           # Closest-matching progress notes first
     filters={"user_id": "student123"},
 )
 
@@ -108,16 +108,8 @@ def quick_search(query, user_id):
         filters={"user_id": user_id},
     )
 
-# Reranked search - good for most applications
+# Reranked search - good when result order matters
 def standard_search(query, user_id):
-    return client.search(
-        query=query,
-        rerank=True,
-        filters={"user_id": user_id},
-    )
-
-# Reranked search - good for critical applications
-def precise_search(query, user_id):
     return client.search(
         query=query,
         rerank=True,
@@ -133,16 +125,8 @@ function quickSearch(query, userId) {
     });
 }
 
-// Reranked search - good for most applications
+// Reranked search - good when result order matters
 function standardSearch(query, userId) {
-    return client.search(query, {
-        filters: { user_id: userId },
-        rerank: true,
-    });
-}
-
-// Reranked search - good for critical applications
-function preciseSearch(query, userId) {
     return client.search(query, {
         filters: { user_id: userId },
         rerank: true,
