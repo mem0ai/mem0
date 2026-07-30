@@ -10,7 +10,7 @@ overrides:
   tar-fs@>=2.0.0 <2.1.4: ^2.1.4
   picomatch@<2.3.2: ^2.3.2
   esbuild: '>=0.28.1'
-  postcss@<8.5.18: '>=8.5.18'
+  postcss@<8.5.18: '>=8.5.18 <9.0.0'
 
 importers:
 
@@ -712,7 +712,7 @@ packages:
     engines: {node: '>= 18'}
     peerDependencies:
       jiti: '>=1.21.0'
-      postcss: '>=8.5.18'
+      postcss: '>=8.5.18 <9.0.0'
       tsx: ^4.8.1
       yaml: ^2.4.2
     peerDependenciesMeta:
@@ -838,7 +838,7 @@ packages:
     peerDependencies:
       '@microsoft/api-extractor': ^7.36.0
       '@swc/core': ^1
-      postcss: '>=8.5.18'
+      postcss: '>=8.5.18 <9.0.0'
       typescript: '>=4.5.0'
     peerDependenciesMeta:
       '@microsoft/api-extractor':
