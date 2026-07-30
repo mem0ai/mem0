@@ -7,6 +7,18 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-07-25" description="v2.0.14">
+
+**New Features:**
+- **Vector Stores:** Add an Oracle AI Vector Search provider (`oracledb`) with connection pooling, `HNSW`/`IVF` indexes, JSON metadata filtering, and six selectable distance metrics ([#5358](https://github.com/mem0ai/mem0/pull/5358))
+
+**Bug Fixes:**
+- **Vector Stores:** Translate a `"*"` filter value in OpenSearch into an `exists` query for every key, not just identity keys. It was previously ignored or matched literally against the string `"*"`, so a wildcard filter returned nothing ([#6522](https://github.com/mem0ai/mem0/pull/6522))
+- **Vector Stores:** Re-raise errors from OpenSearch `search()` instead of returning `[]`, so a transport, auth, or index misconfiguration surfaces instead of looking like zero matches. `keyword_search()` still degrades on failure, since it is a best-effort BM25 signal ([#6519](https://github.com/mem0ai/mem0/pull/6519))
+- **Vector Stores:** Guard the `text` field in Milvus `update()` behind the `_has_bm25_schema` check, matching `insert()`, so updating a memory in a collection without the BM25 `text`/`sparse` schema no longer fails ([#5705](https://github.com/mem0ai/mem0/pull/5705))
+
+</Update>
+
 <Update label="2026-07-22" description="v2.0.13">
 
 **Bug Fixes:**
@@ -1144,6 +1156,18 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-07-25" description="v3.1.2">
+
+**Bug Fixes:**
+- **Vector Stores:** Apply every operator in a Cassandra compound field filter (e.g. `{ age: { gte: 10, lte: 20 } }`) instead of stopping after the first, so the remaining bounds are no longer silently ignored ([#6511](https://github.com/mem0ai/mem0/pull/6511))
+- **Vector Stores:** Stop the Chroma where-clause translator from dropping filter conditions. Same-field ranges (`gte` + `lte`), multi-field conditions inside `$or`, and negated `contains`/`icontains` under `$not` each collapsed to a single clause or vanished, widening the search instead of narrowing it ([#6521](https://github.com/mem0ai/mem0/pull/6521))
+- **Vector Stores:** Skip `"*"` wildcard filter values in Milvus instead of matching them literally, so a filter like `{ user_id: "*" }` no longer returns zero memories ([#6508](https://github.com/mem0ai/mem0/pull/6508))
+- **Vector Stores:** Read `textLemmatized` for BM25 keyword search on Milvus, OpenSearch, and MongoDB, matching the field the memory layer actually writes, so hybrid search on those backends no longer loses the keyword signal ([#6497](https://github.com/mem0ai/mem0/pull/6497))
+- **LLMs:** Forward `responseFormat` to Gemini's `responseMimeType` in `generateResponse()`, so requesting `json_object` returns JSON instead of free-form text ([#6468](https://github.com/mem0ai/mem0/pull/6468))
+- **LLMs:** Find the Anthropic text block by type instead of indexing `content[0]`, so a thinking-enabled model whose `thinking` block comes first no longer throws `Unexpected response type from Anthropic API` ([#6506](https://github.com/mem0ai/mem0/pull/6506))
+
+</Update>
 
 <Update label="2026-07-22" description="v3.1.1">
 
@@ -2638,6 +2662,57 @@ Existing memories written by the previous versions are not rewritten. If your me
 <Update label="2025-05-01" description="Vercel AI SDK v1.0.1">
 **New Features:**
 - Added support for graph memories.
+</Update>
+
+</Tab>
+
+<Tab title="n8n">
+
+<Update label="2026-07-30" description="n8n-nodes-mem0 v0.1.1">
+
+**Changes:**
+- **Published with npm provenance:** Republished through the `n8n-nodes-mem0-cd.yml` GitHub Actions workflow so the package carries a signed provenance attestation. `0.1.0` was published manually and has none, which blocks submission for n8n Creator Portal verification. No functional changes ([#6685](https://github.com/mem0ai/mem0/pull/6685))
+
+</Update>
+
+<Update label="2026-07-29" description="n8n-nodes-mem0 v0.1.0">
+
+**Initial release** of [`@mem0/n8n-nodes-mem0`](https://www.npmjs.com/package/@mem0/n8n-nodes-mem0), a community node that adds long-term memory to n8n workflows and AI Agents ([#6517](https://github.com/mem0ai/mem0/pull/6517))
+
+**New Features:**
+- **Memory operations:** A single **Mem0** node covers Add, Search, Get, Get Many, Update, and Delete on the Memory resource.
+- **AI Agent tool:** The node sets `usableAsTool`, so it can be attached to an n8n AI Agent node and invoked by the agent itself rather than wired into a fixed workflow path.
+- **Scoping:** Add, Search, and Get Many accept User ID, Agent ID, App ID, and Run ID, so memories stay partitioned per user, agent, or session.
+- **Add options:** Metadata JSON, custom categories, custom instructions, includes/excludes, an `infer` toggle, and a **Wait for Completion** switch that polls until the write lands instead of returning immediately.
+- **Pagination:** Get Many supports Return All, or explicit Page and Page Size.
+- **Credential:** A **Mem0 API** credential holds the API key plus a configurable base URL, defaulting to `https://api.mem0.ai` for self-hosted deployments.
+
+<Note>
+  Community nodes install from npm, which is a self-hosted n8n feature. See [n8n](/integrations/n8n) for setup.
+</Note>
+
+</Update>
+
+</Tab>
+
+<Tab title="Zapier">
+
+<Update label="2026-07-29" description="Zapier app v0.1.0">
+
+**Initial release** of the Mem0 Zapier app, built on the Zapier Platform CLI ([#6518](https://github.com/mem0ai/mem0/pull/6518))
+
+**New Features:**
+- **Actions:** Add Memory and Delete Memory.
+- **Searches:** Search Memories and Get Memories, usable as lookup steps in any Zap.
+- **Authentication:** An API key connection validated against Mem0 the moment it is saved, sent as `Authorization: Token <key>`, with a configurable base URL for self-hosted deployments.
+
+**Bug Fixes:**
+- **Add Memory:** Raise the poll budget past the real API latency tail, so a slower write is no longer reported as a failure ([#6680](https://github.com/mem0ai/mem0/pull/6680))
+
+<Note>
+  The app deploys to Zapier's platform rather than npm and is not yet listed in the public App Directory. See [Zapier](/integrations/zapier) for invite access.
+</Note>
+
 </Update>
 
 </Tab>

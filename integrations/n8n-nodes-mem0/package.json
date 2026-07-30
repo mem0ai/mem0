@@ -1,0 +1,79 @@
+{
+  "name": "@mem0/n8n-nodes-mem0",
+  "version": "0.1.1",
+  "description": "n8n community node for Mem0 — the memory layer for AI agents. Add, search, get, update, and delete long-term memories.",
+  "keywords": [
+    "n8n-community-node-package",
+    "mem0",
+    "memory",
+    "ai",
+    "agents",
+    "llm"
+  ],
+  "license": "Apache-2.0",
+  "homepage": "https://mem0.ai",
+  "author": {
+    "name": "Mem0",
+    "email": "founders@mem0.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "integrations/n8n-nodes-mem0"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "main": "index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "npx rimraf dist && tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "test": "jest",
+    "prepublishOnly": "npm run build && npm run lint"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/Mem0Api.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Mem0/Mem0.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.0",
+    "n8n-workflow": "*",
+    "prettier": "^3.3.0",
+    "rimraf": "^5.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "pnpm": {
+    "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
+      "uuid@<11.1.1": ">=11.1.1 <12.0.0",
+      "lodash@<=4.17.23": ">=4.18.0",
+      "brace-expansion@<1.1.16": ">=1.1.16 <2.0.0",
+      "brace-expansion@>=2.0.0 <2.1.2": ">=2.1.2 <3.0.0",
+      "brace-expansion@>=5.0.0 <5.0.8": ">=5.0.8"
+    }
+  }
+}

@@ -207,6 +207,7 @@
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
@@ -348,6 +349,8 @@
                     "pages": [
                       "integrations/dify",
                       "integrations/flowise",
+                      "integrations/n8n",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",
@@ -633,7 +636,7 @@
     },
     {
       "source": "/platform/features/expiration-date",
-      "destination": "/"
+      "destination": "/platform/features/memory-expiration"
     },
     {
       "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
@@ -1234,6 +1237,10 @@
     {
       "source": "/platform/features/criteria-retrieval",
       "destination": "/platform/features/advanced-retrieval"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations/respan"
     }
   ]
 }
