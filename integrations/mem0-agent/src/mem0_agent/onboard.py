@@ -191,9 +191,11 @@ def run_onboard(interactive: bool = True, **overrides: Any) -> dict:
         detail = f"{size} memories" if size is not None else "size unknown"
         if busy or size is None:
             report["warnings"].append(
-                f"Using the API key's default project {name or ctx.api.project_id} ({detail}). "
-                "If it also serves a production app, create a dedicated coding-memory project and "
-                "set `memory_project_id` in " + str(settings.path) + "."
+                f"Using the API key's project {name or 'unknown'} ({detail}). "
+                "If it also serves a production app, the cleanest fix is a separate API key "
+                "issued for a dedicated coding-memory project -- the key carries the scope, so "
+                "nothing needs configuring here. As an escape hatch you can override with "
+                "org_id + memory_project_id in " + str(settings.path) + "."
             )
 
     # 4. The memory-mode decision. Default follows what the repo already does.

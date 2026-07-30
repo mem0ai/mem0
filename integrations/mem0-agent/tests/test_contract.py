@@ -54,8 +54,9 @@ def make_api(**kw):
     return api, rec
 
 
-# --- Rule 1: the project pin travels in the body, never as a query param ---
-def test_writes_pin_project_in_body():
+# --- Rule 1: a scope OVERRIDE travels in the body, never as a query param.
+#     Omitting it is normal: the API key is already bound to one (org, project). ---
+def test_writes_send_the_override_in_the_body():
     api, rec = make_api()
     api.add([{"role": "user", "content": "hi"}], user_id="u", infer=True)
     assert rec.last["body"]["project_id"] == "proj_Y"
@@ -63,24 +64,61 @@ def test_writes_pin_project_in_body():
     assert "project_id=" not in rec.last["url"]
 
 
-def test_reads_pin_project_in_body():
+def test_reads_send_the_override_in_the_body():
     api, rec = make_api()
     api.get_all(F.all_in_scope("u", "app"))
     assert rec.last["body"]["project_id"] == "proj_Y"
     assert "project_id=" not in rec.last["url"]
 
 
-def test_feedback_carries_the_pin_or_it_404s_in_production():
+def test_feedback_carries_the_override_when_one_is_configured():
+    """Feedback 404s only when the memory lives in a project the key is not bound to and
+    no override is sent -- not, as first assumed, on every unpinned call."""
     api, rec = make_api()
     api.feedback("mem-1", "POSITIVE", "referenced in session")
     assert rec.last["body"]["project_id"] == "proj_Y"
     assert rec.last["body"]["org_id"] == "org_X"
 
 
-def test_strict_mode_refuses_unpinned_calls():
-    api = Api("key", strict=True)
-    with pytest.raises(ContractError):
-        api._pin()
+def test_unpinned_calls_send_no_scope_and_let_the_key_decide():
+    """An API key is already bound to one (org, project) server-side, so the ids are an
+    override, not a requirement. Verified live: add, get_all and feedback all return 200
+    with nothing in the body."""
+    api, rec = make_api()
+    api.org_id = api.project_id = None
+    api.add([{"role": "user", "content": "hi"}], user_id="u", infer=True)
+    body = rec.last["body"]
+    assert "project_id" not in body and "org_id" not in body
+
+    api.get_all(F.all_in_scope("u", "app"))
+    assert "project_id" not in rec.last["body"]
+
+    api.feedback("mem-1", "POSITIVE")
+    assert "project_id" not in rec.last["body"]
+
+
+def test_override_travels_in_the_body_when_both_ids_are_set():
+    api, rec = make_api()
+    api.get_all(F.all_in_scope("u", "app"))
+    assert rec.last["body"]["project_id"] == "proj_Y"
+    assert rec.last["body"]["org_id"] == "org_X"
+    assert "project_id=" not in rec.last["url"], "query params are silently ignored"
+
+
+def test_half_an_override_is_no_override():
+    """One id alone would be ignored by the backend; sending it would only mislead."""
+    api, _ = make_api()
+    api.org_id = None
+    assert api._pin() == {}
+
+
+def test_project_endpoints_resolve_scope_from_the_key():
+    """Only the project-config endpoints need the ids, and they ask the API for them."""
+    api, rec = make_api(recorder_kw={"body": {"org_id": "org_ping", "project_id": "proj_ping"}})
+    api.org_id = api.project_id = None
+    api.project_get(fields=["decay"])
+    assert "/organizations/org_ping/projects/proj_ping/" in rec.last["url"]
+    assert rec.calls[0]["url"].endswith("/v1/ping/"), "scope comes from ping, not from config"
 
 
 # --- Rule 2: latest_only on every read, or superseded facts resurface ---

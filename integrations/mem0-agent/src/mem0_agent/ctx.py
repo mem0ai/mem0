@@ -62,24 +62,22 @@ def build(session_id: str | None = None, cwd: str | None = None, *, strict: bool
     if not key:
         return Ctx(None, settings, state, "", "", session_id, None, False, "no API key")
 
-    org = settings.get("org_id") or os.environ.get("MEM0_ORG_ID")
-    project = settings.get("memory_project_id") or settings.get("default_project_id") \
-        or os.environ.get("MEM0_PLATFORM_PROJECT_ID")
+    # An API key is already bound to one (org, project) on the backend, so neither id is
+    # required here. They are sent only to OVERRIDE that binding -- i.e. to point one key at
+    # a different project in the same org. Left unset, every call resolves server-side.
+    org = settings.get("org_id") or os.environ.get("MEM0_AGENT_ORG_ID")
+    project = settings.get("memory_project_id") or os.environ.get("MEM0_AGENT_PROJECT_ID")
     api = Api(key, org_id=org, project_id=project,
               breaker=Breaker(state.breaker_path), strict=strict)
 
-    # First run: learn identity and the key's home project from the API itself.
-    if not org or not project:
-        status, body = api.ping()
-        if status == 200 and isinstance(body, dict):
-            api.org_id = org = body.get("org_id")
-            api.project_id = project = settings.get("memory_project_id") or body.get("project_id")
-            settings.set("org_id", org)
-            settings.set("default_project_id", body.get("project_id"))
-        else:
-            return Ctx(None, settings, state, "", "", session_id, None, False, "identity unavailable")
+    # An override needs both halves; one alone would be ignored and quietly mislead.
+    if bool(org) != bool(project):
+        api.org_id = api.project_id = None
+        settings_warning = "project override ignored: set both org_id and memory_project_id"
+    else:
+        settings_warning = ""
 
     user_id = resolve_user_id(api, settings)
     app_id = resolve_app_id(cwd, settings)
     branch = resolve_branch(cwd)
-    return Ctx(api, settings, state, user_id, app_id, session_id, branch, True)
+    return Ctx(api, settings, state, user_id, app_id, session_id, branch, True, settings_warning)

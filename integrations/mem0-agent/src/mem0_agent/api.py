@@ -45,16 +45,38 @@ class Api:
         self.strict = strict
         self._opener = opener or urllib.request.urlopen
         self.last_error: str | None = None
+        self._scope: tuple[str | None, str | None] | None = None
 
     # ---------- plumbing ----------
     def _pin(self, project_id: str | None = None) -> dict[str, str]:
+        """Body-level scope OVERRIDE, deliberately empty by default.
+
+        An API key is already bound to one (org, project) server-side, so sending nothing
+        is the normal case and the backend resolves it. These ids are only for pointing a
+        key at a different project in the same org, and they must travel in the BODY --
+        as query params they are silently ignored.
+        """
         pid = project_id or self.project_id
         oid = self.org_id
         if not pid or not oid:
-            if self.strict:
-                raise ContractError("project_id and org_id must be set; unpinned calls leak into the key's default project")
             return {}
         return {"project_id": pid, "org_id": oid}
+
+    def resolve_scope(self) -> tuple[str | None, str | None]:
+        """The (org_id, project_id) this key acts on, asked of the API and cached.
+
+        Needed only by the project-configuration endpoints, which carry both ids in the
+        URL path. Memory operations never need this.
+        """
+        if self._scope is None:
+            status, body = self.ping()
+            if status == 200 and isinstance(body, dict):
+                self._scope = (body.get("org_id"), body.get("project_id"))
+            else:
+                self._scope = (None, None)
+        org = self.org_id or self._scope[0]
+        project = self.project_id or self._scope[1]
+        return org, project
 
     def call(self, method: str, path: str, body: dict | None = None,
              params: dict | None = None, timeout: float = READ_TIMEOUT) -> tuple[int, Any]:
@@ -146,18 +168,27 @@ class Api:
     # ---------- project config ----------
     def project_get(self, *, project_id: str | None = None,
                     fields: list[str] | None = None) -> tuple[int, Any]:
-        pid = project_id or self.project_id
-        params = {"fields": fields} if fields else None  # rule 4: repeated params
-        return self.call("GET", f"/api/v1/orgs/organizations/{self.org_id}/projects/{pid}/",
+        org, pid = self.resolve_scope()
+        pid = project_id or pid
+        if not org or not pid:
+            return 0, {"error": "could not resolve org/project from the API key"}
+        params = {"fields": fields} if fields else None  # repeated params, not comma-joined
+        return self.call("GET", f"/api/v1/orgs/organizations/{org}/projects/{pid}/",
                          None, params=params)
 
     def project_update(self, *, project_id: str | None = None, **kw) -> tuple[int, Any]:
-        pid = project_id or self.project_id
-        return self.call("PATCH", f"/api/v1/orgs/organizations/{self.org_id}/projects/{pid}/",
+        org, pid = self.resolve_scope()
+        pid = project_id or pid
+        if not org or not pid:
+            return 0, {"error": "could not resolve org/project from the API key"}
+        return self.call("PATCH", f"/api/v1/orgs/organizations/{org}/projects/{pid}/",
                          kw, timeout=WRITE_TIMEOUT)
 
     def project_create(self, name: str, description: str = "") -> tuple[int, Any]:
-        return self.call("POST", f"/api/v1/orgs/organizations/{self.org_id}/projects/",
+        org, _ = self.resolve_scope()
+        if not org:
+            return 0, {"error": "could not resolve org from the API key"}
+        return self.call("POST", f"/api/v1/orgs/organizations/{org}/projects/",
                          {"name": name, "description": description}, timeout=WRITE_TIMEOUT)
 
 

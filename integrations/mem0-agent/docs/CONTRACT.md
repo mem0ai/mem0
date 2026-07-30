@@ -6,19 +6,27 @@ each disagreement is marked and was reproduced.
 
 ## Four rules that apply to every call
 
-### 1. Pin the project in the request BODY
+### 1. Scope is the API key's job; body ids are only an override
+
+An API key is bound to exactly one `(org_id, project_id)` pair server-side. Send nothing and
+every call resolves correctly — verified live: `add`, `get_all` and `feedback` all return 200
+with no ids anywhere. **Do not require them in client config**; that is redundant state that
+can go stale.
+
+They exist for one purpose: pointing a key at a *different* project in the same org. When you
+do that, both ids must travel in the **body** — as query params they are silently ignored:
 
 ```python
-body = {..., "project_id": "proj_...", "org_id": "org_..."}   # routes correctly
+body = {..., "project_id": "proj_...", "org_id": "org_..."}   # overrides the key
 params = {"project_id": "proj_..."}                           # SILENTLY IGNORED
 ```
 
-The API key carries a default project. Passing `project_id` as a query param does not
-override it — the call lands in the key's default project with no error. Two identical
-probe writes, one routed each way, landed in two different projects.
+Two probe writes, one routed each way, landed in two different projects. Half an override
+(one id without the other) is treated as no override.
 
-This is almost certainly how v1's benchmark corpora (39% of the production project) got
-there. `Api._pin()` applies this automatically; `strict=True` raises if it cannot.
+The only endpoints that genuinely need the ids are the project-configuration ones, which
+carry both in the URL path. They resolve them from `GET /v1/ping/` and cache the result, so
+nothing has to be configured locally.
 
 ### 2. Every read passes `latest_only=True`
 
@@ -107,7 +115,7 @@ Identity comes from `GET /v1/ping/` → `user_email`, `org_id`, `project_id`.
 |---|---|
 | `DELETE /v1/memories/` | Takes **query params**; a body returns 400 "at least one filter required" |
 | `GET .../projects/<id>/` | `fields` must be **repeated** params (`?fields=a&fields=b`), not comma-joined |
-| `POST /v1/feedback/` | **404s without the project pin** in the body |
+| `POST /v1/feedback/` | 404s when the memory is in a project the key is not bound to and no override is sent; fine unpinned otherwise |
 | `POST /v3/memories/` | This is `get_all`; `page`/`page_size` are query params, filters go in the body |
 
 ## Metadata schema

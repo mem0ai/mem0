@@ -134,11 +134,9 @@ def resolve_user_id(api, settings: Settings | None = None) -> str:
         email = body.get("user_email") or ""
         uid = email.split("@")[0] if email else ""
         if uid:
+            # Cache the identity only. Scope is deliberately NOT persisted: the API key
+            # already carries it, and storing a copy here would be state that can go stale.
             settings.set("user_id", uid)
-            if body.get("org_id"):
-                settings.set("org_id", body["org_id"])
-            if body.get("project_id"):
-                settings.set("default_project_id", body["project_id"])
             return uid
     return os.environ.get("USER", "default")
 
