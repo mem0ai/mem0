@@ -4,7 +4,7 @@ description: "Configure Together AI as an LLM provider in Mem0 with API key setu
 ---
 
 To use Together LLM models, you have to set the `TOGETHER_API_KEY` environment variable. You can obtain the Together API key from their [Account settings page](https://api.together.ai/settings/projects/~current/api-keys).
-In the TypeScript SDK, you can optionally set `TOGETHER_API_BASE` or pass `baseURL` in the config (defaults to `https://api.together.ai/v1`).
+You can optionally point Together at a custom endpoint (e.g. an OpenAI-compatible gateway or proxy) by setting the `TOGETHER_API_BASE` environment variable, or by passing `together_base_url` (Python) / `baseURL` (TypeScript) in the config. Defaults to `https://api.together.ai/v1`.
 
 ## Usage
 

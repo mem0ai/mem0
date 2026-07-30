@@ -26,6 +26,9 @@ class BaseLlmConfig(ABC):
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
         is_reasoning_model: Optional[bool] = None,
+        # OpenAI-compatible / Together specific
+        openai_base_url: Optional[str] = None,
+        together_base_url: Optional[str] = None,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -74,5 +77,7 @@ class BaseLlmConfig(ABC):
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
         self.is_reasoning_model = is_reasoning_model
+        self.openai_base_url = openai_base_url
+        self.together_base_url = together_base_url
         self.http_client_proxies = http_client_proxies
         self.http_client = build_http_client(http_client_proxies)

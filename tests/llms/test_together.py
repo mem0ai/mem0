@@ -118,8 +118,14 @@ def test_together_base_url_from_env(mock_together_client, monkeypatch):
 def test_together_base_url_from_openai_base_url_config(mock_together_client, monkeypatch):
     monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
     monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
-    config = BaseLlmConfig(model="test-model", api_key="test-key", temperature=0.7, max_tokens=100, top_p=1.0)
-    config.openai_base_url = "https://cfg.example/v1"
+    config = BaseLlmConfig(
+        model="test-model",
+        api_key="test-key",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        openai_base_url="https://cfg.example/v1",
+    )
     with patch("mem0.llms.together.Together") as mock_together:
         mock_together.return_value = mock_together_client
         TogetherLLM(config)
