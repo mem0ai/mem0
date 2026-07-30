@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026, Oracle and/or its affiliates.
+ */
+
 /// <reference types="jest" />
 
 import type { SearchFilters } from "../src/types";

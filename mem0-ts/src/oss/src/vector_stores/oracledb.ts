@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026, Oracle and/or its affiliates.
+ */
+
 import { v4 as uuidv4 } from "uuid";
 import type oracledb from "oracledb";
 
