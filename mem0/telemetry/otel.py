@@ -29,6 +29,8 @@ promoted to metric labels — doing so would cause dimensional explosion.
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import functools
 import inspect
 import logging
@@ -92,10 +94,20 @@ ATTR_HIT = "memory.hit"
 ATTR_ITEM_COUNT = "memory.item.count"
 ATTR_BYTES = "memory.bytes"
 ATTR_INFER = "memory.infer"
+ATTR_EVENT = "memory.event"
 # Scope IDs — span-only, never metric labels.
 ATTR_SCOPE_USER = "memory.scope.user_id"
 ATTR_SCOPE_AGENT = "memory.scope.agent_id"
 ATTR_SCOPE_RUN = "memory.scope.run_id"
+
+# The agent-memory identity of the operation currently in flight. Set by the
+# ``@instrument`` wrapper and read by the internal child-span wrapper so *every*
+# span in the trace (op + embedding/vector-store/LLM children) carries the
+# dedicated agent-memory attributes (operation + sut.name + scope IDs), not just
+# the top-level op span.
+_active_op_attrs: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+    "mem0_otel_active_op_attrs", default=None
+)
 # Internal sub-operation (child span) attributes — these produce the *end-to-end*
 # trace tree beneath a ``memory.<op>`` span (embedding → vector store → LLM).
 ATTR_EMBEDDING_ACTION = "memory.embedding.action"
@@ -332,11 +344,20 @@ def _result_metrics(op: str, result: Any) -> Dict[str, Any]:
             items = result if isinstance(result, list) else []
             out[ATTR_ITEM_COUNT] = len(items)
             nbytes = 0
+            events = []
             for it in items:
-                mem = it.get("memory") if isinstance(it, dict) else None
+                if not isinstance(it, dict):
+                    continue
+                mem = it.get("memory")
                 if isinstance(mem, str):
                     nbytes += len(mem.encode("utf-8"))
+                ev = it.get("event")
+                if isinstance(ev, str) and ev not in events:
+                    events.append(ev)
             out[ATTR_BYTES] = nbytes
+            if events:
+                # The memory mutations the agent produced this call (ADD/UPDATE/DELETE).
+                out[ATTR_EVENT] = ",".join(events)
     except Exception:  # pragma: no cover - defensive
         pass
     return out
@@ -429,6 +450,17 @@ def _bind_args(func: Callable, args: tuple, kwargs: dict) -> Dict[str, Any]:
         return dict(kwargs)
 
 
+def _agent_memory_ctx(attrs: Dict[str, Any]) -> Dict[str, Any]:
+    """The subset of op attributes that identify the agent-memory operation.
+
+    Propagated onto every child span (embedding / vector store / LLM) so no span
+    in the trace is a bare infrastructure span — each carries the operation,
+    ``sut.name`` and scope IDs that tie it to the agent's memory.
+    """
+    keys = (ATTR_OPERATION, ATTR_SUT_NAME, ATTR_SCOPE_USER, ATTR_SCOPE_AGENT, ATTR_SCOPE_RUN)
+    return {k: attrs[k] for k in keys if k in attrs}
+
+
 def instrument(op: str) -> Callable:
     """Decorate a ``Memory``/``AsyncMemory`` op method with OTel instrumentation.
 
@@ -456,6 +488,7 @@ def instrument(op: str) -> Callable:
                 status = "ok"
                 error: Optional[str] = None
                 with tracer.start_as_current_span(f"memory.{op}", kind=SpanKind.CLIENT, attributes=attrs) as span:
+                    ctx_token = _active_op_attrs.set(_agent_memory_ctx(attrs))
                     if query_text is not None:
                         span.set_attribute(ATTR_QUERY_TEXT, query_text)
                     try:
@@ -467,6 +500,7 @@ def instrument(op: str) -> Callable:
                         span.record_exception(exc)
                         raise
                     finally:
+                        _active_op_attrs.reset(ctx_token)
                         duration = time.perf_counter() - start
                         derived = _result_metrics(op, result) if status == "ok" else {}
                         for k, v in derived.items():
@@ -488,6 +522,7 @@ def instrument(op: str) -> Callable:
             status = "ok"
             error: Optional[str] = None
             with tracer.start_as_current_span(f"memory.{op}", kind=SpanKind.CLIENT, attributes=attrs) as span:
+                ctx_token = _active_op_attrs.set(_agent_memory_ctx(attrs))
                 if query_text is not None:
                     span.set_attribute(ATTR_QUERY_TEXT, query_text)
                 try:
@@ -499,6 +534,7 @@ def instrument(op: str) -> Callable:
                     span.record_exception(exc)
                     raise
                 finally:
+                    _active_op_attrs.reset(ctx_token)
                     duration = time.perf_counter() - start
                     derived = _result_metrics(op, result) if status == "ok" else {}
                     for k, v in derived.items():
@@ -544,6 +580,11 @@ def _child_span_wrapper(span_name, kind, static_attrs, dyn_attrs, func):
         if not _ENABLED or not _inside_recording_span():
             return func(*args, **kwargs)
         attrs = dict(static_attrs)
+        # Stamp the agent-memory identity of the enclosing op onto this child span
+        # so it is not a bare infra span (operation + sut.name + scope IDs).
+        op_ctx = _active_op_attrs.get()
+        if op_ctx:
+            attrs.update(op_ctx)
         if dyn_attrs is not None:
             try:
                 attrs.update({k: v for k, v in dyn_attrs(args, kwargs).items() if v is not None})
@@ -633,3 +674,77 @@ def trace_components(instance: Any) -> None:
                 logger.debug("mem0 otel: could not wrap %s.%s for tracing", comp, method_name)
 
     return
+
+
+# --------------------------------------------------------------------------- #
+# Server boundary: continue the *agent's* trace into the memory server.        #
+#                                                                             #
+# The library spans above nest under whatever span is active in-process. For a #
+# distributed ``agent → memory server → mem0`` trace, the server must *extract* #
+# the inbound W3C ``traceparent`` and open a SERVER span with it as parent —    #
+# then the ``memory.<op>`` spans (and their children) join the agent's trace   #
+# instead of starting a fresh single-span root. ``start_server_span`` does this #
+# with the OTel **API only** (``opentelemetry.propagate``), so it stays within  #
+# the soft-dependency contract.                                                 #
+# --------------------------------------------------------------------------- #
+def start_server_span(name: str, headers: Optional[Dict[str, str]] = None, attributes: Optional[Dict[str, Any]] = None):
+    """Return a context manager for a SERVER span whose parent is extracted from
+    ``headers`` (W3C ``traceparent`` / ``tracestate``). No-op context manager
+    when instrumentation is disabled or the API is absent.
+
+    Usage in an ASGI/HTTP middleware::
+
+        with otel.start_server_span(f"{req.method} {req.url.path}", dict(req.headers)):
+            response = await call_next(req)
+    """
+    if not _ENABLED:
+        return contextlib.nullcontext()
+    try:
+        from opentelemetry.propagate import extract
+
+        parent_ctx = extract(headers or {})
+        span_attrs = {ATTR_SUT_NAME: SUT_NAME}
+        if attributes:
+            span_attrs.update({k: v for k, v in attributes.items() if v is not None})
+        return _get_tracer().start_as_current_span(
+            name, context=parent_ctx, kind=SpanKind.SERVER, attributes=span_attrs
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("mem0 otel: start_server_span failed: %s", exc)
+        return contextlib.nullcontext()
+
+
+def bootstrap_tracing(service_name: str = SUT_NAME) -> bool:
+    """Best-effort app-side SDK setup for services that want turnkey OTLP export.
+
+    Libraries must never install an SDK, but an *application* (the mem0 server)
+    may. This configures a ``TracerProvider`` + OTLP span exporter **only when**
+    ``opentelemetry-sdk`` / the OTLP exporter are importable and
+    ``OTEL_EXPORTER_OTLP_ENDPOINT`` is set. Returns ``True`` if tracing was set
+    up, ``False`` (no-op) otherwise. Respects an already-installed provider.
+    """
+    if not _ENABLED or not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+        return False
+    try:
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        current = _otel_trace.get_tracer_provider()
+        # Don't clobber a provider an operator already installed (e.g. via
+        # ``opentelemetry-instrument``).
+        if isinstance(current, TracerProvider):
+            return False
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        except Exception:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # type: ignore
+
+        provider = TracerProvider(resource=Resource.create({"service.name": service_name, ATTR_SUT_NAME: SUT_NAME}))
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+        _otel_trace.set_tracer_provider(provider)
+        reset_for_testing()  # re-resolve our cached tracer against the new provider
+        return True
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.debug("mem0 otel: bootstrap_tracing skipped: %s", exc)
+        return False

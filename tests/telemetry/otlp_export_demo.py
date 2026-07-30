@@ -166,29 +166,42 @@ class DemoMemory:
         raise RuntimeError("vector store unreachable")
 
 
+def _run_memory_ops(mem):
+    mem.add(
+        [{"role": "user", "content": "I play tennis on weekends"}],
+        user_id="alex",
+        agent_id="coach",
+    )
+    mem.search("what sports does alex play?", filters={"user_id": "alex"})
+    mem.get("mem_1")
+    mem.get_all(filters={"user_id": "alex"})
+    mem.update("mem_1", text="Alex plays tennis and padel")
+    mem.delete("mem_1")
+    try:
+        mem.search_error("boom", filters={"user_id": "alex"})
+    except RuntimeError:
+        pass
+
+
 def main():
+    from opentelemetry.propagate import inject
+
     print(f"Exporting mem0 telemetry over OTLP/gRPC -> {ENDPOINT} (insecure={INSECURE})")
     mem = DemoMemory()
-    # Wrap the whole flow in a caller span so the export shows a full end-to-end
-    # waterfall: caller -> memory.<op> -> embed / vector_store / llm children —
-    # the exact shape a distributed trace (e.g. an MCP memory server calling
-    # mem0, which calls its backend) renders.
-    caller = otel_trace.get_tracer("mem0.demo.caller")
-    with caller.start_as_current_span("mcp-memory-server.request", kind=otel_trace.SpanKind.SERVER):
-        mem.add(
-            [{"role": "user", "content": "I play tennis on weekends"}],
-            user_id="alex",
-            agent_id="coach",
-        )
-        mem.search("what sports does alex play?", filters={"user_id": "alex"})
-        mem.get("mem_1")
-        mem.get_all(filters={"user_id": "alex"})
-        mem.update("mem_1", text="Alex plays tennis and padel")
-        mem.delete("mem_1")
-        try:
-            mem.search_error("boom", filters={"user_id": "alex"})
-        except RuntimeError:
-            pass
+
+    # Simulate the full distributed hop: an AGENT makes a request, its trace
+    # context is propagated over the wire (W3C traceparent header), and the
+    # memory SERVER extracts it via otel.start_server_span — exactly what the
+    # FastAPI middleware in server/main.py does. The memory ops (and their
+    # embed / vector_store / llm children) then join the agent's trace.
+    agent = otel_trace.get_tracer("agent")
+    with agent.start_as_current_span("agent.chat.turn", kind=otel_trace.SpanKind.CLIENT):
+        headers: dict = {}
+        inject(headers)  # agent injects traceparent into the outbound request
+
+        # ---- process boundary ----  (server extracts the inbound context)
+        with otel.start_server_span("POST /memories", headers, {otel.ATTR_OPERATION: "server.request"}):
+            _run_memory_ops(mem)
 
     ok = True
     ok &= tracer_provider.force_flush(timeout_millis=10_000)

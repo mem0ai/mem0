@@ -420,6 +420,40 @@ def test_end_to_end_trace_child_spans_nest_under_op(_install_providers):
     assert dict(by_name["memory.vector_store.insert"].attributes)[otel.ATTR_DB_OPERATION] == "insert"
     assert otel.ATTR_STORE_BACKEND in dict(by_name["memory.vector_store.search"].attributes)
 
+    # Agent-memory identity is stamped on EVERY child span (not just the op) so no
+    # span is a bare infra span.
+    for child in ("memory.embed", "memory.vector_store.search", "memory.llm.generate"):
+        ca = dict(by_name[child].attributes)
+        assert ca[otel.ATTR_OPERATION] == "add", f"{child} missing memory.operation"
+        assert ca[otel.ATTR_SUT_NAME] == otel.SUT_NAME, f"{child} missing memory.sut.name"
+        assert ca[otel.ATTR_SCOPE_USER] == "u1", f"{child} missing agent-memory scope"
+
+
+def test_add_span_carries_memory_event(_install_providers):
+    FakeMemory().add("hi", user_id="u1")
+    span = next(s for s in _spans(_install_providers) if s.name == "memory.add")
+    assert dict(span.attributes)[otel.ATTR_EVENT] == "ADD"
+
+
+# --------------------------------------------------------------------------- #
+# Server boundary: agent → memory server → mem0 joins ONE trace                 #
+# --------------------------------------------------------------------------- #
+def test_start_server_span_continues_agent_trace(_install_providers):
+    # An upstream "agent" produces a W3C traceparent; the memory server extracts
+    # it, and the memory op run inside must land in the SAME trace.
+    trace_id_hex = "0af7651916cd43dd8448eb211c80319c"
+    headers = {"traceparent": f"00-{trace_id_hex}-b7ad6b7169203331-01"}
+    with otel.start_server_span("POST /memories", headers, {otel.ATTR_OPERATION: "server.request"}):
+        FakeMemory().add("remember this", user_id="u1")
+
+    spans = _spans(_install_providers)
+    by_name = {s.name: s for s in spans}
+    assert "POST /memories" in by_name and "memory.add" in by_name
+    expected = int(trace_id_hex, 16)
+    assert by_name["POST /memories"].context.trace_id == expected
+    assert by_name["memory.add"].context.trace_id == expected  # joined the agent trace
+    assert by_name["memory.add"].parent.span_id == by_name["POST /memories"].context.span_id
+
 
 def test_component_spans_suppressed_outside_op(_install_providers):
     # Calling a wrapped component method with no active memory span must not
