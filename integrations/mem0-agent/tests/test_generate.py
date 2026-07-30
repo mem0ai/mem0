@@ -106,11 +106,18 @@ def test_user_prompt_submit_is_declared_local_only(spec, manifest):
     assert entry["background"] is False and entry["blocking"] is True
 
 
-def test_flush_and_assist_hooks_are_detached(spec, manifest):
+def test_write_hooks_are_not_shell_backgrounded(spec, manifest):
+    """These hooks must NOT be wrapped in `( ... &)`.
+
+    A shell-backgrounded hook loses stdin the instant the parent exits, so the child
+    sees no session_id and no transcript_path and drains the wrong buffer -- observed
+    live as flagged candidates that were never written. The CLI now reads the payload
+    first and re-execs itself detached, so the hook still returns in milliseconds.
+    """
     for event in ("PostToolUse", "Stop", "PreCompact", "SessionEnd"):
         command = manifest["hooks"][event][0]["hooks"][0]["command"]
-        assert command.startswith("(") and command.endswith("&)"), event
-        assert ">/dev/null" in command, event
+        assert not command.strip().endswith("&)"), f"{event} must not be backgrounded by the shell"
+        assert "mem0-agent" in command, event
 
 
 def test_editor_env_is_pinned(manifest):

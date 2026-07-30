@@ -95,7 +95,7 @@ hooks:
     matcher: "Bash"
     command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent assist-error"
     timeout: 5
-    background: true
+    background: false
     blocking: false
     local_only: false
     status_message: null
@@ -106,7 +106,7 @@ hooks:
     matcher: null
     command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush"
     timeout: 5
-    background: true
+    background: false
     blocking: false
     local_only: false
     status_message: null
@@ -117,7 +117,7 @@ hooks:
     matcher: null
     command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason precompact"
     timeout: 5
-    background: true
+    background: false
     blocking: false
     local_only: false
     status_message: null
@@ -128,7 +128,7 @@ hooks:
     matcher: null
     command: "${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason end"
     timeout: 5
-    background: true
+    background: false
     blocking: false
     local_only: false
     status_message: null

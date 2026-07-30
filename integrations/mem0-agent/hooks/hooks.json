@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent assist-error >/dev/null 2>&1 &)",
+            "command": "MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent assist-error",
             "timeout": 5
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush >/dev/null 2>&1 &)",
+            "command": "MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush",
             "timeout": 5
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason precompact >/dev/null 2>&1 &)",
+            "command": "MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason precompact",
             "timeout": 5
           }
         ]
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "(MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason end >/dev/null 2>&1 &)",
+            "command": "MEM0_EDITOR=claude-code ${CLAUDE_PLUGIN_ROOT}/bin/mem0-agent flush --reason end",
             "timeout": 5
           }
         ]

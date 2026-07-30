@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from typing import Any
 
@@ -67,6 +68,47 @@ def emit(text: str) -> None:
 
 
 PENDING_FILE = "pending_context.jsonl"
+
+
+def detach_worker(subcommand: str, payload: dict, extra: list[str] | None = None) -> bool:
+    """Read the hook payload here, then hand it to a detached child.
+
+    A hook backgrounded in the manifest (`cmd &`) loses its stdin the moment the parent
+    exits, so the child sees no session_id and no transcript_path -- it then drains the
+    wrong buffer and writes nothing. Reading the payload first and passing it by FILE is
+    what makes a detached write reliable.
+    """
+    import subprocess
+    import tempfile
+    import sys as _sys
+
+    try:
+        fd, path = tempfile.mkstemp(prefix="mem0-hook-", suffix=".json")
+        with os.fdopen(fd, "w") as fh:
+            json.dump(payload, fh)
+        cmd = [_sys.executable, "-m", "mem0_agent.cli", subcommand,
+               "--worker", "--payload-file", path, *(extra or [])]
+        subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True)  # survives the hook's process group
+        return True
+    except Exception:
+        return False
+
+
+def worker_payload(args, fallback: dict) -> dict:
+    if getattr(args, "payload_file", None):
+        try:
+            with open(args.payload_file) as fh:
+                data = json.load(fh)
+            try:
+                os.unlink(args.payload_file)
+            except Exception:
+                pass
+            return data
+        except Exception:
+            return fallback
+    return fallback
 
 
 def queue_context(c, block: str) -> None:
@@ -172,7 +214,13 @@ def cmd_observe(args) -> int:
 
 def cmd_flush(args) -> int:
     """Stop / PreCompact / SessionEnd: the only place writes happen."""
-    payload = hook_input()
+    payload = worker_payload(args, hook_input()) if args.worker else hook_input()
+    if not args.worker:
+        # Return to the editor in milliseconds; the child does the network work.
+        if detach_worker("flush", payload, ["--reason", args.reason]):
+            return 0
+        # Could not fork: do it inline rather than lose the session's memories.
+
     c = build(args, payload)
     if not c.ready:
         return 0
@@ -201,7 +249,11 @@ def cmd_flush(args) -> int:
 
 def cmd_assist_error(args) -> int:
     """PostToolUse on Bash: a targeted lookup, or silence."""
-    payload = hook_input()
+    payload = worker_payload(args, hook_input()) if args.worker else hook_input()
+    if not args.worker and not args.emit:
+        if detach_worker("assist-error", payload):
+            return 0
+
     c = build(args, payload)
     if not c.ready:
         return 0
@@ -308,12 +360,14 @@ def cmd_sessions(args) -> int:
         if not events and not args.all:
             continue
         editors = sorted({e.get("editor") or "?" for e in events})
+        surfaces = sorted({e.get("surface") for e in events if e.get("surface")})
         packs = [e for e in events if e.get("event") == "context"]
         flushes = [e for e in events if e.get("event") == "flush"]
         obs = [e for e in events if e.get("event") == "capture_observe"]
         rows.append({
             "session": d.name,
             "editor": ",".join(editors) or "-",
+            "surface": ",".join(surfaces) or "?",
             "app": (events[-1].get("app_id") if events else "-") or "-",
             "last": (events[-1].get("at") if events else "") or "",
             "packs": len(packs),
@@ -328,12 +382,13 @@ def cmd_sessions(args) -> int:
         print("no sessions with recorded activity yet")
         return 0
 
-    print(f"{'session':22s} {'editor':14s} {'project':18s} {'packs':>5s} {'served':>6s} {'turns':>5s} {'wrote':>5s}  last")
+    print(f"{'session':20s} {'ran via':12s} {'project':17s} {'packs':>5s} {'served':>6s} {'turns':>5s} {'wrote':>5s}  last")
     for r in rows:
-        print(f"{r['session'][:22]:22s} {r['editor'][:14]:14s} {r['app'][:18]:18s} "
+        print(f"{r['session'][:20]:20s} {r['surface'][:12]:12s} {r['app'][:17]:17s} "
               f"{r['packs']:5d} {r['rows']:6d} {r['turns']:5d} {r['sent']:5d}  {r['last']}")
-    editors = sorted({e for r in rows for e in r["editor"].split(",") if e and e != "-"})
-    print(f"\nsurfaces seen: {', '.join(editors) or 'none'}")
+    seen = sorted({s for r in rows for s in r["surface"].split(",") if s and s != "?"})
+    print(f"\nsurfaces seen: {', '.join(seen) or 'unknown'}  "
+          f"(editor: {', '.join(sorted({r['editor'] for r in rows}))})")
     return 0
 
 
@@ -468,12 +523,16 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--transcript")
     sp.add_argument("--reason", default="stop")
     sp.add_argument("--json", action="store_true")
+    sp.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    sp.add_argument("--payload-file", help=argparse.SUPPRESS)
     sp.set_defaults(fn=cmd_flush)
 
     sp = sub.add_parser("assist-error", help="look up a past fix for an error")
     sp.add_argument("--text")
     sp.add_argument("--emit", action="store_true",
                     help="print the block instead of queueing it for the next prompt")
+    sp.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
+    sp.add_argument("--payload-file", help=argparse.SUPPRESS)
     sp.set_defaults(fn=cmd_assist_error)
 
     sp = sub.add_parser("remember", help="store a fact verbatim")

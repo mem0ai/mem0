@@ -13,6 +13,8 @@ from mem0_agent.settings import SessionState, Settings
 class Args:
     def __init__(self, **kw):
         self.session_id = "sess-cli"
+        self.worker = True          # tests exercise the worker path directly
+        self.payload_file = None
         for k, v in kw.items():
             setattr(self, k, v)
 

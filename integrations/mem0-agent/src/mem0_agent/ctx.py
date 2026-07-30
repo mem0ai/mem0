@@ -34,6 +34,16 @@ class Ctx:
     def editor(self) -> str:
         return os.environ.get("MEM0_EDITOR", "claude-code")
 
+    @property
+    def surface(self) -> str:
+        """A hint at WHICH client ran the hook, since the manifest pins `editor` to the
+        same value everywhere. The desktop app launches hooks without a terminal, so
+        TERM_PROGRAM/TERM is the practical discriminator. A hint, not a guarantee."""
+        prog = os.environ.get("TERM_PROGRAM") or ""
+        if prog:
+            return prog.lower()
+        return "terminal" if os.environ.get("TERM") else "app"
+
     def provenance(self, mtype: str) -> dict:
         """Metadata stamped on every write. `type` is what reads filter on -- platform
         categories arrive hours later and cannot be relied on at read time."""
@@ -55,7 +65,8 @@ class Ctx:
         import time
 
         self.state.append("events.jsonl", {
-            "event": event, "editor": self.editor, "app_id": self.app_id,
+            "event": event, "editor": self.editor, "surface": self.surface,
+            "app_id": self.app_id,
             "at": time.strftime("%Y-%m-%dT%H:%M:%S"), **fields,
         })
 
