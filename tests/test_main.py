@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.memory.main import AsyncMemory, Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -307,6 +307,73 @@ def test_delete_all_paginates_beyond_default_top_k(memory_instance):
     memory_instance.vector_store.list.assert_any_call(filters={"user_id": "test_user"}, top_k=1000)
     assert memory_instance._delete_memory.call_count == 1050
     memory_instance.vector_store.reset.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!"
+
+
+@pytest.fixture
+def async_memory_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        instance = AsyncMemory(config)
+        instance._entity_store = None
+        return instance
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_paginates_beyond_default_top_k(async_memory_instance):
+    """AsyncMemory.delete_all must page through list() past the default top_k."""
+    page1 = [Mock(id=str(i)) for i in range(1000)]
+    page2 = [Mock(id=str(i)) for i in range(1000, 1050)]
+    async_memory_instance.vector_store.list = Mock(side_effect=[(page1, None), (page2, None)])
+    async_memory_instance.vector_store.reset = Mock()
+
+    async def _ok_delete(memory_id, skip_entity_cleanup=False):
+        return None
+
+    async_memory_instance._delete_memory = Mock(side_effect=_ok_delete)
+
+    result = await async_memory_instance.delete_all(user_id="test_user")
+
+    assert async_memory_instance.vector_store.list.call_count == 2
+    assert async_memory_instance._delete_memory.call_count == 1050
+    async_memory_instance.vector_store.reset.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!"
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_stops_when_page_makes_no_progress(async_memory_instance):
+    """A full page that all fails to delete must not loop forever.
+
+    gather(return_exceptions=True) swallows every failure, so without a
+    zero-progress guard list() would keep returning the same 1000 rows and
+    the call would hang. The guard must break after one non-progressing page.
+    """
+    page = [Mock(id=str(i)) for i in range(1000)]
+    # list() would return the same full page forever if we didn't stop.
+    async_memory_instance.vector_store.list = Mock(return_value=(page, None))
+    async_memory_instance.vector_store.reset = Mock()
+
+    async def _always_fail(memory_id, skip_entity_cleanup=False):
+        raise ConnectionError("store went read-only")
+
+    async_memory_instance._delete_memory = Mock(side_effect=_always_fail)
+
+    result = await async_memory_instance.delete_all(user_id="test_user")
+
+    # One page attempted, then bail — not an unbounded loop.
+    assert async_memory_instance.vector_store.list.call_count == 1
+    assert async_memory_instance._delete_memory.call_count == 1000
+    async_memory_instance.vector_store.reset.assert_not_called()
     assert result["message"] == "Memories deleted successfully!"
 
 

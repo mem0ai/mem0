@@ -430,6 +430,10 @@ setup_config()
 logger = logging.getLogger(__name__)
 
 _UNSET = object()
+# Page size for delete_all pagination. Most vector stores default list() to
+# top_k=100, so a single call would silently leave later pages undeleted
+# (a privacy/GDPR hazard). Shared by the sync and async paths so they don't drift.
+_DELETE_ALL_PAGE_SIZE = 1000
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
 
 
@@ -1887,7 +1891,7 @@ class Memory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         # Paginate list() — most stores default top_k=100; a single call would
         # silently leave undeleted memories past the first page (privacy risk).
-        page_size = 1000
+        page_size = _DELETE_ALL_PAGE_SIZE
         deleted_count = 0
         while True:
             memories = self.vector_store.list(filters=filters, top_k=page_size)[0]
@@ -3526,7 +3530,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         # Paginate list() — most stores default top_k=100; a single call would
         # silently leave undeleted memories past the first page (privacy risk).
-        page_size = 1000
+        page_size = _DELETE_ALL_PAGE_SIZE
         deleted_ids = []
         while True:
             page = await asyncio.to_thread(
@@ -3549,9 +3553,22 @@ class AsyncMemory(MemoryBase):
                 )
                 for err in errors:
                     logger.warning("Delete error: %s", err)
-            deleted_ids.extend(
+            page_deleted = [
                 m.id for m, r in zip(memories, results) if not isinstance(r, BaseException)
-            )
+            ]
+            deleted_ids.extend(page_deleted)
+            # Zero-progress guard: gather(return_exceptions=True) swallows every
+            # failure, so a full page that all fails to delete (dropped
+            # connection, rotated creds, read-only store) would otherwise return
+            # the same rows forever and hang the call. Stop if no row in this page
+            # was actually deleted.
+            if not page_deleted:
+                logger.warning(
+                    "delete_all made no progress on a page of %d memories; "
+                    "stopping to avoid an unbounded loop",
+                    len(memories),
+                )
+                break
             if len(memories) < page_size:
                 break
 
