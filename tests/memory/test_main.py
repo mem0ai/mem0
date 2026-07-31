@@ -64,9 +64,7 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
-            "Expected error message not found in logs"
-        )
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -275,9 +273,7 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
-            "Expected error message not found in logs"
-        )
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -655,7 +651,6 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
-
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -1123,6 +1118,21 @@ def test_add_includes_usage_only_when_requested(mocker):
     memory.llm.stop_usage_capture.assert_called_once()
 
 
+def test_add_include_usage_without_capture_api_returns_normal_result(mocker):
+    class LLMWithoutUsageCapture:
+        def get_last_usage(self):
+            return None
+
+    memory = _build_memory_instance(mocker, Memory)
+    memory.config.llm.config = {}
+    memory.llm = LLMWithoutUsageCapture()
+    memory._add_to_vector_store = Mock(return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}])
+
+    result = memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert result == {"results": [{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]}
+
+
 @pytest.mark.asyncio
 async def test_async_add_includes_usage_only_when_requested(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
@@ -1153,6 +1163,24 @@ async def test_async_add_includes_usage_only_when_requested(mocker):
 
 
 @pytest.mark.asyncio
+async def test_async_add_include_usage_without_capture_api_returns_normal_result(mocker):
+    class LLMWithoutUsageCapture:
+        def get_last_usage(self):
+            return None
+
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.config.llm.config = {}
+    memory.llm = LLMWithoutUsageCapture()
+    memory._add_to_vector_store = mocker.AsyncMock(
+        return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]
+    )
+
+    result = await memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert result == {"results": [{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]}
+
+
+@pytest.mark.asyncio
 async def test_async_add_includes_usage_from_threaded_llm_path(mocker):
     class ContextVarUsageLLM:
         def __init__(self):
@@ -1172,13 +1200,11 @@ async def test_async_add_includes_usage_from_threaded_llm_path(mocker):
 
         def generate_response(self, messages, response_format=None, **kwargs):
             if self._capture.get():
-                self._usage.set(
-                    {
-                        "prompt_tokens": 5,
-                        "completion_tokens": 3,
-                        "total_tokens": 8,
-                    }
-                )
+                self._usage.set({
+                    "prompt_tokens": 5,
+                    "completion_tokens": 3,
+                    "total_tokens": 8,
+                })
             return '{"memory": [{"text": "Likes pizza"}]}'
 
     memory = _build_memory_instance(mocker, AsyncMemory)

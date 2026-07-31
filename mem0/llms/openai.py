@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from contextvars import ContextVar
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 from openai import OpenAI
@@ -30,9 +31,9 @@ class OpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                reasoning_effort=getattr(config, "reasoning_effort", None),
+                reasoning_effort=getattr(config, 'reasoning_effort', None),
                 http_client_proxies=config.http_client_proxies,
-                is_reasoning_model=getattr(config, "is_reasoning_model", None),
+                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
             )
 
         super().__init__(config)
@@ -71,7 +72,10 @@ class OpenAILLM(LLMBase):
         elif isinstance(usage, dict):
             usage_dict = usage
         elif hasattr(usage, "__dict__"):
-            usage_dict = {key: value for key, value in vars(usage).items() if not key.startswith("_")}
+            usage_dict = {
+                key: value for key, value in vars(usage).items()
+                if not key.startswith("_")
+            }
         else:
             return None
 
@@ -84,7 +88,7 @@ class OpenAILLM(LLMBase):
         usage = self._last_usage_var.get()
         if usage is None:
             return None
-        return dict(usage)
+        return deepcopy(usage)
 
     def start_usage_capture(self) -> None:
         self.reset_last_usage()
@@ -174,12 +178,10 @@ class OpenAILLM(LLMBase):
             self.reset_last_usage()
         params = self._get_supported_params(messages=messages, **kwargs)
 
-        params.update(
-            {
-                "model": self.config.model,
-                "messages": messages,
-            }
-        )
+        params.update({
+            "model": self.config.model,
+            "messages": messages,
+        })
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
