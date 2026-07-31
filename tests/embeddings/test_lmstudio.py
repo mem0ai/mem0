@@ -1,4 +1,3 @@
-import os
 from unittest.mock import patch
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
