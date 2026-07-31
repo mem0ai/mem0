@@ -34,7 +34,7 @@ class GeminiLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gemini-2.0-flash"
+            self.config.model = "gemini-2.5-flash"
 
         if self.config.vertexai:
             self.client = genai.Client(vertexai=True, project=self.config.project, location=self.config.location)
