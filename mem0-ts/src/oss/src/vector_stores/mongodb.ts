@@ -1,6 +1,7 @@
-import { MongoClient, Collection, Db } from "mongodb";
+import type { MongoClient, Collection, Db } from "mongodb";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 export interface MongoDBConfig extends VectorStoreConfig {
   url?: string;
@@ -8,13 +9,16 @@ export interface MongoDBConfig extends VectorStoreConfig {
   collectionName?: string;
   embeddingModelDims?: number;
   dimension?: number;
-  client?: MongoClient;
+  /** Pre-configured MongoDB client instance (typed as `any` to keep the
+   *  optional driver's types out of the published type declarations). */
+  client?: any;
 }
 
 export class MongoDB implements VectorStore {
-  private client: MongoClient;
-  private db: Db;
+  private client!: MongoClient;
+  private db!: Db;
   private collection!: Collection;
+  private readonly config: MongoDBConfig;
   private readonly collectionName: string;
   private readonly dbName: string;
   private readonly embeddingModelDims: number;
@@ -22,17 +26,30 @@ export class MongoDB implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: MongoDBConfig) {
+    this.config = config;
     this.collectionName = config.collectionName || "mem0";
     this.dbName = config.dbName || "mem0_db";
     this.embeddingModelDims =
       config.embeddingModelDims || config.dimension || 1536;
     this.indexName = `${this.collectionName}_vector_index`;
+    // The client/db are created lazily on first initialize() so the optional
+    // `mongodb` peer is only loaded when the store is actually used.
+  }
 
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+
+    const config = this.config;
     if (config.client) {
       this.client = config.client;
     } else {
+      const sdk = await loadPeer(
+        "mongodb",
+        "MongoDB vector store",
+        () => import("mongodb"),
+      );
       const url = config.url || "mongodb://localhost:27017";
-      this.client = new MongoClient(url, { appName: "Mem0" });
+      this.client = new sdk.MongoClient(url, { appName: "Mem0" });
     }
 
     this.db = this.client.db(this.dbName);
@@ -45,7 +62,48 @@ export class MongoDB implements VectorStore {
     return this._initPromise;
   }
 
+  private textSearchIndexDefinition(textIndexName: string) {
+    return {
+      name: textIndexName,
+      definition: {
+        mappings: {
+          dynamic: false,
+          fields: {
+            payload: {
+              type: "document",
+              fields: {
+                data: { type: "string" },
+                textLemmatized: { type: "string" },
+                text_lemmatized: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  private textSearchIndexMappingIsCurrent(
+    index: Record<string, unknown>,
+  ): boolean {
+    const definition =
+      (index.latestDefinition as Record<string, unknown> | undefined) ??
+      (index.definition as Record<string, unknown> | undefined);
+    const payloadFields = (
+      (definition?.mappings as Record<string, unknown> | undefined)?.fields as
+        | Record<string, unknown>
+        | undefined
+    )?.payload as Record<string, unknown> | undefined;
+    const fields =
+      (payloadFields?.fields as Record<string, unknown> | undefined) ?? {};
+    const textLemmatized = fields.textLemmatized as
+      | { type?: string }
+      | undefined;
+    return textLemmatized?.type === "string";
+  }
+
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     try {
       const collections = await this.db
         .listCollections({ name: this.collectionName })
@@ -93,32 +151,24 @@ export class MongoDB implements VectorStore {
       // Create Text Search Index for keywordSearch
       const textIndexName = `${this.collectionName}_text_search_index`;
       try {
-        let foundTextIndex = false;
+        let existingTextIndex: Record<string, unknown> | null = null;
         try {
           const indexes = await this.collection.listSearchIndexes().toArray();
-          foundTextIndex = indexes.some((idx) => idx.name === textIndexName);
+          existingTextIndex =
+            (indexes.find((idx) => idx.name === textIndexName) as
+              | Record<string, unknown>
+              | undefined) ?? null;
         } catch (e) {
           // ignore
         }
 
-        if (!foundTextIndex) {
-          await this.collection.createSearchIndex({
-            name: textIndexName,
-            definition: {
-              mappings: {
-                dynamic: false,
-                fields: {
-                  payload: {
-                    type: "document",
-                    fields: {
-                      data: { type: "string" },
-                      text_lemmatized: { type: "string" },
-                    },
-                  },
-                },
-              },
-            },
-          });
+        const textSearchIndex = this.textSearchIndexDefinition(textIndexName);
+
+        if (!existingTextIndex) {
+          await this.collection.createSearchIndex(textSearchIndex);
+        } else if (!this.textSearchIndexMappingIsCurrent(existingTextIndex)) {
+          await this.collection.dropSearchIndex(textIndexName);
+          await this.collection.createSearchIndex(textSearchIndex);
         }
       } catch (e: any) {
         console.warn(
@@ -268,7 +318,11 @@ export class MongoDB implements VectorStore {
             index: textIndexName,
             text: {
               query: query,
-              path: ["payload.data", "payload.text_lemmatized"],
+              path: [
+                "payload.data",
+                "payload.text_lemmatized",
+                "payload.textLemmatized",
+              ],
             },
           },
         },

@@ -59,7 +59,6 @@ export interface ProjectOptions {
 export interface PromptUpdatePayload {
   customInstructions?: string;
   customCategories?: custom_categories[];
-  retrievalCriteria?: any[];
   version?: string;
   memoryDepth?: string | null;
   usecaseSetting?: string | number;

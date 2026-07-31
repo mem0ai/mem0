@@ -2,6 +2,7 @@ export * from "./memory";
 export * from "./memory/memory.types";
 export * from "./types";
 export * from "./embeddings/base";
+export * from "./embeddings/aws_bedrock";
 export * from "./embeddings/huggingface";
 export * from "./embeddings/openai";
 export * from "./embeddings/ollama";

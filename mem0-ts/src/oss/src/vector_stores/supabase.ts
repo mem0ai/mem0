@@ -1,6 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 interface VectorData {
   id: string;
@@ -82,14 +83,17 @@ $$;
 */
 
 export class SupabaseDB implements VectorStore {
-  private client: SupabaseClient;
+  private client!: SupabaseClient;
+  private readonly supabaseUrl: string;
+  private readonly supabaseKey: string;
   private readonly tableName: string;
   private readonly embeddingColumnName: string;
   private readonly metadataColumnName: string;
   private _initPromise?: Promise<void>;
 
   constructor(config: SupabaseConfig) {
-    this.client = createClient(config.supabaseUrl, config.supabaseKey);
+    this.supabaseUrl = config.supabaseUrl;
+    this.supabaseKey = config.supabaseKey;
     this.tableName = config.tableName;
     this.embeddingColumnName = config.embeddingColumnName || "embedding";
     this.metadataColumnName = config.metadataColumnName || "metadata";
@@ -97,6 +101,16 @@ export class SupabaseDB implements VectorStore {
     this.initialize().catch((err) => {
       console.error("Failed to initialize Supabase:", err);
     });
+  }
+
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+    const sdk = await loadPeer(
+      "@supabase/supabase-js",
+      "Supabase vector store",
+      () => import("@supabase/supabase-js"),
+    );
+    this.client = sdk.createClient(this.supabaseUrl, this.supabaseKey);
   }
 
   async initialize(): Promise<void> {
@@ -107,6 +121,7 @@ export class SupabaseDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     try {
       // Verify table exists and vector operations work by attempting a test insert
       const testVector = Array(1536).fill(0);
@@ -209,6 +224,7 @@ See the SQL migration instructions in the code comments.`,
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     try {
       const data = vectors.map((vector, idx) => ({
         id: ids[idx],
@@ -237,6 +253,7 @@ See the SQL migration instructions in the code comments.`,
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
+    await this.initialize();
     try {
       const rpcQuery: VectorQueryParams = {
         query_embedding: query,
@@ -265,6 +282,7 @@ See the SQL migration instructions in the code comments.`,
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     try {
       const { data, error } = await this.client
         .from(this.tableName)
@@ -290,6 +308,7 @@ See the SQL migration instructions in the code comments.`,
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     try {
       const { error } = await this.client
         .from(this.tableName)
@@ -310,6 +329,7 @@ See the SQL migration instructions in the code comments.`,
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     try {
       const { error } = await this.client
         .from(this.tableName)
@@ -324,6 +344,7 @@ See the SQL migration instructions in the code comments.`,
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     try {
       const { error } = await this.client
         .from(this.tableName)
@@ -341,6 +362,7 @@ See the SQL migration instructions in the code comments.`,
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
+    await this.initialize();
     try {
       let query = this.client
         .from(this.tableName)
@@ -370,6 +392,7 @@ See the SQL migration instructions in the code comments.`,
   }
 
   async getUserId(): Promise<string> {
+    await this.initialize();
     try {
       // First check if the table exists
       const { data: tableExists } = await this.client
@@ -421,6 +444,7 @@ See the SQL migration instructions in the code comments.`,
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     try {
       const { error: deleteError } = await this.client
         .from("memory_migrations")

@@ -27,8 +27,9 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `integrations/openclaw/` | `@mem0/openclaw-mem0` — OpenClaw plugin for Claude Code / AI editors |
 | `integrations/pi-agent-plugin/` | `@mem0/pi-agent-plugin` — Pi Agent plugin |
 | `integrations/vercel-ai-sdk/` | `@mem0/vercel-ai-provider` — Vercel AI SDK memory provider |
+| `integrations/n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` — n8n community node; add / search / get / update / delete memories |
+| `integrations/zapier-mem0/` | `@mem0/zapier` — Zapier Platform CLI app (deploys to Zapier, not npm); add / search / get / delete memories |
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
-| `openmemory/` | Self-hosted memory platform — `api/` (FastAPI + Alembic + MCP server) and `ui/` (Next.js 15 + React 19) |
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
 | `docs/` | Documentation site (Mintlify) |
 | `tests/` | Python SDK tests (pytest) |
@@ -62,7 +63,7 @@ integrations/openclaw/ ──▶ mem0ai (npm)
 - **Node.js**: v18+ (v20 or v22 recommended)
 - **pnpm**: v10+ (`npm install -g pnpm@10`) — used for all TypeScript packages
 - **Hatch**: Python build/environment tool (`pip install hatch`)
-- **Docker**: Required for `server/` and `openmemory/` development
+- **Docker**: Required for `server/` development
 
 ### Initial Setup
 
@@ -214,28 +215,6 @@ docker-compose up                  # starts all 3 services
 - **Services:** PostgreSQL with pgvector, Neo4j 5.x with APOC plugin
 - **Hot reload:** Dev Dockerfile mounts `server/` and `mem0/` for live changes
 
-### OpenMemory (`openmemory/`)
-
-```bash
-# Full stack via Docker Compose
-cd openmemory
-docker-compose up
-# Qdrant: localhost:6333
-# API (MCP): localhost:8765
-# UI: localhost:3000
-
-# Individual development
-cd openmemory/api && uvicorn main:app --reload       # FastAPI backend
-cd openmemory/ui && npm run dev                       # Next.js frontend
-
-# Tests
-cd openmemory/api && pytest tests/                   # API tests (e.g., test_mcp_server.py)
-```
-
-- **API:** FastAPI + Alembic (DB migrations) + MCP server (Model Context Protocol)
-- **UI:** Next.js 15, React 19, Radix UI, Redux Toolkit, TailwindCSS, Recharts
-- **Vector store:** Qdrant
-
 ### Documentation (`docs/`)
 
 ```bash
@@ -331,7 +310,6 @@ python -m benchmarks.beam.run --project-name my-test --backend cloud --mem0-api-
   - Root SDK: line length **120**
   - Python CLI: line length **100** with extended rule set (UP, B, SIM, RUF)
 - **isort** with `profile = "black"` for import sorting.
-- Ruff excludes `openmemory/` from root config.
 
 ### TypeScript Conventions
 
@@ -382,7 +360,6 @@ Optional layer on top of vector memory for relationship-aware retrieval. Configu
 Model Context Protocol support in multiple places:
 
 - **Remote:** MCP server at `mcp.mem0.ai`
-- **Local:** MCP server in `openmemory/api/` (FastAPI-based)
 - **Plugin:** MCP tools in `integrations/mem0-plugin/` — 9 tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`
 
 ### Plugin & Skills System
@@ -431,6 +408,8 @@ PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** 
 | OpenClaw | `openclaw-checks.yml` | Push to main (on `integrations/openclaw/`), manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
 | OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (on `integrations/mem0-plugin/.opencode-plugin/`), manual | Bun: tsc type-check + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (on `integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup build (dist artifact check) on Node 20, 22 |
+| n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (on `integrations/n8n-nodes-mem0/`), manual | ESLint (n8n-nodes-base) + tsc build (dist artifact check) on Node 20 |
+| Zapier App | `zapier-mem0-checks.yml` | Push to main (on `integrations/zapier-mem0/`), manual | build (tsc) + `zapier validate` + offline unit tests on Node 22 |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage check |
 
 When adding a new package CI workflow: give it `workflow_call` (plus `push`/`workflow_dispatch` as needed, but no `pull_request` trigger), then register it in `ci-gate.yml` — a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.
@@ -450,11 +429,13 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 | OpenClaw | `openclaw-cd.yml` | `openclaw-v*` | npm (`@mem0/openclaw-mem0`) |
 | OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 | Pi Agent Plugin | `pi-agent-plugin-cd.yml` | `pi-agent-v*` | npm (`@mem0/pi-agent-plugin`) |
+| n8n Node | `n8n-nodes-mem0-cd.yml` | `n8n-nodes-mem0-v*` | npm (`@mem0/n8n-nodes-mem0`) |
 
 - Package CD workflows are `workflow_dispatch`-only (inputs: `tag`, `prerelease`); they check out and build the given tag. Registry trusted-publisher settings stay pinned to each package's own workflow filename.
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.
 - First publish of a new npm package must be done manually; OIDC works for subsequent versions.
 - To re-publish a release (e.g. after a registry settings fix), do **not** delete/recreate the GitHub release — manually dispatch the package workflow instead: `gh workflow run <package>-cd.yml --ref refs/tags/<tag> -f tag=<tag>`.
+- The **Zapier app** (`integrations/zapier-mem0`) deploys to Zapier's own platform, not npm, so it is **not** in the release router. Deploy it manually: `gh workflow run zapier-mem0-cd.yml --ref main` (requires the `ZAPIER_DEPLOY_KEY` secret).
 - When adding a new package: add its CD workflow (`workflow_dispatch` with `tag`/`prerelease` inputs), then register its tag prefix in the `case` block in `release.yml`. Keep the bare `v*` arm last.
 
 ### Utility Workflows
@@ -462,6 +443,7 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 | Workflow | File | Purpose |
 |----------|------|---------|
 | Issue Labeler | `issue-labeler.yml` | Automatic issue labeling |
+| PR Labeler | `pr-labeler.yml` | Path-based PR labeling plus propagating labels from linked issues |
 | Stale Bot | `stale.yml` | Marks stale issues and PRs |
 | llms.txt Check | `docs-llms-txt-check.yml` | Blocks PRs touching `docs/**/*.mdx` when `docs/llms.txt` is out of sync. Fix locally with `python scripts/check-llms-txt-coverage.py --write`. |
 
@@ -584,7 +566,7 @@ N/A
 
 - Follow existing code patterns — don't introduce new frameworks or abstractions without discussion.
 - Version bumps go in `pyproject.toml` (Python) or `package.json` (TypeScript).
-- For `server/` and `openmemory/` work, use Docker Compose for local development.
+- For `server/` work, use Docker Compose for local development.
 - Do NOT use `pip` or `conda` for dependency management — use `hatch` (see `docs/contributing/development.mdx`).
 
 ### Contributing Guides
@@ -607,5 +589,4 @@ N/A
 - Use npm or yarn in TypeScript packages — this repo uses pnpm exclusively.
 - Use `require()` for imports in TypeScript — use ES module `import` syntax.
 - Mix up linter configs: root Python SDK uses line-length 120, Python CLI uses 100, Node CLI uses Biome (not ESLint/Ruff).
-- Modify `openmemory/` database migrations without understanding the Alembic migration chain.
 - Change public APIs without updating documentation in `docs/`.

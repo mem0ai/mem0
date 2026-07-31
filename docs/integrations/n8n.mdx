@@ -1,0 +1,157 @@
+---
+title: n8n
+description: "Add long-term memory to n8n workflows and AI Agents with the Mem0 community node, no code required."
+---
+
+Your n8n workflows start from zero on every run. The [`@mem0/n8n-nodes-mem0`](https://www.npmjs.com/package/@mem0/n8n-nodes-mem0) community node fixes that: store durable facts as memories, recall them in any later run, and hand the node to an [n8n AI Agent](https://docs.n8n.io/advanced-ai/) as a tool so it can remember and recall on its own.
+
+## Overview
+
+1. Install the node from n8n's community nodes panel.
+2. Connect your Mem0 API key once as a credential.
+3. Drop a **Mem0** node into any workflow to add, search, or manage memories.
+4. Optionally attach it to an **AI Agent** node, where it becomes a tool the agent calls itself.
+
+## Prerequisites
+
+1. A Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">API Keys dashboard</a> (sign up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">app.mem0.ai</a> if you do not have an account).
+2. A **self-hosted** n8n instance. Installing community nodes from npm is a self-hosted feature; n8n Cloud only offers nodes that n8n has verified.
+3. Owner access to that instance, since only instance owners can install community nodes.
+
+## Installation
+
+<Steps>
+  <Step title="Open the community nodes panel">
+    In n8n, go to **Settings → Community Nodes** and select **Install**.
+  </Step>
+  <Step title="Install the package">
+    Enter `@mem0/n8n-nodes-mem0`, tick the risk acknowledgement, and select **Install**.
+  </Step>
+  <Step title="Create the credential">
+    Add a new **Mem0 API** credential and paste your API key. Leave **Base URL** at `https://api.mem0.ai` unless you run Mem0 somewhere else.
+  </Step>
+</Steps>
+
+<Info>
+  **Verify the install:** search the nodes panel for `Mem0`. The node should appear with a **Memory** resource offering Add, Search, Get, Get Many, Update, and Delete.
+</Info>
+
+## Quickstart
+
+A two-node workflow that writes a memory and reads it back:
+
+```text
+Manual Trigger  →  Mem0 (Add)  →  Mem0 (Search)
+```
+
+<Steps>
+  <Step title="Add a memory">
+    Add a **Mem0** node, keep **Operation: Add**, set **User ID** to `alice`, and add one message with **Role** `user` and **Content**:
+
+    `I am vegetarian and I never eat mushrooms.`
+  </Step>
+  <Step title="Search for it">
+    Add a second **Mem0** node with **Operation: Search**, **User ID** `alice`, and **Query** `what does the user eat?`.
+  </Step>
+  <Step title="Run it">
+    Select **Test workflow**. The Search node returns the extracted dietary memory.
+  </Step>
+</Steps>
+
+<Note>
+  Extraction is asynchronous. The Add node's **Wait for Completion** option is on by default, so it polls until extraction finishes before the next node runs. If you turn it off, allow a few seconds before searching for what you just wrote.
+</Note>
+
+## Use it as an AI Agent tool
+
+The node is marked `usableAsTool`, so an n8n **AI Agent** (Tools Agent) can call it without any wiring on your side:
+
+```text
+Chat Trigger  →  AI Agent  ──tool──▶  Mem0 (Search)
+                          ──tool──▶  Mem0 (Add)
+```
+
+Attach one Mem0 node set to **Search** and one set to **Add**. The agent searches memory before answering and writes back durable facts after a meaningful exchange. Keep **User ID** the same on both.
+
+## Operations
+
+The node wraps the hosted Mem0 REST API and supports six operations on the **Memory** resource:
+
+| Operation | What it does | Endpoint |
+| --- | --- | --- |
+| **Add** | Extract and store memories from messages | `POST /v3/memories/add/` |
+| **Search** | Semantic search over stored memories | `POST /v3/memories/search/` |
+| **Get Many** | List stored memories (one page, or **Return All**) | `POST /v3/memories/` |
+| **Get** | Fetch a single memory by ID | `GET /v1/memories/{id}/` |
+| **Update** | Change a memory's text or metadata | `PUT /v1/memories/{id}/` |
+| **Delete** | Delete a single memory by ID | `DELETE /v1/memories/{id}/` |
+
+### Add
+
+Extracts and stores memories from one or more messages. Supply at least one entity id (**User ID**, or **Agent ID** / **App ID** / **Run ID** under Additional Fields); the node checks this before calling the API.
+
+**Additional Fields:**
+
+| Field | Purpose |
+| --- | --- |
+| **Agent ID** | Scopes the memory to an agent |
+| **App ID** | Scopes the memory to an app or project |
+| **Run ID** | Scopes the memory to a single session or run |
+| **Metadata (JSON)** | Arbitrary JSON attached to each extracted memory |
+| **Infer** | On by default. Turn off to store messages verbatim instead of running LLM extraction |
+| **Custom Instructions** | Free-text guidance steering what the extractor keeps or ignores, for this call |
+| **Custom Categories** | JSON array of `{category: description}` objects, replacing the project-level catalog for this call |
+| **Includes** | Only extract memories matching this description |
+| **Excludes** | Skip memories matching this description |
+
+**Includes** and **Excludes** narrow what extraction keeps. Sending *"I am vegetarian and I never eat mushrooms. I drive a blue Toyota Corolla and my parking spot is B12"* stores three memories by default; with `Includes: "only record food and diet preferences"` it stores just the dietary one.
+
+### Search
+
+Semantic search over stored memories. Takes a **Query**, at least one entity id, and an optional **Limit**.
+
+### Get Many
+
+Lists stored memories for the entity ids you supply. Turn on **Return All** to page through everything automatically, or leave it off to fetch a single **Page**. **Page Size** applies either way.
+
+### Get, Update, Delete
+
+Operate on one memory by **Memory ID**. Update accepts new **Text** and/or **Metadata (JSON)**.
+
+## Entity filters on Search and Get Many
+
+Both operations take **User ID**, **Agent ID**, **App ID**, and **Run ID**. At least one is required, since the API rejects a query with no entity scope, and the node fails with a clear message before making the call if all four are empty.
+
+Supply several and they combine with **OR**, so the result is the union of those scopes:
+
+```json
+{ "OR": [{ "user_id": "alice" }, { "agent_id": "support-bot" }] }
+```
+
+<Warning>
+  This is deliberate, not a shortcut. Mem0 indexes each entity separately, so an `AND` across `user_id` and `agent_id` matches nothing even when a memory was written with both. To narrow rather than widen, run one operation per entity id.
+</Warning>
+
+## Choosing a User ID
+
+The **User ID** is a stable string you pick to identify whose memories these are. It is not looked up in the dashboard, so any consistent value works: your app's internal user ID, an email, or a UUID. Use the same value across Add, Search, and Get Many or recall returns nothing.
+
+## Troubleshooting
+
+- **The node does not appear in the panel**: community nodes install on self-hosted n8n only, and only instance owners can install them. On n8n Cloud, this node is not yet available.
+- **`401 Unauthorized`**: the API key is wrong or was revoked. Regenerate it in the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-n8n" rel="nofollow">API Keys dashboard</a> and update the credential.
+- **"Provide at least one of User ID, Agent ID, App ID, or Run ID"**: every Add, Search, and Get Many needs an entity scope. Fill in at least one.
+- **Search returns nothing right after an Add**: extraction is asynchronous. Leave **Wait for Completion** on, or add a short Wait node before searching.
+- **Searching two entity ids returns more than expected**: multiple ids are combined with OR by design. Run one operation per id to narrow.
+- **"Timed out waiting for memory event"**: the add was accepted and is likely still finishing on the server. A timeout here does not mean it failed.
+
+<CardGroup cols={2}>
+  <Card title="Zapier Integration" icon="bolt" href="/integrations/zapier">
+    Add memory to Zaps across thousands of apps
+  </Card>
+  <Card title="Flowise Integration" icon="blocks" href="/integrations/flowise">
+    Add memory to Flowise chatflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

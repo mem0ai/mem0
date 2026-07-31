@@ -175,8 +175,12 @@ def store_summary(
     if files:
         metadata["files_touched"] = files[:20]
 
+    # summary_prompt wraps the assistant's own last message. Mem0 extracts "facts
+    # about the user" from each message and role is the only signal telling it who
+    # spoke, so role="user" here turns Claude's opinions into the human's stated
+    # preferences ("User prefers dropping Redis...").
     body = {
-        "messages": [{"role": "user", "content": summary_prompt}],
+        "messages": [{"role": "assistant", "content": summary_prompt}],
         "user_id": user_id,
         "app_id": project_id,
         "run_id": session_id,

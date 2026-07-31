@@ -204,9 +204,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ### Features - Advanced Retrieval
 - [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval) [Platform]: Use when the user needs keyword search, reranking, or hybrid retrieval.
-- [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval) [Platform]: Use when targeting memories by custom criteria, not just semantic similarity.
 - [Temporal Reasoning](https://docs.mem0.ai/platform/features/temporal-reasoning) [Platform]: Use when time-aware searches like last week, upcoming, or right now need better result ordering.
-- [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add) [Platform]: Use when `add()` should consider the surrounding conversation, not just the latest turn.
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
 - [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones. Opt in per project; applies at search time and never filters candidates out.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
@@ -283,6 +281,8 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Developer Tools
 - [Dify](https://docs.mem0.ai/integrations/dify) [Both]: Use when the user is on Dify LLMOps.
 - [Flowise](https://docs.mem0.ai/integrations/flowise) [Both]: Use when the user is on Flowise no-code.
+- [n8n](https://docs.mem0.ai/integrations/n8n) [Both]: Use when the user builds workflows or AI agents in n8n.
+- [Zapier](https://docs.mem0.ai/integrations/zapier) [Both]: Use when the user automates workflows with Zapier.
 - [AgentOps](https://docs.mem0.ai/integrations/agentops) [Both]: Use when tracking agent observability with memory metadata.
 - [Respan](https://docs.mem0.ai/integrations/respan) [Both]: Use when monitoring Mem0 with Respan (formerly Keywords AI) LLM observability.
 - [Raycast](https://docs.mem0.ai/integrations/raycast) [Both]: Use when the user wants quick memory access via Raycast.
@@ -418,7 +418,6 @@ Editor-specific setup docs (already listed above under `## Integrations > AI Cod
 ### MCP Endpoints
 
 - Hosted MCP server: `https://mcp.mem0.ai` - requires Platform API key. See `platform/mem0-mcp`.
-- Self-hosted MCP server: ships with `openmemory/api/` (FastAPI) - runs against your own Qdrant + LLM stack.
 
 ## Community & Support
 
@@ -474,6 +473,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus) [OSS]: Use for large-scale Milvus deployments.
 - [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone) [OSS]: Use when the user is on Pinecone managed.
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.
+- [Oracle AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/oracledb) [OSS]: Use when Oracle Database AI Vector Search is the backing store.
 - [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure) [OSS]: Use when the user is on Azure AI Search.
 - [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis) [OSS]: Use when Redis Stack is the backing store.

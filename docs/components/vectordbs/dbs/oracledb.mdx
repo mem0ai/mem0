@@ -1,0 +1,134 @@
+---
+title: "Oracle AI Vector Search"
+description: "Use Oracle Database AI Vector Search as a vector store in Mem0 for semantic and relational queries."
+---
+
+[Oracle AI Vector Search](https://www.oracle.com/database/ai-vector-search/) stores embeddings in an Oracle table using the native `VECTOR` data type, so you can combine semantic search over unstructured data with relational queries over business data in a single database.
+
+### Requirements
+
+- Oracle Database 23.4 or later, with a user that can create tables and vector indexes
+- The `python-oracledb` driver. In thick mode, Oracle Client 23.4 or later is also required.
+
+```bash
+pip install oracledb
+```
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "oracledb",
+        "config": {
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "connection_params": {
+                "user": "mem0_user",
+                "password": "your-password",
+                "dsn": "localhost:1521/FREEPDB1",
+            },
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+</CodeGroup>
+
+To reuse a connection or pool you already manage, pass it as `client` instead of `connection_params`:
+
+```python
+import oracledb
+
+pool = oracledb.create_pool(user="mem0_user", password="your-password", dsn="localhost:1521/FREEPDB1")
+
+config = {
+    "vector_store": {
+        "provider": "oracledb",
+        "config": {"client": pool},
+    }
+}
+```
+
+### Config
+
+Here are the parameters available for configuring Oracle AI Vector Search:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connection_params` | Connection settings passed to `python-oracledb`, such as `user`, `password` and `dsn`. See the [connection handling guide](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html). | `None` |
+| `use_connection_pool` | Create a connection pool from `connection_params` instead of a single connection | `True` |
+| `client` | An existing `oracledb.Connection` or `oracledb.ConnectionPool` to use instead of building one from `connection_params` | `None` |
+| `collection_name` | Name of the Oracle table that stores vectors and payloads | `mem0` |
+| `embedding_model_dims` | Dimension of your embedding vectors, must be greater than 0 | `1536` |
+| `distance_metric` | Distance function used for indexing and search: `COSINE`, `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `DOT`, `HAMMING` or `MANHATTAN` | `COSINE` |
+| `do_create_index` | Whether to create a vector index on the collection | `True` |
+| `index_type` | Vector index type: `HNSW` or `IVF` | `HNSW` |
+| `index_name` | Name of the vector index | `<collection_name>_VEC_IDX` |
+| `index_parameters` | Index tuning parameters. For `HNSW`: `neighbors`, `efconstruction`. For `IVF`: `neighbor partitions`, `samples_per_partition`, `min_vectors_per_partition`. | `None` |
+| `index_accuracy` | Target index accuracy from 1 to 100, applied as `WITH TARGET ACCURACY <n>` | `None` |
+
+<Note>
+  When you pass a pre-built `client`, Mem0 uses it as-is and ignores `connection_params` and `use_connection_pool`. Mem0 does not close a client it did not create.
+</Note>
+
+### Vector indexes
+
+Set the index type with `index_type` and tune it with `index_parameters`:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "oracledb",
+        "config": {
+            "connection_params": {"user": "mem0_user", "password": "your-password", "dsn": "localhost:1521/FREEPDB1"},
+            "index_type": "HNSW",
+            "index_parameters": {"neighbors": 32, "efconstruction": 200},
+            "index_accuracy": 95,
+        }
+    }
+}
+```
+
+For the full list of supported options, see the Oracle [`CREATE VECTOR INDEX`](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/create-vector-index.html) reference.
+
+### Search scores
+
+Oracle returns a distance from `VECTOR_DISTANCE`, which Mem0 converts to a `score` where higher means more similar. `COSINE` and the other non-negative metrics produce scores in the range `[0, 1]`. `DOT` returns the inner product, which can fall outside that range.
+
+### Metadata filters
+
+Filters run against the JSON `payload` column and support:
+
+| Filter type | Examples |
+| --- | --- |
+| Scalar equality | `{"user_id": "alice"}` |
+| Field existence | `{"agent_id": "*"}` |
+| Comparison | `{"score": {"gte": 0.5}}`, also `eq`, `ne`, `gt`, `lt`, `lte` |
+| Membership | `{"category": {"in": ["movies", "books"]}}`, also `nin` |
+| String matching | `{"title": {"contains": "sci-fi"}}`, also `icontains` for case-insensitive |
+| Logical groups | `{"AND": [...]}`, `{"OR": [...]}`, `{"NOT": [...]}` |
+
+Multiple fields at the top level are combined with `AND`:
+
+```python
+m.search(
+    "movie recommendations",
+    user_id="alice",
+    filters={"category": {"in": ["movies", "books"]}, "rating": {"gte": 4}},
+)
+```

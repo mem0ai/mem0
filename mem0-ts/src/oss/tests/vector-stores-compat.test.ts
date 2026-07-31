@@ -3606,6 +3606,7 @@ describe("Neptune Analytics – backward compat with mocked client", () => {
       profile: "dev-profile",
       maxAttempts: 3,
     });
+    await store.initialize();
 
     // The client is now constructed lazily on first use, not in the constructor.
     await store.search([1, 2, 3], 1);

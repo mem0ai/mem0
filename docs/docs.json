@@ -84,8 +84,6 @@
                         "pages": [
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
-                          "platform/features/criteria-retrieval",
-                          "platform/features/contextual-add",
                           "platform/features/custom-instructions",
                           "platform/features/memory-decay"
                         ]
@@ -209,6 +207,7 @@
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
@@ -350,6 +349,8 @@
                     "pages": [
                       "integrations/dify",
                       "integrations/flowise",
+                      "integrations/n8n",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",
@@ -610,6 +611,10 @@
   },
   "redirects": [
     {
+      "source": "/platform/features/contextual-add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
+    {
       "source": "/changelog/openclaw",
       "destination": "/changelog/sdk"
     },
@@ -631,7 +636,7 @@
     },
     {
       "source": "/platform/features/expiration-date",
-      "destination": "/"
+      "destination": "/platform/features/memory-expiration"
     },
     {
       "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
@@ -1228,6 +1233,14 @@
     {
       "source": "/open-source/multimodal-support",
       "destination": "/open-source/features/multimodal-support"
+    },
+    {
+      "source": "/platform/features/criteria-retrieval",
+      "destination": "/platform/features/advanced-retrieval"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations/respan"
     }
   ]
 }

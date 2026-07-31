@@ -21,6 +21,11 @@ export interface EmbeddingConfig {
   modelProperties?: Record<string, any>;
   // HuggingFace TEI / OpenAI-compatible inference endpoint base URL.
   huggingfaceBaseUrl?: string;
+  // AWS Bedrock. Omit the credential fields to use the AWS default chain.
+  awsRegion?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsSessionToken?: string;
 }
 
 export interface VertexAIConfig extends EmbeddingConfig {
@@ -198,6 +203,10 @@ export const MemoryConfigSchema = z.object({
       memoryAddEmbeddingType: z.string().optional(),
       memoryUpdateEmbeddingType: z.string().optional(),
       memorySearchEmbeddingType: z.string().optional(),
+      awsRegion: z.string().optional(),
+      awsAccessKeyId: z.string().optional(),
+      awsSecretAccessKey: z.string().optional(),
+      awsSessionToken: z.string().optional(),
     }),
   }),
   vectorStore: z.object({

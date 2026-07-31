@@ -20,7 +20,13 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.setup import (
+    get_user_id,
+    is_aliased,
+    mark_aliased,
+    read_anon_ids,
+    setup_config,
+)
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
@@ -725,7 +731,6 @@ class MemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
@@ -736,7 +741,6 @@ class MemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
@@ -761,7 +765,6 @@ class MemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
@@ -773,7 +776,7 @@ class MemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 
@@ -1630,7 +1633,6 @@ class AsyncMemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
@@ -1641,7 +1643,6 @@ class AsyncMemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
@@ -1666,7 +1667,6 @@ class AsyncMemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
@@ -1678,7 +1678,7 @@ class AsyncMemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 

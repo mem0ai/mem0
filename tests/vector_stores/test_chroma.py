@@ -344,3 +344,53 @@ def test_chroma_config_rejects_no_config():
     """Test that ChromaDbConfig rejects when no connection config is provided."""
     with pytest.raises(ValueError):
         ChromaDbConfig()
+
+
+def test_generate_where_clause_same_field_range_keeps_both_bounds():
+    """A same-field range must produce both bounds, each as its own single-operator
+    clause combined with $and (ChromaDB rejects multi-operator field expressions).
+
+    Regression test: each operator previously overwrote the previous one, so
+    {"gte": 18, "lte": 65} silently degraded to {"$lte": 65} and returned rows
+    the caller explicitly excluded.
+    """
+    result = ChromaDB._generate_where_clause({"age": {"gte": 18, "lte": 65}})
+    assert result == {"$and": [{"age": {"$gte": 18}}, {"age": {"$lte": 65}}]}
+
+
+def test_generate_where_clause_or_with_same_field_range():
+    """Same-field ranges inside $or branches must also keep both bounds."""
+    result = ChromaDB._generate_where_clause({"$or": [{"age": {"gte": 18, "lte": 65}}, {"vip": True}]})
+    assert result == {
+        "$or": [
+            {"$and": [{"age": {"$gte": 18}}, {"age": {"$lte": 65}}]},
+            {"vip": {"$eq": True}},
+        ]
+    }
+
+
+def test_generate_where_clause_or_with_multi_field_condition():
+    """Multi-field conditions inside $or must be wrapped in $and — ChromaDB
+    rejects flat dicts with more than one field per level."""
+    result = ChromaDB._generate_where_clause({"$or": [{"age": {"gte": 18}, "vip": True}, {"city": "sh"}]})
+    assert result == {
+        "$or": [
+            {"$and": [{"age": {"$gte": 18}}, {"vip": {"$eq": True}}]},
+            {"city": {"$eq": "sh"}},
+        ]
+    }
+
+
+def test_generate_where_clause_not_contains_negates_instead_of_vanishing():
+    """$not with contains/icontains must produce a negated clause.
+
+    Regression test: operators missing from the negation map were silently
+    dropped, which could erase the whole where clause and return unfiltered
+    results. contains falls back to equality on the positive path, so its
+    negation falls back to inequality.
+    """
+    result = ChromaDB._generate_where_clause({"$not": [{"title": {"contains": "draft"}}]})
+    assert result == {"title": {"$ne": "draft"}}
+
+    result = ChromaDB._generate_where_clause({"$not": [{"title": {"icontains": "draft"}}]})
+    assert result == {"title": {"$ne": "draft"}}
