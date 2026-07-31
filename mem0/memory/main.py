@@ -431,6 +431,7 @@ logger = logging.getLogger(__name__)
 
 _UNSET = object()
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
+DELETE_ALL_BATCH_SIZE = 1000
 
 
 class _OSSProject:
@@ -1885,13 +1886,13 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # Delete all matching vector memories. `vector_store.list` is paginated (most
-        # stores default to a 100-item page), so keep listing and deleting until no
-        # matching memories remain instead of trusting a single page.
+        # Delete all matching vector memories. `vector_store.list` is paginated (we
+        # request DELETE_ALL_BATCH_SIZE items per page), so keep listing and deleting
+        # until no matching memories remain instead of trusting a single page.
         deleted_count = 0
         previous_page_ids: set = set()
         while True:
-            memories = self.vector_store.list(filters=filters)[0]
+            memories = self.vector_store.list(filters=filters, top_k=DELETE_ALL_BATCH_SIZE)[0]
             if not memories:
                 break
             page_ids = {memory.id for memory in memories}
@@ -3531,14 +3532,16 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        # Delete all matching vector memories. `vector_store.list` is paginated (most
-        # stores default to a 100-item page), so keep listing and deleting until no
-        # matching memories remain instead of trusting a single page.
+        # Delete all matching vector memories. `vector_store.list` is paginated (we
+        # request DELETE_ALL_BATCH_SIZE items per page), so keep listing and deleting
+        # until no matching memories remain instead of trusting a single page.
         attempted_count = 0
         errors = []
         previous_page_ids = set()
         while True:
-            memories = (await asyncio.to_thread(self.vector_store.list, filters=filters))[0]
+            memories = (
+                await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=DELETE_ALL_BATCH_SIZE)
+            )[0]
             if not memories:
                 break
             page_ids = {memory.id for memory in memories}

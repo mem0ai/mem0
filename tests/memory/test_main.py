@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from mem0.exceptions import LLMError
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import DELETE_ALL_BATCH_SIZE, AsyncMemory, Memory
 
 
 def _setup_mocks(mocker):
@@ -445,6 +445,8 @@ async def test_async_delete_all_paginates_beyond_single_list_page(mocker):
     assert deleted_ids == set(all_ids)
     assert remaining == []
     assert result["message"] == "Memories deleted successfully!"
+    for call in memory.vector_store.list.call_args_list:
+        assert call.kwargs["top_k"] == DELETE_ALL_BATCH_SIZE
 
 
 @pytest.mark.asyncio
@@ -467,6 +469,7 @@ async def test_async_delete_all_stops_if_store_makes_no_progress(mocker):
     # Each memory in the stuck page is deleted exactly once before bailing out.
     assert delete_mock.call_count == 3
     assert result["message"] == "Memories deleted successfully!"
+    memory.vector_store.list.assert_called_with(filters={"user_id": "test_user"}, top_k=DELETE_ALL_BATCH_SIZE)
 
 
 _ATTACKER_UPDATE_METADATA = {

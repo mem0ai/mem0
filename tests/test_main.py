@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.memory.main import DELETE_ALL_BATCH_SIZE, Memory, _validate_and_trim_entity_id
 
 
 @pytest.fixture(autouse=True)
@@ -316,6 +316,8 @@ def test_delete_all_paginates_beyond_single_list_page(memory_instance):
     assert deleted_ids == {memory.id for memory in all_memories}
     assert remaining == []
     assert result["message"] == "Memories deleted successfully!"
+    for call in memory_instance.vector_store.list.call_args_list:
+        assert call.kwargs["top_k"] == DELETE_ALL_BATCH_SIZE
 
 
 def test_delete_all_stops_if_store_makes_no_progress(memory_instance):
@@ -330,6 +332,7 @@ def test_delete_all_stops_if_store_makes_no_progress(memory_instance):
     # Each memory in the stuck page is deleted exactly once before bailing out.
     assert memory_instance._delete_memory.call_count == 3
     assert result["message"] == "Memories deleted successfully!"
+    memory_instance.vector_store.list.assert_called_with(filters={"user_id": "test_user"}, top_k=DELETE_ALL_BATCH_SIZE)
 
 
 def test_get_all(memory_instance):
@@ -470,7 +473,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "alice"}, top_k=DELETE_ALL_BATCH_SIZE
+        )
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -483,7 +488,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "42"}, top_k=DELETE_ALL_BATCH_SIZE
+        )
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""
