@@ -7,6 +7,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+pytest.importorskip("fastapi", reason="fastapi not installed")
+
 from fastapi.testclient import TestClient
 
 from mem0.client.main import AsyncMemoryClient, MemoryClient
