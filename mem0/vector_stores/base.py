@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 
 
+class VectorStoreConfigurationError(ValueError):
+    """A safe, operator-actionable vector-store configuration incompatibility."""
+
+
 class VectorStoreBase(ABC):
     @abstractmethod
     def create_col(self, name, vector_size, distance):

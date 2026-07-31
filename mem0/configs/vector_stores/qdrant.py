@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class QdrantConfig(BaseModel):
@@ -13,32 +13,73 @@ class QdrantConfig(BaseModel):
     client: Optional[QdrantClient] = Field(None, description="Existing Qdrant client instance")
     host: Optional[str] = Field(None, description="Host address for Qdrant server")
     port: Optional[int] = Field(None, description="Port for Qdrant server")
-    path: Optional[str] = Field("/tmp/qdrant", description="Path for local Qdrant database")
+    path: Optional[str] = Field(None, description="Path for local Qdrant database")
     url: Optional[str] = Field(None, description="Full URL for Qdrant server")
     api_key: Optional[str] = Field(None, description="API key for Qdrant server")
     https: Optional[bool] = Field(
         None,
         description="Whether to force HTTPS on or off. Explicit schemes in url take precedence.",
     )
-    on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    on_disk: Optional[bool] = Field(
+        False,
+        description=(
+            "Enables persistent storage. Vectors are kept on disk (True) or in memory (False). "
+            "Does not delete the local database path."
+        ),
+    )
+
+    @field_validator("collection_name")
+    @classmethod
+    def validate_collection_name(cls, value: str) -> str:
+        if not value.strip() or any(ord(character) < 32 or ord(character) == 127 for character in value):
+            raise ValueError("Qdrant collection_name must be non-empty and contain no control characters.")
+        return value
 
     @model_validator(mode="before")
     @classmethod
     def check_host_port_or_path(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        host, port, path, url, api_key = (
+        if not isinstance(values, dict):
+            return values
+        if values.get("client") is not None:
+            return values
+
+        host, port, path, url = (
             values.get("host"),
             values.get("port"),
             values.get("path"),
             values.get("url"),
-            values.get("api_key"),
         )
-        if not path and not (host and port) and not (url and api_key):
-            raise ValueError("Either 'host' and 'port' or 'url' and 'api_key' or 'path' must be provided.")
+        has_host = isinstance(host, str) and bool(host.strip())
+        has_path = isinstance(path, str) and bool(path.strip())
+        has_url = isinstance(url, str) and bool(url.strip())
+        if has_host:
+            if isinstance(port, str) and port.isdigit():
+                port = int(port)
+                values["port"] = port
+            if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+                raise ValueError("Qdrant host mode requires a port between 1 and 65535.")
+        elif port is not None:
+            raise ValueError("Qdrant port requires a non-empty host.")
+
+        if not has_path and not has_host and not has_url:
+            raise ValueError("Either 'host' and 'port', 'url', or 'path' must be provided.")
+        if has_url and has_host:
+            raise ValueError("'url' and 'host'/'port' modes cannot be configured together.")
+        if has_path and (has_url or has_host):
+            raise ValueError("Local 'path' and remote Qdrant endpoint modes cannot be configured together.")
+        if has_path:
+            remote_only = [key for key in ("api_key", "https") if values.get(key) is not None]
+            if remote_only:
+                raise ValueError(
+                    "Local 'path' mode cannot use remote-only option(s): " + ", ".join(sorted(remote_only)) + "."
+                )
         return values
 
     @model_validator(mode="before")
     @classmethod
     def validate_extra_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(values, dict):
+            return values
         allowed_fields = set(cls.model_fields.keys())
         input_fields = set(values.keys())
         extra_fields = input_fields - allowed_fields

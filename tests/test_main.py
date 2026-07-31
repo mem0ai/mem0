@@ -280,17 +280,106 @@ def test_delete(memory_instance):
 
 def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
-    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.list = Mock(side_effect=[(mock_memories, None), ([], None)])
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
+    memory_instance._bulk_clear_entity_store = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    memory_instance._delete_memory.assert_any_call("1", mock_memories[0], skip_entity_cleanup=True)
+    memory_instance._delete_memory.assert_any_call("2", mock_memories[1], skip_entity_cleanup=True)
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_drains_multiple_pages(memory_instance):
+    first_page = [Mock(id="1"), Mock(id="2")]
+    second_page = [Mock(id="3")]
+    memory_instance.vector_store.list = Mock(
+        side_effect=[(first_page, "next"), [second_page], ([], None)]
+    )
+    memory_instance._delete_memory = Mock()
+    memory_instance._bulk_clear_entity_store = Mock()
+
+    result = memory_instance.delete_all(agent_id="agent")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert [call.args[0] for call in memory_instance._delete_memory.call_args_list] == ["1", "2", "3"]
+
+
+def test_delete_all_fails_after_repeated_zero_progress(memory_instance, monkeypatch):
+    memory = Mock(id="stuck")
+    memory_instance.vector_store.list = Mock(return_value=([memory], None))
+    memory_instance._delete_memory = Mock(side_effect=RuntimeError("cannot delete"))
+    memory_instance._bulk_clear_entity_store = Mock()
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_STALE_ITERATIONS", 2)
+
+    with pytest.raises(RuntimeError, match="made no progress"):
+        memory_instance.delete_all(run_id="run")
+
+
+def test_delete_all_retries_history_after_vector_was_deleted(memory_instance):
+    memory = Mock(
+        id="mem-1",
+        payload={"data": "one", "user_id": "alice", "created_at": "2026-01-01T00:00:00+00:00"},
+    )
+    memory_instance.vector_store.list = Mock(side_effect=[([memory], None), ([], None)])
+    memory_instance.vector_store.delete = Mock()
+    memory_instance.db = Mock()
+    memory_instance.db.add_history.side_effect = [RuntimeError("history unavailable"), None]
+    memory_instance._entity_store = Mock()
+    memory_instance._entity_store.list.return_value = ([], None)
+
+    result = memory_instance.delete_all(user_id="alice")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    memory_instance.vector_store.delete.assert_called_once_with(vector_id="mem-1")
+    assert memory_instance.db.add_history.call_count == 2
+
+
+def test_delete_all_never_reports_success_when_history_cannot_be_written(memory_instance, monkeypatch):
+    memory = Mock(
+        id="mem-1",
+        payload={"data": "one", "user_id": "alice", "created_at": "2026-01-01T00:00:00+00:00"},
+    )
+    calls = 0
+
+    def list_memories(**kwargs):
+        nonlocal calls
+        calls += 1
+        return ([memory], None) if calls == 1 else ([], None)
+
+    memory_instance.vector_store.list = Mock(side_effect=list_memories)
+    memory_instance.vector_store.delete = Mock()
+    memory_instance.db = Mock()
+    memory_instance.db.add_history.side_effect = RuntimeError("history unavailable")
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_STALE_ITERATIONS", 2)
+
+    with pytest.raises(RuntimeError, match="made no progress"):
+        memory_instance.delete_all(user_id="alice")
+
+    memory_instance.vector_store.delete.assert_called_once_with(vector_id="mem-1")
+
+
+def test_delete_all_stops_at_safety_iteration_limit(memory_instance, monkeypatch):
+    counter = 0
+
+    def endless_pages(**kwargs):
+        nonlocal counter
+        counter += 1
+        return ([Mock(id=f"mem-{counter}")], None)
+
+    memory_instance.vector_store.list = Mock(side_effect=endless_pages)
+    memory_instance._delete_memory = Mock()
+    memory_instance._bulk_clear_entity_store = Mock()
+    monkeypatch.setattr("mem0.memory.main.DELETE_ALL_MAX_ITERATIONS", 2)
+
+    with pytest.raises(RuntimeError, match="safety iteration limit"):
+        memory_instance.delete_all(user_id="alice")
 
 
 def test_get_all(memory_instance):
@@ -428,10 +517,11 @@ class TestEntityIdValidation:
     def test_delete_all_trims_user_id_before_list(self, memory_instance):
         """delete_all should trim leading/trailing whitespace on entity IDs."""
         memory_instance.vector_store.list = Mock(return_value=([], None))
+        memory_instance._bulk_clear_entity_store = Mock()
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"}, top_k=1000)
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -441,10 +531,11 @@ class TestEntityIdValidation:
     def test_delete_all_coerces_integer_user_id_before_list(self, memory_instance):
         """delete_all should accept an integer user_id and scope by its str form."""
         memory_instance.vector_store.list = Mock(return_value=([], None))
+        memory_instance._bulk_clear_entity_store = Mock()
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"}, top_k=1000)
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""

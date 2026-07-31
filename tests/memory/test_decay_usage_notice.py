@@ -11,6 +11,7 @@ def make_sync_memory():
     memory = Memory.__new__(Memory)
     memory.vector_store = MagicMock()
     memory._delete_memory = MagicMock()
+    memory._bulk_clear_entity_store = MagicMock()
     return memory
 
 
@@ -18,7 +19,8 @@ def make_async_memory():
     memory = AsyncMemory.__new__(AsyncMemory)
     memory.vector_store = MagicMock()
     memory._delete_memory = AsyncMock()
-    memory._entity_store = None
+    memory._entity_store = MagicMock()
+    memory._entity_store.list.return_value = ([], None)
     return memory
 
 
@@ -91,7 +93,7 @@ def test_sync_delete_failure_does_not_trigger_decay_usage_notice(monkeypatch):
 def test_sync_delete_all_decay_usage_runs_after_success(monkeypatch):
     memory = make_sync_memory()
     memories = [SimpleNamespace(id="memory-1"), SimpleNamespace(id="memory-2")]
-    memory.vector_store.list.return_value = (memories, None)
+    memory.vector_store.list.side_effect = [(memories, None), ([], None)]
     decay_notice = MagicMock()
     first_run_notice = MagicMock()
     detect_decay = MagicMock(return_value=("delete_all", "bulk_delete", None, 2))
@@ -189,7 +191,7 @@ async def test_async_delete_failure_does_not_trigger_decay_usage_notice(monkeypa
 async def test_async_delete_all_decay_usage_runs_after_success(monkeypatch):
     memory = make_async_memory()
     memories = [SimpleNamespace(id="memory-1"), SimpleNamespace(id="memory-2")]
-    memory.vector_store.list.return_value = (memories, None)
+    memory.vector_store.list.side_effect = [(memories, None), ([], None)]
     decay_notice = AsyncMock()
     first_run_notice = AsyncMock()
     detect_decay = MagicMock(return_value=("delete_all", "bulk_delete", None, 2))

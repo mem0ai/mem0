@@ -77,6 +77,32 @@ Then open `http://localhost:3000` and complete the setup wizard.
 - Auth is enabled by default.
 - `AUTH_DISABLED=true` exists for local development only and should not be used in production.
 
+## Use a remote Qdrant vector store
+
+Postgres remains required for users, API keys, settings, request logs, and migrations. To store memories in Qdrant
+instead of pgvector, configure the vector-store component explicitly:
+
+```dotenv
+VECTOR_STORE_PROVIDER=qdrant
+VECTOR_STORE_CONFIG={"url":"https://qdrant.example.internal:6333","api_key":"...","collection_name":"mem0","embedding_model_dims":1536}
+```
+
+`embedding_model_dims` must match both the configured embedder and the existing collection. Mem0 validates an existing
+collection's dimension and cosine distance and fails without modifying it when they are incompatible. For a private CA,
+mount the CA bundle and point `SSL_CERT_FILE` at it. Set `REQUESTS_CA_BUNDLE` as well only when another configured
+provider uses Python Requests; Qdrant's httpx transport uses `SSL_CERT_FILE`.
+
+Setting `VECTOR_STORE_PROVIDER` or `VECTOR_STORE_CONFIG` makes the vector store environment-managed. Persisted runtime
+overrides cannot replace it, and `POST /configure` rejects vector-store updates until those variables are removed.
+Malformed or incomplete Qdrant configuration stops the server; it never falls back to `/tmp/qdrant`.
+
+Embedded Qdrant is intended only for disposable development and must be selected explicitly:
+
+```dotenv
+VECTOR_STORE_PROVIDER=qdrant
+VECTOR_STORE_CONFIG={"path":"./qdrant-data","collection_name":"mem0-dev","embedding_model_dims":1536}
+```
+
 ## Forgotten password
 
 Reset an admin password from the host while the stack is running:

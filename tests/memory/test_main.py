@@ -1015,6 +1015,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
 
         mock_memory._entity_store = Mock()
+        mock_memory._entity_store.list = Mock(return_value=([], None))
         mock_memory._entity_store.search_batch = Mock(return_value=[[]])
         mock_memory._entity_store.insert = Mock()
         mock_memory._entity_store.update = Mock()
@@ -1059,6 +1060,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
 
         mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.list = Mock(return_value=([], None))
         mock_async_memory._entity_store.search_batch = Mock(return_value=[[]])
         mock_async_memory._entity_store.insert = Mock()
         mock_async_memory._entity_store.update = Mock()

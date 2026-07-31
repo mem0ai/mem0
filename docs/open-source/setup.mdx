@@ -40,10 +40,33 @@ Copy `server/.env.example` to `server/.env` and fill in the required values. The
 | `AUTH_DISABLED` | Optional | `true` turns off auth for local development only. Never enable in production. |
 | `DASHBOARD_URL` | Optional | Origin the API accepts for CORS. Defaults to `http://localhost:3000`. Set this when you front the dashboard on a custom domain. |
 | `POSTGRES_*` | Optional | Override the bundled Postgres / pgvector connection. |
+| `VECTOR_STORE_PROVIDER` | Optional | Select a non-default memory vector store, such as `qdrant`. Requires `VECTOR_STORE_CONFIG` for Qdrant. |
+| `VECTOR_STORE_CONFIG` | Optional | JSON object containing provider connection settings. Supplying it without `VECTOR_STORE_PROVIDER` is an error. |
+| `COLLECTION_NAME` | Optional | Generic collection-name fallback. A `collection_name` inside `VECTOR_STORE_CONFIG` takes precedence. |
 
 <Tip>
   Generate a `JWT_SECRET` with `openssl rand -base64 48` or `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 </Tip>
+
+### Remote Qdrant
+
+Postgres remains part of the REST server control plane even when Qdrant stores memory vectors. Configure a production
+Qdrant server with an explicit endpoint, collection, and embedding dimension:
+
+```dotenv
+VECTOR_STORE_PROVIDER=qdrant
+VECTOR_STORE_CONFIG={"url":"https://qdrant.example.internal:6333","api_key":"...","collection_name":"mem0","embedding_model_dims":1536}
+```
+
+For a private CA, mount its bundle and set `SSL_CERT_FILE` to the mounted path; this is the setting used by Qdrant's
+httpx transport. Set `REQUESTS_CA_BUNDLE` too only if another configured provider uses Python Requests. The
+dimension must match the embedder and any existing collection. Mem0 checks dimension and cosine distance at startup and
+does not automatically resize, delete, or recreate incompatible collections.
+
+When these generic vector-store variables are present, the vector store is environment-managed: stored dashboard/API
+overrides are ignored and `POST /configure` rejects vector-store changes. Invalid JSON or a missing endpoint stops
+startup instead of silently creating a local database. Embedded Qdrant is development-only and requires an explicit
+`path` in `VECTOR_STORE_CONFIG`.
 
 ---
 
