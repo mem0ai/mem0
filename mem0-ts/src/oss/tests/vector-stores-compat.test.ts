@@ -5177,20 +5177,22 @@ describe("Memory class – backward compat with all providers", () => {
         updated_at: new Date().toISOString(),
       },
     });
-    mockVStore.list.mockResolvedValue([
-      [
-        {
-          id: memoryId,
-          payload: {
-            memory: "test",
-            hash: "h",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+    mockVStore.list
+      .mockResolvedValueOnce([
+        [
+          {
+            id: memoryId,
+            payload: {
+              memory: "test",
+              hash: "h",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
           },
-        },
-      ],
-      1,
-    ]);
+        ],
+        1,
+      ])
+      .mockResolvedValue([[], 0]);
     mockVectorStoreFactory.create.mockReturnValue(mockVStore);
 
     const mem = new MemoryClass({
