@@ -119,18 +119,20 @@ describe("SQLiteManager", () => {
     expect(kept).toEqual(Array.from({ length: 10 }, (_, i) => `msg${i + 2}`));
   });
 
-  test("getLastMessages returns insertion order within a batched save", async () => {
-    const messages = Array.from({ length: 5 }, (_, i) => ({
+  test("getLastMessages returns the newest N in insertion order within a batched save", async () => {
+    const messages = Array.from({ length: 8 }, (_, i) => ({
       role: "user",
       content: `msg${i}`,
     }));
     await db.saveMessages(messages, "scope-b");
 
-    const order = (await db.getLastMessages("scope-b", 10)).map(
+    const order = (await db.getLastMessages("scope-b", 5)).map(
       (m) => m.content,
     );
 
-    expect(order).toEqual(Array.from({ length: 5 }, (_, i) => `msg${i}`));
+    // A batched save ties created_at, so ordering the inner LIMIT by created_at keeps the
+    // oldest 5; only the rowid tiebreak returns the newest 5 in insertion order.
+    expect(order).toEqual(["msg3", "msg4", "msg5", "msg6", "msg7"]);
   });
 });
 
