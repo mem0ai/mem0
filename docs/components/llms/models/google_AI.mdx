@@ -7,7 +7,7 @@ To use the Gemini model, set the `GOOGLE_API_KEY` environment variable. You can 
 
 > **Note:** As of the latest release, Mem0 uses the new `google.genai` SDK instead of the deprecated `google.generativeai`. All message formatting and model interaction now use the updated `types` module from `google.genai`.
 
-> **Note:** Some Gemini models are being deprecated and will retire soon. It is recommended to migrate to the latest stable models like `"gemini-2.0-flash-001"` or `"gemini-2.0-flash-lite-001"` to ensure ongoing support and improvements.
+> **Note:** Some Gemini models are being deprecated and will retire soon. It is recommended to migrate to the latest stable models like `"gemini-2.5-flash"` or `"gemini-2.5-flash-lite"` to ensure ongoing support and improvements.
 
 ## Usage
 
@@ -23,7 +23,7 @@ config = {
     "llm": {
         "provider": "gemini",
         "config": {
-            "model": "gemini-2.0-flash-001",
+            "model": "gemini-2.5-flash",
             "api_key": "your-gemini-api-key",
             "temperature": 0.2,
             "max_tokens": 2000,
@@ -52,7 +52,7 @@ const config = {
         // You can also use "google" as provider ( for backward compatibility )
         provider: "gemini",
         config: {
-            model: "gemini-2.0-flash-001",
+            model: "gemini-2.5-flash",
             apiKey: process.env.GOOGLE_API_KEY || '',
             temperature: 0.1
         }

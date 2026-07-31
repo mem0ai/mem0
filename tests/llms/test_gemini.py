@@ -17,15 +17,17 @@ def mock_gemini_client():
 
 
 
-def test_default_model_is_current_flash(mock_gemini_client: Mock):
+@pytest.mark.parametrize(
+    "config_factory",
+    [
+        pytest.param(lambda: GeminiConfig(), id="gemini_config"),
+        pytest.param(lambda: BaseLlmConfig(), id="base_llm_config"),
+        pytest.param(lambda: {}, id="empty_dict"),
+    ],
+)
+def test_default_model_is_current_flash(mock_gemini_client: Mock, config_factory):
     """When no model is configured, fall back to a non-retired Gemini Flash ID."""
-    llm = GeminiLLM(GeminiConfig())
-    assert llm.config.model == "gemini-2.5-flash"
-
-    llm = GeminiLLM(BaseLlmConfig())
-    assert llm.config.model == "gemini-2.5-flash"
-
-    llm = GeminiLLM({})
+    llm = GeminiLLM(config_factory())
     assert llm.config.model == "gemini-2.5-flash"
 
 
