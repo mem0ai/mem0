@@ -151,7 +151,7 @@ async def verify_auth(
     A short-lived session is opened only on the branches that query the DB, so no
     pooled connection is held for the lifetime of the (possibly long-running) request.
     """
-    if credentials is not None:
+    if credentials is not None and credentials.scheme.lower() == "bearer":
         _mark_auth_type(request, "bearer")
         with SessionLocal() as db:
             return _resolve_user_from_jwt(credentials.credentials, db)
@@ -204,7 +204,12 @@ async def require_auth(
 
 
 _BOOTSTRAP_ADMIN = User(
-    id=uuid.UUID(int=0), name="admin_api_key", email="", password_hash="", role="admin", created_at=datetime.min.replace(tzinfo=timezone.utc),
+    id=uuid.UUID(int=0),
+    name="admin_api_key",
+    email="",
+    password_hash="",
+    role="admin",
+    created_at=datetime.min.replace(tzinfo=timezone.utc),
 )
 
 
