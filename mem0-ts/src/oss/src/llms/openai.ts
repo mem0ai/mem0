@@ -37,10 +37,15 @@ export class OpenAILLM implements LLM {
     });
 
     const response = completion.choices[0].message;
+    const textContent =
+      response.content ||
+      // OpenAI-compatible reasoning models may put the answer in reasoning_content (#4932)
+      ((response as { reasoning_content?: string | null }).reasoning_content ??
+        "");
 
     if (response.tool_calls) {
       return {
-        content: response.content || "",
+        content: textContent,
         role: response.role,
         toolCalls: response.tool_calls.map((call) => ({
           name: call.function.name,
@@ -49,7 +54,7 @@ export class OpenAILLM implements LLM {
       };
     }
 
-    return response.content || "";
+    return textContent;
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
@@ -67,8 +72,12 @@ export class OpenAILLM implements LLM {
       model: this.model,
     });
     const response = completion.choices[0].message;
+    const textContent =
+      response.content ||
+      ((response as { reasoning_content?: string | null }).reasoning_content ??
+        "");
     return {
-      content: response.content || "",
+      content: textContent,
       role: response.role,
     };
   }

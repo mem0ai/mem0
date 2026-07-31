@@ -119,6 +119,50 @@ describe("OpenAILLM (unit)", () => {
     });
   });
 
+  it("generateResponse() falls back to reasoning_content when content is empty", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "",
+            reasoning_content: '{"facts": ["User lives in Guadalajara"]}',
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
+    });
+
+    const llm = new OpenAILLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse([
+      { role: "user", content: "Hi" },
+    ]);
+
+    expect(result).toBe('{"facts": ["User lives in Guadalajara"]}');
+  });
+
+  it("generateResponse() prefers content over reasoning_content", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "final answer",
+            reasoning_content: "chain of thought",
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
+    });
+
+    const llm = new OpenAILLM({ apiKey: "test-key" });
+    const result = await llm.generateResponse([
+      { role: "user", content: "Hi" },
+    ]);
+
+    expect(result).toBe("final answer");
+  });
+
   it("generateChat() returns LLMResponse shape", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [
