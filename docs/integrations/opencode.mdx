@@ -101,7 +101,7 @@ To change the **default** scope (used when no scope is passed), run the `/mem0-s
 
 The default persists in `~/.mem0/settings.json` (`default_scope`) and is read fresh on each memory operation, so a change applies immediately. No restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
 
-The plugin first chooses OpenCode's active `worktree`, then `directory`, as the path it will inspect. From that path it derives the project id (`app_id`) from the git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory.
+The plugin first chooses OpenCode's active `worktree`, then `directory`, as the path it will inspect. From that path it derives the project id (`app_id`) from the git remote (`owner-repo`), falling back to the git repo's root directory name, the selected project-path basename, then the process current-directory basename.
 
 ## Lifecycle Hooks
 
@@ -142,7 +142,7 @@ If auto-dream hasn't run yet, it's almost always because a gate hasn't been met 
 - **Plugin not loading**: Run `opencode plugin @mem0/opencode-plugin` again, then restart
 - **Hooks not firing**: Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
 - **Auto-dream never runs**: It's gated (time + sessions + memories). Run `/mem0-status` to see which gate is blocking, or `/mem0-dream` to consolidate now.
-- **Wrong project name / memories not found**: Check the resolved id with `/mem0-status`. The plugin prefers OpenCode's active `worktree` or `directory`; if neither is present, it falls back to git and then the current directory, so a wrong cwd can still scope memories to the wrong project.
+- **Wrong project name / memories not found**: Check the resolved id with `/mem0-status`. The plugin derives git identity from the selected OpenCode project path, preferring the active `worktree` or `directory`; if neither is present, it uses the git remote, git root basename, selected project-path basename, and process current-directory basename.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

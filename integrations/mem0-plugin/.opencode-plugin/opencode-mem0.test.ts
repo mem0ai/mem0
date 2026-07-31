@@ -111,6 +111,43 @@ describe("opencode-mem0 entry module", () => {
   test("exports only the default plugin factory", () => {
     expect(Object.keys(opencodeModule).sort()).toEqual(["default"]);
   });
+
+  test.each([
+    {name: "worktree", worktree: "/home/user/active-worktree", directory: "/home/user/fallback-directory"},
+    {name: "directory", directory: "/home/user/active-directory"},
+  ])("passes the active $name path from plugin context to project helpers", async ({worktree, directory}) => {
+    const calls: ShellCall[] = [];
+    const projectPath = worktree ?? directory!;
+    const previousApiKey = process.env.MEM0_API_KEY;
+    const previousAppId = process.env.MEM0_APP_ID;
+    process.env.MEM0_API_KEY = "m0-test-key";
+    delete process.env.MEM0_APP_ID;
+
+    try {
+      const plugin = await opencodeModule.default({
+        $: mockShell({
+          "git remote get-url origin": "git@github.com:mem0ai/selected-project.git",
+          "git branch --show-current": "feature/selected-project\n",
+        }, calls),
+        client: {app: {log: async () => {}}},
+        worktree,
+        directory,
+      } as any);
+
+      expect(plugin).toHaveProperty("tool");
+      expect(calls.filter((call) => call.command === "git remote get-url origin")).toEqual([
+        {command: "git remote get-url origin", cwd: projectPath},
+      ]);
+      expect(calls.filter((call) => call.command === "git branch --show-current")).toEqual([
+        {command: "git branch --show-current", cwd: projectPath},
+      ]);
+    } finally {
+      if (previousApiKey === undefined) delete process.env.MEM0_API_KEY;
+      else process.env.MEM0_API_KEY = previousApiKey;
+      if (previousAppId === undefined) delete process.env.MEM0_APP_ID;
+      else process.env.MEM0_APP_ID = previousAppId;
+    }
+  });
 });
 
 describe("getBranch", () => {

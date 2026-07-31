@@ -1,4 +1,4 @@
-import {basename} from "path";
+import { basename } from "path";
 
 /**
  * Project identity resolution for the Mem0 OpenCode plugin.
@@ -29,25 +29,35 @@ type ShellCommand = {
   quiet: () => Promise<{ stdout: { toString(): string } }>;
 };
 
-function commandInProject(command: ShellCommand, projectPath: string): ShellCommand {
+function commandInProject(
+  command: ShellCommand,
+  projectPath: string,
+): ShellCommand {
   if (typeof command.cwd === "function") return command.cwd(projectPath);
   return command;
 }
 
-export async function getProjectId($: any, projectPath: string): Promise<string> {
+export async function getProjectId(
+  $: any,
+  projectPath: string,
+): Promise<string> {
   if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
   try {
-    const r = await commandInProject($`git remote get-url origin`, projectPath).quiet();
+    const r = await commandInProject(
+      $`git remote get-url origin`,
+      projectPath,
+    ).quiet();
     const project = parseProjectFromRemote(r.stdout.toString());
     if (project) return project;
-  } catch {
-  }
+  } catch {}
   try {
-    const r = await commandInProject($`git rev-parse --show-toplevel`, projectPath).quiet();
+    const r = await commandInProject(
+      $`git rev-parse --show-toplevel`,
+      projectPath,
+    ).quiet();
     const top = r.stdout.toString().trim();
     if (top) return basename(top);
-  } catch {
-  }
+  } catch {}
   const selectedBasename = basename(projectPath);
   if (selectedBasename) return selectedBasename;
   return basename(process.cwd());
@@ -55,10 +65,12 @@ export async function getProjectId($: any, projectPath: string): Promise<string>
 
 export async function getBranch($: any, projectPath: string): Promise<string> {
   try {
-    const r = await commandInProject($`git branch --show-current`, projectPath).quiet();
+    const r = await commandInProject(
+      $`git branch --show-current`,
+      projectPath,
+    ).quiet();
     return r.stdout.toString().trim() || "main";
-  } catch {
-  }
+  } catch {}
   return "main";
 }
 
