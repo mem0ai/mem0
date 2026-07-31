@@ -360,7 +360,8 @@ See the SQL migration instructions in the code comments.`,
 
         let query = this.client
           .from(this.tableName)
-          .select("*", { count: "exact" });
+          .select("*", { count: "exact" })
+          .order("id", { ascending: true });
 
         if (filters) {
           Object.entries(filters).forEach(([key, value]) => {

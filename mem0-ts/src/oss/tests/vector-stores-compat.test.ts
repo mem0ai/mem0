@@ -544,6 +544,7 @@ describe("Supabase – backward compat with mocked client", () => {
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     };
     mockSelectBuilder.eq = jest.fn().mockReturnValue(mockSelectBuilder);
+    mockSelectBuilder.order = jest.fn().mockReturnValue(mockSelectBuilder);
 
     mockTableApi = {
       select: jest.fn().mockReturnValue(mockSelectBuilder),
@@ -643,6 +644,7 @@ describe("Supabase – backward compat with mocked client", () => {
       range: rangeMock,
     };
     listBuilder.eq = jest.fn().mockReturnValue(listBuilder);
+    listBuilder.order = jest.fn().mockReturnValue(listBuilder);
     mockTableApi.select.mockReturnValue(listBuilder);
 
     const store = new SupabaseDB({
@@ -657,6 +659,8 @@ describe("Supabase – backward compat with mocked client", () => {
     expect(count).toBe(totalRows);
     expect(results).toHaveLength(totalRows);
     expect(rangeMock.mock.calls.length).toBeGreaterThan(1);
+    expect(listBuilder.order).toHaveBeenCalledWith("id", { ascending: true });
+    expect(new Set(results.map((r) => r.id)).size).toBe(totalRows);
   });
 
   it("search() warns when results are truncated at the PostgREST row cap", async () => {
