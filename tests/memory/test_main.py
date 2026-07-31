@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, call, patch as mock_patch
 import pytest
 
 from mem0.exceptions import LLMError
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import ADDITIVE_EXTRACTION_PROMPT, AsyncMemory, Memory, generate_additive_extraction_prompt
 from mem0.memory.utils import parse_messages
 
 
@@ -1181,7 +1181,21 @@ def test_async_add_inference_uses_aembed_batch_and_fallback(mocker):
     )
 
     assert [item["memory"] for item in result] == ["Alpha", "Beta"]
-    assert memory.llm.generate_response.call_count == 1
+    memory.llm.agenerate_response.assert_awaited_once_with(
+        messages=[
+            {"role": "system", "content": ADDITIVE_EXTRACTION_PROMPT},
+            {
+                "role": "user",
+                "content": generate_additive_extraction_prompt(
+                    existing_memories=[],
+                    new_messages=parse_messages([{"role": "user", "content": "Hello"}]),
+                    last_k_messages=[],
+                    custom_instructions=None,
+                ),
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
     memory.embedding_model.aembed.assert_any_await(parse_messages([{"role": "user", "content": "Hello"}]), "search")
     memory.embedding_model.aembed_batch.assert_awaited_once_with(["Alpha", "Beta"], "add")
     assert memory.embedding_model.embed.call_args_list == [

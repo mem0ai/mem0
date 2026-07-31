@@ -47,7 +47,7 @@ class EmbeddingBase(ABC):
         """
         return [self.embed(text, memory_action) for text in texts]
 
-    async def aembed(self, text, memory_action: Optional[Literal["add", "search", "update"]]):
+    async def aembed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         return await asyncio.to_thread(self.embed, text, memory_action)
 
     async def aembed_batch(self, texts, memory_action="add"):

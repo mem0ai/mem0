@@ -22,13 +22,15 @@ class EchoEmbedder(EmbeddingBase):
 def test_aembed_and_aembed_batch_fall_back_to_sync_provider():
     embedder = EchoEmbedder()
 
+    default_single = asyncio.run(embedder.aembed("default"))
     single = asyncio.run(embedder.aembed("hello", "search"))
     batch = asyncio.run(embedder.aembed_batch(["alpha", "beta"], "update"))
 
+    assert default_single == {"text": "default", "memory_action": None}
     assert single == {"text": "hello", "memory_action": "search"}
     assert batch == [
         {"text": "alpha", "memory_action": "update"},
         {"text": "beta", "memory_action": "update"},
     ]
-    assert embedder.embed_calls == [("hello", "search")]
+    assert embedder.embed_calls == [("default", None), ("hello", "search")]
     assert embedder.batch_calls == [(["alpha", "beta"], "update")]
