@@ -82,7 +82,6 @@ describe("cmdAdd", () => {
 describe("cmdAdd forwards --no-infer (regression for #5261)", () => {
 	it("forwards infer: false when --no-infer is set", async () => {
 		const { cmdAdd } = await import("../src/commands/memory.js");
-		// `infer: false` is the shape Commander produces for `--no-infer`.
 		await cmdAdd(mockBackend, "store me verbatim", {
 			userId: "alice",
 			immutable: false,
@@ -111,8 +110,6 @@ describe("cmdAdd forwards --no-infer (regression for #5261)", () => {
 	});
 
 	it("Commander stores --no-infer as opts.infer, not opts.noInfer", () => {
-		// Pins the assumption the fix relies on: Commander's `--no-X` option
-		// populates the positive camelCase key (`infer`), never `noInfer`.
 		const withFlag = new Command();
 		withFlag
 			.option("--no-infer", "Skip inference, store raw.")

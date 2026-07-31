@@ -7,8 +7,6 @@ import { PlatformBackend } from "../src/backend/platform.js";
 import { createDefaultConfig } from "../src/config.js";
 
 function makeBackend(): PlatformBackend {
-	// apiKey/baseUrl only build request headers; every test spies on _request,
-	// so no real network calls are made.
 	return new PlatformBackend(createDefaultConfig().platform);
 }
 
@@ -47,7 +45,6 @@ describe("deleteEntities", () => {
 			agentId: "bob",
 		});
 
-		// Regression: previously only the last entity's response survived.
 		expect(result).toEqual({
 			user: { message: "user deleted" },
 			agent: { message: "agent deleted" },
