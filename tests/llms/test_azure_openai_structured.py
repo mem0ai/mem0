@@ -264,3 +264,61 @@ def test_regular_model_sends_sampling_params(mock_azure_openai):
     assert "max_tokens" in call_kwargs  # standard sampling params still forwarded
     assert "top_p" in call_kwargs
     assert call_kwargs["model"] == "gpt-4o"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_does_not_mutate_caller_messages(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": "my assistant helps me schedule meetings"}]
+    llm.generate_response(messages)
+
+    assert messages[-1]["content"] == "my assistant helps me schedule meetings"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_rewrites_assistant_keyword_for_model_only(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": "my assistant helps me"}]
+    llm.generate_response(messages)
+
+    sent_messages = mock_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == "my ai helps me"
+    assert messages[-1]["content"] == "my assistant helps me"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_handles_multimodal_content(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="test-model", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    messages = [{"role": "user", "content": [{"type": "text", "text": "describe my assistant"}]}]
+    response = llm.generate_response(messages)
+
+    assert response == "ok"
+    sent_messages = mock_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages[-1]["content"] == [{"type": "text", "text": "describe my assistant"}]

@@ -1,7 +1,6 @@
 ---
 title: Temporal Reasoning
 description: "Time-aware memory retrieval for Mem0 Platform v3 so queries like 'last week', 'upcoming', and 'right now' return the right memories."
-icon: "clock"
 badge: "v3"
 ---
 
@@ -32,7 +31,7 @@ client = MemoryClient(api_key="your-api-key")
 
 When a memory describes an event, a future plan, or an ongoing state, Temporal Reasoning recognizes the time context so the right results surface at search time.
 
-A query like `what did I do last week?` should return a completed past event — not an upcoming appointment and not a stable fact that hasn't changed. Temporal Reasoning handles that distinction automatically.
+A query like `what did I do last week?` should return a completed past event: not an upcoming appointment and not a stable fact that hasn't changed. Temporal Reasoning handles that distinction automatically.
 
 ### Memory types Temporal Reasoning handles
 
@@ -44,7 +43,7 @@ A query like `what did I do last week?` should return a completed past event —
 | Relationship | A durable connection between people or entities | "Priya manages Jordan." |
 | Preference | A stable preference or habit | "I prefer morning meetings." |
 
-Results come back in the normal search response shape — Temporal Reasoning affects ranking, not the response format.
+Results come back in the normal search response shape: Temporal Reasoning affects ranking, not the response format.
 
 ## Configure it
 
@@ -52,24 +51,22 @@ Temporal Reasoning is enabled by default for all v3 searches and writes. There i
 
 Two parameters give you precise control when you need it:
 
-- `timestamp` on `add()` — anchors an imported memory to the time it actually happened, rather than the time it was added to Mem0
-- `reference_date` on `search()` — resolves relative phrases like `last week` against a fixed point in time
+- `observation_date` (or `observation_datetime`, which takes priority when both are set) on `add()`: anchors an imported memory to the time it actually happened. Pair with `timezone` when resolving a date-only value.
+- `timestamp` on `add()`: a Unix epoch that sets the memory's creation time. When present it takes priority over `observation_datetime` and `observation_date` as the anchor Temporal Reasoning ranks against, so pass only the one you want to win.
+- `reference_date` on `search()`: resolves relative phrases like `last week` against a fixed point in time
 
 <CodeGroup>
 ```python Python
-from datetime import datetime, timezone
 from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
 
-# Import a historical memory anchored to when it happened
 client.add(
     [{"role": "user", "content": "I finished the Q1 review on March 10, 2025."}],
     user_id="jordan",
-    timestamp=int(datetime(2025, 3, 10, tzinfo=timezone.utc).timestamp()),
+    observation_date="2025-03-10",
 )
 
-# Search with a relative query anchored to a known date
 results = client.search(
     "what did I do last week?",
     filters={"user_id": "jordan"},
@@ -82,16 +79,14 @@ import { MemoryClient } from "mem0ai";
 
 const client = new MemoryClient({ apiKey: "your-api-key" });
 
-// Import a historical memory anchored to when it happened
 await client.add(
   [{ role: "user", content: "I finished the Q1 review on March 10, 2025." }],
   {
     userId: "jordan",
-    timestamp: Math.floor(new Date("2025-03-10T00:00:00Z").getTime() / 1000),
+    observationDate: "2025-03-10",
   }
 );
 
-// Search with a relative query anchored to a known date
 const results = await client.search("what did I do last week?", {
   filters: { user_id: "jordan" },
   referenceDate: "2025-03-21T00:00:00Z",
@@ -132,7 +127,7 @@ const results = await client.search("what did I do last week?", {
 ## Best practices
 
 - Use explicit dates in source conversations when events or plans matter temporally.
-- Pass `timestamp` during historical imports so the ingestion time does not become the only time anchor.
+- Pass `observation_date` (or `observation_datetime`) during historical imports so the ingestion time does not become the only time anchor. Do not also pass `timestamp` on those calls, since it overrides both as the ranking anchor.
 - Scope searches with `filters` so time-aware ranking operates inside the right user boundary.
 - Use `reference_date` in automated tests and reproducible demos.
 

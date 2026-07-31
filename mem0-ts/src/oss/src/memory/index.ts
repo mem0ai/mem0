@@ -7,12 +7,14 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  VectorStoreConfig,
 } from "../types";
 import {
   EmbedderFactory,
   LLMFactory,
   VectorStoreFactory,
   HistoryManagerFactory,
+  RerankerFactory,
 } from "../utils/factory";
 import {
   FactRetrievalSchema,
@@ -28,6 +30,7 @@ import {
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
+import { Reranker } from "../rerankers/base";
 import { VectorStore } from "../vector_stores/base";
 import { ConfigManager } from "../config/manager";
 
@@ -36,6 +39,7 @@ import {
   SearchMemoryOptions,
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
+  UpdateMemoryOptions,
   UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
@@ -72,9 +76,22 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
+import { logger } from "../utils/logger";
+import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
-// Entity params that must be passed via filters - check both snake_case and camelCase
+export class LLMError extends Error {
+  readonly cause?: unknown;
+
+  constructor(message: string, options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = "LLMError";
+    this.cause = options.cause;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+// Entity params that must be passed via filters check both snake_case and camelCase
 const ENTITY_PARAMS = [
   "user_id",
   "agent_id",
@@ -83,6 +100,10 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
+
+// Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
+// in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
+const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
 
 // Batch size for deleteAll pagination. Larger than most vector store default
 // page limits (~100) to minimize roundtrips while bounded to avoid memory pressure.
@@ -109,18 +130,19 @@ function rejectTopLevelEntityParams(
 
 /**
  * Validates and normalizes an entity ID.
+ * - Coerces non-string ids (e.g. numeric database keys) to string
  * - Trims leading/trailing whitespace
  * - Rejects empty or whitespace-only strings
  * - Rejects strings containing internal whitespace
- * @returns The trimmed entity ID, or undefined if input is undefined
+ * @returns The trimmed entity ID, or undefined if input is undefined/null
  * @throws Error if entity ID is invalid
  */
 function validateAndTrimEntityId(
-  value: string | undefined,
+  value: string | number | undefined | null,
   name: string,
 ): string | undefined {
-  if (value === undefined) return undefined;
-  const trimmed = value.trim();
+  if (value == null) return undefined;
+  const trimmed = String(value).trim();
   if (trimmed === "") {
     throw new Error(
       `Invalid ${name}: cannot be empty or whitespace-only. Provide a valid identifier.`,
@@ -165,6 +187,7 @@ export class Memory {
   private embedder: Embedder;
   private vectorStore!: VectorStore;
   private llm: LLM;
+  private reranker: Reranker | null = null;
   private db: HistoryManager;
   private collectionName: string | undefined;
   private apiVersion: string;
@@ -189,6 +212,12 @@ export class Memory {
       this.config.llm.provider,
       this.config.llm.config,
     );
+    if (this.config.reranker) {
+      this.reranker = RerankerFactory.create(
+        this.config.reranker.provider,
+        this.config.reranker.config,
+      );
+    }
     if (this.config.disableHistory) {
       this.db = new DummyHistoryManager();
     } else {
@@ -267,18 +296,24 @@ export class Memory {
 
   private async getEntityStore(): Promise<VectorStore> {
     if (!this._entityStore) {
+      const entityProvider = this.config.vectorStore.provider;
       const entityCollectionName = `${this.collectionName}_entities`;
-      const entityConfig = {
+      const entityConfig: VectorStoreConfig = {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
       // For file-based stores (memory/SQLite), always use a separate DB for entities
-      if (this.config.vectorStore.provider === "memory") {
+      if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
         entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
+      if (entityProvider === "databricks") {
+        entityConfig.tableName = entityConfig.tableName
+          ? `${entityConfig.tableName}_entities`
+          : entityCollectionName;
+      }
       this._entityStore = VectorStoreFactory.create(
-        this.config.vectorStore.provider,
+        entityProvider,
         entityConfig,
       );
       await this._entityStore.initialize();
@@ -298,6 +333,44 @@ export class Memory {
     if (payload.agent_id) filters.agent_id = payload.agent_id;
     if (payload.run_id) filters.run_id = payload.run_id;
     return filters;
+  }
+
+  private _normalizeEntityText(value: string): string {
+    return value.trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  private async _existingEntitiesByText(
+    entityStore: VectorStore,
+    filters: Record<string, any>,
+  ): Promise<Map<string, { id: string; payload: Record<string, any> }>> {
+    const rowsByText = new Map<
+      string,
+      { id: string; payload: Record<string, any> }
+    >();
+    let rows: Array<{ id: string; payload: Record<string, any> }> = [];
+    try {
+      const listed = await entityStore.list(filters, 10000);
+      rows = (
+        Array.isArray(listed) && Array.isArray(listed[0])
+          ? listed[0]
+          : (listed as any)
+      ) as Array<{ id: string; payload: Record<string, any> }>;
+    } catch (e) {
+      console.debug(
+        `Exact entity lookup failed, falling back to semantic dedup: ${e}`,
+      );
+      return rowsByText;
+    }
+
+    for (const row of rows) {
+      const text = row.payload?.data;
+      if (typeof text !== "string") continue;
+      const key = this._normalizeEntityText(text);
+      if (key && !rowsByText.has(key)) {
+        rowsByText.set(key, row);
+      }
+    }
+    return rowsByText;
   }
 
   /**
@@ -362,7 +435,7 @@ export class Memory {
           }
           let vec: number[];
           try {
-            vec = await this.embedder.embed(entityText);
+            vec = await this.embedder.embed(entityText, "update");
           } catch (e) {
             console.debug(`Entity re-embed failed for '${entityText}': ${e}`);
             continue;
@@ -397,12 +470,16 @@ export class Memory {
       if (entities.length === 0) return;
 
       const entityStore = await this.getEntityStore();
+      const exactMatches = await this._existingEntitiesByText(
+        entityStore,
+        filters,
+      );
 
       for (const entity of entities) {
         try {
           let entityVec: number[];
           try {
-            entityVec = await this.embedder.embed(entity.text);
+            entityVec = await this.embedder.embed(entity.text, "add");
           } catch (e) {
             console.debug(`Entity embed failed for '${entity.text}': ${e}`);
             continue;
@@ -413,12 +490,21 @@ export class Memory {
             score?: number;
             payload: Record<string, any>;
           }> = [];
-          try {
-            matches = await entityStore.search(entityVec, 1, filters);
-          } catch {}
+          const exactMatch = exactMatches.get(
+            this._normalizeEntityText(entity.text),
+          );
+          if (!exactMatch) {
+            try {
+              matches = await entityStore.search(entityVec, 1, filters);
+            } catch {}
+          }
 
-          if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
-            const match = matches[0];
+          const semanticMatch =
+            matches.length > 0 && (matches[0].score ?? 0) >= 0.95
+              ? matches[0]
+              : undefined;
+          const match = exactMatch ?? semanticMatch;
+          if (match) {
             const payload = match.payload || {};
             const linked = new Set<string>(
               Array.isArray(payload.linkedMemoryIds)
@@ -666,6 +752,11 @@ export class Memory {
     if (agentId) filters.agent_id = metadata.agent_id = agentId;
     if (runId) filters.run_id = metadata.run_id = runId;
 
+    // Normalize expiration date into the stored metadata (round-trips via get()).
+    if (config.expirationDate != null) {
+      metadata.expiration_date = normalizeExpirationDate(config.expirationDate);
+    }
+
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
         "One of the filters: userId, agentId or runId is required!",
@@ -721,7 +812,7 @@ export class Memory {
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
       for (const message of messages) {
-        if (message.content === "system") {
+        if (message.role === "system") {
           continue;
         }
         const memoryId = await this.createMemory(
@@ -754,10 +845,16 @@ export class Memory {
         // getLastMessages not supported — proceed without context
       }
     }
-    const parsedMessages = messages.map((m) => m.content).join("\n");
+    // Preserve role on the messages being extracted so the prompt's role-aware
+    // logic and the required `attributed_to` output have the speaker to work
+    // with. Matches the Python oss `parse_messages` helper (`role: content`);
+    // without this, assistant statements get attributed to the user.
+    const parsedMessages = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
 
     // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages);
+    const queryEmbedding = await this.embedder.embed(parsedMessages, "search");
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,
@@ -801,7 +898,7 @@ export class Memory {
       )) as string;
     } catch (e) {
       console.error("LLM extraction failed:", e);
-      return [];
+      throw new LLMError(`LLM extraction failed: ${e}`, { cause: e });
     }
 
     // Parse response
@@ -851,7 +948,7 @@ export class Memory {
       .filter((t) => t.length > 0);
     let embedMap: Record<string, number[]> = {};
     try {
-      const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
+      const memEmbeddingsList = await this.embedder.embedBatch(memTexts, "add");
       for (let i = 0; i < memTexts.length; i++) {
         embedMap[memTexts[i]] = memEmbeddingsList[i];
       }
@@ -859,7 +956,7 @@ export class Memory {
       // Fallback: embed individually
       for (const text of memTexts) {
         try {
-          embedMap[text] = await this.embedder.embed(text);
+          embedMap[text] = await this.embedder.embed(text, "add");
         } catch (e) {
           console.warn(`Failed to embed memory text: ${e}`);
         }
@@ -1037,13 +1134,13 @@ export class Memory {
         // 7b: Single batch embed for all unique entities
         let entityEmbeddings: (number[] | null)[];
         try {
-          entityEmbeddings = await this.embedder.embedBatch(entityTexts);
+          entityEmbeddings = await this.embedder.embedBatch(entityTexts, "add");
         } catch {
           // Fallback: embed individually
           entityEmbeddings = [];
           for (const t of entityTexts) {
             try {
-              entityEmbeddings.push(await this.embedder.embed(t));
+              entityEmbeddings.push(await this.embedder.embed(t, "add"));
             } catch {
               entityEmbeddings.push(null);
             }
@@ -1060,6 +1157,10 @@ export class Memory {
 
         if (valid.length > 0) {
           const entityStore = await this.getEntityStore();
+          const exactMatches = await this._existingEntitiesByText(
+            entityStore,
+            filters,
+          );
 
           // 7c: Search for existing entities one by one (no batch search)
           const toInsertVectors: number[][] = [];
@@ -1075,13 +1176,20 @@ export class Memory {
               score?: number;
               payload: Record<string, any>;
             }> = [];
-            try {
-              matches = await entityStore.search(entityVec, 1, filters);
-            } catch {}
+            const exactMatch = exactMatches.get(key);
+            if (!exactMatch) {
+              try {
+                matches = await entityStore.search(entityVec, 1, filters);
+              } catch {}
+            }
 
-            if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+            const semanticMatch =
+              matches.length > 0 && (matches[0].score ?? 0) >= 0.95
+                ? matches[0]
+                : undefined;
+            const match = exactMatch ?? semanticMatch;
+            if (match) {
               // Update existing entity
-              const match = matches[0];
               const payload = match.payload || {};
               const linked = new Set<string>(payload.linkedMemoryIds ?? []);
               for (const mid of memoryIds) linked.add(mid);
@@ -1187,7 +1295,13 @@ export class Memory {
       }
     }
 
-    const result = { ...memoryItem, ...filters };
+    const result = {
+      ...memoryItem,
+      ...filters,
+      ...(memory.payload.attributedTo && {
+        attributedTo: memory.payload.attributedTo,
+      }),
+    };
     await this._displayFirstRunNotice("get");
     return result;
   }
@@ -1237,7 +1351,12 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 20, threshold = 0.1, explain = false } = config;
+    const {
+      topK = 20,
+      threshold = 0.1,
+      explain = false,
+      showExpired = false,
+    } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1285,7 +1404,7 @@ export class Memory {
     const queryEntities = extractEntities(query);
 
     // Step 2: Embed query
-    const queryEmbedding = await this.embedder.embed(query);
+    const queryEmbedding = await this.embedder.embed(query, "search");
 
     // Step 3: Semantic search (over-fetch for scoring pool)
     const internalLimit = Math.max(topK * 4, 60);
@@ -1350,7 +1469,10 @@ export class Memory {
               entitySearchFilters[k] = effectiveFilters[k];
           }
           const entityTexts = deduped.map((e) => e.text);
-          const embeddings = await this.embedder.embedBatch(entityTexts);
+          const embeddings = await this.embedder.embedBatch(
+            entityTexts,
+            "search",
+          );
 
           if (embeddings.length !== entityTexts.length) {
             console.warn(
@@ -1405,11 +1527,13 @@ export class Memory {
     }
 
     // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults.map((mem) => ({
-      id: String(mem.id),
-      score: mem.score ?? 0,
-      payload: mem.payload || {},
-    }));
+    const candidates = semanticResults
+      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
+      .map((mem) => ({
+        id: String(mem.id),
+        score: mem.score ?? 0,
+        payload: mem.payload || {},
+      }));
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
@@ -1451,12 +1575,35 @@ export class Memory {
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
+          ...(payload.attributedTo && { attributedTo: payload.attributedTo }),
           ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
       });
 
+    // Step 10: Optionally re-rank with the configured reranker. Opt-in per
+    // search via `rerank: true`; a no-op when no reranker is configured.
+    const invokeReranker = Boolean(
+      config.rerank && this.reranker && results.length > 0,
+    );
+    let finalResults = results;
+    if (invokeReranker) {
+      try {
+        const ranked = await this.reranker!.rerank(
+          query,
+          results.map((r) => r.memory),
+          topK,
+        );
+        finalResults = ranked.map((r) => ({
+          ...results[r.index],
+          rerankScore: r.rerankScore,
+        }));
+      } catch (e) {
+        console.warn(`Reranking failed, using original results: ${e}`);
+      }
+    }
+
     const result = {
-      results,
+      results: finalResults,
     };
     const searchElapsedMs = Date.now() - searchStartMs;
     if (temporalUsageNotice) {
@@ -1492,11 +1639,49 @@ export class Memory {
     return result;
   }
 
-  async update(memoryId: string, data: string): Promise<{ message: string }> {
+  async update(
+    memoryId: string,
+    config: string | UpdateMemoryOptions,
+  ): Promise<{ message: string }> {
     await this._ensureInitialized();
     await this._captureEvent("update", { memory_id: memoryId });
-    const embedding = await this.embedder.embed(data);
-    await this.updateMemory(memoryId, data, { [data]: embedding });
+
+    const options: UpdateMemoryOptions =
+      typeof config === "string" ? { text: config } : config;
+
+    const { data, metadata, expirationDate } = options;
+    let text = options.text;
+
+    if (data != null) {
+      logger.warn(
+        "The `data` option of update() is deprecated and will be removed in " +
+          "the next major release. Use `text` instead.",
+      );
+      if (text == null) {
+        text = data;
+      }
+    }
+
+    if (text == null && metadata == null && expirationDate === undefined) {
+      throw new Error(
+        "At least one of text, metadata, or expirationDate must be provided.",
+      );
+    }
+
+    const updateMetadata: Record<string, any> = { ...metadata };
+    if (expirationDate !== undefined) {
+      updateMetadata.expiration_date =
+        expirationDate === null
+          ? null
+          : normalizeExpirationDate(expirationDate);
+    }
+
+    const existingEmbeddings: Record<string, number[]> = {};
+    if (text != null) {
+      existingEmbeddings[text] = await this.embedder.embed(text, "update");
+    }
+
+    await this.updateMemory(memoryId, text, existingEmbeddings, updateMetadata);
     const result = { message: "Memory updated successfully!" };
     await this._displayFirstRunNotice("update");
     return result;
@@ -1530,7 +1715,9 @@ export class Memory {
       has_agent_id: !!config.agentId,
       has_run_id: !!config.runId,
     });
-    const { userId, agentId, runId } = config;
+    const userId = validateAndTrimEntityId(config.userId, "userId");
+    const agentId = validateAndTrimEntityId(config.agentId, "agentId");
+    const runId = validateAndTrimEntityId(config.runId, "runId");
 
     // Convert camelCase entity params to snake_case for filters (matches storage and search/getAll)
     const filters: SearchFilters = {};
@@ -1544,29 +1731,30 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(
-      filters,
-      DELETE_ALL_BATCH_SIZE,
-    );
     let deletedCount = 0;
-    let currentMemories = memories;
+    const seenBatches = new Set<string>();
 
-    while (currentMemories.length > 0) {
-      const results = await Promise.allSettled(
-        currentMemories.map((memory) => this.deleteMemory(memory.id)),
-      );
-      const succeeded = results.filter((r) => r.status === "fulfilled").length;
-      // Zero-progress guard: if every delete in a batch failed, re-listing
-      // would return the same set and loop forever. Break instead.
-      if (succeeded === 0) {
-        break;
-      }
-      deletedCount += succeeded;
-      const [nextMemories] = await this.vectorStore.list(
+    while (true) {
+      const [batch] = await this.vectorStore.list(
         filters,
         DELETE_ALL_BATCH_SIZE,
       );
-      currentMemories = nextMemories;
+      if (!batch.length) {
+        break;
+      }
+      const batchKey = batch
+        .map((memory) => String(memory.id))
+        .sort()
+        .join(",");
+      if (seenBatches.has(batchKey)) {
+        logger.warn("Stopping deleteAll after a repeated memory batch");
+        break;
+      }
+      seenBatches.add(batchKey);
+      for (const memory of batch) {
+        await this.deleteMemory(memory.id);
+      }
+      deletedCount += batch.length;
     }
 
     const result = { message: "Memories deleted successfully!" };
@@ -1596,7 +1784,7 @@ export class Memory {
     await this.db.reset();
 
     // Check provider before attempting deleteCol
-    if (this.config.vectorStore.provider.toLowerCase() !== "langchain") {
+    if (this.config.vectorStore.provider !== "langchain") {
       try {
         await this.vectorStore.deleteCol();
       } catch (e) {
@@ -1651,7 +1839,7 @@ export class Memory {
 
     await this._ensureInitialized();
 
-    const { topK = 20 } = config;
+    const { topK = 20, showExpired = false } = config;
 
     // Validate and trim entity IDs in filters. Drop keys that resolve to
     // undefined so downstream vector stores don't receive
@@ -1680,7 +1868,13 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters, topK);
+    // Over-fetch so expired memories dropped below still leave topK survivors.
+    const fetchLimit = showExpired ? topK : Math.max(topK * 4, 60);
+    const [memories] = await this.vectorStore.list(filters, fetchLimit);
+
+    const visibleMemories = showExpired
+      ? memories
+      : memories.filter((mem) => !payloadIsExpired(mem.payload));
 
     const excludedKeys = new Set([
       "user_id",
@@ -1693,7 +1887,7 @@ export class Memory {
       "textLemmatized",
       "attributedTo",
     ]);
-    const results = memories.map((mem) => ({
+    const results = visibleMemories.slice(0, topK).map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
       hash: mem.payload.hash,
@@ -1705,6 +1899,9 @@ export class Memory {
       ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
       ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
       ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
+      ...(mem.payload.attributedTo && {
+        attributedTo: mem.payload.attributedTo,
+      }),
     }));
 
     const result = { results };
@@ -1727,7 +1924,7 @@ export class Memory {
   ): Promise<string> {
     const memoryId = uuidv4();
     const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data));
+      existingEmbeddings[data] || (await this.embedder.embed(data, "add"));
 
     const memoryMetadata = {
       ...metadata,
@@ -1751,7 +1948,7 @@ export class Memory {
 
   private async updateMemory(
     memoryId: string,
-    data: string,
+    data: string | undefined,
     existingEmbeddings: Record<string, number[]>,
     metadata: Record<string, any> = {},
   ): Promise<string> {
@@ -1761,15 +1958,30 @@ export class Memory {
     }
 
     const prevValue = existingMemory.payload.data;
+    // Metadata-only update: fall back to the stored text so we can re-index it.
+    const newData = data ?? prevValue;
+    if (typeof newData !== "string") {
+      throw new Error(
+        `Memory with ID ${memoryId} does not have text content to update`,
+      );
+    }
+    const textChanged = newData !== prevValue;
+
     const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data));
+      existingEmbeddings[newData] ||
+      (await this.embedder.embed(newData, "update"));
+
+    // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367).
+    const sanitizedMetadata = Object.fromEntries(
+      Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),
+    );
 
     const newMetadata = {
       ...existingMemory.payload,
-      ...metadata,
-      data,
-      hash: createHash("md5").update(data).digest("hex"),
-      textLemmatized: lemmatizeForBm25(data),
+      ...sanitizedMetadata,
+      data: newData,
+      hash: createHash("md5").update(newData).digest("hex"),
+      textLemmatized: lemmatizeForBm25(newData),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
     };
@@ -1778,20 +1990,22 @@ export class Memory {
     await this.db.addHistory(
       memoryId,
       prevValue,
-      data,
+      newData,
       "UPDATE",
       newMetadata.createdAt,
       newMetadata.updatedAt,
     );
 
-    // Entity-store cleanup: strip this memory's id from old-text entities,
-    // then re-extract entities from the new text and link them back.
-    try {
-      const sessionFilters = this._sessionFiltersFromPayload(newMetadata);
-      await this._removeMemoryFromEntityStore(memoryId, sessionFilters);
-      await this._linkEntitiesForMemory(memoryId, data, sessionFilters);
-    } catch (e) {
-      console.warn(`Entity store cleanup/link failed during update: ${e}`);
+    // Entity-store cleanup only when the text changed: strip this memory's id
+    // from old-text entities, then re-extract from the new text and link back.
+    if (textChanged) {
+      try {
+        const sessionFilters = this._sessionFiltersFromPayload(newMetadata);
+        await this._removeMemoryFromEntityStore(memoryId, sessionFilters);
+        await this._linkEntitiesForMemory(memoryId, newData, sessionFilters);
+      } catch (e) {
+        console.warn(`Entity store cleanup/link failed during update: ${e}`);
+      }
     }
 
     return memoryId;

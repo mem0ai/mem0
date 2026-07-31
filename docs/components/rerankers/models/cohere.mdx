@@ -9,9 +9,9 @@ Cohere provides enterprise-grade reranking models with excellent multilingual su
 
 Cohere offers several reranking models:
 
-- **`rerank-english-v3.0`**: Latest English reranker with best performance
-- **`rerank-multilingual-v3.0`**: Multilingual support for global applications
-- **`rerank-english-v2.0`**: Previous generation English reranker
+- **`rerank-v3.5`** (default): Latest reranker, multilingual, best performance
+- **`rerank-english-v3.0`**: Previous generation, English only
+- **`rerank-multilingual-v3.0`**: Previous generation, multilingual
 
 ## Installation
 
@@ -41,7 +41,7 @@ config = {
     "reranker": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "api_key": "your-cohere-api-key",  # or set COHERE_API_KEY
             "top_k": 5,
             "return_documents": False,
@@ -51,6 +51,34 @@ config = {
 }
 
 memory = Memory.from_config(config)
+```
+
+## TypeScript (self-hosted)
+
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the Cohere reranker. Config keys are camelCase, it defaults to the `rerank-v3.5` model, and you opt in per search with `rerank: true`.
+
+```bash
+pnpm add cohere-ai
+```
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  reranker: {
+    provider: "cohere",
+    config: {
+      apiKey: process.env.COHERE_API_KEY, // or set COHERE_API_KEY
+      // model: "rerank-v3.5",     // default
+      topK: 5,
+    },
+  },
+});
+
+const results = await memory.search("What is the user's profession?", {
+  filters: { userId: "bob" },
+  rerank: true,
+});
 ```
 
 ## Environment Variables
@@ -77,7 +105,7 @@ config = {
     "rerank": {
         "provider": "cohere",
         "config": {
-            "model": "rerank-english-v3.0",
+            "model": "rerank-v3.5",
             "top_k": 3
         }
     }
@@ -124,7 +152,7 @@ config = {
 
 | Parameter            | Description                      | Type   | Default                 |
 | -------------------- | -------------------------------- | ------ | ----------------------- |
-| `model`              | Cohere rerank model to use       | `str`  | `"rerank-english-v3.0"` |
+| `model`              | Cohere rerank model to use       | `str`  | `"rerank-v3.5"` |
 | `api_key`            | Cohere API key                   | `str`  | `None`                  |
 | `top_k`              | Maximum documents to return      | `int`  | `None`                  |
 | `return_documents`   | Whether to return document texts | `bool` | `False`                 |
@@ -139,7 +167,7 @@ config = {
 
 ## Best Practices
 
-1. **Model Selection**: Use `rerank-english-v3.0` for English, `rerank-multilingual-v3.0` for other languages
+1. **Model Selection**: `rerank-v3.5` handles English and multilingual workloads; pin an older `v3.0` model only if you need to reproduce prior results
 2. **Batch Processing**: Process multiple queries efficiently
 3. **Error Handling**: Implement retry logic for production systems
 4. **Monitoring**: Track reranking performance and costs

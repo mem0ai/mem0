@@ -1,45 +1,33 @@
 ---
 title: Group Chat
-description: 'Enable multi-participant conversations with automatic memory attribution to individual speakers'
+description: 'Enable multi-participant conversations and scope each speaker with user_id or agent_id'
 ---
 
 ## Overview
 
-The Group Chat feature enables Mem0 to process conversations involving multiple participants and automatically attribute memories to individual speakers. This allows for precise tracking of each participant's preferences, characteristics, and contributions in collaborative discussions, team meetings, or multi-agent conversations.
+The Group Chat feature helps you use Mem0 with conversations involving multiple participants, such as team meetings or multi-agent conversations. You control which speaker a memory belongs to by scoping each `add()` call with `user_id`, `agent_id`, and `run_id`; Mem0 does not infer that scope automatically from the conversation.
 
-When you provide messages with participant names, Mem0 automatically:
-- Extracts memories from each participant's messages separately
-- Attributes each memory to the correct speaker using their name as the `user_id` or `agent_id`
-- Maintains individual memory profiles for each participant
+When you scope conversations correctly, Mem0:
+- Extracts memories from each participant's messages
+- Keeps each participant's memories in a separate profile, addressed by the `user_id` or `agent_id` you assigned them
+- Lets you retrieve any participant's memories independently using filters
 
 ## How Group Chat Works
 
-Mem0 automatically detects group chat scenarios when messages contain a `name` field:
+Mem0 does not automatically split a multi-participant conversation into separate memories per speaker. A `name` field on a message is stored as context for extraction, but it does not change which `user_id` or `agent_id` the resulting memories are scoped to: that scope is always whatever `user_id`, `agent_id`, or `run_id` you pass to `add()`.
 
-```json
-{
-  "role": "user",
-  "name": "Alice",
-  "content": "Hey team, I think we should use React for the frontend"
-}
-```
-
-When names are present, Mem0:
-- Formats messages as `"Alice (user): content"` for processing
-- Extracts memories with proper attribution to each speaker
-- Stores memories with the speaker's name as the `user_id` (for users) or `agent_id` (for assistants/agents)
+To keep separate memory profiles per participant, scope each participant's messages explicitly: call `add()` once per participant with their own `user_id`, or use `run_id` to group the conversation and filter by participant in your own message metadata.
 
 ### Memory Attribution Rules
 
-- **User Messages**: The `name` field becomes the `user_id` in stored memories
-- **Assistant/Agent Messages**: The `name` field becomes the `agent_id` in stored memories
-- **Messages without names**: Fall back to standard processing using role as identifier
+- Memories are always scoped to the `user_id`, `agent_id`, and `run_id` you pass to `add()`, not to the `name` field on individual messages.
+- If you need per-participant memories, call `add()` separately for each participant's messages with that participant's `user_id`.
 
 ## Using Group Chat
 
 ### Basic Group Chat
 
-Add memories from a multi-participant conversation:
+Scope each participant's messages with their own `user_id` and a shared `run_id` for the session. Call `add()` once per participant:
 
 <CodeGroup>
 
@@ -48,45 +36,59 @@ from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
 
-# Group chat with multiple users
-messages = [
-    {"role": "user", "name": "Alice", "content": "Hey team, I think we should use React for the frontend"},
-    {"role": "user", "name": "Bob", "content": "I disagree, Vue.js would be better for our use case"},
-    {"role": "user", "name": "Charlie", "content": "What about considering Angular? It has great enterprise support"},
-    {"role": "assistant", "content": "All three frameworks have their merits. Let me summarize the pros and cons of each."}
-]
-
+# Each participant gets their own user_id; run_id ties them to one session
+client.add(
+    [{"role": "user", "content": "Hey team, I think we should use React for the frontend"}],
+    user_id="alice", run_id="group_chat_1",
+)
+client.add(
+    [{"role": "user", "content": "I'd prefer Vue.js for our use case"}],
+    user_id="bob", run_id="group_chat_1",
+)
 response = client.add(
-    messages,
-    run_id="group_chat_1",
-    infer=True
+    [{"role": "user", "content": "Consider Angular, it has great enterprise support"}],
+    user_id="charlie", run_id="group_chat_1",
 )
 print(response)
 ```
 
 ```json Output
 {
-  "results": [
-    {
-      "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
-      "event": "ADD",
-      "memory": "prefers using React for the frontend"
-    },
-    {
-      "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
-      "event": "ADD",
-      "memory": "prefers Vue.js for our use case"
-    },
-    {
-      "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-      "event": "ADD",
-      "memory": "suggests considering Angular because it has great enterprise support"
-    }
-  ]
+  "event_id": "4d82478a-8d50-47e6-9324-1f65efff5829",
+  "status": "PENDING"
 }
 ```
 
 </CodeGroup>
+
+`add()` is asynchronous: it queues extraction and returns immediately. Poll `get_all` (see below) once processing completes to see the extracted memories. Each participant's memory is scoped to the `user_id` you passed, so filtering by `run_id` returns all three, and filtering by a single `user_id` returns just that participant.
+
+### The `name` field does not change scope
+
+The `name` field is stored as extraction context only. Attribution follows the `user_id`/`agent_id`/`run_id` you pass to `add()`, never the `name`. Passing two different names in one `add()` call does **not** split the memories across two profiles:
+
+<CodeGroup>
+
+```python Python
+# BOTH messages are scoped to user_id="team_session", NOT to "alice"/"bob"
+client.add(
+    [
+        {"role": "user", "name": "Alice", "content": "I strongly prefer React"},
+        {"role": "user", "name": "Bob", "content": "I strongly prefer Vue"},
+    ],
+    user_id="team_session", run_id="group_chat_2",
+)
+
+# Every extracted memory lands under user_id="team_session"
+client.get_all(filters={"AND": [{"user_id": "team_session"}]})
+
+# Nothing is stored under user_id="alice" or user_id="bob"
+client.get_all(filters={"AND": [{"user_id": "alice"}]})  # -> no results from this call
+```
+
+</CodeGroup>
+
+To keep Alice's and Bob's memories in separate profiles, call `add()` once per participant with their own `user_id`, as shown in [Basic Group Chat](#basic-group-chat) above.
 
 ## Retrieving Group Chat Memories
 
@@ -111,32 +113,37 @@ print(all_memories)
 ```
 
 ```json Output
-[
-    {
-        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-        "memory": "suggests considering Angular because it has great enterprise support",
-        "user_id": "charlie",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00"
-    },
-    {
-        "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
-        "memory": "prefers Vue.js for our use case",
-        "user_id": "bob",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:08.675301-07:00",
-        "updated_at": "2025-06-21T05:51:09.319269-07:00",
-    },
-    {
-        "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
-        "memory": "prefers using React for the frontend",
-        "user_id": "alice",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:05.943223-07:00",
-        "updated_at": "2025-06-21T05:51:06.982539-07:00",
-    }
-]
+{
+    "count": 3,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+            "memory": "suggests considering Angular because it has great enterprise support",
+            "user_id": "charlie",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:11.007223-07:00",
+            "updated_at": "2025-06-21T05:51:11.626562-07:00"
+        },
+        {
+            "id": "1d8b8f39-7b17-4d18-8632-ab1c64fa35b9",
+            "memory": "prefers Vue.js for our use case",
+            "user_id": "bob",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:08.675301-07:00",
+            "updated_at": "2025-06-21T05:51:09.319269-07:00"
+        },
+        {
+            "id": "4d82478a-8d50-47e6-9324-1f65efff5829",
+            "memory": "prefers using React for the frontend",
+            "user_id": "alice",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:05.943223-07:00",
+            "updated_at": "2025-06-21T05:51:06.982539-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>
@@ -161,17 +168,21 @@ print(charlie_memories)
 ```
 
 ```json Output
-[
-    {
-        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-        "memory": "suggests considering Angular because it has great enterprise support",
-        "user_id": "charlie",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00",
-
-    }
-]
+{
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "results": [
+        {
+            "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+            "memory": "suggests considering Angular because it has great enterprise support",
+            "user_id": "charlie",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:11.007223-07:00",
+            "updated_at": "2025-06-21T05:51:11.626562-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>
@@ -199,34 +210,18 @@ print(search_response)
 ```
 
 ```json Output
-[
-    {
-        "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
-        "memory": "suggests considering Angular because it has great enterprise support",
-        "user_id": "charlie",
-        "run_id": "group_chat_1",
-        "created_at": "2025-06-21T05:51:11.007223-07:00",
-        "updated_at": "2025-06-21T05:51:11.626562-07:00",
-    }
-]
-```
-
-</CodeGroup>
-
-## Async Mode Support
-
-Group chat supports async processing for improved performance. Memory additions are processed asynchronously by default.
-
-<CodeGroup>
-
-```python Python
-# Group chat — async processing is the default
-response = client.add(
-    messages,
-    run_id="groupchat_async",
-    infer=True,
-)
-print(response)
+{
+    "results": [
+        {
+            "id": "147559a8-c5f7-44d0-9418-91f53f7a89a4",
+            "memory": "suggests considering Angular because it has great enterprise support",
+            "user_id": "charlie",
+            "run_id": "group_chat_1",
+            "created_at": "2025-06-21T05:51:11.007223-07:00",
+            "updated_at": "2025-06-21T05:51:11.626562-07:00"
+        }
+    ]
+}
 ```
 
 </CodeGroup>
@@ -235,11 +230,11 @@ print(response)
 
 ### Required Fields
 
-Each message in a group chat must include:
+Each message must include:
 
 - `role`: The participant's role (`"user"`, `"assistant"`, `"agent"`)
 - `content`: The message content
-- `name`: The participant's name (required for group chat detection)
+- `name` (optional): The participant's name, stored as context for extraction. It does not change which `user_id` or `agent_id` a memory is scoped to.
 
 ### Example Message Structure
 
@@ -250,14 +245,14 @@ Each message in a group chat must include:
   "content": "I think we should use React for the frontend"
 }
 ```
-### Supported Roles
+### Roles
 
-- **`user`**: Human participants (memories stored with `user_id`)
-- **`assistant`**: AI assistants (memories stored with `agent_id`)
+- **`user`**: Human participants
+- **`assistant`**: AI assistants
 
 ## Best Practices
 
-1. **Consistent Naming**: Use consistent names for participants across sessions to maintain proper memory attribution.
+1. **Consistent Scoping**: Use a consistent `user_id` (or `agent_id`) per participant across sessions so their memories stay in one profile.
 
 2. **Clear Role Assignment**: Ensure each participant has the correct role (`user`, `assistant`, or `agent`) for proper memory categorization.
 

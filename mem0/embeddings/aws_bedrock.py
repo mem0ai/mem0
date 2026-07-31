@@ -70,6 +70,11 @@ class AWSBedrockEmbedding(EmbeddingBase):
         else:
             # Amazon and other providers
             input_body["inputText"] = text
+            # Titan Text Embeddings V2 accepts an optional output dimension
+            # (256/512/1024). Only forward embedding_dims when the user set it,
+            # mirroring the OpenAI embedder's guarded `dimensions` pass-through.
+            if self.config.embedding_dims is not None and "v2" in self.config.model:
+                input_body["dimensions"] = self.config.embedding_dims
 
         body = json.dumps(input_body)
 

@@ -186,6 +186,17 @@ class PineconeDB(VectorStoreBase):
 
             return result
 
+    OPERATOR_MAP = {
+        "eq": "$eq",
+        "ne": "$ne",
+        "gt": "$gt",
+        "gte": "$gte",
+        "lt": "$lt",
+        "lte": "$lte",
+        "in": "$in",
+        "nin": "$nin",
+    }
+
     def _create_filter(self, filters: Optional[Dict]) -> Dict:
         """
         Create a filter dictionary from the provided filters.
@@ -196,8 +207,15 @@ class PineconeDB(VectorStoreBase):
         pinecone_filter = {}
 
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                pinecone_filter[key] = {"$gte": value["gte"], "$lte": value["lte"]}
+            if isinstance(value, dict):
+                condition = {}
+                for op, operand in value.items():
+                    pc_op = self.OPERATOR_MAP.get(op)
+                    if pc_op:
+                        condition[pc_op] = operand
+                    else:
+                        condition[f"${op}"] = operand
+                pinecone_filter[key] = condition
             else:
                 pinecone_filter[key] = {"$eq": value}
 
@@ -340,12 +358,16 @@ class PineconeDB(VectorStoreBase):
         return self.client.list_indexes()
 
     def delete_col(self):
-        """Delete an index/collection."""
+        """Delete the index, or clear only the configured namespace if one is set."""
         try:
-            self.client.delete_index(self.collection_name)
-            logger.info(f"Index {self.collection_name} deleted successfully")
+            if self.namespace is not None:
+                self.index.delete(delete_all=True, namespace=self.namespace)
+                logger.info(f"Namespace {self.namespace} in index {self.collection_name} cleared successfully")
+            else:
+                self.client.delete_index(self.collection_name)
+                logger.info(f"Index {self.collection_name} deleted successfully")
         except Exception as e:
-            logger.error(f"Error deleting index {self.collection_name}: {e}")
+            logger.error(f"Error deleting index {self.collection_name} (namespace={self.namespace}): {e}")
 
     def col_info(self) -> Dict:
         """
@@ -391,7 +413,7 @@ class PineconeDB(VectorStoreBase):
             return [results]
         except Exception as e:
             logger.error(f"Error listing vectors: {e}")
-            return {"points": [], "next_page_token": None}
+            return [[]]
 
     def count(self) -> int:
         """
@@ -401,8 +423,7 @@ class PineconeDB(VectorStoreBase):
             int: Total number of vectors.
         """
         stats = self.index.describe_index_stats()
-        if self.namespace:
-            # Safely get the namespace stats and return vector_count, defaulting to 0 if not found
+        if self.namespace is not None:
             namespace_summary = (stats.namespaces or {}).get(self.namespace)
             if namespace_summary:
                 return namespace_summary.vector_count or 0

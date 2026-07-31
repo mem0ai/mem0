@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
+from mem0.utils.http import build_http_client
 
 
 class BaseLlmConfig(ABC):
@@ -74,4 +74,5 @@ class BaseLlmConfig(ABC):
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
         self.is_reasoning_model = is_reasoning_model
-        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_client_proxies = http_client_proxies
+        self.http_client = build_http_client(http_client_proxies)

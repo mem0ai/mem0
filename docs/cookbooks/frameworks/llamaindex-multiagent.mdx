@@ -211,8 +211,8 @@ class MultiAgentLearningSystem:
         try:
             # Search memory for learning patterns
             memories = self.memory.search(
-                user_id=self.student_id,
-                query="learning machine learning"
+                query="learning machine learning",
+                filters={"user_id": self.student_id}
             )
 
             if memories and memories.get('results'):
@@ -369,3 +369,5 @@ Based on our previous session, I remember we covered Vision Language Models and 
     Learn how to scope memories across multiple agents, users, and sessions.
   </Card>
 </CardGroup>
+
+<Snippet file="star-on-github.mdx" />

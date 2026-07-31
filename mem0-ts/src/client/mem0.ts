@@ -67,6 +67,10 @@ function rejectTopLevelEntityParams(
   }
 }
 
+function encodePathSegment(value: unknown): string {
+  return encodeURIComponent(String(value));
+}
+
 class APIError extends Error {
   constructor(message: string) {
     super(message);
@@ -281,19 +285,22 @@ export default class MemoryClient {
       text,
       metadata,
       timestamp,
+      expirationDate,
     }: {
       text?: string;
       metadata?: Record<string, any>;
       timestamp?: number | string;
+      expirationDate?: string | null;
     },
   ): Promise<Array<Memory>> {
     if (
       text === undefined &&
       metadata === undefined &&
-      timestamp === undefined
+      timestamp === undefined &&
+      expirationDate === undefined
     ) {
       throw new Error(
-        "At least one of text, metadata, or timestamp must be provided for update.",
+        "At least one of text, metadata, timestamp, or expirationDate must be provided for update.",
       );
     }
 
@@ -302,12 +309,13 @@ export default class MemoryClient {
     if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
     if (timestamp !== undefined) payload.timestamp = timestamp;
+    if (expirationDate !== undefined) payload.expiration_date = expirationDate;
 
     const payloadKeys = Object.keys(payload);
     this._captureEvent("update", [payloadKeys]);
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/`,
+      `${this.host}/v1/memories/${encodePathSegment(memoryId)}/`,
       {
         method: "PUT",
         headers: this.headers,
@@ -321,7 +329,7 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("get", []);
     return this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/`,
+      `${this.host}/v1/memories/${encodePathSegment(memoryId)}/`,
       {
         headers: this.headers,
       },
@@ -393,7 +401,7 @@ export default class MemoryClient {
     // @ts-ignore
     const query = new URLSearchParams(snakeOptions).toString();
     return this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/${query ? `?${query}` : ""}`,
+      `${this.host}/v1/memories/${encodePathSegment(memoryId)}/${query ? `?${query}` : ""}`,
       {
         method: "DELETE",
         headers: this.headers,
@@ -424,7 +432,7 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("history", []);
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/history/`,
+      `${this.host}/v1/memories/${encodePathSegment(memoryId)}/history/`,
       {
         headers: this.headers,
       },
@@ -462,7 +470,7 @@ export default class MemoryClient {
       data.entity_type = "user";
     }
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/entities/${data.entity_type}/${data.entity_id}/`,
+      `${this.host}/v1/entities/${encodePathSegment(data.entity_type)}/${encodePathSegment(data.entity_id)}/`,
       {
         method: "DELETE",
         headers: this.headers,
@@ -506,7 +514,9 @@ export default class MemoryClient {
 
     for (const entity of to_delete) {
       try {
-        await this.client.delete(`/v2/entities/${entity.type}/${entity.name}/`);
+        await this.client.delete(
+          `/v2/entities/${encodePathSegment(entity.type)}/${encodePathSegment(entity.name)}/`,
+        );
       } catch (error: any) {
         throw new APIError(
           `Failed to delete ${entity.type} ${entity.name}: ${error.message}`,

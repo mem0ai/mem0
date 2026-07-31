@@ -285,6 +285,20 @@ def test_list(faiss_instance):
         assert result.payload["category"] == "A"
 
 
+def test_list_uninitialized_index_returns_nested_list(faiss_instance):
+    # Regression for the List[List[OutputData]] contract: callers (e.g.
+    # Memory.delete_all) do `vector_store.list(filters=...)[0]`, so an
+    # uninitialized index must return [[]] (one level deep) and NOT a bare
+    # [], which would make result[0] raise IndexError on an empty store.
+    faiss_instance.index = None
+
+    results = faiss_instance.list()
+
+    assert results == [[]]
+    # The contract callers rely on: result[0] is the (empty) memory list.
+    assert results[0] == []
+
+
 def test_col_info(faiss_instance, mock_faiss_index):
     # Mock index attributes
     mock_faiss_index.ntotal = 5
@@ -690,3 +704,53 @@ class TestFAISSSecurityIntegration:
                 assert not os.path.exists(json_path), "JSON file should be deleted"
                 assert not os.path.exists(pkl_path), "PKL file should be deleted"
                 assert not os.path.exists(faiss_index_path), "FAISS index should be deleted"
+
+
+class TestCosineNormalization:
+    """Cosine distance must rank by angle, not raw inner-product magnitude.
+
+    Regression test for the bug where cosine used an IndexFlatIP index but never
+    L2-normalized vectors, so results were ranked by inner product instead of
+    cosine similarity.
+    """
+
+    def test_cosine_ranks_by_angle_not_magnitude(self):
+        # Query is perfectly aligned with A (cosine 1.0) but A has a small
+        # magnitude, so its inner product (0.1) is lower than B's (0.5).
+        # Under correct cosine ranking, A must come first regardless.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = FAISS(
+                collection_name="cosine_col",
+                path=os.path.join(temp_dir, "cosine"),
+                distance_strategy="cosine",
+                embedding_model_dims=2,
+            )
+            store.insert(
+                vectors=[[0.1, 0.0], [0.5, 0.5]],
+                payloads=[{"name": "A"}, {"name": "B"}],
+                ids=["A", "B"],
+            )
+
+            results = store.search(query="", vectors=[1.0, 0.0], top_k=2)
+
+            assert [r.id for r in results] == ["A", "B"]
+            # Scores are true cosine similarities, not raw inner products.
+            assert results[0].score == pytest.approx(1.0, abs=1e-5)
+            assert results[1].score == pytest.approx(0.70710677, abs=1e-5)
+
+    def test_cosine_normalizes_on_insert_and_search(self):
+        # A non-unit query that points the same direction as a stored vector
+        # should score ~1.0 once both sides are normalized.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = FAISS(
+                collection_name="cosine_col2",
+                path=os.path.join(temp_dir, "cosine2"),
+                distance_strategy="cosine",
+                embedding_model_dims=3,
+            )
+            store.insert(vectors=[[3.0, 0.0, 0.0]], payloads=[{"name": "x"}], ids=["x"])
+
+            results = store.search(query="", vectors=[7.0, 0.0, 0.0], top_k=1)
+
+            assert results[0].id == "x"
+            assert results[0].score == pytest.approx(1.0, abs=1e-5)

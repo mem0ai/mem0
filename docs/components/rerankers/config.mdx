@@ -26,7 +26,7 @@ All rerankers share these common configuration parameters:
 
 | Parameter            | Description                                  | Type   | Default                 |
 | -------------------- | -------------------------------------------- | ------ | ----------------------- |
-| `model`              | Cohere rerank model                          | `str`  | `"rerank-english-v3.0"` |
+| `model`              | Cohere rerank model                          | `str`  | `"rerank-v3.5"` |
 | `api_key`            | Cohere API key                               | `str`  | `None`                  |
 | `return_documents`   | Whether to return document texts in response | `bool` | `False`                 |
 | `max_chunks_per_doc` | Maximum chunks per document                  | `int`  | `None`                  |
@@ -103,3 +103,30 @@ config = {
     }
 }
 ```
+
+## TypeScript SDK
+
+The self-hosted [TypeScript SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) supports the same five providers. Config keys are camelCase (`apiKey`, `topK`, `maxLength`) and each provider's SDK is a peer dependency you install per reranker.
+
+| Provider | Install | Default model | Key config fields |
+| --- | --- | --- | --- |
+| `cohere` | `pnpm add cohere-ai` | `rerank-v3.5` | `apiKey`, `model`, `topK` |
+| `zero_entropy` | `pnpm add zeroentropy` | `zerank-1` | `apiKey`, `model`, `topK` |
+| `sentence_transformer` | `pnpm add @huggingface/transformers` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `huggingface` | `pnpm add @huggingface/transformers` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
+| `llm_reranker` | None (uses your LLM provider's own SDK) | `openai` / `gpt-4o-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  reranker: {
+    provider: "zero_entropy",
+    config: { apiKey: process.env.ZERO_ENTROPY_API_KEY, topK: 5 },
+  },
+});
+```
+
+<Note>
+  The local cross-encoder providers (`sentence_transformer`, `huggingface`) run on [Transformers.js](https://huggingface.co/docs/transformers.js) and default to ONNX (`Xenova/*`) model mirrors, so Python default model strings must be swapped for their ONNX equivalents. `batchSize` and `showProgressBar` are accepted for parity with Python but are no-ops in the TypeScript runtime. See the [reranker feature guide](/open-source/features/reranker-search#typescript-sdk) for full examples.
+</Note>

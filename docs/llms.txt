@@ -6,7 +6,7 @@
 
 ### Don't have a Mem0 API key?
 
-Install the CLI, then mint a key — no email, no dashboard, no OTP required:
+Install the CLI, then mint a key without email, dashboard, or OTP:
 
 ```bash
 # Python
@@ -16,7 +16,7 @@ pip install mem0-cli
 npm install -g @mem0/cli
 ```
 
-Then run: `mem0 init --agent --agent-caller <your-name> --json` — replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
+Then run: `mem0 init --agent --agent-caller <your-name> --json`. Replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
 
 This mints an evaluation key in <5 seconds. Use it immediately against the Platform API or MCP server. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
 
@@ -61,7 +61,7 @@ client.get_all(user_id="alice")
 client.get(memory_id="<id>")
 
 # Update
-client.update(memory_id="<id>", data="Alice loves mountain hiking")
+client.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 client.delete(memory_id="<id>")
@@ -118,7 +118,7 @@ m.get_all(user_id="alice")
 m.get(memory_id="<id>")
 
 # Update
-m.update(memory_id="<id>", data="Alice loves mountain hiking")
+m.update(memory_id="<id>", text="Alice loves mountain hiking")
 
 # Delete
 m.delete(memory_id="<id>")
@@ -184,6 +184,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ## Core Concepts
 
+- [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/graph/history stores, and multi-signal retrieval.
 - [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when explaining working, factual, episodic, and semantic memory distinctions.
 - [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add) [Both]: Use when explaining how `add()` extracts facts, resolves conflicts, and writes to both stores.
 - [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search) [Both]: Use when explaining how queries are processed and ranked.
@@ -194,7 +195,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ## Platform
 
 ### Features - Essential
-- [Platform Features Overview](https://docs.mem0.ai/platform/features/platform-overview) [Platform]: Use when surveying what managed offers beyond CRUD.
 - [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters) [Platform]: Use when compound filters (AND/OR on metadata, entity, time) are needed at search.
 - [Entity-Scoped Memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) [Platform]: Use when partitioning memories by user, agent, app, or run.
 - [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory) [Platform]: Use when connecting facts across memories through shared entities for entity-centric or multi-hop questions.
@@ -204,23 +204,21 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ### Features - Advanced Retrieval
 - [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval) [Platform]: Use when the user needs keyword search, reranking, or hybrid retrieval.
-- [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval) [Platform]: Use when targeting memories by custom criteria, not just semantic similarity.
 - [Temporal Reasoning](https://docs.mem0.ai/platform/features/temporal-reasoning) [Platform]: Use when time-aware searches like last week, upcoming, or right now need better result ordering.
-- [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add) [Platform]: Use when `add()` should consider the surrounding conversation, not just the latest turn.
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
-- [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones — opt-in per project, search-time only, never filters candidates out.
+- [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones. Opt in per project; applies at search time and never filters candidates out.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
 
 ### Features - Data Management
 - [Direct Import](https://docs.mem0.ai/platform/features/direct-import) [Platform]: Use when seeding a Mem0 project from existing data.
 - [Memory Export](https://docs.mem0.ai/platform/features/memory-export) [Platform]: Use when exporting memories via a Pydantic schema.
 - [Timestamp Support](https://docs.mem0.ai/platform/features/timestamp) [Platform]: Use when temporal queries or time-based filtering matter.
+- [Memory Expiration](https://docs.mem0.ai/platform/features/memory-expiration) [Both]: Use when a memory should stop surfacing after a known date without being deleted, e.g. trial facts, seasonal preferences, or retention windows.
 
 ### Features - Integration & Ops
 - [Webhooks](https://docs.mem0.ai/platform/features/webhooks) [Platform]: Use when another system needs to react to memory changes in real time.
 - [Feedback Mechanism](https://docs.mem0.ai/platform/features/feedback-mechanism) [Platform]: Use when capturing user feedback to improve memory quality.
 - [Group Chat Support](https://docs.mem0.ai/platform/features/group-chat) [Platform]: Use when the conversation has multiple participants.
-- [MCP Integration](https://docs.mem0.ai/platform/features/mcp-integration) [Platform]: Use when wiring Mem0 into Claude/Cursor/other MCP clients.
 
 ### Support & Migration
 - [FAQs](https://docs.mem0.ai/platform/faqs) [Platform]: Use when answering common Platform questions.
@@ -228,7 +226,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [OSS to Platform Migration](https://docs.mem0.ai/migration/oss-to-platform) [Both]: Use when moving from self-hosted to managed.
 - [OSS v2 to v3 Migration](https://docs.mem0.ai/migration/oss-v2-to-v3) [OSS]: Use when upgrading a self-hosted deployment across major versions.
 - [Platform v2 to v3 Migration](https://docs.mem0.ai/migration/platform-v2-to-v3) [Platform]: Use when upgrading a Platform integration across major versions.
-- [API Changes](https://docs.mem0.ai/migration/api-changes) [Both]: Use when the upgrade involves API surface changes.
 - [Server pgvector Image Upgrade](https://docs.mem0.ai/migration/server-pgvector-upgrade) [OSS]: Use when upgrading the self-hosted server Docker image from ankane/pgvector to pgvector/pgvector.
 - [Changelog](https://docs.mem0.ai/changelog/highlights) [Both]: Use when the user asks what shipped recently.
 
@@ -240,7 +237,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Reranking](https://docs.mem0.ai/open-source/features/reranking) [OSS]: Use when configuring reranking end-to-end in OSS.
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory) [OSS]: Use when the self-hosted app needs `AsyncMemory`.
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
-- [OSS Multimodal Support](https://docs.mem0.ai/open-source/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (concept overview).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api) [OSS]: Use when exposing a self-hosted Mem0 as a FastAPI service.
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
@@ -285,8 +281,10 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Developer Tools
 - [Dify](https://docs.mem0.ai/integrations/dify) [Both]: Use when the user is on Dify LLMOps.
 - [Flowise](https://docs.mem0.ai/integrations/flowise) [Both]: Use when the user is on Flowise no-code.
+- [n8n](https://docs.mem0.ai/integrations/n8n) [Both]: Use when the user builds workflows or AI agents in n8n.
+- [Zapier](https://docs.mem0.ai/integrations/zapier) [Both]: Use when the user automates workflows with Zapier.
 - [AgentOps](https://docs.mem0.ai/integrations/agentops) [Both]: Use when tracking agent observability with memory metadata.
-- [Keywords AI](https://docs.mem0.ai/integrations/keywords) [Both]: Use when monitoring with Keywords AI.
+- [Respan](https://docs.mem0.ai/integrations/respan) [Both]: Use when monitoring Mem0 with Respan (formerly Keywords AI) LLM observability.
 - [Raycast](https://docs.mem0.ai/integrations/raycast) [Both]: Use when the user wants quick memory access via Raycast.
 
 ## Cookbooks
@@ -367,6 +365,8 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 - [Get Organization](https://docs.mem0.ai/api-reference/organization/get-org) [Platform]: Use when fetching one org.
 - [Get Organization Members](https://docs.mem0.ai/api-reference/organization/get-org-members) [Platform]: Use when listing org members.
 - [Add Organization Member](https://docs.mem0.ai/api-reference/organization/add-org-member) [Platform]: Use when inviting a member to an org.
+- [Update Organization Member](https://docs.mem0.ai/api-reference/organization/update-org-member) [Platform]: Use when updating an org member's role.
+- [Remove Organization Member](https://docs.mem0.ai/api-reference/organization/remove-org-member) [Platform]: Use when removing a member from an organization.
 - [Delete Organization](https://docs.mem0.ai/api-reference/organization/delete-org) [Platform]: Use when removing an org.
 
 ### Projects
@@ -375,6 +375,9 @@ All API Reference docs describe Mem0 Platform REST endpoints (requires API key).
 - [Get Project](https://docs.mem0.ai/api-reference/project/get-project) [Platform]: Use when fetching one project.
 - [Get Project Members](https://docs.mem0.ai/api-reference/project/get-project-members) [Platform]: Use when listing project members.
 - [Add Project Member](https://docs.mem0.ai/api-reference/project/add-project-member) [Platform]: Use when inviting a member to a project.
+- [Update Project](https://docs.mem0.ai/api-reference/project/update-project) [Platform]: Use when updating project settings.
+- [Update Project Member](https://docs.mem0.ai/api-reference/project/update-project-member) [Platform]: Use when updating a project member's role.
+- [Remove Project Member](https://docs.mem0.ai/api-reference/project/remove-project-member) [Platform]: Use when removing a member from a project.
 - [Delete Project](https://docs.mem0.ai/api-reference/project/delete-project) [Platform]: Use when removing a project.
 
 ### Webhooks
@@ -415,7 +418,6 @@ Editor-specific setup docs (already listed above under `## Integrations > AI Cod
 ### MCP Endpoints
 
 - Hosted MCP server: `https://mcp.mem0.ai` - requires Platform API key. See `platform/mem0-mcp`.
-- Self-hosted MCP server: ships with `openmemory/api/` (FastAPI) - runs against your own Qdrant + LLM stack.
 
 ## Community & Support
 
@@ -460,6 +462,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LM Studio Embeddings](https://docs.mem0.ai/components/embedders/models/lmstudio) [OSS]: Use when embeddings run through LM Studio.
 - [Together Embeddings](https://docs.mem0.ai/components/embedders/models/together) [OSS]: Use when embeddings run on Together.
 - [LangChain Embeddings](https://docs.mem0.ai/components/embedders/models/langchain) [OSS]: Use when embeddings are wrapped behind a LangChain adapter.
+- [FastEmbed](https://docs.mem0.ai/components/embedders/models/fastembed) [OSS]: Use when embeddings run locally via FastEmbed (ONNX).
 
 ### Vector Databases [OSS]
 - [Vector Database Overview](https://docs.mem0.ai/components/vectordbs/overview) [OSS]: Use when choosing a vector store.
@@ -470,6 +473,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus) [OSS]: Use for large-scale Milvus deployments.
 - [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone) [OSS]: Use when the user is on Pinecone managed.
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.
+- [Oracle AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/oracledb) [OSS]: Use when Oracle Database AI Vector Search is the backing store.
 - [Azure AI Search](https://docs.mem0.ai/components/vectordbs/dbs/azure) [OSS]: Use when the user is on Azure AI Search.
 - [Azure MySQL](https://docs.mem0.ai/components/vectordbs/dbs/azure_mysql) [OSS]: Use when vector search runs on Azure Database for MySQL.
 - [Redis](https://docs.mem0.ai/components/vectordbs/dbs/redis) [OSS]: Use when Redis Stack is the backing store.
@@ -499,6 +503,5 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Cohere Reranker](https://docs.mem0.ai/components/rerankers/models/cohere) [OSS]: Use for Cohere Rerank.
 - [Sentence Transformer Reranker](https://docs.mem0.ai/components/rerankers/models/sentence_transformer) [OSS]: Use for local cross-encoder rerankers.
 - [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
-- [LLM Reranker (prompt)](https://docs.mem0.ai/components/rerankers/models/llm) [OSS]: Use when the reranker is a prompted LLM (config guide).
 - [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.
