@@ -6,11 +6,44 @@ from app.database import Base, SessionLocal, engine
 from app.mcp_server import setup_mcp_server
 from app.models import App, User
 from app.routers import apps_router, backup_router, config_router, memories_router, stats_router
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
+from mem0.telemetry import otel as mem0_otel
+
+# Turnkey OTLP export for the MCP memory server when OTEL_EXPORTER_OTLP_ENDPOINT
+# is set (no-op otherwise; never clobbers an operator-installed provider).
+mem0_otel.bootstrap_tracing("mem0-mcp-server")
 
 app = FastAPI(title="OpenMemory API")
+
+
+@app.middleware("http")
+async def otel_server_trace(request: Request, call_next):
+    """Continue the agent's distributed trace through the MCP memory server.
+
+    Extracts the inbound W3C ``traceparent`` and opens a SERVER span so the
+    downstream ``memory.<op>`` spans (and their embedding / vector-store / LLM
+    children, emitted by ``mem0.Memory``) render as one
+    ``agent → mcp-memory-server → mem0`` trace instead of a detached single-span
+    root. No-op when ``mem0[otel]`` is not installed.
+    """
+    span_attrs = {
+        "http.request.method": request.method,
+        "url.path": request.url.path,
+        mem0_otel.ATTR_OPERATION: "mcp.server.request",
+    }
+    with mem0_otel.start_server_span(
+        f"{request.method} {request.url.path}", dict(request.headers), span_attrs
+    ) as span:
+        response = await call_next(request)
+        try:
+            if span is not None:
+                span.set_attribute("http.response.status_code", response.status_code)
+        except Exception:
+            pass
+        return response
+
 
 app.add_middleware(
     CORSMiddleware,
