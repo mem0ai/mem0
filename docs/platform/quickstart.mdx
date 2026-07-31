@@ -5,29 +5,40 @@ icon: "bolt"
 iconType: "solid"
 ---
 
-Get started with Mem0 Platform's hosted API in under 5 minutes. This guide shows you how to authenticate and store your first memory.
+In about five minutes you will get an API key, store your first memory, and search it back. Follow along in Python, JavaScript, cURL, or the terminal.
 
 <Note>
-**Are you an AI agent?** See [Sign up as an agent](/platform/agent-signup): mint a working API key in four commands, no email or dashboard required.
+**Are you an AI agent?** See [Sign up as an agent](/platform/agent-signup): create a working API key in four commands, with no email or dashboard.
 </Note>
 
 ## Prerequisites
 
 - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-quickstart" rel="nofollow">Sign up here</a>)
 - API key (<a href="https://app.mem0.ai/dashboard/settings?tab=api-keys&subtab=configuration" rel="nofollow">Get one from dashboard</a>)
-- Python 3.10+, Node.js 18+, or cURL
+- Python 3.10+, Node.js 18+, or cURL. The CLI needs either Node.js 18+ or Python 3.10+.
 
-## Installation
+## Store your first memory
 
 <Steps>
-<Step title="Install SDK">
+<Step title="Install">
+Pick a tab and use the same one for every step below.
+
 <CodeGroup>
-```bash pip
+```bash Python
 pip install mem0ai
 ```
 
-```bash npm
+```bash JavaScript
 npm install mem0ai
+```
+
+```bash cURL
+# Nothing to install. cURL ships with macOS and most Linux distributions.
+```
+
+```bash CLI
+npm install -g @mem0/cli
+# or, if you prefer Python: pip install mem0-cli
 ```
 
 </CodeGroup>
@@ -39,12 +50,12 @@ npm install mem0ai
 from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
-````
+```
 
 ```javascript JavaScript
 import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: 'your-api-key' });
-````
+```
 
 ```bash cURL
 export MEM0_API_KEY="your-api-key"
@@ -65,7 +76,7 @@ messages = [
     {"role": "assistant", "content": "Got it! I'll remember your dietary preferences."}
 ]
 client.add(messages, user_id="user123")
-````
+```
 
 ```javascript JavaScript
 const messages = [
@@ -73,7 +84,7 @@ const messages = [
     {"role": "assistant", "content": "Got it! I'll remember your dietary preferences."}
 ];
 await client.add(messages, { userId: "user123" });
-````
+```
 
 ```bash cURL
 curl -X POST https://api.mem0.ai/v3/memories/add/ \
@@ -93,6 +104,17 @@ mem0 add "I'm a vegetarian and allergic to nuts." --user-id user123
 ```
 
 </CodeGroup>
+
+Mem0 pulls the individual facts out of the conversation and stores each one separately:
+
+```json
+{
+  "results": [
+    {"id": "0f2c1b6e-9a3d-4b18-8f77-1c2d3e4f5a6b", "memory": "Is a vegetarian", "event": "ADD"},
+    {"id": "14e1b28a-2014-40ad-ac42-69c9ef42193d", "memory": "Allergic to nuts", "event": "ADD"}
+  ]
+}
+```
 </Step>
 
 <Step title="Search memories">
@@ -100,12 +122,12 @@ mem0 add "I'm a vegetarian and allergic to nuts." --user-id user123
 ```python Python
 results = client.search("What are my dietary restrictions?", filters={"user_id": "user123"})
 print(results)
-````
+```
 
 ```javascript JavaScript
 const results = await client.search("What are my dietary restrictions?", { filters: { user_id: "user123" } });
 console.log(results);
-````
+```
 
 ```bash cURL
 curl -X POST https://api.mem0.ai/v3/memories/search/ \
@@ -123,7 +145,7 @@ mem0 search "What are my dietary restrictions?" --user-id user123
 
 </CodeGroup>
 
-**Output:**
+Both facts come back, ranked by how well they match the question:
 
 ```json
 {
@@ -140,35 +162,57 @@ mem0 search "What are my dietary restrictions?" --user-id user123
       "created_at": "2025-10-22T04:40:22.864647-07:00",
       "updated_at": "2025-10-22T04:40:22.864647-07:00",
       "expiration_date": null,
-      "score": 0.30
+      "score": 0.87
+    },
+    {
+      "id": "0f2c1b6e-9a3d-4b18-8f77-1c2d3e4f5a6b",
+      "memory": "Is a vegetarian",
+      "user_id": "user123",
+      "agent_id": null,
+      "app_id": null,
+      "run_id": null,
+      "categories": ["food_preferences"],
+      "metadata": {},
+      "created_at": "2025-10-22T04:40:22.864647-07:00",
+      "updated_at": "2025-10-22T04:40:22.864647-07:00",
+      "expiration_date": null,
+      "score": 0.81
     }
   ]
 }
 ```
 
+Pass these memories to your model as context, and it answers with what it already knows about the user instead of asking again.
+
 </Step>
 </Steps>
 
-<Callout type="tip" icon="plug">
-  **Pro Tip**: Want AI agents to manage their own memory automatically? Use <Link href="/platform/mem0-mcp">Mem0 MCP</Link> to let LLMs decide when to save, search, and update memories.
-</Callout>
+<Tip>
+  Rather than calling `add` and `search` yourself, you can hand Mem0 to your agent as a set of tools and let it decide when to save and look things up. See [Mem0 MCP](/platform/mem0-mcp).
+</Tip>
 
 ## What's next?
 
-You stored and searched your first memory. Keep going:
+You stored and searched your first memory. Start with scoping, since every call you make from here needs it:
 
-<CardGroup cols={3}>
-<Card title="How it works" icon="diagram-project" href="/core-concepts/how-it-works">
-  See how Mem0 extracts, stores, and retrieves memories under the hood.
+<CardGroup cols={2}>
+<Card title="Scope memories to users and agents" icon="users" href="/platform/features/entity-scoped-memory">
+  What `user_id` actually does, plus the `agent_id`, `app_id`, and `run_id` fields that came back empty above.
 </Card>
 
-<Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
-  Go beyond add and search: update, delete, and the full memory lifecycle.
+<Card title="How Mem0 works" icon="diagram-project" href="/core-concepts/how-it-works">
+  Why one sentence became two memories, and how Mem0 decides what to keep.
 </Card>
 
-<Card title="Build an AI companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
-  Put it to work in a real app, end to end, in about 10 minutes.
+<Card title="Update and delete memories" icon="database" href="/core-concepts/memory-operations/add">
+  The operations beyond add and search, for when stored facts change or go stale.
+</Card>
+
+<Card title="Use Mem0 with your agent framework" icon="plug" href="/integrations">
+  Wire memory into LangChain, CrewAI, LangGraph, or the OpenAI Agents SDK.
 </Card>
 </CardGroup>
 
-Stuck on setup? See the [FAQs and troubleshooting](/platform/faqs).
+<Note>
+  Something not working? The [FAQs and troubleshooting](/platform/faqs) page covers the common setup errors.
+</Note>
