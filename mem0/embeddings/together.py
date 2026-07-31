@@ -18,7 +18,6 @@ class TogetherEmbedding(EmbeddingBase):
             getattr(self.config, "together_base_url", None)
             or getattr(self.config, "openai_base_url", None)
             or os.getenv("TOGETHER_API_BASE")
-            or os.getenv("TOGETHER_BASE_URL")
         )
         client_kwargs = {"api_key": api_key}
         if base_url:
