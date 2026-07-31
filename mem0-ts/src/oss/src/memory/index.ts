@@ -100,8 +100,6 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
-const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"] as const;
-
 // Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
 // in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
 const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];

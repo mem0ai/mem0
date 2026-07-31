@@ -81,45 +81,6 @@ jest.mock("../src/utils/factory", () => {
   };
 });
 
-jest.mock("openai", () => {
-  class MockOpenAI {
-    embeddings = { create: jest.fn() };
-    chat = { completions: { create: jest.fn() } };
-    responses = { create: jest.fn() };
-    beta = { chat: { completions: { parse: jest.fn() } } };
-  }
-
-  return {
-    __esModule: true,
-    default: MockOpenAI,
-    AzureOpenAI: MockOpenAI,
-  };
-});
-
-jest.mock(
-  "node-fetch",
-  () => ({
-    __esModule: true,
-    default: jest.fn(),
-    Headers: class {},
-    Request: class {},
-    Response: class {},
-  }),
-  { virtual: true },
-);
-
-jest.mock("@anthropic-ai/sdk", () => {
-  class MockAnthropic {
-    messages = { create: jest.fn() };
-    beta = { messages: { create: jest.fn() } };
-  }
-
-  return {
-    __esModule: true,
-    default: MockAnthropic,
-  };
-});
-
 // Mock Google modules to prevent @google/genai crash in CI
 jest.mock("../src/embeddings/google", () => ({
   GoogleEmbedder: jest.fn(),
