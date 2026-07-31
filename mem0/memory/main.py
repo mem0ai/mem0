@@ -3532,6 +3532,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         deleted_count = 0
         errors = []
+        seen_batches = set()
         while True:
             memories = await asyncio.to_thread(
                 self.vector_store.list,
@@ -3541,7 +3542,11 @@ class AsyncMemory(MemoryBase):
             batch = memories[0] if memories else []
             if not batch:
                 break
-
+            batch_ids = tuple(sorted(str(memory.id) for memory in batch))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
             delete_tasks = [
                 self._delete_memory(memory.id, skip_entity_cleanup=True)
                 for memory in batch
@@ -3552,9 +3557,6 @@ class AsyncMemory(MemoryBase):
             ]
             errors.extend(batch_errors)
             deleted_count += len(results) - len(batch_errors)
-            # Avoid retrying forever when every item in a batch fails.
-            if len(batch_errors) == len(batch):
-                break
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
