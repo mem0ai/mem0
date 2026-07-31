@@ -60,6 +60,8 @@ SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
 BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
 BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+DEFAULT_LLM_MODEL = "gpt-4.1-nano-2025-04-14"
+DEFAULT_EMBEDDER_MODEL = "text-embedding-3-small"
 
 
 def _warn_if_unconfigured() -> None:
@@ -111,35 +113,63 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
-DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
-DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+
+def _set_nested_value(config: Dict[str, Any], path: tuple[str, ...], value: Any) -> None:
+    current = config
+    for key in path[:-1]:
+        current = current.setdefault(key, {})
+    current[path[-1]] = value
+
+
+def _build_env_config_overrides() -> Dict[str, Any]:
+    overrides: Dict[str, Any] = {}
+    env_fields = (
+        ("POSTGRES_HOST", ("vector_store", "config", "host"), str),
+        ("POSTGRES_PORT", ("vector_store", "config", "port"), int),
+        ("POSTGRES_DB", ("vector_store", "config", "dbname"), str),
+        ("POSTGRES_USER", ("vector_store", "config", "user"), str),
+        ("POSTGRES_PASSWORD", ("vector_store", "config", "password"), str),
+        ("POSTGRES_COLLECTION_NAME", ("vector_store", "config", "collection_name"), str),
+        ("OPENAI_API_KEY", ("llm", "config", "api_key"), str),
+        ("OPENAI_API_KEY", ("embedder", "config", "api_key"), str),
+        ("HISTORY_DB_PATH", ("history_db_path",), str),
+        ("MEM0_DEFAULT_LLM_MODEL", ("llm", "config", "model"), str),
+        ("MEM0_DEFAULT_EMBEDDER_MODEL", ("embedder", "config", "model"), str),
+    )
+
+    for env_name, path, cast in env_fields:
+        if env_name not in os.environ:
+            continue
+        _set_nested_value(overrides, path, cast(os.environ[env_name]))
+
+    return overrides
+
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
         "provider": "pgvector",
         "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
+            "host": "postgres",
+            "port": 5432,
+            "dbname": "postgres",
+            "user": "postgres",
+            "password": "postgres",
+            "collection_name": "memories",
         },
     },
     "llm": {
         "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
+        "config": {"api_key": None, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
-    "history_db_path": HISTORY_DB_PATH,
+    "embedder": {"provider": "openai", "config": {"api_key": None, "model": DEFAULT_EMBEDDER_MODEL}},
+    "history_db_path": "/app/history/history.db",
 }
+ENV_CONFIG_OVERRIDES = _build_env_config_overrides()
 
 
 set_session_factory(SessionLocal)
-initialize_state(DEFAULT_CONFIG)
+initialize_state(DEFAULT_CONFIG, ENV_CONFIG_OVERRIDES)
 
 
 app = FastAPI(
@@ -382,7 +412,16 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
 
 
 ALL_MEMORIES_LIMIT = 1000
-_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at", "expiration_date"}
+_RESERVED_PAYLOAD_KEYS = {
+    "data",
+    "user_id",
+    "agent_id",
+    "run_id",
+    "hash",
+    "created_at",
+    "updated_at",
+    "expiration_date",
+}
 
 
 def _serialize_memory(row: Any) -> Dict[str, Any]:
@@ -425,9 +464,7 @@ def get_all_memories(
                 raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
             # Admin all-memory listing is intentionally raw; scoped get_all below applies expiry visibility.
             return _list_all_memories(limit=top_k if top_k is not None else ALL_MEMORIES_LIMIT)
-        filters = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
+        filters = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
         params = {"filters": filters}
         if top_k is not None:
             params["top_k"] = top_k
@@ -534,9 +571,7 @@ def delete_all_memories(
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {
-            k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v
-        }
+        params = {k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v}
         get_memory_instance().delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
     except Exception:
