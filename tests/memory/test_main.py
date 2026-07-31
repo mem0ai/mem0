@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import LLMError, VectorStoreError
+from mem0.exceptions import EmbeddingErrorClass, LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1393,19 +1393,21 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
         mocker.patch("mem0.memory.main.capture_event")
 
-        with caplog.at_level(logging.WARNING):
-            result = mock_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "two facts"}],
-                metadata={},
-                filters={"user_id": "u1"},
-                infer=True,
-            )
-
-        assert any("memory texts" in r.message for r in caplog.records), (
-            "expected memory-embedding count-mismatch warning was not emitted"
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
         )
-        # The aligned memory persists; the unmatched text is skipped, not misaligned.
+
+        # The aligned memory persists; the unmatched text is surfaced under `failed`
+        # as a provider error rather than silently dropped.
         assert len(result) == 1
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.PROVIDER
+        assert "fact" in failed[0]["text"]
 
     @pytest.mark.asyncio
     async def test_async_short_memory_embeddings_warn_not_silent(self, mock_async_memory, mocker, caplog):
@@ -1418,15 +1420,16 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
         mocker.patch("mem0.memory.main.capture_event")
 
-        with caplog.at_level(logging.WARNING):
-            result = await mock_async_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "two facts"}],
-                metadata={},
-                effective_filters={"user_id": "u1"},
-                infer=True,
-            )
-
-        assert any("memory texts" in r.message for r in caplog.records), (
-            "expected memory-embedding count-mismatch warning was not emitted"
+        failed = []
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
         )
+
         assert len(result) == 1
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.PROVIDER
+        assert "fact" in failed[0]["text"]
