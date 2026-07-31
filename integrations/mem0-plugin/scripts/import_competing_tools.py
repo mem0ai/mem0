@@ -22,9 +22,9 @@ import json
 import os
 import sys
 import urllib.error
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _api import add_memory
 from _chunking import (
     filter_and_truncate,
     split_by_headers,
@@ -33,7 +33,6 @@ from _chunking import (
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
-API_URL = "https://api.mem0.ai"
 HASH_STORE = os.path.expanduser("~/.mem0/import_hashes.json")
 
 
@@ -81,19 +80,9 @@ def post_memory(api_key: str, content: str, user_id: str, project_id: str, branc
         "metadata": metadata,
         "infer": False,
     }
-    data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/add/",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Token {api_key}",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            return resp.status in (200, 201)
+        status, _result = add_memory(api_key, body, timeout=20)
+        return status in (200, 201)
     except urllib.error.URLError as e:
         print(f"  [warn] API call failed: {e}", file=sys.stderr)
         return False

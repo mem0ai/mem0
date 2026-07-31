@@ -18,9 +18,9 @@ import logging
 import os
 import sys
 import urllib.error
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _api import add_memory, delete_memory, search_memories
 from _chunking import filter_and_truncate, split_by_headers
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id, save_project_mapping
@@ -41,7 +41,6 @@ if os.environ.get("MEM0_DEBUG"):
     except OSError:
         pass
 
-API_URL = "https://api.mem0.ai"
 MAX_FILE_SIZE = 100_000  # skip files over 100 KB
 TARGET_FILES = ["CLAUDE.md", "AGENTS.md", ".cursorrules", ".windsurfrules", "mem0.md"]
 HASH_STORE = os.path.expanduser("~/.mem0/file_hashes.json")
@@ -122,7 +121,7 @@ def save_hashes(hashes: dict[str, str]) -> None:
 
 
 def already_imported(api_key: str, user_id: str, project_id: str, filename: str) -> bool:
-    body = json.dumps({
+    body = {
         "query": filename,
         "filters": {
             "AND": [
@@ -133,30 +132,23 @@ def already_imported(api_key: str, user_id: str, project_id: str, filename: str)
         },
         "top_k": 10,
         "threshold": 0.0,
-    }).encode()
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/search/",
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
-        method="POST",
-    )
+    }
     try:
-        with urllib.request.urlopen(req, timeout=5) as r:
-            data = json.loads(r.read())
-            results = data if isinstance(data, list) else data.get("results", [])
-            for result in results:
-                meta = result.get("metadata", {}) if isinstance(result, dict) else {}
-                file_field = meta.get("file", "")
-                if file_field == filename or file_field.startswith(f"{filename}["):
-                    return True
-            return False
+        _status, data = search_memories(api_key, body, timeout=5)
+        results = data if isinstance(data, list) else data.get("results", [])
+        for result in results:
+            meta = result.get("metadata", {}) if isinstance(result, dict) else {}
+            file_field = meta.get("file", "")
+            if file_field == filename or file_field.startswith(f"{filename}["):
+                return True
+        return False
     except Exception:
         return False
 
 
 def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: str) -> int:
     """Find and delete existing chunks for a file before re-import. Returns count deleted."""
-    body = json.dumps({
+    body = {
         "query": filename,
         "filters": {
             "AND": [
@@ -167,27 +159,20 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
         },
         "top_k": 20,
         "threshold": 0.0,
-    }).encode()
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/search/",
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
-        method="POST",
-    )
+    }
     ids_to_delete = []
     try:
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = json.loads(r.read())
-            results = data if isinstance(data, list) else data.get("results", [])
-            for result in results:
-                if not isinstance(result, dict):
-                    continue
-                meta = result.get("metadata", {})
-                file_field = meta.get("file", "")
-                if file_field == filename or file_field.startswith(f"{filename}["):
-                    mid = result.get("id")
-                    if mid:
-                        ids_to_delete.append(mid)
+        _status, data = search_memories(api_key, body, timeout=10)
+        results = data if isinstance(data, list) else data.get("results", [])
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            meta = result.get("metadata", {})
+            file_field = meta.get("file", "")
+            if file_field == filename or file_field.startswith(f"{filename}["):
+                mid = result.get("id")
+                if mid:
+                    ids_to_delete.append(mid)
     except Exception as e:
         log.warning("Failed to search for stale chunks of %s: %s", filename, e)
         return 0
@@ -195,12 +180,8 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
     deleted = 0
     for mid in ids_to_delete:
         try:
-            del_req = urllib.request.Request(
-                f"{API_URL}/v1/memories/{mid}/",
-                headers={"Authorization": f"Token {api_key}"},
-                method="DELETE",
-            )
-            with urllib.request.urlopen(del_req, timeout=10):
+            status, _result = delete_memory(api_key, mid, timeout=10)
+            if status in (200, 204):
                 deleted += 1
         except Exception as e:
             log.warning("Failed to delete stale chunk %s: %s", mid, e)
@@ -232,24 +213,13 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
         "infer": False,
     }
 
-    data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/add/",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Token {api_key}",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            if resp.status in (200, 201):
-                log.info("Imported %s (project=%s)", filename, project_id)
-                return True
-            log.warning("API returned status %d for %s", resp.status, filename)
-            return False
+        status, _result = add_memory(api_key, body, timeout=15)
+        if status in (200, 201):
+            log.info("Imported %s (project=%s)", filename, project_id)
+            return True
+        log.warning("API returned status %d for %s", status, filename)
+        return False
     except urllib.error.URLError as e:
         log.warning("API call failed for %s: %s", filename, e)
         return False

@@ -6,11 +6,10 @@ All pre-fetch hooks use this instead of duplicating urllib boilerplate.
 
 from __future__ import annotations
 
-import json
 import os
-import urllib.request
 
-SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
+from _api import search_memories as api_search_memories
+
 SEARCH_TIMEOUT = 5
 
 
@@ -33,16 +32,8 @@ def should_rerank() -> bool:
 
 
 def _do_search(api_key: str, payload: dict) -> list[dict]:
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        SEARCH_URL,
-        data=body,
-        headers={"Authorization": f"Token {api_key}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=SEARCH_TIMEOUT) as r:
-        data = json.loads(r.read())
-        return data if isinstance(data, list) else data.get("results", [])
+    _status, data = api_search_memories(api_key, payload, timeout=SEARCH_TIMEOUT)
+    return data if isinstance(data, list) else data.get("results", [])
 
 
 def search_memories(
