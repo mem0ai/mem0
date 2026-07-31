@@ -1089,3 +1089,38 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+
+class TestSyncDeleteAllEntityHardening:
+    """Guards #5697: sync delete_all must clear the entity store in one bulk pass
+    (skip_entity_cleanup on each delete) instead of N racy read-modify-writes."""
+
+    def test_delete_all_skips_per_memory_entity_cleanup_and_bulk_clears(self, monkeypatch):
+        from unittest.mock import MagicMock, call
+        from mem0.memory.main import Memory
+
+        memory = Memory.__new__(Memory)
+        memory.vector_store = MagicMock()
+        memory._entity_store = object()  # truthy so bulk path runs
+        memory._bulk_clear_entity_store = MagicMock()
+        memory._delete_memory = MagicMock()
+        memories = [type("M", (), {"id": "m1"})(), type("M", (), {"id": "m2"})()]
+        # Paginated delete_all (post-#6636) keeps listing until empty.
+        memory.vector_store.list.side_effect = [(memories, None), ([], None)]
+
+        monkeypatch.setattr("mem0.memory.main.capture_event", MagicMock())
+        monkeypatch.setattr("mem0.memory.main.detect_decay_usage_from_delete_all", MagicMock(return_value=None))
+        monkeypatch.setattr("mem0.memory.main.display_first_run_notice", MagicMock())
+        monkeypatch.setattr("mem0.memory.main.display_decay_usage_notice", MagicMock())
+        monkeypatch.setattr("mem0.memory.main.process_telemetry_filters", MagicMock(return_value=([], [])))
+        monkeypatch.setattr("mem0.memory.main._validate_and_trim_entity_id", lambda v, *_a, **_k: v)
+
+        result = Memory.delete_all(memory, user_id="u1")
+
+        assert result == {"message": "Memories deleted successfully!"}
+        assert memory._delete_memory.call_args_list == [
+            call("m1", skip_entity_cleanup=True),
+            call("m2", skip_entity_cleanup=True),
+        ]
+        memory._bulk_clear_entity_store.assert_called_once_with({"user_id": "u1"})

@@ -1902,8 +1902,14 @@ class Memory(MemoryBase):
                 break
             seen_batches.add(batch_ids)
             for memory in memories:
-                self._delete_memory(memory.id)
-            deleted_count += len(memories)
+                try:
+                    self._delete_memory(memory.id, skip_entity_cleanup=True)
+                    deleted_count += 1
+                except Exception as e:
+                    logger.warning("Failed to delete memory id=%s: %s", memory.id, e)
+
+        if getattr(self, "_entity_store", None) is not None:
+            self._bulk_clear_entity_store(filters)
 
         logger.info(f"Deleted {deleted_count} memories")
 
@@ -2062,7 +2068,29 @@ class Memory(MemoryBase):
 
         return memory_id
 
-    def _delete_memory(self, memory_id, existing_memory=None):
+
+    def _bulk_clear_entity_store(self, filters):
+        """Delete all entity records matching the given scope filters.
+
+        Used by delete_all to avoid the read-modify-write race that occurs when
+        per-memory entity cleanup repeatedly touches the same entity rows'
+        linked_memory_ids lists (parity with AsyncMemory).
+        """
+        if getattr(self, "_entity_store", None) is None:
+            return
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        try:
+            listed = self.entity_store.list(filters=search_filters, top_k=10000)
+            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            for row in rows or []:
+                try:
+                    self.entity_store.delete(vector_id=row.id)
+                except Exception as e:
+                    logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
+        except Exception as e:
+            logger.warning(f"Bulk entity store cleanup failed: {e}")
+
+    def _delete_memory(self, memory_id, existing_memory=None, skip_entity_cleanup=False):
         logger.info(f"Deleting memory with {memory_id=}")
         if existing_memory is None:
             existing_memory = self.vector_store.get(vector_id=memory_id)
@@ -2088,7 +2116,10 @@ class Memory(MemoryBase):
 
         # Entity-store cleanup: strip this memory's id from any entity records
         # that linked to it. Non-fatal — the helper swallows errors.
-        self._remove_memory_from_entity_store(memory_id, session_filters)
+        # delete_all passes skip_entity_cleanup=True and clears the entity store
+        # in one pass via _bulk_clear_entity_store to avoid quadratic RMW.
+        if not skip_entity_cleanup:
+            self._remove_memory_from_entity_store(memory_id, session_filters)
 
         return memory_id
 
