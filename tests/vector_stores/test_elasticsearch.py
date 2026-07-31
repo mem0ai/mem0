@@ -237,6 +237,24 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(body["knn"]["k"], over_fetch)
         self.assertGreater(body["size"], 10)
 
+    def test_search_with_filters_keeps_size(self):
+        """Filters must not displace the response size set for KNN search."""
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+        self.es_db.search(
+            query="",
+            vectors=[[0.1] * 1536],
+            top_k=25,
+            filters={"user_id": "u1"},
+        )
+
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 25)
+        self.assertEqual(
+            body["knn"]["filter"],
+            {"bool": {"must": [{"term": {"metadata.user_id": "u1"}}]}},
+        )
+
     def test_custom_search_query(self):
         # Mock custom search query
         self.es_db.custom_search_query = Mock()
