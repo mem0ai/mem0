@@ -105,3 +105,20 @@ def test_together_embedder_base_url_from_openai_base_url(mock_together_client, m
         mock_together.return_value = mock_together_client
         TogetherEmbedding(config)
         mock_together.assert_called_once_with(api_key="test-key", base_url="https://cfg.example/v1")
+
+
+def test_together_embedder_base_url_from_together_base_url(mock_together_client, monkeypatch):
+    """together_base_url on BaseEmbedderConfig wins over openai_base_url and env."""
+    monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
+    monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
+    monkeypatch.setenv("TOGETHER_API_BASE", "https://env-should-lose.example/v1")
+    config = BaseEmbedderConfig(
+        model=DEFAULT_MODEL,
+        api_key="test-key",
+        openai_base_url="https://openai-cfg-should-lose.example/v1",
+        together_base_url="https://together-cfg.example/v1",
+    )
+    with patch("mem0.embeddings.together.Together") as mock_together:
+        mock_together.return_value = mock_together_client
+        TogetherEmbedding(config)
+        mock_together.assert_called_once_with(api_key="test-key", base_url="https://together-cfg.example/v1")
