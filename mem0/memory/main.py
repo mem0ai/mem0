@@ -433,6 +433,13 @@ def _reset_llm_usage(llm) -> None:
         reset_usage()
 
 
+def _supports_llm_usage_capture(llm) -> bool:
+    return any(
+        callable(getattr(llm, method, None))
+        for method in ("start_usage_capture", "reset_last_usage")
+    )
+
+
 def _start_llm_usage_capture(llm, include_usage: bool) -> None:
     if not include_usage:
         return
@@ -442,7 +449,8 @@ def _start_llm_usage_capture(llm, include_usage: bool) -> None:
         start_capture()
         return
 
-    _reset_llm_usage(llm)
+    if callable(getattr(llm, "reset_last_usage", None)):
+        _reset_llm_usage(llm)
 
 
 def _stop_llm_usage_capture(llm, include_usage: bool) -> None:
@@ -459,7 +467,7 @@ def _attach_usage_if_requested(result: Dict[str, Any], llm, include_usage: bool)
         return result
 
     get_usage = getattr(llm, "get_last_usage", None)
-    if not callable(get_usage):
+    if not callable(get_usage) or not _supports_llm_usage_capture(llm):
         return result
 
     usage = get_usage()
@@ -481,7 +489,7 @@ def _generate_response_with_optional_usage(llm, include_usage: bool, **kwargs):
         return response, None
 
     get_usage = getattr(llm, "get_last_usage", None)
-    if not callable(get_usage):
+    if not callable(get_usage) or not _supports_llm_usage_capture(llm):
         return response, None
 
     return response, get_usage()

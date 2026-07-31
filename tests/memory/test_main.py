@@ -1133,6 +1133,21 @@ def test_add_include_usage_without_capture_api_returns_normal_result(mocker):
     assert result == {"results": [{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]}
 
 
+def test_add_include_usage_does_not_attach_stale_usage_without_capture_api(mocker):
+    class LLMWithStaleUsage:
+        def get_last_usage(self):
+            return {"prompt_tokens": 99, "completion_tokens": 1, "total_tokens": 100}
+
+    memory = _build_memory_instance(mocker, Memory)
+    memory.config.llm.config = {}
+    memory.llm = LLMWithStaleUsage()
+    memory._add_to_vector_store = Mock(return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}])
+
+    result = memory.add("Likes pizza", user_id="alice", infer=False, include_usage=True)
+
+    assert result == {"results": [{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]}
+
+
 @pytest.mark.asyncio
 async def test_async_add_includes_usage_only_when_requested(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
