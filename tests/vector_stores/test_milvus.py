@@ -11,6 +11,7 @@ These tests verify:
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pymilvus.exceptions import MilvusException
 
 from mem0.configs.vector_stores.milvus import MetricType
 from mem0.vector_stores.milvus import MilvusDB
@@ -406,7 +407,9 @@ class TestMilvusDB:
             if "sparse" in field_names or "text" in field_names:
                 # Simulate partial failure after create starts: mark collection present once.
                 mock_milvus_client.has_collection.return_value = True
-                raise RuntimeError("BM25 function not supported on this server")
+                # Real pre-2.5 rejection surfaces as a MilvusException with an
+                # "unsupported field" code (1100), not a bare RuntimeError.
+                raise MilvusException(code=1100, message="BM25 function not supported on this server")
             return None
 
         mock_milvus_client.create_collection.side_effect = create_collection_side_effect
@@ -429,6 +432,30 @@ class TestMilvusDB:
         final_schema = mock_milvus_client.create_collection.call_args_list[-1].kwargs["schema"]
         final_names = {f.name for f in final_schema.fields}
         assert final_names == {"id", "vectors", "metadata"}
+
+    def test_create_col_reraises_transient_failure(self, mock_milvus_client):
+        """A transient error (not a version-incompat rejection) must NOT be silently
+        absorbed into a dense-only collection — it should propagate."""
+        mock_milvus_client.has_collection.return_value = False
+
+        def create_collection_side_effect(**kwargs):
+            # Simulate a dropped connection / momentary failure mid-request.
+            raise MilvusException(code=2, message="connection lost")
+
+        mock_milvus_client.create_collection.side_effect = create_collection_side_effect
+
+        with pytest.raises(MilvusException):
+            MilvusDB(
+                url="http://localhost:19530",
+                token="test_token",
+                collection_name="transient_fail_collection",
+                embedding_model_dims=1536,
+                metric_type=MetricType.COSINE,
+                db_name="test_db",
+            )
+
+        # No dense-only fallback should have been attempted.
+        mock_milvus_client.create_collection.assert_called_once()
 
     def test_create_col_hybrid_success_sets_bm25_flag(self, milvus_db, mock_milvus_client):
         """Default path still creates hybrid schema and enables BM25."""

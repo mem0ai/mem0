@@ -20,6 +20,7 @@ from pymilvus import (
     FunctionType,
     MilvusClient,
 )
+from pymilvus.exceptions import MilvusException
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +128,22 @@ class MilvusDB(VectorStoreBase):
                     collection_name=collection_name, schema=schema, index_params=index_params
                 )
                 self._has_bm25_schema = True
-            except Exception as e:
+            except MilvusException as e:
+                # Only a server-side rejection of the BM25 function/sparse field (e.g.
+                # pre-2.5 servers, code=1100 unsupported field) should fall back. Transient
+                # failures surface as MilvusException too, so re-raise anything that isn't a
+                # clear "unsupported/invalid schema" rejection instead of silently degrading
+                # to a dense-only collection.
+                code = getattr(e, "code", None)
+                # 1100 UnexpectedError / 65535 illegal-argument style codes cover the
+                # "server doesn't support BM25 functions or sparse fields" case.
+                if code not in (0, 1100, 65535):
+                    raise
                 logger.warning(
-                    "Failed to create collection with BM25 hybrid search schema: %s. "
-                    "Falling back to dense-only collection without sparse vectors "
-                    "(common on Milvus < 2.5).",
+                    "Failed to create collection with BM25 hybrid search schema (MilvusException "
+                    "code=%s): %s. Falling back to dense-only collection without sparse vectors. "
+                    "This is expected on Milvus servers that predate BM25/sparse support (< 2.5).",
+                    code,
                     e,
                 )
                 if self.client.has_collection(collection_name):
