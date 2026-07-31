@@ -30,7 +30,6 @@ describe("GoogleLLM (unit)", () => {
     expect(callArgs.model).toBe("gemini-2.5-flash");
   });
 
-
   it("returns text response when no tools are provided", async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: '{"facts": ["fact1"]}',
