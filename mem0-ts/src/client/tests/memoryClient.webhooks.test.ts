@@ -5,7 +5,7 @@
  */
 import { MemoryClient } from "../mem0";
 import { WebhookEvent } from "../mem0.types";
-import { TEST_API_KEY } from "./helpers";
+import { TEST_API_KEY, TEST_PROJECT_ID } from "./helpers";
 import {
   setupMockFetch,
   findFetchCall,
@@ -105,6 +105,48 @@ describe("MemoryClient - createWebhook", () => {
     );
     expect(body.webhookId).toBeUndefined();
   });
+
+  test("defaults to the ping-resolved project", async () => {
+    const mock = await callCreate();
+    const call = findFetchCall(mock, "/api/v1/webhooks/", "POST")!;
+    expect(call[0]).toContain(`/api/v1/webhooks/projects/${TEST_PROJECT_ID}/`);
+  });
+
+  test("targets an explicit projectId when provided in the payload", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/webhooks/projects/", {
+      status: 200,
+      body: { webhook_id: "wh_new" },
+    });
+    const mock = webhookMock(extra);
+    const client = createClient();
+    await client.createWebhook({
+      name: "new-hook",
+      url: "https://example.com",
+      eventTypes: [WebhookEvent.MEMORY_ADDED],
+      projectId: "proj_custom_789",
+    });
+
+    const call = findFetchCall(mock, "/api/v1/webhooks/", "POST")!;
+    expect(call[0]).toContain("/api/v1/webhooks/projects/proj_custom_789/");
+  });
+
+  test("throws when no project can be resolved (never posts to /projects/undefined/)", async () => {
+    // A ping response with no project_id leaves the client without a project.
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/ping/", { status: 200, body: { status: "ok" } });
+    extra.set("/api/v1/webhooks/projects/", { status: 200, body: {} });
+    webhookMock(extra);
+    const client = createClient();
+
+    await expect(
+      client.createWebhook({
+        name: "n",
+        url: "https://example.com",
+        eventTypes: [WebhookEvent.MEMORY_ADDED],
+      }),
+    ).rejects.toThrow(/projectId is required/);
+  });
 });
 
 // ─── updateWebhook ────────────────────────────────────────
@@ -187,5 +229,29 @@ describe("MemoryClient - deleteWebhook", () => {
     expect(
       findFetchCall(mock, "/api/v1/webhooks/wh_1/", "DELETE"),
     ).toBeDefined();
+  });
+
+  test("accepts a bare id string", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/webhooks/wh_2/", {
+      status: 200,
+      body: { message: "Webhook deleted" },
+    });
+    const mock = webhookMock(extra);
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.deleteWebhook("wh_2" as any);
+
+    expect(
+      findFetchCall(mock, "/api/v1/webhooks/wh_2/", "DELETE"),
+    ).toBeDefined();
+  });
+
+  test("throws on an empty webhookId instead of serializing the object into the URL", async () => {
+    webhookMock();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+
+    await expect(client.deleteWebhook({ webhookId: "" })).rejects.toThrow(
+      /webhookId is required/,
+    );
   });
 });

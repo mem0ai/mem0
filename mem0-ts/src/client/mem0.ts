@@ -622,6 +622,11 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_webhooks", []);
     const project_id = data?.projectId || this.projectId;
+    if (!project_id) {
+      throw new Error(
+        "projectId is required to list webhooks; pass it in the argument or ensure the client resolved a project via ping().",
+      );
+    }
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${project_id}/`,
       {
@@ -634,13 +639,22 @@ export default class MemoryClient {
   async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
+    // Allow targeting a specific project (like getWebhooks and the Python
+    // client), falling back to the ping-resolved project. Guard against an
+    // unresolved project so the request can't post to `.../projects/undefined/`.
+    const project_id = webhook.projectId || this.projectId;
+    if (!project_id) {
+      throw new Error(
+        "projectId is required to create a webhook; pass it in the payload or ensure the client resolved a project via ping().",
+      );
+    }
     const body = {
       name: webhook.name,
       url: webhook.url,
       event_types: webhook.eventTypes,
     };
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/api/v1/webhooks/projects/${this.projectId}/`,
+      `${this.host}/api/v1/webhooks/projects/${project_id}/`,
       {
         method: "POST",
         headers: this.headers,
@@ -670,12 +684,18 @@ export default class MemoryClient {
     return response;
   }
 
-  async deleteWebhook(data: {
-    webhookId: string;
-  }): Promise<{ message: string }> {
+  async deleteWebhook(
+    data: { webhookId: string } | string,
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_webhook", []);
-    const webhook_id = data.webhookId || data;
+    // Accept both the typed object and a bare id string. The old
+    // `data.webhookId || data` fell back to the whole object when webhookId was
+    // missing, serializing "[object Object]" into the URL.
+    const webhook_id = typeof data === "string" ? data : data.webhookId;
+    if (!webhook_id) {
+      throw new Error("webhookId is required to delete a webhook.");
+    }
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/${webhook_id}/`,
       {
