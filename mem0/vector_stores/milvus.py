@@ -135,9 +135,12 @@ class MilvusDB(VectorStoreBase):
                 # clear "unsupported/invalid schema" rejection instead of silently degrading
                 # to a dense-only collection.
                 code = getattr(e, "code", None)
-                # 1100 UnexpectedError / 65535 illegal-argument style codes cover the
-                # "server doesn't support BM25 functions or sparse fields" case.
-                if code not in (0, 1100, 65535):
+                # 1100: unsupported field / BM25 function rejection (issue #6183 traceback).
+                # 0: legacy pymilvus check_status() path can leave code=0 while the real
+                # error lives on error_code — treat as schema rejection for fallback.
+                # Do not allowlist 65535: that value is VARCHAR max_length elsewhere in
+                # this file, not a confirmed merr / ErrorCode for BM25 refusal.
+                if code not in (0, 1100):
                     raise
                 logger.warning(
                     "Failed to create collection with BM25 hybrid search schema (MilvusException "
