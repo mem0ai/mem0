@@ -181,7 +181,10 @@ deliberately not surfaced goes in an explicit `KNOWN_UNSURFACED` set with a
 reason, so skipping is a visible decision rather than an accident.
 
 - Python: `cli/python/tests/test_option_parity.py`, pytest
-- TS: `cli/node/src/__tests__/option-parity.test.ts`, vitest
+- TS: `cli/node/tests/option-parity.test.ts`, vitest
+
+Both CLIs already mirror each other's test layout file for file (`platform-backend`,
+`commands`, `agent-mode`, `output`, and so on). New tests follow that mirroring.
 
 This is the piece that makes the audit unnecessary next time.
 
