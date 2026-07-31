@@ -101,7 +101,7 @@ os.environ["COHERE_API_KEY"] = "your-api-key"
 # Initialize memory with Cohere reranker
 config = {
     "vector_store": {"provider": "chroma"},
-    "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
     "rerank": {
         "provider": "cohere",
         "config": {

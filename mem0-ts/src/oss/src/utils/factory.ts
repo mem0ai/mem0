@@ -247,7 +247,7 @@ export class RerankerFactory {
       llmProvider = nested.provider || config.provider || "openai";
       llmConfig = { ...(nested.config || {}) };
       if (llmConfig.model === undefined) {
-        llmConfig.model = config.model ?? "gpt-4o-mini";
+        llmConfig.model = config.model ?? "gpt-5-mini";
       }
       if (llmConfig.temperature === undefined) {
         llmConfig.temperature = config.temperature ?? 0.0;
@@ -261,7 +261,7 @@ export class RerankerFactory {
     } else {
       llmProvider = config.provider || "openai";
       llmConfig = {
-        model: config.model ?? "gpt-4o-mini",
+        model: config.model ?? "gpt-5-mini",
         temperature: config.temperature ?? 0.0,
         maxTokens: config.maxTokens ?? 100,
       };
