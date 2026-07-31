@@ -345,3 +345,53 @@ class SQLiteManager:
 
     def __del__(self):
         self.close()
+
+
+class DummyHistoryManager:
+    """No-op history backend used when MemoryConfig.disable_history is True.
+
+    Mirrors the SQLiteManager surface that Memory/AsyncMemory call so the rest of
+    the pipeline keeps working without writing an audit trail (TS parity:
+    DummyHistoryManager / disableHistory).
+    """
+
+    def __init__(self, db_path: str = ":memory:"):
+        # Keep attr for callers that introspect history_db_path-like state.
+        self.db_path = db_path
+        self.connection = None
+
+    def add_history(
+        self,
+        memory_id: str,
+        old_memory: Optional[str],
+        new_memory: Optional[str],
+        event: str,
+        *,
+        created_at: Optional[str] = None,
+        updated_at: Optional[str] = None,
+        is_deleted: int = 0,
+        actor_id: Optional[str] = None,
+        role: Optional[str] = None,
+    ) -> None:
+        return None
+
+    def batch_add_history(self, records: List[Dict[str, Any]]) -> None:
+        return None
+
+    def get_history(self, memory_id: str) -> List[Dict[str, Any]]:
+        return []
+
+    def save_messages(self, messages: List[Dict[str, Any]], session_scope: str) -> None:
+        # Message retention uses the same SQLite file; when history is disabled
+        # GDPR callers typically also do not want local message transcripts.
+        return None
+
+    def get_last_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
+        return []
+
+    def reset(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+

@@ -43,6 +43,13 @@ class MemoryConfig(BaseModel):
         description="Path to the history database",
         default=os.path.join(mem0_dir, "history.db"),
     )
+    disable_history: bool = Field(
+        description=(
+            "When True, do not open or write the history SQLite DB "
+            "(parity with TS disableHistory). get_history returns []."
+        ),
+        default=False,
+    )
     reranker: Optional[RerankerConfig] = Field(
         description="Configuration for the reranker",
         default=None,
