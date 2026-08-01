@@ -131,6 +131,33 @@ describe("PlatformBackend option-parity payloads (MEM-5893)", () => {
 		expect(payload.latest_only).toBe(true);
 	});
 
+	it("search: keyword_search and fields reach the payload", async () => {
+		const backend = makeBackend();
+		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method
+		const spy = vi.spyOn(backend as any, "_request").mockResolvedValue([]);
+
+		await backend.search("query", {
+			keyword: true,
+			fields: ["memory", "score"],
+		});
+
+		const payload = spy.mock.calls[0][2].json;
+		expect(payload.keyword_search).toBe(true);
+		expect(payload.fields).toEqual(["memory", "score"]);
+	});
+
+	it("search: omitted keyword and fields are absent from the payload", async () => {
+		const backend = makeBackend();
+		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method
+		const spy = vi.spyOn(backend as any, "_request").mockResolvedValue([]);
+
+		await backend.search("query", {});
+
+		const payload = spy.mock.calls[0][2].json;
+		expect(payload).not.toHaveProperty("keyword_search");
+		expect(payload).not.toHaveProperty("fields");
+	});
+
 	it("listMemories: show_expired and latest_only are top-level, not nested inside filters", async () => {
 		const backend = makeBackend();
 		// biome-ignore lint/suspicious/noExplicitAny: spying on a private method

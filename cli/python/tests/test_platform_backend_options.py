@@ -60,6 +60,22 @@ class TestSearchOptions:
         assert payload["reference_date"] == "2024-01-01"
         assert payload["latest_only"] is True
 
+    def test_keyword_and_fields_reach_payload(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value=[]) as mock_request:
+            backend.search("query", keyword=True, fields=["memory", "score"])
+        payload = mock_request.call_args.kwargs["json"]
+        assert payload["keyword_search"] is True
+        assert payload["fields"] == ["memory", "score"]
+
+    def test_keyword_and_fields_omitted_are_absent_from_payload(self):
+        backend = _make_backend()
+        with patch.object(backend, "_request", return_value=[]) as mock_request:
+            backend.search("query")
+        payload = mock_request.call_args.kwargs["json"]
+        assert "keyword_search" not in payload
+        assert "fields" not in payload
+
 
 class TestListOptions:
     def test_show_expired_and_latest_only_are_top_level_not_in_filters(self):
