@@ -1433,3 +1433,42 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert len(failed) == 1
         assert failed[0]["error_class"] == EmbeddingErrorClass.PROVIDER
         assert "fact" in failed[0]["text"]
+
+    def test_infer_false_invalid_embed_recorded_in_failed(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        # A NaN vector is structurally invalid: surface it, don't persist it.
+        mock_memory.embedding_model.embed = Mock(return_value=[float("nan")] * 10)
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "a raw fact"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=False,
+            failed=failed,
+        )
+
+        assert result == []
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION
+
+    def test_infer_true_nan_vector_recorded_as_validation(self, mock_memory, mocker):
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "fact one"}]}'
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[float("nan")] * 10])
+        mock_memory.embedding_model.embed = Mock(return_value=[float("nan")] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "a fact"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        assert len(result) == 0
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION

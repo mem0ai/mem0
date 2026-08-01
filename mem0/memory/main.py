@@ -970,7 +970,16 @@ class Memory(MemoryBase):
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
-                msg_embeddings = self.embedding_model.embed(msg_content, "add")
+                try:
+                    msg_embeddings = self.embedding_model.embed(msg_content, "add")
+                except Exception as e:
+                    logger.warning(f"Failed to embed message: {e}")
+                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+                    continue
+                reason = _validate_embedding(msg_embeddings, None)
+                if reason is not None:
+                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                    continue
                 mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
@@ -2136,11 +2145,21 @@ class Memory(MemoryBase):
             raise ValueError("Metadata cannot be done for procedural memory.")
 
         metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
-        embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
+        failed = []
+        try:
+            embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
+        except Exception as e:
+            logger.warning(f"Failed to embed procedural memory: {e}")
+            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+            return {"results": [], "failed": failed}
+        reason = _validate_embedding(embeddings, None)
+        if reason is not None:
+            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+            return {"results": [], "failed": failed}
         memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
 
-        result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
+        result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}], "failed": failed}
 
         return result
 
@@ -2691,7 +2710,16 @@ class AsyncMemory(MemoryBase):
                     per_msg_meta["actor_id"] = actor_name
 
                 msg_content = message_dict["content"]
-                msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
+                try:
+                    msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
+                except Exception as e:
+                    logger.warning(f"Failed to embed message (async): {e}")
+                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+                    continue
+                reason = _validate_embedding(msg_embeddings, None)
+                if reason is not None:
+                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                    continue
                 mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
@@ -3894,11 +3922,21 @@ class AsyncMemory(MemoryBase):
             raise ValueError("Metadata cannot be done for procedural memory.")
 
         metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
+        failed = []
+        try:
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
+        except Exception as e:
+            logger.warning(f"Failed to embed procedural memory (async): {e}")
+            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+            return {"results": [], "failed": failed}
+        reason = _validate_embedding(embeddings, None)
+        if reason is not None:
+            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+            return {"results": [], "failed": failed}
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
 
-        result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
+        result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}], "failed": failed}
 
         return result
 
