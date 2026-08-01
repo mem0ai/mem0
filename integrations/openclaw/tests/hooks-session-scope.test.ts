@@ -5,6 +5,11 @@ const mockSdk = vi.hoisted(() => ({
   searchOptions: [] as Record<string, unknown>[],
 }));
 
+const mockOss = vi.hoisted(() => ({
+  addOptions: [] as Record<string, unknown>[],
+  searchOptions: [] as Record<string, unknown>[],
+}));
+
 vi.mock("mem0ai", () => ({
   default: class MockMemoryClient {
     constructor(_options: Record<string, unknown>) {}
@@ -99,6 +104,8 @@ const captureEvent = {
 beforeEach(() => {
   mockSdk.addOptions.length = 0;
   mockSdk.searchOptions.length = 0;
+  mockOss.addOptions.length = 0;
+  mockOss.searchOptions.length = 0;
 });
 
 describe("OpenClaw session scope reaches the SDK payload", () => {
@@ -117,7 +124,7 @@ describe("OpenClaw session scope reaches the SDK payload", () => {
   });
 
   it("passes the session ID as runId for session and all searches", async () => {
-    const { handlers, tools } = createPluginApi({
+    const { api, handlers, tools } = createPluginApi({
       autoCapture: false,
       autoRecall: true,
     });
@@ -175,6 +182,13 @@ describe("OpenClaw session scope reaches the SDK payload", () => {
   });
 
   it("preserves non-interactive and subagent capture skips", async () => {
+    const positiveControl = createPluginApi();
+    await positiveControl.handlers.get("agent_end")?.[0](captureEvent, {
+      sessionKey: "sess-positive-control",
+    });
+    await vi.waitFor(() => expect(mockSdk.addOptions).toHaveLength(1));
+    mockSdk.addOptions.length = 0;
+
     const nonInteractive = createPluginApi();
     await nonInteractive.handlers.get("agent_end")?.[0](captureEvent, {
       trigger: "cron",
@@ -186,6 +200,7 @@ describe("OpenClaw session scope reaches the SDK payload", () => {
       sessionKey: "agent:main:subagent:uuid-1",
     });
 
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mockSdk.addOptions).toHaveLength(0);
   });
 
@@ -226,5 +241,65 @@ describe("OpenClaw session scope reaches the SDK payload", () => {
       user_id: "alice:agent:researcher",
       run_id: "agent:researcher:uuid-1",
     });
+  });
+
+  it("passes session run scope through the OSS provider", async () => {
+    vi.doMock("mem0ai/oss", () => ({
+      PGVector: undefined,
+      RedisDB: undefined,
+      Qdrant: undefined,
+      Memory: class MockOssMemory {
+        constructor(_config: Record<string, unknown>) {}
+
+        async getAll(): Promise<[]> {
+          return [];
+        }
+
+        async add(
+          _messages: unknown,
+          options: Record<string, unknown>,
+        ): Promise<{ results: Array<{ id: string; memory: string }> }> {
+          mockOss.addOptions.push(options);
+          return { results: [{ id: "memory-oss-1", memory: "stored" }] };
+        }
+
+        async search(
+          _query: string,
+          options: Record<string, unknown>,
+        ): Promise<Array<{ id: string; memory: string; score: number }>> {
+          mockOss.searchOptions.push(options);
+          return [{ id: "memory-oss-1", memory: "found", score: 0.9 }];
+        }
+      },
+    }));
+
+    const { handlers, tools } = createPluginApi({
+      mode: "open-source",
+      autoCapture: true,
+      autoRecall: false,
+      oss: { disableHistory: true },
+    });
+    await handlers.get("agent_end")?.[0](captureEvent, {
+      sessionKey: "agent:main:uuid-1",
+    });
+    await vi.waitFor(() => expect(mockOss.addOptions).toHaveLength(1));
+    expect(mockOss.addOptions[0]).toMatchObject({
+      userId: "alice",
+      runId: "agent:main:uuid-1",
+    });
+    mockOss.searchOptions.length = 0;
+
+    const searchTool = tools.find((tool) => tool.name === "memory_search");
+    await searchTool.execute("call-oss", {
+      query: "session facts",
+      scope: "session",
+    });
+
+    expect(mockOss.searchOptions.at(-1)?.filters).toEqual({
+      user_id: "alice",
+      run_id: "agent:main:uuid-1",
+    });
+
+    vi.doUnmock("mem0ai/oss");
   });
 });
