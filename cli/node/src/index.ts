@@ -319,7 +319,25 @@ program
 	.option("--immutable", "Prevent future updates.", false)
 	.option("--no-infer", "Skip inference, store raw.")
 	.option("--expires <date>", "Expiration date (YYYY-MM-DD).")
-	.option("--categories <value>", "Categories (JSON array or comma-separated).")
+	.option(
+		"--categories <value>",
+		"Not supported on add, use --custom-categories instead.",
+	)
+	.option(
+		"--custom-instructions <text>",
+		"Custom instructions for fact extraction.",
+	)
+	.option(
+		"--custom-categories <json>",
+		"Custom categories as a JSON array of {name: description} objects.",
+	)
+	.option(
+		"--structured-data-schema <json>",
+		"Schema for structured data extraction, as JSON.",
+	)
+	.option("--timestamp <unix>", "Unix timestamp for the memory.", (v) =>
+		Number.parseInt(v),
+	)
 	.option("-o, --output <format>", "Output format: text, json, quiet.", "text")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -366,6 +384,16 @@ program
 	.option("--keyword", "Use keyword search.", false)
 	.option("--filter <json>", "Advanced filter expression (JSON).")
 	.option("--fields <list>", "Specific fields to return (comma-separated).")
+	.option("--show-expired", "Include expired memories.", false)
+	.option(
+		"--reference-date <date>",
+		"Reference date for relative queries (YYYY-MM-DD or unix timestamp).",
+	)
+	.option(
+		"--latest-only",
+		"Only return the latest version of each memory.",
+		false,
+	)
 	.option("-o, --output <format>", "Output: text, json, table.", "text")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -398,6 +426,9 @@ program
 			keyword: opts.keyword,
 			filterJson: opts.filter,
 			fields: opts.fields,
+			showExpired: opts.showExpired,
+			referenceDate: opts.referenceDate,
+			latestOnly: opts.latestOnly,
 			output,
 		});
 	});
@@ -441,6 +472,12 @@ program
 	.option("--category <name>", "Filter by category.")
 	.option("--after <date>", "Created after (YYYY-MM-DD).")
 	.option("--before <date>", "Created before (YYYY-MM-DD).")
+	.option("--show-expired", "Include expired memories.", false)
+	.option(
+		"--latest-only",
+		"Only return the latest version of each memory.",
+		false,
+	)
 	.option("-o, --output <format>", "Output: text, json, table.", "table")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -464,6 +501,8 @@ program
 			category: opts.category,
 			after: opts.after,
 			before: opts.before,
+			showExpired: opts.showExpired,
+			latestOnly: opts.latestOnly,
 			output,
 		});
 	});
@@ -474,6 +513,10 @@ program
 	.command("update <memoryId> [text]")
 	.description("Update a memory's text or metadata.")
 	.option("-m, --metadata <json>", "Update metadata (JSON).")
+	.option("--expires <date>", "Expiration date (YYYY-MM-DD).")
+	.option("--timestamp <unix>", "Unix timestamp for the memory.", (v) =>
+		Number.parseInt(v),
+	)
 	.option("-o, --output <format>", "Output: text, json, quiet.", "text")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -492,6 +535,8 @@ program
 		const output = isAgent ? "agent" : opts.output;
 		await cmdUpdate(backend, memoryId, resolvedText, {
 			metadata: opts.metadata,
+			expires: opts.expires,
+			timestamp: opts.timestamp,
 			output,
 		});
 	});
@@ -510,6 +555,11 @@ program
 	.option("--project", "With --all: delete ALL memories project-wide.", false)
 	.option("--dry-run", "Show what would be deleted without deleting.", false)
 	.option("--force", "Skip confirmation.", false)
+	.option(
+		"--delete-linked",
+		"Also delete memories linked to this memory.",
+		false,
+	)
 	.option("-u, --user-id <id>", "Scope to user.")
 	.option("--agent-id <id>", "Scope to agent.")
 	.option("--app-id <id>", "Scope to app.")
@@ -563,6 +613,7 @@ program
 				output,
 				dryRun: opts.dryRun,
 				force: opts.force,
+				deleteLinked: opts.deleteLinked,
 			});
 			return;
 		}

@@ -122,11 +122,19 @@ echo "Loves hiking on weekends" | mem0 add --user-id alice
 | `--messages` | Conversation messages as JSON |
 | `-f, --file` | Read messages from a JSON file |
 | `-m, --metadata` | Custom metadata as JSON |
-| `--categories` | Categories (JSON array or comma-separated) |
+| `--categories` | Rejected on `add`. Use `--custom-categories` instead |
+| `--custom-categories` | Custom categories as a JSON array of `{name: description}` objects |
+| `--custom-instructions` | Custom instructions for fact extraction |
+| `--structured-data-schema` | Schema for structured data extraction, as JSON |
+| `--timestamp` | Unix timestamp for the memory |
 | `--expires` | Expiration date, after which the memory stops being returned |
 | `--immutable` | Store the memory so it can never be updated or overwritten |
 | `--no-infer` | Store the text exactly as given, skipping fact extraction |
 | `-o, --output` | Output format: `text`, `json`, `quiet` |
+
+<Note>
+`--categories` is not supported on `add` and exits with an error pointing at `--custom-categories`.
+</Note>
 
 ### `mem0 search`
 
@@ -149,6 +157,9 @@ mem0 search "preferred tools" --user-id alice --output json --top-k 5
 | `--keyword` | Use keyword search instead of semantic |
 | `--filter` | Advanced filter expression (JSON) |
 | `--fields` | Return only the named fields |
+| `--show-expired` | Include expired memories |
+| `--reference-date` | Reference date for relative queries (`YYYY-MM-DD` or Unix timestamp) |
+| `--latest-only` | Only return the latest version of each memory |
 | `-o, --output` | Output format: `text`, `json`, `table` |
 
 ### `mem0 list`
@@ -172,6 +183,8 @@ mem0 list --user-id alice --after 2024-01-01 --page-size 50
 | `--category` | Filter by category |
 | `--after` | Created after date (YYYY-MM-DD) |
 | `--before` | Created before date (YYYY-MM-DD) |
+| `--show-expired` | Include expired memories |
+| `--latest-only` | Only return the latest version of each memory |
 | `-o, --output` | Output format: `text`, `json`, `table` |
 
 ### `mem0 get`
@@ -200,6 +213,8 @@ echo "new text" | mem0 update <memory-id>
 | Flag | Description |
 |------|-------------|
 | `-m, --metadata` | Replace the memory's metadata with this JSON |
+| `--expires` | Expiration date (YYYY-MM-DD) |
+| `--timestamp` | Unix timestamp for the memory |
 | `-o, --output` | Output format: `text`, `json`, `quiet` |
 
 ### `mem0 delete`
@@ -229,6 +244,7 @@ mem0 delete --all --user-id alice --dry-run
 | `--all` | Delete all memories matching scope filters |
 | `--entity` | Delete the entity and all its memories |
 | `--project` | With `--all`: delete all memories project-wide |
+| `--delete-linked` | Also delete memories linked to this memory |
 | `--dry-run` | Preview without deleting |
 | `--force` | Skip confirmation prompt |
 
