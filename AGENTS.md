@@ -406,6 +406,7 @@ PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** 
 | Python CLI | `cli-python-ci.yml` | Push to main (on `cli/python/`), manual | Ruff lint + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | Node CLI | `cli-node-ci.yml` | Push to main (on `cli/node/`), manual | Biome lint + tsc + vitest + tsup build on Node 20, 22 |
 | OpenClaw | `openclaw-checks.yml` | Push to main (on `integrations/openclaw/`), manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
+| Mem0 Plugin | `mem0-plugin-checks.yml` | Push to main (on `integrations/mem0-plugin/`, excluding `.opencode-plugin/`), manual | pytest + hook entry-point exec bits + JSON manifest validation on Python 3.10, 3.11, 3.12 |
 | OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (on `integrations/mem0-plugin/.opencode-plugin/`), manual | Bun: tsc type-check + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (on `integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup build (dist artifact check) on Node 20, 22 |
 | n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (on `integrations/n8n-nodes-mem0/`), manual | ESLint (n8n-nodes-base) + tsc build (dist artifact check) on Node 20 |
