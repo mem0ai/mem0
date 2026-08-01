@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import EmbeddingErrorClass, LLMError, VectorStoreError
+from mem0.exceptions import EmbeddingError, EmbeddingErrorClass, LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1472,3 +1472,23 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert len(result) == 0
         assert len(failed) == 1
         assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION
+
+    def test_raise_on_partial_failure_raises_embedding_error(self, mock_memory, mocker):
+        # add() collects failures from _add_to_vector_store's out-param and, with the
+        # opt-in flag set, raises after the successful memories are persisted.
+        def fake_add(*args, failed=None, **kwargs):
+            failed.append({"text": "boom", "error_class": EmbeddingErrorClass.PROVIDER, "error": "x"})
+            return [{"id": "1", "memory": "ok", "event": "ADD"}]
+
+        mock_memory._add_to_vector_store = Mock(side_effect=fake_add)
+        mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata", return_value=None)
+        mocker.patch("mem0.memory.main.detect_scale_threshold_from_add_result", return_value=None)
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(EmbeddingError):
+            mock_memory.add(
+                messages=[{"role": "user", "content": "hi"}],
+                user_id="u1",
+                raise_on_partial_failure=True,
+            )

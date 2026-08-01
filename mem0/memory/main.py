@@ -853,6 +853,9 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            raise_on_partial_failure (bool, optional): When True, raise ``EmbeddingError`` if any
+                memory failed to embed (after persisting the ones that succeeded). When False
+                (default), the failures are returned under "failed" instead. Defaults to False.
 
         Note:
             `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
@@ -861,9 +864,13 @@ class Memory(MemoryBase):
 
 
         Returns:
-            dict: A dictionary containing the result of the memory addition operation, typically
-                  including a list of memory items affected (added, updated) under a "results" key.
-                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
+            dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
+                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error"}``
+                  with error_class one of provider_error / validation_error / internal_error. "failed"
+                  is empty on the happy path — additive and non-breaking for callers reading only
+                  "results". Example: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}], "failed": []}`.
+                  Scope: "failed" covers the embedding phase (infer=True extraction, infer=False raw,
+                  and procedural). Vector-store insert failures are logged, not surfaced here.
 
         Raises:
             Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
@@ -2599,6 +2606,9 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+            raise_on_partial_failure (bool, optional): When True, raise ``EmbeddingError`` if any
+                memory failed to embed (after persisting the ones that succeeded). When False
+                (default), the failures are returned under "failed" instead. Defaults to False.
 
         Note:
             `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
@@ -2606,7 +2616,12 @@ class AsyncMemory(MemoryBase):
             the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
 
         Returns:
-            dict: A dictionary containing the result of the memory addition operation.
+            dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
+                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error"}``
+                  with error_class one of provider_error / validation_error / internal_error. "failed"
+                  is empty on the happy path — additive and non-breaking. Scope: the embedding phase
+                  (infer=True extraction, infer=False raw, and procedural); vector-store insert
+                  failures are logged, not surfaced here.
         """
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
