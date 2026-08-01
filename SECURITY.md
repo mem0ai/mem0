@@ -21,7 +21,7 @@ privately through one of the following channels:
 To help us triage and resolve the issue quickly, please include as much of the
 following as you can:
 
-- Affected component or package (e.g. Python SDK, TypeScript SDK, server, OpenMemory)
+- Affected component or package (e.g. Python SDK, TypeScript SDK, server, CLI)
 - Affected version, tag, or commit
 - Clear, step-by-step reproduction instructions
 - The security impact and a proof of concept, if available

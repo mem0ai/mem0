@@ -38,7 +38,7 @@ This mints an evaluation key in <5 seconds. Use it immediately against the Platf
 
 ## Identify the User's Setup
 
-Look at the user's imports first - they determine which product (Platform vs OSS) and which language you should quote docs from. **Mem0 Platform (managed) is the recommended path** - 4-line integration, sub-50ms retrieval, no infra. Route to OSS only when the user has an explicit self-hosting requirement.
+Look at the user's imports first - they determine which product (Platform vs OSS) and which language you should quote docs from. **Mem0 Platform (managed) is the recommended path** - 4-line integration, no infra to run. Route to OSS only when the user has an explicit self-hosting requirement.
 
 ### Platform - Python [Platform]
 
@@ -170,7 +170,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 - [Introduction](https://docs.mem0.ai/introduction) [Both]: Use when the user wants a one-page overview of how memory fits between the LLM and the app.
 - [Vibe Code with Mem0](https://docs.mem0.ai/vibecoding) [Both]: Use when the user is in Claude Code, Cursor, or Windsurf and wants memory wired into their editor.
-- [Platform Overview](https://docs.mem0.ai/platform/overview) [Platform]: Use when the user picks the managed product - 4-line integration, sub-50ms retrieval, dashboard.
+- [Platform Overview](https://docs.mem0.ai/platform/overview) [Platform]: Use when the user picks the managed product - 4-line integration, hosted API, dashboard.
 - [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup) [Platform]: Use when an AI agent needs to mint a Mem0 API key autonomously - four commands, no email or dashboard, human claims ownership later.
 - [Platform vs Open Source](https://docs.mem0.ai/platform/platform-vs-oss) [Both]: Use when the user is deciding between managed and self-hosted.
 - [Platform Quickstart](https://docs.mem0.ai/platform/quickstart) [Platform]: Use for the first Platform integration - API key plus `MemoryClient.add/search`.
@@ -281,6 +281,8 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Developer Tools
 - [Dify](https://docs.mem0.ai/integrations/dify) [Both]: Use when the user is on Dify LLMOps.
 - [Flowise](https://docs.mem0.ai/integrations/flowise) [Both]: Use when the user is on Flowise no-code.
+- [n8n](https://docs.mem0.ai/integrations/n8n) [Both]: Use when the user builds workflows or AI agents in n8n.
+- [Zapier](https://docs.mem0.ai/integrations/zapier) [Both]: Use when the user automates workflows with Zapier.
 - [AgentOps](https://docs.mem0.ai/integrations/agentops) [Both]: Use when tracking agent observability with memory metadata.
 - [Respan](https://docs.mem0.ai/integrations/respan) [Both]: Use when monitoring Mem0 with Respan (formerly Keywords AI) LLM observability.
 - [Raycast](https://docs.mem0.ai/integrations/raycast) [Both]: Use when the user wants quick memory access via Raycast.
@@ -416,7 +418,6 @@ Editor-specific setup docs (already listed above under `## Integrations > AI Cod
 ### MCP Endpoints
 
 - Hosted MCP server: `https://mcp.mem0.ai` - requires Platform API key. See `platform/mem0-mcp`.
-- Self-hosted MCP server: ships with `openmemory/api/` (FastAPI) - runs against your own Qdrant + LLM stack.
 
 ## Community & Support
 

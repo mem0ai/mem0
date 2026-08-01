@@ -349,6 +349,8 @@
                     "pages": [
                       "integrations/dify",
                       "integrations/flowise",
+                      "integrations/n8n",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",
@@ -1235,6 +1237,10 @@
     {
       "source": "/platform/features/criteria-retrieval",
       "destination": "/platform/features/advanced-retrieval"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations/respan"
     }
   ]
 }
