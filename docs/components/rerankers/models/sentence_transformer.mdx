@@ -36,7 +36,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4o-mini"
+            "model": "gpt-5-mini"
         }
     },
     "rerank": {
@@ -113,7 +113,7 @@ from mem0 import Memory
 # Initialize memory with local reranker
 config = {
     "vector_store": {"provider": "chroma"},
-    "llm": {"provider": "openai", "config": {"model": "gpt-4o-mini"}},
+    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
     "rerank": {
         "provider": "sentence_transformer",
         "config": {

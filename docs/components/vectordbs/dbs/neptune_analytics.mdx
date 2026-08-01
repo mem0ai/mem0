@@ -96,8 +96,8 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 </Tabs>
 
 Both SDKs store vectors on graph nodes labeled `MEM0_VECTOR_<collection_name>`. Point them at the same
-graph with the same `collection_name` — the defaults differ, `mem0` in Python and `memories` in
-TypeScript — and `get()`, `list()`, and `delete()` interoperate across SDKs.
+graph with the same `collection_name` (the defaults differ, `mem0` in Python and `memories` in
+TypeScript) and `get()`, `list()`, and `delete()` interoperate across SDKs.
 
 <Note>
 `search()` is not currently cross-SDK compatible. The TypeScript provider filters on Neptune's reserved
