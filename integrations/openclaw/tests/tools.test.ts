@@ -263,11 +263,11 @@ describe("memory_search execute", () => {
       scope: "session",
     });
 
-    // Should call buildSearchOptions with session ID as 4th arg (sessionKey)
+    // Session scope uses both the run ID and namespace routing slots.
     expect(ctx.buildSearchOptions).toHaveBeenCalledWith(
       "testuser",
       undefined,
-      undefined,
+      "session-abc",
       "session-abc",
     );
     expect(result.details.count).toBe(1);
