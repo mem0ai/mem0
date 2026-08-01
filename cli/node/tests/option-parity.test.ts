@@ -104,3 +104,30 @@ describe("Option parity: Node CLI reachability of documented v3 params", () => {
 		assertAllReachable("/v3/memories/", LIST_MAPPING, "list");
 	});
 });
+
+describe("stdin fallback uses the shared piped-stdin guard", () => {
+	const SOURCES = ["src/index.ts", "src/commands/memory.ts"];
+
+	for (const rel of SOURCES) {
+		it(`${rel} never checks process.stdin.isTTY directly`, () => {
+			const src = fs.readFileSync(path.join(__dirname, "..", rel), "utf-8");
+			expect(
+				src.includes("process.stdin.isTTY"),
+				`${rel}: use stdinIsPiped() from state.ts. A bare !isTTY check is also true for /dev/null and sockets, so readFileSync(0) crashes with EAGAIN in scripts, CI, and agent mode.`,
+			).toBe(false);
+		});
+
+		it(`${rel} guards every readFileSync(0) with stdinIsPiped()`, () => {
+			const src = fs.readFileSync(path.join(__dirname, "..", rel), "utf-8");
+			const lines = src.split("\n");
+			for (const [i, line] of lines.entries()) {
+				if (!line.includes("readFileSync(0")) continue;
+				const guard = lines.slice(Math.max(0, i - 3), i).join("\n");
+				expect(
+					guard.includes("stdinIsPiped()"),
+					`${rel}:${i + 1}: readFileSync(0) must be guarded by stdinIsPiped()`,
+				).toBe(true);
+			}
+		});
+	}
+});

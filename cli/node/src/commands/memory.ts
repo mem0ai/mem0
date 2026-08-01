@@ -21,18 +21,7 @@ import {
 	formatSingleMemory,
 	printResultSummary,
 } from "../output.js";
-import { isAgentMode, setCurrentCommand } from "../state.js";
-
-/** True only when stdin is an actual pipe or file redirect — never in agent mode. */
-function _stdinIsPiped(): boolean {
-	if (isAgentMode()) return false;
-	try {
-		const stat = fs.fstatSync(0);
-		return stat.isFIFO() || stat.isFile();
-	} catch {
-		return false;
-	}
-}
+import { isAgentMode, setCurrentCommand, stdinIsPiped } from "../state.js";
 
 /** Exit 1 if value is not a future YYYY-MM-DD date. */
 function _validateExpires(value: string): void {
@@ -104,7 +93,7 @@ export async function cmdAdd(
 		}
 	}
 	// Read from stdin only if stdin is an actual pipe or file redirect
-	else if (!content && _stdinIsPiped()) {
+	else if (!content && stdinIsPiped()) {
 		content = fs.readFileSync(0, "utf-8").trim();
 	}
 

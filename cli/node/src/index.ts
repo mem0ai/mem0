@@ -17,6 +17,7 @@ import {
 	isAgentMode,
 	setAgentMode,
 	setCurrentCommand,
+	stdinIsPiped,
 	takeNotice,
 } from "./state.js";
 import { captureEvent } from "./telemetry.js";
@@ -403,7 +404,7 @@ program
 	)
 	.action(async (query, opts) => {
 		let resolvedQuery = query;
-		if (!resolvedQuery && !process.stdin.isTTY) {
+		if (!resolvedQuery && stdinIsPiped()) {
 			resolvedQuery = fs.readFileSync(0, "utf-8").trim();
 		}
 		if (!resolvedQuery) {
@@ -526,7 +527,7 @@ program
 	)
 	.action(async (memoryId, text, opts) => {
 		let resolvedText = text;
-		if (!resolvedText && !opts.metadata && !process.stdin.isTTY) {
+		if (!resolvedText && stdinIsPiped()) {
 			resolvedText = fs.readFileSync(0, "utf-8").trim();
 		}
 		const { cmdUpdate } = await import("./commands/memory.js");
