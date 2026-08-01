@@ -5,13 +5,15 @@ description: "Agent skills, starter prompts, and setup for building with Mem0 us
 icon: "wand-magic-sparkles"
 ---
 
-These docs are designed to be easily consumable by LLMs. Each page has a button that lets you copy the page as Markdown or paste directly into ChatGPT, Claude, or any AI coding tool.
+Vibecoding means building software by describing what you want to an AI coding assistant and letting it write the code. The catch is that assistants guess at unfamiliar libraries, and a wrong guess about Mem0 costs you a debugging session.
 
-We follow the llms.txt standard:
+This page fixes that three ways: skills that teach your assistant the Mem0 SDKs, an MCP connection so it can read and write memories itself, and a starter prompt you can paste into any tool.
 
-- [llms.txt](https://docs.mem0.ai/llms.txt)
+<Note>
+Every page in these docs has a button to copy it as Markdown or send it straight to ChatGPT or Claude, so you can hand your assistant any page it needs. We follow the [llms.txt](https://docs.mem0.ai/llms.txt) standard.
+</Note>
 
-## Agent Skills
+## Agent skills
 
 Mem0 ships two kinds of skills for AI coding assistants. Both work with Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any assistant that supports the skills standard.
 
@@ -45,7 +47,7 @@ npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
 
 See the [skills index](https://github.com/mem0ai/mem0/tree/main/skills) for the full catalog.
 
-## MCP Server Setup
+## MCP server setup
 
 Connect Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode, or any MCP-compatible client to Mem0.
 
@@ -61,13 +63,13 @@ npx mcp-add \
 
 For per-client setup and advanced options, see [Mem0 MCP Setup](/platform/mem0-mcp).
 
-## Universal Starter Prompt
+## Universal starter prompt
 
 Copy this into any AI tool to start building with Mem0:
 
 ```text
-I want to start building with Mem0, a self-improving memory layer for LLM
-applications that gives agents persistent context across sessions.
+I want to start building with Mem0, which gives AI agents long-term memory
+that persists across sessions, tools, and runs.
 
 ## Mem0 Resources
 
@@ -86,10 +88,10 @@ applications that gives agents persistent context across sessions.
 - Cookbooks: https://docs.mem0.ai/cookbooks/overview
 
 **What Mem0 Does:**
-Mem0 is a memory layer for AI apps, managed (Mem0 Platform) or self-hosted
-(Open Source). It stores, retrieves, and manages user memories so agents
-remember preferences, learn from interactions, and personalize over time.
-Sub-50ms retrieval. Storage: vector embeddings.
+Mem0 gives AI agents long-term memory, either managed (Mem0 Platform) or
+self-hosted (Open Source). It stores, retrieves, and manages memories so
+agents remember preferences, learn from past runs, and personalize over
+time. Storage: vector embeddings.
 
 **Architecture Overview:**
 - Memory is scoped by user_id, agent_id, or run_id
@@ -109,7 +111,7 @@ Sub-50ms retrieval. Storage: vector embeddings.
   import MemoryClient from 'mem0ai';
   const client = new MemoryClient({ apiKey: 'm0-xxx' });
   await client.add([{ role: "user", content: "I prefer dark mode." }], { userId: "user1" });
-  const results = await client.search("What editor?", { filters: { userId: "user1" } });
+  const results = await client.search("What editor?", { filters: { user_id: "user1" } });
 
 **Quick Usage (Python Open Source):**
   from mem0 import Memory
@@ -121,10 +123,10 @@ Help me integrate Mem0 into my project. Start by asking what I'm building,
 what language/framework I'm using, and whether I want managed or self-hosted.
 ```
 
-## Go Deeper
+## Go deeper
 
 <CardGroup cols={2}>
-  <Card title="Platform Quickstart" icon="cloud" href="/platform/quickstart">
+  <Card title="Platform quickstart" icon="cloud" href="/platform/quickstart">
     Get started with the managed API
   </Card>
   <Card title="Open Source" icon="code-branch" href="/open-source/overview">
@@ -133,7 +135,7 @@ what language/framework I'm using, and whether I want managed or self-hosted.
   <Card title="Cookbooks" icon="book" href="/cookbooks/overview">
     Production-ready tutorials and examples
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference">
+  <Card title="API reference" icon="code" href="/api-reference">
     Explore every REST endpoint
   </Card>
 </CardGroup>

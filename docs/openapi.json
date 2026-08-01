@@ -2035,7 +2035,8 @@
 									"type": "object",
 									"properties": {
 										"message": {
-											"type": "string"
+											"type": "string",
+											"description": "Only present when `infer` is `false`, where processing is synchronous."
 										},
 										"status": {
 											"type": "string",
@@ -2052,9 +2053,8 @@
 									}
 								},
 								"example": {
-									"message": "Memory processing has been queued for background execution",
-									"status": "PENDING",
-									"event_id": "2c4d1f44-4f7b-4b2f-9f6e-7b5b4f5a1234"
+									"event_id": "2c4d1f44-4f7b-4b2f-9f6e-7b5b4f5a1234",
+									"status": "PENDING"
 								}
 							}
 						}

@@ -280,17 +280,34 @@ def test_delete(memory_instance):
 
 def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
-    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.list = Mock(side_effect=[(mock_memories, None), ([], None)])
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    memory_instance.vector_store.list.assert_called_with(
+        filters={"user_id": "test_user"}, top_k=1000
+    )
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_paginates_beyond_vector_store_page_size(memory_instance):
+    first_batch = [Mock(id=str(index)) for index in range(1000)]
+    second_batch = [Mock(id="1000")]
+    memory_instance.vector_store.list = Mock(
+        side_effect=[(first_batch, None), (second_batch, None), ([], None)]
+    )
+    memory_instance._delete_memory = Mock()
+
+    memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == 1001
+    assert memory_instance.vector_store.list.call_count == 3
 
 
 def test_get_all(memory_instance):
@@ -431,7 +448,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id="  alice  ")
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "alice"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "alice"}, top_k=1000
+        )
 
     def test_validate_coerces_non_string_entity_id(self):
         """Integer (and other non-string) ids are coerced to str, not crashed on."""
@@ -444,7 +463,9 @@ class TestEntityIdValidation:
 
         memory_instance.delete_all(user_id=42)
 
-        memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "42"})
+        memory_instance.vector_store.list.assert_called_once_with(
+            filters={"user_id": "42"}, top_k=1000
+        )
 
     def test_get_all_coerces_integer_user_id(self, memory_instance):
         """get_all should accept an integer user_id in filters and scope by its str form."""

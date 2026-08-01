@@ -36,11 +36,11 @@ Call `client.project.get()` to verify your connection. It should return your pro
 | User        | `user_id`  | Persistent persona or account                    | `"customer_6412"`   |
 | Agent       | `agent_id` | Distinct agent persona or tool                   | `"meal_planner"`    |
 | Application | `app_id`   | White-label app or product surface               | `"ios_retail_demo"` |
-| Session     | `run_id`   | Short-lived flow, ticket, or conversation thread | `"ticket-9241"`     |
+| Run         | `run_id`   | Short-lived flow, ticket, or session thread      | `"ticket-9241"`     |
 
-- **Writes** (`client.add`) accept any combination of these fields. Absent fields default to `null`.
-- **Reads** (`client.search`, `client.get_all`, exports, deletes) accept the same identifiers inside the `filters` JSON object.
-- **Implicit null scoping**: Passing only `{"user_id": "alice"}` automatically restricts results to records where `agent_id`, `app_id`, and `run_id` are `null`. Add wildcards (`"*"`), explicit lists, or additional filters when you need broader joins.
+- **Writes** (`client.add`) accept any combination of these fields. `app_id` and `run_id` are stored on every memory the call produces. `user_id` and `agent_id` behave differently on the default extraction path: each extracted fact is attributed to whoever stated it, so a record carries `user_id` or `agent_id`, not both. Absent fields default to `null`.
+- **Reads** (`client.search`, `client.get_all`, exports) accept the same identifiers inside the `filters` JSON object. Deletes (`client.delete_all`) scope via query parameters instead; the SDK builds these for you when you pass `user_id=...`, `run_id=...`, and so on.
+- **Unmentioned entities are not constrained**: Passing only `{"user_id": "alice"}` matches on `user_id` alone. It does not require `agent_id`, `app_id`, or `run_id` to be `null`, so records that also have those fields set are still returned.
 
 <Warning>
   **Common Pitfall**: If you create a memory with `user_id="alice"` but the other fields default to `null`, then search with `{"AND": [{"user_id": "alice"}, {"agent_id": "bot"}]}` will return nothing because you're looking for a memory where `agent_id="bot"`, not `null`.
@@ -78,7 +78,9 @@ client.add(
 The response will include one or more memory IDs. Check the dashboard → Memories to confirm the entry appears under the correct user, agent, app, and run.
 
 <Warning>
-Platform writes that include both `user_id` and `agent_id` (or other combinations) are persisted as separate records per entity so we can enforce privacy boundaries. Each record carries exactly one primary entity, which is why `{"AND": [{"user_id": ...}, {"agent_id": ...}]}` never returns results. Plan searches per entity scope or combine scopes with `OR`.
+Passing both `user_id` and `agent_id` to `client.add` does **not** produce records with both fields set. On the default extraction path, each extracted fact is attributed to the speaker who stated it: facts from `user` messages are stored with `user_id` set and `agent_id` null, facts from `assistant` messages with `agent_id` set and `user_id` null. `app_id` and `run_id` are carried on every record either way.
+
+As a result, `{"AND": [{"user_id": ...}, {"agent_id": ...}]}` returns nothing for memories created this way. Use `OR` to match either scope. Records with both fields populated only come from [Direct Import](/platform/features/direct-import) (`infer=False`), which writes your text verbatim without attribution splitting.
 </Warning>
 
 The HTTP equivalent uses `POST /v1/memories/` with the same identifiers in the JSON body. See the Add Memories API reference for REST details.
@@ -130,7 +132,7 @@ print(agent_results)
 ```
 
 <Tip icon="compass">
-Writes can include multiple identifiers, but searches resolve one entity space at a time. Query user scope *or* agent scope in a given call: combining both returns an empty list today.
+A search that `AND`s `user_id` **and** `agent_id` only matches records that have both fields set, which the default extraction path never produces. Use `OR` when you want either scope to match on its own.
 </Tip>
 
 <Tip icon="sparkles">
@@ -141,11 +143,11 @@ Want to experiment with AND/OR logic, nested operators, or wildcards? The <Link 
 ```python
 app_scope = {
     "AND": [
-        {"app_id": "concierge_portal"}
-    ],
-    "OR": [
-        {"user_id": "*"},
-        {"agent_id": "*"}
+        {"app_id": "concierge_portal"},
+        {"OR": [
+            {"user_id": "*"},
+            {"agent_id": "*"}
+        ]}
     ]
 }
 

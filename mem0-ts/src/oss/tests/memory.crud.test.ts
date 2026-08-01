@@ -649,6 +649,66 @@ describe("Memory - deleteAll()", () => {
       "At least one filter is required to delete all memories",
     );
   });
+
+  test("deletes past the vector store default page limit", async () => {
+    const mem = createMemory();
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    const pagedUserId = `deleteall_paged_${Date.now()}`;
+    const total = 150;
+
+    await internals.vectorStore.insert(
+      Array.from({ length: total }, () => new Array(1536).fill(0.1)),
+      Array.from({ length: total }, (_, index) => `paged-${index}`),
+      Array.from({ length: total }, (_, index) => ({
+        data: `Fact ${index}`,
+        hash: `hash-${index}`,
+        user_id: pagedUserId,
+        createdAt: new Date().toISOString(),
+      })),
+    );
+
+    const [before] = await internals.vectorStore.list(
+      { user_id: pagedUserId },
+      total * 2,
+    );
+    expect(before).toHaveLength(total);
+
+    const result = await mem.deleteAll({ userId: pagedUserId });
+    expect(result.message).toBe("Memories deleted successfully!");
+
+    const [after] = await internals.vectorStore.list(
+      { user_id: pagedUserId },
+      total * 2,
+    );
+    expect(after).toHaveLength(0);
+  }, 60000);
+
+  test("stops when the vector store keeps returning the same batch", async () => {
+    const mem = createMemory();
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    const stale = [
+      { id: "stale-1", payload: { data: "x", user_id: "u1" } },
+      { id: "stale-2", payload: { data: "x", user_id: "u1" } },
+    ];
+    const listSpy = jest
+      .spyOn(internals.vectorStore, "list")
+      .mockResolvedValueOnce([stale, stale.length])
+      .mockResolvedValueOnce([stale, stale.length])
+      .mockImplementation(async () => {
+        throw new Error("deleteAll should have stopped after a repeated batch");
+      });
+    const deleteSpy = jest
+      .spyOn(internals, "deleteMemory")
+      .mockResolvedValue("stale-1");
+
+    const result = await mem.deleteAll({ userId: "u1" });
+
+    expect(result.message).toBe("Memories deleted successfully!");
+    expect(listSpy).toHaveBeenCalledTimes(2);
+    expect(deleteSpy).toHaveBeenCalledTimes(2);
+  });
 });
 
 // ─── getAll() ────────────────────────────────────────────
