@@ -7,7 +7,13 @@ import {
   ValidationError,
   MemoryError,
 } from "../../common/exceptions";
-import { createMockFetch, TEST_API_KEY, TEST_HOST } from "./helpers";
+import {
+  createMockFetch,
+  TEST_API_KEY,
+  TEST_HOST,
+  TEST_ORG_ID,
+  TEST_PROJECT_ID,
+} from "./helpers";
 import {
   setupMockFetch,
   installConsoleSuppression,
@@ -102,6 +108,146 @@ describe("MemoryClient - ping()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(client.ping()).rejects.toThrow("API Key is invalid");
+  });
+});
+
+// ─── Single constructor ping (no per-call ping) ──────────
+
+describe("MemoryClient - single constructor ping", () => {
+  const countPings = (mock: jest.Mock) =>
+    mock.mock.calls.filter((c: [string, RequestInit]) =>
+      c[0].includes("/v1/ping/"),
+    ).length;
+
+  test("pings at most once across constructor and multiple API calls", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem_1/", { status: 200, body: { id: "mem_1" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.get("mem_1");
+    await client.get("mem_1");
+    await client.get("mem_1");
+
+    expect(countPings(mock)).toBe(1);
+  });
+
+  test("concurrent first calls do not trigger extra pings", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem_1/", { status: 200, body: { id: "mem_1" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await Promise.all([
+      client.get("mem_1"),
+      client.get("mem_1"),
+      client.get("mem_1"),
+    ]);
+
+    expect(countPings(mock)).toBe(1);
+  });
+
+  test("does not re-ping per call when ping returns no user_email", async () => {
+    const responses = new Map<string, { status: number; body: unknown }>();
+    responses.set("/v1/ping/", { status: 200, body: { status: "ok" } });
+    responses.set("/v1/memories/mem_1/", {
+      status: 200,
+      body: { id: "mem_1" },
+    });
+    const mock = createMockFetch(responses);
+    global.fetch = mock;
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.get("mem_1");
+    await client.get("mem_1");
+
+    expect(countPings(mock)).toBe(1);
+    expect(client.telemetryId).not.toBe("");
+  });
+
+  test("API calls still work when the ping endpoint is unavailable", async () => {
+    const responses = new Map<string, { status: number; body: unknown }>();
+    responses.set("/v1/ping/", { status: 500, body: "no ping here" });
+    responses.set("/v1/memories/mem_1/", {
+      status: 200,
+      body: { id: "mem_1" },
+    });
+    const mock = createMockFetch(responses);
+    global.fetch = mock;
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await expect(client.get("mem_1")).resolves.toEqual({ id: "mem_1" });
+    await client.get("mem_1");
+
+    expect(countPings(mock)).toBe(1);
+  });
+});
+
+// ─── lazyInit option ──────────────────────────────────
+
+describe("MemoryClient - lazyInit option", () => {
+  const countPings = (mock: jest.Mock) =>
+    mock.mock.calls.filter((c: [string, RequestInit]) =>
+      c[0].includes("/v1/ping/"),
+    ).length;
+
+  test("never calls /v1/ping/ and API calls work", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem_1/", { status: 200, body: { id: "mem_1" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({
+      apiKey: TEST_API_KEY,
+      lazyInit: true,
+    });
+    await expect(client.get("mem_1")).resolves.toEqual({ id: "mem_1" });
+    await client.get("mem_1");
+
+    expect(countPings(mock)).toBe(0);
+    expect(client.telemetryId).not.toBe("");
+  });
+
+  test("getProject resolves org/project ids with a single lazy ping", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/orgs/organizations/", {
+      status: 200,
+      body: { custom_instructions: "Be helpful" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({
+      apiKey: TEST_API_KEY,
+      lazyInit: true,
+    });
+    await client.getProject({ fields: ["custom_instructions"] });
+    await client.getProject({ fields: ["custom_instructions"] });
+
+    expect(countPings(mock)).toBe(1);
+    const call = mock.mock.calls.find((c: [string, RequestInit]) =>
+      c[0].includes("/api/v1/orgs/organizations/"),
+    );
+    expect(call![0]).toContain(
+      `/api/v1/orgs/organizations/${TEST_ORG_ID}/projects/${TEST_PROJECT_ID}/`,
+    );
+  });
+
+  test("explicit ping() still works as an escape hatch", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/api/v1/orgs/organizations/", {
+      status: 200,
+      body: { custom_instructions: "Be helpful" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({
+      apiKey: TEST_API_KEY,
+      lazyInit: true,
+    });
+    await client.ping();
+    await client.getProject({ fields: ["custom_instructions"] });
+
+    expect(countPings(mock)).toBe(1);
+    expect(client.telemetryId).toBe("test@example.com");
   });
 });
 
