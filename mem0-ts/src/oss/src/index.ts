@@ -23,6 +23,7 @@ export * from "./llms/ollama";
 export * from "./llms/lmstudio";
 export * from "./llms/mistral";
 export * from "./llms/langchain";
+export * from "./llms/orcarouter";
 export * from "./llms/litellm";
 export * from "./llms/vllm";
 export * from "./llms/aws_bedrock";

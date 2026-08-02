@@ -1,0 +1,83 @@
+---
+title: OrcaRouter
+description: "Configure OrcaRouter as an LLM provider in Mem0 with API key setup, routing strategies, and optional custom endpoint configuration."
+---
+
+[OrcaRouter](https://www.orcarouter.ai/) is an OpenAI-compatible API gateway that intelligently routes requests across multiple LLM providers (OpenAI, Anthropic, DeepSeek, MiniMax, etc.) with various routing strategies.
+
+To use OrcaRouter, set the `ORCAROUTER_API_KEY` environment variable. You can also optionally set `ORCAROUTER_API_BASE` if you need to use a different API endpoint (defaults to `https://api.orcarouter.ai/v1`).
+
+For more details, see the [OrcaRouter documentation](https://docs.orcarouter.ai).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["ORCAROUTER_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "your-api-key" # for embedder model
+
+config = {
+    "llm": {
+        "provider": "orcarouter",
+        "config": {
+            "model": "orcarouter/auto",  # default routing strategy
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "top_p": 1.0
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+## Using a Specific Model
+
+You can route requests to a specific model by specifying the provider and model name:
+
+```python
+config = {
+    "llm": {
+        "provider": "orcarouter",
+        "config": {
+            "model": "openai/gpt-4o",
+            "api_key": "your-api-key"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I prefer reading science fiction books.", user_id="alice")
+```
+
+## Custom Routing Strategy
+
+The default routing strategy is `orcarouter/auto`. You can specify a different strategy via the `model` parameter. See the [OrcaRouter documentation](https://docs.orcarouter.ai) for all available routing strategies.
+
+```python
+config = {
+    "llm": {
+        "provider": "orcarouter",
+        "config": {
+            "model": "orcarouter/auto",
+            "api_key": "your-api-key"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("I enjoy hiking on weekends.", user_id="alice")
+```
+
+## Config
+
+All available parameters for the `orcarouter` config are present in [Master List of All Params in Config](../config).
