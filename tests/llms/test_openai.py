@@ -464,3 +464,18 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_openai_llm_uses_configured_http_client():
+    """The OpenAI client must route through config.http_client when proxies are set.
+
+    Regression test for #6651 — previously the client was built without
+    http_client=, so the SDK's internal httpx client ignored http_client_proxies.
+    """
+    config = BaseLlmConfig(
+        model="gpt-4.1-nano-2025-04-14",
+        api_key="api_key",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    llm = OpenAILLM(config)
+    assert llm.client._client is llm.config.http_client
