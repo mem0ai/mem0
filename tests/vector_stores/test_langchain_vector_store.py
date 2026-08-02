@@ -371,6 +371,73 @@ def test_insert_passes_texts_alongside_embeddings_when_that_is_the_signature():
     }
 
 
+def test_insert_uses_the_keys_kwarg_when_the_store_spells_it_that_way():
+    """AzureSearch is the one store whose id parameter is ``keys``, not ``ids``.
+
+    Its real signature is ``(text_embeddings, metadatas=None, *, keys=None)`` --
+    keyword-only ``keys``, and no ``**kwargs`` to absorb a wrong name, so passing
+    ``ids`` raised ``TypeError: unexpected keyword argument 'ids'``. The double
+    below is deliberately no more permissive than the real method: the earlier
+    ``text_embeddings`` double grants itself ``ids`` and ``**kwargs``, which is
+    what let this through.
+    """
+
+    class AzureSearchLikeStore:
+        def add_embeddings(self, text_embeddings, metadatas=None, *, keys=None):
+            self.seen = dict(text_embeddings=list(text_embeddings), metadatas=metadatas, keys=keys)
+
+    client = AzureSearchLikeStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "text_embeddings": [("alice", [0.1, 0.2])],
+        "metadatas": [{"data": "alice"}],
+        "keys": ["e1"],
+    }
+
+
+def test_insert_omits_the_ids_when_add_embeddings_takes_no_id_parameter():
+    """A store that names neither ``ids`` nor ``keys`` must not be sent either."""
+
+    class NoIdParamStore:
+        def add_embeddings(self, text_embeddings, metadatas=None):
+            self.seen = dict(text_embeddings=list(text_embeddings), metadatas=metadatas)
+
+    client = NoIdParamStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "text_embeddings": [("alice", [0.1, 0.2])],
+        "metadatas": [{"data": "alice"}],
+    }
+
+
+def test_insert_falls_back_to_add_texts_when_the_permissive_call_is_rejected():
+    """The permissive branch is a guess about a signature we could not read.
+
+    It is reached by any store exposing ``embeddings`` without ``texts``, and by
+    anything unintrospectable. Letting its TypeError escape would reproduce the
+    exact crash this dispatch exists to prevent, so a rejection there falls
+    through to ``add_texts`` rather than reaching the caller.
+    """
+
+    class PermissiveButRejectingStore:
+        def add_embeddings(self, embeddings, metadatas=None, ids=None):
+            raise TypeError("simulated store rejection")
+
+        def add_texts(self, texts, metadatas=None, ids=None, **kwargs):
+            self.seen = dict(texts=list(texts), metadatas=metadatas, ids=ids)
+
+    client = PermissiveButRejectingStore()
+    Langchain(client=client, collection_name="c").insert([[0.1, 0.2]], [{"data": "alice"}], ["e1"])
+
+    assert client.seen == {
+        "texts": ["alice"],
+        "metadatas": [{"data": "alice"}],
+        "ids": ["e1"],
+    }
+
+
 def test_update_without_vector_never_stores_none_as_the_embedding(langchain_instance):
     """mem0 edits an entity's payload with update(vector=None) (Memory._upsert_entity).
 

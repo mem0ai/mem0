@@ -102,31 +102,46 @@ class Langchain(VectorStoreBase):
 
         if add_embeddings is not None:
             params = self._named_params(add_embeddings)
+            # The id parameter is not spelled the same everywhere: twelve stores
+            # call it ``ids``, AzureSearch calls it ``keys``, and AzureSearch is
+            # also the one store with no ``**kwargs`` to absorb the wrong name.
+            # So the name has to come from the signature too.
+            id_kwargs = self._id_kwargs(params, ids)
 
             # ``text_embeddings`` as (text, vector) pairs: FAISS, AzureSearch,
             # ElasticsearchStore, OpenSearchVectorSearch, ScaNN.
             if "text_embeddings" in params:
-                self.client.add_embeddings(text_embeddings=list(zip(texts, vectors)), metadatas=payloads, ids=ids)
+                self.client.add_embeddings(text_embeddings=list(zip(texts, vectors)), metadatas=payloads, **id_kwargs)
                 return
 
             # ``texts`` + ``embeddings``: PGVector, Neo4jVector, Lantern,
             # Hologres, Kinetica, PGEmbedding, TimescaleVector. ``texts`` is
             # required on all of them, so it must be passed.
             if "texts" in params and "embeddings" in params:
-                self.client.add_embeddings(texts=texts, embeddings=vectors, metadatas=payloads, ids=ids)
+                self.client.add_embeddings(texts=texts, embeddings=vectors, metadatas=payloads, **id_kwargs)
                 return
 
             # Unknown or unintrospectable signature (mocks, permissive wrappers):
-            # keep mem0's historical call shape.
+            # keep mem0's historical call shape. This is a guess about a shape we
+            # could not read, so a rejection here must not be the caller's
+            # problem -- fall through to ``add_texts`` instead of raising the
+            # very TypeError this dispatch exists to prevent.
             if not params or "embeddings" in params:
-                self.client.add_embeddings(embeddings=vectors, metadatas=payloads, ids=ids)
-                return
-
-            logger.debug(
-                "%s.add_embeddings has an unrecognised signature %s; using add_texts instead.",
-                type(self.client).__name__,
-                sorted(params),
-            )
+                try:
+                    self.client.add_embeddings(embeddings=vectors, metadatas=payloads, **id_kwargs)
+                    return
+                except TypeError:
+                    logger.debug(
+                        "%s.add_embeddings rejected mem0's call shape; using add_texts instead.",
+                        type(self.client).__name__,
+                        exc_info=True,
+                    )
+            else:
+                logger.debug(
+                    "%s.add_embeddings has an unrecognised signature %s; using add_texts instead.",
+                    type(self.client).__name__,
+                    sorted(params),
+                )
 
         # Fallback to add_texts method
         self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
@@ -134,6 +149,26 @@ class Langchain(VectorStoreBase):
     @staticmethod
     def _texts_from(payloads: Optional[List[Dict]], count: int) -> List[str]:
         return [payload.get("data", "") for payload in payloads] if payloads else [""] * count
+
+    @staticmethod
+    def _id_kwargs(params: set, ids: Optional[List[str]]) -> Dict:
+        """The keyword this store spells its id parameter with, if it takes one.
+
+        ``ids`` for twelve of the thirteen ``langchain_community`` stores that
+        define ``add_embeddings``; ``keys`` for AzureSearch. An empty set means
+        the signature could not be read, in which case ``ids`` is the historical
+        call shape and the caller guards the attempt.
+        """
+        if not params or "ids" in params:
+            return {"ids": ids}
+        if "keys" in params:
+            return {"keys": ids}
+        # Takes neither: passing the ids would be rejected by a store without
+        # ``**kwargs``, and silently swallowed by one with it. Dropping them is
+        # visible instead.
+        if ids:
+            logger.debug("add_embeddings takes no id parameter %s; ids are not forwarded.", sorted(params))
+        return {}
 
     @staticmethod
     def _named_params(method) -> set:
