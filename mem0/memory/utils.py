@@ -112,6 +112,33 @@ def normalize_facts(raw_facts):
     return normalized
 
 
+def normalize_extracted_memories(raw_memories):
+    """Normalize LLM-extracted memories to a list of ``{"text": ...}`` dicts.
+
+    The additive-extraction prompt asks for ``{"memory": [{"text": ...}, ...]}``,
+    but a model can return bare strings (``{"memory": ["fact one", "fact two"]}``)
+    or a single object instead of a list. Coercing here keeps one malformed
+    element from aborting the whole ingestion with an ``AttributeError`` when the
+    downstream code calls ``m.get("text")``. Mirrors :func:`normalize_facts`.
+    """
+    if not raw_memories:
+        return []
+    if isinstance(raw_memories, dict):
+        raw_memories = [raw_memories]
+    elif not isinstance(raw_memories, list):
+        return []
+    normalized = []
+    for item in raw_memories:
+        if isinstance(item, dict):
+            normalized.append(item)
+        elif isinstance(item, str):
+            if item.strip():
+                normalized.append({"text": item})
+        else:
+            logger.warning("Unexpected memory shape from LLM, skipping: %s", item)
+    return normalized
+
+
 def remove_code_blocks(content: str) -> str:
     """
     Removes enclosing code block markers ```[language] and ``` from a given string.

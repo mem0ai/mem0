@@ -53,6 +53,7 @@ from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
+    normalize_extracted_memories,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -938,6 +939,10 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
             extracted_memories = []
+
+        # Coerce bare-string / non-list extractions into {"text": ...} dicts so a
+        # single non-conforming element cannot abort the whole ingestion (#6724).
+        extracted_memories = normalize_extracted_memories(extracted_memories)
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2575,6 +2580,10 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
             extracted_memories = []
+
+        # Coerce bare-string / non-list extractions into {"text": ...} dicts so a
+        # single non-conforming element cannot abort the whole ingestion (#6724).
+        extracted_memories = normalize_extracted_memories(extracted_memories)
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
