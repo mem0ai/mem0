@@ -175,3 +175,27 @@ def test_format_results_for_context():
     assert "[decision]" in output
     assert "Use Postgres for auth" in output
     assert "abc12345" in output
+
+
+def test_global_search_filters_are_positively_scoped():
+    """Regression: the platform API rejects wildcard-only filters with
+    "filters must include at least one positively-scoped entity ID", so the
+    global_search path must anchor its OR with the caller's user_id."""
+    from _search import search_memories
+
+    captured_body = {}
+
+    def mock_urlopen(req, timeout=None):
+        captured_body.update(json.loads(req.data.decode()))
+        resp = MagicMock()
+        resp.read.return_value = json.dumps({"results": []}).encode()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        search_memories("test-key", "user1", "proj1", "anything", global_search=True)
+
+    clauses = captured_body["filters"]["OR"]
+    assert {"user_id": "user1"} in clauses
+    assert {"user_id": "*"} not in clauses

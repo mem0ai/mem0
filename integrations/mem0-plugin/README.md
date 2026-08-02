@@ -277,6 +277,10 @@ Once installed, the following tools are available:
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 
+### Global search scoping
+
+With `global_search` enabled in `~/.mem0/settings.json`, the plugin widens search and list filters beyond the current project. The widened filter is `{"OR": [{"user_id": <your user id>}, {"agent_id": "*"}]}` — the platform API requires at least one positively-scoped entity ID in every filter and rejects wildcard-only filters, so global search covers all of your user's memories across projects plus agent-scoped memories. It cannot span other user IDs on the same account.
+
 ## License
 
 Apache-2.0
