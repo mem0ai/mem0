@@ -130,6 +130,74 @@ class TestGetAllEntityParamRejection:
         )
 
 
+class TestGetAllPagination:
+    """page/page_size must reach the server as query params, not sit in the JSON body."""
+
+    @staticmethod
+    def _ok_response():
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        return mock_response
+
+    def test_get_all_sends_page_size_only_as_query_param(self, mock_memory_client):
+        """Passing only page_size (relying on page defaulting to 1) still goes to the query string."""
+        mock_memory_client.client.post.return_value = self._ok_response()
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page_size=5)
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["params"] == {"page_size": 5}
+        assert "page_size" not in kwargs["json"]
+
+    def test_get_all_sends_page_only_as_query_param(self, mock_memory_client):
+        """Passing only page goes to the query string, not the body."""
+        mock_memory_client.client.post.return_value = self._ok_response()
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page=2)
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["params"] == {"page": 2}
+        assert "page" not in kwargs["json"]
+
+    def test_get_all_sends_both_pagination_params_as_query(self, mock_memory_client):
+        """Both page and page_size still lift to the query string together."""
+        mock_memory_client.client.post.return_value = self._ok_response()
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page=2, page_size=5)
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["params"] == {"page": 2, "page_size": 5}
+        assert "page" not in kwargs["json"] and "page_size" not in kwargs["json"]
+
+    def test_get_all_without_pagination_sends_no_query_params(self, mock_memory_client):
+        """Without pagination the request carries no query params (unchanged behavior)."""
+        mock_memory_client.client.post.return_value = self._ok_response()
+
+        mock_memory_client.get_all(filters={"user_id": "u1"})
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert "params" not in kwargs
+
+    def test_async_get_all_sends_page_size_only_as_query_param(self):
+        """The async client lifts page_size the same way."""
+        asyncio.run(self._assert_async_page_size_query())
+
+    async def _assert_async_page_size_query(self):
+        from mem0.client.main import AsyncMemoryClient
+
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        client.async_client.post = AsyncMock(return_value=self._ok_response())
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get_all(filters={"user_id": "u1"}, page_size=5)
+
+        _, kwargs = client.async_client.post.call_args
+        assert kwargs["params"] == {"page_size": 5}
+        assert "page_size" not in kwargs["json"]
+
+
 class TestUpdateExpirationDate:
     """Tests for update expiration_date payload handling."""
 

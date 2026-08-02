@@ -275,11 +275,15 @@ class MemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        # Pagination is read from the query string by the server, so lift page
+        # and page_size out of the JSON body independently. Requiring both to be
+        # present (a caller may pass only page_size and rely on page defaulting
+        # to 1) left the provided value in the body, where it was ignored.
+        query_params = {}
+        for key in ("page", "page_size"):
+            if key in params:
+                query_params[key] = params.pop(key)
+        if query_params:
             response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = self.client.post("/v3/memories/", json=params)
@@ -1195,11 +1199,15 @@ class AsyncMemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        # Pagination is read from the query string by the server, so lift page
+        # and page_size out of the JSON body independently. Requiring both to be
+        # present (a caller may pass only page_size and rely on page defaulting
+        # to 1) left the provided value in the body, where it was ignored.
+        query_params = {}
+        for key in ("page", "page_size"):
+            if key in params:
+                query_params[key] = params.pop(key)
+        if query_params:
             response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = await self.async_client.post("/v3/memories/", json=params)
