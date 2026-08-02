@@ -175,3 +175,35 @@ def test_format_results_for_context():
     assert "[decision]" in output
     assert "Use Postgres for auth" in output
     assert "abc12345" in output
+
+
+def test_prefetch_top_k_defaults_to_five(monkeypatch):
+    """Regression for #6135: default preserves the previous hardcoded value."""
+    from _search import prefetch_top_k
+
+    monkeypatch.delenv("MEM0_PREFETCH_TOP_K", raising=False)
+    assert prefetch_top_k() == 5
+
+
+def test_prefetch_top_k_reads_env(monkeypatch):
+    """Regression for #6135: prefetch window is configurable via settings."""
+    from _search import prefetch_top_k
+
+    monkeypatch.setenv("MEM0_PREFETCH_TOP_K", "25")
+    assert prefetch_top_k() == 25
+
+
+def test_prefetch_top_k_invalid_values_fall_back(monkeypatch):
+    from _search import prefetch_top_k
+
+    for garbage in ("", "abc", "5.5", "  "):
+        monkeypatch.setenv("MEM0_PREFETCH_TOP_K", garbage)
+        assert prefetch_top_k() == 5, garbage
+
+
+def test_prefetch_top_k_clamps_to_at_least_one(monkeypatch):
+    from _search import prefetch_top_k
+
+    for low in ("0", "-3"):
+        monkeypatch.setenv("MEM0_PREFETCH_TOP_K", low)
+        assert prefetch_top_k() == 1, low

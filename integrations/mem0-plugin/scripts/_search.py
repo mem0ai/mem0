@@ -12,6 +12,7 @@ import urllib.request
 
 SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
 SEARCH_TIMEOUT = 5
+PREFETCH_TOP_K_DEFAULT = 5
 
 
 def should_rerank() -> bool:
@@ -30,6 +31,15 @@ def should_rerank() -> bool:
     if raw is None:
         return True
     return raw.strip().lower() not in ("0", "false", "no", "off", "")
+
+
+def prefetch_top_k() -> int:
+    """Prefetch injection count from MEM0_PREFETCH_TOP_K (settings ``prefetch_top_k``); default 5, min 1."""
+    raw = os.environ.get("MEM0_PREFETCH_TOP_K", "")
+    try:
+        return max(1, int(raw.strip()))
+    except ValueError:
+        return PREFETCH_TOP_K_DEFAULT
 
 
 def _do_search(api_key: str, payload: dict) -> list[dict]:

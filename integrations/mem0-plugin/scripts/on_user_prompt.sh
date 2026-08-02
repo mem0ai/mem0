@@ -156,19 +156,19 @@ fi
 # Query-driven prefetch: search mem0 with the current prompt and inject the top
 # matches so relevant memories are guaranteed in context, not left for the agent
 # to fetch. Skipped on resume (handled above with targeted queries) and when
-# MEM0_PREFETCH=false.
+# MEM0_PREFETCH=false. Match count: prefetch_top_k setting (default 5).
 if [ -z "$HAS_RESUME" ] && [ "${MEM0_PREFETCH:-true}" != "false" ]; then
   PREFETCH_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" MEM0_SEARCH_QUERY="$PROMPT" python3 -c "
 import os, sys
 sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
-from _search import search_memories, format_results_for_context, should_rerank
+from _search import search_memories, format_results_for_context, should_rerank, prefetch_top_k
 
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_SEARCH_USER', 'default')
 project_id = os.environ.get('MEM0_PROJECT_ID', 'unknown')
 query = os.environ.get('MEM0_SEARCH_QUERY', '')
 
-results = search_memories(api_key, user_id, project_id, query, top_k=5, rerank=should_rerank())
+results = search_memories(api_key, user_id, project_id, query, top_k=prefetch_top_k(), rerank=should_rerank())
 if results:
     print(format_results_for_context(results, heading='Relevant memories (auto-retrieved for this request)'))
 " 2>/dev/null || echo "")

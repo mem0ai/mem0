@@ -283,7 +283,7 @@ export async function recall(
       sessionMemories = await provider.search(cleanQuery, {
         ...searchOpts,
         run_id: sessionId,
-        top_k: 5,
+        top_k: maxMemories,
       });
     } catch {
       // Session search failure is non-critical
