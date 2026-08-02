@@ -505,3 +505,4 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
 - [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm_reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero_entropy) [OSS]: Use for the Zero Entropy reranker.
+- [AWS Bedrock Reranker](https://docs.mem0.ai/components/rerankers/models/aws_bedrock) [OSS]: Use for the Bedrock Rerank API (Cohere Rerank / Amazon Rerank via IAM auth).

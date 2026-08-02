@@ -15,11 +15,14 @@ from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.llms.xai import XAIConfig
+from mem0.configs.rerankers.aws_bedrock import AWSBedrockRerankerConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
 from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
 from mem0.configs.rerankers.llm import LLMRerankerConfig
-from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
+from mem0.configs.rerankers.sentence_transformer import (
+    SentenceTransformerRerankerConfig,
+)
 from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
 from mem0.embeddings.mock import MockEmbeddings
 
@@ -237,6 +240,7 @@ class RerankerFactory:
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
+        "aws_bedrock": ("mem0.reranker.aws_bedrock_reranker.AWSBedrockReranker", AWSBedrockRerankerConfig),
     }
 
     @classmethod
