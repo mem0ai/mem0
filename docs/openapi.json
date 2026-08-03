@@ -2276,12 +2276,6 @@
 												},
 												"description": "Categories associated with the memory"
 											},
-											"immutable": {
-												"type": "boolean",
-												"description": "Whether the memory is immutable.",
-												"title": "Immutable",
-												"default": false
-											},
 											"expiration_date": {
 												"type": "string",
 												"format": "date",
@@ -2299,6 +2293,26 @@
 												"type": "string",
 												"format": "date-time",
 												"description": "The timestamp when the memory was last updated."
+											},
+											"score": {
+												"type": "number",
+												"format": "float",
+												"minimum": 0,
+												"maximum": 1,
+												"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
+											},
+											"agent_id": {
+												"type": "string",
+												"nullable": true
+											},
+											"app_id": {
+												"type": "string",
+												"nullable": true
+											},
+											"session_id": {
+												"type": "string",
+												"nullable": true,
+												"description": "Run/session the memory is scoped to. Note: this endpoint returns this field as `session_id`, matching `POST /v3/memories/`."
 											}
 										},
 										"required": [
@@ -2406,12 +2420,16 @@
 									},
 									"categories": {
 										"type": "array",
-										"items": {"type": "string"},
+										"items": {
+											"type": "string"
+										},
 										"description": "Restrict results to memories tagged with any of these categories."
 									},
 									"fields": {
 										"type": "array",
-										"items": {"type": "string"},
+										"items": {
+											"type": "string"
+										},
 										"description": "Restrict the fields returned per memory, e.g. [\"id\", \"memory\"]."
 									},
 									"keywords": {
@@ -4999,7 +5017,7 @@
 											},
 											"name": {
 												"type": "string",
-												"description": "Name of the project."
+												"description": "Name of the project"
 											},
 											"description": {
 												"type": "string",
@@ -5027,10 +5045,97 @@
 														"role": {
 															"type": "string",
 															"description": "Role of the member in the project."
+														},
+														"email": {
+															"type": "string",
+															"description": "Email address of the project member."
 														}
 													}
 												},
-												"description": "List of members belonging to the project."
+												"description": "List of members belonging to the project"
+											},
+											"usecase": {
+												"type": "string",
+												"nullable": true,
+												"description": "Configured use case for the project."
+											},
+											"memory_depth": {
+												"type": "string",
+												"description": "Memory extraction depth setting for this project."
+											},
+											"inclusion_prompt": {
+												"type": "string",
+												"nullable": true,
+												"description": "Custom prompt describing what should be included when extracting memories."
+											},
+											"exclusion_prompt": {
+												"type": "string",
+												"nullable": true,
+												"description": "Custom prompt describing what should be excluded when extracting memories."
+											},
+											"custom_categories": {
+												"type": "array",
+												"items": {
+													"type": "object"
+												},
+												"description": "List of custom categories configured for memory categorization in this project."
+											},
+											"custom_instructions": {
+												"type": "string",
+												"description": "Custom instructions for memory processing in this project."
+											},
+											"update_custom_instructions": {
+												"type": "string",
+												"nullable": true,
+												"description": "Custom instructions applied when updating existing memories."
+											},
+											"summary_custom_instructions": {
+												"type": "string",
+												"nullable": true,
+												"description": "Custom instructions applied when generating summaries."
+											},
+											"summary_batch_size": {
+												"type": "integer",
+												"description": "Number of items processed per batch when generating summaries."
+											},
+											"summary_max_tokens": {
+												"type": "integer",
+												"nullable": true,
+												"description": "Maximum tokens allowed in a generated summary."
+											},
+											"expiration_date": {
+												"type": "string",
+												"nullable": true,
+												"description": "Default expiration date applied to memories created in this project."
+											},
+											"enable_graph": {
+												"type": "boolean",
+												"description": "Whether graph memory is enabled for this project."
+											},
+											"multilingual": {
+												"type": "boolean",
+												"description": "Whether to use the input language for memory storage and retrieval."
+											},
+											"version": {
+												"type": "string",
+												"description": "API version used by this project."
+											},
+											"is_default": {
+												"type": "boolean",
+												"description": "Whether this is the organization's default project."
+											},
+											"active_prompt_profile": {
+												"type": "string",
+												"nullable": true,
+												"description": "Identifier of the active prompt profile for this project."
+											},
+											"decay": {
+												"type": "boolean",
+												"description": "Whether memory decay is enabled for this project."
+											},
+											"user_role": {
+												"type": "string",
+												"description": "Role of the requesting user within this project."
 											}
 										}
 									}
@@ -6537,10 +6642,12 @@
 							"application/json": {
 								"schema": {
 									"type": "object",
-									"properties": {
-										"error": {
-											"type": "string"
-										}
+									"description": "Field-keyed validation errors. Each key is a request field name; the value is an array of message strings or a nested object of messages.",
+									"additionalProperties": true,
+									"example": {
+										"name": [
+											"This field is required."
+										]
 									}
 								}
 							}
@@ -6670,10 +6777,12 @@
 							"application/json": {
 								"schema": {
 									"type": "object",
-									"properties": {
-										"error": {
-											"type": "string"
-										}
+									"description": "Field-keyed validation errors. Each key is a request field name; the value is an array of message strings or a nested object of messages.",
+									"additionalProperties": true,
+									"example": {
+										"name": [
+											"This field is required."
+										]
 									}
 								}
 							}
