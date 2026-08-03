@@ -1757,6 +1757,11 @@
 												"nullable": true,
 												"description": "User the memory is scoped to."
 											},
+											"agent_id": {
+												"type": "string",
+												"nullable": true,
+												"description": "Agent the memory is scoped to."
+											},
 											"app_id": {
 												"type": "string",
 												"nullable": true,
@@ -2474,6 +2479,11 @@
 														"nullable": true,
 														"description": "User the memory is scoped to."
 													},
+													"agent_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "Agent the memory is scoped to."
+													},
 													"app_id": {
 														"type": "string",
 														"nullable": true,
@@ -2483,13 +2493,6 @@
 														"type": "string",
 														"nullable": true,
 														"description": "Run/session the memory is scoped to. Note: this endpoint returns this field as `session_id`, while `POST /v3/memories/search/` returns the same value as `run_id`."
-													},
-													"score": {
-														"type": "number",
-														"format": "float",
-														"minimum": 0,
-														"maximum": 1,
-														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
 													},
 													"metadata": {
 														"type": "object",
@@ -4990,10 +4993,6 @@
 									"items": {
 										"type": "object",
 										"properties": {
-											"id": {
-												"type": "integer",
-												"description": "Unique numeric identifier of the project"
-											},
 											"project_id": {
 												"type": "string",
 												"description": "Unique string identifier of the project"
@@ -5223,10 +5222,6 @@
 								"schema": {
 									"type": "object",
 									"properties": {
-										"id": {
-											"type": "integer",
-											"description": "Unique numeric identifier of the project"
-										},
 										"project_id": {
 											"type": "string",
 											"description": "Unique string identifier of the project"
