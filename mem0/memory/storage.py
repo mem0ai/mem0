@@ -283,7 +283,7 @@ class SQLiteManager:
                     """
                     DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
                         SELECT id FROM (
-                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC, rowid DESC LIMIT 10
                         )
                     )
                 """,
@@ -302,12 +302,12 @@ class SQLiteManager:
             cur = self.connection.execute(
                 """
                 SELECT role, content, name, created_at FROM (
-                    SELECT role, content, name, created_at
+                    SELECT role, content, name, created_at, rowid
                     FROM messages
                     WHERE session_scope = ?
-                    ORDER BY created_at DESC
+                    ORDER BY created_at DESC, rowid DESC
                     LIMIT ?
-                ) ORDER BY created_at ASC
+                ) ORDER BY created_at ASC, rowid ASC
             """,
                 (session_scope, limit),
             )
