@@ -451,6 +451,17 @@ class TestSearchParamValidation:
         with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
             memory_instance.search("test query", filters={"user_id": "test"}, threshold=-0.5)
 
+    def test_search_rejects_nan_threshold(self, memory_instance):
+        """Search should reject NaN threshold before any embedding/vector-store work."""
+        memory_instance.embedding_model.embed = Mock()
+
+        with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
+            memory_instance.search(
+                "test query", filters={"user_id": "test"}, threshold=float("nan")
+            )
+
+        memory_instance.embedding_model.embed.assert_not_called()
+
     def test_search_rejects_negative_top_k(self, memory_instance):
         """Search should reject negative top_k."""
         with pytest.raises(ValueError, match="Invalid top_k.*Must be a non-negative"):
