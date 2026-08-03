@@ -507,9 +507,8 @@ export class OracleAIVectorSearch implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
-    await this.withConnection(
-      (connection) =>
-        connection.execute(`DROP TABLE IF EXISTS ${this.collectionName} PURGE`),
+    await this.withConnection((connection) =>
+      connection.execute(`DROP TABLE IF EXISTS ${this.collectionName} PURGE`),
     );
   }
 
