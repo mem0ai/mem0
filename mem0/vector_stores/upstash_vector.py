@@ -161,11 +161,7 @@ class UpstashVector(VectorStoreBase):
             List[OutputData]: Search results, or None if sparse/BM25 search is not supported.
         """
         try:
-            filters_str = (
-                " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
-                if filters
-                else None
-            )
+            filters_str = " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()]) if filters else None
 
             response = self.client.query(
                 data=query,
@@ -267,7 +263,7 @@ class UpstashVector(VectorStoreBase):
             filter=filters_str or "",
             include_metadata=True,
             namespace=self.collection_name,
-            top_k=100,
+            top_k=top_k,
         )
         with query:
             while True:
@@ -277,6 +273,8 @@ class UpstashVector(VectorStoreBase):
                 if not res:
                     break
                 results.extend(res)
+
+        results = results[:top_k]
 
         parsed_result = [
             OutputData(
