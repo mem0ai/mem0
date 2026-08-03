@@ -1219,6 +1219,15 @@
 						"description": "Number of items per page. Default: 100."
 					},
 					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"maximum": 200
+						},
+						"description": "Maximum number of memories to return. Maximum accepted value: 200. Ignored when both `page` and `page_size` are supplied."
+					},
+					{
 						"name": "start_date",
 						"in": "query",
 						"schema": {
@@ -1416,11 +1425,44 @@
 						"content": {
 							"application/json": {
 								"schema": {
+									"oneOf": [
+										{
+											"type": "array",
+											"description": "Returned when none of the required filters (app_id, user_id, agent_id, run_id) is supplied.",
+											"items": {
+												"type": "string"
+											},
+											"example": [
+												"One of the filters: app_id, user_id, agent_id, run_id is required!"
+											]
+										},
+										{
+											"type": "object",
+											"description": "Returned when the `limit` query parameter is invalid.",
+											"properties": {
+												"error": {
+													"type": "string"
+												}
+											},
+											"example": {
+												"error": "limit must be <= 200"
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Not Found.",
+						"content": {
+							"application/json": {
+								"schema": {
 									"type": "object",
 									"properties": {
-										"message": {
+										"detail": {
 											"type": "string",
-											"example": "One of the filters: app_id, user_id, agent_id, run_id is required!"
+											"example": "Invalid page."
 										}
 									}
 								}
