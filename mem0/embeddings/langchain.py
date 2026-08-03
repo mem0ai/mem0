@@ -33,3 +33,20 @@ class LangchainEmbedding(EmbeddingBase):
         """
 
         return self.langchain_model.embed_query(text)
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts using Langchain's native batch API.
+
+        Uses embed_documents() which is optimized for batch operations,
+        avoiding the sequential per-text overhead of the base class fallback.
+
+        Args:
+            texts: List of text strings to embed.
+            memory_action: The action context ("add", "search", "update").
+
+        Returns:
+            List of embedding vectors (list of floats), one per input text.
+        """
+        if not texts:
+            return []
+        return self.langchain_model.embed_documents(texts)

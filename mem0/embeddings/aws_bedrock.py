@@ -108,3 +108,41 @@ class AWSBedrockEmbedding(EmbeddingBase):
             list: The embedding vector.
         """
         return self._get_embedding(text)
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts using AWS Bedrock.
+
+        Cohere models natively support batch embedding via their ``texts``
+        list field, so all inputs are sent in a single API call.  Titan and
+        other Amazon models only accept one text per invocation, so they
+        fall back to sequential calls.
+
+        Args:
+            texts: List of text strings to embed.
+            memory_action: The action context ("add", "search", "update").
+
+        Returns:
+            List of embedding vectors (list of floats), one per input text.
+        """
+        if not texts:
+            return []
+
+        provider = self.config.model.split(".")[0]
+
+        if provider == "cohere":
+            input_body = {"input_type": "search_document", "texts": texts}
+            body = json.dumps(input_body)
+            try:
+                response = self.client.invoke_model(
+                    body=body,
+                    modelId=self.config.model,
+                    accept="application/json",
+                    contentType="application/json",
+                )
+                response_body = json.loads(response.get("body").read())
+                return response_body.get("embeddings")
+            except Exception as e:
+                raise ValueError(f"Error getting batch embeddings from AWS Bedrock (Cohere): {e}")
+        else:
+            # Titan and other providers: sequential calls (no native batch API)
+            return [self._get_embedding(text) for text in texts]
