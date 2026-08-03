@@ -17,12 +17,13 @@ def mock_memory_client():
         mock_http_client = MagicMock()
         mock_http_client.get.return_value = MagicMock(
             json=lambda: {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"},
-            raise_for_status=lambda: None
+            raise_for_status=lambda: None,
         )
         mock_httpx.return_value = mock_http_client
 
         with patch("mem0.client.main.capture_client_event"):
             from mem0.client.main import MemoryClient
+
             client = MemoryClient(api_key="test-api-key")
             yield client
 
@@ -155,13 +156,11 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_and_filters(self, mock_memory_client):
         """search() should pass AND filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
         mock_memory_client.search(
-            "test query",
-            filters={"AND": [{"user_id": "u1"}, {"created_at": {"gte": "2024-01-01"}}]}
+            "test query", filters={"AND": [{"user_id": "u1"}, {"created_at": {"gte": "2024-01-01"}}]}
         )
 
         # Verify the POST was called with filters intact
@@ -172,14 +171,10 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_or_filters(self, mock_memory_client):
         """search() should pass OR filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
-        mock_memory_client.search(
-            "test query",
-            filters={"OR": [{"user_id": "u1"}, {"agent_id": "a1"}]}
-        )
+        mock_memory_client.search("test query", filters={"OR": [{"user_id": "u1"}, {"agent_id": "a1"}]})
 
         call_args = mock_memory_client.client.post.call_args
         payload = call_args.kwargs.get("json", call_args.args[1] if len(call_args.args) > 1 else {})
@@ -188,13 +183,11 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_not_filters(self, mock_memory_client):
         """search() should pass NOT filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
         mock_memory_client.search(
-            "test query",
-            filters={"AND": [{"user_id": "u1"}, {"NOT": {"categories": {"in": ["spam"]}}}]}
+            "test query", filters={"AND": [{"user_id": "u1"}, {"NOT": {"categories": {"in": ["spam"]}}}]}
         )
 
         call_args = mock_memory_client.client.post.call_args
@@ -204,15 +197,14 @@ class TestFilterOperatorPassthrough:
     def test_search_passes_complex_nested_filters(self, mock_memory_client):
         """search() should pass complex nested AND/OR/NOT filters to the API."""
         mock_memory_client.client.post.return_value = MagicMock(
-            json=lambda: {"results": []},
-            raise_for_status=lambda: None
+            json=lambda: {"results": []}, raise_for_status=lambda: None
         )
 
         complex_filter = {
             "AND": [
                 {"user_id": "u1"},
                 {"created_at": {"gte": "2024-01-01"}},
-                {"NOT": {"OR": [{"categories": {"in": ["spam"]}}, {"categories": {"in": ["test"]}}]}}
+                {"NOT": {"OR": [{"categories": {"in": ["spam"]}}, {"categories": {"in": ["test"]}}]}},
             ]
         }
         mock_memory_client.search("test query", filters=complex_filter)
@@ -291,9 +283,7 @@ class TestPathSegmentEncoding:
 
         mock_memory_client.delete_users(user_id="org/team?active#frag")
 
-        assert mock_memory_client.client.delete.call_args.args[0] == (
-            "/v2/entities/user/org%2Fteam%3Factive%23frag/"
-        )
+        assert mock_memory_client.client.delete.call_args.args[0] == ("/v2/entities/user/org%2Fteam%3Factive%23frag/")
 
     def test_async_memory_id_path_segments_are_encoded(self):
         asyncio.run(self._assert_async_memory_id_path_segments_are_encoded())
@@ -333,9 +323,7 @@ class TestPathSegmentEncoding:
         with patch("mem0.client.main.capture_client_event"):
             await client.delete_users(user_id="org/team?active#frag")
 
-        assert client.async_client.delete.call_args.args[0] == (
-            "/v2/entities/user/org%2Fteam%3Factive%23frag/"
-        )
+        assert client.async_client.delete.call_args.args[0] == ("/v2/entities/user/org%2Fteam%3Factive%23frag/")
 
 
 class TestValidateApiKeyHttpError:
@@ -389,3 +377,76 @@ class TestValidateApiKeyHttpError:
 
         assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestHostEnvFallback:
+    """MemoryClient/AsyncMemoryClient must honor MEM0_HOST / MEM0_API_URL.
+
+    Regression for #6622: host resolution is
+    ``host arg > MEM0_HOST > MEM0_API_URL > https://api.mem0.ai``.
+    """
+
+    def _ping_response(self):
+        resp = MagicMock()
+        resp.json.return_value = {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"}
+        resp.raise_for_status.return_value = None
+        return resp
+
+    def _make_sync(self, **kw):
+        http_client = MagicMock()
+        http_client.get.return_value = self._ping_response()
+        with patch("mem0.client.main.httpx.Client", return_value=http_client) as mock_httpx:
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import MemoryClient
+
+                client = MemoryClient(api_key="test-api-key", **kw)
+        return client, mock_httpx
+
+    def _client_base_url(self, mock_httpx):
+        return str(mock_httpx.call_args.kwargs["base_url"])
+
+    def test_default_host_when_no_env(self, monkeypatch):
+        monkeypatch.delenv("MEM0_HOST", raising=False)
+        monkeypatch.delenv("MEM0_API_URL", raising=False)
+        client, mock_httpx = self._make_sync()
+        assert client.host == "https://api.mem0.ai"
+        assert self._client_base_url(mock_httpx) == "https://api.mem0.ai"
+
+    def test_mem0_host_env_is_used(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://mem0-proxy.example.com")
+        monkeypatch.delenv("MEM0_API_URL", raising=False)
+        client, mock_httpx = self._make_sync()
+        assert client.host == "https://mem0-proxy.example.com"
+        assert self._client_base_url(mock_httpx) == "https://mem0-proxy.example.com"
+
+    def test_mem0_api_url_env_is_used(self, monkeypatch):
+        monkeypatch.delenv("MEM0_HOST", raising=False)
+        monkeypatch.setenv("MEM0_API_URL", "https://api.example.com")
+        client, mock_httpx = self._make_sync()
+        assert client.host == "https://api.example.com"
+        assert self._client_base_url(mock_httpx) == "https://api.example.com"
+
+    def test_host_arg_beats_env(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://mem0-proxy.example.com")
+        client, mock_httpx = self._make_sync(host="https://explicit.example.com")
+        assert client.host == "https://explicit.example.com"
+        assert self._client_base_url(mock_httpx) == "https://explicit.example.com"
+
+    def test_mem0_host_beats_mem0_api_url(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://mem0-proxy.example.com")
+        monkeypatch.setenv("MEM0_API_URL", "https://api.example.com")
+        client, mock_httpx = self._make_sync()
+        assert client.host == "https://mem0-proxy.example.com"
+        assert self._client_base_url(mock_httpx) == "https://mem0-proxy.example.com"
+
+    def test_async_mem0_host_env_is_used(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://mem0-proxy.example.com")
+        async_http_client = AsyncMock()
+        with patch("mem0.client.main.httpx.AsyncClient", return_value=async_http_client) as mock_httpx:
+            with patch("mem0.client.main.requests.get", return_value=self._ping_response()):
+                with patch("mem0.client.main.capture_client_event"):
+                    from mem0.client.main import AsyncMemoryClient
+
+                    client = AsyncMemoryClient(api_key="test-api-key")
+        assert client.host == "https://mem0-proxy.example.com"
+        assert str(mock_httpx.call_args.kwargs["base_url"]) == "https://mem0-proxy.example.com"
