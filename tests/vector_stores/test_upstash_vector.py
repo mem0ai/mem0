@@ -144,7 +144,7 @@ def test_list_vectors(upstash_instance):
         filter='age = 30 AND name = "John"',
         include_metadata=True,
         namespace="ns",
-        top_k=100,
+        top_k=15,
     )
 
     handler.fetch_next.assert_has_calls([call(100), call(100), call(100)])
@@ -153,6 +153,37 @@ def test_list_vectors(upstash_instance):
     assert len(results) == len(mock_result)
     assert results[0].id == "id1"
     assert results[0].payload == {"name": "vector1"}
+
+
+def test_list_respects_top_k(upstash_instance):
+    """list() must never return more rows than the requested top_k.
+
+    Previously resumable_query hardcoded top_k=100 and results were never
+    sliced, so list(top_k=5) returned up to 100 rows and list(top_k=250)
+    overshot to ~300.
+    """
+    mock_results = [
+        QueryResult(id=f"id{i}", score=None, vector=None, metadata={"name": f"vector{i}"}, data=None) for i in range(20)
+    ]
+    handler = MagicMock()
+
+    upstash_instance.client.info.return_value.dimension = 10
+    upstash_instance.client.resumable_query.return_value = (mock_results[0:5], handler)
+    handler.fetch_next.side_effect = [mock_results[5:20], []]
+
+    [results] = upstash_instance.list(filters=None, top_k=10)
+
+    upstash_instance.client.resumable_query.assert_called_once_with(
+        vector=[1.0] * 10,
+        filter="",
+        include_metadata=True,
+        namespace="ns",
+        top_k=10,
+    )
+    # 5 from the initial query + 15 fetched, but only 10 requested are returned.
+    assert len(results) == 10
+    assert results[0].id == "id0"
+    assert results[9].id == "id9"
 
 
 def test_insert_vectors_with_embeddings(upstash_instance_with_embeddings, mock_index):
