@@ -43,6 +43,15 @@ def test_ensure_model_exists(mock_ollama_client):
     mock_ollama_client.pull.assert_called_once_with("nomic-embed-text")
 
 
+def test_default_embedding_dims_matches_default_model(mock_ollama_client):
+    """Default embedding_dims must match the default model nomic-embed-text (768 dims)."""
+    config = BaseEmbedderConfig()
+    embedder = OllamaEmbedding(config)
+
+    assert embedder.config.model == "nomic-embed-text"
+    assert embedder.config.embedding_dims == 768
+
+
 def test_ensure_model_exists_normalizes_latest_tag(mock_ollama_client):
     """Model 'nomic-embed-text' should match 'nomic-embed-text:latest' from ollama list."""
     mock_ollama_client.list.return_value = {"models": [{"name": "nomic-embed-text:latest"}]}
