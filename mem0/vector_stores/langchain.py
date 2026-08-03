@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Dict, List, Optional
 
@@ -26,8 +27,8 @@ class OutputData(BaseModel):
 # but exposed by several concrete implementations.
 _SCORED_BY_VECTOR_METHODS = [
     "similarity_search_by_vector_with_relevance_scores",  # Chroma
-    "similarity_search_with_score_by_vector",             # FAISS, Qdrant
-    "similarity_search_by_vector_with_score",             # Pinecone, YDB
+    "similarity_search_with_score_by_vector",  # FAISS, Qdrant
+    "similarity_search_by_vector_with_score",  # Pinecone, YDB
 ]
 
 
@@ -86,20 +87,37 @@ class Langchain(VectorStoreBase):
         self.collection_name = name
         return self.client
 
+    def _insert_add_texts(self, payloads, vectors, ids):
+        """Insert via add_texts, letting the store embed the text itself."""
+        texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
+        self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
+
     def insert(
         self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None
     ):
         """
         Insert vectors into the LangChain vectorstore.
         """
-        # Check if client has add_embeddings method
-        if hasattr(self.client, "add_embeddings"):
-            # Some LangChain vectorstores have a direct add_embeddings method
-            self.client.add_embeddings(embeddings=vectors, metadatas=payloads, ids=ids)
-        else:
-            # Fallback to add_texts method
-            texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
-            self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
+        add_embeddings = getattr(self.client, "add_embeddings", None)
+        if add_embeddings is not None:
+            # Concrete add_embeddings signatures vary: FAISS/OpenSearch take
+            # text_embeddings=[(text, vector), ...], PGVector-family take
+            # texts= + embeddings=. Dispatch on the actual parameter names
+            # instead of assuming a single call shape.
+            params = inspect.signature(add_embeddings).parameters
+            if "text_embeddings" in params:
+                text_embeddings = [
+                    (payload.get("data", "") if payload else "", vector)
+                    for payload, vector in zip(payloads or [None] * len(vectors), vectors)
+                ]
+                add_embeddings(text_embeddings=text_embeddings, metadatas=payloads, ids=ids)
+                return
+            if "texts" in params:
+                texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
+                add_embeddings(texts=texts, embeddings=vectors, metadatas=payloads, ids=ids)
+                return
+            # Unknown signature: fall through to add_texts so insert still works.
+        self._insert_add_texts(payloads, vectors, ids)
 
     def search(self, query: str, vectors: List[List[float]], top_k: int = 5, filters: Optional[Dict] = None):
         """
@@ -151,6 +169,10 @@ class Langchain(VectorStoreBase):
         Update a vector and its payload.
         """
         self.delete(vector_id)
+        if vector is None:
+            # No pre-computed vector: let the store embed the text itself.
+            self._insert_add_texts([payload], [None], [vector_id])
+            return
         self.insert([vector], [payload], [vector_id])
 
     def get(self, vector_id):

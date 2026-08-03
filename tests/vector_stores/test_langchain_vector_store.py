@@ -18,19 +18,54 @@ def langchain_instance(mock_langchain_client):
     return Langchain(client=mock_client, collection_name="test_collection")
 
 
+class FakeFAISSLikeClient:
+    """Fake LangChain store whose add_embeddings matches FAISS/OpenSearch's real
+    signature: text_embeddings=[(text, vector), ...]."""
+
+    def __init__(self):
+        self.calls = []
+
+    def add_embeddings(self, text_embeddings, metadatas=None, ids=None, **kwargs):
+        self.calls.append(("add_embeddings", text_embeddings, metadatas, ids))
+
+    def add_texts(self, texts, metadatas=None, ids=None, **kwargs):
+        self.calls.append(("add_texts", texts, metadatas, ids))
+
+
+class FakePGVectorLikeClient:
+    """Fake LangChain store whose add_embeddings matches PGVector's real
+    signature: texts= + embeddings=, both required."""
+
+    def __init__(self):
+        self.calls = []
+
+    def add_embeddings(self, texts, embeddings, metadatas=None, ids=None, **kwargs):
+        self.calls.append(("add_embeddings", texts, embeddings, metadatas, ids))
+
+    def add_texts(self, texts, metadatas=None, ids=None, **kwargs):
+        self.calls.append(("add_texts", texts, metadatas, ids))
+
+
 def test_insert_vectors(langchain_instance):
     # Test data
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
     payloads = [{"data": "text1", "name": "vector1"}, {"data": "text2", "name": "vector2"}]
     ids = ["id1", "id2"]
 
-    # Test with add_embeddings method
-    langchain_instance.client.add_embeddings = Mock()
+    # FAISS-family signature: add_embeddings(text_embeddings=[(text, vec), ...])
+    faiss_client = FakeFAISSLikeClient()
+    langchain_instance.client = faiss_client
     langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
-    langchain_instance.client.add_embeddings.assert_called_once_with(embeddings=vectors, metadatas=payloads, ids=ids)
+    assert faiss_client.calls == [("add_embeddings", [("text1", vectors[0]), ("text2", vectors[1])], payloads, ids)]
 
-    # Test with add_texts method
-    delattr(langchain_instance.client, "add_embeddings")  # Remove attribute completely
+    # PGVector-family signature: add_embeddings(texts=, embeddings=)
+    pg_client = FakePGVectorLikeClient()
+    langchain_instance.client = pg_client
+    langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
+    assert pg_client.calls == [("add_embeddings", ["text1", "text2"], vectors, payloads, ids)]
+
+    # Test with add_texts method (no add_embeddings available, e.g. Chroma)
+    langchain_instance.client = Mock()
     langchain_instance.client.add_texts = Mock()
     langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
     langchain_instance.client.add_texts.assert_called_once_with(texts=["text1", "text2"], metadatas=payloads, ids=ids)
@@ -39,6 +74,21 @@ def test_insert_vectors(langchain_instance):
     langchain_instance.client.add_texts.reset_mock()
     langchain_instance.insert(vectors=vectors, payloads=None, ids=ids)
     langchain_instance.client.add_texts.assert_called_once_with(texts=["", ""], metadatas=None, ids=ids)
+
+
+def test_insert_add_embeddings_with_unknown_signature_falls_back_to_add_texts(langchain_instance):
+    """A store whose add_embeddings accepts neither text_embeddings nor texts
+    must not be called with a mismatched keyword; insert() falls back to add_texts."""
+    vectors = [[0.1, 0.2, 0.3]]
+    payloads = [{"data": "text1", "name": "vector1"}]
+    ids = ["id1"]
+
+    langchain_instance.client.add_embeddings = Mock()
+    langchain_instance.client.add_texts = Mock()
+    langchain_instance.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+    langchain_instance.client.add_embeddings.assert_not_called()
+    langchain_instance.client.add_texts.assert_called_once_with(texts=["text1"], metadatas=payloads, ids=ids)
 
 
 def test_search_vectors(langchain_instance):
@@ -72,7 +122,7 @@ def test_search_vectors_with_agent_id_run_id_filters(langchain_instance):
     # Mock search results
     mock_docs = [
         Mock(metadata={"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}, id="id1"),
-        Mock(metadata={"user_id": "bob", "agent_id": "agent2", "run_id": "run2"}, id="id2")
+        Mock(metadata={"user_id": "bob", "agent_id": "agent2", "run_id": "run2"}, id="id2"),
     ]
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
@@ -120,9 +170,7 @@ def test_search_vectors_with_no_filters(langchain_instance):
     results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=None)
 
     # Verify that no filters were passed to the underlying vector store
-    langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
-        embedding=vectors, k=2
-    )
+    langchain_instance.client.similarity_search_by_vector.assert_called_once_with(embedding=vectors, k=2)
 
     assert len(results) == 1
 
@@ -153,7 +201,7 @@ def test_list_with_filters(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -178,7 +226,7 @@ def test_list_with_single_filter(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"user_id": "alice"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -201,7 +249,7 @@ def test_list_with_no_filters(langchain_instance):
     mock_collection.get.return_value = {
         "ids": [["id1"]],
         "metadatas": [[{"name": "vector1"}]],
-        "documents": [["test document"]]
+        "documents": [["test document"]],
     }
     langchain_instance.client._collection = mock_collection
 
@@ -268,9 +316,7 @@ def test_search_uses_scored_method_when_available(langchain_instance):
 def test_search_falls_back_when_scored_method_raises_not_implemented(langchain_instance):
     """If the scored method raises NotImplementedError, fall back to score=1.0."""
     mock_docs = [Mock(metadata={"data": "mem A"}, id="id1")]
-    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(
-        side_effect=NotImplementedError
-    )
+    langchain_instance.client.similarity_search_by_vector_with_relevance_scores = Mock(side_effect=NotImplementedError)
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
     results = langchain_instance.search(query="test", vectors=[[0.1, 0.2]], top_k=5)
@@ -285,8 +331,9 @@ def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
     update() must wrap vector and payload in lists before calling insert(),
     which expects List[List[float]] and List[Dict] respectively.
     """
+    pg_client = FakePGVectorLikeClient()
+    langchain_instance.client = pg_client
     langchain_instance.client.delete = Mock()
-    langchain_instance.client.add_embeddings = Mock()
 
     vector = [0.1, 0.2, 0.3]
     payload = {"data": "updated text", "name": "updated"}
@@ -295,6 +342,24 @@ def test_update_wraps_vector_and_payload_in_lists(langchain_instance):
     langchain_instance.update(vector_id=vector_id, vector=vector, payload=payload)
 
     langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
-    langchain_instance.client.add_embeddings.assert_called_once_with(
-        embeddings=[vector], metadatas=[payload], ids=[vector_id]
+    assert pg_client.calls == [("add_embeddings", ["updated text"], [vector], [payload], [vector_id])]
+
+
+def test_update_without_vector_falls_back_to_add_texts(langchain_instance):
+    """update(vector=None) must let the store embed the text itself.
+
+    Previously None was forwarded as the embedding, so the store embedded None
+    (or crashed), and the delete had already run, losing the row.
+    """
+    langchain_instance.client.delete = Mock()
+    langchain_instance.client.add_texts = Mock()
+
+    payload = {"data": "updated text", "name": "updated"}
+    vector_id = "id1"
+
+    langchain_instance.update(vector_id=vector_id, vector=None, payload=payload)
+
+    langchain_instance.client.delete.assert_called_once_with(ids=[vector_id])
+    langchain_instance.client.add_texts.assert_called_once_with(
+        texts=["updated text"], metadatas=[payload], ids=[vector_id]
     )
