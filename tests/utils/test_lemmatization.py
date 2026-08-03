@@ -65,3 +65,17 @@ class TestLemmatizeForBm25:
         tokens = result.split()
         for stop in ["this", "is", "a", "very", "of", "the"]:
             assert stop not in tokens
+
+    def test_non_english_lemmas_fallback_to_text(self, monkeypatch):
+        """Pipelines that return empty lemmas (zh, ja, ...) must fall back to token text."""
+        import spacy
+
+        from mem0.utils import lemmatization
+
+        nlp = spacy.blank("xx")
+        monkeypatch.setattr("mem0.utils.spacy_models.get_nlp_lemma", lambda: nlp)
+
+        result = lemmatization.lemmatize_for_bm25("张三 是 阿里巴巴 的 工程师")
+
+        assert "张三" in result
+        assert "阿里巴巴" in result

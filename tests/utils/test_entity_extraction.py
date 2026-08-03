@@ -110,6 +110,21 @@ class TestExtractEntities:
         assert not {"8,916", "2,573", "656", "2026-05-27", "90"}.intersection(entity_texts)
 
 
+class TestNonEnglishPipelines:
+    def test_noun_chunks_unsupported_does_not_crash(self, monkeypatch):
+        """Languages without a noun-chunk iterator (zh, ja, ...) must not crash extraction."""
+        import spacy
+
+        from mem0.utils import entity_extraction
+
+        nlp = spacy.blank("xx")
+        monkeypatch.setattr("mem0.utils.spacy_models.get_nlp_full", lambda: nlp)
+
+        entities = entity_extraction.extract_entities("张三 是 阿里巴巴 的 工程师")
+
+        assert entities == []
+
+
 class TestExtractEntitiesBatch:
     def test_batch_processing(self):
         from mem0.utils.entity_extraction import extract_entities_batch

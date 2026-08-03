@@ -588,7 +588,13 @@ def _add_quoted_candidates(text: str, candidates: list[_EntityCandidate]) -> Non
 
 
 def _add_topic_phrase_candidates(doc, candidates: list[_EntityCandidate]) -> None:
-    for chunk in doc.noun_chunks:
+    try:
+        chunks = list(doc.noun_chunks)
+    except (NotImplementedError, ValueError, AttributeError):
+        # Pipelines without a noun-chunk iterator (e.g. zh, ja) raise E894;
+        # docs without DEP annotation raise E895. Neither should crash extraction.
+        return
+    for chunk in chunks:
         chunk_tokens = list(chunk)
         split_indices: list[int] = []
         poss_splits: list[int] = []

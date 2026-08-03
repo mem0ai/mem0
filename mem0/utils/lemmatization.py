@@ -38,7 +38,7 @@ def lemmatize_for_bm25(text: str) -> str:
         if token.is_punct or token.is_stop:
             continue
 
-        lemma = token.lemma_
+        lemma = token.lemma_ or token.text
         if lemma.isalnum():
             tokens.append(lemma)
 

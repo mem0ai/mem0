@@ -7,9 +7,17 @@ each loading their own copy from disk.
 """
 
 import logging
+import os
 import threading
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_MODEL = "en_core_web_sm"
+
+
+def _get_model_name() -> str:
+    """Return the spaCy model name, overridable via the MEM0_SPACY_MODEL env var."""
+    return os.getenv("MEM0_SPACY_MODEL", _DEFAULT_MODEL)
 
 _nlp_full = None
 _nlp_lemma = None
@@ -19,7 +27,7 @@ _lock = threading.Lock()
 
 
 def _ensure_model_available():
-    """Download en_core_web_sm if spaCy is installed but model is missing."""
+    """Download the configured spaCy model if spaCy is installed but the model is missing."""
     try:
         import spacy
     except ImportError:
@@ -27,17 +35,18 @@ def _ensure_model_available():
             "spaCy is not installed. Install it with: pip install mem0ai[nlp]"
         )
 
-    if not spacy.util.is_package("en_core_web_sm"):
-        logger.info("Downloading spaCy model en_core_web_sm...")
+    model_name = _get_model_name()
+    if not spacy.util.is_package(model_name):
+        logger.info("Downloading spaCy model %s...", model_name)
         try:
             from spacy.cli import download
 
-            download("en_core_web_sm")
-            logger.info("spaCy model en_core_web_sm downloaded successfully")
+            download(model_name)
+            logger.info("spaCy model %s downloaded successfully", model_name)
         except Exception as e:
             raise RuntimeError(
-                f"Failed to download spaCy model en_core_web_sm: {e}. "
-                "Please install manually: python -m spacy download en_core_web_sm"
+                f"Failed to download spaCy model {model_name}: {e}. "
+                f"Please install manually: python -m spacy download {model_name}"
             ) from e
 
 
@@ -57,7 +66,7 @@ def get_nlp_full():
             _ensure_model_available()
             import spacy
 
-            _nlp_full = spacy.load("en_core_web_sm")
+            _nlp_full = spacy.load(_get_model_name())
             logger.info("spaCy full model loaded")
         except Exception as e:
             logger.warning(f"Failed to load spaCy full model: {e}")
@@ -82,7 +91,7 @@ def get_nlp_lemma():
             _ensure_model_available()
             import spacy
 
-            _nlp_lemma = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+            _nlp_lemma = spacy.load(_get_model_name(), disable=["ner", "parser"])
             logger.info("spaCy lemma model loaded")
         except Exception as e:
             logger.warning(f"Failed to load spaCy lemma model: {e}")
