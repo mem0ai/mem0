@@ -1,59 +1,143 @@
 ---
 title: Temporal Reasoning
-description: "Time-aware memory retrieval for Mem0 Platform v3 so queries like 'last week', 'upcoming', and 'right now' return the right memories."
+description: "How Mem0 Platform v3 tracks when things happened, and how that changes the order of your search results."
 badge: "v3"
 ---
 
-Some memories matter because of **when** they happened, not just because they sound similar. Temporal Reasoning lets Mem0 Platform v3 understand time-aware queries and return the most contextually appropriate results.
-
-<Info>
-  **Use Temporal Reasoning when…**
-  - Users ask questions like "what happened last week?" or "what do I have coming up?"
-  - Your app stores both past events and future plans for the same person
-  - You want time-aware retrieval without building your own date-parsing layer
-</Info>
+Some memories matter because of **when** they happened, not just because they read like the query. Temporal Reasoning teaches Mem0 the difference between when you *told* it something and when the thing you described actually *happened*, then uses that to order search results for time-aware questions.
 
 <Warning>
-  Temporal Reasoning is a **Mem0 Platform v3** feature. It is not available on OSS memory stores or older Platform endpoints.
+  Temporal Reasoning is a **Mem0 Platform v3** feature. It is not available in the OSS SDK. Passing `reference_date` to the OSS `Memory` class raises an error.
 </Warning>
 
-## Configure access
+## The two clocks
 
-Confirm your `MEM0_API_KEY` is set and that you are using the v3 Platform client:
+Almost every question about this feature comes down to one idea, so start here.
 
-```python
+Every memory has a **recorded at** time. Some memories also get a **happened at** window.
+
+| | Recorded at | Happened at |
+| --- | --- | --- |
+| What it means | When the memory entered Mem0 | When the event in the memory took place |
+| Where it comes from | The moment you call `add()`, or the `timestamp` you pass | A model reads the memory and works out the dates |
+| Every memory has one? | Yes | No, only memories that describe a real event |
+| You control it with | `timestamp`, `observation_date`, `observation_datetime` | Nothing, it is inferred from the text |
+
+Here is the same idea as a concrete example. On July 30 you send this message:
+
+> I went to the dentist last Friday.
+
+Mem0 stores one memory with two different times attached:
+
+- **Recorded at:** July 30, because that is when you called `add()`
+- **Happened at:** July 24 to July 24, because that is what "last Friday" resolves to
+
+They are different times for the same memory, and that is the point. Without the second one, a search for "what did I do last week?" has no way to tell that this memory belongs in the answer.
+
+## What happens when you add a memory
+
+1. Mem0 extracts memories from your messages, as it always does.
+2. Each extracted memory then goes through a second pass. A model reads the memory plus its source text and asks: does this describe something that happened, or will happen, in a specific window of time?
+3. If yes, the memory gets a start time and an end time. If no, it does not, and nothing else changes.
+
+Not everything is an event. This table shows where the line sits:
+
+| Memory | Kind | Gets a happened-at window? |
+| --- | --- | --- |
+| "I finished the Q1 review on March 10, 2025." | Dated event | Yes |
+| "I have a dentist appointment on March 18, 2025." | Future plan | Yes |
+| "I flew to Tokyo for a three day conference." | Multi-day event | Yes, spanning all three days |
+| "I am the product lead at Acme Corp." | Ongoing state | No |
+| "Priya manages Jordan." | Relationship | No |
+| "I prefer morning meetings." | Preference | No |
+
+<Note>
+  This second pass runs asynchronously, after `add()` has already returned. It does not slow down your write, but it does mean the happened-at window is not guaranteed to be in place the instant the call finishes. If you are scripting a demo, add a short wait between writing and searching.
+</Note>
+
+## What happens when you search
+
+1. Mem0 looks at your query for time expressions like `last week`, `yesterday`, or `in March 2025`. This step is deterministic parsing, not a model call, so it adds no meaningful latency to search.
+2. Those expressions are resolved into a time window using the **reference date**, which is the moment of the search unless you pass `reference_date` yourself.
+3. Mem0 retrieves a candidate set that is wider than your `top_k`, then gives a small score boost to candidates whose happened-at window overlaps the query window.
+4. The boosted candidates are re-sorted and the final `top_k` is returned.
+
+<Info>
+  **Temporal Reasoning re-ranks, it does not filter.** The boost is deliberately small, enough to break ties between memories that are already similarly relevant. It will not drag an unrelated memory to the top, and it will never exclude a memory just because the dates do not line up. Because the candidate pool is wider than `top_k`, a well-matched memory can still get pulled into your results from below the cutoff.
+</Info>
+
+The response shape does not change. Temporal Reasoning affects the order of `results`, nothing else.
+
+## Parameters
+
+Temporal Reasoning is on by default for v3 projects. There is no toggle. These parameters exist for the cases where the default clock is not the clock you want.
+
+| Parameter | Used in | Accepts | What it sets |
+| --- | --- | --- | --- |
+| `timestamp` | `add()` | Unix epoch seconds | The recorded-at time of the memory |
+| `observation_date` | `add()` | `YYYY-MM-DD` | The recorded-at time, as a plain date. Pair with `timezone` to resolve it |
+| `observation_datetime` | `add()` | ISO 8601 datetime | The recorded-at time, with time of day |
+| `reference_date` | `search()` | Unix epoch, `YYYY-MM-DD`, or ISO datetime | The "now" that relative phrases in the query resolve against |
+
+<Warning>
+  **Pass only one anchor per `add()` call.** If more than one is present, `timestamp` wins, then `observation_datetime`, then `observation_date`. Sending two and expecting the other one to apply is the most common mistake with this feature.
+</Warning>
+
+In normal production traffic you do not need any of them. `add()` stamps the current time and `search()` uses the current time as the reference date. Reach for these when you are backfilling old data or when you need a search to produce the same result every run.
+
+## Backfilling historical data
+
+When you import a conversation from last year, you want its memories anchored to last year, not to the moment your import script ran. Pass the original time on each `add()` call.
+
+<CodeGroup>
+```python Python
+from datetime import timezone
+
 from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
+
+for message, sent_at in historical_messages:
+    client.add(
+        [{"role": "user", "content": message}],
+        user_id="jordan",
+        timestamp=int(sent_at.replace(tzinfo=timezone.utc).timestamp()),
+    )
 ```
 
-## How it works
+```javascript JavaScript
+import { MemoryClient } from "mem0ai";
 
-When a memory describes an event, a future plan, or an ongoing state, Temporal Reasoning recognizes the time context so the right results surface at search time.
+const client = new MemoryClient({ apiKey: "your-api-key" });
 
-A query like `what did I do last week?` should return a completed past event: not an upcoming appointment and not a stable fact that hasn't changed. Temporal Reasoning handles that distinction automatically.
+for (const { message, sentAt } of historicalMessages) {
+  await client.add([{ role: "user", content: message }], {
+    userId: "jordan",
+    timestamp: Math.floor(sentAt.getTime() / 1000),
+  });
+}
+```
 
-### Memory types Temporal Reasoning handles
+```bash cURL
+curl -X POST "https://api.mem0.ai/v1/memories/" \
+     -H "Authorization: Token your-api-key" \
+     -H "Content-Type: application/json" \
+     -d '{
+         "messages": [{"role": "user", "content": "I finished the Q1 review yesterday."}],
+         "user_id": "jordan",
+         "timestamp": 1741564800
+     }'
+```
+</CodeGroup>
 
-| Type | What it represents | Example |
-| --- | --- | --- |
-| Dated occurrence | Something that happened at a known time | "I finished the Q1 review on March 10, 2025." |
-| Future plan | A future commitment or scheduled item | "I have a dentist appointment on March 18, 2025." |
-| Ongoing state | A fact that remains true over time | "I am the product lead at Acme Corp." |
-| Relationship | A durable connection between people or entities | "Priya manages Jordan." |
-| Preference | A stable preference or habit | "I prefer morning meetings." |
+Two things to keep in mind while backfilling:
 
-Results come back in the normal search response shape: Temporal Reasoning affects ranking, not the response format.
+- The recorded-at time you pass is also what relative phrases inside the memory resolve against. Import a message that says "yesterday" with a `timestamp` of March 10 and the happened-at window lands on March 9, which is what you want.
+- Import in any order you like. Mem0 does not require chronological writes.
 
-## Configure it
+## Testing and demos
 
-Temporal Reasoning is enabled by default for all v3 searches and writes. There is no per-request toggle.
-
-Two parameters give you precise control when you need it:
-
-- `observation_date` (or `observation_datetime`, which takes priority when both are set) on `add()`: anchors an imported memory to the time it actually happened. Pair with `timezone` when resolving a date-only value.
-- `timestamp` on `add()`: a Unix epoch that sets the memory's creation time. When present it takes priority over `observation_datetime` and `observation_date` as the anchor Temporal Reasoning ranks against, so pass only the one you want to win.
-- `reference_date` on `search()`: resolves relative phrases like `last week` against a fixed point in time
+Relative phrases move as the calendar moves, which makes "what did I do last week?" a bad thing to assert on in a test. Pin the reference date and the query resolves to the same window every run.
 
 <CodeGroup>
 ```python Python
@@ -94,46 +178,42 @@ const results = await client.search("what did I do last week?", {
 ```
 </CodeGroup>
 
+To check the feature is doing something, run the same query twice against the same data: once with a `reference_date` inside the event window and once with one far outside it. The memory should rank higher in the first run.
+
 <Tip>
-  `reference_date` is especially useful in automated tests and demos because it makes relative phrases like `last week` resolve consistently every time.
+  If both runs come back identical, the usual cause is that your query has no time expression in it. "What did I do?" has nothing to resolve. "What did I do last week?" does.
 </Tip>
 
-## Supported query patterns
+## Query patterns that resolve
 
 <AccordionGroup>
-  <Accordion title="Historical questions">
-    Examples: `last week`, `last month`, `in March 2025`, `on 2025-03-10`
+  <Accordion title="Past">
+    `last week`, `last month`, `yesterday`, `in March 2025`, `on 2025-03-10`
   </Accordion>
-  <Accordion title="Upcoming questions">
-    Examples: `upcoming`, `next week`, `tomorrow`, `what do I have coming up?`
+  <Accordion title="Upcoming">
+    `upcoming`, `next week`, `tomorrow`, `what do I have coming up?`
   </Accordion>
-  <Accordion title="Current-state questions">
-    Examples: `right now`, `currently`, `where do I work now?`
+  <Accordion title="Current state">
+    `right now`, `currently`, `where do I work now?`
   </Accordion>
-  <Accordion title="As-of questions">
-    Examples: `as of March 2025`, `where was I living as of 2024?`
+  <Accordion title="As of a point in time">
+    `as of March 2025`, `where was I living as of 2024?`
   </Accordion>
-  <Accordion title="Duration questions">
-    Examples: `how long have I lived here?`, `since when have I worked there?`
+  <Accordion title="Duration">
+    `how long have I lived here?`, `since when have I worked there?`
   </Accordion>
 </AccordionGroup>
 
-## Verify the feature is working
+## Good habits
 
-- Run a temporal search with a time-aware query (e.g., "what did I do last week?") and confirm the memory that fits the time window ranks first.
-- Use `reference_date` in test queries so relative phrases resolve consistently across runs.
-- For backfilled data, pass `timestamp` on `add()` to confirm the memory reflects the right point in time.
-
-## Best practices
-
-- Use explicit dates in source conversations when events or plans matter temporally.
-- Pass `observation_date` (or `observation_datetime`) during historical imports so the ingestion time does not become the only time anchor. Do not also pass `timestamp` on those calls, since it overrides both as the ranking anchor.
-- Scope searches with `filters` so time-aware ranking operates inside the right user boundary.
-- Use `reference_date` in automated tests and reproducible demos.
+- Keep explicit dates in the source text when the timing matters. "I finished it on March 10" gives the model far more to work with than "I finished it recently".
+- Always scope searches with `filters` so ranking happens inside the right user boundary.
+- Pass an anchor when importing history, and pass exactly one.
+- Use `reference_date` in tests and recorded demos. Leave it out in production.
 
 <CardGroup cols={1}>
   <Card title="Memory Timestamps" icon="calendar" href="/platform/features/timestamp">
-    Anchor imported memories to when they actually happened.
+    The full reference for anchoring memories to when they actually happened.
   </Card>
 </CardGroup>
 
