@@ -3029,7 +3029,7 @@
 											}
 										],
 										"nullable": true,
-										"description": "Optional query anchor time for relative temporal interpretation. Accepts Unix epoch, YYYY-MM-DD, or ISO datetime."
+										"description": "Date and time to simulate the search from. Accepts a Unix epoch, YYYY-MM-DD, or ISO datetime."
 									},
 									"fields": {
 										"type": "array",
