@@ -1930,6 +1930,54 @@ class TestPGVector(unittest.TestCase):
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_get_cursor_psycopg2_preserves_traceback(self, mock_connection_pool):
+        """Regression test for #6730: errors from inside the cursor context keep their original traceback."""
+        import traceback
+
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_pool.getconn.return_value = mock_conn
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+        )
+
+        def _failing_db_call(*args, **kwargs):
+            raise RuntimeError("db boom")
+
+        mock_cursor.execute.side_effect = _failing_db_call
+
+        with self.assertRaises(RuntimeError) as context:
+            try:
+                with pgvector._get_cursor(commit=False):
+                    mock_cursor.execute("SELECT 1")
+            except RuntimeError as exc:
+                # Capture while the traceback is still attached (it is cleared
+                # once the generator is garbage-collected after re-raising).
+                tb = "".join(traceback.format_tb(exc.__traceback__))
+                self.assertIn("_failing_db_call", tb)
+                self.assertIn("db boom", str(exc))
+                raise
+        # Verify rollback was called and connection returned to pool
+        mock_conn.rollback.assert_called()
+        mock_pool.putconn.assert_called_with(mock_conn)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
     def test_commit_on_success_psycopg2(self, mock_connection_pool):
         """Test that psycopg2 properly commits transactions on success."""
         mock_pool = MagicMock()
