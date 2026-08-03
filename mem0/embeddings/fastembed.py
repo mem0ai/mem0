@@ -1,7 +1,10 @@
+import logging
 from typing import Optional, Literal
 
 from mem0.embeddings.base import EmbeddingBase
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+
+logger = logging.getLogger(__name__)
 
 try:
     from fastembed import TextEmbedding
@@ -30,3 +33,19 @@ class FastEmbedEmbedding(EmbeddingBase):
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
         return embeddings[0]
+
+    def embed_batch(self, texts, memory_action=None):
+        """Batch embed using FastEmbed's native list input."""
+        if not texts:
+            return []
+        texts = [text.replace("\n", " ") for text in texts]
+        try:
+            embeddings = list(self.dense_model.embed(texts))
+            if len(embeddings) != len(texts):
+                logger.warning(
+                    f"FastEmbed embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                )
+                raise ValueError("count mismatch")
+            return [emb.tolist() for emb in embeddings]
+        except Exception:
+            return super().embed_batch(texts, memory_action)
