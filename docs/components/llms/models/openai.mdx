@@ -38,6 +38,19 @@ config = {
 #    }
 # }
 
+# OpenAI-compatible multi-model gateways also work via openai_base_url (or base_url)
+# Example: DaoXE (https://daoxe.com/?utm_source=github&utm_medium=organic&utm_campaign=mem0&utm_content=openai) at https://api.daoxe.com/v1
+# config = {
+#    "llm": {
+#        "provider": "openai",
+#        "config": {
+#            "model": "gpt-4o-mini",
+#            "openai_base_url": "https://api.daoxe.com/v1",
+#            "api_key": "YOUR_GATEWAY_KEY",
+#        }
+#    }
+# }
+
 m = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
