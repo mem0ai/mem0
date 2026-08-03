@@ -7,6 +7,18 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-08-01" description="v2.0.15">
+
+**Bug Fixes:**
+- **Core:** `delete_all()` now paginates through the vector store in batches of 1000 instead of listing once, so accounts with more memories than a single page (most vector stores default to ~100) had the remainder silently left behind ([#6636](https://github.com/mem0ai/mem0/pull/6636))
+- **Vector Stores:** Cap Supabase `search()`/`list()` `top_k` at the `vecs` query limit of 1000 instead of erroring, and fix a `col_info()` crash by reading collection attributes directly instead of calling the removed `describe()` method ([#6695](https://github.com/mem0ai/mem0/pull/6695))
+- **Vector Stores:** Set `size` on Elasticsearch KNN search queries, so results respect `top_k` instead of being capped at Elasticsearch's default of 10 hits ([#5910](https://github.com/mem0ai/mem0/pull/5910))
+
+**Changes:**
+- **Rerankers:** `LLMReranker`'s default model is now `gpt-5-mini` (was `gpt-4o-mini`) ([#6703](https://github.com/mem0ai/mem0/pull/6703))
+
+</Update>
+
 <Update label="2026-07-25" description="v2.0.14">
 
 **New Features:**
@@ -1157,6 +1169,24 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-08-01" description="v3.1.3">
+
+**New Features:**
+- **Vector Stores:** Add Qdrant server-side BM25 `keywordSearch()` (requires Qdrant >= 1.15.2) plus payload filter indexes, so keyword search runs without a client-side BM25 dependency ([#5851](https://github.com/mem0ai/mem0/pull/5851))
+
+**Bug Fixes:**
+- **Core:** `deleteAll()` now paginates through the vector store in batches of 1000 instead of listing once, so accounts with more memories than a single page had the remainder silently left behind ([#4872](https://github.com/mem0ai/mem0/pull/4872))
+- **Vector Stores:** Supabase `list()` now paginates past PostgREST's 1000-row cap instead of stopping at the first page, `search()` warns when results may have been truncated by that same cap, and the initialization probe reads a row instead of writing a test vector, so Row Level Security policies that only grant read access no longer fail table verification ([#6695](https://github.com/mem0ai/mem0/pull/6695))
+- **Embeddings:** Honor `TOGETHER_API_BASE` in the Together embedder, matching the Together LLM provider, so a custom gateway URL is no longer silently ignored for embeddings ([#6572](https://github.com/mem0ai/mem0/pull/6572))
+
+**Changes:**
+- **Rerankers:** `RerankerFactory`'s default LLM reranker model is now `gpt-5-mini` (was `gpt-4o-mini`) ([#6703](https://github.com/mem0ai/mem0/pull/6703))
+
+**Security:**
+- **Dependencies:** Patched 32 high and 57 medium severity dependency vulnerabilities across the pnpm workspace via `pnpm.overrides` (`axios`, `brace-expansion`, `js-yaml`, `postcss`, `protobufjs`, `mongoose`, `tar`, `fast-xml-parser`, `thrift`) ([#6639](https://github.com/mem0ai/mem0/pull/6639))
+
+</Update>
+
 <Update label="2026-07-25" description="v3.1.2">
 
 **Bug Fixes:**
@@ -1886,9 +1916,9 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Update label="2026-07-14" description="mem0-plugin v0.2.13">
 
 **Fixes:**
-- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences — "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`. Affects Claude Code, Cursor, Codex, and Antigravity, which share these hooks.
+- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences: "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`. Affects Claude Code, Cursor, Codex, and Antigravity, which share these hooks.
 
-Existing memories written by the previous versions are not rewritten. If your memories contain preferences you never expressed, delete them — the plugin will not recreate them.
+Existing memories written by the previous versions are not rewritten. If your memories contain preferences you never expressed, delete them; the plugin will not recreate them.
 
 </Update>
 
@@ -2225,9 +2255,9 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 <Update label="2026-07-14" description="Antigravity plugin v0.1.5">
 
 **Fixes:**
-- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences — "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`.
+- **Assistant messages no longer stored as your own:** The session-summary hook (fires at the end of every assistant turn) and the post-compaction hook were sending the assistant's own message to Mem0 tagged `role: "user"`. Because Mem0 extracts *facts about the user* from each message and uses `role` to decide who spoke, the assistant's first-person prose was being saved as the human's stated preferences: "I recommend we drop Redis" became `User prefers dropping Redis entirely`. Both hooks now send `role: "assistant"`, so the same session is stored as `Assistant recommended...`.
 
-Existing memories written by the previous versions are not rewritten. If your memories contain preferences you never expressed, delete them — the plugin will not recreate them.
+Existing memories written by the previous versions are not rewritten. If your memories contain preferences you never expressed, delete them; the plugin will not recreate them.
 
 </Update>
 
@@ -2277,6 +2307,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-08-01" description="openclaw-mem0 v1.0.15">
+
+**Improvements:**
+- **Onboarding suggestions:** The example commands shown by `openclaw mem0 config show` now suggest `gpt-5-mini` instead of `gpt-4o` ([#6704](https://github.com/mem0ai/mem0/pull/6704))
+
+**Security:**
+- **Dependencies:** Patched high and medium severity dependency vulnerabilities via `pnpm.overrides` (`protobufjs`, `axios`, `postcss`, `mongoose`) ([#6639](https://github.com/mem0ai/mem0/pull/6639))
+
+</Update>
 
 <Update label="2026-06-30" description="openclaw-mem0 v1.0.14">
 
@@ -2531,6 +2571,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
+<Update label="2026-08-01" description="Pi Agent plugin v0.1.4">
+
+**Security:**
+- **Dependencies:** Patched high and medium severity dependency vulnerabilities via `pnpm.overrides` (`axios`, `brace-expansion`, `postcss`, `mongoose`, `protobufjs`) ([#6639](https://github.com/mem0ai/mem0/pull/6639))
+
+</Update>
+
 <Update label="2026-06-30" description="Pi Agent plugin v0.1.3">
 
 **New Features:**
@@ -2582,6 +2629,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Vercel AI SDK">
+
+<Update label="2026-08-01" description="Vercel AI SDK v3.0.1">
+
+**Security:**
+- **Dependencies:** Patched high and medium severity dependency vulnerabilities via `pnpm.overrides` (`brace-expansion`, `js-yaml`) ([#6639](https://github.com/mem0ai/mem0/pull/6639))
+
+</Update>
 
 <Update label="2026-06-10" description="Vercel AI SDK v3.0.0">
 

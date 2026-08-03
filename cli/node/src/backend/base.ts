@@ -14,7 +14,10 @@ export interface AddOptions {
 	immutable?: boolean;
 	infer?: boolean;
 	expires?: string;
-	categories?: string[];
+	customInstructions?: string;
+	customCategories?: Record<string, string>[];
+	structuredDataSchema?: Record<string, unknown>;
+	timestamp?: number;
 }
 
 export interface SearchOptions {
@@ -28,6 +31,9 @@ export interface SearchOptions {
 	keyword?: boolean;
 	filters?: Record<string, unknown>;
 	fields?: string[];
+	showExpired?: boolean;
+	referenceDate?: string | number;
+	latestOnly?: boolean;
 }
 
 export interface ListOptions {
@@ -40,6 +46,8 @@ export interface ListOptions {
 	category?: string;
 	after?: string;
 	before?: string;
+	showExpired?: boolean;
+	latestOnly?: boolean;
 }
 
 export interface DeleteOptions {
@@ -48,6 +56,12 @@ export interface DeleteOptions {
 	agentId?: string;
 	appId?: string;
 	runId?: string;
+	deleteLinked?: boolean;
+}
+
+export interface UpdateOptions {
+	expirationDate?: string;
+	timestamp?: number;
 }
 
 export interface EntityIds {
@@ -77,6 +91,7 @@ export interface Backend {
 		memoryId: string,
 		content?: string,
 		metadata?: Record<string, unknown>,
+		opts?: UpdateOptions,
 	): Promise<Record<string, unknown>>;
 
 	delete(

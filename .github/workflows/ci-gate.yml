@@ -38,6 +38,7 @@ jobs:
       cli_python: ${{ steps.filter.outputs.cli_python }}
       cli_node: ${{ steps.filter.outputs.cli_node }}
       openclaw: ${{ steps.filter.outputs.openclaw }}
+      mem0_plugin: ${{ steps.filter.outputs.mem0_plugin }}
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
       n8n_nodes_mem0: ${{ steps.filter.outputs.n8n_nodes_mem0 }}
@@ -72,6 +73,11 @@ jobs:
             openclaw:
               - 'integrations/openclaw/**'
               - '.github/workflows/openclaw-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            mem0_plugin:
+              - 'integrations/mem0-plugin/**'
+              - '!integrations/mem0-plugin/.opencode-plugin/**'
+              - '.github/workflows/mem0-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
               - 'integrations/mem0-plugin/.opencode-plugin/**'
@@ -131,6 +137,13 @@ jobs:
     uses: ./.github/workflows/openclaw-checks.yml
     secrets: inherit
 
+  mem0-plugin:
+    name: Mem0 Plugin
+    needs: changes
+    if: needs.changes.outputs.mem0_plugin == 'true'
+    uses: ./.github/workflows/mem0-plugin-checks.yml
+    secrets: inherit
+
   opencode-plugin:
     name: OpenCode Plugin
     needs: changes
@@ -173,6 +186,7 @@ jobs:
       - cli-python
       - cli-node
       - openclaw
+      - mem0-plugin
       - opencode-plugin
       - pi-agent-plugin
       - n8n-nodes-mem0
