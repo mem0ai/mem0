@@ -232,6 +232,30 @@ def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: 
     assert config_arg.top_p == 0.9
 
 
+def test_assistant_role_mapped_to_model_in_multi_turn(mock_gemini_client: Mock):
+    """OpenAI-style 'assistant' turns must map to Gemini's 'model' role, not pass through."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    messages = [
+        {"role": "user", "content": "Remember that I live in Paris."},
+        {"role": "assistant", "content": "Got it, you live in Paris."},
+        {"role": "user", "content": "What city do I live in?"},
+    ]
+
+    mock_part = Mock(text="Paris")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    contents = mock_gemini_client.models.generate_content.call_args.kwargs["contents"]
+    assert len(contents) == 3
+    assert [c.role for c in contents] == ["user", "model", "user"]
+    assert contents[1].parts[0].text == "Got it, you live in Paris."
+
+
 # --- Vertex AI backend initialization (issue #3990, PR #4030) ---
 
 
