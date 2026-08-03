@@ -296,7 +296,7 @@ class UpstashVector(VectorStoreBase):
             filter=filters_str or "",
             include_metadata=True,
             namespace=self.collection_name,
-            top_k=100,
+            top_k=top_k,
         )
         with query:
             while True:
@@ -306,6 +306,8 @@ class UpstashVector(VectorStoreBase):
                 if not res:
                     break
                 results.extend(res)
+
+        results = results[:top_k]
 
         parsed_result = [
             OutputData(
