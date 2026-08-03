@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -23,6 +23,7 @@ class OpenAIConfig(BaseLlmConfig):
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[dict] = None,
         is_reasoning_model: Optional[bool] = None,
+        ssl_verify: Optional[Union[bool, str]] = None,
         # OpenAI-specific parameters
         openai_base_url: Optional[str] = None,
         models: Optional[List[str]] = None,
@@ -51,6 +52,7 @@ class OpenAIConfig(BaseLlmConfig):
             is_reasoning_model: Explicit override for reasoning-model detection.
                 None (default) uses the name-based heuristic. Set True to drop
                 max_tokens/temperature, or False to force standard params.
+            ssl_verify: SSL verification settings, defaults to None
             openai_base_url: OpenAI API base URL, defaults to None
             models: List of models for OpenRouter, defaults to None
             route: OpenRouter route strategy, defaults to "fallback"
@@ -77,6 +79,7 @@ class OpenAIConfig(BaseLlmConfig):
             reasoning_effort=reasoning_effort,
             http_client_proxies=http_client_proxies,
             is_reasoning_model=is_reasoning_model,
+            ssl_verify=ssl_verify,
         )
 
         # OpenAI-specific parameters

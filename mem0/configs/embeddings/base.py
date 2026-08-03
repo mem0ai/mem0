@@ -26,6 +26,7 @@ class BaseEmbedderConfig(ABC):
         # AzureOpenAI specific
         azure_kwargs: Optional[AzureConfig] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        ssl_verify: Optional[Union[bool, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
         memory_add_embedding_type: Optional[str] = None,
@@ -62,6 +63,8 @@ class BaseEmbedderConfig(ABC):
         :type azure_kwargs: Optional[Dict[str, Any]], defaults a dict inside init
         :param http_client_proxies: The proxy server settings used to create self.http_client, defaults to None
         :type http_client_proxies: Optional[Dict | str], optional
+        :param ssl_verify: SSL verification settings for HTTP client. Can be a boolean or a path to a CA bundle.
+        :type ssl_verify: Optional[Union[bool, str]], optional
         :param vertex_credentials_json: The path to the Vertex AI credentials JSON file, defaults to None
         :type vertex_credentials_json: Optional[str], optional
         :param memory_add_embedding_type: The type of embedding to use for the add memory action, defaults to None
@@ -79,9 +82,14 @@ class BaseEmbedderConfig(ABC):
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
 
-        # AzureOpenAI specific
-        self.http_client_proxies = http_client_proxies
-        self.http_client = build_http_client(http_client_proxies)
+        # Client setup
+        client_kwargs = {}
+        if http_client_proxies:
+            client_kwargs["proxies"] = http_client_proxies
+        if ssl_verify is not None:
+            client_kwargs["verify"] = ssl_verify
+
+        self.http_client = httpx.Client(**client_kwargs) if client_kwargs else None
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
