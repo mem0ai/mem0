@@ -7,6 +7,7 @@ from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
     FACT_RETRIEVAL_PROMPT,
     USER_MEMORY_EXTRACTION_PROMPT,
+    inject_current_date,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,14 +24,14 @@ def get_fact_retrieval_messages(message, is_agent_memory=False):
         tuple: (system_prompt, user_prompt)
     """
     if is_agent_memory:
-        return AGENT_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
+        return inject_current_date(AGENT_MEMORY_EXTRACTION_PROMPT), f"Input:\n{message}"
     else:
-        return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
+        return inject_current_date(USER_MEMORY_EXTRACTION_PROMPT), f"Input:\n{message}"
 
 
 def get_fact_retrieval_messages_legacy(message):
     """Legacy function for backward compatibility."""
-    return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
+    return inject_current_date(FACT_RETRIEVAL_PROMPT), f"Input:\n{message}"
 
 
 def ensure_json_instruction(system_prompt, user_prompt):
