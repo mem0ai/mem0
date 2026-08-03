@@ -14,7 +14,7 @@ import { loadPeer } from "../utils/load_peer";
 import type { VectorStore } from "./base";
 
 // Keep this allowlist aligned with the Python Oracle vector store.
-const METADATA_KEY_PATTERN = /^[a-zA-Z0-9_.\[\],\s*]*$/;
+const METADATA_KEY_PATTERN = /^[a-zA-Z0-9_.[\],\s*]*$/;
 const MIGRATIONS_TABLE = "mem0_oracle_migrations";
 const MINIMUM_ORACLE_VECTOR_VERSION = 2_304_000_000;
 type DistanceMetric = NonNullable<OracleAIVectorSearchConfig["distanceMetric"]>;
@@ -509,8 +509,7 @@ export class OracleAIVectorSearch implements VectorStore {
   async deleteCol(): Promise<void> {
     await this.withConnection(
       (connection) =>
-        connection.execute(`DROP TABLE ${this.collectionName} PURGE`),
-      true,
+        connection.execute(`DROP TABLE IF EXISTS ${this.collectionName} PURGE`),
     );
   }
 

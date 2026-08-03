@@ -102,7 +102,7 @@ For TypeScript, install the optional Oracle driver alongside `mem0ai`:
 pnpm add oracledb
 ```
 
-To reuse a connection or pool you already manage, pass it as `client` instead of `connection_params`:
+To reuse a connection or pool you already manage, pass it as `client` instead of connection parameters. Python accepts a `python-oracledb` `Connection` or `ConnectionPool`; TypeScript accepts a `node-oracledb` `Connection` or `Pool`.
 
 ```python
 import oracledb
@@ -121,6 +121,9 @@ config = {
 
 Here are the parameters available for configuring Oracle AI Vector Search:
 
+<Tabs>
+<Tab title="Python">
+
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `connection_params` | Connection settings passed to `python-oracledb`, such as `user`, `password` and `dsn`. See the [connection handling guide](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html). | `None` |
@@ -135,8 +138,29 @@ Here are the parameters available for configuring Oracle AI Vector Search:
 | `index_parameters` | Index tuning parameters. For `HNSW`: `neighbors`, `efconstruction`. For `IVF`: `neighbor partitions`, `samples_per_partition`, `min_vectors_per_partition`. | `None` |
 | `index_accuracy` | Target index accuracy from 1 to 100, applied as `WITH TARGET ACCURACY <n>` | `None` |
 
+</Tab>
+<Tab title="TypeScript">
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connectionParams` | `node-oracledb` connection or pool attributes, such as `user`, `password`, `connectString`, `poolMin`, and `poolMax`. | `None` |
+| `useConnectionPool` | Create a `node-oracledb` pool from `connectionParams` instead of a single connection. | `true` |
+| `client` | Existing `oracledb.Connection` or `oracledb.Pool` from the `node-oracledb` package. | `None` |
+| `collectionName` | Name of the Oracle table that stores vectors and payloads. | `mem0` |
+| `dimension` | Dimension of your embedding vectors, must be greater than 0. `embeddingModelDims` is also accepted for compatibility. | `1536` |
+| `distanceMetric` | Distance function used for indexing and search: `COSINE`, `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `DOT`, `HAMMING`, or `MANHATTAN`. | `COSINE` |
+| `doCreateIndex` | Whether to create a vector index on the collection. | `true` |
+| `mutateOnDuplicate` | Whether to use `MERGE` to update records with duplicate IDs. | `false` |
+| `indexType` | Vector index type: `HNSW` or `IVF`. | `HNSW` |
+| `indexName` | Name of the vector index. | `<collectionName>_VEC_IDX` |
+| `indexParameters` | Index tuning parameters. For `HNSW`: `neighbors`, `efconstruction`. For `IVF`: `neighbor_partitions`, `samples_per_partition`, `min_vectors_per_partition`. | `None` |
+| `indexAccuracy` | Target index accuracy from 1 to 100, applied as `WITH TARGET ACCURACY <n>`. | `None` |
+
+</Tab>
+</Tabs>
+
 <Note>
-  When you pass a pre-built `client`, Mem0 uses it as-is and ignores `connection_params` and `use_connection_pool`. Mem0 does not close a client it did not create.
+  When you pass a pre-built `client`, Mem0 uses it as-is and ignores `connection_params` / `use_connection_pool` in Python or `connectionParams` / `useConnectionPool` in TypeScript. Mem0 does not close a client it did not create.
 </Note>
 
 ### Vector indexes
@@ -174,7 +198,7 @@ Filters run against the JSON `payload` column and support:
 | Comparison | `{"score": {"gte": 0.5}}`, also `eq`, `ne`, `gt`, `lt`, `lte` |
 | Membership | `{"category": {"in": ["movies", "books"]}}`, also `nin` |
 | String matching | `{"title": {"contains": "sci-fi"}}`, also `icontains` for case-insensitive |
-| Logical groups | `{"AND": [...]}`, `{"OR": [...]}`, `{"NOT": [...]}` |
+| Logical groups | `{"$and": [...]}`, `{"$or": [...]}`, `{"$not": [{"rating": {"between": [3, 5]}}, {"category": "restricted"}]}`. `$not` accepts an array of filter objects. |
 
 Multiple fields at the top level are combined with `AND`:
 
