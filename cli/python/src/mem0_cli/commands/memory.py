@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat as _stat_mod
 import sys
 import time as _time
+from datetime import date
 from pathlib import Path
 
 import typer
@@ -47,6 +49,18 @@ def _stdin_is_piped() -> bool:
         return False
 
 
+def _validate_expires(value: str) -> None:
+    """Exit 1 if value is not a future YYYY-MM-DD date."""
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        print_error(
+            err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31)."
+        )
+        raise typer.Exit(1)
+    if date.fromisoformat(value) <= date.today():
+        print_error(err_console, "--expires date must be in the future.")
+        raise typer.Exit(1)
+
+
 def cmd_add(
     backend: Backend,
     text: str | None,
@@ -62,6 +76,10 @@ def cmd_add(
     no_infer: bool,
     expires: str | None,
     categories: str | None,
+    custom_instructions: str | None = None,
+    custom_categories: str | None = None,
+    structured_data_schema: str | None = None,
+    timestamp: int | None = None,
     output: str = "text",
 ) -> None:
     """Add a memory."""
@@ -70,6 +88,13 @@ def cmd_add(
     set_current_command("add")
     if is_agent_mode():
         output = "agent"
+
+    if categories:
+        print_error(
+            err_console, "--categories is not supported on add. Use --custom-categories instead."
+        )
+        raise typer.Exit(1)
+
     msgs = None
     content = text
 
@@ -108,27 +133,24 @@ def cmd_add(
             print_error(err_console, "Invalid JSON in --metadata.")
             raise typer.Exit(1) from None
 
-    cats = None
-    if categories:
+    custom_cats = None
+    if custom_categories:
         try:
-            cats = json.loads(categories)
+            custom_cats = json.loads(custom_categories)
         except json.JSONDecodeError:
-            cats = [c.strip() for c in categories.split(",")]
+            print_error(err_console, "Invalid JSON in --custom-categories.")
+            raise typer.Exit(1) from None
 
-    # Validate --expires
+    schema = None
+    if structured_data_schema:
+        try:
+            schema = json.loads(structured_data_schema)
+        except json.JSONDecodeError:
+            print_error(err_console, "Invalid JSON in --structured-data-schema.")
+            raise typer.Exit(1) from None
+
     if expires:
-        import re
-
-        if not re.match(r"^\d{4}-\d{2}-\d{2}$", expires):
-            print_error(
-                err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31)."
-            )
-            raise typer.Exit(1)
-        from datetime import date
-
-        if date.fromisoformat(expires) <= date.today():
-            print_error(err_console, "--expires date must be in the future.")
-            raise typer.Exit(1)
+        _validate_expires(expires)
 
     with timed_status(err_console, "Adding memory...") as ts:
         try:
@@ -143,7 +165,10 @@ def cmd_add(
                 immutable=immutable,
                 infer=not no_infer,
                 expires=expires,
-                categories=cats,
+                custom_instructions=custom_instructions,
+                custom_categories=custom_cats,
+                structured_data_schema=schema,
+                timestamp=timestamp,
             )
         except Exception as e:
             ts.error_msg = str(e)
@@ -224,6 +249,9 @@ def cmd_search(
     keyword: bool,
     filter_json: str | None,
     fields: str | None,
+    show_expired: bool = False,
+    reference_date: str | None = None,
+    latest_only: bool = False,
     output: str = "text",
 ) -> None:
     """Search memories."""
@@ -266,6 +294,9 @@ def cmd_search(
                 keyword=keyword,
                 filters=filters,
                 fields=field_list,
+                show_expired=show_expired,
+                reference_date=reference_date,
+                latest_only=latest_only,
             )
         except Exception as e:
             print_error(err_console, str(e))
@@ -352,6 +383,8 @@ def cmd_list(
     category: str | None,
     after: str | None,
     before: str | None,
+    show_expired: bool = False,
+    latest_only: bool = False,
     output: str = "table",
 ) -> None:
     """List memories."""
@@ -380,6 +413,8 @@ def cmd_list(
                 category=category,
                 after=after,
                 before=before,
+                show_expired=show_expired,
+                latest_only=latest_only,
             )
         except Exception as e:
             print_error(err_console, str(e))
@@ -446,6 +481,8 @@ def cmd_update(
     text: str | None,
     *,
     metadata: str | None,
+    expires: str | None = None,
+    timestamp: int | None = None,
     output: str,
 ) -> None:
     """Update a memory."""
@@ -462,10 +499,19 @@ def cmd_update(
             print_error(err_console, "Invalid JSON in --metadata.")
             raise typer.Exit(1) from None
 
+    if expires:
+        _validate_expires(expires)
+
     _start = _time.perf_counter()
     with timed_status(err_console, "Updating memory...") as _ts:
         try:
-            result = backend.update(memory_id, content=text, metadata=meta)
+            result = backend.update(
+                memory_id,
+                content=text,
+                metadata=meta,
+                expiration_date=expires,
+                timestamp=timestamp,
+            )
         except Exception as e:
             print_error(err_console, str(e))
             raise typer.Exit(1) from None
@@ -490,6 +536,7 @@ def cmd_delete(
     *,
     dry_run: bool = False,
     force: bool = False,
+    delete_linked: bool = False,
     output: str,
 ) -> None:
     """Delete a single memory by ID."""
@@ -512,7 +559,7 @@ def cmd_delete(
     _start = _time.perf_counter()
     with timed_status(err_console, "Deleting...") as _ts:
         try:
-            result = backend.delete(memory_id=memory_id)
+            result = backend.delete(memory_id=memory_id, delete_linked=delete_linked)
         except Exception as e:
             print_error(err_console, str(e))
             raise typer.Exit(1) from None
