@@ -94,13 +94,39 @@ def test_embed_with_huggingface_base_url():
         embedder = HuggingFaceEmbedding(config)
         result = embedder.embed("Hello from custom endpoint")
 
-        mock_openai.assert_called_once_with(base_url="http://localhost:8080")
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf")
         mock_client.embeddings.create.assert_called_once_with(
             input="Hello from custom endpoint",
             model="my-custom-model",
             truncate=True,
         )
         assert result == [0.1, 0.2, 0.3]
+
+
+def test_base_url_uses_config_api_key():
+    config = BaseEmbedderConfig(
+        huggingface_base_url="http://localhost:8080",
+        api_key="hf_myEndpointToken",
+    )
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf_myEndpointToken")
+
+
+def test_base_url_falls_back_to_huggingface_env_key(monkeypatch):
+    monkeypatch.setenv("HUGGINGFACE_API_KEY", "hf_from_env")
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf_from_env")
+
+
+def test_base_url_defaults_to_hf_key(monkeypatch):
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf")
 
 
 def test_embed_batch_sentence_transformer(mock_sentence_transformer):
