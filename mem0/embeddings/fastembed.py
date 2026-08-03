@@ -29,4 +29,5 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0].tolist()
+        vector = embeddings[0]
+        return vector.tolist() if hasattr(vector, "tolist") else list(vector)
