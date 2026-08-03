@@ -51,14 +51,17 @@ describe("CLI Integration — help and version", () => {
     expect(run(["version"]).exitCode).not.toBe(0);
   });
 
-  it("help --json produces valid JSON", () => {
-    const result = run(["help", "--json"]);
-    expect(result.exitCode).toBe(0);
-    const parsed = JSON.parse(result.stdout);
-    // spec may have cli.name or top-level name
-    const name = parsed.name ?? parsed.cli?.name;
-    expect(name).toBe("mem0");
-  });
+  it.each([["help", "--json"], ["--json", "help"], ["--agent", "help"]])(
+    "%s %s produces valid JSON",
+    (...args) => {
+      const result = run(args);
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout);
+      // spec may have cli.name or top-level name
+      const name = parsed.name ?? parsed.cli?.name;
+      expect(name).toBe("mem0");
+    },
+  );
 
   it("shows add help", () => {
     const result = run(["add", "--help"]);
