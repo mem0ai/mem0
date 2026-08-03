@@ -719,3 +719,15 @@ def test_build_filter_escapes_quotes(azure_ai_search_instance):
     instance, _, _ = azure_ai_search_instance
     expr = instance._build_filter_expression({"name": "O'Brien"})
     assert "name eq 'O''Brien'" in expr
+
+
+def test_del_handles_partially_initialized_instance():
+    """__del__ must not raise when only some clients were initialized (mid-__init__ failure)."""
+    store = AzureAISearch.__new__(AzureAISearch)
+    # Simulate an exception raised after search_client was created but before
+    # index_client was assigned in __init__.
+    store.search_client = Mock()
+
+    store.__del__()  # must not raise AttributeError
+
+    store.search_client.close.assert_called_once()
