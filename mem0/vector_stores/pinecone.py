@@ -216,6 +216,8 @@ class PineconeDB(VectorStoreBase):
                     else:
                         condition[f"${op}"] = operand
                 pinecone_filter[key] = condition
+            elif value == "*":
+                pinecone_filter[key] = {"$exists": True}
             else:
                 pinecone_filter[key] = {"$eq": value}
 

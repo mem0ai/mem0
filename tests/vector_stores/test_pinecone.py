@@ -245,6 +245,12 @@ def test_create_filter_plain_value(pinecone_db):
     assert result == {"user_id": {"$eq": "alice"}}
 
 
+def test_create_filter_wildcard_field_exists(pinecone_db):
+    """A '*' filter value means field-exists, not a literal '*' equality match."""
+    result = pinecone_db._create_filter({"user_id": "*"})
+    assert result == {"user_id": {"$exists": True}}
+
+
 def test_create_filter_range(pinecone_db):
     result = pinecone_db._create_filter({"age": {"gte": 18, "lte": 65}})
     assert result == {"age": {"$gte": 18, "$lte": 65}}
