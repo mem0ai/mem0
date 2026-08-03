@@ -1270,6 +1270,7 @@
 													},
 													"metadata": {
 														"type": "object",
+														"nullable": true,
 														"additionalProperties": true,
 														"description": "User-supplied metadata attached to the memory."
 													},
@@ -1297,6 +1298,7 @@
 													},
 													"structured_attributes": {
 														"type": "object",
+														"nullable": true,
 														"additionalProperties": true,
 														"description": "System-derived temporal breakdown of the memory's creation time (e.g. year, month, day_of_week)."
 													},
@@ -1355,6 +1357,7 @@
 															},
 															"metadata": {
 																"type": "object",
+																"nullable": true,
 																"additionalProperties": true,
 																"description": "User-supplied metadata attached to the memory."
 															},
@@ -1382,6 +1385,7 @@
 															},
 															"structured_attributes": {
 																"type": "object",
+																"nullable": true,
 																"additionalProperties": true,
 																"description": "System-derived temporal breakdown of the memory's creation time (e.g. year, month, day_of_week)."
 															},
@@ -1816,6 +1820,7 @@
 											},
 											"metadata": {
 												"type": "object",
+												"nullable": true,
 												"additionalProperties": true,
 												"description": "Additional metadata associated with the memory"
 											},
@@ -1844,6 +1849,7 @@
 											},
 											"structured_attributes": {
 												"type": "object",
+												"nullable": true,
 												"additionalProperties": true,
 												"description": "System-derived temporal breakdown of the memory's creation time (e.g. year, month, day_of_week)."
 											},
@@ -2556,6 +2562,7 @@
 													},
 													"metadata": {
 														"type": "object",
+														"nullable": true,
 														"additionalProperties": true,
 														"description": "User-supplied metadata attached to the memory."
 													},
@@ -2568,6 +2575,7 @@
 													},
 													"structured_attributes": {
 														"type": "object",
+														"nullable": true,
 														"additionalProperties": true,
 														"description": "System-derived temporal breakdown of the memory's creation time (e.g. year, month, day_of_week)."
 													},
@@ -3075,6 +3083,7 @@
 													},
 													"metadata": {
 														"type": "object",
+														"nullable": true,
 														"additionalProperties": true,
 														"description": "User-supplied metadata attached to the memory."
 													},
@@ -3332,6 +3341,7 @@
 										},
 										"metadata": {
 											"type": "object",
+											"nullable": true,
 											"additionalProperties": true,
 											"description": "Additional metadata associated with the memory"
 										},
@@ -3360,6 +3370,7 @@
 										},
 										"structured_attributes": {
 											"type": "object",
+											"nullable": true,
 											"additionalProperties": true,
 											"description": "System-derived temporal breakdown of the memory's creation time (e.g. year, month, day_of_week)."
 										},
@@ -3492,6 +3503,7 @@
 										},
 										"metadata": {
 											"type": "object",
+											"nullable": true,
 											"additionalProperties": true,
 											"description": "Additional metadata associated with the memory"
 										},
@@ -3520,6 +3532,7 @@
 										},
 										"structured_attributes": {
 											"type": "object",
+											"nullable": true,
 											"additionalProperties": true,
 											"description": "System-derived temporal breakdown of the memory's creation time (e.g. year, month, day_of_week)."
 										},
