@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
+    process_telemetry_filters,
     remove_spaces_from_entities,
     sanitize_relationship_for_cypher,
 )
@@ -168,3 +169,18 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestProcessTelemetryFilters:
+    def test_none_returns_empty_tuple_pair(self):
+        """All callers unpack the result as `keys, encoded_ids` — None input
+        must yield a 2-tuple, not a bare dict (issue #6171)."""
+        keys, encoded_ids = process_telemetry_filters(None)
+        assert keys == []
+        assert encoded_ids == {}
+
+    def test_filters_return_keys_and_hashed_ids(self):
+        keys, encoded_ids = process_telemetry_filters({"user_id": "alice", "topic": "x"})
+        assert keys == ["user_id", "topic"]
+        assert set(encoded_ids) == {"user_id"}
+        assert encoded_ids["user_id"] != "alice"  # md5-hashed, never raw
