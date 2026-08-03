@@ -1885,10 +1885,10 @@
 						"schema": {
 							"type": "integer"
 						},
-						"description": "Page number for pagination. Default: 1."
+						"description": "Page number for pagination. Default: 1. Default page size is 100."
 					},
 					{
-						"name": "page_size",
+						"name": "limit",
 						"in": "query",
 						"schema": {
 							"type": "integer"
@@ -1958,6 +1958,21 @@
 														"type": "string",
 														"description": "The identifier of the user associated with this memory"
 													},
+													"agent_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "The identifier of the agent associated with this memory, if any."
+													},
+													"app_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "The identifier of the app associated with this memory, if any."
+													},
+													"session_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "The run identifier associated with this memory, returned as `session_id`."
+													},
 													"categories": {
 														"type": "array",
 														"nullable": true,
@@ -2019,6 +2034,22 @@
 										"previous",
 										"results"
 									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Invalid page.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"detail": {
+											"type": "string",
+											"example": "Invalid page."
+										}
+									}
 								}
 							}
 						}
@@ -3165,15 +3196,7 @@
 						"schema": {
 							"type": "integer"
 						},
-						"description": "Page number for pagination. Default: 1."
-					},
-					{
-						"name": "page_size",
-						"in": "query",
-						"schema": {
-							"type": "integer"
-						},
-						"description": "Number of items per page. Default: 100."
+						"description": "Page number for pagination. Default: 1. Page size is fixed at 100 and is not client-configurable."
 					}
 				],
 				"responses": {
@@ -3279,6 +3302,22 @@
 								}
 							}
 						}
+					},
+					"404": {
+						"description": "Invalid page.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"detail": {
+											"type": "string",
+											"example": "Invalid page."
+										}
+									}
+								}
+							}
+						}
 					}
 				}
 			}
@@ -3323,6 +3362,21 @@
 											"type": "string",
 											"nullable": true,
 											"description": "Identifier of the user associated with this memory"
+										},
+										"agent_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The identifier of the agent associated with this memory, if any."
+										},
+										"app_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The identifier of the app associated with this memory, if any."
+										},
+										"session_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The run identifier associated with this memory, returned as `session_id`."
 										},
 										"metadata": {
 											"type": "object",
@@ -3369,6 +3423,22 @@
 										"lifecycle_state": {
 											"type": "string",
 											"description": "Lifecycle state of the memory."
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid memory ID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "memory_id should be a valid UUID"
 										}
 									}
 								}
@@ -3484,6 +3554,21 @@
 											"nullable": true,
 											"description": "Identifier of the user associated with this memory"
 										},
+										"agent_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The identifier of the agent associated with this memory, if any."
+										},
+										"app_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The identifier of the app associated with this memory, if any."
+										},
+										"session_id": {
+											"type": "string",
+											"nullable": true,
+											"description": "The run identifier associated with this memory, returned as `session_id`."
+										},
 										"metadata": {
 											"type": "object",
 											"additionalProperties": true,
@@ -3529,6 +3614,38 @@
 										"lifecycle_state": {
 											"type": "string",
 											"description": "Lifecycle state of the memory."
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid memory ID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "memory_id should be a valid UUID"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Memory not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Memory not found!"
 										}
 									}
 								}
@@ -3606,6 +3723,38 @@
 										"cascade_count": {
 											"type": "integer",
 											"description": "Number of linked memories also deleted. Only present when `delete_linked=true` was passed."
+										}
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid memory ID.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "memory_id should be a valid UUID"
+										}
+									}
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Memory not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"error": {
+											"type": "string",
+											"example": "Memory not found!"
 										}
 									}
 								}
@@ -3717,6 +3866,21 @@
 											"user_id": {
 												"type": "string",
 												"description": "The identifier of the user associated with this memory"
+											},
+											"agent_id": {
+												"type": "string",
+												"nullable": true,
+												"description": "The identifier of the agent associated with this memory, if any."
+											},
+											"app_id": {
+												"type": "string",
+												"nullable": true,
+												"description": "The identifier of the app associated with this memory, if any."
+											},
+											"session_id": {
+												"type": "string",
+												"nullable": true,
+												"description": "The run identifier associated with this memory, returned as `session_id`."
 											},
 											"categories": {
 												"type": "array",
