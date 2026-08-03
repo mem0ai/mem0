@@ -83,7 +83,8 @@ export class ConfigManager {
             (userConf as Record<string, unknown>)?.embeddingModelDims ||
             (userConf as Record<string, unknown>)?.embedding_model_dims ||
             userConfig.embedder?.config?.embeddingDims ||
-            (userConfig.embedder?.config as Record<string, unknown>)?.embedding_dims ||
+            (userConfig.embedder?.config as Record<string, unknown>)
+              ?.embedding_dims ||
             undefined;
 
           // Prioritize user-provided client instance
