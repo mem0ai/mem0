@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock
 
 from mem0.memory.utils import (
+    normalize_extracted_memories,
     parse_messages,
     parse_vision_messages,
     remove_spaces_from_entities,
@@ -168,3 +169,38 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestNormalizeExtractedMemories:
+    """Reproduces #6724: a bare-string extraction (`{"memory": ["a", "b"]}`)
+    used to reach `m.get("text")` and abort the whole ingestion with
+    `AttributeError: 'str' object has no attribute 'get'`.
+    """
+
+    def test_list_of_dicts_passes_through(self):
+        raw = [{"text": "a"}, {"text": "b", "attributed_to": "user"}]
+        assert normalize_extracted_memories(raw) == raw
+
+    def test_list_of_strings_is_wrapped(self):
+        assert normalize_extracted_memories(["fact one", "fact two"]) == [
+            {"text": "fact one"},
+            {"text": "fact two"},
+        ]
+
+    def test_mixed_shapes_are_coerced_or_dropped(self):
+        raw = [{"text": "a"}, "b", 5, None, "   "]
+        assert normalize_extracted_memories(raw) == [{"text": "a"}, {"text": "b"}]
+
+    def test_single_dict_is_listified(self):
+        assert normalize_extracted_memories({"text": "solo"}) == [{"text": "solo"}]
+
+    def test_empty_and_non_iterable_inputs(self):
+        assert normalize_extracted_memories([]) == []
+        assert normalize_extracted_memories(None) == []
+        assert normalize_extracted_memories("hello") == []
+
+    def test_downstream_comprehension_no_longer_raises(self):
+        # The exact expression from mem0/memory/main.py that used to crash.
+        extracted = normalize_extracted_memories(["fact one", "fact two"])
+        mem_texts = [m.get("text", "") for m in extracted if m.get("text")]
+        assert mem_texts == ["fact one", "fact two"]
