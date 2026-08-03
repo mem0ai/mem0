@@ -84,6 +84,14 @@ class TestCLIIntegration:
         assert "add" in result.stdout
         assert "search" in result.stdout
 
+    def test_version_flag_only(self):
+        from mem0_cli import __version__
+
+        flag = _run(["--version"])
+        assert flag.returncode == 0
+        assert __version__ in flag.stdout
+        assert _run(["version"]).returncode != 0
+
     def test_add_help(self):
         result = _run(["add", "--help"])
         assert result.returncode == 0
