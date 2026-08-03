@@ -121,7 +121,7 @@ def remove_code_blocks(content: str) -> str:
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
     """
-    pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
+    pattern = r"^```[^\r\n]*\r?\n([\s\S]*?)\r?\n```$"
     match = re.match(pattern, content.strip())
     match_res=match.group(1).strip() if match else content.strip()
     return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()

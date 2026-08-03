@@ -103,6 +103,12 @@ class TestRemoveCodeBlocks:
         parsed = json.loads(result)
         assert parsed == {"memory": []}
 
+    def test_crlf_code_block(self):
+        text = '```json\r\n{"memory": []}\r\n```'
+        result = remove_code_blocks(text)
+        parsed = json.loads(result)
+        assert parsed == {"memory": []}
+
     def test_no_code_block(self):
         """Without code blocks, returns content as-is (may not be valid JSON)."""
         text = 'Here is the result: {"memory": []}'
