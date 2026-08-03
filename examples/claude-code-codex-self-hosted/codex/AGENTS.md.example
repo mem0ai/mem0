@@ -1,0 +1,14 @@
+# Codex hooks — append this section to the project's AGENTS.md
+# (or a global ~/.codex/AGENTS.md) and replace <ABS_PATH> with the absolute
+# path to this example's hooks/ dir.
+#
+# Codex event names: SessionStart, UserPromptSubmit, PreCompact, Stop.
+# PreCompact fires right before context is summarized — the key persistence
+# point for a memory layer.
+
+[hooks]
+
+SessionStart = "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_session_start.sh"
+UserPromptSubmit = "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_user_prompt.sh"
+PreCompact = "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_pre_compact.sh"
+Stop = "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_stop.sh"

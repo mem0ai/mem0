@@ -1,0 +1,17 @@
+{
+  // Claude Code MCP servers — copy this file to the project root as .mcp.json.
+  // Replace <ABS_PATH> with the absolute path to this example's mcp/ dir and
+  // set your self-hosted API key. The server reads MEM0_API_KEY from env too,
+  // so you can leave it out of this file and export it in your shell instead.
+  "mcpServers": {
+    "mem0": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["<ABS_PATH>/mcp/mem0_mcp_server.py"],
+      "env": {
+        "MEM0_BASE_URL": "http://localhost:8888",
+        "MEM0_API_KEY": "m0sk-REPLACE_WITH_YOUR_KEY"
+      }
+    }
+  }
+}
