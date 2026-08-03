@@ -114,7 +114,7 @@ class MemoryClient:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai"
+        self.host = host or os.getenv("MEM0_HOST") or os.getenv("MEM0_API_URL") or "https://api.mem0.ai"
         self.org_id = None
         self.project_id = None
         self.user_id = get_user_id()
@@ -371,7 +371,9 @@ class MemoryClient:
         payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
@@ -1003,7 +1005,7 @@ class AsyncMemoryClient:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai"
+        self.host = host or os.getenv("MEM0_HOST") or os.getenv("MEM0_API_URL") or "https://api.mem0.ai"
         self.org_id = None
         self.project_id = None
         self.user_id = get_user_id()
@@ -1291,7 +1293,9 @@ class AsyncMemoryClient:
         payload = {k: v for k, v in payload.items() if v is not None or k == "expiration_date"}
 
         if not payload:
-            raise ValueError("At least one of text, metadata, timestamp, or expiration_date must be provided for update.")
+            raise ValueError(
+                "At least one of text, metadata, timestamp, or expiration_date must be provided for update."
+            )
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()
