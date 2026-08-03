@@ -38,7 +38,9 @@ class LMStudioConfig(BaseLlmConfig):
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
             http_client_proxies: HTTP client proxy settings, defaults to None
-            lmstudio_base_url: LM Studio base URL, defaults to None
+            lmstudio_base_url: LM Studio base URL. Falls back to the
+                                LMSTUDIO_BASE_URL env var, then
+                                "http://localhost:1234/v1".
             lmstudio_response_format: LM Studio response format, defaults to None
         """
         # Initialize base parameters
@@ -55,5 +57,5 @@ class LMStudioConfig(BaseLlmConfig):
         )
 
         # LM Studio-specific parameters
-        self.lmstudio_base_url = lmstudio_base_url or "http://localhost:1234/v1"
+        self.lmstudio_base_url = lmstudio_base_url
         self.lmstudio_response_format = lmstudio_response_format
