@@ -146,7 +146,7 @@ export class OracleAIVectorSearch implements VectorStore {
     this.indexName = quoteIdentifier(
       config.indexName ?? `${normalizedCollectionName}_VEC_IDX`,
     );
-    this.dimension = config.embeddingModelDims || config.dimension || 1536;
+    this.dimension = config.embeddingModelDims ?? config.dimension ?? 1536;
     this.distanceMetric = rawMetric as DistanceMetric;
     this.indexType = rawIndexType as IndexType;
 
@@ -208,7 +208,7 @@ export class OracleAIVectorSearch implements VectorStore {
 
   private async validateDatabaseVersion(): Promise<void> {
     await this.withConnection(
-      async (connection) => {
+      (connection) => {
         if (connection.oracleServerVersion < MINIMUM_ORACLE_VECTOR_VERSION) {
           throw new Error(
             `Oracle DB version ${connection.oracleServerVersionString} not supported, must be >=23.4 for vector support`,
@@ -221,7 +221,7 @@ export class OracleAIVectorSearch implements VectorStore {
   }
 
   private async withConnection<T>(
-    operation: (connection: OracleConnection) => Promise<T>,
+    operation: (connection: OracleConnection) => Promise<T> | T,
     commit = false,
     skipInitialize = false,
   ): Promise<T> {
@@ -236,12 +236,12 @@ export class OracleAIVectorSearch implements VectorStore {
       throw new Error("Oracle connection is not initialized");
     }
 
-    let result: T;
     try {
-      result = await operation(connection);
+      const result = await operation(connection);
       if (commit) {
         await connection.commit();
       }
+      return result;
     } catch (error) {
       if (!this.pool) {
         // Pooled connections roll back when released, but a direct connection is
@@ -258,13 +258,11 @@ export class OracleAIVectorSearch implements VectorStore {
       }
 
       throw error;
+    } finally {
+      // Releasing a pooled connection also rolls back uncommitted work. This
+      // must happen on both success and failure so the pool cannot leak one.
+      if (this.pool) await connection.close();
     }
-
-    if (this.pool) {
-      await connection.close();
-    }
-
-    return result;
   }
 
   private async createCol(): Promise<void> {
@@ -288,17 +286,19 @@ export class OracleAIVectorSearch implements VectorStore {
 
   private async createMigrationTable(): Promise<void> {
     await this.withConnection(
-      (connection) =>
-        connection.execute(
+      async (connection) => {
+        await connection.execute(
           `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (
-          id NUMBER DEFAULT 1 PRIMARY KEY CHECK (id = 1),
-          user_id VARCHAR2(255) NOT NULL
-        )`,
-        ),
+        id NUMBER DEFAULT 1 PRIMARY KEY CHECK (id = 1),
+        user_id VARCHAR2(255) NOT NULL
+      )`,
+        );
+      },
       false,
       true,
     );
   }
+
   private createIndexDdl(): string {
     const organization =
       this.indexType === "HNSW"
@@ -318,6 +318,10 @@ export class OracleAIVectorSearch implements VectorStore {
   private buildIndexParameterClause(): string {
     const parameters = this.config.indexParameters;
     if (!parameters || Object.keys(parameters).length === 0) return "";
+    // Config is caller-owned and can be mutated after construction, so validate
+    // again immediately before producing DDL.
+    validateIndexParameters(this.indexType, parameters);
+
     const allowed =
       this.indexType === "HNSW"
         ? ["neighbors", "efconstruction"]
@@ -330,21 +334,8 @@ export class OracleAIVectorSearch implements VectorStore {
     for (const key of allowed) {
       const value = parameters[key];
       if (value === undefined) continue;
-      if (!Number.isInteger(value) || value < 0) {
-        throw new Error(
-          `indexParameters.${key} must be a non-negative integer`,
-        );
-      }
       const label = key === "neighbor_partitions" ? "neighbor partitions" : key;
       parts.push(`${label} ${value}`);
-    }
-    const extra = Object.keys(parameters).filter(
-      (key) => !allowed.includes(key),
-    );
-    if (extra.length) {
-      throw new Error(
-        `Unsupported ${this.indexType} index parameters: ${extra.join(", ")}`,
-      );
     }
     return parts.join(", ");
   }
@@ -529,23 +520,22 @@ export class OracleAIVectorSearch implements VectorStore {
   ): Promise<[VectorStoreResult[], number]> {
     const { clause, binds } = buildFilters(filters);
     return this.withConnection(async (connection) => {
-      const [rowsResult, countResult] = await Promise.all([
-        connection.execute<[string, unknown]>(
-          `SELECT id, payload FROM ${this.collectionName} ${clause} FETCH FIRST :limit ROWS ONLY`,
-          oracleBindParameters({ limit: topK, ...binds }),
-          { outFormat: this.driver!.OUT_FORMAT_ARRAY },
-        ),
-        connection.execute<[number]>(
-          `SELECT COUNT(*) FROM ${this.collectionName} ${clause}`,
-          oracleBindParameters(binds),
-          { outFormat: this.driver!.OUT_FORMAT_ARRAY },
-        ),
-      ]);
-      const rows = (rowsResult.rows || []).map((row) => ({
+      const result = await connection.execute<[string, unknown, number]>(
+        `SELECT id, payload, COUNT(*) OVER() AS total_count
+         FROM (
+           SELECT id, payload
+           FROM ${this.collectionName} ${clause}
+         )
+         FETCH FIRST :limit ROWS ONLY`,
+        oracleBindParameters({ limit: topK, ...binds }),
+        { outFormat: this.driver!.OUT_FORMAT_ARRAY },
+      );
+      const rows = (result.rows || []).map((row) => ({
         id: row[0],
         payload: parsePayload(row[1]),
       }));
-      return [rows, Number(countResult.rows?.[0]?.[0] || 0)];
+      const total = result.rows?.length ? Number(result.rows[0][2]) : 0;
+      return [rows, total];
     });
   }
 

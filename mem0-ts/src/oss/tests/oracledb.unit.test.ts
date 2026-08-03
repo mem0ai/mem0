@@ -585,7 +585,7 @@ describeUnit("OracleAIVectorSearch unit", () => {
 
     expect(
       () => new OracleAIVectorSearch({ ...baseConfig, dimension: 0 }),
-    ).not.toThrow();
+    ).toThrow("dimension");
     expect(
       () =>
         new OracleAIVectorSearch({
@@ -685,7 +685,7 @@ describeUnit("OracleAIVectorSearch unit", () => {
     const invalidValueStore = new OracleAIVectorSearch(config);
     config.indexParameters = { neighbors: -1 };
     await expect(invalidValueStore.initialize()).rejects.toThrow(
-      "indexParameters.neighbors must be a non-negative integer",
+      "indexParameters.neighbors must be an integer between 2 and 2048",
     );
 
     const extraConfig: {
@@ -701,7 +701,7 @@ describeUnit("OracleAIVectorSearch unit", () => {
     const unsupportedKeyStore = new OracleAIVectorSearch(extraConfig);
     extraConfig.indexParameters = { neighbors: 2, unsupported: 1 };
     await expect(unsupportedKeyStore.initialize()).rejects.toThrow(
-      "Unsupported HNSW index parameters: unsupported",
+      "Unsupported HNSW index parameter: unsupported",
     );
   });
 
@@ -829,6 +829,30 @@ describeUnit("OracleAIVectorSearch unit", () => {
 
       expect(mockCommit).not.toHaveBeenCalled();
       expect(mockRollback).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("releases a pooled connection when an operation fails", async () => {
+    const store = new OracleAIVectorSearch({
+      connectionParams: { user: "oracle_user", connectString: "db" },
+      collectionName: "pooled_error_memories",
+      doCreateIndex: false,
+    });
+    await store.initialize();
+    mockClose.mockClear();
+    mockExecuteMany.mockResolvedValueOnce({
+      batchErrors: [{ offset: 0, message: "invalid vector" }],
+    });
+    const consoleError = jest.spyOn(console, "error").mockImplementation();
+    try {
+      await expect(
+        store.insert([[0.1, 0.2, 0.3]], ["memory-1"]),
+      ).rejects.toThrow("Batch insert failed on 1 record(s)");
+
+      expect(mockClose).toHaveBeenCalledTimes(1);
+      expect(mockRollback).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
     }
@@ -1144,16 +1168,29 @@ describeUnit("OracleAIVectorSearch unit", () => {
     }
   });
 
-  it("applies translated filters to both list and count queries", async () => {
+  it("applies translated filters to the combined list query", async () => {
     const store = createStore();
     await store.list({ category: { eq: "books" } }, 10);
 
-    const calls = mockExecute.mock.calls.slice(-2);
-    expect(calls).toHaveLength(2);
-    for (const [sql, binds] of calls) {
-      expect(sql).toContain("JSON_EXISTS(payload");
-      expect(binds).toMatchObject({ filter_0: "books" });
-    }
+    const [sql, binds] = mockExecute.mock.calls.at(-1);
+    expect(sql).toContain("JSON_EXISTS(payload");
+    expect(sql).toContain("COUNT(*) OVER() AS total_count");
+    expect(binds).toMatchObject({ filter_0: "books" });
+  });
+
+  it("returns list rows and the total from one query", async () => {
+    const store = createStore();
+    await store.initialize();
+    mockExecute.mockClear();
+    mockExecute.mockResolvedValueOnce({
+      rows: [["memory-1", { topic: "oracle" }, 2]],
+    });
+
+    await expect(store.list(undefined, 1)).resolves.toEqual([
+      [{ id: "memory-1", payload: { topic: "oracle" } }],
+      2,
+    ]);
+    expect(mockExecute).toHaveBeenCalledTimes(1);
   });
 
   it("supports array-wildcard paths without interpolating filter values", async () => {
