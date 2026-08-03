@@ -753,6 +753,11 @@ class Memory(MemoryBase):
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
 
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation, typically
@@ -2386,6 +2391,12 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
