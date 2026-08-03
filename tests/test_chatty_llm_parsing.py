@@ -72,6 +72,14 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "User likes gaming"
 
+    def test_code_fence_inside_json_string(self):
+        """A markdown code fence inside a JSON string value must not be mistaken
+        for an enclosing block — the leading JSON object wins."""
+        payload = {"snippet": "```python\nx = 1\n```", "user_id": "u1"}
+        encoded = json.dumps(payload)
+        result = extract_json(encoded)
+        assert json.loads(result) == payload
+
     def test_no_json_at_all(self):
         """No JSON in the text — should return as-is."""
         text = "I don't have any memory updates."

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -135,6 +136,19 @@ def extract_json(text):
     If that also fails, returns the text as-is.
     """
     text = text.strip()
+    # If the text already starts with a JSON object, parse it directly instead of
+    # scanning its string contents for markdown code fences (a fence inside a
+    # string value must not be mistaken for an enclosing block).
+    if text.startswith("{"):
+        start_idx = text.find("{")
+        end_idx = text.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            candidate = text[start_idx : end_idx + 1]
+            try:
+                json.loads(candidate)
+                return candidate
+            except (json.JSONDecodeError, TypeError):
+                pass  # fall through to code-fence handling
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
