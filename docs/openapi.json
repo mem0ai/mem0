@@ -1878,6 +1878,24 @@
 				],
 				"description": "Despite the endpoint name, this returns memory history entries (the same shape as `GET /v1/memories/{memory_id}/history/`), not event/ingestion-job records. For event/ingestion-job status, use `GET /v1/event/{event_id}/`.",
 				"operationId": "memories_events_list",
+				"parameters": [
+					{
+						"name": "page",
+						"in": "query",
+						"schema": {
+							"type": "integer"
+						},
+						"description": "Page number for pagination. Default: 1."
+					},
+					{
+						"name": "page_size",
+						"in": "query",
+						"schema": {
+							"type": "integer"
+						},
+						"description": "Number of items per page. Default: 100."
+					}
+				],
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved memory history entries.",
@@ -3114,7 +3132,50 @@
 				"tags": [
 					"memories"
 				],
+				"description": "Returns a paginated list of memories belonging to the given entity.",
 				"operationId": "memories_entity_read",
+				"parameters": [
+					{
+						"name": "entity_type",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"enum": [
+								"user",
+								"agent",
+								"run",
+								"app"
+							]
+						},
+						"description": "The type of entity to retrieve memories for. Any other value returns `400 {\"error\": \"Invalid entity type\"}`."
+					},
+					{
+						"name": "entity_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						},
+						"description": "The identifier of the entity whose memories to retrieve."
+					},
+					{
+						"name": "page",
+						"in": "query",
+						"schema": {
+							"type": "integer"
+						},
+						"description": "Page number for pagination. Default: 1."
+					},
+					{
+						"name": "page_size",
+						"in": "query",
+						"schema": {
+							"type": "integer"
+						},
+						"description": "Number of items per page. Default: 100."
+					}
+				],
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved memories.",
@@ -3220,32 +3281,7 @@
 						}
 					}
 				}
-			},
-			"parameters": [
-				{
-					"name": "entity_type",
-					"in": "path",
-					"required": true,
-					"schema": {
-						"type": "string",
-						"enum": [
-							"user",
-							"agent",
-							"run",
-							"app"
-						]
-					},
-					"description": "The type of entity to retrieve memories for."
-				},
-				{
-					"name": "entity_id",
-					"in": "path",
-					"required": true,
-					"schema": {
-						"type": "string"
-					}
-				}
-			]
+			}
 		},
 		"/v1/memories/{memory_id}/": {
 			"get": {
@@ -3387,7 +3423,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Get or Update or delete a memory.",
+				"description": "Update a memory's text, metadata, or expiration date.",
 				"operationId": "memories_update",
 				"parameters": [
 					{
@@ -3398,7 +3434,7 @@
 							"type": "string",
 							"format": "uuid"
 						},
-						"description": "The unique identifier of the memory to retrieve."
+						"description": "The unique identifier of the memory to update."
 					}
 				],
 				"requestBody": {
@@ -3532,7 +3568,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Get or Update or delete a memory.",
+				"description": "Delete a memory.",
 				"operationId": "memories_delete",
 				"parameters": [
 					{
@@ -3543,7 +3579,7 @@
 							"type": "string",
 							"format": "uuid"
 						},
-						"description": "The unique identifier of the memory to retrieve."
+						"description": "The unique identifier of the memory to delete."
 					},
 					{
 						"name": "delete_linked",
