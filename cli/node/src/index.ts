@@ -858,8 +858,8 @@ program
 	.addHelpText("after", "\nExamples:\n  $ mem0 help\n  $ mem0 help --json")
 	.action((opts) => {
 		// opts.json is set when `mem0 help --json` is used (subcommand flag).
-		// program.opts().json is set when the root --json global flag was used first.
-		if (opts.json || program.opts().json) {
+		// program.opts().json/.agent is set when a root global flag was used first.
+		if (opts.json || program.opts().json || program.opts().agent) {
 			// Load spec from parent directory
 			const __dirname = path.dirname(fileURLToPath(import.meta.url));
 			const specPath = path.join(__dirname, "..", "..", "cli-spec.json");

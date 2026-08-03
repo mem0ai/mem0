@@ -1350,8 +1350,10 @@ def help(
       mem0 help
       mem0 help --json
     """
-    if json:
-        console.print(_json.dumps(_build_help_json(), indent=2))
+    from mem0_cli.state import is_agent_mode
+
+    if json or is_agent_mode():
+        console.print_json(_json.dumps(_build_help_json()))
     else:
         console.print(
             f"[{BRAND_COLOR}]◆ mem0 CLI[/] v{__version__} — The Memory Layer for AI Agents\n"
