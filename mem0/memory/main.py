@@ -109,9 +109,8 @@ def _sync_pgvector_dims(config: "MemoryConfig", embedder=None) -> None:
     Rules (applied when provider == "pgvector"):
     - If embedding_model_dims is None → infer it from the resolved embedder's
       embedding_dims (post EmbedderFactory.create defaults).
-    - If embedding_model_dims is explicitly set and differs from the embedder's
-      embedding_dims → raise ValueError so the mismatch is caught at construction
-      time rather than silently at write time.
+    - If embedding_model_dims is explicitly set, keep it (declared embedder dims
+      are advisory for some providers). Live enforcement is schema validation.
     - If embedding_dims cannot be determined from the embedder, do nothing (pgvector
       itself will raise a clear error when it tries to create/use the table).
     """
@@ -134,17 +133,22 @@ def _sync_pgvector_dims(config: "MemoryConfig", embedder=None) -> None:
         elif isinstance(vs_config, dict):
             vs_config["embedding_model_dims"] = embed_dims
     elif int(configured_dims) != int(embed_dims):
+        # Declared embedder dims are advisory for several providers
+        # (azure_openai/ollama/lmstudio). Do not hard-fail — keep the explicit
+        # config (documented workaround) and let schema validation enforce
+        # live table width.
         collection = getattr(vs_config, "collection_name", None)
         if isinstance(vs_config, dict):
             collection = vs_config.get("collection_name")
         provider = getattr(config.embedder, "provider", None)
-        raise ValueError(
-            f"Embedding dimension mismatch: the configured embedder "
-            f"({provider}) produces {embed_dims}-dimensional vectors, "
-            f"but pgvector collection '{collection}' is configured with "
-            f"embedding_model_dims={configured_dims}. "
-            f"Either remove the explicit embedding_model_dims setting to auto-infer from "
-            f"the embedder, or set it to {embed_dims} to match the current embedder."
+        logger.warning(
+            "pgvector embedding_model_dims=%s differs from embedder (%s) "
+            "declared embedding_dims=%s for collection '%s'. Keeping the explicit "
+            "config value; schema validation will enforce the live table width.",
+            configured_dims,
+            provider,
+            embed_dims,
+            collection,
         )
 
 
@@ -1263,6 +1267,10 @@ class Memory(MemoryBase):
         except Exception as e:
             logger.warning(f"Batch entity linking failed: {e}")
 
+        # Persist message history before raising on partial insert failure so
+        # last_messages context is not silently dropped for this turn.
+        self.db.save_messages(messages, session_scope)
+
         if _partial_insert_failures:
             first_id, first_err = _partial_insert_failures[0]
             raise VectorStoreError(
@@ -1282,8 +1290,6 @@ class Memory(MemoryBase):
                 suggestion="Check vector store dimensions/schema and retry failed memories",
             ) from first_err
 
-        # Phase 8: Save messages + return
-        self.db.save_messages(messages, session_scope)
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
@@ -2944,6 +2950,10 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.warning(f"Batch entity linking failed (async): {e}")
 
+        # Persist message history before raising on partial insert failure so
+        # last_messages context is not silently dropped for this turn.
+        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+
         if _partial_insert_failures:
             first_id, first_err = _partial_insert_failures[0]
             raise VectorStoreError(
@@ -2963,8 +2973,6 @@ class AsyncMemory(MemoryBase):
                 suggestion="Check vector store dimensions/schema and retry failed memories",
             ) from first_err
 
-        # Phase 8: Save messages + return
-        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}

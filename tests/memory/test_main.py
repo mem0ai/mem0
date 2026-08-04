@@ -1201,19 +1201,22 @@ def test_sync_pgvector_dims_infers_from_embedder():
     assert vs_config.embedding_model_dims == 768
 
 
-def test_sync_pgvector_dims_raises_on_explicit_mismatch():
+def test_sync_pgvector_dims_keeps_explicit_on_declared_mismatch(caplog):
     from mem0.memory.main import _sync_pgvector_dims
     from types import SimpleNamespace
-    import pytest
+    import logging
 
     vs_config = SimpleNamespace(embedding_model_dims=1536, collection_name="mem0")
     config = SimpleNamespace(
-        embedder=SimpleNamespace(provider="gemini", config=SimpleNamespace(embedding_dims=None)),
+        embedder=SimpleNamespace(provider="azure_openai", config=SimpleNamespace(embedding_dims=None)),
         vector_store=SimpleNamespace(provider="pgvector", config=vs_config),
     )
-    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=768))
-    with pytest.raises(ValueError, match="Embedding dimension mismatch"):
+    # Declared dims understate real output; explicit pgvector dims must win.
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=512))
+    with caplog.at_level(logging.WARNING):
         _sync_pgvector_dims(config, resolved)
+    assert vs_config.embedding_model_dims == 1536
+    assert any("embedding_model_dims" in r.message for r in caplog.records)
 
 
 def test_sync_pgvector_dims_noop_for_other_providers():
