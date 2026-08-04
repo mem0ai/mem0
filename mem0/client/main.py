@@ -108,7 +108,8 @@ class MemoryClient:
                   "https://api.mem0.ai".
             client: A custom httpx.Client instance. If provided, it will be
                     used instead of creating a new one. Note that base_url and
-                    headers will be set/overridden as needed.
+                    headers will be set/overridden as needed. The caller retains
+                    ownership and is responsible for closing it.
 
         Raises:
             ValueError: If no API key is provided or found in the environment.
@@ -125,6 +126,7 @@ class MemoryClient:
         # Create MD5 hash of API key for user_id
         self.user_id = hashlib.md5(self.api_key.encode()).hexdigest()
 
+        self._owns_client = client is None
         if client is not None:
             self.client = client
             # Ensure the client has the correct base_url and headers
@@ -156,6 +158,17 @@ class MemoryClient:
 
         _maybe_alias_anon_to_email(self.user_email)
         capture_client_event("client.init", self, {"sync_type": "sync"})
+
+    def close(self) -> None:
+        """Close the internally created HTTP client, if any."""
+        if self._owns_client:
+            self.client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
     def _validate_api_key(self):
         """Validate the API key by making a test request."""
@@ -997,7 +1010,8 @@ class AsyncMemoryClient:
                   "https://api.mem0.ai".
             client: A custom httpx.AsyncClient instance. If provided, it will
                     be used instead of creating a new one. Note that base_url
-                    and headers will be set/overridden as needed.
+                    and headers will be set/overridden as needed. The caller
+                    retains ownership and is responsible for closing it.
 
         Raises:
             ValueError: If no API key is provided or found in the environment.
@@ -1014,6 +1028,7 @@ class AsyncMemoryClient:
         # Create MD5 hash of API key for user_id
         self.user_id = hashlib.md5(self.api_key.encode()).hexdigest()
 
+        self._owns_client = client is None
         if client is not None:
             self.async_client = client
             # Ensure the client has the correct base_url and headers
@@ -1114,7 +1129,12 @@ class AsyncMemoryClient:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.async_client.aclose()
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        """Close the internally created async HTTP client, if any."""
+        if self._owns_client:
+            await self.async_client.aclose()
 
     @api_error_handler
     async def add(self, messages, options: Optional[AddMemoryOptions] = None, **kwargs) -> Dict[str, Any]:

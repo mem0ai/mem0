@@ -440,3 +440,88 @@ class TestValidateApiKeyHttpError:
 
         assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestHttpClientLifecycle:
+    @staticmethod
+    def _ping_response():
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "org_id": "org1",
+            "project_id": "project1",
+            "user_email": "test@example.com",
+        }
+        return response
+
+    def test_sync_client_closes_internally_created_transport(self):
+        transport = MagicMock()
+        transport.get.return_value = self._ping_response()
+
+        with patch("mem0.client.main.httpx.Client", return_value=transport):
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import MemoryClient
+
+                client = MemoryClient(api_key="test-api-key")
+                client.close()
+
+        transport.close.assert_called_once_with()
+
+    def test_sync_context_manager_closes_internally_created_transport(self):
+        transport = MagicMock()
+        transport.get.return_value = self._ping_response()
+
+        with patch("mem0.client.main.httpx.Client", return_value=transport):
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import MemoryClient
+
+                client = MemoryClient(api_key="test-api-key")
+                with client as entered:
+                    assert entered is client
+
+        transport.close.assert_called_once_with()
+
+    def test_sync_context_manager_does_not_close_borrowed_transport(self):
+        transport = MagicMock()
+        transport.headers = httpx.Headers()
+        transport.get.return_value = self._ping_response()
+
+        with patch("mem0.client.main.capture_client_event"):
+            from mem0.client.main import MemoryClient
+
+            client = MemoryClient(api_key="test-api-key", client=transport)
+            with client as entered:
+                assert entered is client
+
+        transport.close.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_client_closes_internally_created_transport(self):
+        transport = MagicMock()
+        transport.aclose = AsyncMock()
+
+        with patch("mem0.client.main.httpx.AsyncClient", return_value=transport):
+            with patch("mem0.client.main.requests.get", return_value=self._ping_response()):
+                with patch("mem0.client.main.capture_client_event"):
+                    from mem0.client.main import AsyncMemoryClient
+
+                    client = AsyncMemoryClient(api_key="test-api-key")
+                    await client.aclose()
+
+        transport.aclose.assert_awaited_once_with()
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_does_not_close_borrowed_transport(self):
+        transport = MagicMock()
+        transport.headers = httpx.Headers()
+        transport.aclose = AsyncMock()
+
+        with patch("mem0.client.main.requests.get", return_value=self._ping_response()):
+            with patch("mem0.client.main.capture_client_event"):
+                from mem0.client.main import AsyncMemoryClient
+
+                client = AsyncMemoryClient(api_key="test-api-key", client=transport)
+                async with client as entered:
+                    assert entered is client
+
+        transport.aclose.assert_not_awaited()
