@@ -487,7 +487,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Vectorize](https://docs.mem0.ai/components/vectordbs/dbs/vectorize) [OSS]: Use when the store is Cloudflare Vectorize.
 - [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
 - [Weaviate](https://docs.mem0.ai/components/vectordbs/dbs/weaviate) [OSS]: Use when Weaviate is the backing store.
-- [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss) [OSS]: Use for local FAISS-based similarity search.
+- [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss) [OSS]: Use for local FAISS-based similarity search in Python or TypeScript OSS. Install the optional `faiss-node` native addon for Node.js.
 - [LangChain Vector Store](https://docs.mem0.ai/components/vectordbs/dbs/langchain) [OSS]: Use when the vector store is wrapped behind LangChain.
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu) [OSS]: Use when the user is on Baidu Cloud vector service.
 - [Cassandra](https://docs.mem0.ai/components/vectordbs/dbs/cassandra) [OSS]: Use when Cassandra is the backing store.

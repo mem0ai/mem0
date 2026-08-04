@@ -44,6 +44,7 @@ const external = [
   "@elastic/elasticsearch",
   "chromadb",
   "weaviate-client",
+  "faiss-node",
 ];
 
 const define = {

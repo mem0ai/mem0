@@ -2,9 +2,10 @@
 title: "FAISS"
 description: "Use Facebook FAISS as a high-performance vector store in Mem0, optimized for memory usage and fast similarity search."
 ---
-[FAISS](https://github.com/facebookresearch/faiss) is a library for efficient similarity search and clustering of dense vectors. It is designed to work with large-scale datasets and provides a high-performance search engine for vector data. FAISS is optimized for memory usage and search speed, making it an excellent choice for production environments.
 
-### Usage
+[FAISS](https://github.com/facebookresearch/faiss) is a library for efficient similarity search and clustering of dense vectors. It is designed for large-scale vector retrieval and exact flat search stays fast for small and medium collections.
+
+### Python Usage
 
 ```python
 import os
@@ -18,24 +19,69 @@ config = {
         "config": {
             "collection_name": "test",
             "path": "/tmp/faiss_memories",
-            "distance_strategy": "euclidean"
-        }
+            "distance_strategy": "euclidean",
+        },
     }
 }
 
-m = Memory.from_config(config)
+memory = Memory.from_config(config)
 messages = [
     {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
     {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
     {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
-    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."},
 ]
-m.add(messages, user_id="alice", metadata={"category": "movies"})
+memory.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### TypeScript Usage
+
+```ts
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  llm: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: "gpt-5-mini",
+    },
+  },
+  embedder: {
+    provider: "openai",
+    config: {
+      apiKey: process.env.OPENAI_API_KEY || "",
+      model: "text-embedding-3-small",
+    },
+  },
+  vectorStore: {
+    provider: "faiss",
+    config: {
+      collectionName: "test",
+      path: "/tmp/faiss_memories",
+      distanceStrategy: "cosine",
+      normalizeL2: false,
+      embeddingModelDims: 1536,
+    },
+  },
+});
 ```
 
 ### Installation
 
-To use FAISS in your mem0 project, you need to install the appropriate FAISS package for your environment:
+Install the optional native addon in Node.js:
+
+```bash
+pnpm add faiss-node
+```
+
+If you publish a wrapper around Mem0 OSS, keep `faiss-node` as an optional peer dependency. Mem0 loads it lazily when the FAISS provider is constructed.
+
+<Warning>
+  FAISS is a Node-native provider. It does not run in browsers, Cloudflare Workers, or serverless runtimes that block native addons.
+</Warning>
+
+For Python, install the appropriate FAISS package for your environment:
 
 ```bash
 # For CPU version
@@ -49,29 +95,29 @@ pip install faiss-gpu
 
 Here are the parameters available for configuring FAISS:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `collection_name` | The name of the collection | `mem0` |
-| `path` | Path to store FAISS index and metadata | `/tmp/faiss/<collection_name>` |
-| `distance_strategy` | Distance metric strategy to use (options: 'euclidean', 'inner_product', 'cosine') | `euclidean` |
-| `normalize_L2` | Whether to normalize L2 vectors (only applicable for euclidean distance) | `False` |
-| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| Parameter              | TypeScript key       | Description                                                                                | Default value                 |
+| ---------------------- | -------------------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
+| `collection_name`      | `collectionName`     | The collection name. Use this to isolate separate memory stores.                           | `mem0`                        |
+| `path`                 | `path`               | Directory that holds `collectionName.faiss` and `collectionName.json`.                     | `/tmp/faiss/<collectionName>` |
+| `distance_strategy`    | `distanceStrategy`   | Distance metric strategy. Supported values are `euclidean`, `inner_product`, and `cosine`. | `euclidean`                   |
+| `normalize_L2`         | `normalizeL2`        | Whether to normalize vectors before euclidean indexing. `cosine` always normalizes.        | `false`                       |
+| `embedding_model_dims` | `embeddingModelDims` | Dimensions of the embedding model.                                                         | `1536`                        |
 
 ### Performance Considerations
 
 FAISS offers several advantages for vector search:
 
-1. **Efficiency**: FAISS is optimized for memory usage and speed, making it suitable for large-scale applications.
-2. **Offline Support**: FAISS works entirely locally, with no need for external servers or API calls.
-3. **Storage Options**: Vectors can be stored in-memory for maximum speed or persisted to disk.
-4. **Multiple Index Types**: FAISS supports different index types optimized for various use cases (though mem0 currently uses the basic flat index).
+1. Efficiency: FAISS is optimized for memory usage and speed, making it suitable for large-scale applications.
+2. Offline support: FAISS works entirely locally, with no need for external servers or API calls.
+3. Storage options: Vectors and JSON metadata are stored on disk so collections can be rebuilt or reopened later.
+4. Flat indexes: Mem0 currently uses flat FAISS indexes, which keep the provider exact and predictable.
 
 ### Distance Strategies
 
-FAISS in mem0 supports three distance strategies:
+FAISS in Mem0 supports three distance strategies:
 
-- **euclidean**: L2 distance, suitable for most embedding models
-- **inner_product**: Dot product similarity, useful for some specialized embeddings
-- **cosine**: Cosine similarity, best for comparing semantic similarity regardless of vector magnitude
+- `euclidean`: L2 distance, suitable for most embedding models
+- `inner_product`: Dot product similarity, useful for specialized embeddings
+- `cosine`: Cosine similarity, best for semantic similarity regardless of vector magnitude
 
-When using `cosine` or `inner_product` with normalized vectors, you may want to set `normalize_L2=True` for better results.
+When using `cosine`, vectors are normalized before indexing and searching. For `euclidean`, set `normalizeL2` when you want the same normalization behavior.

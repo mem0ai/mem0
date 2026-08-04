@@ -107,11 +107,13 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `collectionName` | Name of the collection |
 | `embeddingModelDims` | Dimensions of the embedding model |
 | `dimension` | Dimensions of the embedding model (for memory provider) |
+| `distanceStrategy` | Distance strategy for FAISS (`euclidean`, `inner_product`, `cosine`) |
+| `normalizeL2` | Enable L2 normalization for FAISS euclidean search |
 | `host` | Host where the server is running |
 | `port` | Port where the server is running |
 | `url` | URL for the server |
 | `apiKey` | API key for the server |
-| `path` | Path for the database |
+| `path` | Path for the database or FAISS directory that stores index and metadata files |
 | `onDisk` | Enable persistent storage |
 | `redisUrl` | URL for the Redis server |
 | `username` | Username for database connection |
