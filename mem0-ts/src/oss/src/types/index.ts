@@ -175,8 +175,6 @@ export interface SearchFilters {
 
 export interface SearchResult {
   results: MemoryItem[];
-  // Present on add() when some memories failed to embed (see EmbeddingFailure).
-  failed?: import("../memory/errorRetry").EmbeddingFailure[];
 }
 
 export interface VectorStoreResult {

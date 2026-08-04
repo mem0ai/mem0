@@ -32,6 +32,15 @@ export interface EmbeddingFailure {
   readonly _memoryId?: string;
 }
 
+/**
+ * What `add()` returns. `failed` is always present. An empty array means no
+ * memory was dropped on a covered path, never that nothing could have been.
+ *
+ * Covered today: LLM extraction (`infer: true`), raw writes (`infer: false`),
+ * and vector-store insert failures on both. Entity-linking embeds are NOT yet
+ * covered and still fail quietly (tracked separately); they never produce a
+ * memory row, so a dropped entity costs recall, not stored content.
+ */
 export interface AddResult {
   results: MemoryItem[];
   failed: EmbeddingFailure[];
@@ -94,8 +103,18 @@ export function makeVectorValidator(seedDim: number | null = null) {
   };
 }
 
-// A structurally-bad returned vector is always validation_error; remediation differs.
+// A structurally-bad *returned* vector is validation_error; remediation differs.
+// A *missing* vector is not a bad vector. The provider returned nothing for
+// that text (a short embedBatch), which is a provider fault and the single most
+// retryable failure in the taxonomy, so it is classified where it was caused.
 export function classifyValidation(reason: ValidationReason): Classification {
+  if (reason === "undefined") {
+    return {
+      errorClass: "provider_error",
+      remediation: "retry",
+      errorCode: EMBED_ERROR_CODE.TRANSIENT,
+    };
+  }
   const errorCode = EMBED_ERROR_CODE.VALIDATION;
   switch (reason) {
     case "dimension-mismatch":
@@ -106,7 +125,6 @@ export function classifyValidation(reason: ValidationReason): Classification {
       };
     case "non-finite":
     case "empty":
-    case "undefined":
       return {
         errorClass: "validation_error",
         remediation: "escalate",
