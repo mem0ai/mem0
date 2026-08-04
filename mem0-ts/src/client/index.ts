@@ -3,14 +3,16 @@ import type * as MemoryTypes from "./mem0.types";
 
 // Re-export all types from mem0.types
 export type {
-  MemoryOptions,
+  AddMemoryOptions,
+  SearchMemoryOptions,
+  GetAllMemoryOptions,
+  DeleteAllMemoryOptions,
   ProjectOptions,
   Memory,
   MemoryHistory,
   MemoryUpdateBody,
   ProjectResponse,
   PromptUpdatePayload,
-  SearchOptions,
   Webhook,
   WebhookCreatePayload,
   WebhookUpdatePayload,
@@ -19,6 +21,8 @@ export type {
   AllUsers,
   User,
   FeedbackPayload,
+  CreateMemoryExportPayload,
+  GetMemoryExportPayload,
 } from "./mem0.types";
 
 // Re-export enums as values (not type-only)

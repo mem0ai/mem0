@@ -55,23 +55,22 @@ export async function runTests(memory: Memory) {
     }
 
     // Updating this memory
-    const result4 = await memory.update(
-      result1.results[0].id,
-      "I love India, it is my favorite country.",
-    );
+    const result4 = await memory.update(result1.results[0].id, {
+      text: "I love India, it is my favorite country.",
+    });
     console.log("Updated memory:", result4);
 
     // Get all memories
     console.log("\nGetting all memories...");
     const allMemories = await memory.getAll({
-      userId: "john",
+      filters: { user_id: "john" },
     });
     console.log("All memories:", allMemories);
 
     // Search for memories
     console.log("\nSearching memories...");
     const searchResult = await memory.search("What do you know about Paris?", {
-      userId: "john",
+      filters: { user_id: "john" },
     });
     console.log("Search results:", searchResult);
 

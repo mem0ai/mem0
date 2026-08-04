@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+from typing import Any, Dict, List
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -37,7 +38,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
 
     OpenAI's API requires the word 'json' to appear in the messages when
     response_format is set to {"type": "json_object"}. When users provide a
-    custom_fact_extraction_prompt that doesn't include 'json', this causes a
+    custom_instructions that doesn't include 'json', this causes a
     400 error. This function appends a JSON format instruction to the system
     prompt if 'json' is not already present in either prompt.
 
@@ -60,12 +61,18 @@ def ensure_json_instruction(system_prompt, user_prompt):
 def parse_messages(messages):
     response = ""
     for msg in messages:
-        if msg["role"] == "system":
-            response += f"system: {msg['content']}\n"
-        if msg["role"] == "user":
-            response += f"user: {msg['content']}\n"
-        if msg["role"] == "assistant":
-            response += f"assistant: {msg['content']}\n"
+        role = msg.get("role")
+        content = msg.get("content")
+        # Skip messages without textual content (e.g. assistant tool-call
+        # messages that carry `tool_calls` but no `content` key).
+        if content is None:
+            continue
+        if role == "system":
+            response += f"system: {content}\n"
+        elif role == "user":
+            response += f"user: {content}\n"
+        elif role == "assistant":
+            response += f"assistant: {content}\n"
     return response
 
 
@@ -114,6 +121,8 @@ def remove_code_blocks(content: str) -> str:
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
     """
+    if content is None:
+        return ""
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     match_res=match.group(1).strip() if match else content.strip()
@@ -172,23 +181,42 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
     """
     returned_messages = []
     for msg in messages:
-        if msg["role"] == "system":
+        role = msg.get("role")
+        content = msg.get("content")
+        if role == "system":
             returned_messages.append(msg)
             continue
 
+        # Skip messages without content (e.g. assistant tool-call messages
+        # that carry `tool_calls` but no `content` key).
+        if content is None:
+            continue
+
         # Handle message content
-        if isinstance(msg["content"], list):
-            # Multiple image URLs in content
-            description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
-        elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
-            # Single image content
-            image_url = msg["content"]["image_url"]["url"]
+        if isinstance(content, list):
+            if llm is None:
+                text_parts = [
+                    part["text"] for part in msg["content"]
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ]
+                if not text_parts:
+                    continue
+                returned_messages.append({"role": role, "content": " ".join(text_parts)})
+            else:
+                description = get_image_description(msg, llm, vision_details)
+                returned_messages.append({"role": role, "content": description})
+        elif isinstance(content, dict) and content.get("type") == "image_url":
+            if llm is None:
+                continue
+            image_url_obj = content.get("image_url")
+            image_url = image_url_obj.get("url") if isinstance(image_url_obj, dict) else None
+            if not image_url:
+                raise ValueError("image_url content part is missing image_url.url")
             try:
                 description = get_image_description(image_url, llm, vision_details)
-                returned_messages.append({"role": msg["role"], "content": description})
-            except Exception:
-                raise Exception(f"Error while downloading {image_url}.")
+                returned_messages.append({"role": role, "content": description})
+            except Exception as e:
+                raise Exception(f"Error while downloading {image_url}.") from e
         else:
             # Regular text content
             returned_messages.append(msg)
@@ -201,7 +229,7 @@ def process_telemetry_filters(filters):
     Process the telemetry filters
     """
     if filters is None:
-        return {}
+        return [], {}
 
     encoded_ids = {}
     if "user_id" in filters:
@@ -264,4 +292,31 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
+
+
+def remove_spaces_from_entities(
+    entity_list: List[Any],
+    *,
+    sanitize_relationship: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Normalize entity relation dicts from LLM/tool output: lowercase, spaces to underscores.
+
+    Skips entries that are not non-empty dicts or that lack any of
+    ``source``, ``relationship``, or ``destination`` (avoids KeyError on ``[{}]``
+    or partial dicts).
+    """
+    required = ("source", "relationship", "destination")
+    cleaned: List[Dict[str, Any]] = []
+    for item in entity_list:
+        if not isinstance(item, dict) or not item:
+            continue
+        if not all(key in item for key in required):
+            continue
+        item["source"] = item["source"].lower().replace(" ", "_")
+        rel = item["relationship"].lower().replace(" ", "_")
+        item["relationship"] = sanitize_relationship_for_cypher(rel) if sanitize_relationship else rel
+        item["destination"] = item["destination"].lower().replace(" ", "_")
+        cleaned.append(item)
+    return cleaned
 

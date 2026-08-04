@@ -1,7 +1,7 @@
-from typing import Optional, Literal
+from typing import Literal, Optional
 
-from mem0.embeddings.base import EmbeddingBase
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.base import EmbeddingBase
 
 try:
     from fastembed import TextEmbedding
@@ -13,7 +13,10 @@ class FastEmbedEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "thenlper/gte-large"
-        self.dense_model = TextEmbedding(model_name = self.config.model)
+        self.dense_model = TextEmbedding(model_name=self.config.model)
+
+        if not self.config.embedding_dims:
+            self.config.embedding_dims = self.dense_model.embedding_size
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
@@ -26,4 +29,4 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0]
+        return embeddings[0].tolist()

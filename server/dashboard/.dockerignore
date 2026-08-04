@@ -1,0 +1,6 @@
+node_modules
+.next
+.env.local
+.env.example
+.env
+.storybook

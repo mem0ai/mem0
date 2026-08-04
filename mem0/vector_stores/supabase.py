@@ -14,6 +14,8 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+VECS_MAX_QUERY_LIMIT = 1000
+
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -116,7 +118,7 @@ class Supabase(VectorStoreBase):
         self.collection.upsert(records)
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -124,18 +126,28 @@ class Supabase(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
             List[OutputData]: Search results
         """
         filters = self._preprocess_filters(filters)
+        limit = top_k
+        if limit > VECS_MAX_QUERY_LIMIT:
+            logger.warning(
+                f"Requested top_k={top_k} exceeds the vecs query limit of {VECS_MAX_QUERY_LIMIT}; "
+                f"capping to {VECS_MAX_QUERY_LIMIT}."
+            )
+            limit = VECS_MAX_QUERY_LIMIT
         results = self.collection.query(
             data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
 
-        return [OutputData(id=str(result[0]), score=float(result[1]), payload=result[2]) for result in results]
+        return [
+            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            for result in results
+        ]
 
     def delete(self, vector_id: str):
         """
@@ -176,7 +188,7 @@ class Supabase(VectorStoreBase):
         """
         result = self.collection.fetch([(vector_id,)])
         if not result:
-            return []
+            return None
 
         record = result[0]
         return OutputData(id=str(record.id), score=None, payload=record.metadata)
@@ -201,27 +213,37 @@ class Supabase(VectorStoreBase):
         Returns:
             Dict: Collection information including name and configuration
         """
-        info = self.collection.describe()
         return {
-            "name": info.name,
-            "count": info.vectors,
-            "dimension": info.dimension,
-            "index": {"method": info.index_method, "metric": info.distance_metric},
+            "name": self.collection.name,
+            "count": len(self.collection),
+            "dimension": self.collection.dimension,
+            "index": {
+                "name": self.collection.index,
+                "measure": self.index_measure.value,
+                "is_indexed": self.collection.is_indexed_for_measure(self.index_measure),
+            },
         }
 
-    def list(self, filters: Optional[dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply
-            limit (int, optional): Maximum number of results to return. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors
         """
         filters = self._preprocess_filters(filters)
         query = [0] * self.embedding_model_dims
+        limit = top_k
+        if limit > VECS_MAX_QUERY_LIMIT:
+            logger.warning(
+                f"Requested top_k={top_k} exceeds the vecs query limit of {VECS_MAX_QUERY_LIMIT}; "
+                f"capping to {VECS_MAX_QUERY_LIMIT}."
+            )
+            limit = VECS_MAX_QUERY_LIMIT
         ids = self.collection.query(
             data=query, limit=limit, filters=filters, include_metadata=True, include_value=False
         )

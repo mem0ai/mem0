@@ -166,7 +166,7 @@ class TestRealWorldFieldCoverage:
         # AWS
         ("aws_session_token", True),
         # Azure MySQL
-        ("use_azure_credential", False),
+        ("use_azure_credential", True),
         # General non-sensitive
         ("collection_name", False),
         ("embedding_model_dims", False),

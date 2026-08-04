@@ -2,8 +2,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from mem0.vector_stores.chroma import ChromaDB
 from mem0.configs.vector_stores.chroma import ChromaDbConfig
+from mem0.vector_stores.chroma import ChromaDB
 
 
 @pytest.fixture
@@ -39,13 +39,13 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
     chromadb_instance.collection.query.return_value = mock_result
 
     vectors = [[0.1, 0.2, 0.3]]
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2)
 
     chromadb_instance.collection.query.assert_called_once_with(query_embeddings=vectors, where=None, n_results=2)
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.1
+    assert results[0].score == pytest.approx(1.0 / 1.1)
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -60,7 +60,7 @@ def test_search_vectors_with_filters(chromadb_instance, mock_chromadb_client):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that _generate_where_clause was called with the filters
     expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
@@ -86,7 +86,7 @@ def test_search_vectors_with_single_filter(chromadb_instance, mock_chromadb_clie
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice"}
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that single filter is passed with $eq operator
     expected_where = {"user_id": {"$eq": "alice"}}
@@ -108,7 +108,7 @@ def test_search_vectors_with_no_filters(chromadb_instance, mock_chromadb_client)
     chromadb_instance.collection.query.return_value = mock_result
 
     vectors = [[0.1, 0.2, 0.3]]
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=None)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2, filters=None)
 
     chromadb_instance.collection.query.assert_called_once_with(
         query_embeddings=vectors, where=None, n_results=2
@@ -122,7 +122,7 @@ def test_delete_vector(chromadb_instance):
 
     chromadb_instance.delete(vector_id=vector_id)
 
-    chromadb_instance.collection.delete.assert_called_once_with(ids=vector_id)
+    chromadb_instance.collection.delete.assert_called_once_with(ids=[vector_id])
 
 
 def test_update_vector(chromadb_instance):
@@ -133,7 +133,31 @@ def test_update_vector(chromadb_instance):
     chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
 
     chromadb_instance.collection.update.assert_called_once_with(
-        ids=vector_id, embeddings=new_vector, metadatas=new_payload
+        ids=[vector_id], embeddings=[new_vector], metadatas=[new_payload]
+    )
+
+
+def test_update_vector_metadata_only(chromadb_instance):
+    # Metadata-only update (vector=None) must not wrap None in a list.
+    vector_id = "id1"
+    new_payload = {"name": "updated_vector"}
+
+    chromadb_instance.update(vector_id=vector_id, vector=None, payload=new_payload)
+
+    chromadb_instance.collection.update.assert_called_once_with(
+        ids=[vector_id], embeddings=None, metadatas=[new_payload]
+    )
+
+
+def test_update_vector_embedding_only(chromadb_instance):
+    # Vector-only update (payload=None) must not wrap None in a list.
+    vector_id = "id1"
+    new_vector = [0.7, 0.8, 0.9]
+
+    chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=None)
+
+    chromadb_instance.collection.update.assert_called_once_with(
+        ids=[vector_id], embeddings=[new_vector], metadatas=None
     )
 
 
@@ -150,8 +174,18 @@ def test_get_vector(chromadb_instance):
     chromadb_instance.collection.get.assert_called_once_with(ids=["id1"])
 
     assert result.id == "id1"
-    assert result.score == 0.1
+    assert result.score == pytest.approx(1.0 / 1.1)
     assert result.payload == {"name": "vector1"}
+
+
+def test_get_missing_vector_returns_none(chromadb_instance):
+    # Chroma returns empty lists for an unknown id; get() must return None
+    # rather than raising IndexError (parity with qdrant/pgvector/faiss).
+    chromadb_instance.collection.get.return_value = {"ids": [], "metadatas": []}
+
+    result = chromadb_instance.get(vector_id="does-not-exist")
+
+    assert result is None
 
 
 def test_list_vectors(chromadb_instance):
@@ -162,7 +196,7 @@ def test_list_vectors(chromadb_instance):
     }
     chromadb_instance.collection.get.return_value = mock_result
 
-    results = chromadb_instance.list(limit=2)
+    results = chromadb_instance.list(top_k=2)
 
     chromadb_instance.collection.get.assert_called_once_with(where=None, limit=2)
 
@@ -181,7 +215,7 @@ def test_list_vectors_with_filters(chromadb_instance):
     chromadb_instance.collection.get.return_value = mock_result
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = chromadb_instance.list(filters=filters, limit=2)
+    results = chromadb_instance.list(filters=filters, top_k=2)
 
     # Verify that _generate_where_clause was called with the filters
     expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
@@ -203,7 +237,7 @@ def test_list_vectors_with_single_filter(chromadb_instance):
     chromadb_instance.collection.get.return_value = mock_result
 
     filters = {"user_id": "alice"}
-    results = chromadb_instance.list(filters=filters, limit=2)
+    results = chromadb_instance.list(filters=filters, top_k=2)
 
     # Verify that single filter is passed with $eq operator
     expected_where = {"user_id": {"$eq": "alice"}}
@@ -234,12 +268,18 @@ def test_generate_where_clause_single_filter():
 
 
 def test_generate_where_clause_no_filters():
-    """Test _generate_where_clause with no filters."""
+    """Test _generate_where_clause with no filters returns None."""
     result = ChromaDB._generate_where_clause(None)
-    assert result == {}
+    assert result is None
 
     result = ChromaDB._generate_where_clause({})
-    assert result == {}
+    assert result is None
+
+
+def test_generate_where_clause_all_wildcards_returns_none():
+    """All-wildcard filters must return None, not {}, to avoid ChromaDB ValueError."""
+    result = ChromaDB._generate_where_clause({"user_id": "*"})
+    assert result is None
 
 
 def test_generate_where_clause_non_string_values():
@@ -252,6 +292,48 @@ def test_generate_where_clause_non_string_values():
     assert result == expected
 
 
+def test_generate_where_clause_not_single_equality():
+    """Test $not with a single equality condition."""
+    filters = {"$not": [{"status": "archived"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"status": {"$ne": "archived"}}
+
+
+def test_generate_where_clause_not_multiple_conditions():
+    """Test $not with multiple conditions (OR semantics, negated to AND)."""
+    filters = {"$not": [{"status": "archived"}, {"type": "draft"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"$and": [{"status": {"$ne": "archived"}}, {"type": {"$ne": "draft"}}]}
+
+
+def test_generate_where_clause_not_with_operators():
+    """Test $not negates comparison operators correctly."""
+    filters = {"$not": [{"count": {"gt": 5}}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"count": {"$lte": 5}}
+
+
+def test_generate_where_clause_not_in_to_nin():
+    """Test $not converts 'in' to $nin."""
+    filters = {"$not": [{"status": {"in": ["archived", "deleted"]}}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"status": {"$nin": ["archived", "deleted"]}}
+
+
+def test_generate_where_clause_not_multi_field_condition():
+    """Test $not with multi-field condition uses De Morgan's (AND -> OR)."""
+    filters = {"$not": [{"status": "archived", "type": "draft"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"$or": [{"status": {"$ne": "archived"}}, {"type": {"$ne": "draft"}}]}
+
+
+def test_generate_where_clause_not_combined_with_other_filters():
+    """Test $not combined with regular filters."""
+    filters = {"user_id": "alice", "$not": [{"status": "archived"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"$and": [{"user_id": {"$eq": "alice"}}, {"status": {"$ne": "archived"}}]}
+
+
 def test_chroma_config_accepts_default_tmp_path():
     """Test that ChromaDbConfig accepts the default /tmp/chroma path."""
     config = ChromaDbConfig(path="/tmp/chroma")
@@ -262,3 +344,53 @@ def test_chroma_config_rejects_no_config():
     """Test that ChromaDbConfig rejects when no connection config is provided."""
     with pytest.raises(ValueError):
         ChromaDbConfig()
+
+
+def test_generate_where_clause_same_field_range_keeps_both_bounds():
+    """A same-field range must produce both bounds, each as its own single-operator
+    clause combined with $and (ChromaDB rejects multi-operator field expressions).
+
+    Regression test: each operator previously overwrote the previous one, so
+    {"gte": 18, "lte": 65} silently degraded to {"$lte": 65} and returned rows
+    the caller explicitly excluded.
+    """
+    result = ChromaDB._generate_where_clause({"age": {"gte": 18, "lte": 65}})
+    assert result == {"$and": [{"age": {"$gte": 18}}, {"age": {"$lte": 65}}]}
+
+
+def test_generate_where_clause_or_with_same_field_range():
+    """Same-field ranges inside $or branches must also keep both bounds."""
+    result = ChromaDB._generate_where_clause({"$or": [{"age": {"gte": 18, "lte": 65}}, {"vip": True}]})
+    assert result == {
+        "$or": [
+            {"$and": [{"age": {"$gte": 18}}, {"age": {"$lte": 65}}]},
+            {"vip": {"$eq": True}},
+        ]
+    }
+
+
+def test_generate_where_clause_or_with_multi_field_condition():
+    """Multi-field conditions inside $or must be wrapped in $and — ChromaDB
+    rejects flat dicts with more than one field per level."""
+    result = ChromaDB._generate_where_clause({"$or": [{"age": {"gte": 18}, "vip": True}, {"city": "sh"}]})
+    assert result == {
+        "$or": [
+            {"$and": [{"age": {"$gte": 18}}, {"vip": {"$eq": True}}]},
+            {"city": {"$eq": "sh"}},
+        ]
+    }
+
+
+def test_generate_where_clause_not_contains_negates_instead_of_vanishing():
+    """$not with contains/icontains must produce a negated clause.
+
+    Regression test: operators missing from the negation map were silently
+    dropped, which could erase the whole where clause and return unfiltered
+    results. contains falls back to equality on the positive path, so its
+    negation falls back to inequality.
+    """
+    result = ChromaDB._generate_where_clause({"$not": [{"title": {"contains": "draft"}}]})
+    assert result == {"title": {"$ne": "draft"}}
+
+    result = ChromaDB._generate_where_clause({"$not": [{"title": {"icontains": "draft"}}]})
+    assert result == {"title": {"$ne": "draft"}}

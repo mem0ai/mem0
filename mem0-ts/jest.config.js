@@ -18,7 +18,7 @@ module.exports = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  setupFiles: ["dotenv/config"],
+  setupFiles: ["dotenv/config", "<rootDir>/jest.setup.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   globals: {

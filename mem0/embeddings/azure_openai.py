@@ -53,3 +53,25 @@ class AzureOpenAIEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single Azure OpenAI API call.
+
+        Automatically chunks into batches of 100 to stay within API limits.
+        """
+        MAX_BATCH = 100
+        texts = [text.replace("\n", " ") for text in texts]
+        all_embeddings = []
+        for i in range(0, len(texts), MAX_BATCH):
+            chunk = texts[i : i + MAX_BATCH]
+            response = self.client.embeddings.create(
+                input=chunk,
+                model=self.config.model,
+            )
+            all_embeddings.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
+        if len(all_embeddings) != len(texts):
+            raise ValueError(
+                f"Azure OpenAI embed_batch() returned {len(all_embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
+        return all_embeddings

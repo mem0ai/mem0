@@ -1,0 +1,81 @@
+---
+title: Temporal Reasoning
+description: "Boost memories whose dates match the time in a search."
+badge: "v3"
+---
+
+Temporal Reasoning gives a ranking boost to memories whose event dates match the time in a search. Event dates are when something described in a memory happened or will happen. It runs automatically on Mem0 Platform v3.
+
+It is not available in the OSS SDK.
+
+Dates from new memories usually affect search within a few seconds.
+
+## Time-aware searches
+
+Queries can include expressions such as `yesterday`, `last week`, `tomorrow`, `currently`, and `as of March 2025`. Mem0 compares them with dates and date ranges found in stored memories.
+
+## Example
+
+Suppose a user has these memories:
+
+- "Yesterday I met Maya at the Orion conference in Paris."
+- "Last week I met Maya at the Orion conference in Tokyo."
+- "Last year I met Maya at the Orion conference in Lisbon."
+
+Searching for `Which city did I meet Maya in at the Orion conference last week?` gives the Tokyo memory a temporal boost and ranks it first.
+
+<CodeGroup>
+```python Python
+results = client.search(
+    "Which city did I meet Maya in at the Orion conference last week?",
+    filters={"user_id": "maya-demo"},
+)
+```
+
+```javascript JavaScript
+const results = await client.search(
+  "Which city did I meet Maya in at the Orion conference last week?",
+  { filters: { user_id: "maya-demo" } }
+);
+```
+</CodeGroup>
+
+Search returns the usual memory results, reordered using the temporal boost.
+
+## Search from a specific time
+
+Use `reference_date` to simulate searching at a specific date and time. Mem0 treats it as the current time for that search.
+
+<CodeGroup>
+```python Python
+results = client.search(
+    "What happened last week?",
+    filters={"user_id": "user-123"},
+    reference_date="2025-03-21T00:00:00Z",
+)
+```
+
+```javascript JavaScript
+const results = await client.search("What happened last week?", {
+  filters: { user_id: "user-123" },
+  referenceDate: "2025-03-21T00:00:00Z",
+});
+```
+</CodeGroup>
+
+## Parameters
+
+| Action | Python | TypeScript | Purpose |
+| --- | --- | --- | --- |
+| Add memories | `timestamp` | `timestamp` | Preserve the original time of an imported conversation. |
+| Search memories | `reference_date` | `referenceDate` | Simulate searching at a specific date and time. |
+
+For all search inputs and returned fields, see the [Search Memories API reference](/api-reference/memory/search-memories).
+
+<CardGroup cols={1}>
+  <Card title="Memory Timestamps" icon="calendar" href="/platform/features/timestamp">
+    Preserve the original time of imported memories.
+  </Card>
+</CardGroup>
+
+<Snippet file="get-help.mdx" />
