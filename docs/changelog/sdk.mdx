@@ -2801,6 +2801,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="n8n">
 
+<Update label="2026-08-04" description="n8n-nodes-mem0 v0.1.2">
+
+**Changes:**
+- **Package contact:** `author.email` in the published package is now `integrations@mem0.ai` (was `founders@mem0.ai`), so npm and n8n Creator Portal correspondence reaches the integrations team directly. No functional changes ([#6791](https://github.com/mem0ai/mem0/pull/6791))
+
+</Update>
+
 <Update label="2026-07-30" description="n8n-nodes-mem0 v0.1.1">
 
 **Changes:**
@@ -2829,6 +2836,14 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Zapier">
+
+<Update label="2026-08-04" description="Zapier app v0.1.1">
+
+**Bug Fixes:**
+- **Add Memory:** **User ID** is now a required field. Mem0 rejects a write that carries no entity ID, so a Zap left blank failed at the API instead of in the editor. If you scoped memories only by Agent ID or Run ID, set a User ID as well ([#6790](https://github.com/mem0ai/mem0/pull/6790))
+- **Deployment:** Add a root `index.js` that re-exports the compiled app from `dist/`, and point `main` at it. Zapier's Lambda wrapper loads `<root>/index.js` and ignores the `package.json` `main` field, so the deployed app could not resolve its entry point ([#6789](https://github.com/mem0ai/mem0/pull/6789))
+
+</Update>
 
 <Update label="2026-07-29" description="Zapier app v0.1.0">
 
