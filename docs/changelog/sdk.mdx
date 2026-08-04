@@ -1169,76 +1169,14 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
-<Update label="2026-08-01" description="v3.1.3">
+<Update label="Unreleased" description="Next TypeScript SDK">
 
-**New Features:**
-- **Vector Stores:** Add Qdrant server-side BM25 `keywordSearch()` (requires Qdrant >= 1.15.2) plus payload filter indexes, so keyword search runs without a client-side BM25 dependency ([#5851](https://github.com/mem0ai/mem0/pull/5851))
-
-**Bug Fixes:**
-- **Core:** `deleteAll()` now paginates through the vector store in batches of 1000 instead of listing once, so accounts with more memories than a single page had the remainder silently left behind ([#4872](https://github.com/mem0ai/mem0/pull/4872))
-- **Vector Stores:** Supabase `list()` now paginates past PostgREST's 1000-row cap instead of stopping at the first page, `search()` warns when results may have been truncated by that same cap, and the initialization probe reads a row instead of writing a test vector, so Row Level Security policies that only grant read access no longer fail table verification ([#6695](https://github.com/mem0ai/mem0/pull/6695))
-- **Embeddings:** Honor `TOGETHER_API_BASE` in the Together embedder, matching the Together LLM provider, so a custom gateway URL is no longer silently ignored for embeddings ([#6572](https://github.com/mem0ai/mem0/pull/6572))
-
-**Changes:**
-- **Rerankers:** `RerankerFactory`'s default LLM reranker model is now `gpt-5-mini` (was `gpt-4o-mini`) ([#6703](https://github.com/mem0ai/mem0/pull/6703))
-
-**Security:**
-- **Dependencies:** Patched 32 high and 57 medium severity dependency vulnerabilities across the pnpm workspace via `pnpm.overrides` (`axios`, `brace-expansion`, `js-yaml`, `postcss`, `protobufjs`, `mongoose`, `tar`, `fast-xml-parser`, `thrift`) ([#6639](https://github.com/mem0ai/mem0/pull/6639))
-
-</Update>
-
-<Update label="2026-07-25" description="v3.1.2">
+**Breaking / Behavior Changes:**
+- **Memory (OSS):** Scoped read/delete filters now reject wildcard and broad scope predicates such as `{ user_id: "*" }`, `{ user_id: { ne: "u1" } }`, `{ user_id: ["u1", "u2"] }`, and `deleteAll({ userId: "*" })`. Use explicit positive scope equality filters/options instead, or `reset()` when intentionally deleting everything. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
+- **Memory (OSS):** `search()`, inferred `add()`, cursorless `getAll()`, and ambiguous `deleteAll()` calls now fail closed when provider pages cannot prove scoped completeness. This primarily affects providers without cursor-aware scoped reads or reliable total counts (for example Qdrant, Azure AI Search, and Vectorize on full pages); narrow filters, lower `topK`, or use `reset()` for intentional full-collection deletion. Public results also normalize stored scope/timestamp aliases to top-level fields instead of repeating them in `metadata`. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
 
 **Bug Fixes:**
-- **Vector Stores:** Apply every operator in a Cassandra compound field filter (e.g. `{ age: { gte: 10, lte: 20 } }`) instead of stopping after the first, so the remaining bounds are no longer silently ignored ([#6511](https://github.com/mem0ai/mem0/pull/6511))
-- **Vector Stores:** Stop the Chroma where-clause translator from dropping filter conditions. Same-field ranges (`gte` + `lte`), multi-field conditions inside `$or`, and negated `contains`/`icontains` under `$not` each collapsed to a single clause or vanished, widening the search instead of narrowing it ([#6521](https://github.com/mem0ai/mem0/pull/6521))
-- **Vector Stores:** Skip `"*"` wildcard filter values in Milvus instead of matching them literally, so a filter like `{ user_id: "*" }` no longer returns zero memories ([#6508](https://github.com/mem0ai/mem0/pull/6508))
-- **Vector Stores:** Read `textLemmatized` for BM25 keyword search on Milvus, OpenSearch, and MongoDB, matching the field the memory layer actually writes, so hybrid search on those backends no longer loses the keyword signal ([#6497](https://github.com/mem0ai/mem0/pull/6497))
-- **LLMs:** Forward `responseFormat` to Gemini's `responseMimeType` in `generateResponse()`, so requesting `json_object` returns JSON instead of free-form text ([#6468](https://github.com/mem0ai/mem0/pull/6468))
-- **LLMs:** Find the Anthropic text block by type instead of indexing `content[0]`, so a thinking-enabled model whose `thinking` block comes first no longer throws `Unexpected response type from Anthropic API` ([#6506](https://github.com/mem0ai/mem0/pull/6506))
-
-</Update>
-
-<Update label="2026-07-22" description="v3.1.1">
-
-**New Features:**
-- **Embeddings:** Add an AWS Bedrock embedding provider ([#6185](https://github.com/mem0ai/mem0/pull/6185))
-
-**Bug Fixes:**
-- **Packaging:** Finish the lazy-loading work started in v3.1.0. The remaining LLMs (Anthropic, Google, Groq, LangChain, Mistral, Ollama), embedders (Google, LangChain, Ollama, Vertex AI), vector stores (Azure AI Search, Azure MySQL, Baidu, LangChain, Qdrant, Redis, Supabase, Valkey, Vectorize), and the Supabase history store still imported their SDKs at module load, so importing `mem0ai/oss` required every provider package to be installed ([#6389](https://github.com/mem0ai/mem0/pull/6389))
-- **Vector Stores:** Convert Baidu Mochow's raw L2 distance into a similarity score in `search()` (`1 / (1 + distance)`), so closer matches rank higher instead of lower. A row the backend returns without a score is now left `undefined` instead of being treated as the closest match ([#6485](https://github.com/mem0ai/mem0/pull/6485))
-- **Memory (OSS):** Coerce non-string entity IDs (e.g. a numeric `user_id`) to strings instead of crashing on `.trim()` ([#6263](https://github.com/mem0ai/mem0/pull/6263))
-- **Memory (OSS):** Stop `update()` metadata from overwriting or injecting `user_id`, `agent_id`, `run_id`, or `actor_id` (in either snake_case or camelCase). These identity fields are immutable after creation, so passing them in `metadata` can no longer move a memory into a different tenant's scope ([#6343](https://github.com/mem0ai/mem0/pull/6343))
-- **Vector Stores:** Scope Pinecone `deleteCol()`/`reset()` to the configured namespace instead of deleting the whole index, so resetting a namespaced Pinecone store no longer wipes out the other namespaces sharing that index ([#6287](https://github.com/mem0ai/mem0/pull/6287))
-
-**Changes:**
-- **Client:** Remove the unused `retrievalCriteria` field from `PromptUpdatePayload`. It was accepted and forwarded but never affected retrieval, so removing it is not a behavior change ([#6313](https://github.com/mem0ai/mem0/pull/6313))
-
-</Update>
-
-<Update label="2026-07-13" description="v3.1.0">
-
-The largest provider release for the TypeScript OSS SDK so far: 17 new vector stores, 5 new LLM providers, 4 new embedders, and reranking support. Importing `mem0ai/oss` no longer pulls in any provider SDK, so you only install what you actually configure.
-
-**New Features:**
-- **Rerankers:** Add reranking to the OSS SDK with four providers (Cohere, ZeroEntropy, cross-encoder, and LLM-based), plus per-search rerank via a `rerank` option on `search()` ([#6055](https://github.com/mem0ai/mem0/pull/6055))
-- **Memory (OSS):** Accept `text` in `Memory.update()`. `data` still works but is now deprecated, so prefer `text` in new code ([#6044](https://github.com/mem0ai/mem0/pull/6044))
-- **Vector Stores:** Add Pinecone ([#5802](https://github.com/mem0ai/mem0/pull/5802)), Weaviate ([#5800](https://github.com/mem0ai/mem0/pull/5800)), Milvus ([#5889](https://github.com/mem0ai/mem0/pull/5889)), Chroma ([#6145](https://github.com/mem0ai/mem0/pull/6145)), MongoDB ([#5793](https://github.com/mem0ai/mem0/pull/5793)), Elasticsearch ([#5866](https://github.com/mem0ai/mem0/pull/5866)), and OpenSearch ([#5810](https://github.com/mem0ai/mem0/pull/5810))
-- **Vector Stores:** Add Databricks ([#5824](https://github.com/mem0ai/mem0/pull/5824)), AWS Neptune Analytics ([#5797](https://github.com/mem0ai/mem0/pull/5797)), S3 Vectors ([#5822](https://github.com/mem0ai/mem0/pull/5822)), Azure MySQL ([#5827](https://github.com/mem0ai/mem0/pull/5827)), and Google Vertex AI Vector Search ([#5791](https://github.com/mem0ai/mem0/pull/5791))
-- **Vector Stores:** Add Turbopuffer ([#5801](https://github.com/mem0ai/mem0/pull/5801)), Upstash Vector ([#5811](https://github.com/mem0ai/mem0/pull/5811)), Valkey ([#5826](https://github.com/mem0ai/mem0/pull/5826)), Cassandra ([#5823](https://github.com/mem0ai/mem0/pull/5823)), and Baidu Mochow ([#5790](https://github.com/mem0ai/mem0/pull/5790))
-- **LLMs:** Add AWS Bedrock ([#5890](https://github.com/mem0ai/mem0/pull/5890)), xAI Grok ([#6115](https://github.com/mem0ai/mem0/pull/6115)), Together ([#6049](https://github.com/mem0ai/mem0/pull/6049)), vLLM ([#5805](https://github.com/mem0ai/mem0/pull/5805)), and Sarvam ([#6130](https://github.com/mem0ai/mem0/pull/6130))
-- **Embeddings:** Add Vertex AI ([#5882](https://github.com/mem0ai/mem0/pull/5882)), HuggingFace ([#6027](https://github.com/mem0ai/mem0/pull/6027)), FastEmbed ([#5862](https://github.com/mem0ai/mem0/pull/5862)), and Together ([#5989](https://github.com/mem0ai/mem0/pull/5989))
-
-**Improvements:**
-- **Packaging:** Lazy-load optional provider SDKs so importing `mem0ai/oss` never requires them. Provider packages are now resolved on first use, so an app that only configures OpenAI and Qdrant does not need the other provider SDKs installed ([#6280](https://github.com/mem0ai/mem0/pull/6280))
-
-**Bug Fixes:**
-- **Memory (OSS):** Re-raise LLM extraction transport failures instead of returning `[]`, so a network error during extraction surfaces as an error rather than a silently empty result ([#6102](https://github.com/mem0ai/mem0/pull/6102))
-- **Vector Stores:** Prevent an unhandled promise rejection in the Supabase and Redis constructors ([#6111](https://github.com/mem0ai/mem0/pull/6111))
-- **Client:** Encode dynamic URL path segments so IDs containing special characters no longer produce malformed requests ([#5963](https://github.com/mem0ai/mem0/pull/5963))
-
-**Security:**
-- **Dependencies:** Patch the `fast-xml-parser` and `tar` transitive CVEs ([#6160](https://github.com/mem0ai/mem0/pull/6160))
+- **Memory (OSS):** Post-filter scoped `search()`, `getAll()`, add-time dedupe, and `deleteAll()` candidates by requested scope so provider filter drift cannot leak, suppress, or delete wrong-scope memories. Read filters continue to use `user_id`, `agent_id`, and `run_id`, while camelCase aliases are normalized before provider reads and `deleteAll()` options continue to use `userId`, `agentId`, and `runId`. ([#6020](https://github.com/mem0ai/mem0/pull/6020))
 
 </Update>
 
