@@ -89,7 +89,7 @@ interface ClientIdentity {
   projectId: string | number | null;
 }
 
-// Shares one ping per (host, api key) across clients; FIFO-capped, not a leak.
+// Shares one ping per (host, api key) across clients; FIFO-capped.
 const IDENTITY_CACHE_MAX = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
