@@ -207,6 +207,12 @@ export interface WebhookCreatePayload {
   name: string;
   url: string;
   eventTypes: WebhookEvent[];
+  /**
+   * Project to create the webhook under. Defaults to the client's resolved
+   * project (from `ping()`); set this to target a different project, matching
+   * the Python client's required `project_id`.
+   */
+  projectId?: string;
 }
 
 export interface WebhookUpdatePayload {
