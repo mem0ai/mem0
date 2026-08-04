@@ -100,9 +100,19 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
-// Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
-// in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
+// Identity keys stripped from caller metadata in add() and update(): ENTITY_PARAMS covers
+// user_id/agent_id/run_id in both casings (the default store promotes camelCase on read);
+// actor_id has no camelCase alias.
 const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
+
+// Caller metadata must not overwrite or inject an identity scope (#6342 / #6367 / #6371).
+function stripIdentityKeys(
+  metadata: Record<string, any> = {},
+): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key]) => !IDENTITY_KEYS.includes(key)),
+  );
+}
 
 /**
  * Validates that no top-level entity parameters are passed in config.
@@ -736,8 +746,7 @@ export class Memory {
       infer: config.infer,
     });
     const { filters = {}, infer = true } = config;
-    const metadata = { ...config.metadata };
-    for (const key of IDENTITY_KEYS) delete metadata[key];
+    const metadata = stripIdentityKeys(config.metadata);
 
     // Validate and trim entity IDs
     const userId = validateAndTrimEntityId(config.userId, "userId");
@@ -1950,10 +1959,7 @@ export class Memory {
       existingEmbeddings[newData] ||
       (await this.embedder.embed(newData, "update"));
 
-    // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367).
-    const sanitizedMetadata = Object.fromEntries(
-      Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),
-    );
+    const sanitizedMetadata = stripIdentityKeys(metadata);
 
     const newMetadata = {
       ...existingMemory.payload,

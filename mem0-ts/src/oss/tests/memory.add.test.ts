@@ -81,56 +81,6 @@ jest.mock("../src/utils/factory", () => {
   };
 });
 
-// Mock Google modules to prevent @google/genai crash in CI
-jest.mock("../src/embeddings/google", () => ({
-  GoogleEmbedder: jest.fn(),
-}));
-jest.mock("../src/llms/google", () => ({
-  GoogleLLM: jest.fn(),
-}));
-
-jest.mock("../src/llms/openai", () => ({
-  OpenAILLM: jest.fn().mockImplementation(() => ({
-    generateResponse: jest
-      .fn()
-      .mockImplementation(
-        (messages: Array<{ role: string; content: string }>) => {
-          // V3 pipeline: single LLM call with additive extraction prompt.
-          const userMsg = messages.find((m) => m.role === "user");
-          const content = userMsg?.content ?? "";
-          const newMsgMatch = content.match(
-            /## New Messages\n([\s\S]*?)(?=\n##|$)/,
-          );
-          const extracted = newMsgMatch
-            ? newMsgMatch[1].trim()
-            : "extracted fact from input";
-          return JSON.stringify({
-            memory: [
-              {
-                id: "0",
-                text: extracted,
-                attributed_to: "user",
-              },
-            ],
-          });
-        },
-      ),
-  })),
-}));
-
-const mockEmbedding = new Array(1536).fill(0.1);
-jest.mock("../src/embeddings/openai", () => ({
-  OpenAIEmbedder: jest.fn().mockImplementation(() => ({
-    embed: jest.fn().mockResolvedValue(mockEmbedding),
-    embedBatch: jest
-      .fn()
-      .mockImplementation((texts: string[]) =>
-        Promise.resolve(texts.map(() => mockEmbedding)),
-      ),
-    embeddingDims: 1536,
-  })),
-}));
-
 function createMemory(overrides: Partial<MemoryConfig> = {}): Memory {
   return new Memory({
     version: "v1.1",
@@ -332,7 +282,7 @@ describe("Memory - add()", () => {
     [false, "agent_id", "filter-agent"],
     [false, "run_id", "filter-run"],
   ] as const)(
-    "preserves %s filters scope after sanitization",
+    "preserves infer=%s %s filters scope after sanitization",
     async (infer, filterKey, filterValue) => {
       const result: SearchResult = await memory.add("filter-scoped content", {
         filters: { [filterKey]: filterValue },
