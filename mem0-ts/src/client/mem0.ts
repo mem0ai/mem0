@@ -90,8 +90,9 @@ interface ClientIdentity {
 }
 
 // Module scope, so a fresh client on a warm serverless container reuses the
-// ping instead of repeating it. Keyed by host + key; a process holds one entry
-// per credential pair it actually uses.
+// ping instead of repeating it. Keyed by host + key, FIFO-capped so a process
+// cycling through many keys degrades to one ping per construction, not a leak.
+const IDENTITY_CACHE_MAX = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
 export default class MemoryClient {
@@ -142,6 +143,11 @@ export default class MemoryClient {
     let shared = identityByCredentials.get(credentials);
     if (!shared) {
       shared = this._initializeClient();
+      if (identityByCredentials.size >= IDENTITY_CACHE_MAX) {
+        identityByCredentials.delete(
+          identityByCredentials.keys().next().value!,
+        );
+      }
       identityByCredentials.set(credentials, shared);
       // A failed ping must not be cached, or the process never recovers.
       shared.then((identity) => {
