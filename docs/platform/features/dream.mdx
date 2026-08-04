@@ -51,6 +51,10 @@ Each source memory stays exactly where it was, and the new pattern links back to
   Synthesis only considers memories created **after** you enable it for a project. Turning it on sets a forward boundary, so historical memories aren't reprocessed in bulk on day one. Everything added from that point on is eligible.
 </Note>
 
+<Note>
+  Synthesis only looks at memories scoped to a **`user_id` alone**. Memories that also carry another entity (an `agent_id`, `run_id`, or `app_id`) are left out of a user's synthesis run. This keeps each run tied to a single user's own memories and avoids cross-referencing across agents, runs, or apps. So a memory has to be user-scoped, with no other entity attached, to be eligible for a pattern.
+</Note>
+
 ### Supersede
 
 When a user tells you something that **contradicts** an earlier memory ("I moved to Berlin" after an earlier "I live in Lisbon"), Dream marks the older memory as **superseded** and links it to the newer fact that replaced it. Superseded memories are not deleted and not hidden by default. A normal `search` or `get` still returns them alongside your active memories, badged as superseded, so you keep the full history. When you want only the current truth, ask for it explicitly with `latest_only=true` (see [How reads change](#how-reads-change-with-dream) below). Supersede runs automatically as part of adding memories, on every plan.
@@ -149,6 +153,9 @@ No. Enabling Synthesis sets a forward boundary, so only memories created after y
 
 **Why don't I see pattern memories immediately after enabling Synthesis?**
 Synthesis runs on a schedule (every 7 days on Pro, daily on Enterprise) and only for users with at least 20 memories. Patterns appear on the next scheduled run for an eligible user and can take up to ~24 hours to complete once that run starts.
+
+**Which memories does Synthesis include?**
+Only memories scoped to a `user_id` on its own. If a memory also carries an `agent_id`, `run_id`, or `app_id`, it's excluded from that user's synthesis run. This keeps each run confined to a single user's memories and prevents any cross-referencing across agents, runs, or apps. Supersede and Merge are not affected by this and run across your memories as usual.
 
 **Are synthesized pattern memories traceable?**
 Yes. Every pattern memory links back to the specific source memories it was distilled from, so you can always see the evidence behind an insight from the Dream dashboard.
