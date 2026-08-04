@@ -256,6 +256,50 @@ function extractUserText(input: any, output: any): string {
   return "";
 }
 
+/**
+ * Collect all MEM0_HEADER_* environment variables and return them as a
+ * plain header map.  The variable name suffix is normalised to the actual
+ * header name: MEM0_HEADER_X_FOO_BAR → X-Foo-Bar (underscores → hyphens,
+ * title-cased).  Example:
+ *   MEM0_HEADER_X_MY_TOKEN=secret  →  { "X-My-Token": "secret" }
+ */
+function collectCustomHeaders(): Record<string, string> {
+  const PREFIX = "MEM0_HEADER_";
+  const headers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (!key.startsWith(PREFIX) || !value) continue;
+    const rawName = key.slice(PREFIX.length); // e.g. "X_MY_TOKEN"
+    const headerName = rawName
+      .split("_")
+      .map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1).toLowerCase())
+      .join("-"); // → "X-My-Token"
+    headers[headerName] = value;
+  }
+  return headers;
+}
+
+/**
+ * Build the options object passed to `new MemoryClient(...)`.
+ * Resolves: API key, optional custom host, and any MEM0_HEADER_* headers.
+ */
+function buildMemoryClientOptions(apiKey: string): any {
+  const opts: any = { apiKey };
+
+  // Optional custom host (MEM0_HOST takes precedence over MEM0_API_URL)
+  const customHost = process.env.MEM0_HOST || process.env.MEM0_API_URL;
+  if (customHost) {
+    opts.host = customHost.replace(/\/+$/, ""); // "http://host.com///" → "http://host.com"
+  }
+
+  // Custom headers via MEM0_HEADER_<NAME>=<value> env vars
+  const customHeaders = collectCustomHeaders();
+  if (Object.keys(customHeaders).length > 0) {
+    opts.headers = customHeaders;
+  }
+
+  return opts;
+}
+
 const Mem0Plugin: Plugin = async (ctx) => {
   const {$, client} = ctx;
 
@@ -276,7 +320,8 @@ const Mem0Plugin: Plugin = async (ctx) => {
     return {};
   }
 
-  const mem0 = new MemoryClient({apiKey});
+  const mem0 = new MemoryClient(buildMemoryClientOptions(apiKey));
+  
   const userId = await getUserId();
   const appId = await getProjectId($);
   const branch = await getBranch($);
