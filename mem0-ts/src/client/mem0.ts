@@ -136,8 +136,7 @@ export default class MemoryClient {
 
     this.telemetryId = "";
 
-    // Memory requests never wait on this; telemetry and the project-scoped
-    // endpoints (_awaitIdentity) do.
+    // Memory requests never wait on this; telemetry and _awaitIdentity do.
     this.initialized = this._resolveIdentity();
   }
 
@@ -166,10 +165,7 @@ export default class MemoryClient {
     });
   }
 
-  // getProject/updateProject/getWebhooks/createWebhook build their URL from
-  // organizationId/projectId, which only exist once the ping has landed. The
-  // memory endpoints don't need this — the server derives org/project from the
-  // API key. Resolved promise on a warm process, so this costs one microtask.
+  // Blocks until the ping has populated organizationId/projectId.
   private async _awaitIdentity(): Promise<void> {
     await this.initialized;
   }

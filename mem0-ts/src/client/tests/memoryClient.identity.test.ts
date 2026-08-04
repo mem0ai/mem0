@@ -1,15 +1,9 @@
 /**
- * MemoryClient unit tests — identity (org/project) resolution ordering.
+ * MemoryClient unit tests — org/project identity resolution ordering.
  *
- * getProject/updateProject/getWebhooks/createWebhook build their URL from
- * organizationId/projectId, which are only populated once the constructor's
- * ping resolves. These tests call each method as the FIRST awaited operation on
- * a freshly constructed client — the serverless / per-request-DI pattern — and
- * assert the resolved IDs reach the URL.
- *
- * Do not add an `await client.ping()` (or any other await on the instance)
- * before the call under test: a single microtask tick is enough to hide the bug
- * these tests exist to catch.
+ * Each test calls the method under test as the first awaited operation on a
+ * fresh client. Any earlier await on the instance resolves identity and voids
+ * the test.
  */
 import { MemoryClient } from "../mem0";
 import { TEST_ORG_ID, TEST_PROJECT_ID } from "./helpers";
@@ -17,15 +11,12 @@ import { setupMockFetch, installConsoleSuppression } from "./setup";
 
 installConsoleSuppression();
 
-// A distinct key per client keeps each test off the module-scope identity
-// cache, so results never depend on test ordering.
+// Distinct key per client keeps each test off the module-scope identity cache.
 let keySeq = 0;
 const freshClient = () =>
   new MemoryClient({ apiKey: `test-api-key-identity-${keySeq++}` });
 
-// Selects the request under test by path. Never index by position: the ping
-// and the PostHog telemetry call also land in the mock, and their ordering
-// relative to the API call is deliberately unspecified.
+// Selects by path; the ping and PostHog calls also land in the mock.
 const findUrl = (mock: jest.Mock, needle: string): string => {
   const url = mock.mock.calls
     .map((c: [string, RequestInit]) => c[0])
@@ -43,7 +34,6 @@ describe("MemoryClient - project-scoped URLs on a fresh client", () => {
     });
     const mock = setupMockFetch(extra);
 
-    // First awaited call on the instance — no ping() beforehand.
     await freshClient().getProject({ fields: ["custom_instructions"] });
 
     const url = findUrl(mock, "/api/v1/orgs/organizations/");
@@ -114,9 +104,7 @@ describe("MemoryClient - project-scoped URLs on a fresh client", () => {
 
 describe("MemoryClient - memory endpoints do not wait on identity", () => {
   test("search completes while the ping is still pending", async () => {
-    // The ping never settles. A memory call must still complete, since the
-    // server derives org/project from the API key. This is what keeps
-    // telemetry setup off the request critical path.
+    // The ping never settles.
     const mock = jest.fn((url: string) => {
       if (url.includes("/v1/ping/")) return new Promise(() => {});
       return Promise.resolve({
