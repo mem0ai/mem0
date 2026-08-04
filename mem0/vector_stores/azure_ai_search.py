@@ -389,6 +389,9 @@ class AzureAISearch(VectorStoreBase):
         try:
             if hasattr(self, "search_client"):
                 self.search_client.close()
+        except Exception:
+            pass
+        try:
             if hasattr(self, "index_client"):
                 self.index_client.close()
         except Exception:
