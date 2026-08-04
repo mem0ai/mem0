@@ -11,9 +11,13 @@ Mem0 is a polyglot monorepo, and this guide covers contributing to both the
 
 ### 1. Open an Issue First
 
-**Always open an issue before opening a pull request.** This lets us discuss the
-change, avoid duplicate effort, and agree on the approach before you invest time
-in code.
+**For non-security changes, always open an issue before opening a pull request.**
+This lets us discuss the change, avoid duplicate effort, and agree on the
+approach before you invest time in code.
+
+Exception: do not open a public issue or pull request for security
+vulnerabilities, unsafe examples, or secret exposure. Follow
+[SECURITY.md](./SECURITY.md) and report those privately.
 
 - Search [existing issues](https://github.com/mem0ai/mem0/issues) first to see if
   your bug or idea already exists.
@@ -23,7 +27,7 @@ in code.
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach
   before starting significant work.
 
-Every pull request must link to an issue using `Closes #<issue-number>`.
+Every non-security pull request must link to an issue using `Closes #<issue-number>`.
 
 ### 2. Sign the Contributor License Agreement (CLA)
 
@@ -34,6 +38,47 @@ When you open your first PR, the CLA bot will automatically comment with a link 
 sign. Signing takes less than a minute and only needs to be done once. Pull
 requests from contributors who have not signed the CLA will be blocked from
 merging.
+
+## First Contribution Fast Path
+
+If you are making a typo fix, copy edit, or factual correction to an existing
+docs page, `README.md`, or `CONTRIBUTING.md`, you do not need to set up every
+package in the monorepo. The CLA, the rule to never commit secrets, and the PR
+template still apply. Keep the change narrow and follow this shorter path:
+
+1. Good first candidates are existing issues about docs or `README.md`, typo
+   fixes, or small factual corrections.
+2. Search existing issues first. If the change relates to a security
+   vulnerability, unsafe example, or secret exposure, do not open a public issue
+   or pull request; follow [SECURITY.md](./SECURITY.md) and report it privately.
+   Otherwise, if no issue exists, open a
+   [documentation issue](https://github.com/mem0ai/mem0/issues/new?template=documentation_issue.yml)
+   before the PR so the change still has an issue to link.
+   For typo fixes and small factual corrections, you can open the docs issue and
+   proceed immediately unless the scope expands.
+3. Create a focused branch from `main`, such as `docs/fix-cli-example` or
+   `docs/typo-platform-quickstart`.
+4. Change only the relevant documentation files. Avoid drive-by wording changes
+   in unrelated pages.
+5. Run only the checks that match the files you touched:
+   - For root markdown changes like `README.md` or `CONTRIBUTING.md`, review the
+     rendered diff and run `git diff --check`.
+   - For small edits to existing `docs/**/*.mdx` pages, check the rendered diff
+     and any links you changed. If your edit adds, removes, or moves a docs page,
+     update `docs/docs.json` and `docs/llms.txt`, then run `mintlify dev` from
+     `docs/` to preview.
+   - In addition, for links, commands, or code examples in any Markdown file,
+     validate the exact content you changed: open changed links, run changed
+     commands when safe, and verify code snippets against the system they
+     document. For runnable examples, use the smallest relevant verification for
+     that system. If an example cannot be run locally, explain that clearly in
+     the PR. Use placeholders or redacted values only; never paste real API keys,
+     internal URLs, customer IDs, or secrets into docs examples or screenshots.
+6. For non-security docs changes, open a PR against `main`, link the issue with
+   `Closes #<number>`, and clearly state which checks you ran.
+
+For code changes, dependency changes, public API changes, or behavior changes,
+use the full package-specific setup and verification workflow below.
 
 ## Repository Layout
 
@@ -58,9 +103,11 @@ Other packages include the CLIs (`cli/python/`, `cli/node/`), integrations
 4. Run **linting and tests** for every package you touched (see below).
 5. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
    (e.g. `feat:`, `fix:`, `docs:`, `refactor:`, `test:`).
-6. Push and open a **pull request** against `main`, linking the issue with
-   `Closes #<number>` and filling out the
-   [PR template](./.github/PULL_REQUEST_TEMPLATE.md).
+6. For non-security changes, push and open a **pull request** against `main`,
+   linking the issue with `Closes #<number>` and filling out the
+   [PR template](./.github/PULL_REQUEST_TEMPLATE.md). Security reports and fixes
+   should follow [SECURITY.md](./SECURITY.md) and maintainer instructions instead
+   of the public issue/PR flow.
 
 ### Contributing to the Python SDK (`mem0/`)
 
@@ -134,7 +181,7 @@ pnpm run test:unit    # unit tests with coverage
 
 Before requesting review, make sure:
 
-- [ ] An issue exists and is linked with `Closes #<number>`
+- [ ] For non-security changes, an issue exists and is linked with `Closes #<number>`
 - [ ] You have signed the CLA
 - [ ] Your code follows the project's style guidelines (lint passes)
 - [ ] You performed a self-review of your changes
