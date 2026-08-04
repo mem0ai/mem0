@@ -123,14 +123,8 @@ export default class MemoryClient {
 
     this._validateApiKey();
 
-    // Seed the telemetry id synchronously so it is never "". Every API method
-    // used to do `if (this.telemetryId === "") await this.ping()`, which put a
-    // blocking /v1/ping/ round-trip on the critical path of the first call made
-    // by each client. Callers that construct a client per request (serverless
-    // handlers, per-request DI) paid that on every single request.
-    //
-    // ping() still runs exactly once per client, asynchronously, and upgrades
-    // this id to the user's email when it resolves. Nothing waits for it.
+    // Seeded synchronously so no request waits on ping(); the async ping below
+    // upgrades it to the user's email.
     this.telemetryId = generateHash(this.apiKey);
     void this._initializeClient();
   }
@@ -506,11 +500,8 @@ export default class MemoryClient {
 
     for (const entity of to_delete) {
       try {
-        // Last axios call site in this class. Node's axios defaults to
-        // http.Agent({ keepAlive: false }) and no agent is configured here, so
-        // every iteration of this loop opened a fresh TCP+TLS connection.
-        // _fetchWithErrorHandling goes through the runtime's pooled dispatcher
-        // and reuses the connection the rest of the client already has open.
+        // fetch() reuses the pooled connection; axios here defaulted to
+        // keepAlive: false, one handshake per entity.
         await this._fetchWithErrorHandling(
           `${this.host}/v2/entities/${encodePathSegment(entity.type)}/${encodePathSegment(entity.name)}/`,
           {
