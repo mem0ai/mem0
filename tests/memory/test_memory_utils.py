@@ -194,10 +194,18 @@ class TestNormalizeExtractedMemories:
     def test_single_dict_is_listified(self):
         assert normalize_extracted_memories({"text": "solo"}) == [{"text": "solo"}]
 
+    def test_bare_string_is_wrapped_like_single_element_list(self):
+        # A top-level bare string normalizes the same as ["hello"], so a model
+        # returning "memory": "hello" is not silently dropped.
+        assert normalize_extracted_memories("hello") == [{"text": "hello"}]
+        assert normalize_extracted_memories("hello") == normalize_extracted_memories(["hello"])
+
     def test_empty_and_non_iterable_inputs(self):
         assert normalize_extracted_memories([]) == []
         assert normalize_extracted_memories(None) == []
-        assert normalize_extracted_memories("hello") == []
+        assert normalize_extracted_memories("") == []
+        assert normalize_extracted_memories("   ") == []
+        assert normalize_extracted_memories(5) == []
 
     def test_downstream_comprehension_no_longer_raises(self):
         # The exact expression from mem0/memory/main.py that used to crash.

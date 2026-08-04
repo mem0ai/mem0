@@ -123,7 +123,10 @@ def normalize_extracted_memories(raw_memories):
     """
     if not raw_memories:
         return []
-    if isinstance(raw_memories, dict):
+    if isinstance(raw_memories, (dict, str)):
+        # A model can also return the whole payload as a single object or a
+        # bare string ("memory": "hello"); wrap it so it normalizes the same
+        # as the corresponding single-element list.
         raw_memories = [raw_memories]
     elif not isinstance(raw_memories, list):
         return []
