@@ -870,7 +870,7 @@ class Memory(MemoryBase):
                   is empty on the happy path — additive and non-breaking for callers reading only
                   "results". Example: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}], "failed": []}`.
                   Scope: "failed" covers the embedding phase (infer=True extraction, infer=False raw,
-                  and procedural). Vector-store insert failures are logged, not surfaced here.
+                  and procedural) plus vector-store insert failures. Entity linking is not covered.
 
         Raises:
             Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
@@ -1164,6 +1164,7 @@ class Memory(MemoryBase):
         # links, and the returned results — a record the store rejected must
         # never be reported back as a successful ADD.
         persisted_records = []
+        insert_failed_ids = set()
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
@@ -1172,13 +1173,20 @@ class Memory(MemoryBase):
             )
             persisted_records = records
         except Exception:
-            # Fallback: insert one by one
+            # Fallback: insert one by one. A memory that still fails to persist is
+            # dropped from the store, so surface it under `failed` rather than let an
+            # empty `failed` certify success — the same swallow-and-continue shape as
+            # the embed drop, one phase later.
             for rec in records:
                 try:
                     self.vector_store.insert(vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]])
                     persisted_records.append(rec)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {rec[0]}: {e}")
+                    insert_failed_ids.add(rec[0])
+                    failed.append(
+                        {"text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
+                    )
 
         if not persisted_records:
             self.db.save_messages(messages, session_scope)
@@ -1319,7 +1327,8 @@ class Memory(MemoryBase):
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in persisted_records
+            for r in records
+            if r[0] not in insert_failed_ids
         ]
 
         keys, encoded_ids = process_telemetry_filters(filters)
@@ -2620,8 +2629,8 @@ class AsyncMemory(MemoryBase):
                   "failed" holds per-item embedding failures, each ``{"text", "error_class", "error"}``
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking. Scope: the embedding phase
-                  (infer=True extraction, infer=False raw, and procedural); vector-store insert
-                  failures are logged, not surfaced here.
+                  (infer=True extraction, infer=False raw, and procedural) plus vector-store insert
+                  failures. Entity linking is not covered.
         """
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
@@ -2910,6 +2919,7 @@ class AsyncMemory(MemoryBase):
         # links, and the returned results — a record the store rejected must
         # never be reported back as a successful ADD.
         persisted_records = []
+        insert_failed_ids = set()
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2919,6 +2929,9 @@ class AsyncMemory(MemoryBase):
             )
             persisted_records = records
         except Exception:
+            # Fallback: insert one by one. A memory that still fails to persist is
+            # dropped from the store, so surface it under `failed` rather than let an
+            # empty `failed` certify success.
             for rec in records:
                 try:
                     await asyncio.to_thread(
@@ -2927,6 +2940,10 @@ class AsyncMemory(MemoryBase):
                     persisted_records.append(rec)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
+                    insert_failed_ids.add(rec[0])
+                    failed.append(
+                        {"text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
+                    )
 
         if not persisted_records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
@@ -3067,7 +3084,8 @@ class AsyncMemory(MemoryBase):
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in persisted_records
+            for r in records
+            if r[0] not in insert_failed_ids
         ]
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)

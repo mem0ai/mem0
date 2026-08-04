@@ -1492,3 +1492,29 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
                 user_id="u1",
                 raise_on_partial_failure=True,
             )
+
+    def test_insert_failure_recorded_in_failed_and_dropped_from_results(self, mock_memory, mocker):
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "fact one"}]}'
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10])
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        # Both the batch insert and the per-item fallback fail: the memory embedded
+        # but never persisted.
+        mock_memory.vector_store.insert = Mock(side_effect=Exception("store down"))
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "a fact"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        # Not in results (never stored), surfaced under failed as internal_error.
+        assert result == []
+        assert len(failed) == 1
+        assert failed[0]["error_class"] == EmbeddingErrorClass.INTERNAL
+        assert "insert" in failed[0]["error"]
