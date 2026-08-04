@@ -5,10 +5,15 @@
  * label (errorClass / remediation / retryAfter). memory.retryFailed() retries
  * them per label, and the guardrail (NaN/Inf/dim) gates persistence every time.
  */
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { Memory } from "../memory";
+// add() fires a telemetry POST per call. Left real, every test in this file
+// waits ~5s on the network and the suite times out under CI load; stubbed, the
+// whole file runs in under a second. Same stub as vector-stores-compat.test.ts.
+jest.mock("../src/utils/telemetry", () => ({
+  captureClientEvent: jest.fn().mockResolvedValue(undefined),
+  isTelemetryEnabled: jest.fn(() => false),
+}));
+
+import { Memory } from "../src/memory";
 import {
   classifyEmbedError,
   classifyValidation,
@@ -16,14 +21,14 @@ import {
   toEmbeddingError,
   projectError,
   EmbeddingFailure,
-} from "../memory/errorRetry";
+} from "../src/memory/errorRetry";
 import {
   RateLimitError,
   NetworkError,
   ValidationError,
   AuthenticationError,
   EmbeddingError,
-} from "../../../common/exceptions";
+} from "../../common/exceptions";
 
 const DIM = 1536;
 
@@ -35,23 +40,6 @@ function vectorFor(text: string): number[] {
   for (let k = 0; k < 5; k++) v[Math.abs(h + k * 97) % DIM] = 0.5;
   return v;
 }
-
-const tmpDbs: string[] = [];
-function freshDbPath(): string {
-  const p = path.join(
-    fs.mkdtempSync(path.join(os.tmpdir(), "mem0-retry-")),
-    "store.db",
-  );
-  tmpDbs.push(p);
-  return p;
-}
-afterAll(() => {
-  for (const p of tmpDbs) {
-    try {
-      fs.rmSync(path.dirname(p), { recursive: true, force: true });
-    } catch {}
-  }
-});
 
 // Embedder driven by per-text rules so each scenario is deterministic.
 //   "throw:<status>"  -> embed() throws { status }
@@ -85,13 +73,21 @@ class RuleEmbedder {
   }
 }
 
+let storeSeq = 0;
 function buildMemory(rules: Map<string, Rule>) {
   const m = new Memory({
     disableHistory: true,
     vectorStore: {
       provider: "memory",
-      config: { dimension: DIM, dbPath: freshDbPath() },
+      config: {
+        // In-memory and uniquely named per test: no filesystem I/O, no shared
+        // state, and nothing to clean up. Matches the other memory tests.
+        collectionName: `test-embed-retry-${storeSeq++}`,
+        dimension: DIM,
+        dbPath: ":memory:",
+      },
     },
+    historyDbPath: ":memory:",
     embedder: { provider: "openai", config: { apiKey: "x" } },
     llm: { provider: "openai", config: { apiKey: "x" } },
   } as any);
@@ -134,7 +130,7 @@ describe("add() returns { results, failed } with labels", () => {
 
     expect(res.results.map((r) => r.memory).sort()).toEqual([A, C].sort());
     expect(res.failed).toHaveLength(1);
-    expect(res.failed![0]).toMatchObject({
+    expect(res.failed[0]).toMatchObject({
       text: B,
       errorClass: "validation_error",
       remediation: "escalate",
@@ -148,7 +144,7 @@ describe("add() returns { results, failed } with labels", () => {
     const { m } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u2" });
-    expect(res.failed![0]).toMatchObject({
+    expect(res.failed[0]).toMatchObject({
       text: B,
       errorClass: "provider_error",
       remediation: "retry",
@@ -160,7 +156,7 @@ describe("add() returns { results, failed } with labels", () => {
     const rules = new Map<string, Rule>([[B, "dim"]]);
     const { m } = await ready(rules, [A, B]);
     const res = await m.add([A, B].join(". "), { userId: "u3" });
-    expect(res.failed![0]).toMatchObject({
+    expect(res.failed[0]).toMatchObject({
       text: B,
       errorClass: "validation_error",
       remediation: "reconfigure",
@@ -171,7 +167,7 @@ describe("add() returns { results, failed } with labels", () => {
     const rules = new Map<string, Rule>([[B, "empty"]]);
     const { m } = await ready(rules, [A, B]);
     const res = await m.add([A, B].join(". "), { userId: "u4" });
-    expect(res.failed!.map((f) => f.text)).toContain(B);
+    expect(res.failed.map((f) => f.text)).toContain(B);
     expect(res.results).toHaveLength(1);
   });
 
@@ -186,11 +182,13 @@ describe("add() returns { results, failed } with labels", () => {
     expect(res.failed).toHaveLength(2);
   });
 
-  it("happy path: all good, no failed field", async () => {
+  it("happy path: failed is present and empty, never absent", async () => {
     const { m } = await ready(new Map(), [A, B, C]);
     const res = await m.add([A, B, C].join(". "), { userId: "u6" });
     expect(res.results).toHaveLength(3);
-    expect(res.failed).toBeUndefined();
+    // Always an array: callers branch on .length, never on the key existing,
+    // so `failed` is safe to read without a non-null assertion.
+    expect(res.failed).toEqual([]);
   });
 });
 
@@ -242,11 +240,11 @@ describe("memory.retryFailed() is label-driven", () => {
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u7" });
-    expect(res.failed![0].errorClass).toBe("provider_error");
+    expect(res.failed[0].errorClass).toBe("provider_error");
 
     // Provider recovers: B now embeds cleanly.
     rules.delete(B);
-    const retry = await m.retryFailed(res.failed!);
+    const retry = await m.retryFailed(res.failed);
 
     expect(retry.results.map((r) => r.memory)).toContain(B);
     expect(retry.failed).toHaveLength(0);
@@ -259,13 +257,13 @@ describe("memory.retryFailed() is label-driven", () => {
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u8" });
-    expect(res.failed![0]).toMatchObject({
+    expect(res.failed[0]).toMatchObject({
       errorClass: "validation_error",
       remediation: "reconfigure",
     });
     const before = embedder.embedCalls;
 
-    const retry = await m.retryFailed(res.failed!);
+    const retry = await m.retryFailed(res.failed);
 
     expect(embedder.embedCalls).toBe(before); // never re-embedded
     expect(retry.results).toHaveLength(0);
@@ -277,13 +275,13 @@ describe("memory.retryFailed() is label-driven", () => {
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u9" });
-    expect(res.failed![0]).toMatchObject({
+    expect(res.failed[0]).toMatchObject({
       errorClass: "validation_error",
       remediation: "escalate",
     });
     const before = embedder.embedCalls;
 
-    const retry = await m.retryFailed(res.failed!);
+    const retry = await m.retryFailed(res.failed);
 
     expect(embedder.embedCalls).toBe(before); // no re-embed, no sanitize
     expect(retry.results).toHaveLength(0);
@@ -300,7 +298,7 @@ describe("memory.retryFailed() is label-driven", () => {
     const rehydrated: EmbeddingFailure[] = JSON.parse(
       JSON.stringify(res.failed),
     );
-    expect(rehydrated[0].errorCode).toBe(res.failed![0].errorCode);
+    expect(rehydrated[0].errorCode).toBe(res.failed[0].errorCode);
     rules.delete(B);
     const retry = await m.retryFailed(rehydrated);
     expect(retry.results.map((r) => r.memory)).toContain(B);
@@ -316,7 +314,7 @@ describe("hardening: insert failures, dedup, infer:false, short batch", () => {
     };
     const res = await m.add([A, B].join(". "), { userId: "c1" });
     expect(res.results).toHaveLength(0);
-    expect(res.failed!.map((f) => f.errorClass)).toEqual([
+    expect(res.failed.map((f) => f.errorClass)).toEqual([
       "internal_error",
       "internal_error",
     ]);
@@ -328,8 +326,8 @@ describe("hardening: insert failures, dedup, infer:false, short batch", () => {
     const res = await m.add([A, B].join(". "), { userId: "c2" });
 
     rules.delete(B);
-    await m.retryFailed(res.failed!);
-    await m.retryFailed(res.failed!); // second retry should be a no-op
+    await m.retryFailed(res.failed);
+    await m.retryFailed(res.failed); // second retry should be a no-op
 
     const all = await m.getAll({ filters: { user_id: "c2" } });
     const bobs = all.results.filter((r) => r.memory === B);
@@ -347,7 +345,7 @@ describe("hardening: insert failures, dedup, infer:false, short batch", () => {
       { userId: "h1", infer: false },
     );
     expect(res.results.map((r) => r.memory)).toEqual(["good text"]);
-    expect(res.failed!.map((f) => f.text)).toEqual(["bad text"]);
+    expect(res.failed.map((f) => f.text)).toEqual(["bad text"]);
   });
 
   it("H4: a short embedBatch return reports the missing tail as a failure (not silently dropped)", async () => {
@@ -358,8 +356,80 @@ describe("hardening: insert failures, dedup, infer:false, short batch", () => {
 
     const res = await m.add([A, B, C].join(". "), { userId: "h4" });
     // The tail text has no vector, so it is surfaced as a failure, never dropped.
-    expect(res.failed!.length).toBeGreaterThan(0);
+    expect(res.failed.length).toBeGreaterThan(0);
     expect(res.results.length).toBeLessThan(3);
+    // And it is labelled where it was caused: the provider returned nothing,
+    // which is retryable, not a malformed vector to escalate and give up on.
+    expect(res.failed[0]).toMatchObject({
+      errorClass: "provider_error",
+      remediation: "retry",
+    });
+  });
+});
+
+/**
+ * These read the memory back out of the store. Everything above asserts on
+ * add()'s return value, which cannot see a row that was written with the wrong
+ * shape. It is still "results.length === 1" either way.
+ */
+describe("stored shape: what actually lands in the vector store", () => {
+  it("P1: infer:false stores the full payload, not just the text", async () => {
+    const { m } = await ready(new Map(), []);
+    const res = await m.add([{ role: "user", content: "raw note" }], {
+      userId: "p1",
+      infer: false,
+    });
+    expect(res.results).toHaveLength(1);
+
+    const stored = await (m as any).vectorStore.get(res.results[0].id);
+    // hash drives dedup, textLemmatized drives keyword/hybrid search, and
+    // user_id makes the row reachable by its owner. A row missing any of them
+    // is persisted but effectively lost, the same failure #5509 is about,
+    // just one layer down.
+    expect(stored.payload).toMatchObject({ data: "raw note", user_id: "p1" });
+    expect(typeof stored.payload.hash).toBe("string");
+    expect(typeof stored.payload.textLemmatized).toBe("string");
+    expect(typeof stored.payload.createdAt).toBe("string");
+  });
+
+  it("P2: a retried infer:false failure is still reachable by its owner", async () => {
+    const rules = new Map<string, Rule>([["flaky note", { throwStatus: 503 }]]);
+    const { m } = await ready(rules, []);
+
+    const res = await m.add([{ role: "user", content: "flaky note" }], {
+      userId: "p2",
+      infer: false,
+    });
+    expect(res.failed).toHaveLength(1);
+
+    rules.delete("flaky note"); // provider recovers
+    const retry = await m.retryFailed(res.failed);
+    expect(retry.results).toHaveLength(1);
+
+    // The retry must carry the original tenancy. Without it the row exists but
+    // getAll/search/deleteAll can never reach it again.
+    const all = await m.getAll({ filters: { user_id: "p2" } });
+    expect(all.results.map((r) => r.memory)).toContain("flaky note");
+  });
+
+  it("P3: a failure with no captured payload is surfaced, never stored ownerless", async () => {
+    const { m } = await ready(new Map(), []);
+    // A hand-built failure (or one round-tripped through a lossy transport)
+    // has no tenancy. Persisting it would create an unreachable row, so the
+    // retry must refuse and hand it back instead.
+    const orphan: EmbeddingFailure = {
+      text: "no owner",
+      errorClass: "provider_error",
+      remediation: "retry",
+      error: "provider 503",
+    };
+    const retry = await m.retryFailed([orphan]);
+
+    expect(retry.results).toHaveLength(0);
+    expect(retry.failed).toHaveLength(1);
+    expect(retry.failed[0].errorClass).toBe("internal_error");
+    const all = await m.getAll({ filters: { user_id: "p3" } });
+    expect(all.results).toHaveLength(0);
   });
 });
 
@@ -416,7 +486,7 @@ describe("classifier and validator units", () => {
     expect(g.validate([1, 2, 3]).reason).toBe("dimension-mismatch");
   });
 
-  it("classifyValidation: same class (validation_error), remediation on the orthogonal axis", () => {
+  it("classifyValidation: a malformed vector is validation_error, remediation on the orthogonal axis", () => {
     expect(classifyValidation("non-finite")).toEqual({
       errorClass: "validation_error",
       remediation: "escalate",
@@ -427,15 +497,21 @@ describe("classifier and validator units", () => {
       remediation: "escalate",
       errorCode: "EMBED_002",
     });
-    expect(classifyValidation("undefined")).toEqual({
-      errorClass: "validation_error",
-      remediation: "escalate",
-      errorCode: "EMBED_002",
-    });
     expect(classifyValidation("dimension-mismatch")).toEqual({
       errorClass: "validation_error",
       remediation: "reconfigure",
       errorCode: "EMBED_002",
+    });
+  });
+
+  it("classifyValidation: an absent vector is a provider fault, and retryable", () => {
+    // A short embedBatch returns nothing for a text. That is not a bad vector
+    // the model produced. It is the provider failing to answer, so it must
+    // not be labelled escalate-and-never-retry.
+    expect(classifyValidation("undefined")).toEqual({
+      errorClass: "provider_error",
+      remediation: "retry",
+      errorCode: "EMBED_001",
     });
   });
 });
@@ -479,6 +555,6 @@ describe("typed-exception parity (Python error_code shape)", () => {
     const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
     const { m } = await ready(rules, [A, B]);
     const res = await m.add([A, B].join(". "), { userId: "ec" });
-    expect(res.failed![0].errorCode).toBe("EMBED_001");
+    expect(res.failed[0].errorCode).toBe("EMBED_001");
   });
 });
