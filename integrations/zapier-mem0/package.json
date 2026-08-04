@@ -20,7 +20,7 @@
     "directory": "integrations/zapier-mem0"
   },
   "license": "Apache-2.0",
-  "main": "dist/index.js",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
     "test": "jest --testTimeout 180000",
