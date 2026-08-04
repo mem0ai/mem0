@@ -122,17 +122,22 @@ export default class MemoryClient {
     });
 
     this._validateApiKey();
-    this.telemetryId = "";
-    this._initializeClient();
+
+    // Seed the telemetry id synchronously so it is never "". Every API method
+    // used to do `if (this.telemetryId === "") await this.ping()`, which put a
+    // blocking /v1/ping/ round-trip on the critical path of the first call made
+    // by each client. Callers that construct a client per request (serverless
+    // handlers, per-request DI) paid that on every single request.
+    //
+    // ping() still runs exactly once per client, asynchronously, and upgrades
+    // this id to the user's email when it resolves. Nothing waits for it.
+    this.telemetryId = generateHash(this.apiKey);
+    void this._initializeClient();
   }
 
   private async _initializeClient() {
     try {
       await this.ping();
-
-      if (!this.telemetryId) {
-        this.telemetryId = generateHash(this.apiKey);
-      }
 
       await this._maybeAliasAnonToEmail();
 
@@ -262,8 +267,6 @@ export default class MemoryClient {
       throw new Error("Cannot process an empty messages payload.");
     }
 
-    if (this.telemetryId === "") await this.ping();
-
     const payload = this._preparePayload(messages, options);
     const payloadKeys = Object.keys(payload);
     this._captureEvent("add", [payloadKeys]);
@@ -304,7 +307,6 @@ export default class MemoryClient {
       );
     }
 
-    if (this.telemetryId === "") await this.ping();
     const payload: Record<string, any> = {};
     if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
@@ -326,7 +328,6 @@ export default class MemoryClient {
   }
 
   async get(memoryId: string): Promise<Memory> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("get", []);
     return this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${encodePathSegment(memoryId)}/`,
@@ -340,7 +341,6 @@ export default class MemoryClient {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(options as Record<string, any>, "getAll");
 
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
     const { page, pageSize, filters, ...rest } = options ?? {};
@@ -369,7 +369,6 @@ export default class MemoryClient {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(options as Record<string, any>, "search");
 
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
     const { filters, ...rest } = options ?? {};
@@ -395,7 +394,6 @@ export default class MemoryClient {
     memoryId: string,
     options: DeleteMemoryOptions = {},
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete", [Object.keys(options || {})]);
     const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
     // @ts-ignore
@@ -412,7 +410,6 @@ export default class MemoryClient {
   async deleteAll(
     options: DeleteAllMemoryOptions = {},
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
     const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
@@ -429,7 +426,6 @@ export default class MemoryClient {
   }
 
   async history(memoryId: string): Promise<Array<MemoryHistory>> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("history", []);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/${encodePathSegment(memoryId)}/history/`,
@@ -444,7 +440,6 @@ export default class MemoryClient {
     page?: number;
     pageSize?: number;
   }): Promise<AllUsers> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("users", []);
     let url = `${this.host}/v1/entities/`;
     const params: string[] = [];
@@ -464,7 +459,6 @@ export default class MemoryClient {
     entity_id: number;
     entity_type: string;
   }): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_user", []);
     if (!data.entity_type) {
       data.entity_type = "user";
@@ -487,8 +481,6 @@ export default class MemoryClient {
       runId?: string;
     } = {},
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
-
     let to_delete: Array<{ type: string; name: string }> = [];
     const { userId, agentId, appId, runId } = params;
 
@@ -537,7 +529,6 @@ export default class MemoryClient {
   }
 
   async batchUpdate(memories: Array<MemoryUpdateBody>): Promise<string> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("batch_update", []);
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory.memoryId,
@@ -555,7 +546,6 @@ export default class MemoryClient {
   }
 
   async batchDelete(memories: Array<string>): Promise<string> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("batch_delete", []);
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory,
@@ -572,7 +562,6 @@ export default class MemoryClient {
   }
 
   async getProject(options: ProjectOptions): Promise<ProjectResponse> {
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_project", [payloadKeys]);
     const { fields } = options;
@@ -598,7 +587,6 @@ export default class MemoryClient {
   async updateProject(
     prompts: PromptUpdatePayload,
   ): Promise<Record<string, any>> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_project", []);
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
@@ -619,7 +607,6 @@ export default class MemoryClient {
 
   // WebHooks
   async getWebhooks(data?: { projectId?: string }): Promise<Array<Webhook>> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_webhooks", []);
     const project_id = data?.projectId || this.projectId;
     const response = await this._fetchWithErrorHandling(
@@ -632,7 +619,6 @@ export default class MemoryClient {
   }
 
   async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
     const body = {
       name: webhook.name,
@@ -653,7 +639,6 @@ export default class MemoryClient {
   async updateWebhook(
     webhook: WebhookUpdatePayload,
   ): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_webhook", []);
     const body: Record<string, any> = {};
     if (webhook.name != null) body.name = webhook.name;
@@ -673,7 +658,6 @@ export default class MemoryClient {
   async deleteWebhook(data: {
     webhookId: string;
   }): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_webhook", []);
     const webhook_id = data.webhookId || data;
     const response = await this._fetchWithErrorHandling(
@@ -687,7 +671,6 @@ export default class MemoryClient {
   }
 
   async feedback(data: FeedbackPayload): Promise<{ message: string }> {
-    if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(data || {});
     this._captureEvent("feedback", [payloadKeys]);
     const response = await this._fetchWithErrorHandling(
@@ -704,7 +687,6 @@ export default class MemoryClient {
   async createMemoryExport(
     data: CreateMemoryExportPayload,
   ): Promise<{ message: string; id: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_memory_export", []);
 
     if (!data.filters || !data.schema) {
@@ -734,7 +716,6 @@ export default class MemoryClient {
   async getMemoryExport(
     data: GetMemoryExportPayload,
   ): Promise<{ message: string; id: string }> {
-    if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_memory_export", []);
 
     if (!data.memoryExportId && !data.filters) {

@@ -15,12 +15,23 @@ try {
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
 
-// Simple hash function using random strings
+// Deterministic, dependency-free hash (FNV-1a, 32-bit) over the input.
+//
+// This is used as the telemetry distinct_id before/without a successful ping.
+// It used to ignore `input` and return Math.random(), which minted a brand new
+// id per client instance and orphaned every event from a client that could not
+// ping. Deterministic means one id per API key, in every runtime, with no I/O
+// and no platform APIs (works in Node, browsers, edge runtimes, Deno, Bun).
+//
+// Not cryptographic and not reversible into the key: 32 bits of a secret is not
+// a secret, and only the digest is ever transmitted.
 function generateHash(input: string): string {
-  const randomStr =
-    Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15);
-  return randomStr;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `anon-${hash.toString(36)}`;
 }
 
 class UnifiedTelemetry implements TelemetryClient {
