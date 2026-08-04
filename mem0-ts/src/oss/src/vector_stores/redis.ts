@@ -133,6 +133,18 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
+// Build a RediSearch pre-filter expression from filters. Returns "*" (match
+// all) when there are no usable conditions — including an empty filters object
+// or one whose values are all null/undefined — since an empty expression is an
+// invalid RediSearch query (e.g. ` =>[KNN ...]`).
+export function buildRedisFilterExpr(filters?: SearchFilters): string {
+  if (!filters) return "*";
+  const conditions = Object.entries(toSnakeCase(filters))
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
+  return conditions.length > 0 ? conditions.join(" ") : "*";
+}
+
 // Utility function to convert object keys to camelCase
 function toCamelCase(obj: Record<string, any>): Record<string, any> {
   if (typeof obj !== "object" || obj === null) return obj;
@@ -406,13 +418,7 @@ export class RedisDB implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     await this.initialize();
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildRedisFilterExpr(filters);
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -655,13 +661,7 @@ export class RedisDB implements VectorStore {
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     await this.initialize();
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    const filterExpr = buildRedisFilterExpr(filters);
 
     const searchOptions = {
       SORTBY: "created_at",

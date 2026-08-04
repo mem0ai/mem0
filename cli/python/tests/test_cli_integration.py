@@ -7,6 +7,7 @@ boundaries).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -83,6 +84,31 @@ class TestCLIIntegration:
         assert "mem0" in result.stdout
         assert "add" in result.stdout
         assert "search" in result.stdout
+
+    def test_version_flag_only(self):
+        from mem0_cli import __version__
+
+        flag = _run(["--version"])
+        assert flag.returncode == 0
+        assert __version__ in flag.stdout
+        assert _run(["version"]).returncode != 0
+
+    @pytest.mark.parametrize(
+        "args",
+        [["help", "--json"], ["--json", "help"], ["help", "--agent"], ["--agent", "help"]],
+    )
+    def test_help_json_produces_valid_json(self, args):
+        result = _run(args)
+        assert result.returncode == 0
+        spec = json.loads(result.stdout)
+        assert spec["name"] == "mem0"
+        assert "add" in spec["commands"]
+
+    def test_help_without_json_is_text(self):
+        result = _run(["help"])
+        assert result.returncode == 0
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.stdout)
 
     def test_add_help(self):
         result = _run(["add", "--help"])

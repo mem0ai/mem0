@@ -91,7 +91,7 @@ def test_sync_delete_failure_does_not_trigger_decay_usage_notice(monkeypatch):
 def test_sync_delete_all_decay_usage_runs_after_success(monkeypatch):
     memory = make_sync_memory()
     memories = [SimpleNamespace(id="memory-1"), SimpleNamespace(id="memory-2")]
-    memory.vector_store.list.return_value = (memories, None)
+    memory.vector_store.list.side_effect = [(memories, None), ([], None)]
     decay_notice = MagicMock()
     first_run_notice = MagicMock()
     detect_decay = MagicMock(return_value=("delete_all", "bulk_delete", None, 2))
@@ -115,6 +115,21 @@ def test_sync_delete_all_decay_usage_runs_after_success(monkeypatch):
         2,
     )
     first_run_notice.assert_not_called()
+
+
+def test_sync_delete_all_stops_when_vector_store_repeats_batch(monkeypatch):
+    memory = make_sync_memory()
+    memories = [SimpleNamespace(id="memory-1"), SimpleNamespace(id="memory-2")]
+    memory.vector_store.list.side_effect = [(memories, None), (memories, None)]
+    monkeypatch.setattr(memory_main, "capture_event", MagicMock())
+    monkeypatch.setattr(memory_main, "detect_decay_usage_from_delete_all", MagicMock(return_value=None))
+    monkeypatch.setattr(memory_main, "display_first_run_notice", MagicMock())
+
+    result = Memory.delete_all(memory, user_id="u1")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert memory.vector_store.list.call_count == 2
+    assert memory._delete_memory.call_count == 2
 
 
 def test_sync_delete_all_zero_deletes_uses_first_run_notice(monkeypatch):
@@ -189,7 +204,7 @@ async def test_async_delete_failure_does_not_trigger_decay_usage_notice(monkeypa
 async def test_async_delete_all_decay_usage_runs_after_success(monkeypatch):
     memory = make_async_memory()
     memories = [SimpleNamespace(id="memory-1"), SimpleNamespace(id="memory-2")]
-    memory.vector_store.list.return_value = (memories, None)
+    memory.vector_store.list.side_effect = [(memories, None), ([], None)]
     decay_notice = AsyncMock()
     first_run_notice = AsyncMock()
     detect_decay = MagicMock(return_value=("delete_all", "bulk_delete", None, 2))
@@ -213,3 +228,23 @@ async def test_async_delete_all_decay_usage_runs_after_success(monkeypatch):
         2,
     )
     first_run_notice.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_async_delete_all_stops_when_vector_store_repeats_batch(monkeypatch):
+    memory = make_async_memory()
+    memories = [SimpleNamespace(id="memory-1"), SimpleNamespace(id="memory-2")]
+    memory.vector_store.list.side_effect = [
+        (memories, None),
+        (memories, None),
+        RuntimeError("delete_all should have stopped before a third list() call"),
+    ]
+    monkeypatch.setattr(memory_main, "capture_event", MagicMock())
+    monkeypatch.setattr(memory_main, "detect_decay_usage_from_delete_all", MagicMock(return_value=None))
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", AsyncMock())
+
+    result = await AsyncMemory.delete_all(memory, user_id="u1")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert memory.vector_store.list.call_count == 2
+    assert memory._delete_memory.await_count == 2
