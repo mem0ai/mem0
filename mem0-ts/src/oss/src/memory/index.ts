@@ -716,7 +716,7 @@ export class Memory {
   async add(
     messages: string | Message[],
     config: AddMemoryOptions,
-  ): Promise<SearchResult> {
+  ): Promise<AddResult> {
     if (config?.timestamp !== undefined) {
       await this._getNoticeTelemetryId();
       throw new Error(
@@ -847,10 +847,7 @@ export class Memory {
       );
     }
 
-    return {
-      results: vectorStoreResult,
-      ...(addResult.failed.length > 0 ? { failed: addResult.failed } : {}),
-    };
+    return { results: vectorStoreResult, failed: addResult.failed };
   }
 
   // Retry memories that failed to embed during add(), per their errorClass.
@@ -859,20 +856,24 @@ export class Memory {
     await this._ensureInitialized();
     const guard = makeVectorValidator(this._expectedDim());
     const ctx: RetryContext = {
-      embed: (t) => this.embedder.embed(t),
+      // "add" so task-type-aware providers embed a retry exactly as the
+      // original write would have been embedded.
+      embed: (t) => this.embedder.embed(t, "add"),
       validate: (v) => guard.validate(v),
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
       persist: async (f, vec) => {
         const id = f._memoryId ?? uuidv4();
-        const payload = f._payload ?? {
-          data: f.text,
-          textLemmatized: lemmatizeForBm25(f.text),
-          hash: createHash("md5").update(f.text).digest("hex"),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        // Tenancy lives in the payload add() captured. Without it we cannot
+        // know who owns this text, and a row with no owner is invisible to
+        // getAll/search and undeletable by deleteAll, which is worse than not
+        // retrying. Surface it instead.
+        if (!f._payload) {
+          throw new Error(
+            "cannot retry: failure is missing the payload captured by add(); retry the original add() instead",
+          );
+        }
         const { persisted } = await this.persistRecords([
-          { memoryId: id, text: f.text, embedding: vec, payload },
+          { memoryId: id, text: f.text, embedding: vec, payload: f._payload },
         ]);
         if (persisted.length === 0) {
           throw new Error("vector store insert failed");
@@ -905,6 +906,32 @@ export class Memory {
   private _expectedDim(): number | null {
     const c = this.config.vectorStore?.config as any;
     return c?.dimension ?? c?.embeddingModelDims ?? null;
+  }
+
+  /**
+   * The canonical stored shape for one memory. Every write path must go
+   * through this: `hash` drives dedup, `textLemmatized` drives keyword/hybrid
+   * search, and the entity ids carry tenancy. A row missing any of them is
+   * silently unsearchable or unreachable by its owner.
+   */
+  private _memoryPayload(
+    text: string,
+    metadata: Record<string, any>,
+    filters: SearchFilters,
+  ): Record<string, any> {
+    const now = new Date().toISOString();
+    const payload: Record<string, any> = {
+      ...metadata,
+      data: text,
+      textLemmatized: lemmatizeForBm25(text),
+      hash: createHash("md5").update(text).digest("hex"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (filters.user_id) payload.user_id = filters.user_id;
+    if (filters.agent_id) payload.agent_id = filters.agent_id;
+    if (filters.run_id) payload.run_id = filters.run_id;
+    return payload;
   }
 
   /**
@@ -997,6 +1024,9 @@ export class Memory {
           continue;
         }
         const text = message.content as string;
+        // Built up front so a failure carries the same payload a success would
+        // have been stored with, because retryFailed() needs it for tenancy.
+        const payload = this._memoryPayload(text, metadata, filters);
         let vec: number[];
         try {
           vec = await this.embedder.embed(text, "add");
@@ -1010,6 +1040,7 @@ export class Memory {
             retryAfter: c.retryAfter,
             error: e instanceof Error ? e.message : String(e),
             _memoryId: uuidv4(),
+            _payload: payload,
           });
           continue;
         }
@@ -1023,6 +1054,7 @@ export class Memory {
             errorCode: c.errorCode,
             error: `embedding validation failed: ${v.reason}`,
             _memoryId: uuidv4(),
+            _payload: payload,
           });
           continue;
         }
@@ -1030,7 +1062,7 @@ export class Memory {
           memoryId: uuidv4(),
           text,
           embedding: vec,
-          payload: { ...metadata, data: text },
+          payload,
         });
       }
       const { persisted, insertFailedTexts } =
@@ -1246,24 +1278,11 @@ export class Memory {
       }
       seenHashes.add(memHash);
 
-      const textLemmatized = lemmatizeForBm25(text);
       const memoryId = uuidv4();
-      const now = new Date().toISOString();
-
-      const memPayload: Record<string, any> = {
-        ...metadata,
-        data: text,
-        textLemmatized,
-        hash: memHash,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const memPayload = this._memoryPayload(text, metadata, filters);
       if (mem.attributed_to) {
         memPayload.attributedTo = mem.attributed_to;
       }
-      if (filters.user_id) memPayload.user_id = filters.user_id;
-      if (filters.agent_id) memPayload.agent_id = filters.agent_id;
-      if (filters.run_id) memPayload.run_id = filters.run_id;
 
       records.push({
         memoryId,
@@ -1280,20 +1299,8 @@ export class Memory {
       for (const f of failures) {
         const mem = byText.get(f.text);
         if (!mem) continue;
-        const memHash = createHash("md5").update(f.text).digest("hex");
-        const now = new Date().toISOString();
-        const payload: Record<string, any> = {
-          ...metadata,
-          data: f.text,
-          textLemmatized: lemmatizeForBm25(f.text),
-          hash: memHash,
-          createdAt: now,
-          updatedAt: now,
-        };
+        const payload = this._memoryPayload(f.text, metadata, filters);
         if (mem.attributed_to) payload.attributedTo = mem.attributed_to;
-        if (filters.user_id) payload.user_id = filters.user_id;
-        if (filters.agent_id) payload.agent_id = filters.agent_id;
-        if (filters.run_id) payload.run_id = filters.run_id;
         // Keep the stable _memoryId from recordFailure; only attach the payload.
         (f as any)._payload = payload;
       }
