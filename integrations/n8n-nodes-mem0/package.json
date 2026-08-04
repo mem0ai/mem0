@@ -1,6 +1,6 @@
 {
   "name": "@mem0/n8n-nodes-mem0",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "n8n community node for Mem0 — the memory layer for AI agents. Add, search, get, update, and delete long-term memories.",
   "keywords": [
     "n8n-community-node-package",
@@ -14,7 +14,7 @@
   "homepage": "https://mem0.ai",
   "author": {
     "name": "Mem0",
-    "email": "founders@mem0.ai"
+    "email": "integrations@mem0.ai"
   },
   "repository": {
     "type": "git",
