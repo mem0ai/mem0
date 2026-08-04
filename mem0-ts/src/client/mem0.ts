@@ -81,6 +81,8 @@ class APIError extends Error {
 interface ClientOptions {
   apiKey: string;
   host?: string;
+  /** Max cached identities per process. Defaults to 50. */
+  identityCacheMax?: number;
 }
 
 interface ClientIdentity {
@@ -90,7 +92,7 @@ interface ClientIdentity {
 }
 
 // Shares one ping per (host, api key) across clients; FIFO-capped.
-const IDENTITY_CACHE_MAX = 50;
+const IDENTITY_CACHE_MAX_DEFAULT = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
 export default class MemoryClient {
@@ -102,6 +104,7 @@ export default class MemoryClient {
   client: any;
   telemetryId: string;
   private initialized: Promise<void>;
+  private identityCacheMax: number;
 
   _validateApiKey(): any {
     if (!this.apiKey) {
@@ -120,6 +123,8 @@ export default class MemoryClient {
     this.host = options.host || "https://api.mem0.ai";
     this.organizationId = null;
     this.projectId = null;
+    this.identityCacheMax =
+      options.identityCacheMax ?? IDENTITY_CACHE_MAX_DEFAULT;
 
     this.headers = {
       Authorization: `Token ${this.apiKey}`,
@@ -146,7 +151,7 @@ export default class MemoryClient {
     let shared = identityByCredentials.get(credentials);
     if (!shared) {
       shared = this._initializeClient();
-      if (identityByCredentials.size >= IDENTITY_CACHE_MAX) {
+      if (identityByCredentials.size >= this.identityCacheMax) {
         identityByCredentials.delete(
           identityByCredentials.keys().next().value!,
         );
@@ -668,6 +673,9 @@ export default class MemoryClient {
     this._captureEvent("get_webhooks", []);
     if (!data?.projectId) await this._awaitIdentity();
     const project_id = data?.projectId || this.projectId;
+    if (!project_id) {
+      throw new Error("projectId must be set to access webhooks");
+    }
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${project_id}/`,
       {
@@ -680,6 +688,9 @@ export default class MemoryClient {
   async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
     this._captureEvent("create_webhook", []);
     await this._awaitIdentity();
+    if (!this.projectId) {
+      throw new Error("projectId must be set to create a webhook");
+    }
     const body = {
       name: webhook.name,
       url: webhook.url,
