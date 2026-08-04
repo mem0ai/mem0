@@ -28,7 +28,7 @@ class VllmLLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
             )
 
         super().__init__(config)
@@ -99,6 +99,8 @@ class VllmLLM(LLMBase):
             }
         )
 
+        if response_format:
+            params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice

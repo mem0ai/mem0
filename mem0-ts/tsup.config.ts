@@ -1,26 +1,54 @@
 import { defineConfig } from "tsup";
+import pkg from "./package.json";
 
 const external = [
   "openai",
   "@anthropic-ai/sdk",
+  "@aws-sdk/client-neptune-graph",
+  "@aws-sdk/client-s3vectors",
+  "@mochow/mochow-sdk-node",
   "groq-sdk",
+  "cohere-ai",
+  "@huggingface/transformers",
+  "zeroentropy",
   "uuid",
   "pg",
   "zod",
   "better-sqlite3",
+  "cassandra-driver",
+  "@pinecone-database/pinecone",
   "@qdrant/js-client-rest",
   "redis",
+  "iovalkey",
   "ollama",
   "@google/genai",
+  "@google-cloud/aiplatform",
   "@mistralai/mistralai",
-  "neo4j-driver",
   "@supabase/supabase-js",
+  "@upstash/vector",
+  "@zilliz/milvus2-sdk-node",
+  "@aws-sdk/client-bedrock-runtime",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",
   "@cloudflare/workers-types",
+  "@databricks/sql",
   "@langchain/core",
+  "fastembed",
+  "compromise",
+  "natural",
+  "mysql2",
+  "@turbopuffer/turbopuffer",
+  "mongodb",
+  "@opensearch-project/opensearch",
+  "@elastic/elasticsearch",
+  "chromadb",
+  "weaviate-client",
 ];
+
+const define = {
+  __MEM0_SDK_VERSION__: JSON.stringify(pkg.version),
+};
 
 export default defineConfig([
   {
@@ -29,6 +57,7 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     external,
+    define,
   },
   {
     entry: ["src/oss/src/index.ts"],
@@ -37,5 +66,6 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     external,
+    define,
   },
 ]);

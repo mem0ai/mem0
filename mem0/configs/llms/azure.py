@@ -21,7 +21,9 @@ class AzureOpenAIConfig(BaseLlmConfig):
         top_k: int = 1,
         enable_vision: bool = False,
         vision_details: Optional[str] = "auto",
+        reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[dict] = None,
+        is_reasoning_model: Optional[bool] = None,
         # Azure OpenAI-specific parameters
         azure_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -37,7 +39,12 @@ class AzureOpenAIConfig(BaseLlmConfig):
             top_k: Top-k sampling parameter, defaults to 1
             enable_vision: Enable vision capabilities, defaults to False
             vision_details: Vision detail level, defaults to "auto"
+            reasoning_effort: Effort level for reasoning models ("low", "medium", "high"), defaults to None
             http_client_proxies: HTTP client proxy settings, defaults to None
+            is_reasoning_model: Explicit override for reasoning-model detection.
+                None (default) uses the name-based heuristic. Set True to drop
+                max_tokens/temperature (e.g. for versioned Azure deployments like
+                "gpt-5.4-nano-2026-03-17"), or False to force standard params.
             azure_kwargs: Azure-specific configuration, defaults to None
         """
         # Initialize base parameters
@@ -50,7 +57,9 @@ class AzureOpenAIConfig(BaseLlmConfig):
             top_k=top_k,
             enable_vision=enable_vision,
             vision_details=vision_details,
+            reasoning_effort=reasoning_effort,
             http_client_proxies=http_client_proxies,
+            is_reasoning_model=is_reasoning_model,
         )
 
         # Azure OpenAI-specific parameters

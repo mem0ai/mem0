@@ -7,13 +7,7 @@ import {
   ValidationError,
   MemoryError,
 } from "../../common/exceptions";
-import {
-  createMockFetch,
-  TEST_API_KEY,
-  TEST_HOST,
-  TEST_ORG_ID,
-  TEST_PROJECT_ID,
-} from "./helpers";
+import { createMockFetch, TEST_API_KEY, TEST_HOST } from "./helpers";
 import {
   setupMockFetch,
   installConsoleSuppression,
@@ -55,24 +49,6 @@ describe("MemoryClient - Initialization", () => {
     expect(client.host).toBe(TEST_HOST);
   });
 
-  test("sets organizationId from constructor", () => {
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    expect(client.organizationId).toBe(TEST_ORG_ID);
-  });
-
-  test("sets projectId from constructor", () => {
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    expect(client.projectId).toBe(TEST_PROJECT_ID);
-  });
-
   test("sets Authorization header with Token prefix", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     expect(client.headers["Authorization"]).toBe(`Token ${TEST_API_KEY}`);
@@ -87,47 +63,11 @@ describe("MemoryClient - Initialization", () => {
 // ─── Ping ────────────────────────────────────────────────
 
 describe("MemoryClient - ping()", () => {
-  test("sets organizationId from ping response", async () => {
-    setupMockFetch();
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.ping();
-    expect(client.organizationId).toBe(TEST_ORG_ID);
-  });
-
-  test("sets projectId from ping response", async () => {
-    setupMockFetch();
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.ping();
-    expect(client.projectId).toBe(TEST_PROJECT_ID);
-  });
-
   test("sets telemetryId from user_email in response", async () => {
     setupMockFetch();
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.ping();
     expect(client.telemetryId).toBe("test@example.com");
-  });
-
-  test("preserves constructor organizationId over ping response", async () => {
-    setupMockFetch();
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: "my_org",
-      projectId: "my_proj",
-    });
-    await client.ping();
-    expect(client.organizationId).toBe("my_org");
-  });
-
-  test("preserves constructor projectId over ping response", async () => {
-    setupMockFetch();
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: "my_org",
-      projectId: "my_proj",
-    });
-    await client.ping();
-    expect(client.projectId).toBe("my_proj");
   });
 
   test("throws AuthenticationError on 401 response", async () => {

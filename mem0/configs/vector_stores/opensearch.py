@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional, Type, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class OpenSearchConfig(BaseModel):
@@ -33,6 +33,12 @@ class OpenSearchConfig(BaseModel):
             "'l2' (euclidean), 'innerproduct' (faiss)."
         ),
     )
+    auto_refresh: bool = Field(
+        False,
+        description="Automatically refresh index after insert operations to make documents "
+        "immediately searchable. Disabled by default for OpenSearch Serverless compatibility. "
+        "OpenSearch automatically refreshes indices every ~1 second, so most users don't need this.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -54,3 +60,5 @@ class OpenSearchConfig(BaseModel):
                 f"Extra fields not allowed: {', '.join(extra_fields)}. Allowed fields: {', '.join(allowed_fields)}"
             )
         return values
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)

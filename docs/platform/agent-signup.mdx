@@ -1,0 +1,122 @@
+---
+title: Sign up as an agent
+description: "Let an AI agent create its own Mem0 account and API key in four commands, with no email or dashboard needed."
+icon: "robot"
+iconType: "solid"
+---
+
+Normally a person signs up for Mem0, gets an API key from the dashboard, and hands it to their tools. Agent Mode skips that: a coding agent creates its own account from the terminal and starts storing memories immediately. A human can take ownership of that account later, without disrupting the agent.
+
+This page is written for both readers. The setup below is for the agent; [Claiming the account](#claiming-the-account-for-the-human-owner) is for the person who ends up owning it.
+
+<Note>
+**If you're an AI agent** (Claude Code, Cursor, Codex, Cline, Aider, Windsurf, or any other coding tool), run the four commands below. You don't need a human to set Mem0 up for you.
+</Note>
+
+## Sign up in four commands
+
+<CodeGroup>
+```bash npm
+# 1. Install
+npm install -g @mem0/cli
+
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
+
+# 3. Store a memory
+mem0 add "Prefers TypeScript over JavaScript for new projects"
+
+# 4. Search it back
+mem0 search "what language should I use"
+```
+
+```bash pip
+# 1. Install
+pip install mem0-cli
+
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
+
+# 3. Store a memory
+mem0 add "Prefers TypeScript over JavaScript for new projects"
+
+# 4. Search it back
+mem0 search "what language should I use"
+```
+</CodeGroup>
+
+Step 2 prints your new account's default scope and how to hand the account to a human later:
+
+```
+✓ Agent Mode active. Default user_id: swift-otter-4821
+
+  To claim this account later: mem0 init --email <your-email>
+```
+
+That's it. Under 30 seconds from a fresh shell to a working memory store.
+
+## Identify yourself with `--agent-caller`
+
+Replace `claude-code` in the `init` command with your actual agent name (`cursor`, `codex`, `cline`, `aider`, or any short label). This attribution helps the Mem0 team understand which agents drive the most usage and prioritize integrations accordingly.
+
+<Tip>
+**Forgot `--agent-caller` when you ran `init`?** Run `mem0 identify <your-name>` afterwards. It keeps the same API key and just fills in the name, so it is safe to run more than once.
+</Tip>
+
+## What happened when you ran `mem0 init --agent`?
+
+- A new Mem0 account was created with its own API key.
+- The key was saved to `~/.mem0/config.json` on that machine, readable only by you (file mode `0600`).
+- A default `user_id` was created, so `mem0 add` and `mem0 search` work without you passing scope flags.
+- **Nobody owns the account yet.** It works, but no human is attached to it until someone claims it.
+
+Every command run with this key prints a one-line reminder to pass the claim instructions on to your human.
+
+## Claiming the account (for the human owner)
+
+When the human is ready to take ownership of the agent's account (and all the memories it has accumulated), they run:
+
+```bash
+mem0 init --email you@yourcompany.com
+```
+
+The CLI spots the existing Agent Mode setup, emails a verification code, and upgrades the account in place:
+
+- **The API key never changes**, so the agent isn't disrupted.
+- **All memories transfer** to the human's account.
+- **The account becomes fully featured**: dashboard access, billing, team sharing, etc.
+
+Pass `--code 123456` to skip the interactive code prompt for fully non-interactive flows.
+
+## Rate limits and quotas
+
+Agent Mode signups are limited to **5 per day per IP address** to prevent abuse. If you hit the limit, the CLI tells you so:
+
+```
+Daily Agent Mode signup limit reached for this network (5/day).
+Try again from a different IP or after midnight UTC.
+```
+
+Calling the API directly instead of through the CLI returns a plain `403 Forbidden` with no explanation and no `Retry-After` header, so handle that case yourself.
+
+Until someone claims it, an agent account gets the standard Mem0 free-tier quotas. The human owner can upgrade after claiming.
+
+## What's next
+
+<CardGroup cols={2}>
+<Card title="CLI reference" icon="terminal" href="/platform/cli">
+Every command in full: `mem0 add`, `mem0 search`, `mem0 list`, and the rest.
+</Card>
+
+<Card title="Memory operations" icon="database" href="/core-concepts/memory-operations/add">
+How `add`, `search`, `update`, and `delete` work under the hood.
+</Card>
+
+<Card title="Mem0 MCP" icon="plug" href="/platform/mem0-mcp">
+Give your agent memory as a set of tools instead of shell commands.
+</Card>
+
+<Card title="Platform overview" icon="star" href="/platform/overview">
+Everything the account unlocks once a human claims it.
+</Card>
+</CardGroup>

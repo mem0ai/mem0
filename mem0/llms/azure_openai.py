@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 from typing import Dict, List, Optional, Union
@@ -31,14 +32,16 @@ class AzureOpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                reasoning_effort=getattr(config, 'reasoning_effort', None),
+                http_client_proxies=config.http_client_proxies,
+                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
             )
 
         super().__init__(config)
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-5-mini"
 
         api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
@@ -66,6 +69,26 @@ class AzureOpenAILLM(LLMBase):
             http_client=self.config.http_client,
             default_headers=default_headers,
         )
+
+    @staticmethod
+    def _rewrite_assistant_keyword(messages):
+        """
+        Return a copy of ``messages`` with the word "assistant" replaced by "ai"
+        in the last message's textual content.
+
+        Azure's content management policy can flag the literal word "assistant",
+        which makes ``add`` fail (see issue #2636). The rewrite targets that
+        trigger without mutating the caller's messages and without assuming the
+        content is a string, so multimodal (list) content passes through untouched.
+        """
+        if not messages:
+            return messages
+
+        messages = copy.deepcopy(messages)
+        last_content = messages[-1].get("content")
+        if isinstance(last_content, str):
+            messages[-1]["content"] = last_content.replace("assistant", "ai")
+        return messages
 
     def _parse_response(self, response, tools):
         """
@@ -119,20 +142,22 @@ class AzureOpenAILLM(LLMBase):
             str: The generated response.
         """
 
-        user_prompt = messages[-1]["content"]
-
-        user_prompt = user_prompt.replace("assistant", "ai")
-
-        messages[-1]["content"] = user_prompt
+        # Azure's "Indirect Attacks" content filter can flag the literal word
+        # "assistant" in the prompt, so it is rewritten to "ai" before the request.
+        # Work on a copy so the caller's messages are left untouched and string-only
+        # content is handled without breaking multimodal (list) content.
+        messages = self._rewrite_assistant_keyword(messages)
 
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         # Add model and messages
         params.update({
             "model": self.config.model,
             "messages": messages,
         })
 
+        if response_format:
+            params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice

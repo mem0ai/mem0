@@ -8,12 +8,14 @@ All endpoints require: `Authorization: Token <MEM0_API_KEY>`
 
 | Operation | Method | URL |
 |-----------|--------|-----|
-| Add Memories | `POST` | `/v1/memories/` |
-| Search Memories | `POST` | `/v2/memories/search/` |
-| Get All Memories | `POST` | `/v2/memories/` |
+| Add Memories | `POST` | `/v3/memories/add/` |
+| Search Memories | `POST` | `/v3/memories/search/` |
+| Get All Memories | `POST` | `/v3/memories/` |
 | Get Single Memory | `GET` | `/v1/memories/{memory_id}/` |
 | Update Memory | `PUT` | `/v1/memories/{memory_id}/` |
 | Delete Memory | `DELETE` | `/v1/memories/{memory_id}/` |
+
+Note: v1/v2 endpoints still work (backward compatible).
 
 ## Memory Object Structure
 
@@ -27,8 +29,6 @@ All endpoints require: `Authorization: Token <MEM0_API_KEY>`
 | `run_id` | string (nullable) | Run/session identifier |
 | `metadata` | object | Custom key-value pairs |
 | `categories` | array of strings | Auto-assigned category tags |
-| `immutable` | boolean | If true, prevents modification |
-| `expiration_date` | datetime (nullable) | Auto-expiry date |
 | `hash` | string | Content hash |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last modification timestamp |
@@ -50,10 +50,9 @@ Memories can be scoped to different levels:
 
 ## Processing Model
 
-- Memories are processed **asynchronously by default** (`async_mode=true`)
-- Add responses return queued events (`ADD`, `UPDATE`, `DELETE`) for tracking
-- Set `async_mode=false` for synchronous processing when needed
-- Graph metadata is processed asynchronously -- use `get_all()` for complete graph data
+- Memories are processed **asynchronously** (v3 default)
+- Add responses return queued `ADD` events only (v3 is ADD-only, no UPDATE/DELETE)
+- Poll status via `GET /v1/event/{event_id}/`
 
 ## Filter System
 
@@ -106,19 +105,17 @@ Root must be `AND`, `OR`, or `NOT`. Simple shorthand `{"user_id": "alice"}` also
 
 ## Response Formats
 
-### Add Response
+### Add Response (v3)
 
 ```json
-[
-  {
-    "id": "mem_01JF8ZS4Y0R0SPM13R5R6H32CJ",
-    "event": "ADD",
-    "data": { "memory": "The user moved to Austin in 2025." }
-  }
-]
+{
+  "message": "Memory processing has been queued for background execution",
+  "status": "PENDING",
+  "event_id": "evt-uuid"
+}
 ```
 
-Event types: `ADD`, `UPDATE`, `DELETE`. A single add can trigger multiple events.
+v3 is ADD-only. No UPDATE or DELETE events.
 
 ### Search Response
 
@@ -137,4 +134,17 @@ Event types: `ADD`, `UPDATE`, `DELETE`. A single add can trigger multiple events
 }
 ```
 
-With `enable_graph=true`, includes additional `relations` array with entity relationships.
+In v3, `score` is a combined multi-signal relevance score.
+
+### Get All Response (v3)
+
+```json
+{
+  "count": 123,
+  "next": "https://api.mem0.ai/v3/memories/?page=2&page_size=50",
+  "previous": null,
+  "results": [...]
+}
+```
+
+v3 returns paginated envelope. Use `page` and `page_size` query params.
