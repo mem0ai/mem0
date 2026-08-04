@@ -1969,7 +1969,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Update label="2026-08-04" description="mem0-plugin v0.2.14">
 
 **Fixes:**
-- **Settings loading no longer crashes on a malformed `settings.json`:** If `~/.mem0/settings.json` parsed as valid JSON but wasn't an object (a list or a bare string, for example), `load_settings()` called `.items()` on it and raised. It now keeps the defaults instead. Setup also stopped claiming it "Created" the settings file when one already existed; it only prints that when it actually wrote one. Shared across Claude Code, Cursor, Codex, and Antigravity.
+- **Settings loading no longer crashes on a malformed `settings.json`:** If `~/.mem0/settings.json` parsed as valid JSON but wasn't an object (a list or a bare string, for example), `load_settings()` called `.items()` on it and raised. `resolve_config()` guards only against `ImportError`, so the failure escaped into every hook that resolves identity, not just setup. Settings loading now keeps the defaults instead. Setup also stopped claiming it "Created" the settings file when one already existed; it only prints that when it actually wrote one. Shared across Claude Code, Cursor, Codex, and Antigravity.
 
 **New Features:**
 - **Unknown settings key warning:** Setup now flags keys in `settings.json` that the plugin doesn't recognize, so a typo'd setting no longer fails silently.
@@ -2321,7 +2321,7 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 <Update label="2026-08-04" description="Antigravity plugin v0.1.6">
 
 **Fixes:**
-- **Settings loading no longer crashes on a malformed `settings.json`:** If `~/.mem0/settings.json` parsed as valid JSON but wasn't an object, setup previously raised. It now keeps the defaults instead, and only reports "Created" the settings file when it actually wrote one.
+- **Settings loading no longer crashes on a malformed `settings.json`:** If `~/.mem0/settings.json` parsed as valid JSON but wasn't an object, every hook that resolves identity previously raised, not just setup. It now keeps the defaults instead, and setup only reports it "Created" the settings file when it actually wrote one.
 
 **Improvements:**
 - **Unknown settings key warning:** Setup now flags keys in `settings.json` it doesn't recognize instead of ignoring them silently.
