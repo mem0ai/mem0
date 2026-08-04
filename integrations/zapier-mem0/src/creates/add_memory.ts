@@ -115,7 +115,7 @@ export default {
 				choices: { user: 'User', assistant: 'Assistant', system: 'System' },
 				default: 'user',
 			},
-			{ key: 'user_id', label: 'User ID', type: 'string' },
+			{ key: 'user_id', label: 'User ID', type: 'string', required: true, helpText: 'Scope this memory to a user. Mem0 requires at least one entity ID.' },
 			{ key: 'agent_id', label: 'Agent ID', type: 'string' },
 			{ key: 'run_id', label: 'Run ID', type: 'string' },
 			{ key: 'metadata', label: 'Metadata (JSON)', type: 'string' },
