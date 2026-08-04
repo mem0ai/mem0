@@ -89,6 +89,36 @@ describe("MemoryClient - batchDelete()", () => {
     ]);
   });
 
+  test("preserves OpenAPI memory_id object inputs", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.batchDelete([{ memory_id: "mem_1" }, { memory_id: "mem_2" }]);
+
+    const call = findFetchCall(mock, "/v1/batch/", "DELETE");
+    expect(getFetchBody(call!).memories).toEqual([
+      { memory_id: "mem_1" },
+      { memory_id: "mem_2" },
+    ]);
+  });
+
+  test("normalizes camelCase memoryId object inputs", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.batchDelete([{ memoryId: "mem_1" }, { memoryId: "mem_2" }]);
+
+    const call = findFetchCall(mock, "/v1/batch/", "DELETE");
+    expect(getFetchBody(call!).memories).toEqual([
+      { memory_id: "mem_1" },
+      { memory_id: "mem_2" },
+    ]);
+  });
+
   test("handles empty array without crashing", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/batch/", { status: 200, body: { message: "OK" } });

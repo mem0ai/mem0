@@ -554,11 +554,16 @@ export default class MemoryClient {
     return response;
   }
 
-  async batchDelete(memories: Array<string>): Promise<string> {
+  async batchDelete(
+    memories: Array<string | { memoryId?: string; memory_id?: string }>,
+  ): Promise<string> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("batch_delete", []);
     const memoriesBody = memories.map((memory) => ({
-      memory_id: memory,
+      memory_id:
+        typeof memory === "string"
+          ? memory
+          : (memory.memoryId ?? memory.memory_id),
     }));
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/batch/`,
