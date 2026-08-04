@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 try:
     import boto3
-    from botocore.exceptions import ClientError, NoCredentialsError
+    from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
@@ -79,9 +79,7 @@ class AWSBedrockLLM(LLMBase):
         try:
             aws_config = self.config.get_aws_config()
 
-            # Create Bedrock runtime client. boto3.client() does NOT accept
-            # `profile_name` as a kwarg -- only boto3.Session() does. If
-            # `profile_name` is present in aws_config, build a Session first.
+            # see _build_client: profile_name routes through Session, not client().
             self.client = self._build_client("bedrock-runtime", aws_config)
 
             # Test connection
@@ -92,6 +90,11 @@ class AWSBedrockLLM(LLMBase):
                 "AWS credentials not found. Please set AWS_ACCESS_KEY_ID, "
                 "AWS_SECRET_ACCESS_KEY, and AWS_REGION environment variables, "
                 "or provide them in the config."
+            )
+        except ProfileNotFound as e:
+            raise ValueError(
+                f"AWS profile not found: {e}. Please check aws_profile / AWS_PROFILE "
+                "or provide explicit credentials in the config."
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "UnauthorizedOperation":
