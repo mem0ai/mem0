@@ -136,7 +136,8 @@ export default class MemoryClient {
 
     this.telemetryId = "";
 
-    // Requests never wait on this; only telemetry does.
+    // Memory requests never wait on this; telemetry and the project-scoped
+    // endpoints (_awaitIdentity) do.
     this.initialized = this._resolveIdentity();
   }
 
@@ -163,6 +164,14 @@ export default class MemoryClient {
         this.organizationId = identity.organizationId;
       if (identity.projectId != null) this.projectId = identity.projectId;
     });
+  }
+
+  // getProject/updateProject/getWebhooks/createWebhook build their URL from
+  // organizationId/projectId, which only exist once the ping has landed. The
+  // memory endpoints don't need this — the server derives org/project from the
+  // API key. Resolved promise on a warm process, so this costs one microtask.
+  private async _awaitIdentity(): Promise<void> {
+    await this.initialized;
   }
 
   private async _initializeClient(): Promise<ClientIdentity> {
@@ -616,6 +625,7 @@ export default class MemoryClient {
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_project", [payloadKeys]);
     const { fields } = options;
+    await this._awaitIdentity();
 
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
@@ -639,6 +649,7 @@ export default class MemoryClient {
     prompts: PromptUpdatePayload,
   ): Promise<Record<string, any>> {
     this._captureEvent("update_project", []);
+    await this._awaitIdentity();
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
         "organizationId and projectId must be set to update instructions or categories",
@@ -659,6 +670,7 @@ export default class MemoryClient {
   // WebHooks
   async getWebhooks(data?: { projectId?: string }): Promise<Array<Webhook>> {
     this._captureEvent("get_webhooks", []);
+    if (!data?.projectId) await this._awaitIdentity();
     const project_id = data?.projectId || this.projectId;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${project_id}/`,
@@ -671,6 +683,7 @@ export default class MemoryClient {
 
   async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
     this._captureEvent("create_webhook", []);
+    await this._awaitIdentity();
     const body = {
       name: webhook.name,
       url: webhook.url,
