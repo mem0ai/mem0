@@ -358,14 +358,11 @@ describe("Memory Input Validation", () => {
 
     it("should trim userId before listing memories", async () => {
       const listSpy = jest.spyOn(memory["vectorStore"], "list");
-      listSpy.mockResolvedValue([[], null]);
+      listSpy.mockResolvedValue([[], 0]);
 
       await memory.deleteAll({ userId: "  alice  " });
 
-      expect(listSpy).toHaveBeenCalledWith(
-        { user_id: "alice" },
-        expect.any(Number),
-      );
+      expect(listSpy).toHaveBeenCalledWith({ user_id: "alice" }, 10000);
     });
   });
 });
