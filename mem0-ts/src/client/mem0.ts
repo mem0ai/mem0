@@ -89,9 +89,7 @@ interface ClientIdentity {
   projectId: string | number | null;
 }
 
-// Module scope, so a fresh client on a warm serverless container reuses the
-// ping instead of repeating it. Keyed by host + key, FIFO-capped so a process
-// cycling through many keys degrades to one ping per construction, not a leak.
+// Shares one ping per (host, api key) across clients; FIFO-capped, not a leak.
 const IDENTITY_CACHE_MAX = 50;
 const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
 
