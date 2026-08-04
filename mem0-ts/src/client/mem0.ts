@@ -139,6 +139,11 @@ export default class MemoryClient {
     this.telemetryId = "";
 
     // Requests never wait on this; only telemetry does.
+    this.initialized = this._resolveIdentity();
+  }
+
+  // One ping per credential pair per process, shared via identityByCredentials.
+  private _resolveIdentity(): Promise<void> {
     const credentials = `${this.host}\u0000${this.apiKey}`;
     let shared = identityByCredentials.get(credentials);
     if (!shared) {
@@ -154,7 +159,7 @@ export default class MemoryClient {
         if (!identity.telemetryId) identityByCredentials.delete(credentials);
       });
     }
-    this.initialized = shared.then((identity) => {
+    return shared.then((identity) => {
       this.telemetryId = identity.telemetryId;
       if (identity.organizationId != null)
         this.organizationId = identity.organizationId;
