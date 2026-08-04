@@ -83,6 +83,17 @@ interface ClientOptions {
   host?: string;
 }
 
+interface ClientIdentity {
+  telemetryId: string;
+  organizationId: string | number | null;
+  projectId: string | number | null;
+}
+
+// Module scope, so a fresh client on a warm serverless container reuses the
+// ping instead of repeating it. Keyed by host + key; a process holds one entry
+// per credential pair it actually uses.
+const identityByCredentials = new Map<string, Promise<ClientIdentity>>();
+
 export default class MemoryClient {
   apiKey: string;
   host: string;
@@ -125,11 +136,27 @@ export default class MemoryClient {
     this._validateApiKey();
 
     this.telemetryId = "";
-    // Requests no longer wait on this; only telemetry does.
-    this.initialized = this._initializeClient();
+
+    // Requests never wait on this; only telemetry does.
+    const credentials = `${this.host}\u0000${this.apiKey}`;
+    let shared = identityByCredentials.get(credentials);
+    if (!shared) {
+      shared = this._initializeClient();
+      identityByCredentials.set(credentials, shared);
+      // A failed ping must not be cached, or the process never recovers.
+      shared.then((identity) => {
+        if (!identity.telemetryId) identityByCredentials.delete(credentials);
+      });
+    }
+    this.initialized = shared.then((identity) => {
+      this.telemetryId = identity.telemetryId;
+      if (identity.organizationId != null)
+        this.organizationId = identity.organizationId;
+      if (identity.projectId != null) this.projectId = identity.projectId;
+    });
   }
 
-  private async _initializeClient() {
+  private async _initializeClient(): Promise<ClientIdentity> {
     try {
       await this.ping();
 
@@ -151,6 +178,12 @@ export default class MemoryClient {
         stack: error?.stack || "No stack trace",
       });
     }
+
+    return {
+      telemetryId: this.telemetryId,
+      organizationId: this.organizationId,
+      projectId: this.projectId,
+    };
   }
 
   private async _maybeAliasAnonToEmail(): Promise<void> {
