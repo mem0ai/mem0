@@ -1,6 +1,6 @@
 ---
 title: REST API Server
-description: Reach every Mem0 OSS capability through a FastAPI-powered REST layer.
+description: Reach self-hosted Mem0 memory operations through a FastAPI-powered REST layer.
 icon: "code"
 ---
 
@@ -18,7 +18,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Warning>
 
 <Warning>
-  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths: those do not apply to the OSS server.
+  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the hosted Platform memory API's `/v1` or `/v3` route families. For example, the OSS endpoints are `POST /memories` and `POST /search`, not `POST /v3/memories/add/` or `POST /v3/memories/search/`. The [API Reference](/api-reference) documents the hosted Platform API at `api.mem0.ai`; use this page or your server's `/docs` page for the OSS REST surface. Do not use a Platform API key against the OSS server; use the OSS auth modes described below.
 </Warning>
 
 <Warning>
@@ -202,9 +202,12 @@ ADMIN_API_KEY=your-long-admin-key
 
 ### Create and search memories via HTTP
 
+These examples use a per-user API key. Protected endpoints also accept a bearer JWT from `POST /auth/login`.
+
 ```bash
 curl -X POST http://localhost:8888/memories \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: m0sk_your_key_here" \
   -d '{
     "messages": [
       {"role": "user", "content": "I love fresh vegetable pizza."}
@@ -220,6 +223,7 @@ curl -X POST http://localhost:8888/memories \
 ```bash
 curl -X POST http://localhost:8888/search \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: m0sk_your_key_here" \
   -d '{
     "query": "vegetable",
     "user_id": "alice"
@@ -231,6 +235,7 @@ Set `explain` to inspect the scoring signals used by OSS hybrid search:
 ```bash
 curl -X POST http://localhost:8888/search \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: m0sk_your_key_here" \
   -d '{
     "query": "vegetable pizza",
     "user_id": "alice",
@@ -254,7 +259,7 @@ Each returned memory includes `score_details` only when explanation mode is enab
 
 ## Endpoint reference
 
-The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
+The OSS REST server exposes the following endpoints. None use the hosted Platform memory API's `/v1` or `/v3` route families.
 
 ### Memory operations
 
@@ -281,13 +286,13 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 | `POST` | `/auth/register` | Register the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin. |
 | `POST` | `/auth/login` | Exchange email and password for access and refresh JWTs |
 | `POST` | `/auth/refresh` | Exchange a refresh token for a new access token |
-| `GET` | `/auth/me` | Get the current authenticated user (JWT required) |
+| `GET` | `/auth/me` | Get the current authenticated user |
 | `PATCH` | `/auth/me` | Update the caller's name or email. 409 if the new email is already in use |
 | `POST` | `/auth/change-password` | Change the caller's password. 401 if the current password is wrong; new password must be at least 8 characters |
 
 ### API keys
 
-All `/api-keys` endpoints require a JWT.
+All `/api-keys` endpoints require an authenticated user. Dashboard JWTs are the intended flow for managing keys, and the server also accepts per-user `X-API-Key` auth.
 
 | Method | Path | Description |
 |--------|------|-------------|

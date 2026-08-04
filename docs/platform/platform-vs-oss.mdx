@@ -91,14 +91,18 @@ Mem0 offers two powerful ways to add memory to your AI applications. Choose base
   <Accordion title="Development & Integration" icon="code">
     | Feature | Platform | Open Source |
     |---------|----------|-------------|
-    | **REST API** | ✅ | ✅ (self-hosted server) |
-    | **Python SDK** | ✅ | ✅ |
-    | **JavaScript SDK** | ✅ | ✅ |
+    | **REST API** | ✅ Hosted Platform API (`api.mem0.ai`) | ✅ Self-hosted FastAPI server |
+    | **Python SDK** | ✅ `MemoryClient` / `AsyncMemoryClient` | ✅ `Memory` / `AsyncMemory` |
+    | **JavaScript SDK** | ✅ `MemoryClient` | ✅ `Memory` from `mem0ai/oss` |
     | **Framework integrations** | LangChain, CrewAI, LlamaIndex, and 20+ more | Same |
     | **Dashboard** | ✅ Web-based | ❌ |
     | **Analytics** | ✅ Built-in | DIY |
   </Accordion>
 </AccordionGroup>
+
+<Note>
+  The Platform and self-hosted REST APIs are different surfaces. `MemoryClient` targets the hosted Platform API, and its memory methods use Platform-compatible `/v1` and `/v3` routes. The OSS self-hosted server exposes its own FastAPI endpoints such as `/memories` and `/search`; use the server's `/docs` page or the <Link href="/open-source/features/rest-api">OSS REST API Server</Link> guide for that reference.
+</Note>
 
 ---
 
