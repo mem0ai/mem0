@@ -172,6 +172,50 @@ describe("Memory - add()", () => {
     );
   });
 
+  test("includes custom filter keys in the session scope", () => {
+    const buildSessionScope = (memory as any).buildSessionScope.bind(memory);
+
+    expect(
+      buildSessionScope({
+        user_id: userId,
+        app_id: "customer-support",
+      }),
+    ).toBe(`app_id=customer-support&user_id=${userId}`);
+  });
+
+  test("excludes object and array filter values from the session scope", () => {
+    const buildSessionScope = (memory as any).buildSessionScope.bind(memory);
+
+    expect(
+      buildSessionScope({
+        user_id: userId,
+        createdAt: { gte: "2024-01-01" },
+      }),
+    ).toBe(`user_id=${userId}`);
+
+    expect(
+      buildSessionScope({
+        user_id: userId,
+        createdAt: { gte: "2025-06-01" },
+      }),
+    ).toBe(`user_id=${userId}`);
+
+    expect(
+      buildSessionScope({
+        user_id: userId,
+        OR: [{ app_id: "billing" }],
+      }),
+    ).toBe(`user_id=${userId}`);
+
+    expect(
+      buildSessionScope({
+        user_id: userId,
+        OR: [{ app_id: "support" }],
+        app_id: "customer-support",
+      }),
+    ).toBe(`app_id=customer-support&user_id=${userId}`);
+  });
+
   test("with infer=false skips LLM and stores messages directly", async () => {
     const result: SearchResult = await memory.add("Direct storage content", {
       userId,
