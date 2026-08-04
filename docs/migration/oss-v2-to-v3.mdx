@@ -104,11 +104,11 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 </Tabs>
 
 <Info>
-The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
+The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for richer entity extraction and English keyword lemmatization. Without it, Mem0 still works with regex-based entity extraction and dependency-free keyword tokenization, but statistical NER/noun-chunk coverage and English lemmatization are reduced.
 </Info>
 
 <Warning>
-**Qdrant users: install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without it, BM25 is silently disabled and search falls back to semantic-only. The first search call logs a warning that BM25 keyword search is disabled. Other vector stores use their native full-text capabilities and don't need `fastembed`.
+**Qdrant users: install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without it, Qdrant cannot encode sparse BM25 vectors, so the BM25 keyword signal is disabled and the first search call logs a warning. Other vector stores use their native full-text capabilities and do not need `fastembed`.
 
 ```bash
 pip install fastembed
@@ -345,7 +345,7 @@ Mem0 now builds the graph itself. It extracts entities (proper nouns, quoted tex
 - Remove `enable_graph` / `enableGraph` from your config
 - Remove the `graph_store` / `graphStore` block: it is no longer read
 - Uninstall external graph drivers (neo4j, memgraph, etc.) if you were using them only for Mem0
-- No data migration is required. Built-in graph memory activates automatically on the next `add()` call.
+- No schema migration is required for the SDK to run, but existing memories need re-add, update, reindex, or backfill to refresh BM25 payloads and participate in entity boosting.
 
 <Warning>
 The old `relations` field on search results (populated by the external graph store) is no longer returned. Entity connections are now applied through retrieval ranking rather than exposed as a separate, directly traversable structure. If your application read or traversed the `relations` array, you will need to redesign that part against the new API.
@@ -379,7 +379,7 @@ Query
     → Score fusion → Top-K selection
 ```
 
-**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic-only, semantic + BM25, or all three when spaCy + the entity store are active).
+**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic-only, semantic + BM25, or all three when backend BM25 is available and entity extraction has produced linked entities; spaCy broadens statistical NER/noun-chunk coverage).
 
 **BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates: BM25 and entity scores boost ranking but don't add new candidates.
 
