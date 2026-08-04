@@ -506,8 +506,17 @@ export default class MemoryClient {
 
     for (const entity of to_delete) {
       try {
-        await this.client.delete(
-          `/v2/entities/${encodePathSegment(entity.type)}/${encodePathSegment(entity.name)}/`,
+        // Last axios call site in this class. Node's axios defaults to
+        // http.Agent({ keepAlive: false }) and no agent is configured here, so
+        // every iteration of this loop opened a fresh TCP+TLS connection.
+        // _fetchWithErrorHandling goes through the runtime's pooled dispatcher
+        // and reuses the connection the rest of the client already has open.
+        await this._fetchWithErrorHandling(
+          `${this.host}/v2/entities/${encodePathSegment(entity.type)}/${encodePathSegment(entity.name)}/`,
+          {
+            method: "DELETE",
+            headers: this.headers,
+          },
         );
       } catch (error: any) {
         throw new APIError(
