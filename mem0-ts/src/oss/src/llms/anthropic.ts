@@ -1,9 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 export class AnthropicLLM implements LLM {
-  private client: Anthropic;
+  private client!: Anthropic;
+  private readonly clientArgs: { apiKey: string; baseURL?: string };
   private model: string;
   private maxTokens: number;
   private temperature?: number;
@@ -14,7 +16,13 @@ export class AnthropicLLM implements LLM {
     if (!apiKey) {
       throw new Error("Anthropic API key is required");
     }
-    this.client = new Anthropic({ apiKey });
+    // Forward baseURL to the client when set so proxy/gateway users are
+    // honored (parity with the OpenAI provider and the Python fix in #5626).
+    const clientArgs: { apiKey: string; baseURL?: string } = { apiKey };
+    if (config.baseURL) {
+      clientArgs.baseURL = config.baseURL;
+    }
+    this.clientArgs = clientArgs;
     this.model = config.model || "claude-sonnet-4-6";
     // Defaults mirror the Python provider's AnthropicConfig
     // (max_tokens=2000, temperature=0.1, top_p omitted).
@@ -23,11 +31,22 @@ export class AnthropicLLM implements LLM {
     this.topP = config.topP;
   }
 
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+    const sdk = await loadPeer(
+      "@anthropic-ai/sdk",
+      "Anthropic LLM",
+      () => import("@anthropic-ai/sdk"),
+    );
+    this.client = new sdk.default(this.clientArgs);
+  }
+
   async generateResponse(
     messages: Message[],
     responseFormat?: { type: string },
     tools?: any[],
   ): Promise<string | LLMResponse> {
+    await this.ensureClient();
     // Extract system message if present
     const systemMessage = messages.find((msg) => msg.role === "system");
     const otherMessages = messages.filter((msg) => msg.role !== "system");
@@ -81,12 +100,16 @@ export class AnthropicLLM implements LLM {
       return { content, role: "assistant", toolCalls };
     }
 
-    const firstBlock = response.content[0];
-    if (firstBlock.type === "text") {
-      return firstBlock.text;
-    } else {
-      throw new Error("Unexpected response type from Anthropic API");
+    // Thinking-enabled responses put a thinking block before the text block,
+    // and a response can carry no text block at all, so find the text block
+    // like the tools branch above instead of indexing content[0]. Mirrors the
+    // Python provider (#6481).
+    for (const block of response.content) {
+      if (block.type === "text") {
+        return block.text;
+      }
     }
+    return "";
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {

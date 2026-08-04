@@ -151,6 +151,55 @@ class TestOpenSearchDB(unittest.TestCase):
         self.os_db.create_index()
         self.client_mock.indices.create.assert_not_called()
 
+    def test_auto_refresh_disabled_by_default(self):
+        """Test that auto_refresh is disabled by default (Issue #3739).
+
+        This ensures OpenSearch Serverless compatibility out-of-the-box since
+        the indices.refresh() API is not supported in serverless mode.
+        """
+        # Default instance should have auto_refresh=False
+        self.assertFalse(self.os_db.auto_refresh)
+        self.client_mock.reset_mock()
+
+        vectors = [[0.1] * 1536]
+        payloads = [{"key1": "value1"}]
+        ids = ["id1"]
+
+        self.os_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # Verify index was called but refresh was NOT called (default behavior)
+        self.assertEqual(self.client_mock.index.call_count, 1)
+        self.client_mock.indices.refresh.assert_not_called()
+
+    def test_auto_refresh_enabled(self):
+        """Test that refresh is called once per batch (not per document) when auto_refresh=True."""
+        with patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock):
+            auto_refresh_db = OpenSearchDB(
+                host="localhost",
+                port=9200,
+                collection_name="test_auto_refresh",
+                embedding_model_dims=1536,
+                auto_refresh=True,  # Enable auto-refresh
+            )
+
+        self.assertTrue(auto_refresh_db.auto_refresh)
+        # auto_refresh_db reuses self.client_mock (patched above), so reset to drop
+        # the index calls made during construction before asserting on insert().
+        self.client_mock.reset_mock()
+
+        # Insert a batch of 3 vectors to verify the refresh is hoisted out of the
+        # per-document loop: index() is called once per document, but refresh()
+        # must fire exactly once for the whole batch.
+        vectors = [[0.1] * 1536, [0.2] * 1536, [0.3] * 1536]
+        payloads = [{"key1": "value1"}, {"key2": "value2"}, {"key3": "value3"}]
+        ids = ["id1", "id2", "id3"]
+
+        auto_refresh_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+        # index() once per document, but refresh() only once for the batch
+        self.assertEqual(self.client_mock.index.call_count, 3)
+        self.assertEqual(self.client_mock.indices.refresh.call_count, 1)
+
     def test_insert(self):
         vectors = [[0.1] * 1536, [0.2] * 1536]
         payloads = [{"key1": "value1"}, {"key2": "value2"}]
@@ -246,6 +295,34 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
         self.assertEqual(results[0].payload, {"key1": "value1"})
+
+    def test_list_returns_nested_list(self):
+        mock_response = {
+            "hits": {
+                "hits": [
+                    {"_source": {"id": "id1", "payload": {"key1": "value1"}}},
+                ]
+            }
+        }
+        self.client_mock.search.return_value = mock_response
+        result = self.os_db.list(filters={"user_id": "alice"})
+        # Contract is List[List[OutputData]] so callers can do result[0].
+        self.assertIsInstance(result, list)
+        self.assertIsInstance(result[0], list)
+        self.assertEqual(len(result[0]), 1)
+        self.assertEqual(result[0][0].id, "id1")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_list_error_returns_nested_empty_list(self, mock_logger):
+        """list() error path must return [[]] (not bare []) so callers can do
+        result[0]; e.g. Memory.delete_all() does list(filters=...)[0]."""
+        self.client_mock.search.side_effect = Exception("Listing failed")
+        result = self.os_db.list(filters={"user_id": "alice"})
+        self.assertEqual(result, [[]])
+        self.assertEqual(result[0], [])
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
 
     def test_delete(self):
         mock_search_response = {"hits": {"hits": [{"_id": "doc1", "_source": {"id": "id1"}}]}}
@@ -347,10 +424,25 @@ class TestOpenSearchDB(unittest.TestCase):
 
     @patch("mem0.vector_stores.opensearch.logger")
     def test_search_error_logs_with_exc_info(self, mock_logger):
-        """Search error logging should include exc_info for full stack trace."""
+        """Search errors should log with exc_info and re-raise (not swallow as [])."""
         self.client_mock.search.side_effect = Exception("Search failed")
-        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
-        self.assertEqual(results, [])
+        with self.assertRaises(Exception):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_keyword_search_error_logs_and_degrades(self, mock_logger):
+        """Keyword search errors should log with exc_info and degrade to None (not raise).
+
+        keyword_search() is a best-effort augmentation for search(); raising here
+        would crash the whole search() call on a keyword-only failure (regression
+        per maintainer review on #6519).
+        """
+        self.client_mock.search.side_effect = Exception("Keyword search failed")
+        result = self.os_db.keyword_search(query="test", top_k=5)
+        self.assertIsNone(result)
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args
         self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
@@ -468,3 +560,147 @@ def test_memory_initialization_opensearch_aws_auth(
     assert memory.config.vector_store.provider == "opensearch"
 
     assert mock_vector_factory.call_count >= 2
+
+
+class TestOpenSearchFilterValidation(unittest.TestCase):
+    """Validate that non-scalar filter values are rejected to prevent term injection."""
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=OpenSearch)
+        self.client_mock.indices = MagicMock()
+        self.client_mock.indices.exists = MagicMock(return_value=False)
+        self.client_mock.indices.create = MagicMock()
+        self.client_mock.search = MagicMock()
+
+        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
+        self.mock_os = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.os_db = OpenSearchDB(
+            host="localhost",
+            port=9200,
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            verify_certs=False,
+            use_ssl=False,
+        )
+        self.client_mock.reset_mock()
+
+    def test_search_rejects_dict_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": {"$ne": ""}})
+
+    def test_search_rejects_list_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": ["alice", "bob"]})
+
+    def test_list_rejects_dict_filter_value(self):
+        result = self.os_db.list(filters={"user_id": {"$ne": ""}})
+        self.assertEqual(result, [[]])
+        self.client_mock.search.assert_not_called()
+
+    def test_keyword_search_rejects_dict_filter_value(self):
+        with self.assertRaises(ValueError):
+            self.os_db.keyword_search(query="test", filters={"user_id": {"$ne": ""}})
+
+    def test_search_accepts_string_filter(self):
+        mock_response = {"hits": {"hits": []}}
+        self.client_mock.search.return_value = mock_response
+        results = self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice"})
+        self.assertEqual(results, [])
+        self.client_mock.search.assert_called_once()
+
+
+class TestOpenSearchCustomFilters(TestOpenSearchFilterValidation):
+    """Custom (non-identity) filter keys must be honored, not silently dropped."""
+
+    def setUp(self):
+        super().setUp()
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+    def _search_body(self):
+        return self.client_mock.search.call_args[1]["body"]
+
+    def test_search_honors_custom_filter_key(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "category": "billing"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.user_id.keyword": "alice"}}, clauses)
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    def test_keyword_search_honors_custom_filter_key(self):
+        self.os_db.keyword_search(query="report", filters={"category": "billing"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    def test_list_honors_custom_filter_key(self):
+        self.os_db.list(filters={"category": "billing"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    def test_non_string_filter_values_use_plain_field(self):
+        """Non-string identity/scalar values must match against the plain payload field, not .keyword."""
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"age": 30, "archived": False})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.age": 30}}, clauses)
+        self.assertIn({"term": {"payload.archived": False}}, clauses)
+
+    def test_custom_filter_keys_still_validated(self):
+        with self.assertRaises(ValueError):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"bad key!": "x"})
+
+    def test_search_ignores_or_operator_filter(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "$or": [{"a": 1}]})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_search_ignores_operator_shaped_filter_value(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "score": {"gte": 5}})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_search_translates_wildcard_filter_value_to_exists(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "category": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(
+            clauses,
+            [
+                {"term": {"payload.user_id.keyword": "alice"}},
+                {"exists": {"field": "payload.category"}},
+            ],
+        )
+
+    def test_list_ignores_or_operator_filter(self):
+        self.os_db.list(filters={"user_id": "alice", "$or": [{"a": 1}]})
+        self.client_mock.search.assert_called_once()
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+
+class TestOpenSearchWildcardFilters(TestOpenSearchFilterValidation):
+    """The "*" wildcard means "any value" (a documented Platform pattern) and
+    must build an exists query — as opensearch.ts does — for every key,
+    including the identity keys, instead of a literal term match on "*"."""
+
+    def setUp(self):
+        super().setUp()
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+
+    def _search_body(self):
+        return self.client_mock.search.call_args[1]["body"]
+
+    def test_identity_key_wildcard_builds_exists_query(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"agent_id": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"exists": {"field": "payload.agent_id"}}, clauses)
+        self.assertNotIn({"term": {"payload.agent_id.keyword": "*"}}, clauses)
+
+    def test_custom_key_wildcard_builds_exists_query(self):
+        self.os_db.list(filters={"category": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"exists": {"field": "payload.category"}}, clauses)
+
+    def test_wildcard_combines_with_term_filters(self):
+        self.os_db.keyword_search(query="q", filters={"user_id": "u1", "topic": "*"})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"term": {"payload.user_id.keyword": "u1"}}, clauses)
+        self.assertIn({"exists": {"field": "payload.topic"}}, clauses)

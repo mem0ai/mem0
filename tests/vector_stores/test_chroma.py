@@ -122,7 +122,7 @@ def test_delete_vector(chromadb_instance):
 
     chromadb_instance.delete(vector_id=vector_id)
 
-    chromadb_instance.collection.delete.assert_called_once_with(ids=vector_id)
+    chromadb_instance.collection.delete.assert_called_once_with(ids=[vector_id])
 
 
 def test_update_vector(chromadb_instance):
@@ -133,7 +133,31 @@ def test_update_vector(chromadb_instance):
     chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=new_payload)
 
     chromadb_instance.collection.update.assert_called_once_with(
-        ids=vector_id, embeddings=new_vector, metadatas=new_payload
+        ids=[vector_id], embeddings=[new_vector], metadatas=[new_payload]
+    )
+
+
+def test_update_vector_metadata_only(chromadb_instance):
+    # Metadata-only update (vector=None) must not wrap None in a list.
+    vector_id = "id1"
+    new_payload = {"name": "updated_vector"}
+
+    chromadb_instance.update(vector_id=vector_id, vector=None, payload=new_payload)
+
+    chromadb_instance.collection.update.assert_called_once_with(
+        ids=[vector_id], embeddings=None, metadatas=[new_payload]
+    )
+
+
+def test_update_vector_embedding_only(chromadb_instance):
+    # Vector-only update (payload=None) must not wrap None in a list.
+    vector_id = "id1"
+    new_vector = [0.7, 0.8, 0.9]
+
+    chromadb_instance.update(vector_id=vector_id, vector=new_vector, payload=None)
+
+    chromadb_instance.collection.update.assert_called_once_with(
+        ids=[vector_id], embeddings=[new_vector], metadatas=None
     )
 
 
@@ -244,12 +268,18 @@ def test_generate_where_clause_single_filter():
 
 
 def test_generate_where_clause_no_filters():
-    """Test _generate_where_clause with no filters."""
+    """Test _generate_where_clause with no filters returns None."""
     result = ChromaDB._generate_where_clause(None)
-    assert result == {}
+    assert result is None
 
     result = ChromaDB._generate_where_clause({})
-    assert result == {}
+    assert result is None
+
+
+def test_generate_where_clause_all_wildcards_returns_none():
+    """All-wildcard filters must return None, not {}, to avoid ChromaDB ValueError."""
+    result = ChromaDB._generate_where_clause({"user_id": "*"})
+    assert result is None
 
 
 def test_generate_where_clause_non_string_values():
@@ -314,3 +344,53 @@ def test_chroma_config_rejects_no_config():
     """Test that ChromaDbConfig rejects when no connection config is provided."""
     with pytest.raises(ValueError):
         ChromaDbConfig()
+
+
+def test_generate_where_clause_same_field_range_keeps_both_bounds():
+    """A same-field range must produce both bounds, each as its own single-operator
+    clause combined with $and (ChromaDB rejects multi-operator field expressions).
+
+    Regression test: each operator previously overwrote the previous one, so
+    {"gte": 18, "lte": 65} silently degraded to {"$lte": 65} and returned rows
+    the caller explicitly excluded.
+    """
+    result = ChromaDB._generate_where_clause({"age": {"gte": 18, "lte": 65}})
+    assert result == {"$and": [{"age": {"$gte": 18}}, {"age": {"$lte": 65}}]}
+
+
+def test_generate_where_clause_or_with_same_field_range():
+    """Same-field ranges inside $or branches must also keep both bounds."""
+    result = ChromaDB._generate_where_clause({"$or": [{"age": {"gte": 18, "lte": 65}}, {"vip": True}]})
+    assert result == {
+        "$or": [
+            {"$and": [{"age": {"$gte": 18}}, {"age": {"$lte": 65}}]},
+            {"vip": {"$eq": True}},
+        ]
+    }
+
+
+def test_generate_where_clause_or_with_multi_field_condition():
+    """Multi-field conditions inside $or must be wrapped in $and — ChromaDB
+    rejects flat dicts with more than one field per level."""
+    result = ChromaDB._generate_where_clause({"$or": [{"age": {"gte": 18}, "vip": True}, {"city": "sh"}]})
+    assert result == {
+        "$or": [
+            {"$and": [{"age": {"$gte": 18}}, {"vip": {"$eq": True}}]},
+            {"city": {"$eq": "sh"}},
+        ]
+    }
+
+
+def test_generate_where_clause_not_contains_negates_instead_of_vanishing():
+    """$not with contains/icontains must produce a negated clause.
+
+    Regression test: operators missing from the negation map were silently
+    dropped, which could erase the whole where clause and return unfiltered
+    results. contains falls back to equality on the positive path, so its
+    negation falls back to inequality.
+    """
+    result = ChromaDB._generate_where_clause({"$not": [{"title": {"contains": "draft"}}]})
+    assert result == {"title": {"$ne": "draft"}}
+
+    result = ChromaDB._generate_where_clause({"$not": [{"title": {"icontains": "draft"}}]})
+    assert result == {"title": {"$ne": "draft"}}

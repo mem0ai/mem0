@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from typing import Dict, Optional
 
@@ -47,6 +48,8 @@ class OutputData(BaseModel):
 
 
 class BaiduDB(VectorStoreBase):
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
     def __init__(
         self,
         endpoint: str,
@@ -221,8 +224,15 @@ class BaiduDB(VectorStoreBase):
         output = []
         for row in res.rows:
             row_data = row.get("row", {})
+            # Mochow returns the raw L2 distance (lower = closer). Convert it to a
+            # similarity score (higher = better) to satisfy the VectorStoreBase
+            # contract, mirroring the milvus provider. Non-L2 metrics already
+            # return a higher-is-better score.
+            raw_score = row.get("score", 0.0)
+            if self.metric_type in (MetricType.L2, "L2"):
+                raw_score = 1.0 / (1.0 + raw_score)
             output_data = OutputData(
-                id=row_data.get("id"), score=row.get("score", 0.0), payload=row_data.get("metadata", {})
+                id=row_data.get("id"), score=raw_score, payload=row_data.get("metadata", {})
             )
             output.append(output_data)
 
@@ -404,8 +414,16 @@ class BaiduDB(VectorStoreBase):
         """
         conditions = []
         for key, value in filters.items():
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
             if isinstance(value, str):
-                conditions.append(f'metadata["{key}"] = "{value}"')
-            else:
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                conditions.append(f'metadata["{key}"] = "{escaped}"')
+            elif isinstance(value, (int, float, bool)):
                 conditions.append(f'metadata["{key}"] = {value}')
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
         return " AND ".join(conditions)

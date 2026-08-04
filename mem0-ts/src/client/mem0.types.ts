@@ -13,6 +13,7 @@ export interface AddMemoryOptions extends EntityOptions {
   customCategories?: custom_categories[];
   customInstructions?: string;
   timestamp?: number;
+  expirationDate?: string;
   structuredDataSchema?: Record<string, any>;
 }
 
@@ -25,6 +26,9 @@ export interface SearchMemoryOptions {
   latestOnly?: boolean;
   fields?: string[];
   categories?: string[];
+  showExpired?: boolean;
+  referenceDate?: string | number;
+  keywordSearch?: boolean;
 }
 
 export interface GetAllMemoryOptions {
@@ -35,6 +39,7 @@ export interface GetAllMemoryOptions {
   endDate?: string;
   latestOnly?: boolean;
   categories?: string[];
+  showExpired?: boolean;
 }
 
 export interface DeleteAllMemoryOptions extends EntityOptions {}
@@ -56,7 +61,6 @@ export interface ProjectOptions {
 export interface PromptUpdatePayload {
   customInstructions?: string;
   customCategories?: custom_categories[];
-  retrievalCriteria?: any[];
   version?: string;
   memoryDepth?: string | null;
   usecaseSetting?: string | number;
@@ -119,6 +123,7 @@ export interface Memory {
   memoryType?: string;
   score?: number;
   metadata?: any | null;
+  expirationDate?: string | null;
   owner?: string | null;
   agentId?: string | null;
   appId?: string | null;
@@ -169,7 +174,9 @@ export interface PaginatedMemories {
 
 export interface ProjectResponse {
   customInstructions?: string;
-  customCategories?: string[];
+  // The API returns category objects (`[{ "<name>": "<description>" }]`),
+  // not bare strings (see issue #5738).
+  customCategories?: custom_categories[];
   [key: string]: any;
 }
 

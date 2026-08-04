@@ -27,3 +27,17 @@ class LMStudioEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
+
+    def embed_batch(self, texts, memory_action="add"):
+        if not texts:
+            return []
+        cleaned = [t.replace("\n", " ") for t in texts]
+        response = self.client.embeddings.create(input=cleaned, model=self.config.model)
+        sorted_data = sorted(response.data, key=lambda x: x.index)
+        embeddings = [item.embedding for item in sorted_data]
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"LM Studio embed_batch() returned {len(embeddings)} embeddings for {len(texts)} texts"
+                f" using model '{self.config.model}'"
+            )
+        return embeddings

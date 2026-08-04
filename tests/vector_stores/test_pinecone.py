@@ -139,9 +139,40 @@ def test_list_cols(pinecone_db):
     pinecone_db.client.list_indexes.assert_called()
 
 
-def test_delete_col(pinecone_db):
+@pytest.mark.parametrize(
+    "namespace,drops_whole_index",
+    [(None, True), ("test_namespace", False), ("", False)],
+)
+def test_delete_col_scopes_to_namespace(pinecone_db, namespace, drops_whole_index):
+    pinecone_db.namespace = namespace
     pinecone_db.delete_col()
-    pinecone_db.client.delete_index.assert_called_with("test_index")
+    if drops_whole_index:
+        pinecone_db.client.delete_index.assert_called_with("test_index")
+    else:
+        pinecone_db.index.delete.assert_called_with(delete_all=True, namespace=namespace)
+        pinecone_db.client.delete_index.assert_not_called()
+
+
+def test_delete_col_namespace_delete_error_is_swallowed(pinecone_db):
+    pinecone_db.index.delete.side_effect = Exception("Namespace not found")
+    pinecone_db.delete_col()
+
+
+def test_reset_with_namespace_does_not_drop_or_recreate_index(pinecone_db, mock_pinecone_client):
+    mock_pinecone_client.list_indexes.return_value.names.return_value = ["test_index"]
+    mock_pinecone_client.create_index.reset_mock()
+    pinecone_db.reset()
+    pinecone_db.index.delete.assert_called_with(delete_all=True, namespace="test_namespace")
+    mock_pinecone_client.delete_index.assert_not_called()
+    mock_pinecone_client.create_index.assert_not_called()
+
+
+def test_reset_without_namespace_drops_and_recreates_index(pinecone_db, mock_pinecone_client):
+    pinecone_db.namespace = None
+    mock_pinecone_client.list_indexes.return_value.names.return_value = []
+    pinecone_db.reset()
+    mock_pinecone_client.delete_index.assert_called_with("test_index")
+    mock_pinecone_client.create_index.assert_called()
 
 
 def test_col_info(pinecone_db):
@@ -188,3 +219,47 @@ def test_count_with_none_vector_count(pinecone_db):
     count = pinecone_db.count()
     assert count == 0
     pinecone_db.index.describe_index_stats.assert_called_once()
+
+
+def test_count_with_empty_string_namespace(pinecone_db):
+    pinecone_db.namespace = ""
+    stats_mock = MagicMock()
+    stats_mock.namespaces = {"": MagicMock(vector_count=3)}
+    stats_mock.total_vector_count = 99
+    pinecone_db.index.describe_index_stats.return_value = stats_mock
+
+    count = pinecone_db.count()
+    assert count == 3
+
+
+def test_list_error_returns_list_not_dict(pinecone_db):
+    """list() error path must return [[]] so callers can do result[0]."""
+    pinecone_db.index.query.side_effect = Exception("connection error")
+    result = pinecone_db.list(filters={"user_id": "alice"}, top_k=10)
+    assert isinstance(result, list)
+    assert result == [[]]
+
+
+def test_create_filter_plain_value(pinecone_db):
+    result = pinecone_db._create_filter({"user_id": "alice"})
+    assert result == {"user_id": {"$eq": "alice"}}
+
+
+def test_create_filter_range(pinecone_db):
+    result = pinecone_db._create_filter({"age": {"gte": 18, "lte": 65}})
+    assert result == {"age": {"$gte": 18, "$lte": 65}}
+
+
+def test_create_filter_gt_operator(pinecone_db):
+    result = pinecone_db._create_filter({"score": {"gt": 0.5}})
+    assert result == {"score": {"$gt": 0.5}}
+
+
+def test_create_filter_in_operator(pinecone_db):
+    result = pinecone_db._create_filter({"status": {"in": ["active", "pending"]}})
+    assert result == {"status": {"$in": ["active", "pending"]}}
+
+
+def test_create_filter_ne_operator(pinecone_db):
+    result = pinecone_db._create_filter({"status": {"ne": "deleted"}})
+    assert result == {"status": {"$ne": "deleted"}}

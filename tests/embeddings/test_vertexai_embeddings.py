@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -159,3 +159,122 @@ def test_invalid_memory_action(mock_text_embedding_model, mock_config):
 
     with pytest.raises(ValueError):
         embedder.embed("Hello world", memory_action="invalid_action")
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_single_call(mock_text_embedding_model, mock_os_environ, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_emb0 = Mock(values=[0.1, 0.2, 0.3])
+    mock_emb1 = Mock(values=[0.4, 0.5, 0.6])
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [mock_emb0, mock_emb1]
+
+    texts = ["First text.", "Second text."]
+    result = embedder.embed_batch(texts)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.assert_called_once_with(
+        texts=ANY, output_dimensionality=256
+    )
+    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_empty_list(mock_text_embedding_model, mock_os_environ, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    result = embedder.embed_batch([])
+
+    assert result == []
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.assert_not_called()
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_count_mismatch_raises(mock_text_embedding_model, mock_os_environ, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [Mock(values=[0.1, 0.2, 0.3])]
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["first text", "second text"])
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingInput")
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_default_memory_action_uses_add(
+    mock_text_embedding_model, mock_text_embedding_input, mock_os_environ, mock_config
+):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+    mock_config.return_value.memory_add_embedding_type = None
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [Mock(values=[0.1, 0.2])]
+
+    embedder.embed_batch(["some text"])  # no memory_action — default "add"
+
+    mock_text_embedding_input.assert_called_once_with(text="some text", task_type="RETRIEVAL_DOCUMENT")
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingInput")
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_none_memory_action_uses_default(
+    mock_text_embedding_model, mock_text_embedding_input, mock_os_environ, mock_config
+):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [Mock(values=[0.1, 0.2])]
+
+    embedder.embed_batch(["some text"], memory_action=None)
+
+    mock_text_embedding_input.assert_called_once_with(text="some text", task_type="SEMANTIC_SIMILARITY")
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_invalid_memory_action_raises(mock_text_embedding_model, mock_os_environ, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    with pytest.raises(ValueError, match="Invalid memory action"):
+        embedder.embed_batch(["some text"], memory_action="invalid_action")
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_chunking_triggers_two_api_calls(mock_text_embedding_model, mock_os_environ, mock_config):
+    """300 texts must produce exactly 2 get_embeddings calls (chunks of 250 and 50)."""
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    def make_chunk_response(texts, output_dimensionality):
+        return [Mock(values=[0.1, 0.2]) for _ in texts]
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.side_effect = make_chunk_response
+
+    texts = [f"text {i}" for i in range(300)]
+    result = embedder.embed_batch(texts)
+
+    assert mock_text_embedding_model.from_pretrained.return_value.get_embeddings.call_count == 2
+    assert len(result) == 300

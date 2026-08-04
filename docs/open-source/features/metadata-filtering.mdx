@@ -111,7 +111,7 @@ results = m.search(
 
 ### Wildcard matching
 
-Allow any value for a field while still requiring the field to exist—handy when the mere presence of a field matters.
+Allow any value for a field while still requiring the field to exist: handy when the mere presence of a field matters.
 
 ```python
 # Match any value for a field
@@ -191,7 +191,7 @@ results = m.search(
 ```
 
 <Info icon="check">
-  Inspect the response metadata—each returned memory should satisfy the combined logic tree exactly. If results look too broad, log the raw filters sent to your vector store.
+  Inspect the response metadata: each returned memory should satisfy the combined logic tree exactly. If results look too broad, log the raw filters sent to your vector store.
 </Info>
 
 ---
@@ -215,7 +215,7 @@ config = {
 ```
 
 <Info icon="check">
-  After enabling indexing, benchmark the same query—latency should drop once the store can prune documents on indexed fields before vector scoring.
+  After enabling indexing, benchmark the same query: latency should drop once the store can prune documents on indexed fields before vector scoring.
 </Info>
 
 <Tip>
@@ -252,7 +252,7 @@ Vector store support varies. Confirm operator coverage before shipping:
     Full comparison, list, and logical support. Handles deeply nested boolean logic efficiently.
   </Accordion>
   <Accordion title="Chroma">
-    Equality and basic comparisons only. Limited nesting—break large trees into smaller calls.
+    Equality and basic comparisons only. Limited nesting: break large trees into smaller calls.
   </Accordion>
   <Accordion title="Pinecone">
     Comparisons plus `in`/`nin`. Text operators are constrained; rely on tags where possible.
@@ -413,7 +413,7 @@ except ValueError as e:
 ## Best practices
 
 1. **Use indexed fields first:** Order filters so equality checks run before complex string operations.
-2. **Combine operators intentionally:** Keep logical trees readable—large nests are harder to debug.
+2. **Combine operators intentionally:** Keep logical trees readable: large nests are harder to debug.
 3. **Test performance regularly:** Benchmark critical queries with production-like payloads.
 4. **Plan graceful degradation:** Provide fallback filters when an operator isn’t available.
 5. **Validate syntax early:** Catch malformed filters during development to protect agents at runtime.

@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
+from mem0.utils.http import build_http_client
 
 
 class BaseLlmConfig(ABC):
@@ -31,7 +31,7 @@ class BaseLlmConfig(ABC):
         Initialize a base configuration class instance for the LLM.
 
         Args:
-            model: The model identifier to use (e.g., "gpt-4.1-nano-2025-04-14", "claude-3-5-sonnet-20240620")
+            model: The model identifier to use (e.g., "gpt-5-mini", "claude-3-5-sonnet-20240620")
                 Defaults to None (will be set by provider-specific configs)
             temperature: Controls the randomness of the model's output.
                 Higher values (closer to 1) make output more random, lower values make it more deterministic.
@@ -74,4 +74,5 @@ class BaseLlmConfig(ABC):
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
         self.is_reasoning_model = is_reasoning_model
-        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_client_proxies = http_client_proxies
+        self.http_client = build_http_client(http_client_proxies)

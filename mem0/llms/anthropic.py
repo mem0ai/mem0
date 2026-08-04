@@ -29,7 +29,7 @@ class AnthropicLLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
-                http_client_proxies=config.http_client,
+                http_client_proxies=config.http_client_proxies,
             )
 
         super().__init__(config)
@@ -38,7 +38,35 @@ class AnthropicLLM(LLMBase):
             self.config.model = "claude-sonnet-4-6"
 
         api_key = self.config.api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        base_url = self.config.anthropic_base_url or os.getenv("ANTHROPIC_BASE_URL")
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self.client = anthropic.Anthropic(**client_kwargs)
+
+    def _enable_sampling_parameters(self):
+        """Return whether the configured model supports sampling parameters."""
+        explicit = getattr(self.config, "enable_sampling_parameters", None)
+        if explicit is not None:
+            return explicit
+
+        model_name = self.config.model.lower()
+        model_name_parts = model_name.rsplit("[", 1)[0].split("-")
+        _, family, major, minor, *_ = (*model_name_parts, "", "", "", "")
+
+        # Use model_name if only provided a family name, e.g., opus
+        family = family or model_name
+        major = int(major) if major.isdigit() else None
+        minor = int(minor) if minor.isdigit() else None
+
+        if family == "haiku":
+            return True
+        if family == "sonnet" and major is not None:
+            return major < 5
+        if family == "opus" and major is not None and minor is not None:
+            return (major, minor) < (4, 7)
+
+        return False
 
     def _get_common_params(self, **kwargs) -> Dict:
         """Get common parameters, avoiding sending both temperature and top_p together.
@@ -54,13 +82,14 @@ class AnthropicLLM(LLMBase):
         has_temperature = self.config.temperature is not None
         has_top_p = self.config.top_p is not None
 
-        if has_temperature and has_top_p:
-            # Anthropic forbids both; prefer temperature
-            params["temperature"] = self.config.temperature
-        elif has_temperature:
-            params["temperature"] = self.config.temperature
-        elif has_top_p:
-            params["top_p"] = self.config.top_p
+        if self._enable_sampling_parameters():
+            if has_temperature and has_top_p:
+                # Anthropic forbids both; prefer temperature
+                params["temperature"] = self.config.temperature
+            elif has_temperature:
+                params["temperature"] = self.config.temperature
+            elif has_top_p:
+                params["top_p"] = self.config.top_p
 
         params.update(kwargs)
         return params
@@ -118,8 +147,13 @@ class AnthropicLLM(LLMBase):
                 if block.type == "text":
                     result["content"] = block.text
                 elif block.type == "tool_use":
-                    result["tool_calls"].append(
-                        {"name": block.name, "arguments": block.input}
-                    )
+                    result["tool_calls"].append({"name": block.name, "arguments": block.input})
             return result
-        return response.content[0].text
+
+        # Thinking-enabled responses put a thinking block before the text
+        # block, and a response can carry no text block at all, so find the
+        # text block like the tools branch above instead of indexing content[0].
+        for block in response.content:
+            if block.type == "text":
+                return block.text
+        return ""

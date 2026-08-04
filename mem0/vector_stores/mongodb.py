@@ -15,7 +15,6 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 _DRIVER_METADATA = DriverInfo(name="Mem0", version=version("mem0ai"))
 
@@ -148,6 +147,22 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
+    @staticmethod
+    def _validate_filter_value(key: str, value: Any) -> None:
+        """Reject values that could inject MongoDB query operators (e.g. $ne, $gt)."""
+        if isinstance(value, dict):
+            raise ValueError(
+                f"Filter value for {key!r} must be a scalar (str, int, float, bool), "
+                f"not a dict. Dicts may contain MongoDB query operators."
+            )
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    raise ValueError(
+                        f"Filter list for {key!r} contains a dict, "
+                        f"which may contain MongoDB query operators."
+                    )
+
     def search(self, query: str, vectors: List[float], top_k=5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
@@ -166,6 +181,10 @@ class MongoDB(VectorStoreBase):
         if not found_indexes:
             logger.error(f"Index '{self.index_name}' does not exist.")
             return []
+
+        if filters:
+            for key, value in filters.items():
+                self._validate_filter_value(key, value)
 
         results = []
         try:
@@ -215,6 +234,9 @@ class MongoDB(VectorStoreBase):
         Returns:
             List[OutputData]: Search results, or None if Atlas Search index is not available.
         """
+        if filters:
+            for key, value in filters.items():
+                self._validate_filter_value(key, value)
         try:
             collection = self.client[self.db_name][self.collection_name]
             search_index_name = f"{self.collection_name}_text_search_index"
@@ -369,6 +391,9 @@ class MongoDB(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors.
         """
+        if filters:
+            for key, value in filters.items():
+                self._validate_filter_value(key, value)
         try:
             query = {}
             if filters:
@@ -382,10 +407,10 @@ class MongoDB(VectorStoreBase):
             cursor = self.collection.find(query).limit(top_k)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
-            return results
+            return [results]
         except PyMongoError as e:
             logger.error(f"Error listing documents: {e}")
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

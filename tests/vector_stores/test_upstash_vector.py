@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from mem0.vector_stores.upstash_vector import UpstashVector
+from mem0.configs.vector_stores.upstash_vector import UpstashVectorConfig
+from mem0.vector_stores.upstash_vector import UpstashVector, _validate_filter
 
 
 @dataclass
@@ -227,6 +228,57 @@ def test_update_vector_with_embeddings(upstash_instance_with_embeddings):
     )
 
 
+def test_filter_rejects_dict_value():
+    with pytest.raises(ValueError):
+        _validate_filter("user_id", {"$ne": ""})
+
+
+def test_filter_rejects_list_value():
+    with pytest.raises(ValueError):
+        _validate_filter("user_id", ["alice", "bob"])
+
+
+def test_filter_rejects_invalid_key():
+    with pytest.raises(ValueError):
+        _validate_filter("user_id; DROP", "alice")
+
+
+def test_filter_accepts_scalars():
+    _validate_filter("user_id", "alice")
+    _validate_filter("count", 42)
+    _validate_filter("score", 0.95)
+    _validate_filter("active", True)
+
+
+def test_filter_rejects_double_quote_in_value():
+    with pytest.raises(ValueError, match="prohibited characters"):
+        _validate_filter("user_id", 'alice" OR 1=1 --')
+
+
+def test_filter_rejects_backslash_in_value():
+    with pytest.raises(ValueError, match="prohibited characters"):
+        _validate_filter("user_id", "alice\\bob")
+
+
+def test_search_rejects_dict_filter(upstash_instance):
+    with pytest.raises(ValueError):
+        upstash_instance.search(
+            query="test", vectors=[[0.1]], filters={"user_id": {"$ne": ""}}
+        )
+
+
+def test_keyword_search_raises_on_invalid_filter(upstash_instance):
+    with pytest.raises(ValueError):
+        upstash_instance.keyword_search(
+            query="test", filters={"user_id": 'alice" OR 1=1'}
+        )
+
+
+def test_filter_rejects_key_with_trailing_newline():
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        _validate_filter("user_id\n", "alice")
+
+
 def test_insert_vectors_with_embeddings_missing_data(upstash_instance_with_embeddings):
     vectors = [[0.1, 0.2, 0.3]]
     payloads = [{"name": "vector1"}]  # Missing data field
@@ -393,3 +445,27 @@ def test_search_vectors_multi_query_namespace_at_top_level(upstash_instance):
     assert [r.id for r in results] == ["id1", "id2", "id3"]
     assert results[0].score == 0.9
     assert results[1].payload == {"name": "vector2"}
+
+
+def test_env_var_only_config_builds_provider(monkeypatch):
+    """Regression: an env-var-only config (no url/token/client) must build.
+
+    VectorStoreFactory does ``UpstashVector(**config.model_dump())``. The config
+    validator read ``UPSTASH_VECTOR_REST_URL``/``UPSTASH_VECTOR_REST_TOKEN`` only
+    to pass its presence check, then returned the config unchanged, so
+    ``model_dump()`` still carried ``url=token=None`` and construction raised
+    "Either a client or URL and token must be provided." — even though the docs
+    advertise env-var setup. The resolved credentials must reach the ctor.
+    """
+    monkeypatch.setenv("UPSTASH_VECTOR_REST_URL", "https://example.upstash.io")
+    monkeypatch.setenv("UPSTASH_VECTOR_REST_TOKEN", "tok_123")
+
+    dumped = UpstashVectorConfig(collection_name="mem0").model_dump()
+    assert dumped["url"] == "https://example.upstash.io"
+    assert dumped["token"] == "tok_123"
+
+    # Mirrors VectorStoreFactory.create: instance(**config.model_dump()).
+    with patch("mem0.vector_stores.upstash_vector.Index") as mock_index:
+        UpstashVector(**dumped)
+
+    mock_index.assert_called_once_with("https://example.upstash.io", "tok_123")

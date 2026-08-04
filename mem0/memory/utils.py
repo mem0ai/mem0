@@ -121,6 +121,8 @@ def remove_code_blocks(content: str) -> str:
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
     """
+    if content is None:
+        return ""
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     match_res=match.group(1).strip() if match else content.strip()
@@ -206,12 +208,15 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
         elif isinstance(content, dict) and content.get("type") == "image_url":
             if llm is None:
                 continue
-            image_url = content["image_url"]["url"]
+            image_url_obj = content.get("image_url")
+            image_url = image_url_obj.get("url") if isinstance(image_url_obj, dict) else None
+            if not image_url:
+                raise ValueError("image_url content part is missing image_url.url")
             try:
                 description = get_image_description(image_url, llm, vision_details)
                 returned_messages.append({"role": role, "content": description})
-            except Exception:
-                raise Exception(f"Error while downloading {image_url}.")
+            except Exception as e:
+                raise Exception(f"Error while downloading {image_url}.") from e
         else:
             # Regular text content
             returned_messages.append(msg)
@@ -224,7 +229,7 @@ def process_telemetry_filters(filters):
     Process the telemetry filters
     """
     if filters is None:
-        return {}
+        return [], {}
 
     encoded_ids = {}
     if "user_id" in filters:
