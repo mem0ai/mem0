@@ -1192,10 +1192,12 @@ def test_sync_pgvector_dims_infers_from_embedder():
 
     vs_config = SimpleNamespace(embedding_model_dims=None, collection_name="mem0")
     config = SimpleNamespace(
-        embedder=SimpleNamespace(provider="gemini", config=SimpleNamespace(embedding_dims=768)),
+        embedder=SimpleNamespace(provider="gemini", config=SimpleNamespace(embedding_dims=None)),
         vector_store=SimpleNamespace(provider="pgvector", config=vs_config),
     )
-    _sync_pgvector_dims(config)
+    # Resolved embedder carries defaults after EmbedderFactory.create().
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=768))
+    _sync_pgvector_dims(config, resolved)
     assert vs_config.embedding_model_dims == 768
 
 
@@ -1206,11 +1208,12 @@ def test_sync_pgvector_dims_raises_on_explicit_mismatch():
 
     vs_config = SimpleNamespace(embedding_model_dims=1536, collection_name="mem0")
     config = SimpleNamespace(
-        embedder=SimpleNamespace(provider="gemini", config=SimpleNamespace(embedding_dims=768)),
+        embedder=SimpleNamespace(provider="gemini", config=SimpleNamespace(embedding_dims=None)),
         vector_store=SimpleNamespace(provider="pgvector", config=vs_config),
     )
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=768))
     with pytest.raises(ValueError, match="Embedding dimension mismatch"):
-        _sync_pgvector_dims(config)
+        _sync_pgvector_dims(config, resolved)
 
 
 def test_sync_pgvector_dims_noop_for_other_providers():
@@ -1222,7 +1225,8 @@ def test_sync_pgvector_dims_noop_for_other_providers():
         embedder=SimpleNamespace(provider="openai", config=SimpleNamespace(embedding_dims=1536)),
         vector_store=SimpleNamespace(provider="qdrant", config=vs_config),
     )
-    _sync_pgvector_dims(config)
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=1536))
+    _sync_pgvector_dims(config, resolved)
     assert vs_config.embedding_model_dims is None
 
 

@@ -233,7 +233,9 @@ class PGVector(VectorStoreBase):
                 SELECT a.atttypmod
                 FROM pg_attribute a
                 JOIN pg_class c ON a.attrelid = c.oid
+                JOIN pg_namespace n ON c.relnamespace = n.oid
                 WHERE c.relname = %s
+                  AND n.nspname = current_schema()
                   AND a.attname = 'vector'
                   AND a.atttypmod > 0
                 """,

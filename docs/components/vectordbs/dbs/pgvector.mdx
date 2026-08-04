@@ -91,6 +91,11 @@ Here are the parameters available for configuring pgvector:
 
 **Python:** The Python SDK uses snake_case keys such as `connection_string`, `sslmode`, `collection_name`, and `embedding_model_dims`.
 
+<Warning>
+**Breaking (Python):** `embedding_model_dims` default changed from `1536` to `None`. When unset, Mem0 infers dimensions from the **resolved** embedder after factory construction. Set `embedding_model_dims` explicitly if you need a fixed table width, and recreate or rename the collection when switching embedder widths.
+</Warning>
+
+
 **Python connection priority**:
 
 1. `connection_pool` (highest priority)
