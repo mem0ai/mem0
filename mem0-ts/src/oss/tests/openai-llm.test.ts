@@ -163,6 +163,30 @@ describe("OpenAILLM (unit)", () => {
     expect(result).toBe("final answer");
   });
 
+  it("generateChat() falls back to reasoning_content when content is empty", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: "",
+            reasoning_content: '{"facts": ["User lives in Guadalajara"]}',
+          },
+        },
+      ],
+    });
+
+    const llm = new OpenAILLM({ apiKey: "test-key", model: "gpt-4o-mini" });
+    const result = await llm.generateChat([
+      { role: "user", content: "extract facts" },
+    ]);
+
+    expect(result).toEqual({
+      content: '{"facts": ["User lives in Guadalajara"]}',
+      role: "assistant",
+    });
+  });
+
   it("generateChat() returns LLMResponse shape", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [

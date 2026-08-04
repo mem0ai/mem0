@@ -4,18 +4,21 @@ from typing import Dict, List, Optional, Union
 from mem0.configs.llms.base import BaseLlmConfig
 
 
-
 def message_content_with_reasoning_fallback(message):
     """Return chat message text, falling back to reasoning_content when empty.
 
     Some OpenAI-compatible endpoints (DeepSeek, Ollama Cloud, GLM, etc.) put the
     full answer in ``reasoning_content`` and leave ``content`` empty for reasoning
     models. Fact extraction must not silently return [] in that case (#4932).
+
+    Always returns a string (empty when both fields are missing/empty) so callers
+    like ``remove_code_blocks`` can safely call ``.strip()``.
     """
     content = getattr(message, "content", None)
     if not content:
         content = getattr(message, "reasoning_content", None)
-    return content
+    return content or ""
+
 
 class LLMBase(ABC):
     """

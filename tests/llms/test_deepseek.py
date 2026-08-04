@@ -159,7 +159,6 @@ def test_generate_response_without_response_format(mock_deepseek_client):
     assert response == "Why did the chicken cross the road?"
 
 
-
 def test_generate_response_falls_back_to_reasoning_content(mock_deepseek_client):
     """DeepSeek reasoning models often put the answer in reasoning_content (#4932)."""
     config = DeepSeekConfig(model="deepseek-reasoner", temperature=0.0)

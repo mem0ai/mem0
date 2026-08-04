@@ -466,7 +466,6 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     assert isinstance(llm.config.http_client, httpx.Client)
 
 
-
 def test_generate_response_falls_back_to_reasoning_content(mock_openai_client):
     """When content is empty and reasoning_content is present, return reasoning_content.
 
@@ -509,8 +508,8 @@ def test_generate_response_content_takes_priority_over_reasoning_content(mock_op
     assert response == "Hello there!"
 
 
-def test_generate_response_returns_none_when_both_content_fields_empty(mock_openai_client):
-    """When both content and reasoning_content are absent/empty, return None."""
+def test_generate_response_returns_empty_string_when_both_content_fields_empty(mock_openai_client):
+    """When both content and reasoning_content are absent/empty, return empty string."""
     config = OpenAIConfig(model="some-model", temperature=0.0)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Hello"}]
@@ -523,7 +522,7 @@ def test_generate_response_returns_none_when_both_content_fields_empty(mock_open
 
     response = llm.generate_response(messages)
 
-    assert response is None
+    assert response == ""
 
 
 def test_generate_response_tools_path_falls_back_to_reasoning_content(mock_openai_client):
