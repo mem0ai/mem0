@@ -1247,6 +1247,7 @@ The largest provider release for the TypeScript OSS SDK so far: 17 new vector st
 **Bug Fixes:**
 - **Embeddings:** Guard against an `embed_batch` count mismatch in the OpenAI and Azure OpenAI embedders ([#5966](https://github.com/mem0ai/mem0/pull/5966))
 - **LLMs:** Handle empty Google chat candidates without crashing ([#5817](https://github.com/mem0ai/mem0/pull/5817))
+- **Vector Stores:** Omit empty Azure AI Search filters and fail fast for invalid filter containers, keys, or non-string values; Azure AI Search filters now accept only `user_id`, `run_id`, and `agent_id` ([#6045](https://github.com/mem0ai/mem0/pull/6045))
 
 </Update>
 
