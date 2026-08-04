@@ -15,14 +15,12 @@ try {
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
 
-// FNV-1a: one distinct_id per API key, in any runtime, with no I/O.
+// Simple hash function using random strings
 function generateHash(input: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `anon-${hash.toString(36)}`;
+  const randomStr =
+    Math.random().toString(36).substring(2, 15) +
+    Math.random().toString(36).substring(2, 15);
+  return randomStr;
 }
 
 class UnifiedTelemetry implements TelemetryClient {

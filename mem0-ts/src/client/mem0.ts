@@ -91,6 +91,7 @@ export default class MemoryClient {
   headers: Record<string, string>;
   client: any;
   telemetryId: string;
+  private initialized: Promise<void>;
 
   _validateApiKey(): any {
     if (!this.apiKey) {
@@ -123,15 +124,18 @@ export default class MemoryClient {
 
     this._validateApiKey();
 
-    // Seeded synchronously so no request waits on ping(); the async ping below
-    // upgrades it to the user's email.
-    this.telemetryId = generateHash(this.apiKey);
-    void this._initializeClient();
+    this.telemetryId = "";
+    // Requests no longer wait on this; only telemetry does.
+    this.initialized = this._initializeClient();
   }
 
   private async _initializeClient() {
     try {
       await this.ping();
+
+      if (!this.telemetryId) {
+        this.telemetryId = generateHash(this.apiKey);
+      }
 
       await this._maybeAliasAnonToEmail();
 
@@ -174,13 +178,18 @@ export default class MemoryClient {
   }
 
   private _captureEvent(methodName: string, args: any[]) {
-    captureClientEvent(methodName, this, {
-      success: true,
-      args_count: args.length,
-      keys: args.length > 0 ? args[0] : [],
-    }).catch((error: any) => {
-      console.error("Failed to capture event:", error);
-    });
+    // Deferred until ping() has resolved telemetryId, off the request path.
+    this.initialized
+      .then(() =>
+        captureClientEvent(methodName, this, {
+          success: true,
+          args_count: args.length,
+          keys: args.length > 0 ? args[0] : [],
+        }),
+      )
+      .catch((error: any) => {
+        console.error("Failed to capture event:", error);
+      });
   }
 
   async _fetchWithErrorHandling(url: string, options: any): Promise<any> {
