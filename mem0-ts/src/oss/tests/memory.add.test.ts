@@ -8,6 +8,12 @@ import type { MemoryConfig, MemoryItem, SearchResult } from "../src/types";
 
 jest.setTimeout(15000);
 
+// Mock vector store dependencies that fail in CI
+jest.mock("mysql2/promise", () => ({ createPool: jest.fn() }), {
+  virtual: true,
+});
+jest.mock("weaviate-client", () => ({}), { virtual: true });
+
 // Mock Google modules to prevent @google/genai crash in CI
 jest.mock("../src/embeddings/google", () => ({
   GoogleEmbedder: jest.fn(),
@@ -190,5 +196,38 @@ describe("Memory - add()", () => {
     expect(result.results[0].metadata).toEqual(
       expect.objectContaining({ event: "ADD" }),
     );
+  });
+
+  test("infer=false with filters.user_id stores user_id in payload and is retrievable", async () => {
+    const uid = `infer_false_filters_${Date.now()}`;
+    const result: SearchResult = await memory.add("Filtered entity test", {
+      filters: { user_id: uid },
+      infer: false,
+    });
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored).not.toBeNull();
+    expect(stored!.user_id).toBe(uid);
+  });
+
+  test("infer=false with filters.agent_id stores agent_id in payload and is retrievable", async () => {
+    const aid = `agent_infer_false_${Date.now()}`;
+    const result: SearchResult = await memory.add("Agent scoped memory", {
+      filters: { agent_id: aid },
+      infer: false,
+    });
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored).not.toBeNull();
+    expect(stored!.agent_id).toBe(aid);
+  });
+
+  test("infer=false with filters.run_id stores run_id in payload and is retrievable", async () => {
+    const rid = `run_infer_false_${Date.now()}`;
+    const result: SearchResult = await memory.add("Run scoped memory", {
+      filters: { run_id: rid },
+      infer: false,
+    });
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored).not.toBeNull();
+    expect(stored!.run_id).toBe(rid);
   });
 });
