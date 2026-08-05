@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSdk = vi.hoisted(() => ({
   addOptions: [] as Record<string, unknown>[],
@@ -106,6 +106,10 @@ beforeEach(() => {
   mockSdk.searchOptions.length = 0;
   mockOss.addOptions.length = 0;
   mockOss.searchOptions.length = 0;
+});
+
+afterEach(() => {
+  vi.doUnmock("mem0ai/oss");
 });
 
 describe("OpenClaw session scope reaches the SDK payload", () => {
@@ -299,7 +303,5 @@ describe("OpenClaw session scope reaches the SDK payload", () => {
       user_id: "alice",
       run_id: "agent:main:uuid-1",
     });
-
-    vi.doUnmock("mem0ai/oss");
   });
 });

@@ -1033,6 +1033,8 @@ function registerHooks(
         content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
       });
 
+      // run_id intentionally holds the raw sessionKey (e.g. "agent:researcher:uuid-1");
+      // session-scoped search reads it back unchanged, so capture and recall stay aligned.
       const addOpts = buildAddOptions(undefined, sessionId, sessionId);
       const captureStart = Date.now();
       provider
