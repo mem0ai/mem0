@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "2.0.13"
+version = "2.0.16"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "support@mem0.ai" }
@@ -81,7 +81,7 @@ test = [
     "pytest-asyncio>=0.23.7",
 ]
 dev = [
-    "ruff>=0.6.5",
+    "ruff==0.16.0",
     "isort>=5.13.2",
     "pytest>=8.2.2",
 ]
@@ -148,7 +148,9 @@ test = [
 
 [tool.ruff]
 line-length = 120
-exclude = ["openmemory/"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["mem0", "mem0_cli"]

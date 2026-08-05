@@ -4,6 +4,14 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";
 import * as fs from "fs";
 
+// BM25 keyword search via Qdrant's built-in server-side inference (requires
+// Qdrant >= 1.15.2). The Python adapter encodes BM25 client-side with fastembed;
+// this server-side path avoids that dependency, but IDF weights, and therefore the
+// scores, may differ between the two implementations.
+
+const BM25_VECTOR_NAME = "bm25";
+const BM25_MODEL = "Qdrant/bm25";
+
 interface QdrantConfig extends VectorStoreConfig {
   /**
    * Pre-configured QdrantClient instance. If using Qdrant Cloud, you must pass
@@ -61,6 +69,10 @@ export class Qdrant implements VectorStore {
   private readonly collectionName: string;
   private dimension: number;
   private _initPromise?: Promise<void>;
+  // Off for collections without the `bm25` slot (e.g. pre-hybrid-search).
+  private _hasBm25Slot = false;
+  // Payload indexes apply to a real server, not embedded/local mode.
+  private _isRemote = true;
 
   constructor(config: QdrantConfig) {
     this.config = config;
@@ -73,6 +85,7 @@ export class Qdrant implements VectorStore {
     if (this.client) return;
     const config = this.config;
     if (config.client) {
+      // pre-configured client → treat as remote (mirrors Python is_local=False).
       this.client = config.client;
       return;
     }
@@ -95,6 +108,7 @@ export class Qdrant implements VectorStore {
       params.port = config.port;
     }
     if (!Object.keys(params).length) {
+      this._isRemote = false;
       params.path = config.path;
       if (!config.onDisk && config.path) {
         if (
@@ -283,19 +297,98 @@ export class Qdrant implements VectorStore {
     payloads: Record<string, any>[],
   ): Promise<void> {
     await this.initialize();
-    const points = vectors.map((vector, idx) => ({
-      id: ids[idx],
-      vector: vector,
-      payload: payloads[idx] || {},
-    }));
-
-    await this.client.upsert(this.collectionName, {
-      points,
+    const points = vectors.map((vector, idx) => {
+      const payload = payloads[idx] || {};
+      return {
+        id: ids[idx],
+        vector: this.buildPointVector(vector, payload),
+        payload,
+      };
     });
+
+    await this.upsertPoints(points);
   }
 
-  async keywordSearch(): Promise<null> {
-    return null;
+  // A server can accept a bm25 `sparse_vectors` config yet be unable to run
+  // inference (Qdrant < 1.15.2, or a Cloud cluster created before 2025-07-07
+  // where inference was never activated), so no version check catches it and
+  // the first upsert failure is the only signal. Retry dense-only rather than
+  // lose the write.
+  //
+  // `as any`: the JS client types predate server-side sparse_vectors, so the
+  // named-vector and BM25-inference shapes are not typed.
+  private async upsertPoints(
+    points: { id: string | number; vector: any; payload?: any }[],
+  ): Promise<void> {
+    try {
+      await this.client.upsert(this.collectionName, { points: points as any });
+    } catch (error) {
+      if (!this._hasBm25Slot) {
+        throw error;
+      }
+      this._hasBm25Slot = false;
+      console.warn(
+        `Qdrant rejected the server-side BM25 vector for collection '${this.collectionName}'; ` +
+          "disabling hybrid keyword search. This requires Qdrant >= 1.15.2 with inference enabled. " +
+          "Retrying the write with a plain dense vector.",
+      );
+      const denseOnly = points.map((p) => ({
+        ...p,
+        vector: Array.isArray(p.vector) ? p.vector : p.vector[""],
+      }));
+      await this.client.upsert(this.collectionName, {
+        points: denseOnly as any,
+      });
+    }
+  }
+
+  // With a bm25 slot, return named vectors so Qdrant encodes BM25 server-side;
+  // otherwise return the plain dense vector (legacy behavior).
+  private buildPointVector(
+    vector: number[],
+    payload: Record<string, any>,
+  ): number[] | Record<string, any> {
+    if (!this._hasBm25Slot) {
+      return vector;
+    }
+    const named: Record<string, any> = { "": vector };
+    const text = payload?.textLemmatized || payload?.data || "";
+    if (text) {
+      named[BM25_VECTOR_NAME] = { text, model: BM25_MODEL };
+    }
+    return named;
+  }
+
+  // BM25 keyword search; returns null (semantic-only fallback) when there is no
+  // bm25 slot or the query fails.
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    if (!this._hasBm25Slot) {
+      return null;
+    }
+
+    try {
+      const queryFilter = this.createFilter(filters);
+      const response = await this.client.query(this.collectionName, {
+        query: { text: query, model: BM25_MODEL } as any,
+        using: BM25_VECTOR_NAME,
+        filter: queryFilter,
+        limit: topK,
+        with_payload: true,
+      });
+
+      return response.points.map((point) => ({
+        id: String(point.id),
+        payload: (point.payload as Record<string, any>) || {},
+        score: point.score,
+      }));
+    } catch (error) {
+      console.error("Error during Qdrant keyword search:", error);
+      return null;
+    }
   }
 
   async search(
@@ -341,13 +434,12 @@ export class Qdrant implements VectorStore {
     await this.initialize();
     const point = {
       id: vectorId,
-      vector: vector,
+      // Re-encode BM25 so edited memories don't keep a stale sparse vector.
+      vector: this.buildPointVector(vector, payload),
       payload,
     };
 
-    await this.client.upsert(this.collectionName, {
-      points: [point],
-    });
+    await this.upsertPoints([point]);
   }
 
   async delete(vectorId: string): Promise<void> {
@@ -463,14 +555,31 @@ export class Qdrant implements VectorStore {
     }
   }
 
-  private async ensureCollection(name: string, size: number): Promise<void> {
+  private async ensureCollection(
+    name: string,
+    size: number,
+    enableBm25: boolean = false,
+  ): Promise<void> {
     try {
-      await this.client.createCollection(name, {
+      const createParams: Record<string, any> = {
         vectors: {
           size,
           distance: "Cosine",
         },
-      });
+      };
+      if (enableBm25) {
+        // `idf` lets Qdrant compute IDF over the live corpus at query time.
+        createParams.sparse_vectors = {
+          [BM25_VECTOR_NAME]: { modifier: "idf" },
+        };
+      }
+      await this.client.createCollection(name, createParams as any);
+      if (enableBm25) {
+        this._hasBm25Slot = true;
+      }
+      if (name === this.collectionName) {
+        await this.createFilterIndexes(name);
+      }
     } catch (error: any) {
       if (
         error?.status === 409 ||
@@ -489,6 +598,22 @@ export class Qdrant implements VectorStore {
                   `Expected: ${size}, got: ${vectorConfig.size}`,
               );
             }
+
+            if (enableBm25) {
+              // Existing collection: enable BM25 only if the slot is present.
+              const sparseConfig = (collectionInfo.config?.params as any)
+                ?.sparse_vectors;
+              this._hasBm25Slot = !!(
+                sparseConfig && BM25_VECTOR_NAME in sparseConfig
+              );
+              if (!this._hasBm25Slot) {
+                console.warn(
+                  `Collection '${name}' predates hybrid search (no '${BM25_VECTOR_NAME}' sparse slot). ` +
+                    "BM25 keyword scoring is disabled for this collection; semantic search works normally. " +
+                    "Use a fresh collection to enable hybrid keyword search.",
+                );
+              }
+            }
           } catch (verifyError: any) {
             // Re-throw dimension mismatch errors
             if (verifyError?.message?.includes("wrong vector size")) {
@@ -500,10 +625,32 @@ export class Qdrant implements VectorStore {
               `Collection '${name}' exists (409) but dimension verification failed: ${verifyError?.message || verifyError}. Proceeding anyway.`,
             );
           }
+          // Ensure filter indexes exist even for pre-existing collections.
+          await this.createFilterIndexes(name);
         }
         // Otherwise collection exists and is fine — proceed
       } else {
         throw error;
+      }
+    }
+  }
+
+  // Index the fields mem0 filters by; remote Qdrant rejects filtering on
+  // un-indexed fields. Mirrors Python's `_create_filter_indexes`.
+  private async createFilterIndexes(name: string): Promise<void> {
+    if (!this._isRemote) {
+      return;
+    }
+    const commonFields = ["user_id", "agent_id", "run_id", "actor_id"];
+    for (const field of commonFields) {
+      try {
+        await this.client.createPayloadIndex(name, {
+          field_name: field,
+          field_schema: "keyword",
+        });
+      } catch (err) {
+        // Non-fatal: index likely already exists, or the server rejected it.
+        console.debug(`Qdrant: skipped payload index for '${field}':`, err);
       }
     }
   }
@@ -518,7 +665,7 @@ export class Qdrant implements VectorStore {
   private async _doInitialize(): Promise<void> {
     try {
       await this.ensureClient();
-      await this.ensureCollection(this.collectionName, this.dimension);
+      await this.ensureCollection(this.collectionName, this.dimension, true);
       await this.ensureCollection("memory_migrations", 1);
     } catch (error) {
       console.error("Error initializing Qdrant:", error);
