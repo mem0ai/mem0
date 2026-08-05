@@ -100,10 +100,23 @@ const ENTITY_PARAMS = [
   "agentId",
   "runId",
 ];
-
-// Identity keys stripped from update() metadata: ENTITY_PARAMS covers user_id/agent_id/run_id
-// in both casings (the default store promotes camelCase on read); actor_id has no camelCase alias.
+// Identity keys stripped from caller metadata in add() and update(): ENTITY_PARAMS covers
+// user_id/agent_id/run_id in both casings (the default store promotes camelCase on read);
+// actor_id has no camelCase alias.
 const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
+
+// Caller metadata must not overwrite or inject an identity scope (#6342 / #6367 / #6371).
+function stripIdentityKeys(
+  metadata: Record<string, any> = {},
+): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key]) => !IDENTITY_KEYS.includes(key)),
+  );
+}
+
+// Batch size for deleteAll pagination. Larger than most vector store default
+// page limits (~100) to minimize roundtrips while bounded to avoid memory pressure.
+const DELETE_ALL_BATCH_SIZE = 1000;
 
 /**
  * Validates that no top-level entity parameters are passed in config.
@@ -736,7 +749,8 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const { metadata = {}, filters = {}, infer = true } = config;
+    const { filters = {}, infer = true } = config;
+    const metadata = stripIdentityKeys(config.metadata);
 
     // Validate and trim entity IDs
     const userId = validateAndTrimEntityId(config.userId, "userId");
@@ -747,6 +761,9 @@ export class Memory {
     if (userId) filters.user_id = metadata.user_id = userId;
     if (agentId) filters.agent_id = metadata.agent_id = agentId;
     if (runId) filters.run_id = metadata.run_id = runId;
+    if (filters.user_id) metadata.user_id = filters.user_id;
+    if (filters.agent_id) metadata.agent_id = filters.agent_id;
+    if (filters.run_id) metadata.run_id = filters.run_id;
 
     // Normalize expiration date into the stored metadata (round-trips via get()).
     if (config.expirationDate != null) {
@@ -1727,18 +1744,39 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters);
-    for (const memory of memories) {
-      await this.deleteMemory(memory.id);
+    let deletedCount = 0;
+    const seenBatches = new Set<string>();
+
+    while (true) {
+      const [batch] = await this.vectorStore.list(
+        filters,
+        DELETE_ALL_BATCH_SIZE,
+      );
+      if (!batch.length) {
+        break;
+      }
+      const batchKey = batch
+        .map((memory) => String(memory.id))
+        .sort()
+        .join(",");
+      if (seenBatches.has(batchKey)) {
+        logger.warn("Stopping deleteAll after a repeated memory batch");
+        break;
+      }
+      seenBatches.add(batchKey);
+      for (const memory of batch) {
+        await this.deleteMemory(memory.id);
+      }
+      deletedCount += batch.length;
     }
 
     const result = { message: "Memories deleted successfully!" };
-    if (memories.length > 0) {
+    if (deletedCount > 0) {
       await this._displayDecayUsageNotice({
         triggerFunction: "delete_all",
         triggerSource: "delete_all",
         triggerReason: "bulk_delete",
-        deletedCount: memories.length,
+        deletedCount,
       });
     } else {
       await this._displayFirstRunNotice("delete_all");
@@ -1946,10 +1984,7 @@ export class Memory {
       existingEmbeddings[newData] ||
       (await this.embedder.embed(newData, "update"));
 
-    // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367).
-    const sanitizedMetadata = Object.fromEntries(
-      Object.entries(metadata).filter(([k]) => !IDENTITY_KEYS.includes(k)),
-    );
+    const sanitizedMetadata = stripIdentityKeys(metadata);
 
     const newMetadata = {
       ...existingMemory.payload,

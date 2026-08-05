@@ -21,16 +21,19 @@ import {
 	formatSingleMemory,
 	printResultSummary,
 } from "../output.js";
-import { isAgentMode, setCurrentCommand } from "../state.js";
+import { isAgentMode, setCurrentCommand, stdinIsPiped } from "../state.js";
 
-/** True only when stdin is an actual pipe or file redirect — never in agent mode. */
-function _stdinIsPiped(): boolean {
-	if (isAgentMode()) return false;
-	try {
-		const stat = fs.fstatSync(0);
-		return stat.isFIFO() || stat.isFile();
-	} catch {
-		return false;
+/** Exit 1 if value is not a future YYYY-MM-DD date. */
+function _validateExpires(value: string): void {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		printError(
+			"Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31).",
+		);
+		process.exit(1);
+	}
+	if (new Date(value) <= new Date()) {
+		printError("--expires date must be in the future.");
+		process.exit(1);
 	}
 }
 
@@ -49,10 +52,22 @@ export async function cmdAdd(
 		infer?: boolean;
 		expires?: string;
 		categories?: string;
+		customInstructions?: string;
+		customCategories?: string;
+		structuredDataSchema?: string;
+		timestamp?: number;
 		output: string;
 	},
 ): Promise<void> {
 	setCurrentCommand("add");
+
+	if (opts.categories) {
+		printError(
+			"--categories is not supported on add. Use --custom-categories instead.",
+		);
+		process.exit(1);
+	}
+
 	let msgs: Record<string, unknown>[] | undefined;
 	let content = text;
 
@@ -78,7 +93,7 @@ export async function cmdAdd(
 		}
 	}
 	// Read from stdin only if stdin is an actual pipe or file redirect
-	else if (!content && _stdinIsPiped()) {
+	else if (!content && stdinIsPiped()) {
 		content = fs.readFileSync(0, "utf-8").trim();
 	}
 
@@ -93,20 +108,6 @@ export async function cmdAdd(
 		process.exit(1);
 	}
 
-	// Validate --expires
-	if (opts.expires) {
-		if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.expires)) {
-			printError(
-				"Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31).",
-			);
-			process.exit(1);
-		}
-		if (new Date(opts.expires) <= new Date()) {
-			printError("--expires date must be in the future.");
-			process.exit(1);
-		}
-	}
-
 	let meta: Record<string, unknown> | undefined;
 	if (opts.metadata) {
 		try {
@@ -117,14 +118,27 @@ export async function cmdAdd(
 		}
 	}
 
-	let cats: string[] | undefined;
-	if (opts.categories) {
+	let customCats: Record<string, string>[] | undefined;
+	if (opts.customCategories) {
 		try {
-			cats = JSON.parse(opts.categories);
+			customCats = JSON.parse(opts.customCategories);
 		} catch {
-			cats = opts.categories.split(",").map((c) => c.trim());
+			printError("Invalid JSON in --custom-categories.");
+			process.exit(1);
 		}
 	}
+
+	let schema: Record<string, unknown> | undefined;
+	if (opts.structuredDataSchema) {
+		try {
+			schema = JSON.parse(opts.structuredDataSchema);
+		} catch {
+			printError("Invalid JSON in --structured-data-schema.");
+			process.exit(1);
+		}
+	}
+
+	if (opts.expires) _validateExpires(opts.expires);
 
 	let result: Record<string, unknown>;
 	try {
@@ -138,7 +152,10 @@ export async function cmdAdd(
 				immutable: opts.immutable,
 				infer: opts.infer !== false,
 				expires: opts.expires,
-				categories: cats,
+				customInstructions: opts.customInstructions,
+				customCategories: customCats,
+				structuredDataSchema: schema,
+				timestamp: opts.timestamp,
 			});
 		});
 	} catch (e) {
@@ -223,6 +240,9 @@ export async function cmdSearch(
 		keyword: boolean;
 		filterJson?: string;
 		fields?: string;
+		showExpired?: boolean;
+		referenceDate?: string;
+		latestOnly?: boolean;
 		output: string;
 	},
 ): Promise<void> {
@@ -271,6 +291,9 @@ export async function cmdSearch(
 				keyword: opts.keyword,
 				filters,
 				fields: fieldList,
+				showExpired: opts.showExpired,
+				referenceDate: opts.referenceDate,
+				latestOnly: opts.latestOnly,
 			});
 		});
 	} catch (e) {
@@ -364,6 +387,8 @@ export async function cmdList(
 		category?: string;
 		after?: string;
 		before?: string;
+		showExpired?: boolean;
+		latestOnly?: boolean;
 		output: string;
 	},
 ): Promise<void> {
@@ -391,6 +416,8 @@ export async function cmdList(
 				category: opts.category,
 				after: opts.after,
 				before: opts.before,
+				showExpired: opts.showExpired,
+				latestOnly: opts.latestOnly,
 			});
 		});
 	} catch (e) {
@@ -450,7 +477,12 @@ export async function cmdUpdate(
 	backend: Backend,
 	memoryId: string,
 	text: string | undefined,
-	opts: { metadata?: string; output: string },
+	opts: {
+		metadata?: string;
+		expires?: string;
+		timestamp?: number;
+		output: string;
+	},
 ): Promise<void> {
 	setCurrentCommand("update");
 	let meta: Record<string, unknown> | undefined;
@@ -463,11 +495,16 @@ export async function cmdUpdate(
 		}
 	}
 
+	if (opts.expires) _validateExpires(opts.expires);
+
 	const start = performance.now();
 	let result: Record<string, unknown>;
 	try {
 		result = await timedStatus("Updating memory...", async () => {
-			return backend.update(memoryId, text, meta);
+			return backend.update(memoryId, text, meta, {
+				expirationDate: opts.expires,
+				timestamp: opts.timestamp,
+			});
 		});
 	} catch (e) {
 		printError(e instanceof Error ? e.message : String(e));
@@ -493,7 +530,12 @@ export async function cmdUpdate(
 export async function cmdDelete(
 	backend: Backend,
 	memoryId: string,
-	opts: { output: string; dryRun?: boolean; force?: boolean },
+	opts: {
+		output: string;
+		dryRun?: boolean;
+		force?: boolean;
+		deleteLinked?: boolean;
+	},
 ): Promise<void> {
 	setCurrentCommand("delete");
 	if (opts.dryRun) {
@@ -514,7 +556,7 @@ export async function cmdDelete(
 	let result: Record<string, unknown>;
 	try {
 		result = await timedStatus("Deleting...", async () => {
-			return backend.delete(memoryId);
+			return backend.delete(memoryId, { deleteLinked: opts.deleteLinked });
 		});
 	} catch (e) {
 		printError(e instanceof Error ? e.message : String(e));

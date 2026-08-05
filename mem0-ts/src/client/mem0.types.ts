@@ -27,6 +27,8 @@ export interface SearchMemoryOptions {
   fields?: string[];
   categories?: string[];
   showExpired?: boolean;
+  referenceDate?: string | number;
+  keywordSearch?: boolean;
 }
 
 export interface GetAllMemoryOptions {

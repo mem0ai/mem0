@@ -62,10 +62,6 @@ SECTION_MAP = {
         "/open-source/features/rest-api",
         "/open-source/configure-components",
     ],
-    "openmemory": [
-        "/openmemory/overview",
-        "/openmemory/quickstart",
-    ],
     "sdks": [
         "/sdks/python",
         "/sdks/js",
