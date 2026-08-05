@@ -2784,6 +2784,10 @@
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
 									},
+									"agent_custom_instructions": {
+										"type": "string",
+										"description": "Extraction instructions for agent-scoped memories, overriding the project-level setting for this call. Applied when `agent_id` is sent without `user_id`; when both are sent it governs the assistant-attributed memories while `custom_instructions` governs the rest."
+									},
 									"custom_categories": {
 										"type": "array",
 										"description": "Category catalog for this call. Replaces the project-level list rather than merging with it. Omit to fall back to the project list, then the default catalog.",
@@ -5805,6 +5809,11 @@
 										},
 										"description": "Custom instructions for memory processing in this project"
 									},
+									"agent_custom_instructions": {
+										"type": "string",
+										"nullable": true,
+										"description": "Extraction instructions for agent-scoped memories. Falls back to `custom_instructions` when unset. Send an empty string to clear it."
+									},
 									"custom_categories": {
 										"type": "array",
 										"items": {
@@ -7428,6 +7437,12 @@
 					"custom_instructions": {
 						"description": "Defines project-specific guidelines for handling and organizing memories. When set at the project level, they apply to all new memories in that project.",
 						"title": "Custom instructions",
+						"type": "string",
+						"nullable": true
+					},
+					"agent_custom_instructions": {
+						"description": "Extraction instructions that apply only to agent-scoped memories. Used when `agent_id` is sent without `user_id`; when both are sent it governs the assistant-attributed memories while `custom_instructions` governs the rest. Falls back to `custom_instructions` when unset.",
+						"title": "Agent custom instructions",
 						"type": "string",
 						"nullable": true
 					},
