@@ -7,6 +7,13 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-08-05" description="v2.0.17">
+
+**New Features:**
+- **Client:** Add `agent_custom_instructions` to `project.update()`/`update_project()` (sync and async) and to the `ProjectUpdateOptions` and `AddMemoryOptions` typed models. It sets a second extraction instruction set that applies only to agent-scoped memories: an add passing `agent_id` without `user_id` uses it, one passing both splits by attribution, and while it is unset `custom_instructions` continues to apply to every memory ([#6809](https://github.com/mem0ai/mem0/pull/6809))
+
+</Update>
+
 <Update label="2026-08-04" description="v2.0.16">
 
 **New Features:**
@@ -1188,6 +1195,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-08-05" description="v3.1.5">
+
+**New Features:**
+- **Client:** Add `agentCustomInstructions` to `PromptUpdatePayload`, `AddMemoryOptions`, and `ProjectResponse`. It sets a second extraction instruction set that applies only to agent-scoped memories: an add passing `agentId` without `userId` uses it, one passing both splits by attribution, and while it is unset `customInstructions` continues to apply to every memory ([#6809](https://github.com/mem0ai/mem0/pull/6809))
+
+</Update>
 
 <Update label="2026-08-04" description="v3.1.4">
 

@@ -734,6 +734,7 @@ class MemoryClient:
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -744,6 +745,7 @@ class MemoryClient:
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -768,6 +770,7 @@ class MemoryClient:
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -1636,6 +1639,7 @@ class AsyncMemoryClient:
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -1646,6 +1650,7 @@ class AsyncMemoryClient:
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -1670,6 +1675,7 @@ class AsyncMemoryClient:
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
