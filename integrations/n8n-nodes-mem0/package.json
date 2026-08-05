@@ -1,6 +1,6 @@
 {
   "name": "@mem0/n8n-nodes-mem0",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "n8n community node for Mem0 — the memory layer for AI agents. Add, search, get, update, and delete long-term memories.",
   "keywords": [
     "n8n-community-node-package",
@@ -10,7 +10,7 @@
     "agents",
     "llm"
   ],
-  "license": "Apache-2.0",
+  "license": "MIT",
   "homepage": "https://mem0.ai",
   "author": {
     "name": "Mem0",
