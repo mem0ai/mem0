@@ -43,7 +43,7 @@ At search time the pipeline:
 5. Truncates to the `top_k` you requested.
 6. Records a fire-and-forget reinforcement against each returned memory: its access history grows by one, capped at the most recent 20 touches.
 
-Memories created before decay was enabled don't yet have an access history. They use a sensible fallback: their `updated_at` is treated as a single past touch, so the same scale above applies based on how stale that update is: a recently-updated legacy memory enters near the neutral band, a long-stale one sits closer to the floor. Once surfaced in a search after decay is on, they accumulate access history naturally and behave like any other memory.
+Memories created before decay was enabled don't yet have an access history. They use a sensible fallback: a memory's `event_date` (if it has one) is treated as its single past touch; only when `event_date` is absent does `updated_at` stand in instead. A future `event_date` gets a fresh/full activation, a past one decays from when the event happened. Once surfaced in a search after decay is on, they accumulate access history naturally and behave like any other memory.
 
 ## Configure access
 
@@ -81,26 +81,26 @@ curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PR
 
 ### 2. Confirm the state
 
-`decay` is returned on every project read. To fetch only this field, use `?fields=decay`.
+`decay` is returned on every project read; there is currently no way to narrow the response to just this field, so read the full project object and pick out `decay`.
 
 <CodeGroup>
 ```python Python
-response = client.project.get(fields=["decay"])
+response = client.project.get()
 print(response["decay"])
 ```
 
 ```javascript JavaScript
-const response = await client.project.get({ fields: ["decay"] });
+const response = await client.project.get();
 console.log(response.decay);
 ```
 
 ```bash cURL
-curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/?fields=decay" \
+curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/" \
   -H "Authorization: Token $MEM0_API_KEY"
 ```
 
 ```json Response
-{ "decay": true }
+{ "decay": true, "...": "full project object" }
 ```
 </CodeGroup>
 
@@ -154,7 +154,7 @@ curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PR
 | Reinforced on a recent search | 1.2 – 1.5× | Sustains its boost for the next several searches. |
 | Idle for a few days | 0.6 – 1.0× | Falls back into the neutral band. |
 | Idle for weeks | 0.4 – 0.6× | Mild dampening: can still surface for strong matches. |
-| Pre-decay legacy memory (no access history) | 0.3 – 1.0× | Falls back to `updated_at`: recently-updated entries land near 1.0×, long-stale entries approach the 0.3× floor. |
+| Pre-decay legacy memory (no access history) | 0.3 – 1.0× | Falls back to `event_date` if set (future dates land near 1.0×, past dates decay from the event); falls back further to `updated_at` only when `event_date` is absent. |
 
 The reinforcement is bounded: each memory tracks at most the last 20 access timestamps, so the boost stays well-behaved no matter how many times a memory is retrieved.
 
@@ -170,7 +170,7 @@ The threshold is applied to the candidate pool pre-decay; the scaling factor the
 No. The `client.add(...)` path is unchanged. Decay is a search-time ranking adjustment.
 
 **What if I had memories before turning decay on?**
-They use a fallback: the memory's `updated_at` is treated as a single historical touch, so the same scaling applies based on how stale that update is: a recently-updated legacy memory enters near the neutral band (~1.0×), a long-stale one closer to the floor (~0.3×). Once retrieved they accumulate access history and behave like any other memory.
+They use a fallback: a memory's `event_date`, if it has one, is treated as its single historical touch; `updated_at` only stands in when `event_date` is absent. A memory with a future `event_date` enters near the neutral band (~1.0×); one with a past `event_date` decays from when the event happened, closer to the floor (~0.3×) the further back it is. Once retrieved they accumulate access history and behave like any other memory.
 
 **Can I tune how aggressively decay scales scores?**
 Not in this version. The current scaling is calibrated to be conservative: wide enough to meaningfully reorder candidates, narrow enough to never dominate the underlying relevance score. Per-project tuning is on the roadmap.

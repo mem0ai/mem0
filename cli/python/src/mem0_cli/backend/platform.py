@@ -87,7 +87,10 @@ class PlatformBackend(Backend):
         immutable: bool = False,
         infer: bool = True,
         expires: str | None = None,
-        categories: list[str] | None = None,
+        custom_instructions: str | None = None,
+        custom_categories: list[dict] | None = None,
+        structured_data_schema: dict | None = None,
+        timestamp: int | None = None,
     ) -> dict:
         payload: dict[str, Any] = {}
 
@@ -112,8 +115,14 @@ class PlatformBackend(Backend):
             payload["infer"] = False
         if expires:
             payload["expiration_date"] = expires
-        if categories:
-            payload["categories"] = categories
+        if custom_instructions:
+            payload["custom_instructions"] = custom_instructions
+        if custom_categories:
+            payload["custom_categories"] = custom_categories
+        if structured_data_schema:
+            payload["structured_data_schema"] = structured_data_schema
+        if timestamp is not None:
+            payload["timestamp"] = timestamp
         payload["source"] = "CLI"
 
         return self._request("POST", "/v3/memories/add/", json=payload)
@@ -173,6 +182,9 @@ class PlatformBackend(Backend):
         keyword: bool = False,
         filters: dict | None = None,
         fields: list[str] | None = None,
+        show_expired: bool = False,
+        reference_date: str | None = None,
+        latest_only: bool = False,
     ) -> list[dict]:
         payload: dict[str, Any] = {"query": query, "top_k": top_k, "threshold": threshold}
 
@@ -191,6 +203,12 @@ class PlatformBackend(Backend):
             payload["keyword_search"] = True
         if fields:
             payload["fields"] = fields
+        if show_expired:
+            payload["show_expired"] = True
+        if reference_date is not None:
+            payload["reference_date"] = reference_date
+        if latest_only:
+            payload["latest_only"] = True
         payload["source"] = "CLI"
 
         result = self._request("POST", "/v3/memories/search/", json=payload)
@@ -219,6 +237,8 @@ class PlatformBackend(Backend):
         category: str | None = None,
         after: str | None = None,
         before: str | None = None,
+        show_expired: bool = False,
+        latest_only: bool = False,
     ) -> list[dict]:
         payload: dict[str, Any] = {}
         params = {"page": str(page), "page_size": str(page_size)}
@@ -241,6 +261,10 @@ class PlatformBackend(Backend):
         )
         if api_filters:
             payload["filters"] = api_filters
+        if show_expired:
+            payload["show_expired"] = True
+        if latest_only:
+            payload["latest_only"] = True
         payload["source"] = "CLI"
 
         result = self._request("POST", "/v3/memories/", json=payload, params=params)
@@ -251,13 +275,23 @@ class PlatformBackend(Backend):
         )
 
     def update(
-        self, memory_id: str, content: str | None = None, metadata: dict | None = None
+        self,
+        memory_id: str,
+        content: str | None = None,
+        metadata: dict | None = None,
+        *,
+        expiration_date: str | None = None,
+        timestamp: int | None = None,
     ) -> dict:
         payload: dict[str, Any] = {}
         if content:
             payload["text"] = content
         if metadata:
             payload["metadata"] = metadata
+        if expiration_date:
+            payload["expiration_date"] = expiration_date
+        if timestamp is not None:
+            payload["timestamp"] = timestamp
         payload["source"] = "CLI"
         return self._request(
             "PUT",
@@ -274,6 +308,7 @@ class PlatformBackend(Backend):
         agent_id: str | None = None,
         app_id: str | None = None,
         run_id: str | None = None,
+        delete_linked: bool = False,
     ) -> dict:
         if all:
             params: dict[str, str] = {"source": "CLI"}
@@ -287,10 +322,13 @@ class PlatformBackend(Backend):
                 params["run_id"] = run_id
             return self._request("DELETE", "/v1/memories/", params=params)
         elif memory_id:
+            params = {"source": "CLI"}
+            if delete_linked:
+                params["delete_linked"] = "true"
             return self._request(
                 "DELETE",
                 f"/v1/memories/{_encode_path_segment(memory_id)}/",
-                params={"source": "CLI"},
+                params=params,
             )
         else:
             raise ValueError("Either memory_id or --all is required")

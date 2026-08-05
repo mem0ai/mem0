@@ -115,6 +115,27 @@ $$;
 
 Go to [Supabase](https://supabase.com/dashboard/projects) and run the above SQL migrations in the SQL Editor.
 
+### Row Level Security
+
+Tables created through the Supabase dashboard have Row Level Security (RLS) enabled by default with no policies attached. With RLS on and no policies, the TypeScript SDK's queries return zero rows with an HTTP 200 (no error is raised), which looks like an empty memory store rather than a permissions problem. If you use the SQL migrations above (via the SQL Editor), RLS is left in its default off state and this does not apply.
+
+If your table has RLS enabled, add policies for the key your app uses (the example below grants full access to the `service_role` key; scope it down for anon/authenticated keys as needed):
+
+```sql
+alter table memories enable row level security;
+
+create policy "Allow service role full access to memories"
+on memories
+for all
+to service_role
+using (true)
+with check (true);
+```
+
+### PostgREST Row Limits
+
+Supabase's PostgREST layer caps the number of rows returned by a single request at `db-max-rows` (1000 by default), for both `.select()` queries and RPC function calls like `match_vectors`. Requesting a `topK` above this limit for `search()` or `list()` will not raise an error, results are capped at `db-max-rows` instead. The TypeScript `list()` method paginates internally to work around this, but `search()` cannot since `match_vectors` has no offset parameter; it logs a warning when it detects a truncated result. Raise `db-max-rows` in your Supabase project settings if you need more than 1000 results per search.
+
 ### Config
 
 Here are the parameters available for configuring Supabase:
