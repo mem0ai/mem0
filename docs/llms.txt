@@ -177,14 +177,14 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Platform CLI](https://docs.mem0.ai/platform/cli) [Platform]: Use when the user wants to manage Platform memories from the terminal.
 - [Mem0 MCP Server](https://docs.mem0.ai/platform/mem0-mcp) [Platform]: Use when connecting memory to AI coding tools over MCP.
 - [Open Source Overview](https://docs.mem0.ai/open-source/overview) [OSS]: Use when the user needs full infra control and custom provider wiring.
-- [Open Source Configuration](https://docs.mem0.ai/open-source/configuration) [OSS]: Use when configuring `Memory` - LLM, embedder, vector store, graph store.
+- [Open Source Configuration](https://docs.mem0.ai/open-source/configuration) [OSS]: Use when configuring `Memory` - LLM, embedder, vector store, reranker.
 - [Open Source Python Quickstart](https://docs.mem0.ai/open-source/python-quickstart) [OSS]: Use for the first self-hosted Python integration.
 - [Open Source Node.js Quickstart](https://docs.mem0.ai/open-source/node-quickstart) [OSS]: Use for the first self-hosted Node integration.
 - [Self-Hosted Setup](https://docs.mem0.ai/open-source/setup) [OSS]: Use when standing up the bundled REST server and dashboard via Docker Compose, including auth, API keys, and the setup wizard.
 
 ## Core Concepts
 
-- [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/graph/history stores, and multi-signal retrieval.
+- [How Mem0 Works](https://docs.mem0.ai/core-concepts/how-it-works) [Both]: Use when explaining the end-to-end pipeline: extraction (ADD-only distillation), storage across vector/entity/history stores, and multi-signal retrieval.
 - [Memory Types](https://docs.mem0.ai/core-concepts/memory-types) [Both]: Use when explaining working, factual, episodic, and semantic memory distinctions.
 - [Memory Operations - Add](https://docs.mem0.ai/core-concepts/memory-operations/add) [Both]: Use when explaining how `add()` extracts facts, resolves conflicts, and writes to both stores.
 - [Memory Operations - Search](https://docs.mem0.ai/core-concepts/memory-operations/search) [Both]: Use when explaining how queries are processed and ranked.
