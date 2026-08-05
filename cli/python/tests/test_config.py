@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 
 from mem0_cli.config import (
@@ -115,6 +116,59 @@ class TestConfig:
         assert loaded.platform.api_key == "m0-test"
         assert loaded.defaults.user_id == ""
         assert loaded.defaults.agent_id == ""
+
+    def test_load_malformed_json_falls_back_to_defaults(self, isolate_config):
+        """A truncated/invalid JSON file must not crash the CLI."""
+        from mem0_cli.config import CONFIG_FILE, ensure_config_dir
+
+        ensure_config_dir()
+        CONFIG_FILE.write_text('{"version": 1, "platform": {')
+
+        loaded = load_config()
+        assert loaded.platform.api_key == ""
+        assert loaded.version == 1
+
+    def test_load_non_dict_json_falls_back_to_defaults(self, isolate_config):
+        """Valid JSON that isn't an object (e.g. a list) must not crash the CLI."""
+        from mem0_cli.config import CONFIG_FILE, ensure_config_dir
+
+        ensure_config_dir()
+        CONFIG_FILE.write_text("[1, 2, 3]")
+
+        loaded = load_config()
+        assert loaded.platform.api_key == ""
+        assert loaded.version == 1
+
+    def test_save_config_does_not_leave_tmp_file(self, isolate_config):
+        """save_config() writes atomically: no leftover .json.tmp file."""
+        from mem0_cli.config import CONFIG_FILE
+
+        config = Mem0Config()
+        config.platform.api_key = "m0-test"
+        save_config(config)
+
+        tmp_file = CONFIG_FILE.with_suffix(".json.tmp")
+        assert not tmp_file.exists()
+        assert CONFIG_FILE.exists()
+        assert load_config().platform.api_key == "m0-test"
+
+    def test_save_config_failure_does_not_corrupt_existing_file(self, isolate_config, monkeypatch):
+        """An interrupted write must not truncate a previously-valid config.json."""
+        config = Mem0Config()
+        config.platform.api_key = "original"
+        save_config(config)
+
+        def _boom(*args, **kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr("json.dump", _boom)
+        new_config = Mem0Config()
+        new_config.platform.api_key = "should-not-be-written"
+        with contextlib.suppress(OSError):
+            save_config(new_config)
+
+        loaded = load_config()
+        assert loaded.platform.api_key == "original"
 
     def test_default_config_has_empty_defaults(self):
         config = Mem0Config()
