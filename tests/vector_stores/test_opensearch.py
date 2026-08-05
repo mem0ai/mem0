@@ -424,10 +424,25 @@ class TestOpenSearchDB(unittest.TestCase):
 
     @patch("mem0.vector_stores.opensearch.logger")
     def test_search_error_logs_with_exc_info(self, mock_logger):
-        """Search error logging should include exc_info for full stack trace."""
+        """Search errors should log with exc_info and re-raise (not swallow as [])."""
         self.client_mock.search.side_effect = Exception("Search failed")
-        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
-        self.assertEqual(results, [])
+        with self.assertRaises(Exception):
+            self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
+        mock_logger.error.assert_called_once()
+        call_kwargs = mock_logger.error.call_args
+        self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")
+
+    @patch("mem0.vector_stores.opensearch.logger")
+    def test_keyword_search_error_logs_and_degrades(self, mock_logger):
+        """Keyword search errors should log with exc_info and degrade to None (not raise).
+
+        keyword_search() is a best-effort augmentation for search(); raising here
+        would crash the whole search() call on a keyword-only failure (regression
+        per maintainer review on #6519).
+        """
+        self.client_mock.search.side_effect = Exception("Keyword search failed")
+        result = self.os_db.keyword_search(query="test", top_k=5)
+        self.assertIsNone(result)
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args
         self.assertTrue(call_kwargs[1].get("exc_info"), "logger.error must be called with exc_info=True")

@@ -75,6 +75,8 @@ print(response)
 ```
 </CodeGroup>
 
+This "Updated custom categories" message is specific to a PATCH-style partial update, which is what `client.project.update()` sends. Calling the raw API with a full PUT instead returns a generic `{"message": "Project updated successfully."}`, regardless of which fields changed.
+
 ### 2. Confirm the active catalog
 
 <CodeGroup>
@@ -86,16 +88,19 @@ print(categories)
 
 ```json Output
 {
+  "name": "default-project",
+  "description": null,
   "custom_categories": [
     {"lifestyle_management_concerns": "Tracks daily routines, habits, hobbies and interests including cooking, time management and work-life balance"},
     {"seeking_structure": "Documents goals around creating routines, schedules, and organized systems in various life areas"},
     {"personal_information": "Basic information about the user including name, preferences, and personality traits"}
-  ]
+  ],
+  "custom_instructions": null
 }
 ```
 </CodeGroup>
 
-`get` echoes back the shape you set. `update` also accepts a plain list of names, such as `["billing", "support"]`, in which case `get` returns that same list of names. Descriptions are optional here, and the classifier uses them to disambiguate when it has them.
+`project.get()` always returns the full project object, not just the fields you asked for. The `fields` parameter is accepted but has no filtering effect server-side, so read `custom_categories` off the full response. `update` also accepts a plain list of names, such as `["billing", "support"]`, in which case `custom_categories` comes back as that same list of names. Descriptions are optional here, and the classifier uses them to disambiguate when it has them.
 
 <Warning>
   `add` is stricter than `update`. Every entry in a per-call `custom_categories` list must be an object mapping a name to a description. Passing bare names to `add` fails with `400 Expected a dictionary of items but got type "str"`.
@@ -306,16 +311,19 @@ client.project.get(["custom_categories"])
 
 ```json Output
 {
-    "custom_categories": null
+    "name": "default-project",
+    "description": null,
+    "custom_categories": null,
+    "custom_instructions": null
 }
 ```
 </CodeGroup>
 
-A project that has never set a list returns `null`. One you have reset with `project.update(custom_categories=[])` returns `[]`. Both mean the default catalog is active.
+The response is always the full project object; `["custom_categories"]` does not filter it down. A project that has never set a list returns `custom_categories: null`. One you have reset with `project.update(custom_categories=[])` returns `[]`. Both mean the default catalog is active.
 
 ## Verify the feature is working
 
-- `client.project.get(["custom_categories"])` returns the category list you set.
+- `client.project.get(["custom_categories"])` returns the full project object; read the `custom_categories` key off it to see the list you set.
 - `client.get_all(filters={"user_id": ...})` shows populated `categories` lists on new memories.
 - The Mem0 dashboard (Project → Memories) displays the custom labels in the Category column.
 

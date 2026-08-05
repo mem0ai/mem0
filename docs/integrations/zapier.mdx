@@ -1,0 +1,143 @@
+---
+title: Zapier
+description: "Add, search, and manage Mem0 memories from any Zap using the Mem0 Zapier app, no code required."
+---
+
+Zaps fire and forget. The [Mem0](https://mem0.ai) app gives them memory: store durable facts from a form submission, a support ticket, or a chat message, then recall them later from any of [Zapier's](https://zapier.com) thousands of apps. No code, no server.
+
+## Overview
+
+1. Connect your Mem0 API key once as a Zapier connection.
+2. Use **Add Memory** to store what a Zap learns.
+3. Use **Search Memories** or **Get Memories** to pull that context back into a later step.
+4. Use **Delete Memory** to remove one by ID.
+
+## Prerequisites
+
+1. A Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">API Keys dashboard</a> (sign up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">app.mem0.ai</a> if you do not have an account).
+2. A Zapier account on any plan.
+
+<Note>
+  The Mem0 app is not yet listed in Zapier's public App Directory, so you need an invite link to add it to a Zap. Email [support@mem0.ai](mailto:support@mem0.ai) to request one.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Add a Mem0 step">
+    In the Zap editor, search for **Mem0** and pick an action such as **Add Memory**.
+  </Step>
+  <Step title="Connect your account">
+    Select **Sign in**, paste your **Mem0 API Key** (it starts with `m0-`), and leave **Base URL** at `https://api.mem0.ai` unless you run Mem0 somewhere else.
+  </Step>
+  <Step title="Confirm the connection">
+    Zapier validates the key against Mem0 the moment you save it. A connection labelled **Mem0** means the key works.
+  </Step>
+</Steps>
+
+<Info>
+  The key is a password field, so Zapier masks it in the editor. It is sent to Mem0 as `Authorization: Token <key>`.
+</Info>
+
+## Quickstart
+
+Remember what a user tells you:
+
+```text
+Trigger (form, chat, ticket)  →  Mem0: Add Memory
+```
+
+Set **Content** to the message text and **User ID** to a stable identifier for that person, such as their email.
+
+Then recall it in a later Zap:
+
+```text
+Trigger (new message)  →  Mem0: Search Memories  →  Send reply
+```
+
+Set **Query** to the incoming message and **User ID** to the same value. The matched memories become available to every step after it.
+
+<Note>
+  Extraction is asynchronous. **Add Memory** returns immediately with an event ID by default, so a Search fired a second later may not see the new memory yet. See [Waiting for extraction](#waiting-for-extraction).
+</Note>
+
+## Actions
+
+| Type | Action | What it does | Endpoint |
+| --- | --- | --- | --- |
+| Create | **Add Memory** | Extract and store memories from a message | `POST /v3/memories/add/` |
+| Search | **Search Memories** | Semantic search over stored memories | `POST /v3/memories/search/` |
+| Search | **Get Memories** | List stored memories, one page at a time | `POST /v3/memories/` |
+| Create | **Delete Memory** | Delete a single memory by ID | `DELETE /v1/memories/{id}/` |
+
+### Add Memory
+
+| Field | Required | Purpose |
+| --- | --- | --- |
+| **Content** | Yes | The message text to extract memories from |
+| **Role** | | `User` (default), `Assistant`, or `System` |
+| **User ID** | | Scopes the memory to a person |
+| **Agent ID** | | Scopes the memory to an agent |
+| **Run ID** | | Scopes the memory to a single session or run |
+| **Metadata (JSON)** | | Arbitrary JSON attached to each extracted memory |
+| **Custom Instructions** | | Free-text guidance steering what the extractor keeps or ignores, for this call |
+| **Custom Categories (JSON)** | | JSON array of `{category: description}` objects, replacing the project-level catalog for this call |
+| **Includes** | | Only extract memories matching this description |
+| **Excludes** | | Skip memories matching this description |
+| **Infer** | | On by default. Turn off to store the message verbatim instead of running LLM extraction |
+| **Wait for Completion** | | Off by default. Turn on to poll until extraction finishes and return the resulting memories |
+
+**Includes** and **Excludes** narrow what extraction keeps. Sending *"I am vegetarian and I never eat mushrooms. I drive a blue Toyota Corolla and my parking spot is B12"* stores three memories by default; with `Includes: "only record food and diet preferences"` it stores just the dietary one.
+
+#### Waiting for extraction
+
+Extraction runs asynchronously, so **Add Memory** returns an event ID and moves on unless you turn on **Wait for Completion**. When you do, the step polls for up to 60 seconds and returns the extracted memories instead.
+
+<Warning>
+  Extraction can take longer than Zapier allows a single step to run, which is why waiting is opt-in. If the step times out, the add was still accepted and typically completes on Mem0's side, so do not retry it blindly.
+</Warning>
+
+### Search Memories
+
+| Field | Required | Purpose |
+| --- | --- | --- |
+| **Query** | Yes | Natural-language search text |
+| **User ID** | Yes | Whose memories to search. The API needs an entity filter |
+| **Limit** | | Maximum results, default `50` |
+
+### Get Memories
+
+| Field | Required | Purpose |
+| --- | --- | --- |
+| **User ID** | Yes | Whose memories to list |
+| **Limit** | | Memories per page, default `50` |
+| **Page** | | Which page to return, 1-based, default `1` |
+
+Returns one page per run. Raise **Page** to walk through larger result sets.
+
+### Delete Memory
+
+Takes a **Memory ID** and deletes that memory. Pair it with **Search Memories** or **Get Memories** to get the ID first.
+
+## Choosing a User ID
+
+The **User ID** is a stable string you pick to identify whose memories these are. It is not looked up in the dashboard, so any consistent value works: your app's internal user ID, an email, or a UUID. Use the same value on Add, Search, and Get Memories or recall returns nothing.
+
+## Troubleshooting
+
+- **Mem0 does not appear in the Zap editor**: the app is not yet in the public App Directory. Email [support@mem0.ai](mailto:support@mem0.ai) for an invite link.
+- **The connection fails when you paste the key**: check that it starts with `m0-` and has not been revoked in the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-zapier" rel="nofollow">API Keys dashboard</a>.
+- **Search returns nothing right after an Add**: extraction is asynchronous. Turn on **Wait for Completion**, or put a Zapier **Delay** step before the Search.
+- **"Metadata must be valid JSON" or "Custom Categories must be valid JSON"**: those fields take raw JSON. Check for smart quotes and trailing commas.
+- **The Add step times out**: the memory was still accepted and is likely finishing server-side. Confirm with **Get Memories** before re-running.
+
+<CardGroup cols={2}>
+  <Card title="n8n Integration" icon="diagram-project" href="/integrations/n8n">
+    Build workflows with the Mem0 n8n community node
+  </Card>
+  <Card title="Flowise Integration" icon="blocks" href="/integrations/flowise">
+    Add memory to Flowise chatflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />
