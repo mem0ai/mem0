@@ -4,6 +4,23 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-07-30" description="n8n and Zapier integrations">
+
+**Workflow Automation: Mem0 Memory in n8n and Zapier**
+
+Mem0 now plugs into two no-code automation platforms, so workflows that used to start from zero on every run can store durable facts and recall them later.
+
+- **n8n community node:** [`@mem0/n8n-nodes-mem0`](https://www.npmjs.com/package/@mem0/n8n-nodes-mem0) adds a **Mem0** node with a Memory resource covering Add, Search, Get, Get Many, Update, and Delete. Install it from **Settings → Community Nodes** on a self-hosted instance, then connect your API key once as a Mem0 API credential. See [n8n](/integrations/n8n).
+- **n8n AI Agent tool:** Attach the same node to an [AI Agent](https://docs.n8n.io/advanced-ai/) node and it becomes a tool the agent calls on its own, so it can decide when to remember and when to recall.
+- **Zapier app:** Add Memory, Search Memories, Get Memories, and Delete Memory actions let any of Zapier's thousands of apps write and read Mem0 context with no code and no server. See [Zapier](/integrations/zapier).
+- **One-time connection:** Both integrations authenticate with a single Mem0 API key and default to `https://api.mem0.ai`, with a configurable base URL for self-hosted deployments.
+
+<Note>
+  The Zapier app is not yet listed in Zapier's public App Directory. Email [support@mem0.ai](mailto:support@mem0.ai) for an invite link.
+</Note>
+
+</Update>
+
 <Update label="2026-07-13" description="TypeScript provider expansion">
 
 **TypeScript OSS SDK: 26 New Providers, Reranking, and Zero-Dependency Imports**

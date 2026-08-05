@@ -1,0 +1,58 @@
+name: Mem0 Plugin Checks
+
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
+#
+# Covers the Python plugin (scripts/ + tests/). The nested .opencode-plugin/
+# is a separate package with its own workflow (opencode-plugin-checks.yml).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/mem0-plugin/**'
+      - '!integrations/mem0-plugin/.opencode-plugin/**'
+      - '.github/workflows/mem0-plugin-checks.yml'
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        working-directory: integrations/mem0-plugin
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Verify hook entry points are executable
+        working-directory: integrations/mem0-plugin
+        run: |
+          missing=$(find scripts -name '*.sh' ! -name '_*' ! -perm -u+x -print)
+          if [ -n "$missing" ]; then
+            echo "Hook entry points must be executable:"
+            echo "$missing"
+            exit 1
+          fi
+
+      - name: Check hook manifests are valid JSON
+        working-directory: integrations/mem0-plugin
+        run: |
+          for f in plugin.json mcp_config.json hooks.json hooks/*.json; do
+            jq empty "$f" || (echo "Invalid JSON: $f" && exit 1)
+          done
+
+      - name: Run tests
+        working-directory: integrations/mem0-plugin
+        run: pytest -q

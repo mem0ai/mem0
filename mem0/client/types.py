@@ -52,6 +52,11 @@ class SearchMemoryOptions(BaseModel):
     fields: Optional[List[str]] = Field(default=None, description="Fields to include in the response")
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
     show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
+    reference_date: Optional[Union[str, int]] = Field(
+        default=None, description="Reference date for relative time queries (YYYY-MM-DD or Unix timestamp)"
+    )
+    latest_only: Optional[bool] = Field(default=None, description="Whether to only return the latest memory version")
+    keyword_search: Optional[bool] = Field(default=None, description="Whether to use keyword search")
 
 
 class GetAllMemoryOptions(BaseModel):
@@ -74,6 +79,7 @@ class GetAllMemoryOptions(BaseModel):
     )
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
     show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
+    latest_only: Optional[bool] = Field(default=None, description="Whether to only return the latest memory version")
 
 
 class DeleteAllMemoryOptions(BaseModel):

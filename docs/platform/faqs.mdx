@@ -17,7 +17,7 @@ iconType: "solid"
   </Accordion>
 
     <Accordion title="What are the key features of Mem0?">
-        - **User, Session, and AI Agent Memory**: Retains information across sessions and interactions for users and AI agents, ensuring continuity and context.
+        - **User, Agent, App, and Run Memory**: Scopes memories to the individual, AI agent, application, and conversation/session they belong to, ensuring continuity and context.
         - **Adaptive Personalization**: Continuously updates memories based on user interactions and feedback.
         - **Developer-Friendly API**: Offers a straightforward API for seamless integration into various applications.
         - **Platform Consistency**: Ensures consistent behavior and data across different platforms and devices.
@@ -84,10 +84,12 @@ iconType: "solid"
         - Include specific examples or cases rather than general definitions
     </Accordion>
 
-    <Accordion title="How do I configure Mem0 for AWS Lambda?">
-        When deploying Mem0 on AWS Lambda, you'll need to modify the storage directory configuration due to Lambda's file system restrictions. By default, Lambda only allows writing to the `/tmp` directory.
+    <Accordion title="How do I configure Mem0 for AWS Lambda? (self-hosted / OSS only)">
+        This applies only if you are running the self-hosted OSS `Memory` class yourself (for example with a local vector store) inside a Lambda function. If you're using the hosted Mem0 Platform (`MemoryClient`), there is nothing to configure here: the Platform stores all memory data on Mem0's servers, not on your Lambda instance's filesystem, so Lambda's `/tmp`-only write restriction does not apply to you.
 
-        To configure Mem0 for AWS Lambda, set the `MEM0_DIR` environment variable to point to a writable directory in `/tmp`:
+        When deploying self-hosted Mem0 on AWS Lambda, you'll need to modify the storage directory configuration due to Lambda's file system restrictions. By default, Lambda only allows writing to the `/tmp` directory.
+
+        To configure self-hosted Mem0 for AWS Lambda, set the `MEM0_DIR` environment variable to point to a writable directory in `/tmp`:
 
         ```bash
         MEM0_DIR=/tmp/.mem0
@@ -149,7 +151,7 @@ iconType: "solid"
         2. Go to **Settings → Account**.
         3. Click **Delete account** and confirm.
 
-        Deletion is immediate and irreversible. The following is removed:
+        Deletion is asynchronous: the request is accepted immediately and processed in the background, typically within a few minutes. Once it completes, the following is removed:
 
         - Your user profile and login credentials
         - All memories, agents, and runs you created
@@ -157,7 +159,7 @@ iconType: "solid"
         - Organizations you solely own, along with their data
         - Your membership in any shared organizations (the orgs themselves are not affected)
 
-        Any application still using your old API keys will start receiving `401 Unauthorized` responses immediately. If you'd like to use Mem0 again later, you can create a new account at any time: it will start fresh with no data carried over.
+        Your old API keys stop working once deletion completes, not the instant you click confirm. If you'd like to use Mem0 again later, you can create a new account at any time: it will start fresh with no data carried over.
     </Accordion>
 
 </AccordionGroup>

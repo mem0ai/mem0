@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from mem0.client.types import GetAllMemoryOptions, SearchMemoryOptions
+
 
 @pytest.fixture
 def mock_memory_client():
@@ -126,6 +128,55 @@ class TestGetAllEntityParamRejection:
         mock_memory_client.client.post.assert_called_once_with(
             "/v3/memories/",
             json={"filters": {"user_id": "u1"}, "show_expired": True},
+        )
+
+
+class TestSearchTypedOptionsParity:
+    """MEM-5893: SearchMemoryOptions' new typed fields serialize to their v3 snake_case keys."""
+
+    def test_search_options_pass_reference_date_latest_only_keyword_search(self, mock_memory_client):
+        """search(options=SearchMemoryOptions(...)) should forward the new fields verbatim."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        options = SearchMemoryOptions(
+            filters={"user_id": "u1"},
+            reference_date="2024-01-01",
+            latest_only=True,
+            keyword_search=True,
+        )
+        mock_memory_client.search("test query", options=options)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/search/",
+            json={
+                "query": "test query",
+                "filters": {"user_id": "u1"},
+                "reference_date": "2024-01-01",
+                "latest_only": True,
+                "keyword_search": True,
+            },
+        )
+
+
+class TestGetAllTypedOptionsParity:
+    """MEM-5893: GetAllMemoryOptions.latest_only serializes to its v3 snake_case key."""
+
+    def test_get_all_options_pass_latest_only(self, mock_memory_client):
+        """get_all(options=GetAllMemoryOptions(...)) should forward latest_only verbatim."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        options = GetAllMemoryOptions(filters={"user_id": "u1"}, latest_only=True)
+        mock_memory_client.get_all(options=options)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}, "latest_only": True},
         )
 
 
