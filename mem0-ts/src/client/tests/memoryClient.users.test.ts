@@ -98,16 +98,23 @@ describe("MemoryClient - deleteUser() (deprecated)", () => {
 
 describe("MemoryClient - deleteUsers()", () => {
   test("URL-encodes entity path segments", async () => {
-    setupMockFetch();
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/entities/user/org%2Fteam%3Factive%23frag/", {
+      status: 200,
+      body: { message: "Entity deleted successfully!" },
+    });
+    const mock = setupMockFetch(extra);
+
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    client.telemetryId = "test@example.com";
-    const deleteMock = jest.fn().mockResolvedValue({});
-    client.client = { delete: deleteMock };
 
     await client.deleteUsers({ userId: "org/team?active#frag" });
 
-    expect(deleteMock).toHaveBeenCalledWith(
-      "/v2/entities/user/org%2Fteam%3Factive%23frag/",
-    );
+    expect(
+      findFetchCall(
+        mock,
+        "/v2/entities/user/org%2Fteam%3Factive%23frag/",
+        "DELETE",
+      ),
+    ).toBeDefined();
   });
 });

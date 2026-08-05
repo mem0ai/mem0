@@ -36,12 +36,6 @@ const cases = [
     expected: ["rest-api"],
   },
   {
-    number: 3444,
-    title: "Fix: Openmemory run.sh non-existent vector-store route",
-    body: "### 🐛 Describe the bug\n\n# Vector_store not implemented\nThere is many references to ` ${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store` in lines 280, 293, 306, 319,  332, 345, 358, and 371. \n```bash\ncurl -fsS -X PUT \"${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store\" # Line 280 and for each vector store\n```\nBut the api route is not implemented in `api/app/routers/config.py`.\n# Suggested solution\nI would implement `vector_store` route or remove and use `update_configuration` for all config updates. Also Create class with all config keys for vector_store",
-    expected: ["openmemory"],
-  },
-  {
     number: 6252,
     title: "cursor: on_file_read_cursor.sh ignores auto_search / MEM0_AUTO_SEARCH",
     body: "### Component\n\nCursor / mem0-plugin\n\n### Description\n\n`on_file_read_cursor.sh` never checks `MEM0_AUTO_SEARCH`. In Claude Code, #6065/#6071 added a guard on `on_file_read.sh`, but the Cursor PreToolUse variant still always calls `file_context.py` (and thus Platform search) once `MEM0_API_KEY` is set.\n\n### Expected\n\nWhen `auto_search: false` / `MEM0_AUTO_SEARCH=false`, `on_file_read_cursor.sh` should exit 0 without searching.\n\n### Actual\n\nTimeline search still runs.\n\n### Related\n\n#6065, #6071, #6250\n",

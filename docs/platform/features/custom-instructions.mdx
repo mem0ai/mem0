@@ -68,6 +68,8 @@ console.log(response.customInstructions);
 ```
 </CodeGroup>
 
+`project.get()` always returns the full project object. The `fields` parameter is accepted but has no filtering effect server-side, so `response["custom_instructions"]` above is a key on the full response, not a pre-filtered payload.
+
 ### Best Practice Template
 
 Structure your instructions using this proven template:

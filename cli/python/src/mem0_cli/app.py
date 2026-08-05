@@ -273,7 +273,21 @@ def add(
     no_infer: bool = typer.Option(False, "--no-infer", help="Skip inference, store raw."),
     expires: str | None = typer.Option(None, "--expires", help="Expiration date (YYYY-MM-DD)."),
     categories: str | None = typer.Option(
-        None, "--categories", help="Categories (JSON array or comma-separated)."
+        None, "--categories", help="Not supported on add, use --custom-categories instead."
+    ),
+    custom_instructions: str | None = typer.Option(
+        None, "--custom-instructions", help="Custom instructions for fact extraction."
+    ),
+    custom_categories: str | None = typer.Option(
+        None,
+        "--custom-categories",
+        help="Custom categories as a JSON array of {name: description} objects.",
+    ),
+    structured_data_schema: str | None = typer.Option(
+        None, "--structured-data-schema", help="Schema for structured data extraction, as JSON."
+    ),
+    timestamp: int | None = typer.Option(
+        None, "--timestamp", help="Unix timestamp for the memory."
     ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output format: text, json, quiet.", rich_help_panel="Output"
@@ -312,6 +326,10 @@ def add(
         no_infer=no_infer,
         expires=expires,
         categories=categories,
+        custom_instructions=custom_instructions,
+        custom_categories=custom_categories,
+        structured_data_schema=structured_data_schema,
+        timestamp=timestamp,
         output=output,
     )
 
@@ -353,6 +371,21 @@ def search(
         None,
         "--fields",
         help="Specific fields to return (comma-separated).",
+        rich_help_panel="Search",
+    ),
+    show_expired: bool = typer.Option(
+        False, "--show-expired", help="Include expired memories.", rich_help_panel="Search"
+    ),
+    reference_date: str | None = typer.Option(
+        None,
+        "--reference-date",
+        help="Reference date for relative queries (YYYY-MM-DD or unix timestamp).",
+        rich_help_panel="Search",
+    ),
+    latest_only: bool = typer.Option(
+        False,
+        "--latest-only",
+        help="Only return the latest version of each memory.",
         rich_help_panel="Search",
     ),
     output: str = typer.Option(
@@ -398,6 +431,9 @@ def search(
         keyword=keyword,
         filter_json=filter_json,
         fields=fields,
+        show_expired=show_expired,
+        reference_date=reference_date,
+        latest_only=latest_only,
         output=output,
     )
 
@@ -464,6 +500,15 @@ def list_cmd(
     before: str | None = typer.Option(
         None, "--before", help="Created before (YYYY-MM-DD).", rich_help_panel="Filters"
     ),
+    show_expired: bool = typer.Option(
+        False, "--show-expired", help="Include expired memories.", rich_help_panel="Filters"
+    ),
+    latest_only: bool = typer.Option(
+        False,
+        "--latest-only",
+        help="Only return the latest version of each memory.",
+        rich_help_panel="Filters",
+    ),
     output: str = typer.Option(
         "table", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -497,6 +542,8 @@ def list_cmd(
         category=category,
         after=after,
         before=before,
+        show_expired=show_expired,
+        latest_only=latest_only,
         output=output,
     )
 
@@ -509,6 +556,10 @@ def update(
     memory_id: str = typer.Argument(..., help="Memory ID to update."),
     text: str | None = typer.Argument(None, help="New memory text."),
     metadata: str | None = typer.Option(None, "--metadata", "-m", help="Update metadata (JSON)."),
+    expires: str | None = typer.Option(None, "--expires", help="Expiration date (YYYY-MM-DD)."),
+    timestamp: int | None = typer.Option(
+        None, "--timestamp", help="Unix timestamp for the memory."
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -537,7 +588,15 @@ def update(
         text = _read_stdin()
 
     backend = _get_backend(api_key, base_url)
-    cmd_update(backend, memory_id, text, metadata=metadata, output=output)
+    cmd_update(
+        backend,
+        memory_id,
+        text,
+        metadata=metadata,
+        expires=expires,
+        timestamp=timestamp,
+        output=output,
+    )
 
 
 # ── Memory: delete ────────────────────────────────────────────────────────
@@ -559,6 +618,9 @@ def delete(
         False, "--dry-run", help="Show what would be deleted without deleting."
     ),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
+    delete_linked: bool = typer.Option(
+        False, "--delete-linked", help="Also delete memories linked to this memory."
+    ),
     user_id: str | None = typer.Option(
         None, "--user-id", "-u", help="Scope to user.", rich_help_panel="Scope"
     ),
@@ -616,7 +678,14 @@ def delete(
         from mem0_cli.commands.memory import cmd_delete
 
         backend = _get_backend(api_key, base_url)
-        cmd_delete(backend, memory_id, dry_run=dry_run, force=force, output=output)
+        cmd_delete(
+            backend,
+            memory_id,
+            dry_run=dry_run,
+            force=force,
+            delete_linked=delete_linked,
+            output=output,
+        )
 
     elif all_:
         _fire_telemetry("delete", {"delete_mode": "all"})
@@ -1068,7 +1137,11 @@ def _build_help_json() -> dict:
                 "--immutable": "Prevent future updates.",
                 "--no-infer": "Skip inference, store raw.",
                 "--expires": "Expiration date (YYYY-MM-DD).",
-                "--categories": "Categories (JSON array or comma-separated).",
+                "--categories": "Not supported on add, use --custom-categories instead.",
+                "--custom-instructions": "Custom instructions for fact extraction.",
+                "--custom-categories": "Custom categories as a JSON array of {name: description} objects.",
+                "--structured-data-schema": "Schema for structured data extraction, as JSON.",
+                "--timestamp": "Unix timestamp for the memory.",
                 "--graph": "Enable graph memory extraction.",
                 "--no-graph": "Disable graph memory extraction.",
                 "--output, -o": "Output format: text, json, quiet.",
@@ -1087,6 +1160,9 @@ def _build_help_json() -> dict:
                 "--keyword": "Use keyword search instead of semantic.",
                 "--filter": "Advanced filter expression (JSON).",
                 "--fields": "Specific fields to return (comma-separated).",
+                "--show-expired": "Include expired memories.",
+                "--reference-date": "Reference date for relative queries (YYYY-MM-DD or unix timestamp).",
+                "--latest-only": "Only return the latest version of each memory.",
                 "--graph": "Enable graph in search.",
                 "--no-graph": "Disable graph in search.",
                 "--output, -o": "Output format: text, json, table.",
@@ -1110,6 +1186,8 @@ def _build_help_json() -> dict:
                 "--category": "Filter by category.",
                 "--after": "Created after (YYYY-MM-DD).",
                 "--before": "Created before (YYYY-MM-DD).",
+                "--show-expired": "Include expired memories.",
+                "--latest-only": "Only return the latest version of each memory.",
                 "--graph": "Enable graph in listing.",
                 "--no-graph": "Disable graph in listing.",
                 "--output, -o": "Output format: text, json, table.",
@@ -1124,6 +1202,8 @@ def _build_help_json() -> dict:
             },
             "options": {
                 "--metadata, -m": "Update metadata (JSON).",
+                "--expires": "Expiration date (YYYY-MM-DD).",
+                "--timestamp": "Unix timestamp for the memory.",
                 "--output, -o": "Output format: text, json, quiet.",
             },
         },
@@ -1140,6 +1220,7 @@ def _build_help_json() -> dict:
                 "--all": "Delete all memories matching scope filters.",
                 "--entity": "Delete the entity itself and all its memories (cascade).",
                 "--project": "With --all: delete ALL memories project-wide.",
+                "--delete-linked": "Also delete memories linked to this memory.",
                 "--dry-run": "Show what would be deleted without deleting.",
                 "--force": "Skip confirmation.",
                 "--user-id, -u": "Scope to user.",
@@ -1269,8 +1350,10 @@ def help(
       mem0 help
       mem0 help --json
     """
-    if json:
-        console.print(_json.dumps(_build_help_json(), indent=2))
+    from mem0_cli.state import is_agent_mode
+
+    if json or is_agent_mode():
+        console.print_json(_json.dumps(_build_help_json()))
     else:
         console.print(
             f"[{BRAND_COLOR}]◆ mem0 CLI[/] v{__version__} — The Memory Layer for AI Agents\n"
