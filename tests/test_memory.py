@@ -983,7 +983,7 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     mem3.id = "mem-3"
     mem3.payload = {"data": "three", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
 
-    mock_vector_store.list.return_value = ([mem1, mem2, mem3],)
+    mock_vector_store.list.side_effect = [([mem1, mem2, mem3],), ([],)]
 
     def _get_side_effect(vector_id):
         if vector_id == "mem-2":
@@ -999,6 +999,10 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 
     assert result == {"message": "Memories deleted successfully!"}
     assert mock_vector_store.delete.call_count == 2
+    assert mock_vector_store.list.call_args_list[0].kwargs == {
+        "filters": {"user_id": "test-user"},
+        "top_k": 1000,
+    }
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -1473,7 +1477,7 @@ class TestAsyncDeleteAllEntityRace:
         mem_b = MagicMock()
         mem_b.id = "mem-b"
         mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
-        mock_vector_store.list.return_value = ([mem_a, mem_b],)
+        mock_vector_store.list.side_effect = [([mem_a, mem_b],), ([],)]
         mock_vector_store.get.side_effect = lambda vector_id: {"mem-a": mem_a, "mem-b": mem_b}[vector_id]
         mock_vector_factory.return_value = mock_vector_store
 

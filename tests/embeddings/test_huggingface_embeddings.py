@@ -94,13 +94,25 @@ def test_embed_with_huggingface_base_url():
         embedder = HuggingFaceEmbedding(config)
         result = embedder.embed("Hello from custom endpoint")
 
-        mock_openai.assert_called_once_with(base_url="http://localhost:8080")
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key=None)
         mock_client.embeddings.create.assert_called_once_with(
             input="Hello from custom endpoint",
             model="my-custom-model",
             truncate=True,
         )
         assert result == [0.1, 0.2, 0.3]
+
+
+def test_embed_with_huggingface_base_url_forwards_api_key():
+    config = BaseEmbedderConfig(
+        huggingface_base_url="http://localhost:8080",
+        model="my-custom-model",
+        api_key="tei-token",
+    )
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="tei-token")
 
 
 def test_embed_batch_sentence_transformer(mock_sentence_transformer):
