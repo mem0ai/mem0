@@ -133,19 +133,32 @@ _SENSITIVE_SUFFIXES = (
 
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
+DELETE_ALL_BATCH_SIZE = 1000
 
-# Tenant-scoping fields that update() must never let caller-supplied metadata overwrite (issues #4490, #6277).
+# Tenant-scoping fields that caller-supplied metadata must never set, on either the
+# creation or the update path (issues #4490, #6277, #6655).
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
 
 
-def _strip_identity_keys(metadata: Dict[str, Any], existing_payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Drop identity keys from caller metadata; they are immutable after creation (issues #4490, #6277)."""
+def _strip_identity_keys(
+    metadata: Dict[str, Any],
+    existing_payload: Dict[str, Any],
+    *,
+    context: str = "update()",
+) -> Dict[str, Any]:
+    """Drop identity keys from caller metadata; scope is set by the entity params, not metadata.
+
+    On the update path `existing_payload` carries the memory's current scope, so
+    re-sending an identical value is silently accepted; only a changed value warns.
+    On the creation path there is no prior payload, so pass an empty dict and every
+    identity key present in `metadata` is dropped with a warning.
+    """
     clean = {}
     for key, value in metadata.items():
         if key not in _IDENTITY_KEYS:
             clean[key] = value
         elif value != existing_payload.get(key):
-            logger.warning(f"update(): ignoring metadata['{key}'] - identity fields are immutable after creation")
+            logger.warning(f"{context}: ignoring metadata['{key}'] - identity fields cannot be set through metadata")
     return clean
 
 
@@ -314,7 +327,9 @@ def _build_filters_and_metadata(
     for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
 
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
+       It includes all provided session identifier(s) and any `input_metadata`. Identity
+       scope is set from the entity params only; identity keys in `input_metadata` are
+       dropped, so freeform metadata cannot place a memory into an unrequested scope.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
        provided session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
@@ -342,7 +357,12 @@ def _build_filters_and_metadata(
               scoped to the provided session(s) and potentially a resolved actor.
     """
 
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    # Identity scope is set below from the entity params only. Stripping the keys here
+    # stops caller metadata from placing a memory into a scope the caller did not pass,
+    # which the re-pins below cannot prevent for a param that was left unset (issue #6655).
+    base_metadata_template = (
+        _strip_identity_keys(deepcopy(input_metadata), {}, context="add()") if input_metadata else {}
+    )
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
     # ---------- validate and add all provided session ids ----------
@@ -1885,14 +1905,28 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Keep listing after each batch is deleted. Most vector stores cap
+        # list() at 100 results by default, which silently truncates deletes.
+        deleted_count = 0
+        seen_batches = set()
+        while True:
+            memories = self.vector_store.list(
+                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
+            )[0]
+            if not memories:
+                break
+            batch_ids = tuple(sorted(str(memory.id) for memory in memories))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
+            for memory in memories:
+                self._delete_memory(memory.id)
+            deleted_count += len(memories)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -3515,26 +3549,45 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
-
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        deleted_count = 0
+        errors = []
+        seen_batches = set()
+        while True:
+            memories = await asyncio.to_thread(
+                self.vector_store.list,
+                filters=filters,
+                top_k=DELETE_ALL_BATCH_SIZE,
+            )
+            batch = memories[0] if memories else []
+            if not batch:
+                break
+            batch_ids = tuple(sorted(str(memory.id) for memory in batch))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
+            delete_tasks = [
+                self._delete_memory(memory.id, skip_entity_cleanup=True)
+                for memory in batch
+            ]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            batch_errors = [
+                result for result in results if isinstance(result, BaseException)
+            ]
+            errors.extend(batch_errors)
+            deleted_count += len(results) - len(batch_errors)
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            logger.warning("Failed to delete %d memories", len(errors))
             for err in errors:
                 logger.warning("Delete error: %s", err)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:

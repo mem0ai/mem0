@@ -345,10 +345,44 @@ class TestMilvusDB:
         assert '(metadata["active"] == True)' in result
         assert '(metadata["deleted"] == False)' in result
 
+    def test_update_omits_text_field_on_pre_v3_collection(self, mock_milvus_client):
+        """update() must not include 'text' for collections without BM25 schema."""
+        mock_milvus_client.has_collection.return_value = True
+        mock_milvus_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "id"},
+                {"name": "vectors"},
+                {"name": "metadata"},
+            ]
+        }
+        db = MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="legacy_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db",
+        )
+        assert db._has_bm25_schema is False
+
+        db.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "hello"})
+
+        upserted = mock_milvus_client.upsert.call_args[1]["data"]
+        assert "text" not in upserted
+
+    def test_update_includes_text_field_on_v3_collection(self, milvus_db, mock_milvus_client):
+        """update() must include 'text' for collections with BM25 schema."""
+        assert milvus_db._has_bm25_schema is True
+
+        milvus_db.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "hello"})
+
+        upserted = mock_milvus_client.upsert.call_args[1]["data"]
+        assert upserted["text"] == "hello"
+
     def test_collection_already_exists(self, mock_milvus_client):
         """Test that existing collection is not recreated."""
         mock_milvus_client.has_collection.return_value = True
-        
+
         MilvusDB(
             url="http://localhost:19530",
             token="test_token",
@@ -357,7 +391,7 @@ class TestMilvusDB:
             metric_type=MetricType.L2,
             db_name="test_db"
         )
-        
+
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
 

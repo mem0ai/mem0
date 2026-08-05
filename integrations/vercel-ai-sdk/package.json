@@ -1,6 +1,6 @@
 {
   "name": "@mem0/vercel-ai-provider",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Vercel AI Provider for providing memory to LLMs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -80,13 +80,16 @@
     ],
     "overrides": {
       "glob@>=10.2.0 <10.5.0": "^10.5.0",
-      "js-yaml@<=4.1.1": ">=4.2.0",
       "minimatch@<3.1.3": "^3.1.3",
       "minimatch@>=5.0.0 <5.1.8": "^5.1.8",
       "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
       "picomatch@<2.3.2": "^2.3.2",
       "rollup@>=4.0.0 <4.59.0": "^4.59.0",
-      "esbuild": ">=0.28.1"
+      "esbuild": ">=0.28.1",
+      "brace-expansion@<1.1.16": ">=1.1.16 <2.0.0",
+      "brace-expansion@>=3.0.0 <5.0.8": ">=5.0.8 <6.0.0",
+      "js-yaml@<3.15.0": ">=3.15.0 <4.0.0",
+      "js-yaml@>=4.0.0 <4.3.0": ">=4.3.0 <5.0.0"
     }
   }
 }
