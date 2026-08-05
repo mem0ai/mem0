@@ -165,3 +165,23 @@ def test_error_handling(vector_store, mock_vertex_ai):
 
     assert isinstance(exc_info.value, exceptions.InvalidArgument)
     assert "Invalid request" in str(exc_info.value)
+
+
+def test_vertex_module_does_not_call_basic_config(monkeypatch):
+    """Importing the Vertex AI vector store must not force DEBUG on the root logger.
+
+    Regression for https://github.com/mem0ai/mem0/issues/6384.
+    """
+    import importlib
+    import logging
+    import mem0.vector_stores.vertex_ai_vector_search as vertex_mod
+
+    called = []
+
+    def _spy(*args, **kwargs):
+        called.append((args, kwargs))
+
+    monkeypatch.setattr(logging, "basicConfig", _spy)
+    importlib.reload(vertex_mod)
+    assert called == [], f"expected no basicConfig calls, got {called}"
+    assert isinstance(vertex_mod.logger, logging.Logger)

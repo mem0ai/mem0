@@ -427,3 +427,24 @@ def test_search_allows_scalar_filter_values(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": "alice", "count": 5})
+
+
+def test_mongodb_module_does_not_call_basic_config(monkeypatch):
+    """Importing the MongoDB vector store must not reconfigure the root logger.
+
+    Regression for https://github.com/mem0ai/mem0/issues/6384 — library code
+    calling logging.basicConfig() hijacks host application logging.
+    """
+    import importlib
+    import logging
+    import mem0.vector_stores.mongodb as mongodb_mod
+
+    called = []
+
+    def _spy(*args, **kwargs):
+        called.append((args, kwargs))
+
+    monkeypatch.setattr(logging, "basicConfig", _spy)
+    importlib.reload(mongodb_mod)
+    assert called == [], f"expected no basicConfig calls, got {called}"
+    assert isinstance(mongodb_mod.logger, logging.Logger)

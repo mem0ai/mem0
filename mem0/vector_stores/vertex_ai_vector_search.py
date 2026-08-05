@@ -21,7 +21,6 @@ from mem0.configs.vector_stores.vertex_ai_vector_search import (
 )
 from mem0.vector_stores.base import VectorStoreBase
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 
