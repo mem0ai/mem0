@@ -248,7 +248,7 @@ class OpenSearchDB(VectorStoreBase):
             return results
         except Exception as e:
             logger.error(f"Error during search: {e}", exc_info=True)
-            return []
+            raise
 
     def keyword_search(self, query, top_k=5, filters=None):
         """Search for memories using BM25 keyword matching.
@@ -293,8 +293,12 @@ class OpenSearchDB(VectorStoreBase):
             ]
             return results
         except Exception as e:
-            logger.error(f"Error during keyword search: {e}")
-            return []
+            # Do NOT re-raise here: keyword_search() is a best-effort helper that
+            # search() may call to augment semantic results. Raising would crash
+            # the whole search() call on a keyword-only failure (regression per
+            # maintainer review on #6519). Log with exc_info and degrade to None.
+            logger.error(f"Error during keyword search: {e}", exc_info=True)
+            return None
 
     def delete(self, vector_id: str) -> None:
         """Delete a vector by custom ID."""

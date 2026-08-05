@@ -19,7 +19,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-openai-api-key"
         }
     }
@@ -33,7 +33,7 @@ m = Memory.from_config(config)
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `provider` | str | `"openai"` | LLM provider (openai, anthropic, etc.) |
-| `model` | str | `"gpt-4o-mini"` | LLM model to use for reranking |
+| `model` | str | `"gpt-5-mini"` | LLM model to use for reranking |
 | `api_key` | str | None | API key for the LLM provider |
 | `top_k` | int | None | Number of top documents to return after reranking |
 | `temperature` | float | 0.0 | LLM temperature for consistency |
@@ -69,7 +69,7 @@ config = {
 
 ## TypeScript (self-hosted)
 
-The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the LLM reranker under the provider name `llm_reranker`. It does **not** reuse the Memory's main `llm` instance; it builds its own LLM from the reranker's own config, defaulting to `openai` / `gpt-4o-mini`. Set `provider`/`model`/`apiKey` directly on `config`, or nest a fully separate `config.llm: { provider, config }` (its `provider`/`config` take priority over the top-level fields, which only backfill values missing from the nested config).
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the LLM reranker under the provider name `llm_reranker`. It does **not** reuse the Memory's main `llm` instance; it builds its own LLM from the reranker's own config, defaulting to `openai` / `gpt-5-mini`. Set `provider`/`model`/`apiKey` directly on `config`, or nest a fully separate `config.llm: { provider, config }` (its `provider`/`config` take priority over the top-level fields, which only backfill values missing from the nested config).
 
 ```typescript
 import { Memory } from "mem0ai/oss";
@@ -114,7 +114,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-openai-api-key",
             "temperature": 0.0
         }
@@ -170,15 +170,15 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "azure_openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-azure-api-key",
             "llm": {
                 "provider": "azure_openai",
                 "config": {
-                    "model": "gpt-4o-mini",
+                    "model": "gpt-5-mini",
                     "api_key": "your-azure-api-key",
                     "azure_endpoint": "https://your-resource.openai.azure.com/",
-                    "azure_deployment": "gpt-4o-mini-deployment"
+                    "azure_deployment": "gpt-5-mini-deployment"
                 }
             }
         }
@@ -232,7 +232,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-api-key",
             "scoring_prompt": custom_prompt
         }
@@ -351,7 +351,7 @@ fast_config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-api-key",
             "top_k": 5,
             "temperature": 0.0
@@ -444,7 +444,7 @@ fallback_config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-api-key"
         }
     }

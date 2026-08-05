@@ -106,7 +106,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
-          pip install ruff
+          pip install ruff==0.16.0
       - name: Run Linting
         if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make lint

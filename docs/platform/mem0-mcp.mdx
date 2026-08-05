@@ -8,18 +8,20 @@ estimatedTime: "~2 minutes"
 <Info>
   **Prerequisites**
   - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Sign up here</a>)
-  - API key (<a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Get one from dashboard</a>)
-  - Node.js 14+ (for npx)
+  - API key (<a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Get one from dashboard</a>)
+  - Node.js 18+ (for npx)
   - An MCP-compatible client (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode)
 </Info>
 
 ## What is Mem0 MCP?
 
-Mem0 MCP Server exposes Mem0's memory capabilities as MCP tools, letting AI agents decide when to save, search, or update information. The cloud-hosted MCP server requires no local installation: just connect and start using memory.
+MCP (Model Context Protocol) is a standard way for AI clients to call external tools. The Mem0 MCP server hands your agent a set of memory tools, so it can decide for itself when to save something, look something up, or update what it already knows. Nothing runs on your machine: the server is hosted by Mem0, and your client connects to it over HTTPS.
 
-## Quick Setup
+Memories you store this way live in your Mem0 account, not on your computer.
 
-Add Mem0 MCP to your preferred clients with a single command:
+## Quick setup
+
+Point your clients at the hosted server with a single command:
 
 ```bash
 npx mcp-add \
@@ -29,9 +31,31 @@ npx mcp-add \
   --clients "claude,claude code,cursor,windsurf,vscode,opencode"
 ```
 
-This automatically configures Mem0 MCP for all supported clients at once.
+`mcp-add` is a helper that writes the Mem0 server into each client's own MCP config file, so you do not have to edit them by hand. Name only the clients you actually use. If you would rather see the change yourself, every client's manual config is under [Client-specific setup](#client-specific-setup).
 
-## Available Tools
+Restart each client afterwards so it picks up the new server.
+
+## Signing in
+
+The server is authenticated, so connecting is not enough on its own. There are two ways in:
+
+<Tabs>
+  <Tab title="Sign in through the client">
+    Most clients handle this for you. The first time your agent uses a Mem0 tool, the client opens a browser window asking you to authorize access to your Mem0 account. Approve it once and the client stores the token, refreshing it as needed.
+
+    This is the easier path, and it is what happens by default if you followed the quick setup above.
+  </Tab>
+
+  <Tab title="Use your API key">
+    For clients without browser sign-in, or for headless environments like CI, send your API key as a bearer token instead. Where you put it depends on the client; see [Client-specific setup](#client-specific-setup) for the exact syntax.
+
+    Get a key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 dashboard</a>, and keep it out of any file you commit.
+  </Tab>
+</Tabs>
+
+If neither is set up, the server replies `401 Authentication required` and your client reports the connection as failed.
+
+## Available tools
 
 The MCP server exposes these memory tools to your AI client:
 
@@ -41,7 +65,7 @@ The MCP server exposes these memory tools to your AI client:
 | `search_memories` | Semantic search across existing memories with filters |
 | `get_memories` | List memories with structured filters and pagination |
 | `get_memory` | Retrieve one memory by its `memory_id` |
-| `update_memory` | Overwrite a memory's text after confirming the ID |
+| `update_memory` | Overwrite a memory's text and/or metadata after confirming the ID |
 | `delete_memory` | Delete a single memory by `memory_id` |
 | `delete_all_memories` | Bulk delete all memories in scope |
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
@@ -51,7 +75,7 @@ The MCP server exposes these memory tools to your AI client:
 
 ---
 
-## Client-Specific Setup
+## Client-specific setup
 
 You can also configure individual clients:
 
@@ -170,43 +194,44 @@ You can also configure individual clients:
 
 ---
 
-## Verify Your Setup
+## Check that it worked
 
-Once configured, your AI client can:
-- Automatically save information with `add_memory`
-- Search memories with `search_memories`
-- Update memories with `update_memory`
-- Delete memories with `delete_memory`
-
-**Sample Interactions:**
+Restart your client, then ask it to store something and read it back in a later message:
 
 ```
-User: Remember that I love tiramisu
-Agent: Got it! I've saved that you love tiramisu.
+You:   Remember that I prefer TypeScript over JavaScript for new projects.
+Agent: Saved.
 
-User: What do you know about my food preferences?
-Agent: Based on your memories, you love tiramisu.
-
-User: Update my project: the mobile app is now 80% complete
-Agent: Updated your project status successfully.
+You:   What language do I prefer for new projects?
+Agent: You prefer TypeScript over JavaScript.
 ```
 
-<Info icon="check">
-  If you get "Connection failed", ensure you have a valid API key from <a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 Dashboard</a>.
-</Info>
+The second answer only works if the memory was really stored, so this is a genuine round-trip test rather than the model repeating itself.
+
+Two things to look for while you do it:
+
+- Your client should show the Mem0 tools among its available tools. Most clients list them in a tools or MCP panel.
+- The first tool call should trigger the browser sign-in described above, unless you configured an API key.
+
+To confirm from outside the client, open the <a href="https://app.mem0.ai/dashboard?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 dashboard</a>: anything the agent saved appears there.
 
 ---
 
-## Quick Recovery
+## Troubleshooting
 
-- **"Connection refused"** → Check your internet connection and ensure the MCP client is correctly configured
-- **"Invalid API key"** → Get a new key from <a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 Dashboard</a>
-- **"npx command not found"** → Install Node.js from [nodejs.org](https://nodejs.org)
+| What you see | What it means | What to do |
+|---|---|---|
+| `401` or "Authentication required" | The client connected but is not signed in | Complete the browser sign-in, or set your API key as a bearer token |
+| "Connection refused" or "failed to connect" | The client cannot reach the server | Check your internet connection, then confirm the URL is exactly `https://mcp.mem0.ai/mcp` |
+| The agent has no Mem0 tools | The config was written but the client has not reloaded it | Restart the client. If the tools are still missing, check that `mcp-add` wrote to the config file your client actually reads |
+| `npx: command not found` | Node.js is not installed | Install it from [nodejs.org](https://nodejs.org) |
+| "Invalid API key" | The key is wrong, revoked, or from a different account | Get a new one from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 dashboard</a> |
 
 ---
 
 ## Next steps
 
-- [Platform Quickstart](/platform/quickstart) - direct SDK/API integration guide
-- [MCP Specification](https://modelcontextprotocol.io) - the Model Context Protocol standard
-- [Gemini with Mem0 MCP](/cookbooks/frameworks/gemini-3-with-mem0-mcp) - example integration cookbook
+- [Platform quickstart](/platform/quickstart): call Mem0 from your own code instead of through an agent
+- [Mem0 CLI](/platform/cli): the same operations from your terminal
+- [MCP specification](https://modelcontextprotocol.io): the Model Context Protocol standard
+- [Gemini with Mem0 MCP](/cookbooks/frameworks/gemini-3-with-mem0-mcp): a worked example

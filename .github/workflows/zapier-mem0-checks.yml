@@ -1,0 +1,47 @@
+name: zapier-mem0 checks
+
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
+#
+# CI compiles the TypeScript app, runs `zapier validate` (offline schema + style
+# checks) against the build, plus the offline jest unit suite (test/unit.test.ts —
+# mocked z.request, no network). The end-to-end jest suite is skipped here because
+# it hits the live Mem0 API — it runs locally with MEM0_API_KEY set (see README).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/zapier-mem0/**'
+      - '.github/workflows/zapier-mem0-checks.yml'
+  workflow_call:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: integrations/zapier-mem0/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: cd integrations/zapier-mem0 && pnpm install --frozen-lockfile
+
+      - name: Build TypeScript
+        run: cd integrations/zapier-mem0 && pnpm build
+
+      - name: Validate Zapier app definition
+        run: cd integrations/zapier-mem0 && npx zapier-platform-cli@19 validate
+
+      - name: Run offline unit tests
+        run: cd integrations/zapier-mem0 && pnpm test:unit
