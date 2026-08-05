@@ -91,7 +91,7 @@ class TestProjectUpdateAgentCustomInstructions:
         assert _patch_payload(http) == {"agent_custom_instructions": "remember tool failures"}
 
     def test_agent_custom_instructions_alone_satisfies_the_guard(self, project):
-        """It is a standalone field — setting only it must not raise."""
+        """It is a standalone field, so setting only it must not raise."""
         proj, http = project
         proj.update(agent_custom_instructions="remember tool failures")
         assert http.patch.called
@@ -103,7 +103,7 @@ class TestProjectUpdateAgentCustomInstructions:
         assert _patch_payload(http) == {"agent_custom_instructions": ""}
 
     def test_combined_with_custom_instructions(self, project):
-        """Both sets in one PATCH — the split-instruction configuration."""
+        """Both sets in one PATCH: the split-instruction configuration."""
         proj, http = project
         proj.update(
             custom_instructions="remember user preferences",
