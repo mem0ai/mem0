@@ -1,6 +1,6 @@
-# Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode & Antigravity
+# Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode, Antigravity & Kimi Code
 
-Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, and **Antigravity**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, **Antigravity**, and **Kimi Code**.
 
 ## Quick path for agents
 
@@ -173,6 +173,45 @@ npx degit mem0ai/mem0/integrations/mem0-plugin ~/.gemini/config/plugins/mem0
 This installs the MCP server, lifecycle hooks, and shared scripts.
 
 See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
+
+### Kimi Code
+
+**Option A — install from GitHub** (recommended):
+
+```bash
+# In Kimi Code
+/plugins install https://github.com/mem0ai/mem0
+/plugins reload
+```
+
+**Option B — install from a local clone:**
+
+```bash
+git clone https://github.com/mem0ai/mem0.git
+# In Kimi Code
+/plugins install ./mem0/integrations/mem0-plugin
+/plugins reload
+```
+
+Set `MEM0_API_KEY` in your shell before installing — the manifest wires it through
+`bearerTokenEnvVar`, so no manual MCP configuration is needed.
+
+The plugin registers the Mem0 MCP server plus all 16 skills. `context-loader` is
+declared under `sessionStart`, so relevant memories load automatically at the start
+of every session without an explicit prompt.
+
+> **Why there are two manifests.** Kimi resolves a plugin's root from the install source,
+> and has no way to point at a subdirectory of a GitHub repo — `/plugins marketplace` takes
+> a direct URL to a hosted JSON catalog rather than scanning a repo, and a GitHub install
+> looks for the manifest at the archive root only. So Option A needs
+> `.kimi-plugin/plugin.json` at the repo root (its `skills` points back into
+> `integrations/mem0-plugin/skills/`), while Option B uses
+> `integrations/mem0-plugin/.kimi-plugin/plugin.json` alongside the other hosts. The two
+> files are identical apart from that one path — keep them in sync when bumping `version`.
+
+> Lifecycle hooks are not wired for Kimi Code yet. Kimi declares `hooks` as an array
+> rather than the event-keyed object the other hosts use; auto-capture will land once
+> that mapping is confirmed.
 
 ## Post-Installation: Run `/mem0:onboard`
 

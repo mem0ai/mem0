@@ -1,0 +1,31 @@
+{
+  "name": "mem0",
+  "version": "0.2.13",
+  "description": "Persistent memory for Kimi Code. Remembers decisions, patterns, and preferences across sessions.",
+  "author": {
+    "name": "Mem0",
+    "email": "support@mem0.ai"
+  },
+  "homepage": "https://mem0.ai",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "personalization", "mcp", "semantic-search"],
+  "skills": "./skills/",
+  "sessionStart": {
+    "skill": "context-loader"
+  },
+  "mcpServers": {
+    "mem0": {
+      "transport": "http",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "bearerTokenEnvVar": "MEM0_API_KEY"
+    }
+  },
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Persistent memory layer for AI coding workflows",
+    "longDescription": "Mem0 adds long-term memory to Kimi Code. Store decisions, user preferences, project context, and session state across conversations. Memories are automatically retrieved via semantic search so Kimi always has the right context.",
+    "developerName": "Mem0",
+    "websiteURL": "https://mem0.ai"
+  }
+}
