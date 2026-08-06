@@ -45,7 +45,12 @@ OWNER_MARKER = "mem0-plugin"
 
 def load_template() -> dict:
     raw = TEMPLATE_FILE.read_text()
-    raw = raw.replace("${PLUGIN_ROOT}", str(PLUGIN_ROOT))
+    # Substitution happens in the raw JSON text, so the path has to be escaped as
+    # a JSON string body first. A Windows PLUGIN_ROOT (C:\Users\...) is otherwise
+    # spliced in with bare backslashes and json.loads dies on "Invalid \escape".
+    # json.dumps()[1:-1] is the escaped body without the surrounding quotes; on
+    # POSIX paths it is a no-op.
+    raw = raw.replace("${PLUGIN_ROOT}", json.dumps(str(PLUGIN_ROOT))[1:-1])
     return json.loads(raw)
 
 
@@ -127,10 +132,10 @@ def main() -> int:
         print(f"Removed Mem0 hooks from {HOOKS_FILE}")
         return 0
 
-    # Hook commands are wrapped in `bash -c "..."` (see hooks/codex-hooks.json)
-    # so they run the same way under cmd/PowerShell as under a POSIX shell.
-    # That still requires a bash interpreter to be resolvable on PATH — Git
-    # Bash or WSL on Windows. See #5243, #6181.
+    # On Windows, Codex prefers the `command_windows` field and runs it via cmd;
+    # ours invokes `bash -c "..."` so cmd never has to parse POSIX syntax (see
+    # hooks/codex-hooks.json). The hook scripts are still bash, so a bash
+    # interpreter must be resolvable on PATH — Git Bash or WSL. See #5243, #6181.
     if shutil.which("bash") is None:
         print(
             "No `bash` interpreter found on PATH. Mem0's Codex lifecycle hooks\n"
