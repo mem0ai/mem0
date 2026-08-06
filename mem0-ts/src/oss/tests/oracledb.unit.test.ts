@@ -2,10 +2,13 @@
 /** Oracle AI Vector Search filter, config and SQL tests. The driver is mocked, so no database is needed. */
 const DB_TYPE_VECTOR = { name: "DB_TYPE_VECTOR" };
 const DB_TYPE_JSON = { name: "DB_TYPE_JSON" };
+const DB_TYPE_VARCHAR = { name: "DB_TYPE_VARCHAR" };
 
-jest.mock("oracledb", () => ({ thin: true, DB_TYPE_VECTOR, DB_TYPE_JSON }), {
-  virtual: true,
-});
+jest.mock(
+  "oracledb",
+  () => ({ thin: true, DB_TYPE_VECTOR, DB_TYPE_JSON, DB_TYPE_VARCHAR }),
+  { virtual: true },
+);
 
 import {
   OracleAIVectorSearch,
@@ -13,7 +16,7 @@ import {
   quoteIdentifier,
 } from "../src/vector_stores/oracledb";
 
-type Call = { sql: string; binds: any };
+type Call = { sql: string; binds: any; options?: any };
 
 function fakeConnection(calls: Call[], resultsBySql: Array<any[][]>) {
   let selectIndex = 0;
@@ -24,6 +27,10 @@ function fakeConnection(calls: Call[], resultsBySql: Array<any[][]>) {
       if (/^\s*SELECT/i.test(sql)) {
         return { rows: resultsBySql[selectIndex++] ?? [] };
       }
+      return { rows: [] };
+    },
+    async executeMany(sql: string, binds: any[], options: any = {}) {
+      calls.push({ sql: sql.replace(/\s+/g, " ").trim(), binds, options });
       return { rows: [] };
     },
     async commit() {},
@@ -249,13 +256,45 @@ describe("OracleAIVectorSearch SQL", () => {
     await makeStore(calls).insert([[1, 2, 3]], ["id-1"], [{ data: "hello" }]);
 
     const insert = calls.find((c) => c.sql.startsWith("INSERT INTO"))!;
-    expect(insert.binds.id).toBe("id-1");
-    expect(insert.binds.vector.type).toBe(DB_TYPE_VECTOR);
-    expect(insert.binds.vector.val).toEqual(new Float32Array([1, 2, 3]));
-    expect(insert.binds.payload).toEqual({
-      type: DB_TYPE_JSON,
-      val: { data: "hello" },
+    expect(insert.binds).toEqual([
+      {
+        id: "id-1",
+        vector: new Float32Array([1, 2, 3]),
+        payload: { data: "hello" },
+      },
+    ]);
+    expect(insert.options.bindDefs.id).toEqual({
+      type: DB_TYPE_VARCHAR,
+      maxSize: 36,
     });
+    expect(insert.options.bindDefs.vector.type).toBe(DB_TYPE_VECTOR);
+    expect(insert.options.bindDefs.payload.type).toBe(DB_TYPE_JSON);
+  });
+
+  it("issues a single executeMany call with one bind row per vector on a multi-row insert", async () => {
+    const calls: Call[] = [];
+    await makeStore(calls).insert(
+      [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
+      ["id-1", "id-2"],
+      [{ a: 1 }, { b: 2 }],
+    );
+
+    const inserts = calls.filter((c) => c.sql.startsWith("INSERT INTO"));
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].binds).toHaveLength(2);
+    expect(inserts[0].binds[0].id).toBe("id-1");
+    expect(inserts[0].binds[1].id).toBe("id-2");
+  });
+
+  it("issues no insert statement when inserting an empty batch", async () => {
+    const calls: Call[] = [];
+    await makeStore(calls).insert([], [], []);
+    expect(calls.filter((c) => c.sql.startsWith("INSERT INTO"))).toHaveLength(
+      0,
+    );
   });
 
   it("converts cosine distance to a similarity score", async () => {
@@ -266,7 +305,7 @@ describe("OracleAIVectorSearch SQL", () => {
     expect(results).toEqual([
       { id: "id-1", payload: { data: "hello" }, score: 0.75 },
     ]);
-    const select = calls.find((c) => c.sql.startsWith("SELECT id, payload,"))!;
+    const select = calls.find((c) => c.sql.includes("VECTOR_DISTANCE"))!;
     expect(select.sql).toContain(
       "VECTOR_DISTANCE(vector, :query_vec, COSINE) distance",
     );
@@ -280,6 +319,24 @@ describe("OracleAIVectorSearch SQL", () => {
     });
     const [result] = await store.search([1, 2, 3]);
     expect(result.score).toBeCloseTo(0.4);
+  });
+
+  it("adds the VECTOR_INDEX_TRANSFORM hint when searching without filters", async () => {
+    const calls: Call[] = [];
+    const store = makeStore(calls, [[["id-1", {}, 0.1]]]);
+    await store.search([1, 2, 3], 5);
+
+    const select = calls.find((c) => c.sql.includes("VECTOR_DISTANCE"))!;
+    expect(select.sql).toContain('/*+ VECTOR_INDEX_TRANSFORM("mem0") */');
+  });
+
+  it("omits the VECTOR_INDEX_TRANSFORM hint when searching with filters", async () => {
+    const calls: Call[] = [];
+    const store = makeStore(calls, [[["id-1", {}, 0.1]]]);
+    await store.search([1, 2, 3], 5, { user_id: "alice" });
+
+    const select = calls.find((c) => c.sql.includes("VECTOR_DISTANCE"))!;
+    expect(select.sql).not.toContain("VECTOR_INDEX_TRANSFORM");
   });
 
   it("parses a payload returned as a JSON string", async () => {
@@ -313,16 +370,26 @@ describe("OracleAIVectorSearch SQL", () => {
 
   it("returns rows and the total count from list", async () => {
     const calls: Call[] = [];
-    const store = makeStore(calls, [[["id-1", { data: "hello" }]], [[7]]]);
+    const store = makeStore(calls, [[["id-1", { data: "hello" }, 7]]]);
     const [results, count] = await store.list({ user_id: "alice" }, 10);
 
     expect(results).toEqual([{ id: "id-1", payload: { data: "hello" } }]);
     expect(count).toBe(7);
 
-    const list = calls.find((c) =>
-      c.sql.startsWith("SELECT id, payload FROM"),
-    )!;
+    const selects = calls.filter((c) => /^SELECT/i.test(c.sql));
+    expect(selects).toHaveLength(1);
+    const [list] = selects;
+    expect(list.sql).toContain(
+      "SELECT id, payload, COUNT(*) OVER () total FROM",
+    );
     expect(list.sql).toContain("WHERE JSON_EXISTS(payload,");
     expect(list.binds).toEqual({ f_0: "alice", max_rows: 10 });
+  });
+
+  it("returns a total of 0 from list when no rows match", async () => {
+    const store = makeStore([], [[]]);
+    const [results, count] = await store.list();
+    expect(results).toEqual([]);
+    expect(count).toBe(0);
   });
 });
