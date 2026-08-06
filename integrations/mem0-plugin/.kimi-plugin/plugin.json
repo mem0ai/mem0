@@ -14,6 +14,59 @@
   "sessionStart": {
     "skill": "context-loader"
   },
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "matcher": "^(startup|resume)$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_session_start.sh",
+      "timeout": 30
+    },
+    {
+      "event": "UserPromptSubmit",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_user_prompt.sh",
+      "timeout": 12
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^(Write|Edit|MultiEdit)$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" block_memory_write.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^mcp__.*mem0.*__(add_memory|search_memories|get_memories|delete_all_memories)$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" enforce_metadata_defaults.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^Read$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_file_read.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "^mcp__.*mem0.*__",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_post_tool_use.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "^Bash$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_bash_output.sh",
+      "timeout": 12
+    },
+    {
+      "event": "Stop",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_stop.sh",
+      "timeout": 30
+    },
+    {
+      "event": "PreCompact",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_pre_compact.sh",
+      "timeout": 30
+    }
+  ],
   "mcpServers": {
     "mem0": {
       "transport": "http",

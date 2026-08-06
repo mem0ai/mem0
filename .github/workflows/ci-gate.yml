@@ -77,6 +77,10 @@ jobs:
             mem0_plugin:
               - 'integrations/mem0-plugin/**'
               - '!integrations/mem0-plugin/.opencode-plugin/**'
+              # Kimi's repo-root manifest + catalog. Kimi can only read a
+              # manifest at the archive root, so it needs a second copy there;
+              # tests/test_kimi_manifests.py guards the two against drifting.
+              - '.kimi-plugin/**'
               - '.github/workflows/mem0-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:

@@ -180,11 +180,26 @@ See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity
 
 ```bash
 # In Kimi Code
-/plugins install https://github.com/mem0ai/mem0
+/plugins install https://github.com/mem0ai/mem0/tree/main
 /plugins reload
 ```
 
-**Option B — install from a local clone:**
+> **Pin the ref.** A bare `https://github.com/mem0ai/mem0` makes Kimi resolve
+> `releases/latest` first, and this repo's latest release tag belongs to an SDK or
+> integration package, not the plugin — the install would fetch a stale tarball with no
+> Kimi manifest in it.
+
+**Option B — install from the marketplace catalog:**
+
+```bash
+# In Kimi Code
+/plugins marketplace https://raw.githubusercontent.com/mem0ai/mem0/main/.kimi-plugin/marketplace.json
+```
+
+Kimi's `/plugins marketplace` takes a direct URL to the catalog JSON — it does not clone
+or scan a repo — so point it at the raw file, then install **Mem0** from the picker.
+
+**Option C — install from a local clone:**
 
 ```bash
 git clone https://github.com/mem0ai/mem0.git
@@ -200,18 +215,48 @@ The plugin registers the Mem0 MCP server plus all 16 skills. `context-loader` is
 declared under `sessionStart`, so relevant memories load automatically at the start
 of every session without an explicit prompt.
 
-> **Why there are two manifests.** Kimi resolves a plugin's root from the install source,
-> and has no way to point at a subdirectory of a GitHub repo — `/plugins marketplace` takes
-> a direct URL to a hosted JSON catalog rather than scanning a repo, and a GitHub install
-> looks for the manifest at the archive root only. So Option A needs
-> `.kimi-plugin/plugin.json` at the repo root (its `skills` points back into
-> `integrations/mem0-plugin/skills/`), while Option B uses
-> `integrations/mem0-plugin/.kimi-plugin/plugin.json` alongside the other hosts. The two
-> files are identical apart from that one path — keep them in sync when bumping `version`.
+> **Why there are two manifests.** Kimi resolves a plugin's root from the install source
+> and has no subdirectory indirection anywhere in the chain: a GitHub install downloads the
+> repo archive and looks for the manifest at its root only, the GitHub source parser has no
+> subpath support, and `/plugins marketplace` takes a URL to a catalog file rather than
+> scanning a repo. So Options A and B need `.kimi-plugin/plugin.json` at the **repo root**
+> (its `skills` points back into `integrations/mem0-plugin/skills/`), while Option C uses
+> `integrations/mem0-plugin/.kimi-plugin/plugin.json` alongside the other hosts. A symlink
+> cannot collapse the two: Kimi extracts archives with yauzl, which writes a symlink entry
+> out as a regular file. The two files are identical apart from that one `skills` path and
+> the `$KIMI_PLUGIN_ROOT`-relative script prefix inside `hooks`, and
+> `tests/test_kimi_manifests.py` fails the build if anything else drifts — so bump `version`
+> in both.
 
-> Lifecycle hooks are not wired for Kimi Code yet. Kimi declares `hooks` as an array
-> rather than the event-keyed object the other hosts use; auto-capture will land once
-> that mapping is confirmed.
+> **MCP is inlined, not referenced.** Cursor and Codex point `mcpServers` at
+> `.cursor-mcp.json` / `.codex-mcp.json`; Kimi's manifest parser requires `mcpServers` to be
+> an object and silently drops a path string, so the server is declared inline in both Kimi
+> manifests. Kimi also passes `headers` through verbatim with no `${VAR}` expansion, hence
+> `bearerTokenEnvVar` instead of an `Authorization` header.
+
+> **Hooks go through an adapter, not a forked script set.** Kimi's `hooks` must be an
+> inline array in the manifest (a path to a hooks file is silently dropped), so both Kimi
+> manifests carry the same nine entries that `hooks/codex-hooks.json` carries. Every entry
+> invokes `scripts/kimi_hook_shim.sh <script.sh>` rather than the script directly, because
+> Kimi's contract differs from Claude's in four ways: it runs hook commands with `cwd` set
+> to the **plugin** root (the project directory arrives only in the payload's `cwd` field);
+> it sends `prompt` as a `ContentPart[]` array, `tool_output` instead of `tool_response`,
+> and `tool_input.path` instead of `tool_input.file_path`; it names plugin MCP tools
+> `mcp__plugin-mem0_mem0__*` with a hyphen; and its stdout parser understands only
+> `message`, `hookSpecificOutput.message`, `hookSpecificOutput.permissionDecision` and
+> `permissionDecisionReason` — `additionalContext` and `updatedInput` are ignored. The
+> adapter chdirs into the payload `cwd`, normalises the payload into the Claude shape, and
+> unwraps `additionalContext` into plain stdout, which Kimi appends to context on
+> `UserPromptSubmit`. Exit codes are unchanged (0 allow, 2 block with stderr as the reason).
+
+> **Two Kimi gaps the adapter cannot close.** Kimi sends no `transcript_path` and has no
+> Claude-format transcript, so `on_stop.sh`, `on_pre_compact.sh` and the `auto_capture`
+> path exit early — session-summary capture is inert until a Kimi transcript reader exists.
+> And because Kimi ignores `hookSpecificOutput.updatedInput`, `enforce_metadata_defaults.sh`
+> cannot rewrite MCP tool arguments; it still runs for its session-stats side effects, and
+> identity defaults must come from the `mem0` skills instead. Session-start recall is
+> unaffected — it is handled natively by `sessionStart.skill`, since Kimi discards
+> `SessionStart` hook stdout.
 
 ## Post-Installation: Run `/mem0:onboard`
 

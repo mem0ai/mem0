@@ -5,6 +5,12 @@ name: Mem0 Plugin Checks
 #
 # Covers the Python plugin (scripts/ + tests/). The nested .opencode-plugin/
 # is a separate package with its own workflow (opencode-plugin-checks.yml).
+#
+# The repo-root .kimi-plugin/ is in scope too: it holds Kimi's second copy of
+# the plugin manifest (Kimi reads a manifest at the downloaded archive's root
+# only, so a subdirectory manifest is unreachable for GitHub installs) plus its
+# marketplace catalog. tests/test_kimi_manifests.py guards both against
+# drifting from integrations/mem0-plugin/.kimi-plugin/.
 on:
   workflow_dispatch:
   push:
@@ -12,6 +18,7 @@ on:
     paths:
       - 'integrations/mem0-plugin/**'
       - '!integrations/mem0-plugin/.opencode-plugin/**'
+      - '.kimi-plugin/**'
       - '.github/workflows/mem0-plugin-checks.yml'
   workflow_call:
 
@@ -46,11 +53,29 @@ jobs:
             exit 1
           fi
 
-      - name: Check hook manifests are valid JSON
-        working-directory: integrations/mem0-plugin
+      # Every per-host manifest and catalog, wherever it lives: the plugin dir
+      # (.{host}-plugin/plugin.json, .{host}-mcp.json) and the repo root
+      # (.{host}-plugin/*.json, .agents/plugins/, marketplace.json).
+      - name: Check plugin, MCP and hook manifests are valid JSON
         run: |
-          for f in plugin.json mcp_config.json hooks.json hooks/*.json; do
-            jq empty "$f" || (echo "Invalid JSON: $f" && exit 1)
+          set -euo pipefail
+          find \
+            integrations/mem0-plugin/plugin.json \
+            integrations/mem0-plugin/mcp_config.json \
+            integrations/mem0-plugin/hooks.json \
+            integrations/mem0-plugin/hooks \
+            integrations/mem0-plugin/.claude-plugin \
+            integrations/mem0-plugin/.codex-plugin \
+            integrations/mem0-plugin/.cursor-plugin \
+            integrations/mem0-plugin/.kimi-plugin \
+            integrations/mem0-plugin/.codex-mcp.json \
+            integrations/mem0-plugin/.cursor-mcp.json \
+            integrations/mem0-plugin/.mcp.json \
+            .claude-plugin .codex-plugin .cursor-plugin .kimi-plugin \
+            .agents/plugins marketplace.json \
+            -name '*.json' -type f -print0 |
+          while IFS= read -r -d '' f; do
+            jq empty "$f" || { echo "Invalid JSON: $f"; exit 1; }
           done
 
       - name: Run tests
