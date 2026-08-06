@@ -48,6 +48,7 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
+from mem0.memory.redaction import redact_secrets
 from mem0.memory.setup import _ensure_dir, mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
@@ -249,6 +250,11 @@ def _validate_and_trim_search_query(query: str) -> str:
     if not trimmed:
         raise ValueError("Invalid query: cannot be empty or whitespace-only.")
     return trimmed
+
+
+def _identity(value):
+    """No-op stand-in for redact_secrets when redaction is turned off."""
+    return value
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -1692,6 +1698,10 @@ class Memory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        # Recall boundary: search() results are what the proxy splices into the next
+        # model turn, so secret-shaped strings are stripped here unless opted out.
+        redact = redact_secrets if self.config.redact_recalled_secrets else _identity
+
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
@@ -1701,7 +1711,7 @@ class Memory(MemoryBase):
 
             memory_item_dict = MemoryItem(
                 id=scored["id"],
-                memory=payload.get("data", ""),
+                memory=redact(payload.get("data", "")),
                 hash=payload.get("hash"),
                 created_at=payload.get("created_at"),
                 updated_at=payload.get("updated_at"),
@@ -3346,6 +3356,10 @@ class AsyncMemory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        # Recall boundary: search() results are what the proxy splices into the next
+        # model turn, so secret-shaped strings are stripped here unless opted out.
+        redact = redact_secrets if self.config.redact_recalled_secrets else _identity
+
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
@@ -3354,7 +3368,7 @@ class AsyncMemory(MemoryBase):
 
             memory_item_dict = MemoryItem(
                 id=scored["id"],
-                memory=payload.get("data", ""),
+                memory=redact(payload.get("data", "")),
                 hash=payload.get("hash"),
                 created_at=payload.get("created_at"),
                 updated_at=payload.get("updated_at"),

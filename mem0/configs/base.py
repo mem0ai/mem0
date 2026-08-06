@@ -55,6 +55,15 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    redact_recalled_secrets: bool = Field(
+        description=(
+            "Redact secret-shaped strings (API keys, JWTs, PEM private keys, credentialed "
+            "URIs) from memory text returned by search(). On by default: an unredacted "
+            "secret silently re-enters model context, while an over-eager redaction is "
+            "visible and fixed by turning this off. Set False to recall text verbatim."
+        ),
+        default=True,
+    )
 
 
 class AzureConfig(BaseModel):
