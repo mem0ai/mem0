@@ -1,4 +1,4 @@
-import type { Connection, Pool } from "oracledb";
+import type { BindParameters, Connection, Pool } from "oracledb";
 import { v4 as uuidv4 } from "uuid";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
@@ -567,17 +567,24 @@ export class OracleAIVectorSearch implements VectorStore {
   ): Promise<void> {
     await this.initialize();
 
+    if (vectors.length === 0) return;
+
     await this.withConnection(async (connection) => {
-      for (let i = 0; i < vectors.length; i++) {
-        await connection.execute(
-          `INSERT INTO ${this.collectionName} (id, vector, payload) VALUES (:id, :vector, :payload)`,
-          {
-            id: ids[i],
-            vector: this.vectorBind(vectors[i]),
-            payload: this.payloadBind(payloads[i] ?? {}),
+      await connection.executeMany(
+        `INSERT INTO ${this.collectionName} (id, vector, payload) VALUES (:id, :vector, :payload)`,
+        vectors.map((vector, i) => ({
+          id: ids[i],
+          vector: new Float32Array(vector),
+          payload: payloads[i] ?? {},
+        })) as BindParameters[],
+        {
+          bindDefs: {
+            id: { type: this.oracledb.DB_TYPE_VARCHAR, maxSize: 36 },
+            vector: { type: this.oracledb.DB_TYPE_VECTOR },
+            payload: { type: this.oracledb.DB_TYPE_JSON },
           },
-        );
-      }
+        },
+      );
     }, true);
   }
 
@@ -589,8 +596,12 @@ export class OracleAIVectorSearch implements VectorStore {
     await this.initialize();
 
     const [whereClause, filterBinds] = buildWhereClause(filters);
+    const hasFilter = whereClause.length > 0;
+    const selectClause = hasFilter
+      ? "SELECT"
+      : `SELECT /*+ VECTOR_INDEX_TRANSFORM(${this.collectionName}) */`;
     const sql =
-      `SELECT id, payload, VECTOR_DISTANCE(vector, :query_vec, ${this.distanceMetric}) distance ` +
+      `${selectClause} id, payload, VECTOR_DISTANCE(vector, :query_vec, ${this.distanceMetric}) distance ` +
       `FROM ${this.collectionName} ${whereClause} ORDER BY distance FETCH APPROX FIRST :max_rows ROWS ONLY`;
 
     const rows = await this.withConnection(async (connection) => {
@@ -687,20 +698,17 @@ export class OracleAIVectorSearch implements VectorStore {
 
     return this.withConnection(async (connection) => {
       const listResult = await connection.execute<any[]>(
-        `SELECT id, payload FROM ${this.collectionName} ${whereClause} FETCH FIRST :max_rows ROWS ONLY`,
+        `SELECT id, payload, COUNT(*) OVER () total FROM ${this.collectionName} ${whereClause} FETCH FIRST :max_rows ROWS ONLY`,
         { ...filterBinds, max_rows: topK },
       );
-      const countResult = await connection.execute<any[]>(
-        `SELECT COUNT(*) FROM ${this.collectionName} ${whereClause}`,
-        filterBinds,
-      );
 
-      const results = (listResult.rows ?? []).map((row) => ({
+      const rows = listResult.rows ?? [];
+      const results = rows.map((row) => ({
         id: row[0],
         payload: this.loadPayload(row[1]),
       }));
 
-      return [results, Number(countResult.rows?.[0]?.[0] ?? 0)];
+      return [results, Number(rows[0]?.[2] ?? 0)];
     });
   }
 
