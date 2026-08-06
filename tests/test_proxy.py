@@ -1,9 +1,15 @@
+import builtins
+import importlib
 import inspect
 import logging
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import Mock, create_autospec, patch
 
 import pytest
 
+import mem0.proxy.main as proxy_main
 from mem0 import Memory, MemoryClient
 from mem0.proxy.main import Chat, Completions, Mem0
 
@@ -233,3 +239,57 @@ def test_background_add_failure_is_logged_not_swallowed(run_threads_inline, capl
 
     assert "Failed to add conversation to memory" in caplog.text
     assert "vector store unreachable" in caplog.text
+
+
+# --- optional-dependency handling -------------------------------------------
+#
+# Regression tests: importing mem0.proxy.main used to shell out to
+# `pip install litellm` and, if that failed, call sys.exit(1) — so a library
+# import could mutate the environment or kill the host process instead of
+# raising a catchable ImportError.
+
+PROXY_SOURCE = Path(proxy_main.__file__).read_text(encoding="utf-8")
+
+
+def test_missing_litellm_raises_importerror_and_installs_nothing(monkeypatch):
+    """With litellm absent the import must fail the ordinary way: an ImportError
+    naming the extra, no subprocess, no SystemExit."""
+    pip_calls = []
+    for name in ("check_call", "run", "Popen", "call", "check_output"):
+        monkeypatch.setattr(subprocess, name, lambda *a, **k: pip_calls.append(a))
+
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name == "litellm" or name.startswith("litellm."):
+            raise ImportError("No module named 'litellm'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+    monkeypatch.delitem(sys.modules, "litellm", raising=False)
+
+    try:
+        with pytest.raises(ImportError) as excinfo:
+            importlib.reload(proxy_main)
+    finally:
+        # reload() leaves a partially-executed module behind on failure.
+        monkeypatch.undo()
+        importlib.reload(proxy_main)
+
+    message = str(excinfo.value)
+    assert "litellm" in message
+    assert "mem0ai[llms]" in message, f"error should name the extra to install: {message!r}"
+    assert pip_calls == [], f"import must not invoke pip: {pip_calls!r}"
+
+
+def test_import_does_not_shell_out_or_exit():
+    """Source-level pin against the auto-install path returning.
+
+    Checks the two mechanisms, not the word "pip" — the install *hint* in the
+    ImportError legitimately says `pip install "mem0ai[llms]"`.
+    """
+    assert "subprocess" not in PROXY_SOURCE, (
+        "mem0/proxy/main.py must not spawn subprocesses — dependency management "
+        "does not belong at import time."
+    )
+    assert "sys.exit" not in PROXY_SOURCE, "a library import must never terminate the host process"
