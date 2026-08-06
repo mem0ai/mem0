@@ -401,7 +401,15 @@ export class OracleAIVectorSearch implements VectorStore {
 
   async initialize(): Promise<void> {
     if (!this._initPromise) {
-      this._initPromise = this._doInitialize();
+      this._initPromise = this._doInitialize().catch(async (error) => {
+        if (this.ownsClient && this.client) {
+          await Promise.resolve(this.client.close()).catch(() => {});
+          this.client = undefined;
+          this.ownsClient = false;
+        }
+        this._initPromise = undefined;
+        throw error;
+      });
     }
     return this._initPromise;
   }
@@ -565,9 +573,16 @@ export class OracleAIVectorSearch implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
-    await this.initialize();
+    if (ids.length !== vectors.length) {
+      throw new Error("ids and vectors must have the same length");
+    }
+    if (payloads.length !== vectors.length) {
+      throw new Error("payloads and vectors must have the same length");
+    }
 
     if (vectors.length === 0) return;
+
+    await this.initialize();
 
     await this.withConnection(async (connection) => {
       await connection.executeMany(

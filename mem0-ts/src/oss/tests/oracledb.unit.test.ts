@@ -4,9 +4,17 @@ const DB_TYPE_VECTOR = { name: "DB_TYPE_VECTOR" };
 const DB_TYPE_JSON = { name: "DB_TYPE_JSON" };
 const DB_TYPE_VARCHAR = { name: "DB_TYPE_VARCHAR" };
 
+const mockCreatePool = jest.fn();
+
 jest.mock(
   "oracledb",
-  () => ({ thin: true, DB_TYPE_VECTOR, DB_TYPE_JSON, DB_TYPE_VARCHAR }),
+  () => ({
+    thin: true,
+    DB_TYPE_VECTOR,
+    DB_TYPE_JSON,
+    DB_TYPE_VARCHAR,
+    createPool: mockCreatePool,
+  }),
   { virtual: true },
 );
 
@@ -297,6 +305,17 @@ describe("OracleAIVectorSearch SQL", () => {
     );
   });
 
+  it("rejects insert batches whose IDs or payloads do not match vectors", async () => {
+    const store = makeStore([]);
+
+    await expect(store.insert([[1, 2, 3]], [], [{}])).rejects.toThrow(
+      "ids and vectors must have the same length",
+    );
+    await expect(store.insert([[1, 2, 3]], ["id-1"], [])).rejects.toThrow(
+      "payloads and vectors must have the same length",
+    );
+  });
+
   it("converts cosine distance to a similarity score", async () => {
     const calls: Call[] = [];
     const store = makeStore(calls, [[["id-1", { data: "hello" }, 0.25]]]);
@@ -391,5 +410,66 @@ describe("OracleAIVectorSearch SQL", () => {
     const [results, count] = await store.list();
     expect(results).toEqual([]);
     expect(count).toBe(0);
+  });
+});
+
+describe("OracleAIVectorSearch initialization failure", () => {
+  beforeEach(() => mockCreatePool.mockReset());
+
+  function fakePool(serverVersion: string) {
+    const connection = {
+      ...fakeConnection([], []),
+      oracleServerVersionString: serverVersion,
+    };
+    return {
+      close: jest.fn(async () => {}),
+      getConnection: jest.fn(async () => connection),
+    };
+  }
+
+  function makePoolStore() {
+    return new OracleAIVectorSearch({
+      connectionParams: { user: "u", password: "p", connectString: "d" },
+      collectionName: "mem0",
+      embeddingModelDims: 3,
+    } as any);
+  }
+
+  it("closes the pool it owns when initialization fails", async () => {
+    const pool = fakePool("23.3.0.24.05");
+    mockCreatePool.mockResolvedValue(pool);
+
+    await expect(makePoolStore().initialize()).rejects.toThrow(
+      "Oracle DB version 23.3.0.24.05 not supported",
+    );
+    expect(pool.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache the rejection, so a later attempt can succeed", async () => {
+    const failing = fakePool("23.3.0.24.05");
+    const working = fakePool("23.4.0.24.05");
+    mockCreatePool
+      .mockResolvedValueOnce(failing)
+      .mockResolvedValueOnce(working);
+
+    const store = makePoolStore();
+    await expect(store.initialize()).rejects.toThrow("not supported");
+    await expect(store.initialize()).resolves.toBeUndefined();
+    expect(mockCreatePool).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves a caller-supplied client open when initialization fails", async () => {
+    const client = fakeConnection([], []);
+    client.oracleServerVersionString = "23.3.0.24.05";
+    const close = jest.spyOn(client, "close");
+
+    const store = new OracleAIVectorSearch({
+      client: client as any,
+      collectionName: "mem0",
+      embeddingModelDims: 3,
+    } as any);
+
+    await expect(store.initialize()).rejects.toThrow("not supported");
+    expect(close).not.toHaveBeenCalled();
   });
 });
