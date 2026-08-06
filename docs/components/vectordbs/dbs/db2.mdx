@@ -1,0 +1,105 @@
+---
+title: IBM Db2
+description: Configuring IBM Db2 as a Vector Store in Mem0
+---
+
+IBM Db2 12.1.2 or later supports native vector similarity search, allowing you to use your existing Db2 instance as a vector store for Mem0.
+
+## Installation
+
+To use IBM Db2 as a vector store, you need to install the `ibm_db` package:
+
+```bash
+pip install ibm_db
+```
+
+> [!NOTE]
+> `ibm_db` currently ships pre-compiled wheels for glibc x86_64 systems (like Ubuntu, RHEL). Alpine Linux and ARM64 systems (like Apple Silicon) are not officially supported by the upstream Python package out of the box.
+
+## Usage
+
+You can connect Mem0 to Db2 by either providing connection parameters directly, or by passing an existing `ibm_db_dbi` connection object.
+
+### Option 1: Connection Parameters
+
+```python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "database": "testdb",
+            "host": "localhost",
+            "port": 50000,
+            "username": "db2inst1",
+            "password": "password",
+            "distance_strategy": "COSINE", # EUCLIDEAN, COSINE, DOT
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+### Option 2: Existing Client
+
+If you already have a database connection initialized, you can pass it directly:
+
+```python
+import ibm_db_dbi
+from mem0 import Memory
+
+conn = ibm_db_dbi.connect("DATABASE=testdb;HOSTNAME=localhost;PORT=50000;PROTOCOL=TCPIP;UID=db2inst1;PWD=password;", "", "")
+
+config = {
+    "vector_store": {
+        "provider": "db2",
+        "config": {
+            "client": conn,
+            "table_name": "mem0"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+## Configuration Options
+
+The `Db2Config` supports the following options:
+
+| Property | Type | Description | Default |
+| --- | --- | --- | --- |
+| `database` | `str` | Db2 database name | - |
+| `host` | `str` | Db2 host | - |
+| `port` | `int` | Db2 port | `50000` |
+| `username` | `str` | Db2 username | - |
+| `password` | `str` | Db2 password | - |
+| `ssl` | `bool` | Whether to use SSL | `False` |
+| `connection_string` | `str` | Raw Db2 connection string (overrides above fields) | - |
+| `client` | `Any` | Existing `ibm_db_dbi` connection | - |
+| `table_name` | `str` | Name of the table to store vectors | `"mem0"` |
+| `id_field` | `str` | Name of the ID column | `"id"` |
+| `text_field` | `str` | Name of the text column | `"text"` |
+| `metadata_field`| `str` | Name of the metadata JSON column | `"metadata"` |
+| `embedding_field`| `str` | Name of the vector column | `"embedding"` |
+| `distance_strategy`| `str` | Distance metric: `EUCLIDEAN`, `COSINE`, or `DOT` | `"COSINE"` |
+
+## Metadata Filtering
+
+The Db2 provider supports metadata filtering using native `JSON_VALUE` and `JSON_EXISTS` SQL functions.
+
+| Filter Operator | Example | Description |
+| --- | --- | --- |
+| Equality | `{"category": "hobbies"}` | Matches rows where `category` is exactly `"hobbies"`. |
+| IN List | `{"category": ["hobbies", "work"]}` | Matches rows where `category` is in the provided list. |
+| Wildcard | `{"category": "*"}` | Matches rows where the `category` key exists in the metadata. |
+
+## Search Score Conversion
+
+Mem0 normalizes search scores so that higher values always mean greater similarity. 
+- **COSINE**: `score = max(0.0, 1.0 - distance)`
+- **EUCLIDEAN**: `score = 1.0 / (1.0 + distance)`
+- **DOT**: `score = distance`

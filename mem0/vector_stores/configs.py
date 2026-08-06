@@ -36,6 +36,7 @@ class VectorStoreConfig(BaseModel):
         "s3_vectors": "S3VectorsConfig",
         "turbopuffer": "TurbopufferConfig",
         "oracledb": "OracleAIVectorSearchConfig",
+        "db2": "Db2Config",
     }
 
     @model_validator(mode="after")
