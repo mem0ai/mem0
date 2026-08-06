@@ -276,6 +276,12 @@ export default class MemoryClient {
     );
   }
 
+  /**
+  * Verifies connectivity with the Mem0 API and initializes the client
+  * with organization, project, and telemetry information.
+  *
+  * @throws {APIError} If the API key is invalid or the server cannot be reached.
+  */
   async ping(): Promise<void> {
     try {
       const response = await this._fetchWithErrorHandling(
@@ -313,6 +319,14 @@ export default class MemoryClient {
     }
   }
 
+  /**
+  * Creates one or more memories from a conversation.
+  *
+  * @param messages Conversation messages to process.
+  * @param options Additional memory creation options.
+  * @returns The created memories.
+  * @throws {Error} If the messages array is empty.
+  */
   async add(
     messages: Array<Message>,
     options: AddMemoryOptions & Record<string, any> = {},
@@ -337,6 +351,14 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+  * Updates an existing memory.
+  *
+  * @param memoryId Identifier of the memory.
+  * @param data Fields to update.
+  * @returns Updated memory.
+  * @throws {Error} If no update fields are provided.
+  */
   async update(
     memoryId: string,
     {
@@ -382,6 +404,12 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+  * Retrieves a memory by its identifier.
+  *
+  * @param memoryId Memory identifier.
+  * @returns The requested memory.
+  */
   async get(memoryId: string): Promise<Memory> {
     this._captureEvent("get", []);
     return this._fetchWithErrorHandling(
@@ -392,6 +420,12 @@ export default class MemoryClient {
     );
   }
 
+  /**
+  * Retrieves memories matching the supplied filters.
+  *
+  * @param options Pagination and filtering options.
+  * @returns Paginated memory results.
+  */
   async getAll(options?: GetAllMemoryOptions): Promise<PaginatedMemories> {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(options as Record<string, any>, "getAll");
@@ -417,6 +451,13 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+  * Searches stored memories using semantic search.
+  *
+  * @param query Search query.
+  * @param options Search configuration.
+  * @returns Matching memories.
+  */
   async search(
     query: string,
     options?: SearchMemoryOptions,
@@ -445,6 +486,13 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+  * Deletes a memory.
+  *
+  * @param memoryId Memory identifier.
+  * @param options Delete options.
+  * @returns Operation result.
+  */
   async delete(
     memoryId: string,
     options: DeleteMemoryOptions = {},
@@ -462,6 +510,12 @@ export default class MemoryClient {
     );
   }
 
+  /**
+  * Deletes all memories matching the supplied filters.
+  *
+  * @param options Delete filters.
+  * @returns Operation result.
+  */
   async deleteAll(
     options: DeleteAllMemoryOptions = {},
   ): Promise<{ message: string }> {
@@ -480,6 +534,12 @@ export default class MemoryClient {
     return response;
   }
 
+  /**
+  * Retrieves the revision history for a memory.
+  *
+  * @param memoryId Memory identifier.
+  * @returns Memory history.
+  */
   async history(memoryId: string): Promise<Array<MemoryHistory>> {
     this._captureEvent("history", []);
     const response = await this._fetchWithErrorHandling(
@@ -491,6 +551,12 @@ export default class MemoryClient {
     return response;
   }
 
+ /**
+  * Lists all entities associated with the project.
+  *
+  * @param options Pagination options.
+  * @returns Paginated entity list.
+  */
   async users(options?: {
     page?: number;
     pageSize?: number;
