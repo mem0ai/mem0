@@ -243,10 +243,10 @@ class PGVector(VectorStoreBase):
                 yield cur
                 if commit:
                     conn.commit()
-            except Exception as exc:
+            except Exception:
                 conn.rollback()
-                logger.error(f"Error occurred: {exc}")
-                raise exc
+                logger.error("Error in cursor context (psycopg2)", exc_info=True)
+                raise
             finally:
                 cur.close()
                 self.connection_pool.putconn(conn)
