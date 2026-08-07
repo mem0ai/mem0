@@ -21,6 +21,17 @@ class QdrantConfig(BaseModel):
         description="Whether to force HTTPS on or off. Explicit schemes in url take precedence.",
     )
     on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    bm25_model_name: Optional[str] = Field(
+        "Qdrant/bm25",
+        description="fastembed SparseTextEmbedding model name for BM25 hybrid search",
+    )
+    bm25_specific_model_path: Optional[str] = Field(
+        None,
+        description=(
+            "Local directory for a pre-downloaded BM25 sparse model. When set, fastembed "
+            "loads from this path (cache_dir) so hybrid BM25 works offline."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod
