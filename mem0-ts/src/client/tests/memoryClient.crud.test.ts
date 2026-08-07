@@ -163,6 +163,54 @@ describe("MemoryClient - get()", () => {
   });
 });
 
+// ─── getAll() pagination ─────────────────────────────────
+
+describe("MemoryClient - getAll() pagination", () => {
+  const mockV3 = () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/", { status: 200, body: { results: [] } });
+    return setupMockFetch(extra);
+  };
+
+  test("sends page_size when only pageSize is provided", async () => {
+    const mock = mockV3();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ pageSize: 50 });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call).toBeDefined();
+    expect(call![0]).toContain("page_size=50");
+  });
+
+  test("sends page when only page is provided", async () => {
+    const mock = mockV3();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ page: 2 });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).toContain("page=2");
+  });
+
+  test("sends both page and page_size when both are provided", async () => {
+    const mock = mockV3();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ page: 2, pageSize: 50 });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).toContain("page=2");
+    expect(call![0]).toContain("page_size=50");
+  });
+
+  test("sends no pagination query string when neither is provided", async () => {
+    const mock = mockV3();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ filters: { user_id: "u1" } });
+
+    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    expect(call![0]).not.toContain("?");
+  });
+});
+
 // ─── update() ────────────────────────────────────────────
 
 describe("MemoryClient - update()", () => {

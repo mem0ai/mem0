@@ -404,9 +404,17 @@ export default class MemoryClient {
       ...(filters && { filters }),
     };
 
+    // Pagination is read from the query string by the server, so send page and
+    // page_size independently. Requiring both (the old `page && pageSize`) meant
+    // getAll({ pageSize: 50 }) — a caller relying on page defaulting to 1 —
+    // silently dropped page_size and returned the server's default page size.
     let url = `${this.host}/v3/memories/`;
-    if (page && pageSize) {
-      url += `?page=${page}&page_size=${pageSize}`;
+    const queryParams = new URLSearchParams();
+    if (page !== undefined) queryParams.set("page", String(page));
+    if (pageSize !== undefined) queryParams.set("page_size", String(pageSize));
+    const queryString = queryParams.toString();
+    if (queryString) {
+      url += `?${queryString}`;
     }
 
     const response = await this._fetchWithErrorHandling(url, {
