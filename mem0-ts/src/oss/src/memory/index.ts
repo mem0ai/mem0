@@ -513,21 +513,39 @@ export class Memory {
               ? matches[0]
               : undefined;
           const match = exactMatch ?? semanticMatch;
+          let matched = false;
           if (match) {
             const payload = match.payload || {};
-            const linked = new Set<string>(
-              Array.isArray(payload.linkedMemoryIds)
-                ? payload.linkedMemoryIds
-                : [],
-            );
-            linked.add(memoryId);
-            payload.linkedMemoryIds = Array.from(linked).sort();
-            try {
-              await entityStore.update(match.id, entityVec, payload);
-            } catch (e) {
-              console.debug(`Entity update failed for '${entity.text}': ${e}`);
+            const existingType = payload.entityType;
+            if (entity.type && existingType && existingType !== entity.type) {
+              console.warn(
+                `Skipping merge for entity '${entity.text}': stored entityType ` +
+                  `'${existingType}' != new entityType '${entity.type}'. A duplicate ` +
+                  `entity will be created instead of merging (this can happen after ` +
+                  `an entityType vocabulary change).`,
+              );
+            } else {
+              matched = true;
+              const linked = new Set<string>(
+                Array.isArray(payload.linkedMemoryIds)
+                  ? payload.linkedMemoryIds
+                  : [],
+              );
+              linked.add(memoryId);
+              payload.linkedMemoryIds = Array.from(linked).sort();
+              if (entity.type && !existingType) {
+                payload.entityType = entity.type;
+              }
+              try {
+                await entityStore.update(match.id, entityVec, payload);
+              } catch (e) {
+                console.debug(
+                  `Entity update failed for '${entity.text}': ${e}`,
+                );
+              }
             }
-          } else {
+          }
+          if (!matched) {
             const entityPayload: Record<string, any> = {
               data: entity.text,
               entityType: entity.type,
@@ -1201,18 +1219,36 @@ export class Memory {
                 ? matches[0]
                 : undefined;
             const match = exactMatch ?? semanticMatch;
+            let matched = false;
             if (match) {
               // Update existing entity
               const payload = match.payload || {};
-              const linked = new Set<string>(payload.linkedMemoryIds ?? []);
-              for (const mid of memoryIds) linked.add(mid);
-              payload.linkedMemoryIds = Array.from(linked).sort();
-              try {
-                await entityStore.update(match.id, entityVec, payload);
-              } catch (e) {
-                console.debug(`Entity update failed for '${entityText}': ${e}`);
+              const existingType = payload.entityType;
+              if (entityType && existingType && existingType !== entityType) {
+                console.warn(
+                  `Skipping merge for entity '${entityText}': stored entityType ` +
+                    `'${existingType}' != new entityType '${entityType}'. A duplicate ` +
+                    `entity will be created instead of merging (this can happen after ` +
+                    `an entityType vocabulary change).`,
+                );
+              } else {
+                matched = true;
+                const linked = new Set<string>(payload.linkedMemoryIds ?? []);
+                for (const mid of memoryIds) linked.add(mid);
+                payload.linkedMemoryIds = Array.from(linked).sort();
+                if (entityType && !existingType) {
+                  payload.entityType = entityType;
+                }
+                try {
+                  await entityStore.update(match.id, entityVec, payload);
+                } catch (e) {
+                  console.debug(
+                    `Entity update failed for '${entityText}': ${e}`,
+                  );
+                }
               }
-            } else {
+            }
+            if (!matched) {
               // New entity — collect for batch insert
               const entityPayload: Record<string, any> = {
                 data: entityText,
