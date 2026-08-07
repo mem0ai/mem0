@@ -42,7 +42,7 @@ def _load_plugin_version(platform_name: str = "") -> str:
     parts = _PLATFORM_MANIFESTS.get(platform_name, _DEFAULT_MANIFEST)
     try:
         plugin_json = os.path.join(os.path.dirname(__file__), *parts)
-        with open(plugin_json) as f:
+        with open(plugin_json, encoding="utf-8") as f:
             return json.load(f).get("version", "unknown")
     except (OSError, json.JSONDecodeError, KeyError):
         return "unknown"

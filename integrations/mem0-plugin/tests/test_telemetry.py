@@ -199,6 +199,30 @@ def test_plugin_version_is_per_editor(monkeypatch):
         assert payload["properties"]["plugin_version"] == expected, f"{plat} should report {expected} from {rel}"
 
 
+def test_plugin_version_reads_utf8_manifest_content(monkeypatch, tmp_path):
+    """Regression coverage for manifests containing non-ASCII metadata."""
+    import telemetry
+
+    plugin_dir = tmp_path / "mem0-plugin"
+    scripts_dir = plugin_dir / "scripts"
+    manifest_dir = plugin_dir / ".codex-plugin"
+    scripts_dir.mkdir(parents=True)
+    manifest_dir.mkdir()
+    (manifest_dir / "plugin.json").write_text(
+        json.dumps({"name": "Mem0 🧠", "version": "0.2.3"}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(telemetry, "__file__", str(scripts_dir / "telemetry.py"))
+    monkeypatch.setitem(
+        telemetry._PLATFORM_MANIFESTS,
+        "codex",
+        ("..", ".codex-plugin", "plugin.json"),
+    )
+
+    assert telemetry._load_plugin_version("codex") == "0.2.3"
+
+
 def test_send_fails_silently(monkeypatch):
     import telemetry
 
