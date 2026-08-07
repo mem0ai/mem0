@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
 
-from mem0.configs.base import MemoryConfig, MemoryItem
+from mem0.configs.base import CompactionConfig, MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
@@ -25,6 +25,7 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
+from mem0.memory.compaction import MemoryCompactor
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
     detect_decay_usage_from_delete,
@@ -543,6 +544,11 @@ class Memory(MemoryBase):
                 "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
                 self.config.vector_store.provider,
             )
+
+        # Optional compaction support
+        self.compactor: Optional[MemoryCompactor] = None
+        if getattr(self.config, "compaction", None) and getattr(self.config.compaction, "enabled", False):
+            self.compactor = MemoryCompactor(self, self.config.compaction)
 
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
@@ -1953,6 +1959,78 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "history")
         return history
 
+    def count(self, filters: Optional[Dict[str, Any]] = None, **kwargs) -> int:
+        """
+        Return the number of memories for the given scope.
+        """
+        _reject_top_level_entity_params(kwargs, "count")
+        if not filters:
+            raise ValueError("count() requires filters with user_id/agent_id/run_id")
+        eff = dict(filters)
+        for k in ("user_id", "agent_id", "run_id"):
+            if k in eff:
+                eff[k] = _validate_and_trim_entity_id(eff[k], k)
+        try:
+            items = self.vector_store.list(filters=eff, top_k=1_000_000)
+            # handle wrapped returns like other methods
+            if items and isinstance(items[0], (list, tuple)):
+                items = items[0]
+            return len(items or [])
+        except Exception:
+            # Fallback
+            res = self.get_all(filters=eff, top_k=1_000_000)
+            return len(res.get("results", []))
+
+    def compact(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        similarity_threshold: Optional[float] = None,
+        dry_run: bool = False,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Reduce duplicate or overlapping memories by merging similar ones.
+
+        Finds clusters of semantically similar memories and uses the LLM
+        to create one better consolidated memory per cluster.
+
+        Args:
+            filters: Must contain at least one of user_id, agent_id or run_id.
+            similarity_threshold: Override for how close memories need to be.
+            dry_run: When True, returns what would be done without changes.
+
+        Returns:
+            dict: before_count, after_count, merges, etc.
+
+        Example:
+            memory.compact(filters={"user_id": "alice"})
+        """
+        _reject_top_level_entity_params(kwargs, "compact")
+
+        if not filters:
+            raise ValueError("compact() requires filters with at least one of user_id/agent_id/run_id")
+
+        effective_filters = dict(filters)
+        for k in ("user_id", "agent_id", "run_id"):
+            if k in effective_filters:
+                effective_filters[k] = _validate_and_trim_entity_id(effective_filters[k], k)
+
+        if not any(k in effective_filters for k in ("user_id", "agent_id", "run_id")):
+            raise ValueError("filters must contain at least one of: user_id, agent_id, run_id")
+
+        # Lazily create a compactor if none exists (allows manual use even without config.enabled)
+        if getattr(self, "compactor", None) is None:
+            comp_cfg = getattr(self.config, "compaction", None) or CompactionConfig(enabled=True)
+            self.compactor = MemoryCompactor(self, comp_cfg)
+
+        capture_event("mem0.compact", self, {"sync_type": "sync", "dry_run": dry_run})
+
+        return self.compactor.compact(
+            filters=effective_filters,
+            similarity_threshold=similarity_threshold,
+            dry_run=dry_run,
+        )
+
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
@@ -2202,6 +2280,11 @@ class AsyncMemory(MemoryBase):
                 "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
                 self.config.vector_store.provider,
             )
+
+        # Optional compaction support
+        self.compactor: Optional[MemoryCompactor] = None
+        if getattr(self.config, "compaction", None) and getattr(self.config.compaction, "enabled", False):
+            self.compactor = MemoryCompactor(self, self.config.compaction)
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
@@ -3619,6 +3702,43 @@ class AsyncMemory(MemoryBase):
         history = await asyncio.to_thread(self.db.get_history, memory_id)
         await display_first_run_notice_async(self, "async", "history")
         return history
+
+    async def compact(
+        self,
+        filters: Optional[Dict[str, Any]] = None,
+        similarity_threshold: Optional[float] = None,
+        dry_run: bool = False,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Async version of compact(). See the sync version for documentation.
+        """
+        _reject_top_level_entity_params(kwargs, "compact")
+
+        if not filters:
+            raise ValueError("compact() requires filters with at least one of user_id/agent_id/run_id")
+
+        effective_filters = dict(filters)
+        for k in ("user_id", "agent_id", "run_id"):
+            if k in effective_filters:
+                effective_filters[k] = _validate_and_trim_entity_id(effective_filters[k], k)
+
+        if not any(k in effective_filters for k in ("user_id", "agent_id", "run_id")):
+            raise ValueError("filters must contain at least one of: user_id, agent_id, run_id")
+
+        if getattr(self, "compactor", None) is None:
+            comp_cfg = getattr(self.config, "compaction", None) or CompactionConfig(enabled=True)
+            self.compactor = MemoryCompactor(self, comp_cfg)
+
+        capture_event("mem0.compact", self, {"sync_type": "async", "dry_run": dry_run})
+
+        # The underlying compactor is sync (vector ops); run in thread for cleanliness
+        return await asyncio.to_thread(
+            self.compactor.compact,
+            filters=effective_filters,
+            similarity_threshold=similarity_threshold,
+            dry_run=dry_run,
+        )
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
