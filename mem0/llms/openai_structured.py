@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
-from mem0.llms.base import LLMBase
+from mem0.llms.base import LLMBase, message_content_with_reasoning_fallback
 
 
 class OpenAIStructuredLLM(LLMBase):
@@ -46,4 +46,4 @@ class OpenAIStructuredLLM(LLMBase):
             params["tool_choice"] = tool_choice
 
         response = self.client.beta.chat.completions.parse(**params)
-        return response.choices[0].message.content
+        return message_content_with_reasoning_fallback(response.choices[0].message)

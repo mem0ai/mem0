@@ -7,7 +7,7 @@ from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
-from mem0.llms.base import LLMBase
+from mem0.llms.base import LLMBase, message_content_with_reasoning_fallback
 from mem0.memory.utils import extract_json
 
 
@@ -64,8 +64,9 @@ class OpenAILLM(LLMBase):
             str or dict: The processed response.
         """
         if tools:
+            message = response.choices[0].message
             processed_response = {
-                "content": response.choices[0].message.content,
+                "content": message_content_with_reasoning_fallback(message),
                 "tool_calls": [],
             }
 
@@ -80,7 +81,7 @@ class OpenAILLM(LLMBase):
 
             return processed_response
         else:
-            return response.choices[0].message.content
+            return message_content_with_reasoning_fallback(response.choices[0].message)
 
     def generate_response(
         self,

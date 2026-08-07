@@ -157,3 +157,22 @@ def test_generate_response_without_response_format(mock_deepseek_client):
     call_kwargs = mock_deepseek_client.chat.completions.create.call_args[1]
     assert "response_format" not in call_kwargs
     assert response == "Why did the chicken cross the road?"
+
+
+def test_generate_response_falls_back_to_reasoning_content(mock_deepseek_client):
+    """DeepSeek reasoning models often put the answer in reasoning_content (#4932)."""
+    config = DeepSeekConfig(model="deepseek-reasoner", temperature=0.0)
+    llm = DeepSeekLLM(config)
+    messages = [{"role": "user", "content": "What do I know?"}]
+
+    mock_message = Mock()
+    mock_message.content = ""
+    mock_message.reasoning_content = '{"facts": ["User lives in Guadalajara"]}'
+    mock_message.tool_calls = None
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_deepseek_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == '{"facts": ["User lives in Guadalajara"]}'

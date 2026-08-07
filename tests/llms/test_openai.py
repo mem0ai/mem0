@@ -464,3 +464,92 @@ def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
     llm = OpenAILLM(config)
     assert llm.config.http_client_proxies == "http://proxy.local:8080"
     assert isinstance(llm.config.http_client, httpx.Client)
+
+
+def test_generate_response_falls_back_to_reasoning_content(mock_openai_client):
+    """When content is empty and reasoning_content is present, return reasoning_content.
+
+    Some OpenAI-compatible endpoints (Ollama, DeepSeek, GLM, etc.) put the full
+    answer inside `reasoning_content` and leave `content` empty when a reasoning
+    model is used. Without the fallback, fact extraction silently returns empty
+    results (fixes #4932).
+    """
+    config = OpenAIConfig(model="glm-5.1", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "What do I know?"}]
+
+    mock_message = Mock()
+    mock_message.content = ""
+    mock_message.reasoning_content = '{"facts": ["User lives in Guadalajara"]}'
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == '{"facts": ["User lives in Guadalajara"]}'
+
+
+def test_generate_response_content_takes_priority_over_reasoning_content(mock_openai_client):
+    """When content is non-empty, reasoning_content should not be used."""
+    config = OpenAIConfig(model="glm-5.1", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_message = Mock()
+    mock_message.content = "Hello there!"
+    mock_message.reasoning_content = "internal thoughts"
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == "Hello there!"
+
+
+def test_generate_response_returns_empty_string_when_both_content_fields_empty(mock_openai_client):
+    """When both content and reasoning_content are absent/empty, return empty string."""
+    config = OpenAIConfig(model="some-model", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_message = Mock(spec=["content"])
+    mock_message.content = ""
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    assert response == ""
+
+
+def test_generate_response_tools_path_falls_back_to_reasoning_content(mock_openai_client):
+    """Tools branch must also fall back when content is empty (#4932 kartik review)."""
+    config = OpenAIConfig(model="glm-5.1", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Add a fact"}]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "add_memory",
+                "description": "Add a memory",
+                "parameters": {"type": "object", "properties": {"data": {"type": "string"}}},
+            },
+        }
+    ]
+
+    mock_message = Mock()
+    mock_message.content = ""
+    mock_message.reasoning_content = "should surface in tools content"
+    mock_message.tool_calls = None
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, tools=tools)
+
+    assert response["content"] == "should surface in tools content"
+    assert response["tool_calls"] == []
