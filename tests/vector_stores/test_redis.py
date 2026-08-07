@@ -228,3 +228,74 @@ def test_update_entity_payload_without_hash_and_timestamps():
     assert data_dict["hash"] == ""
     assert data_dict["created_at"] == 0
     assert data_dict["updated_at"] == 0
+
+
+def test_search_and_keyword_search_request_updated_at():
+    """search()/keyword_search() must include updated_at in return_fields (#6059)."""
+    db, mock_index = _make_redis_db()
+
+    def _capture_query(**kwargs):
+        # Capture constructor kwargs; avoid MagicMock.return_fields being a method.
+        obj = MagicMock(name="Query")
+        obj.return_fields = list(kwargs.get("return_fields") or [])
+        return obj
+
+    mock_index.query.return_value = [
+        {
+            "memory_id": "m1",
+            "hash": "h1",
+            "memory": "hello",
+            "created_at": "1704067200",
+            "updated_at": "1704153600",
+            "vector_distance": "0.1",
+            "user_id": "u1",
+            "metadata": "{}",
+        }
+    ]
+
+    with patch("mem0.vector_stores.redis.VectorQuery", side_effect=_capture_query) as VQ:
+        results = db.search("q", [0.1, 0.2, 0.3], top_k=1)
+
+    assert results[0].payload.get("updated_at") is not None
+    assert VQ.call_count == 1
+    assert "updated_at" in VQ.call_args.kwargs["return_fields"]
+
+    mock_index.query.reset_mock()
+    mock_index.query.return_value = [
+        {
+            "memory_id": "m1",
+            "hash": "h1",
+            "memory": "hello",
+            "created_at": "1704067200",
+            "updated_at": "1704153600",
+            "user_id": "u1",
+            "metadata": "{}",
+            "text_score": 0.9,
+        }
+    ]
+    with patch("mem0.vector_stores.redis.TextQuery", side_effect=_capture_query) as TQ:
+        results = db.keyword_search("hello", top_k=1)
+
+    assert results[0].payload.get("updated_at") is not None
+    assert TQ.call_count == 1
+    assert "updated_at" in TQ.call_args.kwargs["return_fields"]
+
+
+def test_insert_persists_updated_at():
+    """insert must write updated_at (defaults to created_at when omitted)."""
+    db, mock_index = _make_redis_db()
+    db.insert(
+        vectors=[[0.1, 0.2, 0.3]],
+        payloads=[
+            {
+                "data": "hello",
+                "hash": "h1",
+                "created_at": "2024-01-01T00:00:00+00:00",
+                "updated_at": "2024-01-02T00:00:00+00:00",
+                "user_id": "u1",
+            }
+        ],
+        ids=["m1"],
+    )
+    data = mock_index.load.call_args[0][0]
+    assert "updated_at" in data[0]
