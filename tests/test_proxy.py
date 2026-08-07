@@ -65,7 +65,7 @@ def test_completions_create(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
 
     messages = [{"role": "user", "content": "Hello, how are you?"}]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
@@ -90,7 +90,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"},
     ]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
@@ -138,3 +138,65 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+def test_fetch_relevant_memories_puts_entity_ids_in_filters(mock_memory_client):
+    """Proxy search must pass entity ids inside `filters`, not as top-level kwargs (#4907)."""
+    completions = Completions(mock_memory_client)
+    messages = [{"role": "user", "content": "Hello"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "User likes pizza"}]}
+
+    completions._fetch_relevant_memories(
+        messages=messages,
+        user_id="alice",
+        agent_id="bot_1",
+        run_id="run_9",
+        filters={"environment": "prod"},
+        top_k=5,
+    )
+
+    kwargs = mock_memory_client.search.call_args.kwargs
+    assert kwargs["filters"]["user_id"] == "alice"
+    assert kwargs["filters"]["agent_id"] == "bot_1"
+    assert kwargs["filters"]["run_id"] == "run_9"
+    assert kwargs["filters"]["environment"] == "prod"
+    assert "user_id" not in kwargs
+    assert "agent_id" not in kwargs
+    assert "run_id" not in kwargs
+    assert kwargs["top_k"] == 5
+
+
+def test_format_query_with_memories_reads_results_key(mock_memory_client):
+    """MemoryClient-shaped dict responses must iterate `results`, not dict keys (#4907)."""
+    completions = Completions(mock_memory_client)
+    messages = [{"role": "user", "content": "What do I like?"}]
+    response = {
+        "results": [
+            {"memory": "User likes pizza", "id": "1"},
+            {"memory": "User is vegetarian", "id": "2"},
+        ],
+        "relations": [{"source": "User", "relationship": "likes", "target": "pizza"}],
+    }
+
+    result = completions._format_query_with_memories(messages, response)
+
+    assert "User likes pizza" in result
+    assert "User is vegetarian" in result
+    assert "results" not in result  # would appear if we iterated dict keys
+    assert "Entities:" in result
+    assert "What do I like?" in result
+
+
+def test_completions_create_passes_filters_not_top_level_entities(mock_memory_client, mock_litellm):
+    """End-to-end: chat.completions.create must not crash on MemoryClient.search contract."""
+    completions = Completions(mock_memory_client)
+    messages = [{"role": "user", "content": "Hello, how are you?"}]
+    mock_memory_client.search.return_value = {"results": {"results": [{"memory": "Some relevant memory"}]}}
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(model="gpt-4o-mini", messages=messages, user_id="test_user", top_k=3)
+
+    search_kwargs = mock_memory_client.search.call_args.kwargs
+    assert search_kwargs["filters"]["user_id"] == "test_user"
+    assert "user_id" not in search_kwargs
