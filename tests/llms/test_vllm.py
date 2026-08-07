@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -140,11 +140,14 @@ def create_mocked_memory():
          patch('mem0.memory.storage.SQLiteManager') as mock_sqlite:
 
         mock_llm = MagicMock()
+        mock_llm.agenerate_response = AsyncMock(side_effect=lambda *args, **kwargs: mock_llm.generate_response(*args, **kwargs))
         mock_llm_factory.return_value = mock_llm
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
         mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock_embedder.aembed = AsyncMock(side_effect=lambda *args, **kwargs: mock_embedder.embed(*args, **kwargs))
+        mock_embedder.aembed_batch = AsyncMock(side_effect=lambda *args, **kwargs: mock_embedder.embed_batch(*args, **kwargs))
         mock_embedder_factory.return_value = mock_embedder
 
         mock_vector_store = MagicMock()
@@ -170,11 +173,14 @@ def create_mocked_async_memory():
          patch('mem0.memory.storage.SQLiteManager') as mock_sqlite:
 
         mock_llm = MagicMock()
+        mock_llm.agenerate_response = AsyncMock(side_effect=lambda *args, **kwargs: mock_llm.generate_response(*args, **kwargs))
         mock_llm_factory.return_value = mock_llm
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
         mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock_embedder.aembed = AsyncMock(side_effect=lambda *args, **kwargs: mock_embedder.embed(*args, **kwargs))
+        mock_embedder.aembed_batch = AsyncMock(side_effect=lambda *args, **kwargs: mock_embedder.embed_batch(*args, **kwargs))
         mock_embedder_factory.return_value = mock_embedder
 
         mock_vector_store = MagicMock()

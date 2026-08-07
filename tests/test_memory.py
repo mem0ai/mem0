@@ -1,7 +1,7 @@
 import json
 import sys
 from datetime import datetime
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -9,6 +9,12 @@ from mem0 import Memory
 from mem0.configs.base import MemoryConfig
 from mem0.memory.main import _entity_collection_name
 from mem0.memory.utils import normalize_facts
+
+
+def _asyncify_embedding_model(model):
+    model.aembed = AsyncMock(side_effect=lambda *args, **kwargs: model.embed(*args, **kwargs))
+    model.aembed_batch = AsyncMock(side_effect=lambda *args, **kwargs: model.embed_batch(*args, **kwargs))
+    return model
 
 
 class MockVectorMemory:
@@ -194,7 +200,7 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
 
     mock_embedder = MagicMock()
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
-    memory.embedding_model = mock_embedder
+    memory.embedding_model = _asyncify_embedding_model(mock_embedder)
 
     result = memory._search_vector_store("test", {"user_id": "test"}, 10)
 
@@ -366,7 +372,7 @@ def test_read_apis_surface_attributed_to(mock_sqlite, mock_llm_factory, mock_vec
 
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
-    memory.embedding_model = mock_embedder
+    memory.embedding_model = _asyncify_embedding_model(mock_embedder)
 
     payload = {"data": "User likes Python", "attributed_to": "user", "user_id": "u1"}
 
@@ -407,7 +413,7 @@ async def test_async_read_apis_surface_attributed_to(mock_sqlite, mock_llm_facto
 
     from mem0.memory.main import AsyncMemory
     memory = AsyncMemory(MemoryConfig())
-    memory.embedding_model = mock_embedder
+    memory.embedding_model = _asyncify_embedding_model(mock_embedder)
 
     payload = {"data": "User likes Python", "attributed_to": "user", "user_id": "u1"}
 
@@ -1510,7 +1516,7 @@ class TestAsyncDeleteAllEntityRace:
 async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_factory, mock_emb, mock_vs):
     """Regression #5710: async LangChain path must call remove_code_blocks()."""
     mock_vs.return_value = MagicMock()
-    mock_emb.return_value = MagicMock()
+    mock_emb.return_value = _asyncify_embedding_model(MagicMock())
     mock_emb.return_value.embed.return_value = [0.1] * 1536
     mock_llm_factory.return_value = MagicMock()
 
@@ -1518,6 +1524,8 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
 
     config = MemoryConfig()
     memory = AsyncMemory(config)
+    memory.embedding_model = _asyncify_embedding_model(MagicMock())
+    memory.embedding_model.embed.return_value = [0.1] * 1536
     memory.vector_store = MagicMock()
     memory.vector_store.insert = MagicMock()
 
@@ -1557,7 +1565,9 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
     memory.vector_store = MagicMock()
     memory.vector_store.insert = MagicMock()
     memory.embedding_model.embed = Mock(return_value=[0.1] * 1536)
+    memory.embedding_model.aembed = AsyncMock(side_effect=lambda *args, **kwargs: memory.embedding_model.embed(*args, **kwargs))
     memory.llm.generate_response = Mock(return_value="- deploy with the release script")
+    memory.llm.agenerate_response = AsyncMock(side_effect=lambda *args, **kwargs: memory.llm.generate_response(*args, **kwargs))
 
     messages = [{"role": "user", "content": "how do we deploy"}]
 
