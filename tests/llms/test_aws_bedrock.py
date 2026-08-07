@@ -114,6 +114,75 @@ class TestAWSBedrockConfig:
         )
         assert config.aws_region == "us-east-2"
 
+    def test_bedrock_provider_defaults_to_none(self):
+        config = AWSBedrockConfig(model="anthropic.claude-3-5-sonnet-20240620-v1:0")
+        assert config.bedrock_provider is None
+
+    def test_bedrock_provider_stored_when_set(self):
+        config = AWSBedrockConfig(
+            model="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abcdef012345",
+            bedrock_provider="anthropic",
+        )
+        assert config.bedrock_provider == "anthropic"
+
+
+# ---------------------------------------------------------------------------
+# bedrock_provider override
+# ---------------------------------------------------------------------------
+
+APPLICATION_INFERENCE_PROFILE_ARN = (
+    "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abcdef012345"
+)
+
+
+class TestBedrockProviderOverride:
+    """Tests for the bedrock_provider explicit override (PR: feat/bedrock-application-inference-profile-override).
+
+    Application inference profile ARNs contain an opaque profile ID with no provider
+    name, so extract_provider() raises ValueError. The bedrock_provider field lets
+    callers bypass regex-based detection entirely.
+    """
+
+    def test_explicit_override_bypasses_regex_for_opaque_arn(self, mock_boto3):
+        """bedrock_provider='anthropic' must be used even when the model ARN is opaque.
+
+        Without the fix this raises ValueError: Unknown provider in model: arn:aws:...
+        """
+        config = AWSBedrockConfig(
+            model=APPLICATION_INFERENCE_PROFILE_ARN,
+            bedrock_provider="anthropic",
+        )
+        llm = AWSBedrockLLM(config)
+        assert llm.provider == "anthropic"
+
+    def test_backward_compatibility_without_override(self, mock_boto3):
+        """When bedrock_provider is not set, extract_provider still runs for normal model IDs."""
+        config = AWSBedrockConfig(model="anthropic.claude-3-haiku-20240307-v1:0")
+        llm = AWSBedrockLLM(config)
+        assert llm.provider == "anthropic"
+
+    def test_base_llm_config_conversion_preserves_bedrock_provider(self, mock_boto3):
+        """bedrock_provider must survive the BaseLlmConfig -> AWSBedrockConfig conversion path.
+
+        Callers that pass a plain BaseLlmConfig (e.g. the factory) go through a manual
+        attribute-by-attribute conversion inside AWSBedrockLLM.__init__. The fix adds
+        getattr(config, 'bedrock_provider', None) so the field is not silently dropped.
+        """
+        from mem0.configs.llms.base import BaseLlmConfig
+
+        base_cfg = BaseLlmConfig(
+            model=APPLICATION_INFERENCE_PROFILE_ARN,
+            temperature=0.1,
+            max_tokens=500,
+        )
+        # Attach the field as if the factory or caller set it
+        base_cfg.bedrock_provider = "anthropic"
+
+        llm = AWSBedrockLLM(base_cfg)
+        assert isinstance(llm.config, AWSBedrockConfig)
+        assert llm.config.bedrock_provider == "anthropic"
+        assert llm.provider == "anthropic"
+
 
 # ---------------------------------------------------------------------------
 # LlmFactory

@@ -23,6 +23,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_region: str = "",
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
+        bedrock_provider: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
@@ -41,6 +42,10 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_region: AWS region for Bedrock service
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
+            bedrock_provider: Explicit provider override for opaque model ARNs (e.g.,
+                application inference profiles). When set, skips regex-based provider
+                detection. Example: ``"anthropic"`` for an application inference profile
+                that wraps a Claude model. Defaults to ``None`` (auto-detect).
             model_kwargs: Additional model-specific parameters
             **kwargs: Additional arguments passed to base class
         """
@@ -58,6 +63,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_region = aws_region or os.getenv("AWS_REGION", "us-west-2")
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
+        self.bedrock_provider = bedrock_provider
         self.model_kwargs = model_kwargs or {}
 
     @property
