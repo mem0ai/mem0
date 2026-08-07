@@ -470,6 +470,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Vector Database Configuration](https://docs.mem0.ai/components/vectordbs/config) [OSS]: Use for the `vector_store` config schema.
 - [Qdrant](https://docs.mem0.ai/components/vectordbs/dbs/qdrant) [OSS]: Use as the default self-hosted vector store (best-tested).
 - [Chroma](https://docs.mem0.ai/components/vectordbs/dbs/chroma) [OSS]: Use when the user wants a lightweight embedded store.
+- [IBM Db2](https://docs.mem0.ai/components/vectordbs/dbs/db2) [OSS]: Use when the user already operates a Db2 database and wants zero-infrastructure overhead.
 - [PGVector](https://docs.mem0.ai/components/vectordbs/dbs/pgvector) [OSS]: Use when Postgres is already in the stack.
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus) [OSS]: Use for large-scale Milvus deployments.
 - [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone) [OSS]: Use when the user is on Pinecone managed.
