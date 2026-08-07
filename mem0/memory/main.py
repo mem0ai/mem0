@@ -1639,9 +1639,13 @@ class Memory(MemoryBase):
         )
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        try:
+            keyword_results = self.vector_store.keyword_search(
+                query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
+        except Exception as e:
+            logger.warning("Keyword search failed; continuing with semantic search: %s", e)
+            keyword_results = None
 
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
@@ -3297,9 +3301,13 @@ class AsyncMemory(MemoryBase):
         )
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        try:
+            keyword_results = await asyncio.to_thread(
+                self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
+        except Exception as e:
+            logger.warning("Keyword search failed; continuing with semantic search: %s", e)
+            keyword_results = None
 
         # Step 5: Compute BM25 scores
         bm25_scores = {}
