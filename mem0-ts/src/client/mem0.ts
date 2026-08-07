@@ -594,6 +594,7 @@ export default class MemoryClient {
     const memoriesBody = memories.map((memory) => ({
       memory_id: memory.memoryId,
       text: memory.text,
+      ...(memory.metadata !== undefined && { metadata: memory.metadata }),
     }));
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/batch/`,
