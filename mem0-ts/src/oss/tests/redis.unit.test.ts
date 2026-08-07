@@ -125,4 +125,99 @@ describe("RedisDB – entity payload handling", () => {
     expect(entry.created_at).toBeGreaterThan(0);
     expect(Number.isNaN(entry.created_at)).toBe(false);
   });
+
+  // Entity ids are part of the canonical payload contract in snake_case:
+  // index.ts and the other stores read payload.user_id, not payload.userId.
+  // Timestamps stay camelCase (createdAt). Before the fix, the whole payload
+  // was run through toCamelCase, renaming user_id -> userId, which dropped the
+  // ids from results and leaked them into metadata.
+  const CREATED_AT_MS = 1719316800000;
+
+  test("search returns entity ids in snake_case with camelCase timestamps", async () => {
+    mockClient.ft.search.mockResolvedValueOnce({
+      total: 1,
+      documents: [
+        {
+          id: "mem0:test:mem-1",
+          value: {
+            memory_id: "mem-1",
+            hash: "h1",
+            memory: "likes coffee",
+            created_at: String(CREATED_AT_MS),
+            user_id: "test_user",
+            agent_id: "agent_1",
+            metadata: JSON.stringify({ source: "chat" }),
+            __vector_score: "0.1",
+          },
+        },
+      ],
+    });
+
+    const results = await store.search([0.1, 0.2, 0.3, 0.4], 5, {
+      userId: "test_user",
+    });
+
+    expect(results).toHaveLength(1);
+    const payload = results[0].payload;
+    expect(payload.user_id).toBe("test_user");
+    expect(payload.agent_id).toBe("agent_1");
+    expect(payload.userId).toBeUndefined();
+    expect(payload.agentId).toBeUndefined();
+    expect(payload.createdAt).toBe(new Date(CREATED_AT_MS).toISOString());
+    expect(payload.source).toBe("chat");
+  });
+
+  test("list returns entity ids in snake_case with camelCase timestamps", async () => {
+    mockClient.ft.search.mockResolvedValueOnce({
+      total: 1,
+      documents: [
+        {
+          id: "mem0:test:mem-1",
+          value: {
+            memory_id: "mem-1",
+            hash: "h1",
+            memory: "likes coffee",
+            created_at: String(CREATED_AT_MS),
+            user_id: "test_user",
+            run_id: "run_1",
+            metadata: JSON.stringify({ source: "chat" }),
+          },
+        },
+      ],
+    });
+
+    const [items, total] = await store.list({ userId: "test_user" }, 100);
+
+    expect(total).toBe(1);
+    const payload = items[0].payload;
+    expect(payload.user_id).toBe("test_user");
+    expect(payload.run_id).toBe("run_1");
+    expect(payload.userId).toBeUndefined();
+    expect(payload.runId).toBeUndefined();
+    expect(payload.createdAt).toBe(new Date(CREATED_AT_MS).toISOString());
+  });
+
+  test("get returns entity ids in snake_case with camelCase timestamps", async () => {
+    mockClient.exists.mockResolvedValueOnce(1);
+    mockClient.hGetAll.mockResolvedValueOnce({
+      memory_id: "mem-1",
+      hash: "h1",
+      memory: "likes coffee",
+      created_at: String(CREATED_AT_MS),
+      user_id: "test_user",
+      agent_id: "agent_1",
+      metadata: JSON.stringify({ source: "chat" }),
+    });
+
+    const result = await store.get("mem-1");
+
+    expect(result).not.toBeNull();
+    const payload = result!.payload;
+    expect(payload.user_id).toBe("test_user");
+    expect(payload.agent_id).toBe("agent_1");
+    expect(payload.userId).toBeUndefined();
+    expect(payload.agentId).toBeUndefined();
+    expect(payload.createdAt).toBe(new Date(CREATED_AT_MS).toISOString());
+    expect(payload.source).toBe("chat");
+  });
 });
