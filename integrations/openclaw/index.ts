@@ -30,7 +30,11 @@ import {
   customCategoryMapToList,
   providerToBackend,
 } from "./providers.ts";
-import { mem0ConfigSchema } from "./config.ts";
+import {
+  DEFAULT_RECALL_TIMEOUT_MS,
+  mem0ConfigSchema,
+  parseRecallTimeoutMs,
+} from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { createPublicArtifactsProvider } from "./public-artifacts.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
@@ -83,7 +87,7 @@ export {
   stripNoiseFromContent,
   filterMessagesForExtraction,
 } from "./filtering.ts";
-export { mem0ConfigSchema } from "./config.ts";
+export { mem0ConfigSchema, parseRecallTimeoutMs } from "./config.ts";
 export type { FileConfig } from "./config.ts";
 export { createProvider } from "./providers.ts";
 
@@ -94,6 +98,43 @@ export { createProvider } from "./providers.ts";
 // ============================================================================
 // Plugin Definition
 // ============================================================================
+
+export function formatRegistrationLog(cfg: Mem0Config, skillsActive: boolean): string {
+  return `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive}, legacyRecallTimeoutMs: ${cfg.recallTimeoutMs})`;
+}
+
+function parseRegistrationConfig(
+  pluginConfig: unknown,
+  fileConfig: FileConfig,
+  logger: Pick<OpenClawPluginApi["logger"], "warn">,
+): Mem0Config {
+  if (
+    pluginConfig &&
+    typeof pluginConfig === "object" &&
+    !Array.isArray(pluginConfig) &&
+    Object.prototype.hasOwnProperty.call(pluginConfig, "recallTimeoutMs")
+  ) {
+    const rawConfig = pluginConfig as Record<string, unknown>;
+    try {
+      parseRecallTimeoutMs(rawConfig.recallTimeoutMs);
+    } catch {
+      const fallbackConfig = { ...rawConfig };
+      const invalidValue = fallbackConfig.recallTimeoutMs;
+      delete fallbackConfig.recallTimeoutMs;
+      const cfg = mem0ConfigSchema.parse(fallbackConfig, fileConfig);
+      const renderedValue =
+        typeof invalidValue === "string"
+          ? JSON.stringify(invalidValue)
+          : String(invalidValue);
+      logger.warn(
+        `openclaw-mem0: invalid recallTimeoutMs ${renderedValue}, falling back to default ${DEFAULT_RECALL_TIMEOUT_MS}ms`,
+      );
+      return cfg;
+    }
+  }
+
+  return mem0ConfigSchema.parse(pluginConfig, fileConfig);
+}
 
 const memoryPlugin = definePluginEntry({
   id: "openclaw-mem0",
@@ -110,7 +151,7 @@ const memoryPlugin = definePluginEntry({
       apiKey: pluginAuth.apiKey,
       baseUrl: pluginAuth.baseUrl,
     };
-    const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
+    const cfg = parseRegistrationConfig(api.pluginConfig, fileConfig, api.logger);
     const isMetadataRegistration = api.registrationMode === "cli-metadata";
 
     // Telemetry context bound to this plugin instance's config
@@ -207,10 +248,11 @@ const memoryPlugin = definePluginEntry({
     _captureEvent("openclaw.plugin.registered", {
       auto_recall: cfg.autoRecall,
       auto_capture: cfg.autoCapture,
+      legacy_recall_timeout_ms: cfg.recallTimeoutMs,
     });
 
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
+      formatRegistrationLog(cfg, skillsActive),
     );
 
     // ========================================================================
@@ -402,7 +444,7 @@ const memoryPlugin = definePluginEntry({
 // Lifecycle Hook Registration
 // ============================================================================
 
-function registerHooks(
+export function registerHooks(
   api: OpenClawPluginApi,
   provider: Mem0Provider,
   cfg: Mem0Config,
@@ -492,6 +534,7 @@ function registerHooks(
 
       if (recallEnabled && recallStrategy !== "manual") {
         const recallStart = Date.now();
+        const recallTimeoutMs = cfg.recallTimeoutMs;
         try {
           const query = sanitizeQuery(event.prompt);
 
@@ -503,25 +546,36 @@ function registerHooks(
                 : sessionId
               : undefined; // smart: long-term only
 
-          const recallResult = await skillRecall(
+          const skillRecallWork = skillRecall(
             provider,
             query,
             userId,
             cfg.skills ?? {},
             sessionIdForRecall,
           );
-
-          api.logger.info(
-            `openclaw-mem0: skills-mode recall (strategy=${recallStrategy}) injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens)`,
-          );
-
-          _captureEvent("openclaw.hook.recall", {
-            strategy: recallStrategy,
-            memory_count: recallResult.memories.length,
-            latency_ms: Date.now() - recallStart,
+          const skillTimeout = new Promise<"__timeout__">((resolve) => {
+            setTimeout(() => resolve("__timeout__"), recallTimeoutMs);
           });
+          const raced = await Promise.race([skillRecallWork, skillTimeout]);
+          if (raced === "__timeout__") {
+            api.logger.warn(
+              `openclaw-mem0: skills-mode recall timed out after ${recallTimeoutMs}ms, skipping`,
+            );
+          } else {
+            const recallResult = raced;
 
-          recallContext = recallResult.context;
+            api.logger.info(
+              `openclaw-mem0: skills-mode recall (strategy=${recallStrategy}) injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens)`,
+            );
+
+            _captureEvent("openclaw.hook.recall", {
+              strategy: recallStrategy,
+              memory_count: recallResult.memories.length,
+              latency_ms: Date.now() - recallStart,
+            });
+
+            recallContext = recallResult.context;
+          }
         } catch (err) {
           api.logger.warn(
             `openclaw-mem0: skills-mode recall failed: ${String(err)}`,
@@ -684,8 +738,6 @@ function registerHooks(
 
   // Auto-recall: inject relevant memories before prompt is built
   if (cfg.autoRecall) {
-    const RECALL_TIMEOUT_MS = 8_000;
-
     api.on("before_prompt_build", async (event: any, ctx: any) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
@@ -800,40 +852,64 @@ function registerHooks(
           )
           .join("\n");
 
-        _captureEvent("openclaw.hook.recall", {
-          strategy: "legacy",
-          memory_count: longTermResults.length,
-          latency_ms: Date.now() - recallStart,
-        });
-
-        api.logger.info(
-          `openclaw-mem0: injecting ${longTermResults.length} memories into context`,
-        );
-
         const preamble = isSubagent
           ? `The following are stored memories for user "${cfg.userId}". You are a subagent — use these memories for context but do not assume you are this user.`
           : `The following are stored memories for user "${cfg.userId}". Use them to personalize your response:`;
 
         return {
           prependContext: `<relevant-memories>\n${preamble}\n${memoryContext}\n</relevant-memories>`,
+          memoryCount: longTermResults.length,
         };
       };
 
+      const RECALL_TIMEOUT = Symbol("recall-timeout");
+      let recallSettled = false;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
       try {
-        const timeout = new Promise<undefined>((resolve) => {
-          setTimeout(() => resolve(undefined), RECALL_TIMEOUT_MS);
+        const timeout = new Promise<typeof RECALL_TIMEOUT>((resolve) => {
+          timeoutId = setTimeout(() => {
+            if (recallSettled) return;
+            resolve(RECALL_TIMEOUT);
+          }, cfg.recallTimeoutMs);
         });
         const result = await Promise.race([
           recallWork(),
-          timeout.then(() => {
-            api.logger.warn(
-              `openclaw-mem0: recall timed out after ${RECALL_TIMEOUT_MS}ms, skipping`,
-            );
-            return undefined;
-          }),
+          timeout,
         ]);
-        return result;
+        recallSettled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        if (result === RECALL_TIMEOUT) {
+          api.logger.warn(
+            `openclaw-mem0: recall timed out after ${cfg.recallTimeoutMs}ms, skipping`,
+          );
+          _captureEvent("openclaw.hook.recall", {
+            strategy: "legacy",
+            outcome: "timeout",
+            timeout_ms: cfg.recallTimeoutMs,
+            latency_ms: Date.now() - recallStart,
+          });
+          return undefined;
+        }
+        if (!result) return undefined;
+        _captureEvent("openclaw.hook.recall", {
+          strategy: "legacy",
+          outcome: "success",
+          memory_count: result.memoryCount,
+          latency_ms: Date.now() - recallStart,
+        });
+        api.logger.info(
+          `openclaw-mem0: injecting ${result.memoryCount} memories into context`,
+        );
+        return { prependContext: result.prependContext };
       } catch (err) {
+        recallSettled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        _captureEvent("openclaw.hook.recall", {
+          strategy: "legacy",
+          outcome: "provider_error",
+          latency_ms: Date.now() - recallStart,
+        });
         api.logger.warn(`openclaw-mem0: recall failed: ${String(err)}`);
       }
     });

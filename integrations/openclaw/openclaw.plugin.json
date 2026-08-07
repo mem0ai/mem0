@@ -94,6 +94,11 @@
       "label": "Auto-Recall",
       "help": "Automatically inject relevant memories before each agent turn"
     },
+    "recallTimeoutMs": {
+      "label": "Legacy Recall Timeout (ms)",
+      "advanced": true,
+      "help": "Auto-recall deadline for legacy + skills mode. Default: 8000 ms; allowed range: 1000-120000 ms. Supports ${RECALL_TIMEOUT_MS}."
+    },
     "customInstructions": {
       "label": "Custom Instructions",
       "placeholder": "Only store user preferences and important facts...",
@@ -186,6 +191,14 @@
         "type": "boolean",
         "default": true,
         "description": "When true, injects relevant memories before each agent turn. Enabled by default. Ignored in skills mode."
+      },
+      "recallTimeoutMs": {
+        "anyOf": [
+          { "type": "integer", "minimum": 1000, "maximum": 120000 },
+          { "type": "string", "pattern": "^0*(?:[1-9][0-9]{3,4}|1[01][0-9]{4}|120000)$" }
+        ],
+        "default": 8000,
+        "description": "Auto-recall timeout in milliseconds (legacy + skills mode). Valid range: 1000-120000. Supports ${RECALL_TIMEOUT_MS}."
       },
       "customInstructions": {
         "type": "string"
