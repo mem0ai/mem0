@@ -21,6 +21,7 @@ import { CohereReranker } from "../rerankers/cohere";
 import { LLMReranker } from "../rerankers/llm";
 import { ZeroEntropyReranker } from "../rerankers/zeroentropy";
 import { CrossEncoderReranker } from "../rerankers/cross_encoder";
+import { AWSBedrockReranker } from "../rerankers/aws_bedrock";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
@@ -236,6 +237,8 @@ export class RerankerFactory {
         const llm = RerankerFactory.buildLLMRerankerLLM(config);
         return new LLMReranker(config, llm);
       }
+      case "aws_bedrock":
+        return new AWSBedrockReranker(config);
       default:
         throw new Error(`Unsupported reranker provider: ${provider}`);
     }

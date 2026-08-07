@@ -18,14 +18,14 @@ Reranker-enhanced search adds a second scoring pass after vector retrieval so Me
 </Warning>
 
 <Note>
-  The `Configure it` and `See it in action` snippets below use the Python SDK. The self-hosted **TypeScript SDK** supports the Cohere, Zero Entropy, Sentence Transformer, Hugging Face, and LLM rerankers; see [TypeScript SDK](#typescript-sdk).
+  The `Configure it` and `See it in action` snippets below use the Python SDK. The self-hosted **TypeScript SDK** supports the Cohere, Zero Entropy, Sentence Transformer, Hugging Face, LLM, and AWS Bedrock rerankers; see [TypeScript SDK](#typescript-sdk).
 </Note>
 
 ---
 
 ## TypeScript SDK
 
-The self-hosted TypeScript SDK (`mem0ai/oss`) ships five rerankers: **Cohere**, **Zero Entropy**, **Sentence Transformer**, **Hugging Face**, and the **LLM reranker**. Configure one under `reranker`, then opt in per search with `rerank: true`. Keys are camelCase (`apiKey`, not `api_key`).
+The self-hosted TypeScript SDK (`mem0ai/oss`) ships six rerankers: **Cohere**, **Zero Entropy**, **Sentence Transformer**, **Hugging Face**, the **LLM reranker**, and **AWS Bedrock**. Configure one under `reranker`, then opt in per search with `rerank: true`. Keys are camelCase (`apiKey`, not `api_key`).
 
 Provider SDKs are peer dependencies. Install the one your reranker needs:
 
@@ -33,6 +33,7 @@ Provider SDKs are peer dependencies. Install the one your reranker needs:
 pnpm add cohere-ai          # cohere
 pnpm add zeroentropy        # zero_entropy
 pnpm add @huggingface/transformers   # sentence_transformer, huggingface
+pnpm add @aws-sdk/client-bedrock-agent-runtime   # aws_bedrock
 # llm_reranker defaults to openai (already a core dependency); install another
 # provider's SDK only if you nest a different one under config.llm
 ```
@@ -67,6 +68,35 @@ const memory = new Memory({
   },
 });
 ```
+
+### AWS Bedrock
+
+Calls the Bedrock Agent Runtime **Rerank API** (`RerankCommand`), giving you Cohere Rerank and Amazon's own rerank model behind one interface. Authentication is plain AWS credentials — no separate reranker API key — resolved via the standard AWS credential chain unless provided explicitly in config.
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  reranker: {
+    provider: "aws_bedrock",
+    config: {
+      model: "cohere.rerank-v3-5:0", // default; or "amazon.rerank-v1:0"
+      awsRegion: "us-east-1",
+      // awsAccessKeyId / awsSecretAccessKey / awsSessionToken: omit to use
+      // the default AWS credential chain (env vars, shared config, SSO, instance role)
+    },
+  },
+});
+
+const results = await memory.search("What is the user's profession?", {
+  filters: { userId: "bob" },
+  rerank: true,
+});
+```
+
+<Note>
+  The Rerank API is a different Bedrock service (`bedrock-agent-runtime`) from `@aws-sdk/client-bedrock-runtime`, used by the [AWS Bedrock LLM](/components/llms/models/aws_bedrock) and [embedder](/components/embedders/models/aws_bedrock) providers. The calling identity needs `bedrock:Rerank` on the target model.
+</Note>
 
 ### Local cross-encoders (Sentence Transformer, Hugging Face)
 
@@ -138,6 +168,7 @@ const memory = new Memory({
 | `sentence_transformer` | `Xenova/ms-marco-MiniLM-L-6-v2` | `model`, `device`, `maxLength`, `normalize`, `topK` |
 | `huggingface` | `Xenova/bge-reranker-base` | `model`, `device`, `maxLength`, `normalize`, `topK` |
 | `llm_reranker` | `openai` / `gpt-5-mini` | `provider`, `model`, `apiKey`, `llm` (nested override), `topK` |
+| `aws_bedrock` | `cohere.rerank-v3-5:0` | `model`, `awsRegion`, `awsAccessKeyId`, `awsSecretAccessKey`, `awsSessionToken`, `topK` |
 
 <Note>
   `rerank` is opt-in per search and a no-op when no `reranker` is configured. If the reranker call fails, Mem0 logs a warning and returns the original vector-ranked results.
@@ -159,6 +190,7 @@ const memory = new Memory({
     - **[Hugging Face](/components/rerankers/models/huggingface)**: Bring any hosted or on-prem reranker model ID.  
     - **[LLM Reranker](/components/rerankers/models/llm_reranker)**: Use your preferred LLM (OpenAI, etc.) for prompt-driven scoring.  
     - **[Zero Entropy](/components/rerankers/models/zero_entropy)**: High-quality neural reranking tuned for retrieval tasks.
+    - **[AWS Bedrock](/components/rerankers/models/aws_bedrock)**: Cohere Rerank and Amazon Rerank via IAM auth, no separate API key.
   </Accordion>
   <Accordion title="Provider comparison">
     | Provider | Latency | Quality | Cost | Local deploy |
@@ -167,6 +199,7 @@ const memory = new Memory({
     | Sentence Transformer | Low | Good | Free | ✅ |
     | Hugging Face | Low–Medium | Variable | Free | ✅ |
     | LLM Reranker | High | Very high | API cost | Depends |
+    | AWS Bedrock | Medium | High | AWS usage cost | ❌ |
   </Accordion>
 </AccordionGroup>
 
