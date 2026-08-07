@@ -53,6 +53,7 @@ class LlmFactory:
         "gemini": ("mem0.llms.gemini.GeminiLLM", GeminiConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
+        "mistral": ("mem0.llms.mistral.MistralLLM", BaseLlmConfig),
         "xai": ("mem0.llms.xai.XAILLM", XAIConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
