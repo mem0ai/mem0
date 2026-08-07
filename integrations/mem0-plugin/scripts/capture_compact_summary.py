@@ -34,11 +34,11 @@ _handler = logging.StreamHandler(sys.stderr)
 _handler.setFormatter(logging.Formatter("[mem0-compact-summary] %(message)s"))
 log.addHandler(_handler)
 
-if os.environ.get("MEM0_DEBUG"):
+if os.environ.get("MEM0_DEBUG", "").lower() not in ("", "0", "false"):
     _log_dir = os.path.expanduser("~/.mem0")
     try:
         os.makedirs(_log_dir, exist_ok=True)
-        _file_handler = logging.FileHandler(os.path.join(_log_dir, "hooks.log"))
+        _file_handler = logging.FileHandler(os.path.join(_log_dir, "hooks.log"), encoding="utf-8")
         _file_handler.setFormatter(logging.Formatter("[mem0-compact-summary] %(asctime)s %(message)s"))
         log.addHandler(_file_handler)
     except OSError:

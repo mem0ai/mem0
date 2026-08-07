@@ -32,11 +32,11 @@ _handler = logging.StreamHandler(sys.stderr)
 _handler.setFormatter(logging.Formatter("[mem0-session-summary] %(message)s"))
 log.addHandler(_handler)
 
-if os.environ.get("MEM0_DEBUG"):
+if os.environ.get("MEM0_DEBUG", "").lower() not in ("", "0", "false"):
     _log_dir = os.path.expanduser("~/.mem0")
     try:
         os.makedirs(_log_dir, exist_ok=True)
-        _fh = logging.FileHandler(os.path.join(_log_dir, "hooks.log"))
+        _fh = logging.FileHandler(os.path.join(_log_dir, "hooks.log"), encoding="utf-8")
         _fh.setFormatter(logging.Formatter("[mem0-session-summary] %(asctime)s %(message)s"))
         log.addHandler(_fh)
     except OSError:
@@ -46,6 +46,8 @@ API_URL = "https://api.mem0.ai"
 MAX_TAIL_LINES = 3000
 MAX_SUMMARY_CHARS = 50000
 SUMMARY_EXPIRY_DAYS = 90
+# The mem0 API rejects metadata whose serialized size exceeds 2000 chars
+METADATA_MAX_CHARS = 2000
 
 SYSTEM_TAG_RE = re.compile(
     r"<(?:system-reminder|private|claude-mem-context|persisted-output|system_instruction)>"
@@ -174,6 +176,10 @@ def store_summary(
         metadata["branch"] = branch
     if files:
         metadata["files_touched"] = files[:20]
+    while metadata.get("files_touched") and len(json.dumps(metadata)) > METADATA_MAX_CHARS:
+        metadata["files_touched"].pop()
+    if "files_touched" in metadata and not metadata["files_touched"]:
+        del metadata["files_touched"]
 
     # summary_prompt wraps the assistant's own last message. Mem0 extracts "facts
     # about the user" from each message and role is the only signal telling it who

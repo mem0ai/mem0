@@ -20,6 +20,9 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
+# Normalize Windows backslashes so the glob patterns below match
+FILE_PATH="${FILE_PATH//\\//}"
+
 case "$FILE_PATH" in
   */MEMORY.md|*/.claude/memory/*|*/.cursor/memory/*)
     jq -cn --arg msg "Do not write to $FILE_PATH. Use the mem0 MCP add_memory tool instead to persist memories." \
