@@ -56,9 +56,12 @@ def test_generate_response_without_tools(mock_litellm):
 
     response = llm.generate_response(messages)
 
-    mock_litellm.completion.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
-    )
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["model"] == "gpt-4.1-nano-2025-04-14"
+    assert kwargs["messages"] == messages
+    assert kwargs["temperature"] == 0.7
+    assert kwargs["max_tokens"] == 100
+    assert kwargs["top_p"] == 1.0
     assert response == "I'm doing well, thank you for asking!"
 
 
@@ -133,11 +136,60 @@ def test_generate_response_with_tools(mock_litellm):
 
     response = llm.generate_response(messages, tools=tools)
 
-    mock_litellm.completion.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1, tools=tools, tool_choice="auto"
-    )
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["model"] == "gpt-4.1-nano-2025-04-14"
+    assert kwargs["messages"] == messages
+    assert kwargs["temperature"] == 0.7
+    assert kwargs["max_tokens"] == 100
+    assert kwargs["top_p"] == 1
+    assert kwargs["tools"] == tools
+    assert kwargs["tool_choice"] == "auto"
 
     assert response["content"] == "I've added the memory for you."
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_reasoning_model_omits_temperature(mock_litellm):
+    """Reasoning models reject temperature/top_p; LiteLLM must strip them (#6085 parity)."""
+    config = BaseLlmConfig(model="o3-mini", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert "temperature" not in kwargs
+    assert "top_p" not in kwargs
+    assert kwargs["model"] == "o3-mini"
+    assert kwargs["messages"] == messages
+    # Configured max_tokens must still be forwarded as max_completion_tokens
+    assert kwargs.get("max_completion_tokens") == 100
+    assert "max_tokens" not in kwargs
+
+
+def test_generate_response_explicit_is_reasoning_model_flag(mock_litellm):
+    config = BaseLlmConfig(
+        model="custom-router/o3-like",
+        temperature=0.5,
+        max_tokens=50,
+        top_p=0.9,
+        is_reasoning_model=True,
+    )
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hi"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_litellm.completion.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert "temperature" not in kwargs
+    assert "top_p" not in kwargs
