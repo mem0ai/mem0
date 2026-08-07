@@ -70,19 +70,34 @@ def tail_lines(filepath: str, n: int) -> list[str]:
         return []
 
 
+def _line_might_be_assistant(line: str) -> bool:
+    """Fast pre-filter for Claude (type) and Cursor (role) assistant entries."""
+    return (
+        '"type":"assistant"' in line
+        or '"type": "assistant"' in line
+        or '"role":"assistant"' in line
+        or '"role": "assistant"' in line
+    )
+
+
+def _is_assistant_entry(entry: dict) -> bool:
+    """Claude transcripts use type=assistant; Cursor transcripts use role=assistant."""
+    return entry.get("type") == "assistant" or entry.get("role") == "assistant"
+
+
 def extract_last_assistant_message(lines: list[str]) -> str:
     """Walk transcript backwards, return text content of the last assistant message."""
     for line in reversed(lines):
         line = line.strip()
         if not line:
             continue
-        if '"type":"assistant"' not in line and '"type": "assistant"' not in line:
+        if not _line_might_be_assistant(line):
             continue
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if entry.get("type") != "assistant":
+        if not _is_assistant_entry(entry):
             continue
         message = entry.get("message", {})
         content = message.get("content", [])

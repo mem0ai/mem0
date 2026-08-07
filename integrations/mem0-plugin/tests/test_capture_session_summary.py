@@ -77,3 +77,60 @@ def test_files_touched_omitted_when_no_files(monkeypatch):
     )
 
     assert "files_touched" not in captured["body"]["metadata"]
+
+
+def test_extract_last_assistant_message_claude_type_format():
+    import capture_session_summary as css
+
+    lines = [
+        json.dumps({"type": "user", "message": {"content": "hello"}}),
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "Claude-style assistant reply with enough characters to pass the summary length gate."}],
+                },
+            }
+        ),
+    ]
+
+    assert css.extract_last_assistant_message(lines).startswith("Claude-style assistant reply")
+
+
+def test_extract_last_assistant_message_cursor_role_format():
+    import capture_session_summary as css
+
+    lines = [
+        json.dumps({"role": "user", "message": {"content": [{"type": "text", "text": "fix the bug"}]}}),
+        json.dumps(
+            {
+                "role": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "Cursor-style assistant reply with enough characters to pass the summary length gate."}],
+                },
+            }
+        ),
+    ]
+
+    assert css.extract_last_assistant_message(lines).startswith("Cursor-style assistant reply")
+
+
+def test_extract_last_assistant_message_prefers_last_assistant():
+    import capture_session_summary as css
+
+    lines = [
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "older assistant reply that should not be returned because a newer assistant message exists later in the transcript."}]},
+            }
+        ),
+        json.dumps(
+            {
+                "role": "assistant",
+                "message": {"content": [{"type": "text", "text": "newer Cursor assistant reply with enough characters to pass the summary length gate and win selection."}]},
+            }
+        ),
+    ]
+
+    assert css.extract_last_assistant_message(lines).startswith("newer Cursor assistant reply")
