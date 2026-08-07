@@ -180,6 +180,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Open Source Configuration](https://docs.mem0.ai/open-source/configuration) [OSS]: Use when configuring `Memory` - LLM, embedder, vector store, reranker.
 - [Open Source Python Quickstart](https://docs.mem0.ai/open-source/python-quickstart) [OSS]: Use for the first self-hosted Python integration.
 - [Open Source Node.js Quickstart](https://docs.mem0.ai/open-source/node-quickstart) [OSS]: Use for the first self-hosted Node integration.
+- [Install from Source](https://docs.mem0.ai/open-source/install-from-source) [OSS]: Use when installing mem0ai from a git clone, local checkout, or GitHub URL instead of PyPI or npm.
 - [Self-Hosted Setup](https://docs.mem0.ai/open-source/setup) [OSS]: Use when standing up the bundled REST server and dashboard via Docker Compose, including auth, API keys, and the setup wizard.
 
 ## Core Concepts
