@@ -261,3 +261,48 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+
+class TestExtractJsonRejectsScalarBlocks:
+    """A fenced block that parses is not necessarily the answer.
+
+    `json.loads` accepts bare scalars, so a scratch fence containing `42`, `"done"`, `true`
+    or `null` is valid JSON and would win over the real object if the only test were "does
+    it parse". Every caller indexes the result as an object
+    (`json.loads(extract_json(response)).get("memory", [])`), so a scalar reaches them as an
+    int/str/bool and raises `AttributeError`, which the caller's `except Exception` swallows.
+    Reported in review on #6659.
+    """
+
+    ANSWER = '{"memory": [{"text": "likes basketball"}]}'
+
+    @pytest.mark.parametrize("scratch", ["42", '"done"', "true", "null", "[1, 2]", "-0.5"])
+    def test_scalar_scratch_block_does_not_win(self, scratch):
+        # Both fences untagged is the shape that exposes it: with the answer tagged ```json
+        # it is already ordered ahead of the scratch block and the bug does not appear.
+        response = f"```\n{scratch}\n```\n```\n{self.ANSWER}\n```"
+
+        extracted = extract_json(response)
+
+        assert json.loads(extracted) == json.loads(self.ANSWER)
+        # and the caller's own access pattern survives
+        assert json.loads(extracted, strict=False).get("memory") == [{"text": "likes basketball"}]
+
+    def test_json_tagged_scalar_still_does_not_win(self):
+        """Even an explicitly ```json-tagged scalar loses to an untagged real object."""
+        response = f"```json\n42\n```\n```\n{self.ANSWER}\n```"
+
+        assert json.loads(extract_json(response)) == json.loads(self.ANSWER)
+
+    def test_prose_scratch_block_still_works(self):
+        """The original case this PR fixes must keep working."""
+        response = f"```\nthinking about it\n```\n```\n{self.ANSWER}\n```"
+
+        assert json.loads(extract_json(response)) == json.loads(self.ANSWER)
+
+    def test_scalar_only_response_falls_back_unchanged(self):
+        """With no object anywhere, the old behaviour is preserved: the caller's json.loads
+        gets the first candidate and raises on its own terms rather than us inventing a value."""
+        response = "```\n42\n```"
+
+        assert extract_json(response) == "42"
