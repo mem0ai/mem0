@@ -15,6 +15,10 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+# OpenSearch's default index.max_result_window. Used as the fallback "size" for
+# unbounded list() calls so they do not silently cap at the default of 10 hits.
+MAX_RESULT_WINDOW = 10000
+
 _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
 _IDENTITY_FILTER_KEYS = ("user_id", "agent_id", "run_id")
 
@@ -391,8 +395,12 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if top_k:
-                query["size"] = top_k
+            # OpenSearch defaults to returning only 10 hits when "size" is
+            # unset. list() is used by get_all()/delete_all() with top_k=None to
+            # enumerate *all* matching memories, so an unset size silently caps
+            # the result at 10 and drops the rest. Fall back to the max result
+            # window so unbounded listings behave as callers expect.
+            query["size"] = top_k if top_k else MAX_RESULT_WINDOW
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]
