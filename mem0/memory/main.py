@@ -1319,6 +1319,13 @@ class Memory(MemoryBase):
         return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
+        # top_k=0 means "return nothing" and is a documented-valid input. Skip the
+        # store round trip entirely: with show_expired=True the caller's 0 is passed
+        # straight through as the fetch limit, and stores reject it (Qdrant raises
+        # "limit value 0 is invalid. Must be 1 or larger.").
+        if output_limit == 0:
+            return []
+
         memories_result = self.vector_store.list(filters=filters, top_k=limit)
 
         # Handle different vector store return formats by inspecting first element
@@ -1347,6 +1354,11 @@ class Memory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            # Checked before formatting, not after appending: the old
+            # append-then-`>=` order let one memory through for output_limit=0,
+            # which is a documented-valid top_k ("non-negative integer").
+            if output_limit is not None and len(formatted_memories) >= output_limit:
+                break
             if not show_expired and _payload_is_expired(mem.payload):
                 continue
             memory_item_dict = MemoryItem(
@@ -1366,8 +1378,6 @@ class Memory(MemoryBase):
                 memory_item_dict["metadata"] = additional_metadata
 
             formatted_memories.append(memory_item_dict)
-            if output_limit is not None and len(formatted_memories) >= output_limit:
-                break
 
         return formatted_memories
 
@@ -2971,6 +2981,11 @@ class AsyncMemory(MemoryBase):
         return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
+        # See the sync version: top_k=0 must not reach the store, which rejects a
+        # zero fetch limit when show_expired=True passes it straight through.
+        if output_limit == 0:
+            return []
+
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
 
         # Handle different vector store return formats by inspecting first element
@@ -2999,6 +3014,11 @@ class AsyncMemory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            # Checked before formatting, not after appending: the old
+            # append-then-`>=` order let one memory through for output_limit=0,
+            # which is a documented-valid top_k ("non-negative integer").
+            if output_limit is not None and len(formatted_memories) >= output_limit:
+                break
             if not show_expired and _payload_is_expired(mem.payload):
                 continue
             memory_item_dict = MemoryItem(
@@ -3018,8 +3038,6 @@ class AsyncMemory(MemoryBase):
                 memory_item_dict["metadata"] = additional_metadata
 
             formatted_memories.append(memory_item_dict)
-            if output_limit is not None and len(formatted_memories) >= output_limit:
-                break
 
         return formatted_memories
 
