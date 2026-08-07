@@ -32,7 +32,8 @@ def fetch_recent_memories(api_key: str, user_id: str, project_id: str) -> list[d
     global_search = os.environ.get("MEM0_GLOBAL_SEARCH", "false") == "true"
 
     if global_search:
-        filters = {"OR": [{"user_id": "*"}]}
+        # Wildcard-only filters fail API validation; anchor the OR with the user id.
+        filters = {"OR": [{"user_id": user_id}, {"agent_id": "*"}]}
     else:
         filters = {"AND": [{"user_id": user_id}, {"app_id": project_id}]}
 

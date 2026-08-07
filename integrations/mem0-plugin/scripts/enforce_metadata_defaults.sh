@@ -179,8 +179,10 @@ if handler == "add_memory":
         inp["metadata"] = meta
 
 elif handler in ("search_memories", "get_memories"):
-    if global_search:
-        inp["filters"] = {"OR": [{"user_id": "*"}]}
+    if global_search and resolved_uid:
+        # Wildcard-only filters fail API validation ("must include at least one
+        # positively-scoped entity ID"); anchor the OR with the resolved user id.
+        inp["filters"] = {"OR": [{"user_id": resolved_uid}, {"agent_id": "*"}]}
         changed = True
     else:
         changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
