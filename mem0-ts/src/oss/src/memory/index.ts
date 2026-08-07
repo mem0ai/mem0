@@ -824,6 +824,14 @@ export class Memory {
   ): Promise<MemoryItem[]> {
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
+      // Fold the session scope into the stored payload so infer:false memories
+      // remain retrievable via scoped getAll/search. This mirrors the infer:true
+      // path (which writes filters.user_id/agent_id/run_id into memPayload) and
+      // covers scope passed via the `filters` option, not just userId/agentId/runId.
+      const baseMetadata: Record<string, any> = { ...metadata };
+      if (filters.user_id) baseMetadata.user_id = filters.user_id;
+      if (filters.agent_id) baseMetadata.agent_id = filters.agent_id;
+      if (filters.run_id) baseMetadata.run_id = filters.run_id;
       for (const message of messages) {
         if (message.role === "system") {
           continue;
@@ -831,7 +839,7 @@ export class Memory {
         const memoryId = await this.createMemory(
           message.content as string,
           {},
-          metadata,
+          baseMetadata,
         );
         returnedMemories.push({
           id: memoryId,
