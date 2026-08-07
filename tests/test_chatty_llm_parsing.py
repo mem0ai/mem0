@@ -14,6 +14,7 @@ from mem0.memory.utils import extract_json, remove_code_blocks
 
 # --- Test extract_json ---
 
+
 class TestExtractJson:
     """Tests for extract_json utility."""
 
@@ -55,6 +56,26 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["text"] == "likes gaming"
 
+    def test_chatty_with_braces_before_json(self):
+        """extract_json skips non-JSON prose braces before the payload."""
+        text = (
+            "Based on the conversation {about travel}, here is the update: "
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_chatty_with_valid_non_payload_json_before_memory(self):
+        """extract_json prefers a later memory payload over earlier valid JSON prose."""
+        text = (
+            'Example: {"note": "not the memory payload"}. Final answer: '
+            '{"memory": [{"id": "0", "text": "likes hiking", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes hiking"
+
     def test_chatty_multiline_json_without_markdown(self):
         """extract_json finds multi-line JSON by {/} boundaries."""
         text = """Here is the memory update:
@@ -93,6 +114,7 @@ That's the result."""
 
 
 # --- Test remove_code_blocks ---
+
 
 class TestRemoveCodeBlocks:
     """Tests for remove_code_blocks — verify it does NOT handle chatty text."""
@@ -133,6 +155,7 @@ class TestRemoveCodeBlocks:
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+
 
 class TestFallbackChain:
     """Tests the actual fallback pattern used in _add_to_vector_store:
@@ -189,6 +212,15 @@ I hope this helps!"""
         result = self._parse_with_fallback(response)
         assert len(result["memory"]) == 2
 
+    def test_chatty_no_markdown_with_braces_before_json(self):
+        """Issue #5998: prose braces before JSON do not poison fallback parsing."""
+        response = (
+            "Based on the conversation {about travel}, here is the update: "
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "likes travel"
+
     def test_think_tags_with_json(self):
         """Reasoning model with <think> tags."""
         response = '<think>Let me process this...</think>\n```json\n{"memory": [{"id": "0", "text": "test", "event": "ADD"}]}\n```'
@@ -230,3 +262,9 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+    def test_facts_extraction_prefers_payload_over_prior_json(self):
+        """Earlier valid JSON should not hide a later facts payload."""
+        response = 'Example: {"note": "ignore me"}\nFacts:\n{"facts": ["Name is Alex"]}'
+        result = self._parse_with_fallback(response)
+        assert result["facts"] == ["Name is Alex"]
