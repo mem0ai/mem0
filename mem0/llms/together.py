@@ -20,7 +20,17 @@ class TogetherLLM(LLMBase):
             self.config.model = "MiniMaxAI/MiniMax-M3"
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
-        self.client = Together(api_key=api_key)
+        # Prefer explicit config (openai_base_url common for OpenAI-compatible),
+        # then TOGETHER_API_BASE — parity with TS TogetherLLM and other providers.
+        base_url = (
+            getattr(self.config, "together_base_url", None)
+            or getattr(self.config, "openai_base_url", None)
+            or os.getenv("TOGETHER_API_BASE")
+        )
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self.client = Together(**client_kwargs)
 
     def _parse_response(self, response, tools):
         """

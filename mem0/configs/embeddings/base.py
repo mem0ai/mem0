@@ -20,6 +20,8 @@ class BaseEmbedderConfig(ABC):
         ollama_base_url: Optional[str] = None,
         # Openai specific
         openai_base_url: Optional[str] = None,
+        # Together specific
+        together_base_url: Optional[str] = None,
         # Huggingface specific
         model_kwargs: Optional[dict] = None,
         huggingface_base_url: Optional[str] = None,
@@ -77,6 +79,7 @@ class BaseEmbedderConfig(ABC):
         self.model = model
         self.api_key = api_key
         self.openai_base_url = openai_base_url
+        self.together_base_url = together_base_url
         self.embedding_dims = embedding_dims
 
         # AzureOpenAI specific

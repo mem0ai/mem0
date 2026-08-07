@@ -102,3 +102,51 @@ def test_generate_response_forwards_extra_kwargs(mock_together_client):
     assert response == "Hi"
     call_kwargs = mock_together_client.chat.completions.create.call_args.kwargs
     assert call_kwargs["frequency_penalty"] == 0.5
+
+
+def test_together_base_url_from_env(mock_together_client, monkeypatch):
+    """TOGETHER_API_BASE is forwarded to the Together client constructor."""
+    monkeypatch.setenv("TOGETHER_API_BASE", "https://proxy.example/v1")
+    monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
+    config = BaseLlmConfig(model="test-model", api_key="test-key", temperature=0.7, max_tokens=100, top_p=1.0)
+    with patch("mem0.llms.together.Together") as mock_together:
+        mock_together.return_value = mock_together_client
+        TogetherLLM(config)
+        mock_together.assert_called_once_with(api_key="test-key", base_url="https://proxy.example/v1")
+
+
+def test_together_base_url_from_openai_base_url_config(mock_together_client, monkeypatch):
+    monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
+    monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
+    config = BaseLlmConfig(
+        model="test-model",
+        api_key="test-key",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        openai_base_url="https://cfg.example/v1",
+    )
+    with patch("mem0.llms.together.Together") as mock_together:
+        mock_together.return_value = mock_together_client
+        TogetherLLM(config)
+        mock_together.assert_called_once_with(api_key="test-key", base_url="https://cfg.example/v1")
+
+
+def test_together_base_url_from_together_base_url_config(mock_together_client, monkeypatch):
+    """together_base_url on BaseLlmConfig wins over openai_base_url and env."""
+    monkeypatch.delenv("TOGETHER_API_BASE", raising=False)
+    monkeypatch.delenv("TOGETHER_BASE_URL", raising=False)
+    monkeypatch.setenv("TOGETHER_API_BASE", "https://env-should-lose.example/v1")
+    config = BaseLlmConfig(
+        model="test-model",
+        api_key="test-key",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        openai_base_url="https://openai-cfg-should-lose.example/v1",
+        together_base_url="https://together-cfg.example/v1",
+    )
+    with patch("mem0.llms.together.Together") as mock_together:
+        mock_together.return_value = mock_together_client
+        TogetherLLM(config)
+        mock_together.assert_called_once_with(api_key="test-key", base_url="https://together-cfg.example/v1")
