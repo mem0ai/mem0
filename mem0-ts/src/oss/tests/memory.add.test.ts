@@ -337,6 +337,76 @@ describe("Memory - add()", () => {
     expect(result.results[0].memory).toBe("Direct storage content");
   });
 
+  test("with infer=false stores and trims user_id passed through filters", async () => {
+    const filteredUserId = `filter_user_${Date.now()}`;
+    const result: SearchResult = await memory.add(
+      "User filter scoped content",
+      {
+        filters: { user_id: `  ${filteredUserId}  ` },
+        infer: false,
+      },
+    );
+
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored).not.toBeNull();
+    expect(stored!.metadata).toEqual(
+      expect.objectContaining({ user_id: filteredUserId }),
+    );
+
+    const scopedResults = await memory.getAll({
+      filters: { user_id: filteredUserId },
+    });
+    expect(scopedResults.results.map((item) => item.id)).toContain(
+      result.results[0].id,
+    );
+  });
+
+  test("with infer=false stores agent_id passed through filters", async () => {
+    const filteredAgentId = `filter_agent_${Date.now()}`;
+    const result: SearchResult = await memory.add(
+      "Agent filter scoped content",
+      {
+        filters: { agent_id: filteredAgentId },
+        infer: false,
+      },
+    );
+
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored!.metadata).toEqual(
+      expect.objectContaining({ agent_id: filteredAgentId }),
+    );
+  });
+
+  test("with infer=false stores run_id passed through filters", async () => {
+    const filteredRunId = `filter_run_${Date.now()}`;
+    const result: SearchResult = await memory.add("Run filter scoped content", {
+      filters: { run_id: filteredRunId },
+      infer: false,
+    });
+
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored!.metadata).toEqual(
+      expect.objectContaining({ run_id: filteredRunId }),
+    );
+  });
+
+  test("top-level userId takes precedence over filters.user_id", async () => {
+    const explicitUserId = `explicit_user_${Date.now()}`;
+    const result: SearchResult = await memory.add(
+      "Explicit user scoped content",
+      {
+        userId: explicitUserId,
+        filters: { user_id: `filter_user_${Date.now()}` },
+        infer: false,
+      },
+    );
+
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored!.metadata).toEqual(
+      expect.objectContaining({ user_id: explicitUserId }),
+    );
+  });
+
   test("with infer=false marks event as ADD in metadata", async () => {
     const result: SearchResult = await memory.add("Direct fact", {
       userId,
