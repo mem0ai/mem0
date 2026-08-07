@@ -151,10 +151,14 @@ def extract_json(text):
 
     for candidate in candidates:
         try:
-            json.loads(candidate)
+            parsed = json.loads(candidate)
         except ValueError:
             continue
-        return candidate
+        # Parsing is not enough on its own: a scratch block whose contents happen to be a bare
+        # scalar (42, "done", true, null) is valid JSON and would win over the real answer.
+        # Every caller indexes the result as an object, so require one.
+        if isinstance(parsed, dict):
+            return candidate
 
     # Nothing parsed. Return what the old behaviour would have returned so the caller's own
     # json.loads still raises with the same content in the message.
