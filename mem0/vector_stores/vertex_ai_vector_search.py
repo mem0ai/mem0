@@ -60,6 +60,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         self.deployment_index_id = config.deployment_index_id  # The deployment-specific ID
         self.collection_name = config.collection_name
         self.vector_search_api_endpoint = config.vector_search_api_endpoint
+        self.embedding_model_dims = config.embedding_model_dims
 
         logger.debug("Using project=%s, location=%s", self.project_id, self.region)
 
@@ -479,9 +480,10 @@ class GoogleMatchingEngine(VectorStoreBase):
         logger.debug("Limit: %s", top_k)
 
         try:
-            # Use a zero vector for the search
-            dimension = 768  # This should be configurable based on the model
-            zero_vector = [0.0] * dimension
+            # Use a zero vector for the search, sized to the configured embedding
+            # dimension. Hardcoding 768 broke any model with a different dimension
+            # (e.g. text-embedding-3-large at 3072), producing a shape mismatch.
+            zero_vector = [0.0] * self.embedding_model_dims
 
             # Use a large top_k if none specified
             search_limit = top_k if top_k is not None else 10000

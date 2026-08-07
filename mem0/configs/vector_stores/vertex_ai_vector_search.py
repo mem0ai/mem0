@@ -14,6 +14,7 @@ class GoogleMatchingEngineConfig(BaseModel):
     credentials_path: Optional[str] = Field(None, description="Path to service account credentials JSON file")
     service_account_json: Optional[Dict] = Field(None, description="Service account credentials as dictionary (alternative to credentials_path)")
     vector_search_api_endpoint: Optional[str] = Field(None, description="Vector search API endpoint")
+    embedding_model_dims: int = Field(768, description="Dimension of the embedding vectors")
 
     model_config = ConfigDict(extra="forbid")
 
