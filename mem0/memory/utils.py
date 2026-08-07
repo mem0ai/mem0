@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -130,17 +131,63 @@ def remove_code_blocks(content: str) -> str:
 
 
 
+# Keys that identify the mem0 extraction payload object. When prose around the
+# JSON itself contains standalone valid-JSON snippets (a schema echo, a config
+# example), we must return the object carrying one of these keys rather than the
+# first object we happen to parse (issue #5998).
+_PAYLOAD_KEYS = ("memory", "facts")
+
+
+def _find_balanced_json_object(text):
+    """
+    Scan ``text`` for balanced ``{...}`` spans that parse as valid JSON and
+    return the mem0 payload object.
+
+    Uses ``json.JSONDecoder().raw_decode`` (stdlib, C-speed, linear per
+    candidate) to parse the object that starts at each ``{``, so a long run of
+    unbalanced braces cannot make extraction quadratic. Among the parseable
+    objects it prefers the one carrying a payload key (``memory``/``facts``);
+    otherwise it returns the last (outermost/trailing) object, which is where
+    LLMs place the answer after any prose preamble.
+
+    Returns the matching substring, or ``None`` if no parseable JSON object is
+    found.
+    """
+    decoder = json.JSONDecoder()
+    fallback = None
+    idx = text.find("{")
+    while idx != -1:
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            idx = text.find("{", idx + 1)
+            continue
+        if isinstance(obj, dict):
+            candidate = text[idx:end]
+            if any(k in obj for k in _PAYLOAD_KEYS):
+                return candidate
+            # Keep the last parseable object as a fallback (trailing answer).
+            fallback = candidate
+        idx = text.find("{", end)
+    return fallback
+
+
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
-    If that also fails, returns the text as-is.
+    If no code block is found, attempts to locate a brace-balanced JSON object;
+    prose that itself contains braces no longer defeats extraction (issue #5998).
+    As a last resort it falls back to the first '{' .. last '}' span, or the
+    text as-is.
     """
     text = text.strip()
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
+        balanced = _find_balanced_json_object(text)
+        if balanced is not None:
+            return balanced
         start_idx = text.find("{")
         end_idx = text.rfind("}")
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:

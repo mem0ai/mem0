@@ -91,6 +91,67 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_chatty_with_braces_in_prose(self):
+        """Prose containing braces before the real JSON must not defeat
+        extraction (issue #5998)."""
+        text = (
+            'Based on the conversation {about travel}, here is the update: '
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_braces_in_prose_both_sides(self):
+        """Brace-containing prose on both sides of the JSON payload."""
+        text = (
+            'Context {topic: travel}: {"memory": [{"id": "1", "text": "likes hiking", '
+            '"event": "ADD"}]} -- note {end of update}.'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes hiking"
+
+    def test_brace_inside_json_string_value(self):
+        """Braces inside a JSON string literal must not break balancing."""
+        text = 'Here: {"memory": [{"id": "0", "text": "use {curly} braces", "event": "ADD"}]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "use {curly} braces"
+
+    def test_standalone_json_in_prose_preamble(self):
+        """A standalone valid-JSON object in the prose preamble (schema echo,
+        config example) must not be returned instead of the payload (#5998)."""
+        text = (
+            'Config {"a": 1} then memory: '
+            '{"memory": [{"id": "0", "text": "likes travel", "event": "ADD"}]}'
+        )
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes travel"
+
+    def test_facts_payload_after_json_preamble(self):
+        """The payload object may carry a 'facts' key; still preferred over a
+        standalone object in the preamble."""
+        text = 'Example {"schema": true}. Result: {"facts": ["likes hiking"]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["likes hiking"]
+
+    def test_long_brace_run_is_linear(self):
+        """A long unbalanced-brace run must not make extraction quadratic
+        (raw_decode keeps the scan linear per candidate)."""
+        import time
+
+        payload = '{"memory": [{"id": "0", "text": "ok", "event": "ADD"}]}'
+        text = "{" * 40000 + " " + payload
+        start = time.perf_counter()
+        result = extract_json(text)
+        elapsed = time.perf_counter() - start
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "ok"
+        assert elapsed < 2.0, f"extract_json too slow on brace run: {elapsed:.2f}s"
+
 
 # --- Test remove_code_blocks ---
 
