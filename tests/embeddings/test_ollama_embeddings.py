@@ -94,3 +94,10 @@ def test_embed_batch_count_mismatch_raises(mock_ollama_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_default_embedding_dims_matches_default_model(mock_ollama_client):
+    """Default embedding_dims should be 768 to match nomic-embed-text."""
+    config = BaseEmbedderConfig(model="nomic-embed-text")
+    embedder = OllamaEmbedding(config)
+    assert embedder.config.embedding_dims == 768
