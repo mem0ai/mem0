@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -14,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
     """Get fact retrieval messages based on the memory type.
-    
+
     Args:
         message: The message content to extract facts from
         is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
+
     Returns:
         tuple: (system_prompt, user_prompt)
     """
@@ -52,8 +53,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
     combined = (system_prompt + user_prompt).lower()
     if "json" not in combined:
         system_prompt += (
-            "\n\nYou must return your response in valid JSON format "
-            "with a 'facts' key containing an array of strings."
+            "\n\nYou must return your response in valid JSON format with a 'facts' key containing an array of strings."
         )
     return system_prompt, user_prompt
 
@@ -86,6 +86,7 @@ def format_entities(entities):
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
+
 
 def normalize_facts(raw_facts):
     """Normalize LLM-extracted facts to a list of strings.
@@ -125,15 +126,14 @@ def remove_code_blocks(content: str) -> str:
         return ""
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
+    match_res = match.group(1).strip() if match else content.strip()
     return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
-
 
 
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
+    If no code block is found, attempts to locate the largest valid JSON object in the text.
     If that also fails, returns the text as-is.
     """
     text = text.strip()
@@ -141,12 +141,29 @@ def extract_json(text):
     if match:
         json_str = match.group(1)
     else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
+        decoder = json.JSONDecoder(strict=False)
+        best_json_str = None
+
+        for start_idx, char in enumerate(text):
+            if char != "{":
+                continue
+            try:
+                _, end_idx = decoder.raw_decode(text[start_idx:])
+            except json.JSONDecodeError:
+                continue
+            candidate = text[start_idx : start_idx + end_idx]
+            if best_json_str is None or len(candidate) > len(best_json_str):
+                best_json_str = candidate
+
+        if best_json_str is not None:
+            json_str = best_json_str
         else:
-            json_str = text
+            start_idx = text.find("{")
+            end_idx = text.rfind("}")
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = text[start_idx : end_idx + 1]
+            else:
+                json_str = text
     return json_str
 
 
@@ -196,8 +213,7 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
         if isinstance(content, list):
             if llm is None:
                 text_parts = [
-                    part["text"] for part in msg["content"]
-                    if isinstance(part, dict) and part.get("type") == "text"
+                    part["text"] for part in msg["content"] if isinstance(part, dict) and part.get("type") == "text"
                 ]
                 if not text_parts:
                     continue
@@ -319,4 +335,3 @@ def remove_spaces_from_entities(
         item["destination"] = item["destination"].lower().replace(" ", "_")
         cleaned.append(item)
     return cleaned
-
