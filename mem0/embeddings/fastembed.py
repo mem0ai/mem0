@@ -1,7 +1,7 @@
-from typing import Literal, Optional
+from typing import Optional, Literal
 
-from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
+from mem0.configs.embeddings.base import BaseEmbedderConfig
 
 try:
     from fastembed import TextEmbedding
@@ -29,4 +29,6 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0].tolist()
+        vector = embeddings[0]
+        # Contract: embedders return list[float], not numpy.ndarray (json-safe).
+        return vector.tolist() if hasattr(vector, "tolist") else list(vector)
