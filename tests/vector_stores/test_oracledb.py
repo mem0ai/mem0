@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Oracle and/or its affiliates.
 import os
 import uuid
 from contextlib import nullcontext
@@ -264,6 +265,16 @@ def test_index_parameters_reject_non_string_keys():
             client=object(),
             index_type="HNSW",
             index_parameters={1: 10},
+        )
+
+
+def test_index_accuracy_rejects_zero():
+    with pytest.raises(ValueError, match="index_accuracy.*between 1 and 100"):
+        OracleAIVectorSearchConfig(
+            collection_name=_unique_collection_name(),
+            embedding_model_dims=DIM,
+            client=object(),
+            index_accuracy=0,
         )
 
 

@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Oracle and/or its affiliates.
 """Oracle AI Vector Search vector store integration for mem0."""
 
 import array
