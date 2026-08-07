@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
 _IDENTITY_FILTER_KEYS = ("user_id", "agent_id", "run_id")
 
+# OpenSearch's default query size is 10 hits. When list() is called with no
+# top_k (e.g. from get_all()/delete_all() to enumerate ALL matches), fall back
+# to index.max_result_window (default 10000) so results are not silently capped.
+_MAX_RESULT_WINDOW = 10000
+
 
 def _validate_filter(key: str, value) -> None:
     if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
@@ -391,8 +396,10 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if top_k:
-                query["size"] = top_k
+            # top_k=None means "list everything" (get_all()/delete_all()). Without
+            # an explicit size, OpenSearch caps the response at its default of 10
+            # hits, silently truncating results. Fall back to max_result_window.
+            query["size"] = top_k if top_k else _MAX_RESULT_WINDOW
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]
