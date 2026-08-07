@@ -265,5 +265,37 @@ class TestWeaviateDB(unittest.TestCase):
         self.assertNotIn("properties", vector_updates[0].kwargs)
 
 
+    def test_search_builds_conditions_for_custom_metadata_filters(self):
+        mock_response = MagicMock()
+        mock_response.objects = []
+        mock_hybrid = MagicMock(return_value=mock_response)
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+
+        with patch("mem0.vector_stores.weaviate.Filter") as mock_filter:
+            self.weaviate_db.search(
+                query="",
+                vectors=[0.1] * 1536,
+                top_k=5,
+                filters={"user_id": "u1", "category": "work"},
+            )
+
+        called_keys = {call.args[0] for call in mock_filter.by_property.call_args_list}
+        self.assertIn("user_id", called_keys)
+        self.assertIn("category", called_keys)
+
+    def test_list_builds_conditions_for_custom_metadata_filters(self):
+        mock_response = MagicMock()
+        mock_response.objects = []
+        mock_fetch = MagicMock(return_value=mock_response)
+        self.client_mock.collections.get.return_value.query.fetch_objects = mock_fetch
+
+        with patch("mem0.vector_stores.weaviate.Filter") as mock_filter:
+            self.weaviate_db.list(filters={"agent_id": "a1", "category": "personal"}, top_k=10)
+
+        called_keys = {call.args[0] for call in mock_filter.by_property.call_args_list}
+        self.assertIn("agent_id", called_keys)
+        self.assertIn("category", called_keys)
+
+
 if __name__ == "__main__":
     unittest.main()
