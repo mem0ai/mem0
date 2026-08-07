@@ -240,6 +240,67 @@ def test_search_explain_includes_score_details(
     assert details["threshold"] == 0.1
 
 
+@patch("mem0.memory.main.extract_entities", return_value=[])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_search_returns_keyword_only_matches(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.keyword_search.return_value = [
+        MockVectorMemory("keyword_only", {"data": "Error code ERR_AUTH_0042", "user_id": "test"}, score=20.0)
+    ]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    result = memory.search("ERR_AUTH_0042", filters={"user_id": "test"})
+
+    assert [item["id"] for item in result["results"]] == ["keyword_only"]
+    assert result["results"][0]["memory"] == "Error code ERR_AUTH_0042"
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.extract_entities", return_value=[])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_search_returns_keyword_only_matches(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.keyword_search.return_value = [
+        MockVectorMemory("keyword_only", {"data": "Error code ERR_AUTH_0042", "user_id": "test"}, score=20.0)
+    ]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    memory = AsyncMemory(MemoryConfig())
+    result = await memory.search("ERR_AUTH_0042", filters={"user_id": "test"})
+
+    assert [item["id"] for item in result["results"]] == ["keyword_only"]
+    assert result["results"][0]["memory"] == "Error code ERR_AUTH_0042"
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -1235,8 +1296,9 @@ class TestHybridSearchWarning:
     def test_warning_for_store_without_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithoutKeywordSearch(VectorStoreBase):
             def create_col(self, *a, **kw): pass
@@ -1271,8 +1333,9 @@ class TestHybridSearchWarning:
     def test_no_warning_for_store_with_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithKeywordSearch(VectorStoreBase):
             def keyword_search(self, query, top_k=5, filters=None):
