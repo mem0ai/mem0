@@ -62,6 +62,20 @@ Other packages include the CLIs (`cli/python/`, `cli/node/`), integrations
    `Closes #<number>` and filling out the
    [PR template](./.github/PULL_REQUEST_TEMPLATE.md).
 
+### First-contribution fast path (docs and small quality fixes)
+
+If you are shipping a docs-only or tiny quality fix, use this lightweight lane to speed reviews:
+
+1. Start from an agreed issue and keep scope to one clear user-facing improvement
+2. Use a focused branch name, for example `docs/fix-api-example-typo`
+3. Run quick local checks before opening PR:
+   - `pre-commit run --files <changed-files>`
+   - package-specific tests only when code paths are touched
+4. Link issue in the PR body with `Closes #<number>`
+5. Add before/after snippets for docs clarifications when useful
+
+This keeps contribution quality high while reducing review overhead for maintainers.
+
 ### Contributing to the Python SDK (`mem0/`)
 
 We use [`hatch`](https://hatch.pypa.io/latest/install/) to manage environments.
