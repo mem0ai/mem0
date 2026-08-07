@@ -49,7 +49,7 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message_async,
 )
 from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
+from mem0.memory.storage import DummyHistoryManager, SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
@@ -479,6 +479,13 @@ class _AsyncOSSProject:
         raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
 
 
+def _history_manager_from_config(config: MemoryConfig):
+    """Return SQLite or no-op history backend (TS disableHistory parity)."""
+    if getattr(config, "disable_history", False):
+        return DummyHistoryManager(config.history_db_path)
+    return SQLiteManager(config.history_db_path)
+
+
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -492,7 +499,7 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = _history_manager_from_config(self.config)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
@@ -2127,7 +2134,7 @@ class Memory(MemoryBase):
 
         self.db.reset()
         self.db.close()
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = _history_manager_from_config(self.config)
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -2171,7 +2178,7 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = _history_manager_from_config(self.config)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
@@ -3825,7 +3832,7 @@ class AsyncMemory(MemoryBase):
 
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = _history_manager_from_config(self.config)
 
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
