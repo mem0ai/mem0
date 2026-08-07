@@ -69,8 +69,24 @@ if [ -f "${_DATA_DIR}/.install-failed" ]; then
   _INSTALL_WARN="mem0 SDK installation failed. Run: ${CLAUDE_PLUGIN_ROOT:-$SCRIPT_DIR/..}/scripts/ensure_deps.sh"
 fi
 
+_MEM0_FAST="${MEM0_FAST_SESSION_START:-0}"
+
+# Fast mode is opt-in via MEM0_FAST_SESSION_START (set by the Cursor
+# sessionStart wrapper, which has a strict response deadline). In fast
+# mode the foreground network calls below (memory count) and the activity
+# timeline are skipped so the identity banner returns immediately, and
+# background jobs are started with stdout/stderr detached so they cannot
+# hold the caller's stdout capture open and delay or race the response.
+_mem0_bg() {
+  if [ "$_MEM0_FAST" = "1" ]; then
+    "$@" >/dev/null 2>&1 &
+  else
+    "$@" 2>/dev/null &
+  fi
+}
+
 MEM0_COUNT="?"
-if command -v python3 >/dev/null 2>&1; then
+if [ "$_MEM0_FAST" != "1" ] && command -v python3 >/dev/null 2>&1; then
   MEM0_COUNT=$(python3 -c "
 import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
@@ -158,11 +174,14 @@ if [ "$SOURCE" = "startup" ]; then
     echo "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type."
 
     # Inject compact recent activity timeline (non-blocking, 5s timeout)
-    # Use perl alarm as portable timeout (macOS lacks GNU timeout)
-    _TIMELINE=$(MEM0_CWD="$MEM0_CWD_RESOLVED" perl -e 'alarm 5; exec @ARGV' python3 "$SCRIPT_DIR/session_timeline.py" 2>/dev/null || echo "")
-    if [ -n "$_TIMELINE" ]; then
-      echo ""
-      echo "$_TIMELINE"
+    # Use perl alarm as portable timeout (macOS lacks GNU timeout).
+    # Skipped entirely in fast mode: the timeline does network I/O.
+    if [ "$_MEM0_FAST" != "1" ]; then
+      _TIMELINE=$(MEM0_CWD="$MEM0_CWD_RESOLVED" perl -e 'alarm 5; exec @ARGV' python3 "$SCRIPT_DIR/session_timeline.py" 2>/dev/null || echo "")
+      if [ -n "$_TIMELINE" ]; then
+        echo ""
+        echo "$_TIMELINE"
+      fi
     fi
   fi
 
@@ -172,16 +191,15 @@ if [ "$SOURCE" = "startup" ]; then
     echo "Native MEMORY.md detected at ${_MEMORY_MD}. Add autoMemoryEnabled:false to settings.json or run /mem0:import."
   fi
 
-  MEM0_CWD="$MEM0_CWD_RESOLVED" \
-    python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+  MEM0_CWD="$MEM0_CWD_RESOLVED" _mem0_bg python3 "$SCRIPT_DIR/auto_import.py"
 
   # Configure the coding-category taxonomy in the background (idempotent, never blocks).
   # Prefer the venv python since this path needs the mem0ai SDK.
   _VENV_PY="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/venv/bin/python3"
   if [ -x "$_VENV_PY" ]; then
-    MEM0_CWD="$MEM0_CWD_RESOLVED" "$_VENV_PY" "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+    MEM0_CWD="$MEM0_CWD_RESOLVED" _mem0_bg "$_VENV_PY" "$SCRIPT_DIR/auto_setup_categories.py"
   else
-    MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+    MEM0_CWD="$MEM0_CWD_RESOLVED" _mem0_bg python3 "$SCRIPT_DIR/auto_setup_categories.py"
   fi
 
 elif [ "$SOURCE" = "resume" ]; then
@@ -190,10 +208,10 @@ elif [ "$SOURCE" = "resume" ]; then
 elif [ "$SOURCE" = "compact" ]; then
   echo "Context compacted. Search mem0 for session_state and decision memories to recover context. Run 2 parallel searches."
   if [ "${MEM0_AUTO_SAVE:-true}" != "false" ]; then
-    printf '%s' "$INPUT" | python3 "$SCRIPT_DIR/capture_compact_summary.py" 2>/dev/null &
+    printf '%s' "$INPUT" | _mem0_bg python3 "$SCRIPT_DIR/capture_compact_summary.py"
   fi
 fi
 
-python3 "$SCRIPT_DIR/telemetry.py" session_start --source="$SOURCE" --memory_count="${MEM0_COUNT:-0}" 2>/dev/null &
+_mem0_bg python3 "$SCRIPT_DIR/telemetry.py" session_start --source="$SOURCE" --memory_count="${MEM0_COUNT:-0}"
 
 exit 0
