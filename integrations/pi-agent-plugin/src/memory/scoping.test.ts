@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { detectRunId, resolveSearchFilters, resolveAddParams } from "./scoping.ts";
+import { detectRunId, resolveSearchFilters, resolveAddParams, GLOBAL_APP_ID } from "./scoping.ts";
 
 const mockExecFileSync = vi.fn();
 
@@ -79,7 +79,39 @@ describe("resolveAddParams", () => {
     expect(resolveAddParams("session", ctx)).toEqual({ userId: "u1", appId: "a1", runId: "r1" });
   });
 
-  it("only includes userId for global scope", () => {
-    expect(resolveAddParams("global", ctx)).toEqual({ userId: "u1" });
+  it("tags global scope with the reserved sentinel appId instead of leaving appId unset", () => {
+    // Regression test: resolveSearchFilters("global", ...) filters on app_id: "*",
+    // which only matches non-null values. Writing without an appId would persist
+    // app_id: null and make the memory permanently unreachable by that search —
+    // see resolveSearchFilters's "global" test above for the read-side half.
+    //
+    // Assert the literal, not the imported GLOBAL_APP_ID: without the fix that
+    // import resolves to undefined, and toEqual treats an undefined-valued
+    // property as equal to a missing one — so asserting against the constant
+    // would pass against the very code this test exists to catch.
+    expect(resolveAddParams("global", ctx)).toEqual({ userId: "u1", appId: "__global__" });
   });
+
+  it("exports the sentinel the global add path tags with", () => {
+    expect(GLOBAL_APP_ID).toBe("__global__");
+  });
+});
+
+describe("resolveAddParams / resolveSearchFilters scoping fields stay in sync", () => {
+  const ctx = { userId: "u1", appId: "a1", runId: "r1" };
+  const scopingFields: Record<string, string> = { userId: "user_id", appId: "app_id", runId: "run_id" };
+
+  for (const scope of ["project", "session", "global"] as const) {
+    it(`add sets every scoping field that search filters on for "${scope}" scope`, () => {
+      // A memory added under a given scope must be findable by a search under that
+      // same scope: search can't require a field (as a non-null match or wildcard)
+      // that the write never sets to a non-null value.
+      const addKeys = new Set(Object.keys(resolveAddParams(scope, ctx)));
+      const searchKeys = new Set(
+        Object.keys(resolveSearchFilters(scope, ctx)).map((k) => scopingFields[k] ?? k),
+      );
+      const addKeysNormalized = new Set([...addKeys].map((k) => scopingFields[k] ?? k));
+      expect(addKeysNormalized).toEqual(searchKeys);
+    });
+  }
 });

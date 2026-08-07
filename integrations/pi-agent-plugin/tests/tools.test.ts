@@ -46,6 +46,34 @@ describe("buildToolExecute", () => {
     });
   });
 
+  it("add with scope=global tags appId with the sentinel so it stays reachable by the global search wildcard", async () => {
+    mockMem0.add.mockResolvedValue([{ id: "new-id", memory: "test" }]);
+    await execute({ action: "add", content: "Cross-project preference", scope: "global" });
+    const call = mockMem0.add.mock.calls[mockMem0.add.mock.calls.length - 1];
+    expect(call[1].userId).toBe("testuser");
+    // Literal, not the imported GLOBAL_APP_ID: without the fix the import is
+    // undefined and so is call[1].appId, so toBe(GLOBAL_APP_ID) would pass on
+    // exactly the code this test guards against.
+    expect(call[1].appId).toBe("__global__");
+  });
+
+  it("delete_all with scope=global scopes the delete to the sentinel, not the user's whole memory set", async () => {
+    // The more severe half of the same bug: delete_all reuses resolveAddParams
+    // as its filter, and deleteAll() hits DELETE /v1/memories/ with raw query
+    // params — no implicit null-scoping. Untagged, the filter degrades to
+    // { userId } alone, which wipes every memory the user has in every project
+    // and session, not just the global-scoped ones.
+    mockMem0.deleteAll.mockResolvedValue({ message: "deleted" });
+    await execute({ action: "delete_all", scope: "global" });
+    expect(mockMem0.deleteAll).toHaveBeenCalledWith({ userId: "testuser", appId: "__global__" });
+  });
+
+  it("delete_all with scope=project stays scoped to the current project", async () => {
+    mockMem0.deleteAll.mockResolvedValue({ message: "deleted" });
+    await execute({ action: "delete_all", scope: "project" });
+    expect(mockMem0.deleteAll).toHaveBeenCalledWith({ userId: "testuser", appId: "testproject" });
+  });
+
   it("delete calls mem0.delete with full memory_id", async () => {
     mockMem0.delete.mockResolvedValue({ message: "deleted" });
     await execute({ action: "delete", memory_id: "abc12345-6789-0abc-def0-123456789abc" });
