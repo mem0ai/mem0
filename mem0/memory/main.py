@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import threading
 import gc
 import hashlib
 import json
@@ -507,6 +508,7 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+        self._entity_lock = threading.Lock()
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -599,50 +601,51 @@ class Memory(MemoryBase):
 
     def _upsert_entity(self, entity_text, entity_type, memory_id, filters):
         """Upsert an entity into the entity store, linking it to a memory."""
-        try:
-            entity_embedding = self.embedding_model.embed(entity_text, "add")
-            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
+        with self._entity_lock:
+            try:
+                entity_embedding = self.embedding_model.embed(entity_text, "add")
+                search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+                exact_match = self._existing_entities_by_text(search_filters).get(self._normalize_entity_text(entity_text))
 
-            existing = []
-            if exact_match is None:
-                existing = self.entity_store.search(
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=1,
-                    filters=search_filters,
-                )
-
-            semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
-            match = exact_match or semantic_match
-            if match:
-                # Update existing entity's linked_memory_ids
-                payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    self.entity_store.update(
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
+                existing = []
+                if exact_match is None:
+                    existing = self.entity_store.search(
+                        query=entity_text,
+                        vectors=entity_embedding,
+                        top_k=1,
+                        filters=search_filters,
                     )
-            else:
-                # Create new entity
-                entity_id = str(uuid.uuid4())
-                entity_payload = {
-                    "data": entity_text,
-                    "entity_type": entity_type,
-                    "linked_memory_ids": [memory_id],
-                    **{k: v for k, v in search_filters.items()},
-                }
-                self.entity_store.insert(
-                    vectors=[entity_embedding],
-                    ids=[entity_id],
-                    payloads=[entity_payload],
-                )
-        except Exception as e:
-            logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
+
+                semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
+                match = exact_match or semantic_match
+                if match:
+                    # Update existing entity's linked_memory_ids
+                    payload = match.payload or {}
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        self.entity_store.update(
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+                else:
+                    # Create new entity
+                    entity_id = str(uuid.uuid4())
+                    entity_payload = {
+                        "data": entity_text,
+                        "entity_type": entity_type,
+                        "linked_memory_ids": [memory_id],
+                        **{k: v for k, v in search_filters.items()},
+                    }
+                    self.entity_store.insert(
+                        vectors=[entity_embedding],
+                        ids=[entity_id],
+                        payloads=[entity_payload],
+                    )
+            except Exception as e:
+                logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
 
     def _remove_memory_from_entity_store(self, memory_id, filters):
         """Strip `memory_id` from every entity record scoped to `filters`.
@@ -659,45 +662,46 @@ class Memory(MemoryBase):
         """
         if self._entity_store is None:
             return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    payload = getattr(row, "payload", None) or {}
-                    linked = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked, list) or memory_id not in linked:
-                        continue
-                    remaining = [mid for mid in linked if mid != memory_id]
-                    if not remaining:
-                        try:
-                            self.entity_store.delete(vector_id=row.id)
-                        except Exception as e:
-                            logger.debug(f"Entity delete failed for id={row.id}: {e}")
-                    else:
-                        entity_text = payload.get("data")
-                        if not isinstance(entity_text, str) or not entity_text:
-                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup")
+        with self._entity_lock:
+            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            try:
+                listed = self.entity_store.list(filters=search_filters, top_k=10000)
+                rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+                for row in rows or []:
+                    try:
+                        payload = getattr(row, "payload", None) or {}
+                        linked = payload.get("linked_memory_ids", [])
+                        if not isinstance(linked, list) or memory_id not in linked:
                             continue
-                        try:
-                            vec = self.embedding_model.embed(entity_text, "update")
-                        except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
-                            continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
-                        try:
-                            self.entity_store.update(
-                                vector_id=row.id,
-                                vector=vec,
-                                payload=new_payload,
-                            )
-                        except Exception as e:
-                            logger.debug(f"Entity update failed for id={row.id}: {e}")
-                except Exception as e:
-                    logger.debug(f"Entity cleanup error: {e}")
-        except Exception as e:
-            logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
+                        remaining = [mid for mid in linked if mid != memory_id]
+                        if not remaining:
+                            try:
+                                self.entity_store.delete(vector_id=row.id)
+                            except Exception as e:
+                                logger.debug(f"Entity delete failed for id={row.id}: {e}")
+                        else:
+                            entity_text = payload.get("data")
+                            if not isinstance(entity_text, str) or not entity_text:
+                                logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup")
+                                continue
+                            try:
+                                vec = self.embedding_model.embed(entity_text, "update")
+                            except Exception as e:
+                                logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
+                                continue
+                            new_payload = {**payload, "linked_memory_ids": remaining}
+                            try:
+                                self.entity_store.update(
+                                    vector_id=row.id,
+                                    vector=vec,
+                                    payload=new_payload,
+                                )
+                            except Exception as e:
+                                logger.debug(f"Entity update failed for id={row.id}: {e}")
+                    except Exception as e:
+                        logger.debug(f"Entity cleanup error: {e}")
+            except Exception as e:
+                logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
 
     def _link_entities_for_memory(self, memory_id, text, filters):
         """Extract entities from `text` and link them to `memory_id` in the
@@ -2176,6 +2180,7 @@ class AsyncMemory(MemoryBase):
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
+        self._entity_lock = asyncio.Lock()
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2257,53 +2262,54 @@ class AsyncMemory(MemoryBase):
 
     async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
-        try:
-            entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
-            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-            exact_match = (
-                await asyncio.to_thread(self._existing_entities_by_text, search_filters)
-            ).get(self._normalize_entity_text(entity_text))
+        async with self._entity_lock:
+            try:
+                entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
+                search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+                exact_match = (
+                    await asyncio.to_thread(self._existing_entities_by_text, search_filters)
+                ).get(self._normalize_entity_text(entity_text))
 
-            existing = []
-            if exact_match is None:
-                existing = await asyncio.to_thread(
-                    self.entity_store.search,
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=1,
-                    filters=search_filters,
-                )
-
-            semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
-            match = exact_match or semantic_match
-            if match:
-                payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
-                        self.entity_store.update,
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
+                existing = []
+                if exact_match is None:
+                    existing = await asyncio.to_thread(
+                        self.entity_store.search,
+                        query=entity_text,
+                        vectors=entity_embedding,
+                        top_k=1,
+                        filters=search_filters,
                     )
-            else:
-                entity_id = str(uuid.uuid4())
-                entity_payload = {
-                    "data": entity_text,
-                    "entity_type": entity_type,
-                    "linked_memory_ids": [memory_id],
-                    **{k: v for k, v in search_filters.items()},
-                }
-                await asyncio.to_thread(
-                    self.entity_store.insert,
-                    vectors=[entity_embedding],
-                    ids=[entity_id],
-                    payloads=[entity_payload],
-                )
-        except Exception as e:
-            logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
+
+                semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
+                match = exact_match or semantic_match
+                if match:
+                    payload = match.payload or {}
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        await asyncio.to_thread(
+                            self.entity_store.update,
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+                else:
+                    entity_id = str(uuid.uuid4())
+                    entity_payload = {
+                        "data": entity_text,
+                        "entity_type": entity_type,
+                        "linked_memory_ids": [memory_id],
+                        **{k: v for k, v in search_filters.items()},
+                    }
+                    await asyncio.to_thread(
+                        self.entity_store.insert,
+                        vectors=[entity_embedding],
+                        ids=[entity_id],
+                        payloads=[entity_payload],
+                    )
+            except Exception as e:
+                logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
 
     async def _bulk_clear_entity_store(self, filters):
         """Delete all entity records matching the given scope filters.
@@ -2330,46 +2336,47 @@ class AsyncMemory(MemoryBase):
         """Async variant of `Memory._remove_memory_from_entity_store`."""
         if self._entity_store is None:
             return
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
-            for row in rows or []:
-                try:
-                    payload = getattr(row, "payload", None) or {}
-                    linked = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked, list) or memory_id not in linked:
-                        continue
-                    remaining = [mid for mid in linked if mid != memory_id]
-                    if not remaining:
-                        try:
-                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
-                        except Exception as e:
-                            logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
-                    else:
-                        entity_text = payload.get("data")
-                        if not isinstance(entity_text, str) or not entity_text:
-                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup (async)")
+        async with self._entity_lock:
+            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            try:
+                listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+                rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+                for row in rows or []:
+                    try:
+                        payload = getattr(row, "payload", None) or {}
+                        linked = payload.get("linked_memory_ids", [])
+                        if not isinstance(linked, list) or memory_id not in linked:
                             continue
-                        try:
-                            vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
-                        except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
-                            continue
-                        new_payload = {**payload, "linked_memory_ids": remaining}
-                        try:
-                            await asyncio.to_thread(
-                                self.entity_store.update,
-                                vector_id=row.id,
-                                vector=vec,
-                                payload=new_payload,
-                            )
-                        except Exception as e:
-                            logger.debug(f"Entity update failed for id={row.id} (async): {e}")
-                except Exception as e:
-                    logger.debug(f"Entity cleanup error (async): {e}")
-        except Exception as e:
-            logger.warning(f"Entity store cleanup failed for memory_id={memory_id} (async): {e}")
+                        remaining = [mid for mid in linked if mid != memory_id]
+                        if not remaining:
+                            try:
+                                await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                            except Exception as e:
+                                logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
+                        else:
+                            entity_text = payload.get("data")
+                            if not isinstance(entity_text, str) or not entity_text:
+                                logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup (async)")
+                                continue
+                            try:
+                                vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
+                            except Exception as e:
+                                logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
+                                continue
+                            new_payload = {**payload, "linked_memory_ids": remaining}
+                            try:
+                                await asyncio.to_thread(
+                                    self.entity_store.update,
+                                    vector_id=row.id,
+                                    vector=vec,
+                                    payload=new_payload,
+                                )
+                            except Exception as e:
+                                logger.debug(f"Entity update failed for id={row.id} (async): {e}")
+                    except Exception as e:
+                        logger.debug(f"Entity cleanup error (async): {e}")
+            except Exception as e:
+                logger.warning(f"Entity store cleanup failed for memory_id={memory_id} (async): {e}")
 
     async def _link_entities_for_memory(self, memory_id, text, filters):
         """Async variant of `Memory._link_entities_for_memory`."""
