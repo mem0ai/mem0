@@ -236,6 +236,62 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             )
 
 
+def _message_content_has_value(content: Any) -> bool:
+    if content is None:
+        return False
+    if isinstance(content, str):
+        return bool(content.strip())
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict):
+                text = part.get("text")
+                image_url = part.get("image_url")
+                if text is not None and str(text).strip():
+                    return True
+                if image_url:
+                    return True
+        return False
+    if isinstance(content, dict):
+        if content.get("image_url"):
+            return True
+        return any(str(value).strip() for value in content.values() if value is not None)
+    return bool(str(content).strip())
+
+
+def _validate_add_messages(messages: list) -> list:
+    invalid_message_types = [
+        {"index": idx, "type": type(msg).__name__} for idx, msg in enumerate(messages) if not isinstance(msg, dict)
+    ]
+    if invalid_message_types:
+        raise Mem0ValidationError(
+            message="messages list items must be dictionaries",
+            error_code="VALIDATION_005",
+            details={
+                "invalid_message_types": invalid_message_types,
+                "valid_types": ["dict"],
+            },
+            suggestion="Convert list items to dictionaries with role and content fields.",
+        )
+
+    normalized_messages = []
+    for msg in messages:
+        normalized_msg = dict(msg)
+        content = normalized_msg.get("content")
+        if content is not None and not isinstance(content, (str, list, dict)):
+            normalized_msg["content"] = str(content)
+        normalized_messages.append(normalized_msg)
+
+    if not normalized_messages or all(not _message_content_has_value(msg.get("content")) for msg in normalized_messages):
+        raise Mem0ValidationError(
+            message="messages must not be empty",
+            error_code="VALIDATION_004",
+            details={"provided_messages": messages},
+            suggestion="Provide at least one message with non-empty content.",
+        )
+
+    return normalized_messages
+
+
 def _validate_and_trim_search_query(query: str) -> str:
     """
     Validates and normalizes a search query before embedding/vector search.
@@ -844,6 +900,8 @@ class Memory(MemoryBase):
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
+
+        messages = _validate_add_messages(messages)
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
@@ -2490,6 +2548,8 @@ class AsyncMemory(MemoryBase):
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
+
+        messages = _validate_add_messages(messages)
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
