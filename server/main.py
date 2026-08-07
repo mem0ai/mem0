@@ -27,6 +27,7 @@ from routers import auth as auth_router
 from routers import entities as entities_router
 from routers import requests as requests_router
 from schemas import MessageResponse
+from instruction_parse import parse_generate_instructions_response
 from server_state import (
     get_current_config,
     get_memory_instance,
@@ -350,18 +351,14 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
             "testing that the memory system works.\n\n"
             "Respond in exactly this format (no markdown, no extra text):\n"
             "INSTRUCTIONS: <your instructions>\n"
-            f"TEST_MESSAGE: <your test message>\n\nUse case: {req.use_case}"
+            "TEST_MESSAGE: <your test message>\n\n"
+            f"Use case: {req.use_case}"
         )
         response = llm.generate_response([{"role": "user", "content": prompt}])
-        instructions = response
-        test_message = "I like to hike on weekends."
-        if "INSTRUCTIONS:" in response and "TEST_MESSAGE:" in response:
-            parts = response.split("TEST_MESSAGE:")
-            instructions = parts[0].replace("INSTRUCTIONS:", "").strip()
-            test_message = parts[1].strip()
-        return {"custom_instructions": instructions, "test_message": test_message}
+        return parse_generate_instructions_response(response)
     except Exception:
         raise upstream_error()
+
 
 
 @app.post("/memories", summary="Create memories")
