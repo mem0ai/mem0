@@ -207,7 +207,10 @@ class PineconeDB(VectorStoreBase):
         pinecone_filter = {}
 
         for key, value in filters.items():
-            if isinstance(value, dict):
+            if value == "*":
+                # Field-exists / match-any (mem0 metadata wildcard convention)
+                pinecone_filter[key] = {"$exists": True}
+            elif isinstance(value, dict):
                 condition = {}
                 for op, operand in value.items():
                     pc_op = self.OPERATOR_MAP.get(op)
