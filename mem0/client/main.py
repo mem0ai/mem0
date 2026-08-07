@@ -114,7 +114,7 @@ class MemoryClient:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai"
+        self.host = host or os.getenv("MEM0_HOST") or os.getenv("MEM0_API_URL") or "https://api.mem0.ai"
         self.org_id = None
         self.project_id = None
         self.user_id = get_user_id()
@@ -1006,7 +1006,7 @@ class AsyncMemoryClient:
             ValueError: If no API key is provided or found in the environment.
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
-        self.host = host or "https://api.mem0.ai"
+        self.host = host or os.getenv("MEM0_HOST") or os.getenv("MEM0_API_URL") or "https://api.mem0.ai"
         self.org_id = None
         self.project_id = None
         self.user_id = get_user_id()
