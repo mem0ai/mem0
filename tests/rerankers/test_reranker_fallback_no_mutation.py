@@ -1,75 +1,88 @@
-"""Regression tests pinning that the reranker fallback path never mutates caller-owned documents."""
+"""Reranker failure fallback must not mutate caller-owned document dicts (#6362)."""
 
-from unittest.mock import MagicMock, patch
-
-from mem0.configs.rerankers.cohere import CohereRerankerConfig
-from mem0.configs.rerankers.huggingface import HuggingFaceRerankerConfig
-from mem0.configs.rerankers.sentence_transformer import (
-    SentenceTransformerRerankerConfig,
-)
-from mem0.configs.rerankers.zero_entropy import ZeroEntropyRerankerConfig
-from mem0.reranker.huggingface_reranker import HuggingFaceReranker
-from mem0.reranker.sentence_transformer_reranker import SentenceTransformerReranker
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 
-def _docs(n):
-    return [{"memory": f"doc{i}"} for i in range(n)]
+def _docs():
+    return [
+        {"memory": "alpha", "score": 0.9, "id": "a"},
+        {"memory": "beta", "score": 0.8, "id": "b"},
+    ]
+
+
+def _check(out, docs, snapshot):
+    assert docs == snapshot
+    assert all("rerank_score" not in d for d in docs)
+    assert len(out) >= 1
+    assert all(d.get("rerank_score") == 0.0 for d in out)
+    assert out[0] is not docs[0]
 
 
 class TestCohereFallbackNoMutation:
-    def test_fallback_does_not_mutate_original_documents(self, mock_cohere):
-        module, fake_client = mock_cohere
-        fake_client.rerank.side_effect = RuntimeError("API error")
+    def test_provider_error_does_not_mutate_input(self):
+        from mem0.reranker.cohere_reranker import CohereReranker
 
-        reranker = module.CohereReranker(CohereRerankerConfig(api_key="test-key"))
-        documents = _docs(3)
-        result = reranker.rerank("query", documents)
+        reranker = CohereReranker.__new__(CohereReranker)
+        reranker.config = SimpleNamespace(top_k=None, return_documents=False, max_chunks_per_doc=None)
+        reranker.model = "rerank-english-v3.0"
+        client = MagicMock()
+        client.rerank.side_effect = RuntimeError("transient 503")
+        reranker.client = client
 
-        assert all("rerank_score" not in doc for doc in documents)
-        assert all(doc["rerank_score"] == 0.0 for doc in result)
+        docs = _docs()
+        snapshot = [d.copy() for d in docs]
+        out = reranker.rerank("q", docs, top_k=1)
+        _check(out, docs, snapshot)
+        assert out[0]["memory"] == "alpha"
 
 
 class TestZeroEntropyFallbackNoMutation:
-    def test_fallback_does_not_mutate_original_documents(self, mock_zero_entropy):
-        module, fake_client = mock_zero_entropy
-        fake_client.models.rerank.side_effect = RuntimeError("API error")
+    def test_provider_error_does_not_mutate_input(self):
+        from mem0.reranker.zero_entropy_reranker import ZeroEntropyReranker
 
-        reranker = module.ZeroEntropyReranker(ZeroEntropyRerankerConfig(api_key="test-key"))
-        documents = _docs(3)
-        result = reranker.rerank("query", documents)
+        reranker = ZeroEntropyReranker.__new__(ZeroEntropyReranker)
+        reranker.config = SimpleNamespace(top_k=None)
+        reranker.model = "zerank-1"
+        client = MagicMock()
+        client.models.rerank.side_effect = RuntimeError("transient 503")
+        reranker.client = client
 
-        assert all("rerank_score" not in doc for doc in documents)
-        assert all(doc["rerank_score"] == 0.0 for doc in result)
-
-
-class TestHuggingFaceFallbackNoMutation:
-    def test_fallback_does_not_mutate_original_documents(self):
-        with (
-            patch("mem0.reranker.huggingface_reranker.AutoTokenizer") as mock_tokenizer_cls,
-            patch("mem0.reranker.huggingface_reranker.AutoModelForSequenceClassification") as mock_model_cls,
-        ):
-            mock_tokenizer = MagicMock(side_effect=RuntimeError("tokenizer error"))
-            mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
-            mock_model_cls.from_pretrained.return_value = MagicMock()
-
-            reranker = HuggingFaceReranker(HuggingFaceRerankerConfig())
-            documents = _docs(3)
-            result = reranker.rerank("query", documents)
-
-        assert all("rerank_score" not in doc for doc in documents)
-        assert all(doc["rerank_score"] == 0.0 for doc in result)
+        docs = _docs()
+        snapshot = [d.copy() for d in docs]
+        out = reranker.rerank("q", docs, top_k=1)
+        _check(out, docs, snapshot)
 
 
 class TestSentenceTransformerFallbackNoMutation:
-    def test_fallback_does_not_mutate_original_documents(self):
-        with patch("mem0.reranker.sentence_transformer_reranker.CrossEncoder") as mock_cross_encoder_cls:
-            mock_model = MagicMock()
-            mock_model.predict.side_effect = RuntimeError("predict error")
-            mock_cross_encoder_cls.return_value = mock_model
+    def test_predict_error_does_not_mutate_input(self):
+        from mem0.reranker.sentence_transformer_reranker import SentenceTransformerReranker
 
-            reranker = SentenceTransformerReranker(SentenceTransformerRerankerConfig())
-            documents = _docs(3)
-            result = reranker.rerank("query", documents)
+        reranker = SentenceTransformerReranker.__new__(SentenceTransformerReranker)
+        reranker.config = SimpleNamespace(top_k=None, show_progress_bar=False)
+        mock_model = MagicMock()
+        mock_model.predict.side_effect = RuntimeError("cuda OOM")
+        reranker.model = mock_model
 
-        assert all("rerank_score" not in doc for doc in documents)
-        assert all(doc["rerank_score"] == 0.0 for doc in result)
+        docs = _docs()
+        snapshot = [d.copy() for d in docs]
+        out = reranker.rerank("q", docs, top_k=1)
+        _check(out, docs, snapshot)
+
+
+class TestHuggingFaceFallbackNoMutation:
+    def test_tokenizer_error_does_not_mutate_input(self):
+        from mem0.reranker.huggingface_reranker import HuggingFaceReranker
+
+        reranker = HuggingFaceReranker.__new__(HuggingFaceReranker)
+        reranker.config = SimpleNamespace(top_k=None, batch_size=32, max_length=512, normalize=True)
+        reranker.device = "cpu"
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.side_effect = RuntimeError("tokenizer failed")
+        reranker.tokenizer = mock_tokenizer
+        reranker.model = MagicMock()
+
+        docs = _docs()
+        snapshot = [d.copy() for d in docs]
+        out = reranker.rerank("q", docs, top_k=1)
+        _check(out, docs, snapshot)
