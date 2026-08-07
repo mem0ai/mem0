@@ -84,6 +84,52 @@ describe("ConfigManager", () => {
 
       expect(config.vectorStore.config.dimension).toBe(768);
     });
+
+    it("should resolve dimension from snake_case embedding_dims on the embedder (issue #5290)", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "openai",
+          // snake_case as written by Python SDK / OpenClaw configs
+          config: { model: "bge-base-zh-v1.5", embedding_dims: 1024 } as any,
+        },
+        vectorStore: { provider: "qdrant", config: { collectionName: "test" } },
+        llm: baseLlm,
+      });
+
+      // Previously the vectorStore dimension fallback only read camelCase
+      // embeddingDims, so a snake_case-only embedder left the dimension
+      // undefined even though the embedder itself was normalized to 1024.
+      expect(config.vectorStore.config.dimension).toBe(1024);
+    });
+
+    it("should resolve dimension from vectorStore embeddingModelDims (issue #5290)", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: { provider: "openai", config: { apiKey: "test-key" } },
+        vectorStore: {
+          provider: "qdrant",
+          config: { collectionName: "test", embeddingModelDims: 1024 } as any,
+        },
+        llm: baseLlm,
+      });
+
+      expect(config.vectorStore.config.dimension).toBe(1024);
+    });
+
+    it("should prefer explicit vectorStore dimension over snake_case embedder embedding_dims", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "openai",
+          config: { model: "bge-base-zh-v1.5", embedding_dims: 1024 } as any,
+        },
+        vectorStore: {
+          provider: "qdrant",
+          config: { collectionName: "test", dimension: 512 },
+        },
+        llm: baseLlm,
+      });
+
+      expect(config.vectorStore.config.dimension).toBe(512);
+    });
   });
 
   describe("mergeConfig - LLM url passthrough for Ollama", () => {
