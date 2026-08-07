@@ -329,6 +329,21 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(results[0][1].id, "id2")
         self.assertEqual(results[0][1].payload, {"key2": "value2"})
 
+    def test_list_without_top_k_uses_max_result_window(self):
+        """list() with no top_k (e.g. get_all()/delete_all()) must not be
+        silently capped at Elasticsearch's search-API default of 10 hits."""
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.es_db.list(filters={"user_id": "alice"})
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 10000)
+
+    def test_list_with_top_k_uses_given_size(self):
+        """Passing an explicit top_k should still cap the query at that size."""
+        self.client_mock.search.return_value = {"hits": {"hits": []}}
+        self.es_db.list(filters={"user_id": "alice"}, top_k=25)
+        body = self.client_mock.search.call_args[1]["body"]
+        self.assertEqual(body["size"], 25)
+
     def test_delete(self):
         # Perform delete
         self.es_db.delete(vector_id="id1")
