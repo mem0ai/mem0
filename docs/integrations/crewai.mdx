@@ -28,6 +28,7 @@ Import required modules and set up configurations:
 import os
 from mem0 import MemoryClient
 from crewai import Agent, Task, Crew, Process
+from crewai.memory.external.external_memory import ExternalMemory
 from crewai_tools import SerperDevTool
 
 # Configuration
@@ -107,17 +108,23 @@ def create_planning_task(agent, destination: str):
 Configure the crew with memory integration:
 
 ```python
-def setup_crew(agents: list, tasks: list):
+def setup_crew(agents: list, tasks: list, user_id: str):
     """Set up a crew with Mem0 memory integration"""
+    external_memory = ExternalMemory(
+        embedder_config={
+            "provider": "mem0",
+            "config": {
+                "user_id": user_id,
+                "api_key": os.environ["MEM0_API_KEY"],
+            },
+        }
+    )
+
     return Crew(
         agents=agents,
         tasks=tasks,
         process=Process.sequential,
-        memory=True,
-        memory_config={
-            "provider": "mem0",
-            "config": {"user_id": "crew_user_1"},
-        }
+        external_memory=external_memory,
     )
 ```
 
@@ -134,7 +141,7 @@ def plan_trip(destination: str, user_id: str):
     planning_task = create_planning_task(travel_agent, destination)
 
     # Setup crew
-    crew = setup_crew([travel_agent], [planning_task])
+    crew = setup_crew([travel_agent], [planning_task], user_id)
 
     # Execute and return results
     return crew.kickoff()
