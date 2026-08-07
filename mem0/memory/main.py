@@ -10,7 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from pydantic import ValidationError
 
@@ -234,6 +234,27 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             raise ValueError(
                 f"Invalid top_k: {top_k}. Must be a non-negative integer."
             )
+
+
+def _resolve_pagination_window(page: Optional[int], page_size: Optional[int], top_k: int) -> Tuple[int, int]:
+    """
+    Resolve optional page/page_size into an (offset, limit) window over the result list.
+
+    When neither is provided, returns the unpaginated window (offset 0, top_k), so callers
+    that omit pagination behave exactly as before. page and page_size must be provided together.
+
+    Raises:
+        ValueError: If only one of page/page_size is provided, or either is not an integer >= 1.
+    """
+    if page is None and page_size is None:
+        return 0, top_k
+    if page is None or page_size is None:
+        raise ValueError("page and page_size must be provided together.")
+    if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+        raise ValueError(f"Invalid page: {page}. Must be an integer >= 1.")
+    if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size < 1:
+        raise ValueError(f"Invalid page_size: {page_size}. Must be an integer >= 1.")
+    return (page - 1) * page_size, page_size
 
 
 def _validate_and_trim_search_query(query: str) -> str:
@@ -1252,6 +1273,8 @@ class Memory(MemoryBase):
         *,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
         show_expired: bool = False,
         **kwargs,
     ):
@@ -1263,6 +1286,12 @@ class Memory(MemoryBase):
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
+            page (int, optional): 1-based page number. Must be provided together with page_size.
+                When set, page_size defines the window and top_k is ignored. Defaults to None.
+            page_size (int, optional): Number of memories per page. Must be provided together
+                with page. Defaults to None. Pages are fetched then sliced in memory, so deep
+                pages get progressively more expensive and a page may be short if a large
+                fraction of the matched memories are expired.
             show_expired (bool, optional): Include expired memories. Defaults to False.
 
         Returns:
@@ -1271,13 +1300,16 @@ class Memory(MemoryBase):
 
         Raises:
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if top_k is invalid.
+                if top_k is invalid, or if only one of page/page_size is provided.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
 
         # Validate top_k
         _validate_search_params(top_k=top_k)
+
+        # Resolve pagination window (offset 0, top_k when page/page_size are omitted)
+        offset, window = _resolve_pagination_window(page, page_size, top_k)
 
         # Validate and trim entity IDs in filters
         effective_filters = dict(filters) if filters else {}
@@ -1301,7 +1333,7 @@ class Memory(MemoryBase):
                 "Example: filters={'user_id': 'u1'}"
             )
 
-        limit = top_k
+        limit = offset + window
         fetch_limit = limit if show_expired else max(limit * 4, 60)
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
@@ -1311,6 +1343,7 @@ class Memory(MemoryBase):
         )
 
         all_memories_result = self._get_all_from_vector_store(effective_filters, fetch_limit, show_expired, limit)
+        all_memories_result = all_memories_result[offset:]
 
         if scale_threshold_notice:
             display_scale_threshold_notice(self, "sync", "get_all", *scale_threshold_notice)
@@ -2904,6 +2937,8 @@ class AsyncMemory(MemoryBase):
         *,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
+        page: Optional[int] = None,
+        page_size: Optional[int] = None,
         show_expired: bool = False,
         **kwargs,
     ):
@@ -2915,6 +2950,12 @@ class AsyncMemory(MemoryBase):
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
+            page (int, optional): 1-based page number. Must be provided together with page_size.
+                When set, page_size defines the window and top_k is ignored. Defaults to None.
+            page_size (int, optional): Number of memories per page. Must be provided together
+                with page. Defaults to None. Pages are fetched then sliced in memory, so deep
+                pages get progressively more expensive and a page may be short if a large
+                fraction of the matched memories are expired.
             show_expired (bool, optional): Include expired memories. Defaults to False.
 
         Returns:
@@ -2923,13 +2964,16 @@ class AsyncMemory(MemoryBase):
 
         Raises:
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if top_k is invalid.
+                if top_k is invalid, or if only one of page/page_size is provided.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
 
         # Validate top_k
         _validate_search_params(top_k=top_k)
+
+        # Resolve pagination window (offset 0, top_k when page/page_size are omitted)
+        offset, window = _resolve_pagination_window(page, page_size, top_k)
 
         # Validate and trim entity IDs in filters
         effective_filters = dict(filters) if filters else {}
@@ -2953,7 +2997,7 @@ class AsyncMemory(MemoryBase):
                 "Example: filters={'user_id': 'u1'}"
             )
 
-        limit = top_k
+        limit = offset + window
         fetch_limit = limit if show_expired else max(limit * 4, 60)
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
@@ -2963,6 +3007,7 @@ class AsyncMemory(MemoryBase):
         )
 
         all_memories_result = await self._get_all_from_vector_store(effective_filters, fetch_limit, show_expired, limit)
+        all_memories_result = all_memories_result[offset:]
 
         if scale_threshold_notice:
             await display_scale_threshold_notice_async(self, "async", "get_all", *scale_threshold_notice)
