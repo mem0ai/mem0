@@ -26,6 +26,16 @@ export interface EmbeddingConfig {
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
   awsSessionToken?: string;
+  /**
+   * mem0-level retries on transient errors (rate-limit / network / timeout /
+   * 5xx) using exponential backoff with jitter. Default `0` (disabled), which
+   * keeps the previous single-attempt behavior.
+   */
+  maxRetries?: number;
+  /** Base backoff delay in ms, doubled each attempt. Default `500`. */
+  retryInitialDelayMs?: number;
+  /** Ceiling for any single backoff delay in ms. Default `30000`. */
+  retryMaxDelayMs?: number;
 }
 
 export interface VertexAIConfig extends EmbeddingConfig {
@@ -80,6 +90,16 @@ export interface LLMConfig {
   awsSessionToken?: string;
   // Optional pre-constructed client (e.g. BedrockRuntimeClient) for DI/testing.
   client?: any;
+  /**
+   * mem0-level retries on transient errors (rate-limit / network / timeout /
+   * 5xx) using exponential backoff with jitter. Default `0` (disabled), which
+   * keeps the previous single-attempt behavior.
+   */
+  maxRetries?: number;
+  /** Base backoff delay in ms, doubled each attempt. Default `500`. */
+  retryInitialDelayMs?: number;
+  /** Ceiling for any single backoff delay in ms. Default `30000`. */
+  retryMaxDelayMs?: number;
 }
 
 export interface RerankerConfig {
@@ -207,6 +227,9 @@ export const MemoryConfigSchema = z.object({
       awsAccessKeyId: z.string().optional(),
       awsSecretAccessKey: z.string().optional(),
       awsSessionToken: z.string().optional(),
+      maxRetries: z.number().optional(),
+      retryInitialDelayMs: z.number().optional(),
+      retryMaxDelayMs: z.number().optional(),
     }),
   }),
   vectorStore: z.object({
@@ -241,6 +264,9 @@ export const MemoryConfigSchema = z.object({
         awsSecretAccessKey: z.string().optional(),
         awsSessionToken: z.string().optional(),
         client: z.any().optional(),
+        maxRetries: z.number().optional(),
+        retryInitialDelayMs: z.number().optional(),
+        retryMaxDelayMs: z.number().optional(),
       })
       .passthrough(),
   }),
