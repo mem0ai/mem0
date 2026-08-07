@@ -172,6 +172,22 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
+def _drop_null_entity_ids(filters: Dict[str, Any]) -> None:
+    """Remove entity id keys whose value is None from a filters dict (in place).
+
+    A caller often builds filters from optional params, e.g.
+    ``filters={"agent_id": agent_id, "user_id": user_id}`` where some ids are
+    None. Left in place, a None id scopes the query to ``<key> IS NULL`` and
+    silently returns nothing, even when another id in the same dict is a valid
+    scope. Dropping the None keys mirrors add()'s truthiness handling and lets
+    the "at least one entity id" guard reject a filters dict that has no usable
+    scope instead of running an unintended query.
+    """
+    for key in ENTITY_PARAMS:
+        if key in filters and filters[key] is None:
+            del filters[key]
+
+
 def _validate_and_trim_entity_id(value: Optional[Any], name: str) -> Optional[str]:
     """
     Validates and normalizes an entity ID.
@@ -1295,6 +1311,7 @@ class Memory(MemoryBase):
             )
 
         # Validate filters contains at least one entity ID
+        _drop_null_entity_ids(effective_filters)
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -1449,6 +1466,7 @@ class Memory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
+        _drop_null_entity_ids(effective_filters)
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -2947,6 +2965,7 @@ class AsyncMemory(MemoryBase):
             )
 
         # Validate filters contains at least one entity ID
+        _drop_null_entity_ids(effective_filters)
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -3105,6 +3124,7 @@ class AsyncMemory(MemoryBase):
             )
 
         # Validate filters contains at least one entity ID
+        _drop_null_entity_ids(effective_filters)
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
