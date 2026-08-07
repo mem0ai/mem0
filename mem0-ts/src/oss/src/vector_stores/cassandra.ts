@@ -445,8 +445,9 @@ export class CassandraDB implements VectorStore {
     const payloadValue = payload[key];
 
     if (typeof value !== "object" || value === null) {
+      // "*" = field-exists (docs contract). Must not match missing/undefined fields.
       if (value === "*") {
-        return true;
+        return payloadValue !== undefined && payloadValue !== null;
       }
       return payloadValue === value;
     }

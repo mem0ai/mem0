@@ -304,11 +304,11 @@ describe("search", () => {
     );
   });
 
-  it("omits wildcard '*' from filter", async () => {
+  it("treats wildcard '*' as field-exists on filter", async () => {
     const db = await initDb();
     await db.search([1, 2, 3, 4], 5, { user_id: "*" });
     const call = __mocks__.query.mock.calls[0][0];
-    expect(call.filter).toBeUndefined();
+    expect(call.filter).toEqual({ user_id: { $exists: true } });
   });
 
   it("translates OR filter", async () => {

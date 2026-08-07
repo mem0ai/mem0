@@ -135,7 +135,7 @@ export class Qdrant implements VectorStore {
   private buildFieldCondition(key: string, value: any): QdrantCondition | null {
     // Handle non-dict values
     if (typeof value !== "object" || value === null) {
-      // Wildcard: match any value - skip this filter
+      // "*" is handled in createFilter (must_not is_empty) — should not reach here.
       if (value === "*") {
         return null;
       }
@@ -272,6 +272,11 @@ export class Qdrant implements VectorStore {
           }
         }
       } else {
+        // Field-exists wildcard: require the payload key (must_not is_empty).
+        if (value === "*") {
+          mustNot.push({ is_empty: { key } } as any);
+          continue;
+        }
         // Regular field condition
         const condition = this.buildFieldCondition(key, value);
         if (condition !== null) {

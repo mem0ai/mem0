@@ -274,7 +274,9 @@ export class ChromaDB implements VectorStore {
     key: string,
     value: any,
   ): Array<Record<string, any>> {
-    // Wildcard - ChromaDB has no direct wildcard, so skip this filter.
+    // Field-exists wildcard: Chroma has no exists/$exists operator that excludes
+    // missing keys ($ne and peers still match absent keys). Skip rather than
+    // emit a literal equality on "*" (which matched nothing).
     if (value === "*") {
       return [];
     }
