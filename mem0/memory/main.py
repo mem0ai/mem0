@@ -24,6 +24,7 @@ from mem0.configs.prompts import (
 )
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
+from mem0.exceptions import VectorStoreError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
@@ -1042,19 +1043,32 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        persisted_records = records
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
                 ids=all_ids,
                 payloads=all_payloads,
             )
-        except Exception:
+        except Exception as batch_error:
             # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            persisted_records = []
+            for record in records:
+                mid, _, vec, pay = record
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+                else:
+                    persisted_records.append(record)
+
+            if not persisted_records:
+                raise VectorStoreError(
+                    message="Failed to persist extracted memories",
+                    details={"operation": "insert", "failed_count": len(records)},
+                ) from batch_error
+
+        records = persisted_records
 
         # Batch history
         history_records = [
@@ -2694,6 +2708,7 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        persisted_records = records
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2701,12 +2716,24 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+        except Exception as batch_error:
+            persisted_records = []
+            for record in records:
+                mid, _, vec, pay = record
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+                else:
+                    persisted_records.append(record)
+
+            if not persisted_records:
+                raise VectorStoreError(
+                    message="Failed to persist extracted memories",
+                    details={"operation": "insert", "failed_count": len(records)},
+                ) from batch_error
+
+        records = persisted_records
 
         # Batch history
         history_records = [
