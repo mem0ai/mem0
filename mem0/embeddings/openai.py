@@ -32,7 +32,10 @@ class OpenAIEmbedding(EmbeddingBase):
                 DeprecationWarning,
             )
 
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        client_kwargs = {}
+        if getattr(self.config, "http_client", None) is not None:
+            client_kwargs["http_client"] = self.config.http_client
+        self.client = OpenAI(api_key=api_key, base_url=base_url, **client_kwargs)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
