@@ -11,6 +11,30 @@ from mem0.configs.prompts import (
 
 logger = logging.getLogger(__name__)
 
+# Payload keys the public memory shape exposes at the top level instead of inside `metadata`.
+PROMOTED_PAYLOAD_KEYS = [
+    "user_id",
+    "agent_id",
+    "run_id",
+    "actor_id",
+    "role",
+    "attributed_to",
+    "expiration_date",
+]
+
+# Payload keys that must never surface as user metadata: the promoted ones above plus the
+# internal fields (`data`/`hash`/timestamps live at the top level, `text_lemmatized` is the
+# BM25 search index). Every read path -- SDK and REST server -- filters `metadata` with this.
+NON_METADATA_PAYLOAD_KEYS = {
+    "data",
+    "hash",
+    "created_at",
+    "updated_at",
+    "id",
+    "text_lemmatized",
+    *PROMOTED_PAYLOAD_KEYS,
+}
+
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
     """Get fact retrieval messages based on the memory type.
