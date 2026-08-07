@@ -169,6 +169,24 @@ mem0 search "What does Alice prefer?" --user-id alice
 
 See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
 
+### Model Context Protocol (MCP) Server
+
+Mem0 includes a first-class Model Context Protocol (MCP) server that conforms to the Agent Memory Protocol (AMP) spec. You can expose your Mem0 memories directly to LLMs (like Claude Desktop) as native tools.
+
+To run the MCP server:
+
+```bash
+# Install with mcp dependencies
+pip install "mem0ai[mcp]"
+
+# Run in Local Mode (uses local SQLite + Chroma)
+python -m mem0.mcp --storage-path ~/.mem0/mcp
+
+# Run in Platform Mode (connects to hosted Mem0 API)
+export MEM0_API_KEY="your-mem0-api-key"
+python -m mem0.mcp
+```
+
 ### Agent Skills
 
 Teach your AI coding assistant (Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
