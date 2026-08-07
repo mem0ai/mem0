@@ -1,0 +1,5 @@
+# Dependencies for the MCP wrapper (mcp/mem0_mcp_server.py).
+# The lifecycle hooks (hooks/) need no Python — only bash, curl, and jq.
+# FastMCP (mcp.server.fastmcp) exists in the 1.x line. The 2.x rewrite
+# removed it, so pin <2.0.0 to keep `from mcp.server.fastmcp import FastMCP` working.
+mcp>=1.25.4,<2.0.0

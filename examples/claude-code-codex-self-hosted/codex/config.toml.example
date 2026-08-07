@@ -1,0 +1,7 @@
+# Codex MCP servers — merge into ~/.codex/config.toml.
+# Replace <ABS_PATH> with the absolute path to this example's mcp/ dir.
+
+[mcp_servers.mem0]
+command = "python"
+args = ["<ABS_PATH>/mcp/mem0_mcp_server.py"]
+env = { "MEM0_BASE_URL" = "http://localhost:8888", "MEM0_API_KEY" = "m0sk-REPLACE_WITH_YOUR_KEY" }

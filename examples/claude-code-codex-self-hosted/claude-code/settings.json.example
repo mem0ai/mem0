@@ -1,0 +1,51 @@
+{
+  // Claude Code project settings — merge this into .claude/settings.json.
+  // Replace <ABS_PATH> with the absolute path to this example's hooks/ dir.
+  // Hooks are wired to the self-hosted Mem0 REST API (see hooks/mem0_env.sh).
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_session_start.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_user_prompt.sh",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_pre_compact.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "MEM0_API_KEY=${MEM0_API_KEY} bash <ABS_PATH>/hooks/on_stop.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
