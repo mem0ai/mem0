@@ -463,3 +463,46 @@ def test_init_with_placeholder_api_key(monkeypatch):
             http_client=None,
             default_headers=None,
         )
+
+
+def test_generate_response_preserves_words_containing_assistant(mock_openai_client):
+    """Words that genuinely contain 'assistant' as a substring (e.g. the plural
+    'assistants' or 'nonassistant') must not be corrupted by the keyword rewrite
+    (issue #6036). These are real superstrings the old naive .replace() mangled."""
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    # Real superstrings: the old code turned these into 'the ais arrived' /
+    # 'nonai setups exist' / 'aiship program'.
+    for text in ("the assistants arrived", "nonassistant setups exist", "assistantship program"):
+        llm.generate_response([{"role": "user", "content": text}])
+        sent = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+        assert sent[-1]["content"] == text
+
+    # The standalone word is still rewritten.
+    messages2 = [{"role": "user", "content": "my assistant helps with assistants"}]
+    llm.generate_response(messages2)
+    sent_messages2 = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+    assert sent_messages2[-1]["content"] == "my ai helps with assistants"
+
+
+def test_generate_response_leaves_compound_identifiers_untouched(mock_openai_client):
+    """Word boundaries also mean underscore/digit-joined identifiers such as
+    'assistant_id' or 'my_assistant' are no longer rewritten (they are compound
+    identifiers, not the natural-language word the Azure filter targets). This
+    is an intentional, documented behavior change from the old .replace()."""
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    for text in ("pass the assistant_id along", "configure my_assistant now"):
+        llm.generate_response([{"role": "user", "content": text}])
+        sent = mock_openai_client.chat.completions.create.call_args[1]["messages"]
+        assert sent[-1]["content"] == text
