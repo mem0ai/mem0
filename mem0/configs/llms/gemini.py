@@ -32,7 +32,7 @@ class GeminiConfig(BaseLlmConfig):
         Initialize Gemini configuration.
 
         Args:
-            model: Gemini model to use (e.g., "gemini-2.0-flash"), defaults to None
+            model: Gemini model to use (e.g., "gemini-2.5-flash"), defaults to None
             temperature: Controls randomness, defaults to 0.1
             api_key: Google API key for the Gemini Developer API, defaults to None
             max_tokens: Maximum tokens to generate, defaults to 2000

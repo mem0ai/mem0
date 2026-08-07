@@ -19,6 +19,17 @@ import { GoogleLLM } from "../src/llms/google";
 describe("GoogleLLM (unit)", () => {
   beforeEach(() => mockGenerateContent.mockClear());
 
+  it("defaults to gemini-2.5-flash when no model is configured", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: "ok",
+      functionCalls: null,
+    });
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "hi" }]);
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    expect(callArgs.model).toBe("gemini-2.5-flash");
+  });
+
   it("returns text response when no tools are provided", async () => {
     mockGenerateContent.mockResolvedValueOnce({
       text: '{"facts": ["fact1"]}',

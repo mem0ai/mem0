@@ -172,7 +172,7 @@ session_service = InMemorySessionService()
 
 agent = LlmAgent(
     name="personal_assistant",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction="""You are a helpful personal assistant.
     Relevant memories from past conversations are provided to you automatically.
     Use them to personalize your responses.""",
@@ -234,7 +234,7 @@ session_service = InMemorySessionService()
 
 travel_agent = LlmAgent(
     name="travel_specialist",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction="""You are a travel planning specialist.
     Relevant memories about the user's travel preferences are provided automatically.
     Use them to make personalized recommendations.""",
@@ -244,7 +244,7 @@ travel_agent = LlmAgent(
 
 health_agent = LlmAgent(
     name="health_advisor",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction="""You are a health and wellness advisor.
     Relevant memories about the user's health goals are provided automatically.
     Use them to give personalized advice.""",
@@ -254,7 +254,7 @@ health_agent = LlmAgent(
 
 coordinator = LlmAgent(
     name="coordinator",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction="""You are a coordinator that delegates requests to specialist agents.
     For travel-related questions, delegate to the travel specialist.
     For health-related questions, delegate to the health advisor.
