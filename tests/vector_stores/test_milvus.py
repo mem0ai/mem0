@@ -11,6 +11,7 @@ These tests verify:
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pymilvus.exceptions import MilvusException
 
 from mem0.configs.vector_stores.milvus import MetricType
 from mem0.vector_stores.milvus import MilvusDB
@@ -394,6 +395,111 @@ class TestMilvusDB:
 
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
+
+
+    def test_create_col_falls_back_when_bm25_schema_rejected(self, mock_milvus_client):
+        """Milvus < 2.5 rejects BM25 hybrid schema — fall back to dense-only."""
+        mock_milvus_client.has_collection.return_value = False
+
+        def create_collection_side_effect(**kwargs):
+            schema = kwargs.get("schema")
+            field_names = {f.name for f in schema.fields}
+            if "sparse" in field_names or "text" in field_names:
+                # Simulate partial failure after create starts: mark collection present once.
+                mock_milvus_client.has_collection.return_value = True
+                # Real pre-2.5 rejection surfaces as a MilvusException with an
+                # "unsupported field" code (1100), not a bare RuntimeError.
+                raise MilvusException(code=1100, message="BM25 function not supported on this server")
+            return None
+
+        mock_milvus_client.create_collection.side_effect = create_collection_side_effect
+
+        db = MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="legacy_server_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db",
+        )
+
+        assert db._has_bm25_schema is False
+        # Hybrid attempt + dense-only fallback
+        assert mock_milvus_client.create_collection.call_count == 2
+        mock_milvus_client.drop_collection.assert_called_once_with("legacy_server_collection")
+
+        # Final create uses dense-only schema (no text/sparse)
+        final_schema = mock_milvus_client.create_collection.call_args_list[-1].kwargs["schema"]
+        final_names = {f.name for f in final_schema.fields}
+        assert final_names == {"id", "vectors", "metadata"}
+
+    def test_create_col_reraises_transient_failure(self, mock_milvus_client):
+        """A transient error (not a version-incompat rejection) must NOT be silently
+        absorbed into a dense-only collection — it should propagate."""
+        mock_milvus_client.has_collection.return_value = False
+
+        def create_collection_side_effect(**kwargs):
+            # Simulate a dropped connection / momentary failure mid-request.
+            raise MilvusException(code=2, message="connection lost")
+
+        mock_milvus_client.create_collection.side_effect = create_collection_side_effect
+
+        with pytest.raises(MilvusException):
+            MilvusDB(
+                url="http://localhost:19530",
+                token="test_token",
+                collection_name="transient_fail_collection",
+                embedding_model_dims=1536,
+                metric_type=MetricType.COSINE,
+                db_name="test_db",
+            )
+
+        # No dense-only fallback should have been attempted.
+        mock_milvus_client.create_collection.assert_called_once()
+
+    def test_create_col_hybrid_success_sets_bm25_flag(self, milvus_db, mock_milvus_client):
+        """Default path still creates hybrid schema and enables BM25."""
+        assert milvus_db._has_bm25_schema is True
+        mock_milvus_client.create_collection.assert_called_once()
+        schema = mock_milvus_client.create_collection.call_args.kwargs["schema"]
+        names = {f.name for f in schema.fields}
+        assert {"id", "vectors", "metadata", "text", "sparse"}.issubset(names)
+
+    def test_update_omits_text_field_without_bm25_schema(self, milvus_db, mock_milvus_client):
+        """Dense-only collections must not upsert a top-level text field."""
+        milvus_db._has_bm25_schema = False
+        milvus_db.update(
+            vector_id="mem1",
+            vector=[0.1] * 1536,
+            payload={"data": "hello world", "user_id": "alice"},
+        )
+        data = mock_milvus_client.upsert.call_args.kwargs["data"]
+        assert "text" not in data
+        assert data["id"] == "mem1"
+        assert data["metadata"]["data"] == "hello world"
+
+    def test_update_includes_text_field_with_bm25_schema(self, milvus_db, mock_milvus_client):
+        """Hybrid collections should still populate text for BM25."""
+        milvus_db._has_bm25_schema = True
+        milvus_db.update(
+            vector_id="mem1",
+            vector=[0.1] * 1536,
+            payload={"data": "hello world", "user_id": "alice"},
+        )
+        data = mock_milvus_client.upsert.call_args.kwargs["data"]
+        assert data["text"] == "hello world"
+
+    def test_insert_omits_text_without_bm25_schema(self, milvus_db, mock_milvus_client):
+        """Insert path already guarded — keep regression coverage for dense-only."""
+        milvus_db._has_bm25_schema = False
+        milvus_db.insert(
+            ids=["id1"],
+            vectors=[[0.1] * 1536],
+            payloads=[{"data": "only dense", "user_id": "alice"}],
+        )
+        inserted = mock_milvus_client.insert.call_args.kwargs["data"]
+        assert "text" not in inserted[0]
+        assert inserted[0]["metadata"]["data"] == "only dense"
 
 
 if __name__ == "__main__":
