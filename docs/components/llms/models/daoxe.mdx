@@ -1,0 +1,44 @@
+---
+title: DaoXE
+description: "Use DaoXE as an OpenAI-compatible multi-model multi-protocol API gateway with Mem0."
+---
+
+[DaoXE](https://daoxe.com) is a multi-model multi-protocol API gateway. For Mem0, use the built-in OpenAI provider with a custom base URL.
+
+Set `DAOXE_API_KEY` (mapped to `OPENAI_API_KEY` or passed as `api_key`) and use an exact model ID from your DaoXE account catalog (`GET /v1/models`). Do not hardcode a public model price list. DaoXE is not available in mainland China.
+
+DaoXE also exposes OpenAI Responses and Anthropic Messages for other clients; Mem0 here uses Chat Completions via the OpenAI provider.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = os.environ["DAOXE_API_KEY"]
+
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "YOUR_DAOXE_MODEL_ID",  # exact ID from your DaoXE account
+            "openai_base_url": "https://daoxe.com/v1",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+You can also set `OPENAI_BASE_URL=https://daoxe.com/v1` in the environment; the OpenAI provider reads `openai_base_url` or `OPENAI_BASE_URL`.
+
+Examples: [DaoXE-AI](https://github.com/seven7763/DaoXE-AI)
