@@ -204,3 +204,52 @@ def test_bootstrap_403_permission_surfaces_ratelimit(monkeypatch, capsys) -> Non
     combined = captured.out + captured.err
     assert "Daily Agent Mode signup limit reached" in combined
     assert "permission to perform this action" not in combined
+
+
+def test_bootstrap_quiet_returns_envelope_without_rich_banners(monkeypatch, tmp_path):
+    """#6346: mem0 init --agent --json needs a machine envelope, not claim prose."""
+    from mem0_cli.commands import agent_mode_cmd
+    from mem0_cli.config import Mem0Config
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    # Point CONFIG under the clean home
+    import mem0_cli.config as config_mod
+
+    monkeypatch.setattr(config_mod, "CONFIG_DIR", tmp_path / ".mem0")
+    monkeypatch.setattr(config_mod, "CONFIG_FILE", tmp_path / ".mem0" / "config.json")
+    (tmp_path / ".mem0").mkdir(parents=True, exist_ok=True)
+
+    class FakeResp:
+        status_code = 200
+
+        def json(self):
+            return {"api_key": "m0-test-key-abcdef", "default_user_id": "agent-u1"}
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **k):
+            return FakeResp()
+
+    monkeypatch.setattr(agent_mode_cmd.httpx, "Client", FakeClient)
+
+    printed: list[str] = []
+
+    def _fake_print_success(console, msg):
+        printed.append(msg)
+
+    monkeypatch.setattr(agent_mode_cmd, "print_success", _fake_print_success)
+
+    cfg = Mem0Config()
+    env = agent_mode_cmd.bootstrap_via_backend(cfg, agent_caller="codex", quiet=True)
+    assert env["api_key"] == "m0-test-key-abcdef"
+    assert env["default_user_id"] == "agent-u1"
+    assert printed == []
+    assert cfg.platform.agent_mode is True
