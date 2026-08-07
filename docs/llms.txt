@@ -488,6 +488,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
 - [Weaviate](https://docs.mem0.ai/components/vectordbs/dbs/weaviate) [OSS]: Use when Weaviate is the backing store.
 - [FAISS](https://docs.mem0.ai/components/vectordbs/dbs/faiss) [OSS]: Use for local FAISS-based similarity search.
+- [LanceDB](https://docs.mem0.ai/components/vectordbs/dbs/lancedb) [OSS]: Use for local LanceDB file-based similarity search.
 - [LangChain Vector Store](https://docs.mem0.ai/components/vectordbs/dbs/langchain) [OSS]: Use when the vector store is wrapped behind LangChain.
 - [Baidu](https://docs.mem0.ai/components/vectordbs/dbs/baidu) [OSS]: Use when the user is on Baidu Cloud vector service.
 - [Cassandra](https://docs.mem0.ai/components/vectordbs/dbs/cassandra) [OSS]: Use when Cassandra is the backing store.
