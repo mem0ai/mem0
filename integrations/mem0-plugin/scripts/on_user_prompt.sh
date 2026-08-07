@@ -30,6 +30,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
+# auto_search: false disables automatic search API calls while still allowing
+# static detection + rubric injection (those make no mem0 requests).
+# Mirrors the MEM0_AUTO_SEARCH guards in on_file_read.sh / on_bash_output.sh (#6065/#6071).
+MEM0_AUTO_SEARCH_ENABLED=true
+if [ "${MEM0_AUTO_SEARCH:-true}" = "false" ]; then
+  MEM0_AUTO_SEARCH_ENABLED=false
+fi
+
 # Rubric dedup: only inject full rubric once per session.
 # Key on session ID to avoid cross-session interference.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
@@ -117,7 +125,7 @@ USER_ID="$MEM0_RESOLVED_USER_ID"
 
 _PROMPT_CTX=""
 
-if [ -n "$HAS_RESUME" ]; then
+if [ -n "$HAS_RESUME" ] && [ "$MEM0_AUTO_SEARCH_ENABLED" = "true" ]; then
   RESUME_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" python3 -c "
 import os, sys
 sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
@@ -157,7 +165,7 @@ fi
 # matches so relevant memories are guaranteed in context, not left for the agent
 # to fetch. Skipped on resume (handled above with targeted queries) and when
 # MEM0_PREFETCH=false.
-if [ -z "$HAS_RESUME" ] && [ "${MEM0_PREFETCH:-true}" != "false" ]; then
+if [ -z "$HAS_RESUME" ] && [ "${MEM0_PREFETCH:-true}" != "false" ] && [ "$MEM0_AUTO_SEARCH_ENABLED" = "true" ]; then
   PREFETCH_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" MEM0_SEARCH_QUERY="$PROMPT" python3 -c "
 import os, sys
 sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))

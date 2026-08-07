@@ -59,3 +59,33 @@ def test_second_prompt_gets_no_rubric():
     _run_hook("How should we refactor the auth module?")
     output = _run_hook("What about the database layer?")
     assert output.strip() == ""
+
+def test_auto_search_false_skips_resume_api_search():
+    """MEM0_AUTO_SEARCH=false must not run resume search_memories (#6250)."""
+    output = _run_hook(
+        "Where did we leave off on the auth module refactor?",
+        env_overrides={
+            "MEM0_AUTO_SEARCH": "false",
+            "MEM0_PREFETCH": "true",
+            "MEM0_API_KEY": "test-key-123",
+        },
+        session_id="test-sess-auto-search-resume",
+    )
+    assert "Session context recovered from mem0" not in output
+    assert "Relevant memories (auto-retrieved for this request)" not in output
+
+
+def test_auto_search_false_skips_prefetch_header():
+    """Prefetch search header must not appear when auto_search is off (#6250)."""
+    output = _run_hook(
+        "How should we design the memory scoring pipeline carefully?",
+        env_overrides={
+            "MEM0_AUTO_SEARCH": "false",
+            "MEM0_PREFETCH": "true",
+            "MEM0_API_KEY": "test-key-123",
+        },
+        session_id="test-sess-auto-search-prefetch",
+    )
+    assert "Relevant memories (auto-retrieved for this request)" not in output
+    # First prompt of a session may still inject the non-API rubric.
+    assert "Mem0 searches apply" in output
