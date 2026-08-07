@@ -2176,6 +2176,16 @@ class AsyncMemory(MemoryBase):
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
+        # Serialize concurrent vector-store writes to prevent HNSW index
+        # corruption when multiple add()/update()/delete() calls are in flight
+        # simultaneously (e.g. in an async agent processing events in parallel).
+        # Note: this lock is per-instance, so it serializes writes within a
+        # single-process async workload. Multi-process deployments sharing one
+        # embedded Qdrant path still need external coordination (or server-mode
+        # Qdrant). Entity-store writes are also not protected here, as they
+        # target a separate collection.
+        # Salvage of #4893 by @MattGyver for issue #4892.
+        self._write_lock = asyncio.Lock()
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2694,19 +2704,20 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
-        try:
-            await asyncio.to_thread(
-                self.vector_store.insert,
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
+        async with self._write_lock:
+            try:
+                await asyncio.to_thread(
+                    self.vector_store.insert,
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {mid} (async): {e}")
 
         # Batch history
         history_records = [
@@ -3636,12 +3647,13 @@ class AsyncMemory(MemoryBase):
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
-        await asyncio.to_thread(
-            self.vector_store.insert,
-            vectors=[embeddings],
-            ids=[memory_id],
-            payloads=[new_metadata],
-        )
+        async with self._write_lock:
+            await asyncio.to_thread(
+                self.vector_store.insert,
+                vectors=[embeddings],
+                ids=[memory_id],
+                payloads=[new_metadata],
+            )
 
         await asyncio.to_thread(
             self.db.add_history,
@@ -3748,12 +3760,13 @@ class AsyncMemory(MemoryBase):
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
-        await asyncio.to_thread(
-            self.vector_store.update,
-            vector_id=memory_id,
-            vector=embeddings,
-            payload=new_metadata,
-        )
+        async with self._write_lock:
+            await asyncio.to_thread(
+                self.vector_store.update,
+                vector_id=memory_id,
+                vector=embeddings,
+                payload=new_metadata,
+            )
         logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
         await asyncio.to_thread(
@@ -3789,7 +3802,8 @@ class AsyncMemory(MemoryBase):
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
 
-        await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
+        async with self._write_lock:
+            await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
             self.db.add_history,
             memory_id,

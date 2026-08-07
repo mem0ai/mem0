@@ -1178,3 +1178,68 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for AsyncMemory write serialization (#4892)
+# Salvage of #4893 by @MattGyver
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_async_memory_create_serializes_vector_store_insert(mocker):
+    """Driving the real _create_memory concurrently must not overlap vector_store.insert.
+
+    This exercises main.py itself (not a hand-held asyncio.Lock in the test body):
+    with the four ``async with self._write_lock`` guards in place, max concurrent
+    inserts stays at 1; strip them and this fails with max concurrent == 5.
+    """
+    import asyncio
+    import threading
+    import time
+    from mem0.memory.main import AsyncMemory
+
+    active = {"count": 0, "max": 0, "lock": threading.Lock()}
+
+    def tracking_insert(*args, **kwargs):
+        with active["lock"]:
+            active["count"] += 1
+            active["max"] = max(active["max"], active["count"])
+        time.sleep(0.03)
+        with active["lock"]:
+            active["count"] -= 1
+
+    mock_embedder = mocker.MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=mock_embedder)
+
+    mocker.patch(
+        "mem0.utils.factory.VectorStoreFactory.create",
+        side_effect=lambda *a, **k: mocker.MagicMock(insert=tracking_insert, search=mocker.MagicMock(return_value=[])),
+    )
+    mocker.patch("mem0.utils.factory.LlmFactory.create", return_value=mocker.MagicMock())
+    mocker.patch("mem0.memory.main.SQLiteManager", return_value=mocker.MagicMock())
+    mocker.patch("mem0.memory.main.capture_event")
+
+    mem = AsyncMemory()
+    assert hasattr(mem, "_write_lock")
+
+    await asyncio.gather(
+        *[mem._create_memory(f"fact {i}", existing_embeddings={}) for i in range(5)]
+    )
+    assert active["max"] == 1, f"vector_store.insert overlapped: max concurrent={active['max']}"
+
+
+def test_async_memory_init_creates_write_lock(mocker):
+    from mem0.memory.main import AsyncMemory
+    import asyncio
+
+    mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=mocker.MagicMock())
+    mocker.patch("mem0.utils.factory.VectorStoreFactory.create", return_value=mocker.MagicMock())
+    mocker.patch("mem0.utils.factory.LlmFactory.create", return_value=mocker.MagicMock())
+    mocker.patch("mem0.memory.main.SQLiteManager", return_value=mocker.MagicMock())
+    mocker.patch("mem0.memory.main.capture_event")
+
+    mem = AsyncMemory()
+    assert isinstance(mem._write_lock, asyncio.Lock)
+
