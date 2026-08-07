@@ -25,6 +25,7 @@ from mem0.configs.prompts import (
 from mem0.exceptions import LLMError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
+from mem0.memory import otel
 from mem0.memory.notices import (
     PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
     detect_decay_usage_from_delete,
@@ -479,6 +480,17 @@ class _AsyncOSSProject:
         raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
 
 
+def _otel_records(items, content_key):
+    """Shape mem0 memory items into the gen_ai.memory.records schema."""
+    records = []
+    for item in items or []:
+        record = {"content": item.get(content_key), "id": item.get("id")}
+        if item.get("score") is not None:
+            record["score"] = item.get("score")
+        records.append(record)
+    return records
+
+
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -752,6 +764,7 @@ class Memory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    @otel.trace_memory_operation(otel.OP_ADD)
     def add(
         self,
         messages,
@@ -854,6 +867,11 @@ class Memory(MemoryBase):
                 display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
+            otel.annotate_operation(
+                otel.current_span(),
+                record_count=len(results["results"]),
+                records_factory=lambda: _otel_records(results["results"], "memory"),
+            )
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -869,6 +887,11 @@ class Memory(MemoryBase):
             display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "add")
+        otel.annotate_operation(
+            otel.current_span(),
+            record_count=len(vector_store_result),
+            records_factory=lambda: _otel_records(vector_store_result, "memory"),
+        )
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
@@ -917,13 +940,14 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
-        existing_results = self.vector_store.search(
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
-        )
+        with otel.memory_phase_span("mem0.add.retrieve_existing"):
+            query_embedding = self.embedding_model.embed(parsed_messages, "search")
+            existing_results = self.vector_store.search(
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
+            )
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -948,13 +972,14 @@ class Memory(MemoryBase):
         )
 
         try:
-            response = self.llm.generate_response(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
+            with otel.memory_phase_span("mem0.add.llm_extract"):
+                response = self.llm.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                )
         except Exception as e:
             # Re-raise so callers can implement provider fallback / retry.
             # The original silent ``return []`` made upstream callers unable to
@@ -985,17 +1010,18 @@ class Memory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            # Fallback: embed individually
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = self.embedding_model.embed(text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text: {e}")
+        with otel.memory_phase_span("mem0.add.embed_memories"):
+            try:
+                mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
+                embed_map = dict(zip(mem_texts, mem_embeddings_list))
+            except Exception:
+                # Fallback: embed individually
+                embed_map = {}
+                for text in mem_texts:
+                    try:
+                        embed_map[text] = self.embedding_model.embed(text, "add")
+                    except Exception as e:
+                        logger.warning(f"Failed to embed memory text: {e}")
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -1042,19 +1068,20 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
-        try:
-            self.vector_store.insert(
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+        with otel.memory_phase_span("mem0.add.vector_write"):
+            try:
+                self.vector_store.insert(
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                # Fallback: insert one by one
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {mid}: {e}")
 
         # Batch history
         history_records = [
@@ -1371,6 +1398,7 @@ class Memory(MemoryBase):
 
         return formatted_memories
 
+    @otel.trace_memory_operation(otel.OP_SEARCH)
     def search(
         self,
         query: str,
@@ -1494,7 +1522,8 @@ class Memory(MemoryBase):
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
             try:
-                reranked_memories = self.reranker.rerank(query, original_memories, limit)
+                with otel.memory_phase_span("mem0.search.rerank"):
+                    reranked_memories = self.reranker.rerank(query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -1514,6 +1543,12 @@ class Memory(MemoryBase):
             )
         else:
             display_first_run_notice(self, "sync", "search")
+        otel.annotate_operation(
+            otel.current_span(),
+            record_count=len(original_memories),
+            query_text=query,
+            records_factory=lambda: _otel_records(original_memories, "memory"),
+        )
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -1630,18 +1665,21 @@ class Memory(MemoryBase):
         query_entities = extract_entities(query)
 
         # Step 2: Embed query
-        embeddings = self.embedding_model.embed(query, "search")
+        with otel.memory_phase_span("mem0.search.embed_query"):
+            embeddings = self.embedding_model.embed(query, "search")
 
         # Step 3: Semantic search (over-fetch for scoring pool)
         internal_limit = max(limit * 4, 60)
-        semantic_results = self.vector_store.search(
-            query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
+        with otel.memory_phase_span("mem0.search.vector_search"):
+            semantic_results = self.vector_store.search(
+                query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            )
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        with otel.memory_phase_span("mem0.search.keyword_search"):
+            keyword_results = self.vector_store.keyword_search(
+                query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
 
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
@@ -1656,7 +1694,8 @@ class Memory(MemoryBase):
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
-            entity_boosts = self._compute_entity_boosts(query_entities, filters)
+            with otel.memory_phase_span("mem0.search.entity_boost"):
+                entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
         # Step 7: Build candidate set from semantic results
         candidates = []
@@ -2420,6 +2459,7 @@ class AsyncMemory(MemoryBase):
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
+    @otel.trace_memory_operation(otel.OP_ADD)
     async def add(
         self,
         messages,
@@ -2502,6 +2542,11 @@ class AsyncMemory(MemoryBase):
                 await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
             else:
                 await display_first_run_notice_async(self, "async", "add")
+            otel.annotate_operation(
+                otel.current_span(),
+                record_count=len(results["results"]),
+                records_factory=lambda: _otel_records(results["results"], "memory"),
+            )
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -2517,6 +2562,11 @@ class AsyncMemory(MemoryBase):
             await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
         else:
             await display_first_run_notice_async(self, "async", "add")
+        otel.annotate_operation(
+            otel.current_span(),
+            record_count=len(vector_store_result),
+            records_factory=lambda: _otel_records(vector_store_result, "memory"),
+        )
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2572,14 +2622,15 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
-        existing_results = await asyncio.to_thread(
-            self.vector_store.search,
-            query=parsed_messages,
-            vectors=query_embedding,
-            top_k=10,
-            filters=search_filters,
-        )
+        with otel.memory_phase_span("mem0.add.retrieve_existing"):
+            query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+            existing_results = await asyncio.to_thread(
+                self.vector_store.search,
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
+            )
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -2604,14 +2655,15 @@ class AsyncMemory(MemoryBase):
         )
 
         try:
-            response = await asyncio.to_thread(
-                self.llm.generate_response,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-            )
+            with otel.memory_phase_span("mem0.add.llm_extract"):
+                response = await asyncio.to_thread(
+                    self.llm.generate_response,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                )
         except Exception as e:
             # Re-raise so callers can implement provider fallback / retry
             # (see sync counterpart for rationale).
@@ -2639,16 +2691,17 @@ class AsyncMemory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
-        try:
-            mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
-            embed_map = dict(zip(mem_texts, mem_embeddings_list))
-        except Exception:
-            embed_map = {}
-            for text in mem_texts:
-                try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
-                except Exception as e:
-                    logger.warning(f"Failed to embed memory text (async): {e}")
+        with otel.memory_phase_span("mem0.add.embed_memories"):
+            try:
+                mem_embeddings_list = await asyncio.to_thread(self.embedding_model.embed_batch, mem_texts, "add")
+                embed_map = dict(zip(mem_texts, mem_embeddings_list))
+            except Exception:
+                embed_map = {}
+                for text in mem_texts:
+                    try:
+                        embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                    except Exception as e:
+                        logger.warning(f"Failed to embed memory text (async): {e}")
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
@@ -2694,19 +2747,20 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
-        try:
-            await asyncio.to_thread(
-                self.vector_store.insert,
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
+        with otel.memory_phase_span("mem0.add.vector_write"):
+            try:
+                await asyncio.to_thread(
+                    self.vector_store.insert,
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {mid} (async): {e}")
 
         # Batch history
         history_records = [
@@ -3023,6 +3077,7 @@ class AsyncMemory(MemoryBase):
 
         return formatted_memories
 
+    @otel.trace_memory_operation(otel.OP_SEARCH)
     async def search(
         self,
         query: str,
@@ -3151,9 +3206,8 @@ class AsyncMemory(MemoryBase):
         if rerank and self.reranker and original_memories:
             try:
                 # Run reranking in thread pool to avoid blocking async loop
-                reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
-                )
+                with otel.memory_phase_span("mem0.search.rerank"):
+                    reranked_memories = await asyncio.to_thread(self.reranker.rerank, query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -3173,6 +3227,12 @@ class AsyncMemory(MemoryBase):
             )
         else:
             await display_first_run_notice_async(self, "async", "search")
+        otel.annotate_operation(
+            otel.current_span(),
+            record_count=len(original_memories),
+            query_text=query,
+            records_factory=lambda: _otel_records(original_memories, "memory"),
+        )
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -3288,18 +3348,21 @@ class AsyncMemory(MemoryBase):
         query_entities = await asyncio.to_thread(extract_entities, query)
 
         # Step 2: Embed query
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
+        with otel.memory_phase_span("mem0.search.embed_query"):
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
 
         # Step 3: Semantic search (over-fetch)
         internal_limit = max(limit * 4, 60)
-        semantic_results = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
+        with otel.memory_phase_span("mem0.search.vector_search"):
+            semantic_results = await asyncio.to_thread(
+                self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            )
 
         # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        with otel.memory_phase_span("mem0.search.keyword_search"):
+            keyword_results = await asyncio.to_thread(
+                self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
 
         # Step 5: Compute BM25 scores
         bm25_scores = {}
@@ -3314,7 +3377,8 @@ class AsyncMemory(MemoryBase):
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
-            entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
+            with otel.memory_phase_span("mem0.search.entity_boost"):
+                entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
 
         # Step 7: Build candidate set from semantic results
         candidates = []
