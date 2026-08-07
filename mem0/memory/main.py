@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 import uuid
 import warnings
@@ -508,6 +509,22 @@ class Memory(MemoryBase):
         # Entity store is initialized lazily on first use
         self._entity_store = None
 
+        # Per-scope locks for the dedup-recheck + insert step in
+        # _add_to_vector_store, so concurrent add() calls extracting the same
+        # fact can't both pass a stale dedup snapshot and both insert (the
+        # hash-dedup TOCTOU race). Keyed by session scope so add() calls for
+        # different user_id/agent_id/run_id — which can never hash-collide —
+        # don't serialize against each other; only same-scope callers do.
+        #
+        # Scope of protection: these locks live on the Memory instance, so they
+        # only serialize callers sharing one instance in one process. They do
+        # NOT coordinate across multiple workers/replicas (e.g. this repo's
+        # server/ and openmemory/ scale-out deployments, which hold the client
+        # as a per-process singleton) — closing that cross-process window would
+        # need a shared/distributed lock and is out of scope here.
+        self._add_locks = {}
+        self._add_locks_guard = threading.Lock()
+
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
             telemetry_config_dict = {}
@@ -997,14 +1014,7 @@ class Memory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        # Build set of existing hashes for dedup
-        existing_hashes = set()
-        for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
-            if h:
-                existing_hashes.add(h)
-
+        # Phase 4: Per-memory CPU processing
         records = []  # (memory_id, text, embedding, payload)
         seen_hashes = set()  # dedup within the current batch
         for mem in extracted_memories:
@@ -1013,7 +1023,7 @@ class Memory(MemoryBase):
                 continue
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
-            if mem_hash in existing_hashes or mem_hash in seen_hashes:
+            if mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
                 continue
             seen_hashes.add(mem_hash)
@@ -1037,24 +1047,54 @@ class Memory(MemoryBase):
             self.db.save_messages(messages, session_scope)
             return []
 
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
+        # Phase 5: Hash dedup + Phase 6: Batch persist, serialized per scope.
+        # The Phase 1 snapshot (existing_results) can go stale by the time we get
+        # here (an LLM round-trip + embedding calls have happened since). Holding
+        # the session-scoped lock and re-checking hashes fresh right before insert
+        # closes that TOCTOU window: two concurrent add() calls extracting the
+        # same fact can no longer both pass dedup and both insert a permanent
+        # duplicate. Only same-scope callers serialize here (see __init__).
+        with self._add_locks_guard:
+            add_lock = self._add_locks.get(session_scope)
+            if add_lock is None:
+                add_lock = threading.Lock()
+                self._add_locks[session_scope] = add_lock
 
-        try:
-            self.vector_store.insert(
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
+        with add_lock:
+            fresh_existing = self.vector_store.search(
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
             )
-        except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+            fresh_hashes = {
+                mem.payload.get("hash")
+                for mem in fresh_existing
+                if hasattr(mem, "payload") and mem.payload and mem.payload.get("hash")
+            }
+            records = [r for r in records if r[3]["hash"] not in fresh_hashes]
+
+            if not records:
+                self.db.save_messages(messages, session_scope)
+                return []
+
+            all_vectors = [r[2] for r in records]
+            all_ids = [r[0] for r in records]
+            all_payloads = [r[3] for r in records]
+
+            try:
+                self.vector_store.insert(
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                # Fallback: insert one by one
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {mid}: {e}")
 
         # Batch history
         history_records = [
@@ -2177,6 +2217,21 @@ class AsyncMemory(MemoryBase):
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
 
+        # Per-scope locks for the dedup-recheck + insert step in
+        # _add_to_vector_store, so concurrent add() calls extracting the same
+        # fact can't both pass a stale dedup snapshot and both insert (the
+        # hash-dedup TOCTOU race). Keyed by session scope so add() calls for
+        # different user_id/agent_id/run_id — which can never hash-collide —
+        # don't serialize against each other; only same-scope callers do.
+        #
+        # Scope of protection: these locks live on the AsyncMemory instance, so
+        # they only serialize callers sharing one instance in one process/event
+        # loop. They do NOT coordinate across multiple workers/replicas (e.g.
+        # this repo's server/ and openmemory/ scale-out deployments, which hold
+        # the client as a per-process singleton) — closing that cross-process
+        # window would need a shared/distributed lock and is out of scope here.
+        self._add_locks = {}
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
@@ -2650,13 +2705,7 @@ class AsyncMemory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
-        existing_hashes = set()
-        for mem in existing_results:
-            h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
-            if h:
-                existing_hashes.add(h)
-
+        # Phase 4: Per-memory CPU processing
         records = []
         seen_hashes = set()
         for mem in extracted_memories:
@@ -2665,7 +2714,7 @@ class AsyncMemory(MemoryBase):
                 continue
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
-            if mem_hash in existing_hashes or mem_hash in seen_hashes:
+            if mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
                 continue
             seen_hashes.add(mem_hash)
@@ -2689,24 +2738,56 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
+        # Phase 5: Hash dedup + Phase 6: Batch persist, serialized per scope.
+        # The Phase 1 snapshot (existing_results) can go stale by the time we get
+        # here (an LLM round-trip + embedding calls have happened since). Holding
+        # the session-scoped lock and re-checking hashes fresh right before insert
+        # closes that TOCTOU window: two concurrent add() calls extracting the
+        # same fact can no longer both pass dedup and both insert a permanent
+        # duplicate. Only same-scope callers serialize here (see __init__).
+        # The get/set below has no await between the check and the assignment, so
+        # it is atomic within a single event loop — no extra guard lock needed.
+        add_lock = self._add_locks.get(session_scope)
+        if add_lock is None:
+            add_lock = asyncio.Lock()
+            self._add_locks[session_scope] = add_lock
 
-        try:
-            await asyncio.to_thread(
-                self.vector_store.insert,
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
+        async with add_lock:
+            fresh_existing = await asyncio.to_thread(
+                self.vector_store.search,
+                query=parsed_messages,
+                vectors=query_embedding,
+                top_k=10,
+                filters=search_filters,
             )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
+            fresh_hashes = {
+                mem.payload.get("hash")
+                for mem in fresh_existing
+                if hasattr(mem, "payload") and mem.payload and mem.payload.get("hash")
+            }
+            records = [r for r in records if r[3]["hash"] not in fresh_hashes]
+
+            if not records:
+                await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+                return []
+
+            all_vectors = [r[2] for r in records]
+            all_ids = [r[0] for r in records]
+            all_payloads = [r[3] for r in records]
+
+            try:
+                await asyncio.to_thread(
+                    self.vector_store.insert,
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error(f"Failed to insert memory {mid} (async): {e}")
 
         # Batch history
         history_records = [
