@@ -152,16 +152,34 @@ class Completions:
         return messages
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
+        kwargs = {
+            "messages": messages,
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "run_id": run_id,
+            "metadata": metadata,
+        }
+        # `filters` is a Platform-only add() parameter (see AddMemoryOptions).
+        # OSS Memory.add() scopes writes by user_id/agent_id/run_id and has no
+        # `filters` kwarg, so passing it there raises TypeError on every call.
+        if isinstance(self.mem0_client, mem0.memory.main.Memory):
+            if filters:
+                logger.warning(
+                    "Ignoring `filters` on add: not supported by the OSS Memory client. "
+                    "Writes are scoped by user_id/agent_id/run_id."
+                )
+        else:
+            kwargs["filters"] = filters
+
         def add_task():
             logger.debug("Adding to memory asynchronously")
-            self.mem0_client.add(
-                messages=messages,
-                user_id=user_id,
-                agent_id=agent_id,
-                run_id=run_id,
-                metadata=metadata,
-                filters=filters,
-            )
+            try:
+                self.mem0_client.add(**kwargs)
+            except Exception:
+                # Runs in a daemon thread: without this the traceback only reaches
+                # threading.excepthook while create() still returns a normal
+                # completion, so a total write failure looks like success.
+                logger.exception("Failed to add conversation to memory")
 
         threading.Thread(target=add_task, daemon=True).start()
 
