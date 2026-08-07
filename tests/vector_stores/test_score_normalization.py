@@ -69,9 +69,7 @@ def _assert_similarity_scores(results, *, allow_negative=False):
     # Threshold filtering: using mid score should keep at least close and mid
     threshold = scores[1]
     filtered = [r for r in results if r.score >= threshold]
-    assert len(filtered) >= 2, (
-        f"Threshold {threshold} should keep >= 2 results, got {len(filtered)}"
-    )
+    assert len(filtered) >= 2, f"Threshold {threshold} should keep >= 2 results, got {len(filtered)}"
 
 
 # ---------------------------------------------------------------------------
@@ -189,8 +187,11 @@ def _pgvector_reachable():
         import psycopg
 
         conn = psycopg.connect(
-            host=PGVECTOR_HOST, port=PGVECTOR_PORT,
-            user=PGVECTOR_USER, password=PGVECTOR_PASS, dbname=PGVECTOR_DB,
+            host=PGVECTOR_HOST,
+            port=PGVECTOR_PORT,
+            user=PGVECTOR_USER,
+            password=PGVECTOR_PASS,
+            dbname=PGVECTOR_DB,
             connect_timeout=3,
         )
         conn.close()
@@ -239,9 +240,29 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 
 
+def _redis_search_available():
+    """True only if the Redis server supports RediSearch (FT.* commands).
+
+    A bare TCP check false-passes on vanilla Redis, which listens on the
+    same port but has no RediSearch module loaded, so the tests then
+    hard-fail instead of skipping cleanly.
+    """
+    if not _tcp_reachable(REDIS_HOST, REDIS_PORT):
+        return False
+    try:
+        import redis
+
+        client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, socket_timeout=3)
+        client.execute_command("FT._LIST")
+        client.close()
+        return True
+    except Exception:
+        return False
+
+
 @pytest.mark.skipif(
-    not _tcp_reachable(REDIS_HOST, REDIS_PORT),
-    reason=f"Redis not reachable at {REDIS_HOST}:{REDIS_PORT}",
+    not _redis_search_available(),
+    reason=f"Redis with RediSearch not available at {REDIS_HOST}:{REDIS_PORT}",
 )
 class TestRedis:
     """Redis returns cosine distance [0,2]. Conversion: score = max(0, 1 - dist)."""
@@ -271,9 +292,7 @@ class TestRedis:
         self.store.delete_col()
 
     def test_scores_are_similarity(self):
-        results = self.store.search(
-            query="", vectors=self.query, top_k=3, filters={"user_id": "test"}
-        )
+        results = self.store.search(query="", vectors=self.query, top_k=3, filters={"user_id": "test"})
         scores = [r.score for r in results]
         assert all(s >= 0 for s in scores), f"Scores must be non-negative: {scores}"
         assert all(s <= 1.0 for s in scores), f"Scores must be <= 1.0: {scores}"
@@ -318,9 +337,7 @@ class TestValkey:
         self.store.delete_col()
 
     def test_scores_are_similarity(self):
-        results = self.store.search(
-            query="", vectors=self.query, top_k=3, filters={"user_id": "test"}
-        )
+        results = self.store.search(query="", vectors=self.query, top_k=3, filters={"user_id": "test"})
         scores = [r.score for r in results]
         assert all(s >= 0 for s in scores), f"Scores must be non-negative: {scores}"
         assert all(s <= 1.0 for s in scores), f"Scores must be <= 1.0: {scores}"

@@ -67,9 +67,7 @@ def _run_threshold_test(store, query, doc_vectors, payloads, ids):
     scores = [r.score for r in results]
 
     # Verify scores are similarity (higher = better)
-    assert scores[0] >= scores[-1], (
-        f"Top result should have highest score: first={scores[0]}, last={scores[-1]}"
-    )
+    assert scores[0] >= scores[-1], f"Top result should have highest score: first={scores[0]}, last={scores[-1]}"
 
     # Step 2: Verify all scores are non-negative (similarity, not raw distance)
     assert all(s >= 0 for s in scores if s is not None), (
@@ -82,26 +80,18 @@ def _run_threshold_test(store, query, doc_vectors, payloads, ids):
 
     filtered = [r for r in results if r.score >= mid_threshold]
     assert len(filtered) < len(results), (
-        f"Mid threshold {mid_threshold:.4f} should filter some results. "
-        f"Scores: {scores}"
+        f"Mid threshold {mid_threshold:.4f} should filter some results. Scores: {scores}"
     )
-    assert len(filtered) > 0, (
-        f"Mid threshold {mid_threshold:.4f} should keep some results. "
-        f"Scores: {scores}"
-    )
+    assert len(filtered) > 0, f"Mid threshold {mid_threshold:.4f} should keep some results. Scores: {scores}"
 
     # All filtered results must have score >= threshold
     for r in filtered:
-        assert r.score >= mid_threshold, (
-            f"Score {r.score:.4f} below threshold {mid_threshold:.4f}"
-        )
+        assert r.score >= mid_threshold, f"Score {r.score:.4f} below threshold {mid_threshold:.4f}"
 
     # Step 4: Very high threshold should return 0 or very few results
     high_threshold = 0.99
     high_filtered = [r for r in results if r.score >= high_threshold]
-    assert len(high_filtered) < len(results), (
-        f"Threshold 0.99 should filter most results. Scores: {scores}"
-    )
+    assert len(high_filtered) < len(results), f"Threshold 0.99 should filter most results. Scores: {scores}"
 
     return scores
 
@@ -140,14 +130,10 @@ class TestChromaDBThreshold:
         # The bug was: all scores collapsed to 1.0 because raw L2 distances
         # > 1.0 were capped. Verify scores are NOT all identical.
         unique_scores = set(round(s, 6) for s in scores)
-        assert len(unique_scores) > 1, (
-            f"Scores should not all be identical (bug symptom): {scores}"
-        )
+        assert len(unique_scores) > 1, f"Scores should not all be identical (bug symptom): {scores}"
 
         # The closest doc should score strictly higher than the farthest
-        assert scores[0] > scores[-1], (
-            f"Closest doc must score higher than farthest: {scores}"
-        )
+        assert scores[0] > scores[-1], f"Closest doc must score higher than farthest: {scores}"
         store.delete_col()
 
 
@@ -206,8 +192,11 @@ def _pgvector_reachable():
         import psycopg
 
         conn = psycopg.connect(
-            host=PGVECTOR_HOST, port=PGVECTOR_PORT,
-            user=PGVECTOR_USER, password=PGVECTOR_PASS, dbname=PGVECTOR_DB,
+            host=PGVECTOR_HOST,
+            port=PGVECTOR_PORT,
+            user=PGVECTOR_USER,
+            password=PGVECTOR_PASS,
+            dbname=PGVECTOR_DB,
             connect_timeout=3,
         )
         conn.close()
@@ -249,9 +238,29 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 
 
+def _redis_search_available():
+    """True only if the Redis server supports RediSearch (FT.* commands).
+
+    A bare TCP check false-passes on vanilla Redis, which listens on the
+    same port but has no RediSearch module loaded, so the tests then
+    hard-fail instead of skipping cleanly.
+    """
+    if not _tcp_reachable(REDIS_HOST, REDIS_PORT):
+        return False
+    try:
+        import redis
+
+        client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, socket_timeout=3)
+        client.execute_command("FT._LIST")
+        client.close()
+        return True
+    except Exception:
+        return False
+
+
 @pytest.mark.skipif(
-    not _tcp_reachable(REDIS_HOST, REDIS_PORT),
-    reason=f"Redis not reachable at {REDIS_HOST}:{REDIS_PORT}",
+    not _redis_search_available(),
+    reason=f"Redis with RediSearch not available at {REDIS_HOST}:{REDIS_PORT}",
 )
 class TestRedisThreshold:
     def test_threshold_filtering(self):
