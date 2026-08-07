@@ -573,11 +573,20 @@ class AWSBedrockLLM(LLMBase):
             # Use converse API for Anthropic models
             response = self.client.converse(**converse_params)
 
-            # Parse Converse API response
+            # Parse Converse API response. Claude reasoning models can emit a
+            # `reasoningContent` block before the `text` block, so iterate to
+            # find the first block that carries text instead of indexing
+            # content[0] (same approach as the MiniMax branch below).
             if hasattr(response, 'output') and hasattr(response.output, 'message'):
-                return response.output.message.content[0].text
+                for block in response.output.message.content:
+                    if hasattr(block, 'text'):
+                        return block.text
+                return ""
             elif 'output' in response and 'message' in response['output']:
-                return response['output']['message']['content'][0]['text']
+                for block in response['output']['message']['content']:
+                    if 'text' in block:
+                        return block['text']
+                return ""
             else:
                 return str(response)
 

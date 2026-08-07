@@ -452,3 +452,51 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+
+class TestAnthropicConverseContentParsing:
+    """The Anthropic Converse branch must not assume content[0] is the text
+    block: Claude reasoning models emit a reasoningContent block before the
+    text block, and some stop conditions produce an empty content array. The
+    parser iterates for the first block carrying text, like the MiniMax branch.
+    """
+
+    def test_text_after_reasoning_content_block(self, mock_boto3):
+        mock_boto3.converse.return_value = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"reasoningContent": {"reasoningText": {"text": "step by step..."}}},
+                        {"text": "final answer"},
+                    ]
+                }
+            }
+        }
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "final answer"
+
+    def test_empty_content_returns_empty_string(self, mock_boto3):
+        mock_boto3.converse.return_value = {"output": {"message": {"content": []}}}
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == ""
+
+    def test_plain_text_content_still_returned(self, mock_boto3):
+        mock_boto3.converse.return_value = _converse_response("plain answer")
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "plain answer"
+
+    def test_object_style_response_iterates_blocks(self, mock_boto3):
+        # Defensive attr-style branch: object wrapper with a reasoning block first.
+        from types import SimpleNamespace
+
+        reasoning_block = SimpleNamespace(reasoningContent={"reasoningText": {"text": "hmm"}})
+        text_block = SimpleNamespace(text="object answer")
+        mock_boto3.converse.return_value = SimpleNamespace(
+            output=SimpleNamespace(message=SimpleNamespace(content=[reasoning_block, text_block]))
+        )
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        assert llm.generate_response(MESSAGES) == "object answer"
