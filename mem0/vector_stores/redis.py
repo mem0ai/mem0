@@ -155,7 +155,17 @@ class RedisDB(VectorStoreBase):
         v = VectorQuery(
             vector=np.array(vectors, dtype=np.float32).tobytes(),
             vector_field_name="embedding",
-            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
+            return_fields=[
+                "memory_id",
+                "hash",
+                "agent_id",
+                "run_id",
+                "user_id",
+                "memory",
+                "metadata",
+                "created_at",
+                "updated_at",
+            ],
             filter_expression=filter,
             num_results=top_k,
         )
@@ -209,7 +219,17 @@ class RedisDB(VectorStoreBase):
         t = TextQuery(
             text=query,
             text_field_name="memory",
-            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
+            return_fields=[
+                "memory_id",
+                "hash",
+                "agent_id",
+                "run_id",
+                "user_id",
+                "memory",
+                "metadata",
+                "created_at",
+                "updated_at",
+            ],
             filter_expression=filter_expression,
             num_results=top_k,
         )
