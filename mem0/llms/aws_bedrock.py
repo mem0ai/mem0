@@ -11,6 +11,7 @@ except ImportError:
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
+from mem0.exceptions import LLMError
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
 
@@ -423,8 +424,8 @@ class AWSBedrockLLM(LLMBase):
                 return str(response_json)
 
         except Exception as e:
-            logger.warning(f"Could not parse response: {e}")
-            return "Error parsing response"
+            logger.error(f"Could not parse Bedrock response: {e}")
+            raise LLMError(f"Failed to parse Bedrock response for provider '{self.provider}': {e}") from e
 
     def generate_response(
         self,
