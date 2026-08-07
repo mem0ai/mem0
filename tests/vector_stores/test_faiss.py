@@ -754,3 +754,13 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+def test_apply_filters_star_means_field_exists(faiss_instance):
+    """Documented "*" is field-exists, not equality to the string "*"."""
+    payload = {"user_id": "u1", "agent_id": "a1", "category": "work"}
+    assert faiss_instance._apply_filters(payload, {"agent_id": "*"}) is True
+    assert faiss_instance._apply_filters(payload, {"missing_key": "*"}) is False
+    # Combined: star + equality
+    assert faiss_instance._apply_filters(payload, {"agent_id": "*", "category": "work"}) is True
+    assert faiss_instance._apply_filters(payload, {"agent_id": "*", "category": "home"}) is False

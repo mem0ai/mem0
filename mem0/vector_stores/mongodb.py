@@ -148,6 +148,14 @@ class MongoDB(VectorStoreBase):
             logger.error(f"Error inserting data: {e}")
 
     @staticmethod
+    def _payload_filter_clause(key: str, value: Any) -> dict:
+        """Build a payload field match; documented "*" means field-exists."""
+        field = "payload." + key
+        if value == "*":
+            return {field: {"$exists": True}}
+        return {field: value}
+
+    @staticmethod
     def _validate_filter_value(key: str, value: Any) -> None:
         """Reject values that could inject MongoDB query operators (e.g. $ne, $gt)."""
         if isinstance(value, dict):
@@ -207,7 +215,7 @@ class MongoDB(VectorStoreBase):
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
-                    filter_conditions.append({"payload." + key: value})
+                    filter_conditions.append(self._payload_filter_clause(key, value))
 
                 if filter_conditions:
                     # Add a $match stage after vector search to apply filters
@@ -259,7 +267,7 @@ class MongoDB(VectorStoreBase):
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
-                    filter_conditions.append({"payload." + key: value})
+                    filter_conditions.append(self._payload_filter_clause(key, value))
                 if filter_conditions:
                     pipeline.insert(1, {"$match": {"$and": filter_conditions}})
 
@@ -400,7 +408,7 @@ class MongoDB(VectorStoreBase):
                 # Apply filters to the payload field
                 filter_conditions = []
                 for key, value in filters.items():
-                    filter_conditions.append({"payload." + key: value})
+                    filter_conditions.append(self._payload_filter_clause(key, value))
                 if filter_conditions:
                     query = {"$and": filter_conditions}
 
