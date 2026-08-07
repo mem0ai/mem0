@@ -6,6 +6,9 @@ import {
   mem0ConfigSchema,
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_CUSTOM_CATEGORIES,
+  DEFAULT_RECALL_TIMEOUT_MS,
+  MIN_RECALL_TIMEOUT_MS,
+  MAX_RECALL_TIMEOUT_MS,
 } from "../config.ts";
 
 // ---------------------------------------------------------------------------
@@ -93,6 +96,31 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
   it("allows anonymousTelemetryId", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key", anonymousTelemetryId: "123" });
     expect(cfg.anonymousTelemetryId).toBe("123");
+  });
+
+  it("uses the 8000ms default when recallTimeoutMs is unset", () => {
+    expect(mem0ConfigSchema.parse({ apiKey: "test-key" }).recallTimeoutMs).toBe(8000);
+    expect(DEFAULT_RECALL_TIMEOUT_MS).toBe(8000);
+  });
+});
+
+describe("mem0ConfigSchema.parse() — recall timeout", () => {
+  it("accepts bounded recallTimeoutMs values", () => {
+    for (const [input, expected] of [
+      [1000, MIN_RECALL_TIMEOUT_MS],
+      [120000, MAX_RECALL_TIMEOUT_MS],
+      ["1000", 1000],
+      ["120000", 120000],
+    ] as const) {
+    expect(mem0ConfigSchema.parse({ recallTimeoutMs: input }).recallTimeoutMs).toBe(expected);
+    }
+
+    for (const input of [
+      null, true, {}, [], "", " 1000", "1000 ", "1e3", Infinity, NaN,
+      1000.5, 999, 120001,
+    ]) {
+      expect(() => mem0ConfigSchema.parse({ recallTimeoutMs: input })).toThrow();
+    }
   });
 });
 
