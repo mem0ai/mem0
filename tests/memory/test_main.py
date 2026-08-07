@@ -1178,3 +1178,93 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for pgvector dimension sync + insert failure propagation (#4985)
+# Salvage of #4990 by @lost-particles
+# ---------------------------------------------------------------------------
+
+
+def test_sync_pgvector_dims_infers_from_embedder():
+    from mem0.memory.main import _sync_pgvector_dims
+    from types import SimpleNamespace
+
+    vs_config = SimpleNamespace(embedding_model_dims=None, collection_name="mem0")
+    config = SimpleNamespace(
+        embedder=SimpleNamespace(provider="gemini", config=SimpleNamespace(embedding_dims=None)),
+        vector_store=SimpleNamespace(provider="pgvector", config=vs_config),
+    )
+    # Resolved embedder carries defaults after EmbedderFactory.create().
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=768))
+    _sync_pgvector_dims(config, resolved)
+    assert vs_config.embedding_model_dims == 768
+
+
+def test_sync_pgvector_dims_keeps_explicit_on_declared_mismatch(caplog):
+    from mem0.memory.main import _sync_pgvector_dims
+    from types import SimpleNamespace
+    import logging
+
+    vs_config = SimpleNamespace(embedding_model_dims=1536, collection_name="mem0")
+    config = SimpleNamespace(
+        embedder=SimpleNamespace(provider="azure_openai", config=SimpleNamespace(embedding_dims=None)),
+        vector_store=SimpleNamespace(provider="pgvector", config=vs_config),
+    )
+    # Declared dims understate real output; explicit pgvector dims must win.
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=512))
+    with caplog.at_level(logging.WARNING):
+        _sync_pgvector_dims(config, resolved)
+    assert vs_config.embedding_model_dims == 1536
+    assert any("embedding_model_dims" in r.message for r in caplog.records)
+
+
+def test_sync_pgvector_dims_noop_for_other_providers():
+    from mem0.memory.main import _sync_pgvector_dims
+    from types import SimpleNamespace
+
+    vs_config = SimpleNamespace(embedding_model_dims=None, collection_name="x")
+    config = SimpleNamespace(
+        embedder=SimpleNamespace(provider="openai", config=SimpleNamespace(embedding_dims=1536)),
+        vector_store=SimpleNamespace(provider="qdrant", config=vs_config),
+    )
+    resolved = SimpleNamespace(config=SimpleNamespace(embedding_dims=1536))
+    _sync_pgvector_dims(config, resolved)
+    assert vs_config.embedding_model_dims is None
+
+
+def test_pgvector_validate_schema_dims_mismatch():
+    from mem0.vector_stores.pgvector import PGVector
+    from unittest.mock import MagicMock
+    import pytest
+
+    store = PGVector.__new__(PGVector)
+    store.collection_name = "memories"
+    store.embedding_model_dims = 768
+    store._get_table_vector_dim = MagicMock(return_value=1536)
+    with pytest.raises(ValueError, match="Vector dimension mismatch"):
+        store._validate_schema_dims()
+
+
+def test_pgvector_validate_schema_dims_match():
+    from mem0.vector_stores.pgvector import PGVector
+    from unittest.mock import MagicMock
+
+    store = PGVector.__new__(PGVector)
+    store.collection_name = "memories"
+    store.embedding_model_dims = 768
+    store._get_table_vector_dim = MagicMock(return_value=768)
+    store._validate_schema_dims()  # no raise
+
+
+def test_pgvector_ensure_collection_requires_dims():
+    from mem0.vector_stores.pgvector import PGVector
+    import pytest
+
+    store = PGVector.__new__(PGVector)
+    store._collection_ensured = False
+    store.embedding_model_dims = None
+    store.collection_name = "memories"
+    with pytest.raises(ValueError, match="embedding_model_dims"):
+        store._ensure_collection()
+
