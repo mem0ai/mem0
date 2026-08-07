@@ -82,6 +82,32 @@ class TestParseVisionMessages:
         assert result[0]["content"] == "A photo of a cat"
         mock_llm.generate_response.assert_called_once()
 
+    def test_text_only_list_with_llm_extracts_text_and_skips_vision(self):
+        # Regression for #6129: a list content with no image_url part must not
+        # be routed to the vision model. Doing so prompts for a nonexistent
+        # image and discards the user's real text.
+        mock_llm = Mock()
+        mock_llm.generate_response.return_value = "A photo of ..."
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "I love pizza"}]},
+        ]
+        result = parse_vision_messages(messages, llm=mock_llm, vision_details="auto")
+        assert result == [{"role": "user", "content": "I love pizza"}]
+        mock_llm.generate_response.assert_not_called()
+
+    def test_text_only_multi_part_list_with_llm_joins_text(self):
+        # Multiple text parts and no image: join them, still no vision call.
+        mock_llm = Mock()
+        messages = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "I love"},
+                {"type": "text", "text": "pizza"},
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=mock_llm, vision_details="auto")
+        assert result == [{"role": "user", "content": "I love pizza"}]
+        mock_llm.generate_response.assert_not_called()
+
     def test_image_only_list_without_llm_is_skipped(self):
         messages = [
             {"role": "user", "content": [
