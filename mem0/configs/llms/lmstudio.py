@@ -55,5 +55,6 @@ class LMStudioConfig(BaseLlmConfig):
         )
 
         # LM Studio-specific parameters
-        self.lmstudio_base_url = lmstudio_base_url or "http://localhost:1234/v1"
+        # Keep unset so LMStudioLLM can apply config > env > default (mirror DeepSeek).
+        self.lmstudio_base_url = lmstudio_base_url
         self.lmstudio_response_format = lmstudio_response_format

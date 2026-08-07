@@ -3,9 +3,11 @@
  * LM Studio LLM — unit tests (mocked OpenAI).
  */
 
+import OpenAI from "openai";
 import { LMStudioLLM } from "../src/llms/lmstudio";
 
 const mockCreate = jest.fn();
+const MockOpenAI = OpenAI as unknown as jest.Mock;
 
 jest.mock("openai", () => {
   return jest.fn().mockImplementation(() => ({
@@ -14,7 +16,44 @@ jest.mock("openai", () => {
 });
 
 describe("LMStudioLLM (unit)", () => {
-  beforeEach(() => mockCreate.mockClear());
+  const originalEnv = process.env.LMSTUDIO_BASE_URL;
+
+  beforeEach(() => {
+    mockCreate.mockClear();
+    MockOpenAI.mockClear();
+    delete process.env.LMSTUDIO_BASE_URL;
+  });
+
+  afterAll(() => {
+    if (originalEnv === undefined) {
+      delete process.env.LMSTUDIO_BASE_URL;
+    } else {
+      process.env.LMSTUDIO_BASE_URL = originalEnv;
+    }
+  });
+
+  it("honors LMSTUDIO_BASE_URL when config baseURL is unset", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://remote-lms:1234/v1";
+    new LMStudioLLM({});
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://remote-lms:1234/v1" }),
+    );
+  });
+
+  it("prefers config baseURL over LMSTUDIO_BASE_URL", () => {
+    process.env.LMSTUDIO_BASE_URL = "http://env-host:1234/v1";
+    new LMStudioLLM({ baseURL: "http://cfg-host:1234/v1" });
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://cfg-host:1234/v1" }),
+    );
+  });
+
+  it("defaults to localhost when config and env are unset", () => {
+    new LMStudioLLM({});
+    expect(MockOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "http://localhost:1234/v1" }),
+    );
+  });
 
   it("generateResponse() returns a text response", async () => {
     mockCreate.mockResolvedValueOnce({

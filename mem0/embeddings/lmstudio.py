@@ -1,3 +1,4 @@
+import os
 from typing import Literal, Optional
 
 from openai import OpenAI
@@ -14,7 +15,9 @@ class LMStudioEmbedding(EmbeddingBase):
         self.config.embedding_dims = self.config.embedding_dims or 1536
         self.config.api_key = self.config.api_key or "lm-studio"
 
-        self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)
+        # config > LMSTUDIO_BASE_URL env > localhost default (mirror DeepSeek / LLM path)
+        base_url = self.config.lmstudio_base_url or os.getenv("LMSTUDIO_BASE_URL") or "http://localhost:1234/v1"
+        self.client = OpenAI(base_url=base_url, api_key=self.config.api_key)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """

@@ -9,10 +9,13 @@ const DEFAULT_LMSTUDIO_API_KEY = "lm-studio";
 
 export class LMStudioLLM extends OpenAILLM {
   constructor(config: LLMConfig) {
+    // config > LMSTUDIO_BASE_URL env > localhost default (mirror deepseek.ts / Python LMStudioLLM)
+    const baseURL =
+      config.baseURL || process.env.LMSTUDIO_BASE_URL || DEFAULT_BASE_URL;
     super({
       ...config,
       apiKey: config.apiKey || DEFAULT_LMSTUDIO_API_KEY,
-      baseURL: config.baseURL ?? DEFAULT_BASE_URL,
+      baseURL,
       model: config.model || DEFAULT_MODEL,
     });
   }
