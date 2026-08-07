@@ -146,12 +146,12 @@ async def verify_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     x_api_key: str | None = Depends(api_key_header),
 ) -> User | None:
-    """Authenticate via JWT, X-API-Key, or legacy ADMIN_API_KEY. Returns User or None.
+    """Authenticate via JWT, X-API-Key, Token <key>, or legacy ADMIN_API_KEY. Returns User or None.
 
     A short-lived session is opened only on the branches that query the DB, so no
     pooled connection is held for the lifetime of the (possibly long-running) request.
     """
-    if credentials is not None:
+    if credentials is not None and credentials.scheme.lower() == "bearer":
         _mark_auth_type(request, "bearer")
         with SessionLocal() as db:
             return _resolve_user_from_jwt(credentials.credentials, db)
@@ -164,13 +164,26 @@ async def verify_auth(
         with SessionLocal() as db:
             return _resolve_user_from_api_key(x_api_key, db)
 
+    if not AUTH_DISABLED:
+        # SDK compat: Python/TS clients send "Authorization: Token <key>"
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.lower().startswith("token "):
+            token_key = auth_header[6:].strip()
+            if token_key:
+                if ADMIN_API_KEY and secrets.compare_digest(token_key, ADMIN_API_KEY):
+                    _mark_auth_type(request, "admin_api_key")
+                    return None
+                _mark_auth_type(request, "api_key")
+                with SessionLocal() as db:
+                    return _resolve_user_from_api_key(token_key, db)
+
     if AUTH_DISABLED:
         _mark_auth_type(request, "disabled")
         return None
 
     raise HTTPException(
         status_code=401,
-        detail="Authentication required. Provide a Bearer token or X-API-Key header.",
+        detail="Authentication required. Provide a Bearer token, X-API-Key, or Token header.",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -191,7 +204,12 @@ async def require_auth(
 
 
 _BOOTSTRAP_ADMIN = User(
-    id=uuid.UUID(int=0), name="admin_api_key", email="", password_hash="", role="admin", created_at=datetime.min.replace(tzinfo=timezone.utc),
+    id=uuid.UUID(int=0),
+    name="admin_api_key",
+    email="",
+    password_hash="",
+    role="admin",
+    created_at=datetime.min.replace(tzinfo=timezone.utc),
 )
 
 
