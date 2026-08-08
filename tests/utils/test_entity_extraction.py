@@ -139,3 +139,47 @@ class TestExtractEntitiesBatch:
         assert len(batch) == 1
         # Both should extract the same entities
         assert set(t for _, t in single) == set(t for _, t in batch[0])
+
+
+class _NoNounChunksDoc:
+    """Wrap a real spaCy Doc but make ``noun_chunks`` raise NotImplementedError.
+
+    spaCy does not implement the noun_chunks syntax iterator for every language
+    (zh/ja raise NotImplementedError [E894]). This reproduces that on a real
+    English Doc so the rest of the extraction pipeline runs against real tokens.
+    """
+
+    def __init__(self, doc):
+        self._doc = doc
+
+    @property
+    def noun_chunks(self):
+        raise NotImplementedError(
+            "[E894] The 'noun_chunks' syntax iterator is not implemented for language 'zh'."
+        )
+
+    def __iter__(self):
+        return iter(self._doc)
+
+    def __getattr__(self, name):
+        return getattr(self._doc, name)
+
+
+class TestUnsupportedLanguageNounChunks:
+    def test_noun_chunks_not_implemented_does_not_abort_extraction(self):
+        """A language without noun_chunks (#5285) must not crash extraction.
+
+        Guards #5550: _add_topic_phrase_candidates iterated doc.noun_chunks
+        directly, so a NotImplementedError aborted ALL entity extraction.
+        """
+        import spacy
+
+        from mem0.utils.entity_extraction import _EntityCandidate, _add_topic_phrase_candidates
+
+        nlp = spacy.load("en_core_web_sm")
+        real_doc = nlp("John Smith works at Google on machine learning projects")
+        wrapped = _NoNounChunksDoc(real_doc)
+
+        candidates: list[_EntityCandidate] = []
+        # Must not raise even though noun_chunks is unavailable.
+        _add_topic_phrase_candidates(wrapped, candidates)

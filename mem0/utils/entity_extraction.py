@@ -588,7 +588,16 @@ def _add_quoted_candidates(text: str, candidates: list[_EntityCandidate]) -> Non
 
 
 def _add_topic_phrase_candidates(doc, candidates: list[_EntityCandidate]) -> None:
-    for chunk in doc.noun_chunks:
+    # ``doc.noun_chunks`` relies on a language-specific syntax iterator that
+    # spaCy does not implement for every language (e.g. ``zh``/``ja`` raise
+    # ``NotImplementedError`` [E894]). Degrade gracefully for those languages
+    # instead of aborting all entity extraction (#5285) -- the proper-noun,
+    # quoted-text and other strategies still run.
+    try:
+        noun_chunks = list(doc.noun_chunks)
+    except NotImplementedError:
+        noun_chunks = []
+    for chunk in noun_chunks:
         chunk_tokens = list(chunk)
         split_indices: list[int] = []
         poss_splits: list[int] = []
