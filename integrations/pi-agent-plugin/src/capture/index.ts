@@ -11,11 +11,15 @@ interface MessageLike {
 }
 
 function extractText(content: unknown): string | null {
-  if (typeof content === "string") return content;
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
   if (Array.isArray(content)) {
     const texts = content
       .filter((b: any) => b.type === "text" && typeof b.text === "string")
-      .map((b: any) => b.text);
+      .map((b: any) => b.text.trim())
+      .filter((t: string) => t.length > 0);
     return texts.length > 0 ? texts.join("\n") : null;
   }
   return null;
