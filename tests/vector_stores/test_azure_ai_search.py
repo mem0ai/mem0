@@ -449,7 +449,7 @@ def test_insert_with_error(azure_ai_search_instance):
     payloads = [{"user_id": "user1"}]
     ids = ["doc1"]
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.insert(vectors, payloads, ids)
 
     assert "Insert failed for document doc1" in str(exc_info.value)
@@ -465,7 +465,7 @@ def test_insert_with_error(azure_ai_search_instance):
     payloads = [{"user_id": "user1"}, {"user_id": "user2"}]
     ids = ["doc1", "doc2"]
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.insert(vectors, payloads, ids)
 
     assert "Insert failed for document doc2" in str(exc_info.value)
@@ -486,10 +486,22 @@ def test_insert_indexing_result_failure_raises(azure_ai_search_instance):
     mock_search_client.upload_documents.return_value = [
         _indexing_result(key="doc1", succeeded=False, status_code=400, error_message="quota exceeded")
     ]
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
     assert "Insert failed for document doc1" in str(exc_info.value)
     assert "quota exceeded" in str(exc_info.value)
+
+
+def test_insert_non_numeric_status_code_raises_runtime_error(azure_ai_search_instance):
+    """Non-numeric status_code must raise RuntimeError, not ValueError."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [
+        {"id": "doc1", "status_code": "not-a-code", "error_message": "bad payload"}
+    ]
+    with pytest.raises(RuntimeError) as exc_info:
+        instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+    assert "invalid status_code" in str(exc_info.value)
+    assert "not-a-code" in str(exc_info.value)
 
 
 def test_insert_with_missing_payload_fields(azure_ai_search_instance):
@@ -550,7 +562,7 @@ def test_delete_indexing_result_failure_raises(azure_ai_search_instance):
     mock_search_client.delete_documents.return_value = [
         _indexing_result(key="doc1", succeeded=False, status_code=404, error_message="not found")
     ]
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.delete("doc1")
     assert "Delete failed for document doc1" in str(exc_info.value)
     assert "not found" in str(exc_info.value)
@@ -572,7 +584,7 @@ def test_update_indexing_result_failure_raises(azure_ai_search_instance):
     mock_search_client.merge_or_upload_documents.return_value = [
         _indexing_result(key="doc1", succeeded=False, status_code=400, error_message="conflict")
     ]
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.update("doc1", vector=[0.1, 0.2, 0.3])
     assert "Update failed for document doc1" in str(exc_info.value)
     assert "conflict" in str(exc_info.value)
