@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 try:
     import boto3
-    from botocore.exceptions import ClientError, NoCredentialsError
+    from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
 
@@ -79,8 +79,8 @@ class AWSBedrockLLM(LLMBase):
         try:
             aws_config = self.config.get_aws_config()
 
-            # Create Bedrock runtime client
-            self.client = boto3.client("bedrock-runtime", **aws_config)
+            # see _build_client: profile_name routes through Session, not client().
+            self.client = self._build_client("bedrock-runtime", aws_config)
 
             # Test connection
             self._test_connection()
@@ -91,6 +91,11 @@ class AWSBedrockLLM(LLMBase):
                 "AWS_SECRET_ACCESS_KEY, and AWS_REGION environment variables, "
                 "or provide them in the config."
             )
+        except ProfileNotFound as e:
+            raise ValueError(
+                f"AWS profile not found: {e}. Please check aws_profile / AWS_PROFILE "
+                "or provide explicit credentials in the config."
+            )
         except ClientError as e:
             if e.response["Error"]["Code"] == "UnauthorizedOperation":
                 raise ValueError(
@@ -100,11 +105,24 @@ class AWSBedrockLLM(LLMBase):
             else:
                 raise ValueError(f"AWS Bedrock error: {e}")
 
+    @staticmethod
+    def _build_client(service_name: str, aws_config: Dict[str, Any]) -> Any:
+        """Build a boto3 client, routing `profile_name` through Session().
+
+        boto3.client() rejects `profile_name`; only boto3.Session() accepts it.
+        """
+        cfg = dict(aws_config)
+        profile_name = cfg.pop("profile_name", None)
+        if profile_name:
+            session = boto3.Session(profile_name=profile_name)
+            return session.client(service_name, **cfg)
+        return boto3.client(service_name, **cfg)
+
     def _test_connection(self):
         """Test connection to AWS Bedrock service."""
         try:
             # List available models to test connection
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            bedrock_client = self._build_client("bedrock", self.config.get_aws_config())
             response = bedrock_client.list_foundation_models()
             self.available_models = [model["modelId"] for model in response["modelSummaries"]]
 
@@ -648,7 +666,7 @@ class AWSBedrockLLM(LLMBase):
     def list_available_models(self) -> List[Dict[str, Any]]:
         """List all available models in the current region."""
         try:
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            bedrock_client = self._build_client("bedrock", self.config.get_aws_config())
             response = bedrock_client.list_foundation_models()
 
             models = []
