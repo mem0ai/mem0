@@ -137,7 +137,13 @@ def extract_json(text):
     If that also fails, returns the text as-is.
     """
     text = text.strip()
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    # A response that already begins with '{' is a JSON object, so skip the
+    # code-fence heuristic. Otherwise a ``` sequence occurring inside a string
+    # value (e.g. a stored code snippet) would be mistaken for an enclosing
+    # code block and only its interior extracted, corrupting valid JSON.
+    match = None
+    if not text.startswith("{"):
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
