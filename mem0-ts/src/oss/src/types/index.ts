@@ -78,6 +78,9 @@ export interface LLMConfig {
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
   awsSessionToken?: string;
+  // Bedrock API path: "converse" (default, recommended) or "invoke_model"
+  // (opt-in, for legacy models not reachable via Converse — see #6023).
+  bedrockApi?: "converse" | "invoke_model";
   // Optional pre-constructed client (e.g. BedrockRuntimeClient) for DI/testing.
   client?: any;
 }
@@ -240,6 +243,7 @@ export const MemoryConfigSchema = z.object({
         awsAccessKeyId: z.string().optional(),
         awsSecretAccessKey: z.string().optional(),
         awsSessionToken: z.string().optional(),
+        bedrockApi: z.enum(["converse", "invoke_model"]).optional(),
         client: z.any().optional(),
       })
       .passthrough(),
