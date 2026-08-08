@@ -1485,9 +1485,16 @@ class Memory(MemoryBase):
             },
         )
 
+        # When reranking, retrieve a larger candidate pool so the reranker can
+        # surface relevant memories the first-stage scorer ranked below `limit`.
+        # The reranker then narrows the pool back down to `limit`. Without this,
+        # score_and_rank truncates to `limit` before the reranker runs, so
+        # reranking could only reorder the final results, never improve recall.
+        retrieval_limit = max(limit * 4, 60) if (rerank and self.reranker) else limit
+        
         search_start = time.perf_counter()
         original_memories = self._search_vector_store(
-            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
@@ -1498,6 +1505,8 @@ class Memory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+                # Reranking failed, but we over-fetched for it — trim back to limit.
+                original_memories = original_memories[:limit]
 
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
@@ -3141,9 +3150,16 @@ class AsyncMemory(MemoryBase):
             },
         )
 
+        # When reranking, retrieve a larger candidate pool so the reranker can
+        # surface relevant memories the first-stage scorer ranked below `limit`.
+        # The reranker then narrows the pool back down to `limit`. Without this,
+        # score_and_rank truncates to `limit` before the reranker runs, so
+        # reranking could only reorder the final results, never improve recall.
+        retrieval_limit = max(limit * 4, 60) if (rerank and self.reranker) else limit
+
         search_start = time.perf_counter()
         original_memories = await self._search_vector_store(
-            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
@@ -3157,6 +3173,8 @@ class AsyncMemory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+                # Reranking failed, but we over-fetched for it — trim back to limit.
+                original_memories = original_memories[:limit]
 
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
