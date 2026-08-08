@@ -4,6 +4,7 @@ import pytest
 
 from mem0 import AsyncMemory, Memory
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.vllm import VllmConfig
 from mem0.llms.vllm import VllmLLM
 
 
@@ -130,6 +131,27 @@ def test_generate_response_without_response_format(mock_vllm_client):
     call_kwargs = mock_vllm_client.chat.completions.create.call_args[1]
     assert "response_format" not in call_kwargs
     assert response == "Why did the chicken cross the road?"
+
+
+def test_base_url_uses_env_var_when_config_unset(monkeypatch):
+    monkeypatch.setenv("VLLM_BASE_URL", "http://remote-vllm:8000/v1")
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct"))
+        assert mock_openai.call_args.kwargs["base_url"] == "http://remote-vllm:8000/v1"
+
+
+def test_config_base_url_overrides_env(monkeypatch):
+    monkeypatch.setenv("VLLM_BASE_URL", "http://remote-vllm:8000/v1")
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(VllmConfig(model="Qwen/Qwen2.5-32B-Instruct", vllm_base_url="http://explicit:8001/v1"))
+        assert mock_openai.call_args.kwargs["base_url"] == "http://explicit:8001/v1"
+
+
+def test_base_url_defaults_to_localhost_when_unset(monkeypatch):
+    monkeypatch.delenv("VLLM_BASE_URL", raising=False)
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct"))
+        assert mock_openai.call_args.kwargs["base_url"] == "http://localhost:8000/v1"
 
 
 def create_mocked_memory():
