@@ -881,6 +881,92 @@ export function removeCodeBlocks(text: string): string {
 }
 
 /**
+ * Removes trailing commas that appear immediately before a closing `}` or `]`.
+ *
+ * Trailing commas are invalid JSON but are an extremely common defect in LLM
+ * output (especially OpenRouter-proxied and weaker/local models), e.g.
+ * `{"memory": [{"text": "a"},]}`. The scan is string-aware: it tracks string
+ * boundaries and escapes so commas, braces, and brackets that appear *inside*
+ * string values are never touched.
+ *
+ * @param json - A candidate JSON string
+ * @returns The same string with offending trailing commas removed
+ */
+function stripTrailingCommas(json: string): string {
+  let result = "";
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < json.length; i++) {
+    const char = json[i];
+
+    if (escapeNext) {
+      result += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      result += char;
+      escapeNext = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+
+    if (!inString && char === ",") {
+      // Look ahead past whitespace for the next significant character.
+      let j = i + 1;
+      while (j < json.length && /\s/.test(json[j])) j++;
+      if (j < json.length && (json[j] === "}" || json[j] === "]")) {
+        // Drop this trailing comma (skip it, keep the whitespace).
+        continue;
+      }
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+/**
+ * Validates a candidate JSON string, tolerating common LLM malformations.
+ *
+ * Returns a parseable JSON string when the candidate is valid as-is, or can be
+ * made valid by removing trailing commas. Returns `null` when the candidate is
+ * not recoverable. When the candidate is already valid it is returned byte-for-
+ * byte unchanged, so callers relying on exact output are unaffected.
+ *
+ * @param candidate - A substring that may be JSON
+ * @returns A parseable JSON string, or `null` if unrecoverable
+ */
+function validateOrRepairJson(candidate: string): string | null {
+  try {
+    JSON.parse(candidate);
+    return candidate;
+  } catch {
+    // Fall through to trailing-comma repair.
+  }
+
+  const repaired = stripTrailingCommas(candidate);
+  if (repaired !== candidate) {
+    try {
+      JSON.parse(repaired);
+      return repaired;
+    } catch {
+      // Not recoverable.
+    }
+  }
+
+  return null;
+}
+
+/**
  * Extracts a JSON object from text that may be wrapped in explanation text.
  *
  * Some LLMs (especially local models like Ollama/LM Studio, or OpenRouter)
@@ -892,6 +978,7 @@ export function removeCodeBlocks(text: string): string {
  * 1. Strips known noise tokens from OpenRouter and other providers
  * 2. Removes code fences and <think> blocks
  * 3. Tries to find a valid JSON object by testing each `{` as a starting point
+ *    (tolerating trailing commas, a common LLM defect)
  * 4. Falls back to first/last brace matching if validation isn't possible
  *
  * @param text - The raw LLM response text
@@ -951,13 +1038,12 @@ export function extractJson(text: string): string {
         depth--;
         if (depth === 0) {
           const candidate = trimmed.substring(start, i + 1);
-          try {
-            JSON.parse(candidate);
-            return candidate; // Valid JSON found
-          } catch {
-            // Not valid JSON, try next starting brace
-            break;
+          const valid = validateOrRepairJson(candidate);
+          if (valid !== null) {
+            return valid; // Valid JSON found (possibly trailing-comma repaired)
           }
+          // Not valid JSON, try next starting brace
+          break;
         }
       }
     }
@@ -969,12 +1055,11 @@ export function extractJson(text: string): string {
   const lastBrace = trimmed.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace > firstBrace) {
     const candidate = trimmed.substring(firstBrace, lastBrace + 1);
-    try {
-      JSON.parse(candidate);
-      return candidate;
-    } catch {
-      // Not valid JSON, continue to array extraction
+    const valid = validateOrRepairJson(candidate);
+    if (valid !== null) {
+      return valid;
     }
+    // Not valid JSON, continue to array extraction
   }
 
   // Step 5: Try to locate a JSON array by testing each `[` as potential start
@@ -1013,12 +1098,11 @@ export function extractJson(text: string): string {
         depth--;
         if (depth === 0) {
           const candidate = trimmed.substring(start, i + 1);
-          try {
-            JSON.parse(candidate);
-            return candidate;
-          } catch {
-            break;
+          const valid = validateOrRepairJson(candidate);
+          if (valid !== null) {
+            return valid;
           }
+          break;
         }
       }
     }
@@ -1029,12 +1113,11 @@ export function extractJson(text: string): string {
   const lastBracket = trimmed.lastIndexOf("]");
   if (firstBracket !== -1 && lastBracket > firstBracket) {
     const candidate = trimmed.substring(firstBracket, lastBracket + 1);
-    try {
-      JSON.parse(candidate);
-      return candidate;
-    } catch {
-      // Not valid JSON
+    const valid = validateOrRepairJson(candidate);
+    if (valid !== null) {
+      return valid;
     }
+    // Not valid JSON
   }
 
   // No valid JSON found — return as-is and let the caller handle the error
