@@ -132,7 +132,15 @@ class OllamaLLM(LLMBase):
             "num_predict": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
+        if self.config.num_ctx is not None:
+            options["num_ctx"] = self.config.num_ctx
+        # Per-call options refine the config-derived ones rather than replacing them.
+        options.update(kwargs.pop("options", None) or {})
         params["options"] = options
+
+        # Remaining kwargs are top-level ollama.Client.chat() parameters
+        # (e.g. keep_alive, think).
+        params.update(kwargs)
 
         # Remove OpenAI-specific parameters that Ollama doesn't support
         params.pop("max_tokens", None)  # Ollama uses different parameter names
