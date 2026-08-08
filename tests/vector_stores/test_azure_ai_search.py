@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -8,6 +9,16 @@ from mem0.configs.vector_stores.azure_ai_search import AzureAISearchConfig
 
 # Import the AzureAISearch class and related models
 from mem0.vector_stores.azure_ai_search import AzureAISearch
+
+
+def _indexing_result(key="doc1", succeeded=True, status_code=201, error_message=None):
+    """Build an IndexingResult-like object (Azure SDK shape)."""
+    return SimpleNamespace(
+        key=key,
+        succeeded=succeeded,
+        status_code=status_code,
+        error_message=error_message,
+    )
 
 
 # Fixture to patch SearchClient and SearchIndexClient and create an instance of AzureAISearch.
@@ -30,12 +41,12 @@ def mock_clients():
 
         # Stub required methods on search_client.
         mock_search_client.upload_documents = Mock()
-        mock_search_client.upload_documents.return_value = [{"status": True, "id": "doc1"}]
+        mock_search_client.upload_documents.return_value = [_indexing_result(key="doc1", status_code=201)]
         mock_search_client.search = Mock()
         mock_search_client.delete_documents = Mock()
-        mock_search_client.delete_documents.return_value = [{"status": True, "id": "doc1"}]
+        mock_search_client.delete_documents.return_value = [_indexing_result(key="doc1", status_code=200)]
         mock_search_client.merge_or_upload_documents = Mock()
-        mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1"}]
+        mock_search_client.merge_or_upload_documents.return_value = [_indexing_result(key="doc1", status_code=200)]
         mock_search_client.get_document = Mock()
         mock_search_client.close = Mock()
 
@@ -370,8 +381,7 @@ def test_insert_single(azure_ai_search_instance):
     payloads = [{"user_id": "user1", "run_id": "run1", "agent_id": "agent1"}]
     ids = ["doc1"]
 
-    # Fix: Include status_code: 201 in mock response
-    mock_search_client.upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 201}]
+    mock_search_client.upload_documents.return_value = [_indexing_result(key="doc1", status_code=201)]
 
     instance.insert(vectors, payloads, ids)
 
@@ -400,10 +410,7 @@ def test_insert_multiple(azure_ai_search_instance):
     payloads = [{"user_id": f"user{i}", "content": f"Test content {i}"} for i in range(num_docs)]
     ids = [f"doc{i}" for i in range(num_docs)]
 
-    # Configure mock to return success for all documents (fix: add status_code 201)
-    mock_search_client.upload_documents.return_value = [
-        {"status": True, "id": id_val, "status_code": 201} for id_val in ids
-    ]
+    mock_search_client.upload_documents.return_value = [_indexing_result(key=id_val, status_code=201) for id_val in ids]
 
     # Insert the documents
     instance.insert(vectors, payloads, ids)
@@ -433,36 +440,68 @@ def test_insert_with_error(azure_ai_search_instance):
     """Test insert when Azure returns an error for one or more documents."""
     instance, mock_search_client, _ = azure_ai_search_instance
 
-    # Configure mock to return an error for one document
-    mock_search_client.upload_documents.return_value = [{"status": False, "id": "doc1", "errorMessage": "Azure error"}]
+    # Dict-shaped failure (legacy / alternate mock shape)
+    mock_search_client.upload_documents.return_value = [
+        {"succeeded": False, "id": "doc1", "errorMessage": "Azure error", "status_code": 400}
+    ]
 
     vectors = [[0.1, 0.2, 0.3]]
     payloads = [{"user_id": "user1"}]
     ids = ["doc1"]
 
-    # Insert should raise an exception
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.insert(vectors, payloads, ids)
 
     assert "Insert failed for document doc1" in str(exc_info.value)
+    assert "Azure error" in str(exc_info.value)
 
-    # Configure mock to return mixed success/failure for multiple documents
+    # Mixed success/failure with IndexingResult-like objects
     mock_search_client.upload_documents.return_value = [
-        {"status": True, "id": "doc1"},  # This should not cause failure
-        {"status": False, "id": "doc2", "errorMessage": "Azure error"},
+        _indexing_result(key="doc1", succeeded=True, status_code=201),
+        _indexing_result(key="doc2", succeeded=False, status_code=400, error_message="Azure error"),
     ]
 
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
     payloads = [{"user_id": "user1"}, {"user_id": "user2"}]
     ids = ["doc1", "doc2"]
 
-    # Insert should raise an exception, but now check for doc2 failure
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(RuntimeError) as exc_info:
         instance.insert(vectors, payloads, ids)
 
-    assert "Insert failed for document doc2" in str(exc_info.value) or "Insert failed for document doc1" in str(
-        exc_info.value
-    )
+    assert "Insert failed for document doc2" in str(exc_info.value)
+    assert "Azure error" in str(exc_info.value)
+
+
+def test_insert_indexing_result_success(azure_ai_search_instance):
+    """Insert succeeds when IndexingResult.succeeded is True."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [_indexing_result(key="doc1", succeeded=True, status_code=201)]
+    instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+    mock_search_client.upload_documents.assert_called_once()
+
+
+def test_insert_indexing_result_failure_raises(azure_ai_search_instance):
+    """Regression: SDK IndexingResult with succeeded=False must raise (not be ignored)."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [
+        _indexing_result(key="doc1", succeeded=False, status_code=400, error_message="quota exceeded")
+    ]
+    with pytest.raises(RuntimeError) as exc_info:
+        instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+    assert "Insert failed for document doc1" in str(exc_info.value)
+    assert "quota exceeded" in str(exc_info.value)
+
+
+def test_insert_non_numeric_status_code_raises_runtime_error(azure_ai_search_instance):
+    """Non-numeric status_code must raise RuntimeError, not ValueError."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.upload_documents.return_value = [
+        {"id": "doc1", "status_code": "not-a-code", "error_message": "bad payload"}
+    ]
+    with pytest.raises(RuntimeError) as exc_info:
+        instance.insert([[0.1, 0.2, 0.3]], [{"user_id": "user1"}], ["doc1"])
+    assert "invalid status_code" in str(exc_info.value)
+    assert "not-a-code" in str(exc_info.value)
 
 
 def test_insert_with_missing_payload_fields(azure_ai_search_instance):
@@ -472,10 +511,8 @@ def test_insert_with_missing_payload_fields(azure_ai_search_instance):
     payloads = [{"content": "Some content without user_id, run_id, or agent_id"}]
     ids = ["doc1"]
 
-    # Mock successful response with a proper status_code
-    mock_search_client.upload_documents.return_value = [
-        {"id": "doc1", "status_code": 201}  # Simulating a successful response
-    ]
+    # Dict success via status_code fallback (no succeeded key)
+    mock_search_client.upload_documents.return_value = [{"id": "doc1", "status_code": 201}]
 
     instance.insert(vectors, payloads, ids)
 
@@ -511,11 +548,55 @@ def test_insert_with_http_error(azure_ai_search_instance):
     assert "Azure service error" in str(exc_info.value)
 
 
+def test_delete_indexing_result_success(azure_ai_search_instance):
+    """Delete succeeds when IndexingResult.succeeded is True."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.delete_documents.return_value = [_indexing_result(key="doc1", succeeded=True, status_code=200)]
+    instance.delete("doc1")
+    mock_search_client.delete_documents.assert_called_once_with(documents=[{"id": "doc1"}])
+
+
+def test_delete_indexing_result_failure_raises(azure_ai_search_instance):
+    """Regression: delete IndexingResult with succeeded=False must raise."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.delete_documents.return_value = [
+        _indexing_result(key="doc1", succeeded=False, status_code=404, error_message="not found")
+    ]
+    with pytest.raises(RuntimeError) as exc_info:
+        instance.delete("doc1")
+    assert "Delete failed for document doc1" in str(exc_info.value)
+    assert "not found" in str(exc_info.value)
+
+
+def test_update_indexing_result_success(azure_ai_search_instance):
+    """Update succeeds when IndexingResult.succeeded is True."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_or_upload_documents.return_value = [
+        _indexing_result(key="doc1", succeeded=True, status_code=200)
+    ]
+    instance.update("doc1", vector=[0.1, 0.2, 0.3], payload={"user_id": "u1"})
+    mock_search_client.merge_or_upload_documents.assert_called_once()
+
+
+def test_update_indexing_result_failure_raises(azure_ai_search_instance):
+    """Regression: update IndexingResult with succeeded=False must raise."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+    mock_search_client.merge_or_upload_documents.return_value = [
+        _indexing_result(key="doc1", succeeded=False, status_code=400, error_message="conflict")
+    ]
+    with pytest.raises(RuntimeError) as exc_info:
+        instance.update("doc1", vector=[0.1, 0.2, 0.3])
+    assert "Update failed for document doc1" in str(exc_info.value)
+    assert "conflict" in str(exc_info.value)
+
+
 def test_update_allows_empty_payload(azure_ai_search_instance):
     """Test updating with an empty payload explicitly clears stored payload data."""
     instance, mock_search_client, _ = azure_ai_search_instance
 
-    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+    mock_search_client.merge_or_upload_documents.return_value = [
+        _indexing_result(key="doc1", succeeded=True, status_code=200)
+    ]
 
     instance.update("doc1", payload={})
 
@@ -528,7 +609,9 @@ def test_update_allows_empty_vector(azure_ai_search_instance):
     """Test updating with an empty vector still sends the vector field to Azure."""
     instance, mock_search_client, _ = azure_ai_search_instance
 
-    mock_search_client.merge_or_upload_documents.return_value = [{"status": True, "id": "doc1", "status_code": 200}]
+    mock_search_client.merge_or_upload_documents.return_value = [
+        _indexing_result(key="doc1", succeeded=True, status_code=200)
+    ]
 
     instance.update("doc1", vector=[])
 
@@ -703,12 +786,14 @@ def test_build_filter_rejects_list_value(azure_ai_search_instance):
 
 def test_build_filter_accepts_scalars(azure_ai_search_instance):
     instance, _, _ = azure_ai_search_instance
-    expr = instance._build_filter_expression({
-        "user_id": "alice",
-        "count": 42,
-        "score": 0.95,
-        "active": True,
-    })
+    expr = instance._build_filter_expression(
+        {
+            "user_id": "alice",
+            "count": 42,
+            "score": 0.95,
+            "active": True,
+        }
+    )
     assert "user_id eq 'alice'" in expr
     assert "count eq 42" in expr
     assert "score eq 0.95" in expr
