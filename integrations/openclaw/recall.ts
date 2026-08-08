@@ -253,13 +253,18 @@ export async function recall(
   const categoryOrder = recallConfig.categoryOrder ?? DEFAULT_CATEGORY_ORDER;
   const identityAlwaysInclude = recallConfig.identityAlwaysInclude !== false;
 
-  // Build search options (v3.0.0: keyword_search, reranking, filter_memories removed)
+  // Build search options.
+  // v3.0.0 removed keyword_search and filter_memories from the search API,
+  // so keywordSearch is intentionally not forwarded (it is a documented
+  // no-op). rerank IS still supported by the platform and is threaded
+  // through when the user opts in (platform-only; OSS ignores it).
   const searchOpts: SearchOptions = {
     user_id: userId,
     top_k: maxMemories * 2, // Over-fetch for ranking
     threshold,
     source: "OPENCLAW",
   };
+  if (recallConfig.rerank) searchOpts.rerank = true;
 
   // Sanitize query: strip OpenClaw metadata prefix before searching
   const cleanQuery = sanitizeQuery(query);

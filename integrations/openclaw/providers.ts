@@ -146,6 +146,9 @@ class PlatformProvider implements Mem0Provider {
     if (options.top_k != null) opts.topK = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.categories != null) opts.categories = options.categories;
+    // Platform-only Advanced Retrieval reranking. The SDK's SearchMemoryOptions
+    // accepts `rerank` and camelToSnakeKeys forwards it to the v3 search API.
+    if (options.rerank) opts.rerank = true;
 
     // Build filters with user_id/run_id inside (v3.0.0 requirement)
     // Filters use snake_case as they're passed directly to the API
@@ -574,13 +577,15 @@ export function providerToBackend(
     },
 
     async search(query, opts = {}) {
-      // v3.0.0: removed keyword_search, reranking
+      // v3.0.0 removed keyword_search; rerank is still supported and forwarded
+      // when requested (platform-only — OSS provider ignores it).
       const results = await provider.search(query, {
         user_id: opts.userId ?? userId,
         top_k: opts.topK,
         threshold: opts.threshold,
         filters: opts.filters,
         source: "OPENCLAW",
+        ...(opts.rerank && { rerank: true }),
       });
       return results as unknown as Record<string, unknown>[];
     },
