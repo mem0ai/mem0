@@ -170,6 +170,20 @@ class AzureAISearch(VectorStoreBase):
         return document
 
     @staticmethod
+    def _indexing_result_field(doc, *names, default=None):
+        """Read the first present field from an IndexingResult dict or SDK object."""
+        if isinstance(doc, dict):
+            for name in names:
+                if name in doc and doc[name] is not None:
+                    return doc[name]
+            return default
+        for name in names:
+            value = getattr(doc, name, None)
+            if value is not None:
+                return value
+        return default
+
+    @staticmethod
     def _assert_indexing_succeeded(
         doc, operation: str, expected_status: Optional[int] = None, fallback_id: Optional[str] = None
     ):
@@ -178,25 +192,25 @@ class AzureAISearch(VectorStoreBase):
         Prefers the SDK ``succeeded`` attribute (matching the TypeScript client),
         then falls back to ``status_code`` when ``succeeded`` is absent.
         """
-        if isinstance(doc, dict):
-            succeeded = doc.get("succeeded")
-            status_code = doc.get("status_code")
-            key = doc.get("key") or doc.get("id") or fallback_id
-            error_message = doc.get("error_message") or doc.get("errorMessage") or doc
-        else:
-            succeeded = getattr(doc, "succeeded", None)
-            status_code = getattr(doc, "status_code", None)
-            key = getattr(doc, "key", None) or getattr(doc, "id", None) or fallback_id
-            error_message = getattr(doc, "error_message", None) or getattr(doc, "errorMessage", None) or doc
+        succeeded = AzureAISearch._indexing_result_field(doc, "succeeded")
+        status_code = AzureAISearch._indexing_result_field(doc, "status_code")
+        key = AzureAISearch._indexing_result_field(doc, "key", "id", default=fallback_id)
+        error_message = AzureAISearch._indexing_result_field(doc, "error_message", "errorMessage", default=doc)
 
         if succeeded is None and status_code is not None:
+            try:
+                code = int(status_code)
+            except (TypeError, ValueError):
+                raise RuntimeError(
+                    f"{operation} failed for document {key}: invalid status_code {status_code!r}; {error_message}"
+                ) from None
             if expected_status is not None:
-                succeeded = status_code == expected_status
+                succeeded = code == expected_status
             else:
-                succeeded = 200 <= int(status_code) < 300
+                succeeded = 200 <= code < 300
 
         if not succeeded:
-            raise Exception(f"{operation} failed for document {key}: {error_message}")
+            raise RuntimeError(f"{operation} failed for document {key}: {error_message}")
 
     # Note: Explicit "insert" calls may later be decoupled from memory management decisions.
     def insert(self, vectors, payloads=None, ids=None):
