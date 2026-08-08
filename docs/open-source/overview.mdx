@@ -11,6 +11,10 @@ Run it two ways:
 - **As a library** in your app. `pip install mem0ai` (or `npm install mem0ai`), call `Memory()`, and you have memory in a few lines.
 - **As a self-hosted server.** A Docker stack with a dashboard, per-user API keys, and a request audit log.
 
+<Note>
+  Use the OSS SDK entry points when you self-host: `Memory` / `AsyncMemory` in Python, or `Memory` from `mem0ai/oss` in TypeScript. `MemoryClient` is the Platform API client; even with a custom `host`, its memory methods expect Platform-compatible `/v1` and `/v3` routes, so it is not a drop-in client for the self-hosted OSS FastAPI server.
+</Note>
+
 ## Get started
 
 <CardGroup cols={3}>
