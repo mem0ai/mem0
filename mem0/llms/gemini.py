@@ -161,6 +161,7 @@ class GeminiLLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using Gemini.
@@ -169,7 +170,12 @@ class GeminiLLM(LLMBase):
             messages (list): List of message dicts containing 'role' and 'content'.
             response_format (str or object, optional): Format for the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
-            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            tool_choice (str, optional): Tool choice method, one of "auto", "any",
+                "required", or "none". "required" is treated as "any" (force a tool
+                call). Defaults to "auto".
+            **kwargs: Additional per-call overrides (e.g. ``max_tokens``,
+                ``temperature``, ``top_p``) that take precedence over configured
+                defaults. Unknown kwargs are ignored.
 
         Returns:
             str: The generated response.
@@ -180,13 +186,18 @@ class GeminiLLM(LLMBase):
 
         # Prepare generation config — only include non-None values so the
         # Gemini SDK uses its own defaults instead of rejecting None.
+        # Per-call kwargs override configured defaults; note Gemini names the
+        # token limit ``max_output_tokens``.
+        temperature = kwargs.get("temperature", self.config.temperature)
+        max_tokens = kwargs.get("max_tokens", self.config.max_tokens)
+        top_p = kwargs.get("top_p", self.config.top_p)
         config_params = {}
-        if self.config.temperature is not None:
-            config_params["temperature"] = self.config.temperature
-        if self.config.max_tokens is not None:
-            config_params["max_output_tokens"] = self.config.max_tokens
-        if self.config.top_p is not None:
-            config_params["top_p"] = self.config.top_p
+        if temperature is not None:
+            config_params["temperature"] = temperature
+        if max_tokens is not None:
+            config_params["max_output_tokens"] = max_tokens
+        if top_p is not None:
+            config_params["top_p"] = top_p
 
         # Add system instruction to config if present
         if system_instruction:
@@ -202,18 +213,23 @@ class GeminiLLM(LLMBase):
             config_params["tools"] = formatted_tools
 
             if tool_choice:
-                if tool_choice == "auto":
-                    mode = types.FunctionCallingConfigMode.AUTO
-                elif tool_choice == "any":
+                if tool_choice in ("any", "required"):
+                    # Both mean "the model must call a tool" -> Gemini ANY mode.
                     mode = types.FunctionCallingConfigMode.ANY
-                else:
+                elif tool_choice == "none":
                     mode = types.FunctionCallingConfigMode.NONE
+                else:
+                    # "auto" or any unrecognized value: let the model decide.
+                    mode = types.FunctionCallingConfigMode.AUTO
 
                 tool_config = types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(
                         mode=mode,
+                        # Constrain to the provided tool names only when forcing a call.
                         allowed_function_names=(
-                            [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
+                            [tool["function"]["name"] for tool in tools]
+                            if tool_choice in ("any", "required")
+                            else None
                         ),
                     )
                 )
