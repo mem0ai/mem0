@@ -44,3 +44,48 @@ def test_embed_removes_newlines(mock_fastembed_client):
     
     mock_fastembed_client.embed.assert_called_once_with("Hello world")
     assert list(embedding) == [0.7, 0.8, 0.9]
+
+def test_embed_batch_single_call(mock_fastembed_client):
+    """embed_batch should embed all texts in one native call, not N calls."""
+    config = BaseEmbedderConfig(model="jinaai/jina-embeddings-v2-base-en", embedding_dims=768)
+    embedder = FastEmbedEmbedding(config)
+
+    mock_fastembed_client.embed.return_value = iter(
+        [np.array([0.1, 0.2]), np.array([0.3, 0.4]), np.array([0.5, 0.6])]
+    )
+
+    texts = ["first", "second", "third"]
+    embeddings = embedder.embed_batch(texts)
+
+    # A single call carrying the whole (newline-cleaned) batch.
+    mock_fastembed_client.embed.assert_called_once_with(texts)
+    assert [list(e) for e in embeddings] == [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+
+
+def test_embed_batch_cleans_newlines(mock_fastembed_client):
+    config = BaseEmbedderConfig(model="jinaai/jina-embeddings-v2-base-en", embedding_dims=768)
+    embedder = FastEmbedEmbedding(config)
+
+    mock_fastembed_client.embed.return_value = iter([np.array([0.1]), np.array([0.2])])
+
+    embedder.embed_batch(["a\nb", "c\nd"])
+    mock_fastembed_client.embed.assert_called_once_with(["a b", "c d"])
+
+
+def test_embed_batch_empty_list(mock_fastembed_client):
+    config = BaseEmbedderConfig(model="jinaai/jina-embeddings-v2-base-en", embedding_dims=768)
+    embedder = FastEmbedEmbedding(config)
+
+    result = embedder.embed_batch([])
+    assert result == []
+    mock_fastembed_client.embed.assert_not_called()
+
+
+def test_embed_batch_count_mismatch_raises(mock_fastembed_client):
+    config = BaseEmbedderConfig(model="jinaai/jina-embeddings-v2-base-en", embedding_dims=768)
+    embedder = FastEmbedEmbedding(config)
+
+    # Model returns fewer embeddings than inputs -> must raise, not silently drop.
+    mock_fastembed_client.embed.return_value = iter([np.array([0.1, 0.2])])
+    with pytest.raises(ValueError):
+        embedder.embed_batch(["first text", "second text"])
