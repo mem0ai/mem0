@@ -112,17 +112,30 @@ def normalize_facts(raw_facts):
     return normalized
 
 
-def remove_code_blocks(content: str) -> str:
+def remove_code_blocks(content: Any) -> str:
     """
     Removes enclosing code block markers ```[language] and ``` from a given string.
 
     Remarks:
+    - If content is None, returns an empty string.
+    - If content is a list of content blocks, extracts string items and dict item "text" values before processing.
     - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
     """
     if content is None:
         return ""
+    if isinstance(content, list):
+        content_parts = []
+        for item in content:
+            if isinstance(item, str):
+                content_parts.append(item)
+            elif isinstance(item, dict) and "text" in item:
+                content_parts.append(str(item["text"]))
+        content = "".join(content_parts)
+    elif not isinstance(content, str):
+        content = str(content)
+
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     match_res=match.group(1).strip() if match else content.strip()
