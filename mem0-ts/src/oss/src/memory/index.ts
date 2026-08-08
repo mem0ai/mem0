@@ -919,7 +919,6 @@ export class Memory {
       id?: string;
       text?: string;
       attributed_to?: string;
-      linked_memory_ids?: string[];
     }> = [];
     try {
       const cleanResponse = extractJson(response);
