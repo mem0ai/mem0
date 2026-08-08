@@ -57,13 +57,16 @@ class OpenAIEmbedding(EmbeddingBase):
     def embed_batch(self, texts, memory_action="add"):
         """Embed multiple texts in a single OpenAI API call.
 
-        Automatically chunks into batches of 100 to stay within API limits.
+        Chunks into batches to stay within API limits. The batch size defaults
+        to 100 (OpenAI's limit) but can be lowered with
+        ``BaseEmbedderConfig.embedding_batch_size`` for OpenAI-compatible
+        providers that cap requests lower (for example DashScope allows 10).
         """
-        MAX_BATCH = 100
+        max_batch = self.config.embedding_batch_size or 100
         texts = [text.replace("\n", " ") for text in texts]
         all_embeddings = []
-        for i in range(0, len(texts), MAX_BATCH):
-            chunk = texts[i : i + MAX_BATCH]
+        for i in range(0, len(texts), max_batch):
+            chunk = texts[i : i + max_batch]
             kwargs = {
                 "input": chunk,
                 "model": self.config.model,

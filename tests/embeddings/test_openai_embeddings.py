@@ -149,3 +149,48 @@ def test_embed_batch_count_mismatch_raises(mock_openai_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_batch_respects_configured_batch_size(mock_openai_client):
+    # DashScope text-embedding-v4 and similar OpenAI-compatible providers cap a
+    # request at 10 texts. With embedding_batch_size set, 11 texts must go out
+    # as two requests (10 + 1) instead of one oversized request that 400s.
+    config = BaseEmbedderConfig(embedding_batch_size=10)
+    embedder = OpenAIEmbedding(config)
+
+    def fake_create(**kwargs):
+        response = Mock()
+        response.data = [Mock(index=i, embedding=[float(i)]) for i in range(len(kwargs["input"]))]
+        return response
+
+    mock_openai_client.embeddings.create.side_effect = fake_create
+
+    result = embedder.embed_batch([f"text {i}" for i in range(11)])
+
+    assert mock_openai_client.embeddings.create.call_count == 2
+    call_args = mock_openai_client.embeddings.create.call_args_list
+    assert len(call_args[0].kwargs["input"]) == 10
+    assert len(call_args[1].kwargs["input"]) == 1
+    assert len(result) == 11
+
+
+def test_embed_batch_defaults_to_100(mock_openai_client):
+    # Without an override, the batch size stays at OpenAI's limit of 100, so
+    # 150 texts go out as two requests (100 + 50).
+    config = BaseEmbedderConfig()
+    embedder = OpenAIEmbedding(config)
+
+    def fake_create(**kwargs):
+        response = Mock()
+        response.data = [Mock(index=i, embedding=[float(i)]) for i in range(len(kwargs["input"]))]
+        return response
+
+    mock_openai_client.embeddings.create.side_effect = fake_create
+
+    result = embedder.embed_batch([f"text {i}" for i in range(150)])
+
+    assert mock_openai_client.embeddings.create.call_count == 2
+    call_args = mock_openai_client.embeddings.create.call_args_list
+    assert len(call_args[0].kwargs["input"]) == 100
+    assert len(call_args[1].kwargs["input"]) == 50
+    assert len(result) == 150
