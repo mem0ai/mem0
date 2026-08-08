@@ -77,3 +77,77 @@ def test_files_touched_omitted_when_no_files(monkeypatch):
     )
 
     assert "files_touched" not in captured["body"]["metadata"]
+
+
+def test_extract_assistant_message_claude_type_style():
+    """Claude Code / Codex style entries use ``type == 'assistant'``."""
+    import capture_session_summary as css
+
+    line = json.dumps(
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "Claude finished the task."}]},
+        }
+    )
+    assert css.extract_last_assistant_message([line]) == "Claude finished the task."
+
+
+def test_extract_assistant_message_cursor_role_style():
+    """Cursor agent transcripts use ``role == 'assistant'`` (issue #6006).
+
+    Without the fix this returns "" because the parser only checked ``type``,
+    so the stop hook logs "Assistant message too short (0 chars)" and skips
+    storing the session summary.
+    """
+    import capture_session_summary as css
+
+    line = json.dumps(
+        {
+            "role": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "I completed the requested change and verified the result.",
+                    }
+                ]
+            },
+        }
+    )
+    assert (
+        css.extract_last_assistant_message([line])
+        == "I completed the requested change and verified the result."
+    )
+
+
+def test_extract_assistant_message_cursor_string_content():
+    """Cursor entry whose content is a bare string is returned verbatim."""
+    import capture_session_summary as css
+
+    line = json.dumps({"role": "assistant", "message": {"content": "plain string reply"}})
+    assert css.extract_last_assistant_message([line]) == "plain string reply"
+
+
+def test_extract_assistant_message_returns_latest_turn():
+    """The most recent assistant entry wins, across mixed dialects."""
+    import capture_session_summary as css
+
+    lines = [
+        json.dumps(
+            {"type": "assistant", "message": {"content": [{"type": "text", "text": "first"}]}}
+        ),
+        json.dumps({"role": "user", "message": {"content": "do more"}}),
+        json.dumps({"role": "assistant", "message": {"content": "second"}}),
+    ]
+    assert css.extract_last_assistant_message(lines) == "second"
+
+
+def test_extract_assistant_message_ignores_non_assistant_role():
+    """User/system entries must not be mistaken for assistant messages."""
+    import capture_session_summary as css
+
+    lines = [
+        json.dumps({"role": "user", "message": {"content": "talk about the assistant"}}),
+        json.dumps({"role": "system", "message": {"content": "assistant config"}}),
+    ]
+    assert css.extract_last_assistant_message(lines) == ""

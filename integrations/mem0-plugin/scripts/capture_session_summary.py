@@ -71,20 +71,29 @@ def tail_lines(filepath: str, n: int) -> list[str]:
 
 
 def extract_last_assistant_message(lines: list[str]) -> str:
-    """Walk transcript backwards, return text content of the last assistant message."""
+    """Walk transcript backwards, return text content of the last assistant message.
+
+    Handles both transcript dialects:
+      * Claude Code / Codex style: ``{"type": "assistant", "message": {...}}``
+      * Cursor agent style:        ``{"role": "assistant", "message": {...}}``
+    Cursor emits ``role`` instead of ``type``, so a parser that only checks
+    ``type == "assistant"`` extracts an empty string and skips summary storage.
+    """
     for line in reversed(lines):
         line = line.strip()
         if not line:
             continue
-        if '"type":"assistant"' not in line and '"type": "assistant"' not in line:
+        if '"assistant"' not in line:
             continue
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if entry.get("type") != "assistant":
+        if entry.get("type") != "assistant" and entry.get("role") != "assistant":
             continue
         message = entry.get("message", {})
+        if not isinstance(message, dict):
+            continue
         content = message.get("content", [])
         if isinstance(content, str):
             return content
