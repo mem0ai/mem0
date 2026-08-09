@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import {
   LanguageModelV3,
   LanguageModelV3CallOptions,
@@ -164,7 +163,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
       return streamResponse;
     } catch (error) {
       console.error("Error in doStream:", error);
-      throw new Error("Streaming failed or method not implemented.");
+      throw new Error("Streaming failed or method not implemented.", { cause: error });
     }
   }
 }
