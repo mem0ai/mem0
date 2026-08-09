@@ -1,20 +1,18 @@
 {
   "name": "mem0-plugins",
-  "interface": {
-    "displayName": "Mem0 Plugins"
+  "owner": {
+    "name": "Mem0",
+    "email": "support@mem0.ai"
+  },
+  "metadata": {
+    "description": "Official Mem0 plugins"
   },
   "plugins": [
     {
       "name": "mem0",
-      "source": {
-        "source": "local",
-        "path": "./integrations/mem0-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
+      "source": "./integrations/mem0-plugin",
+      "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search.",
+      "version": "0.2.14"
     }
   ]
 }
