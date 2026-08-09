@@ -57,6 +57,7 @@ from mem0.memory.utils import (
     parse_vision_messages,
     process_telemetry_filters,
     remove_code_blocks,
+    cap_text_for_embedding,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
@@ -917,7 +918,9 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        embed_input = cap_text_for_embedding(parsed_messages)
+
+        query_embedding = self.embedding_model.embed(embed_input, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
             vectors=query_embedding,
@@ -2572,7 +2575,9 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        embed_input = cap_text_for_embedding(parsed_messages)
+
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, embed_input, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
             query=parsed_messages,
