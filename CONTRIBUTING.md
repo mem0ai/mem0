@@ -41,7 +41,7 @@ The two most common contribution targets are the SDKs:
 
 | Package               | Path       | Language     | Package manager |
 | --------------------- | ---------- | ------------ | --------------- |
-| Python SDK (`mem0ai`) | `mem0/`    | Python 3.9+  | `hatch`         |
+| Python SDK (`mem0ai`) | `mem0/`    | Python 3.10+ | `hatch`         |
 | TypeScript SDK (`mem0ai`) | `mem0-ts/` | TypeScript | `pnpm`        |
 
 Other packages include the CLIs (`cli/python/`, `cli/node/`), integrations

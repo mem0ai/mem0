@@ -18,7 +18,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 
 | Directory | Description |
 |-----------|-------------|
-| `mem0/` | Core Python SDK (`mem0ai` on PyPI) — memory, LLMs, embeddings, vector stores, graphs, rerankers |
+| `mem0/` | Core Python SDK (`mem0ai` on PyPI) — memory, LLMs, embeddings, vector stores, rerankers |
 | `mem0-ts/` | TypeScript SDK (`mem0ai` on npm) — client + OSS memory |
 | `cli/python/` | Python CLI (`mem0-cli` on PyPI) — Typer-based, entry point `mem0` |
 | `cli/node/` | Node CLI (`@mem0/cli` on npm) — Commander-based, entry point `mem0` |
@@ -45,8 +45,7 @@ mem0 (Python SDK)          mem0-ts (TypeScript SDK)
 ├── mem0/llms/             └── src/oss/           (Memory — self-hosted)
 ├── mem0/embeddings/           ├── src/llms/
 ├── mem0/vector_stores/        ├── src/embeddings/
-├── mem0/graphs/               ├── src/vector_stores/
-└── mem0/reranker/             └── src/graphs/
+└── mem0/reranker/             └── src/vector_stores/
 
 cli/python/ ──▶ mem0ai (optional, for OSS mode)
 cli/node/   ──▶ mem0ai (npm, for API calls)
@@ -58,7 +57,7 @@ integrations/openclaw/ ──▶ mem0ai (npm)
 
 ### Requirements
 
-- **Python**: 3.9+ (3.10+ for CLI)
+- **Python**: 3.10+
 - **Node.js**: v18+ (v20 or v22 recommended)
 - **pnpm**: v10+ (`npm install -g pnpm@10`) — used for all TypeScript packages
 - **Hatch**: Python build/environment tool (`pip install hatch`)
@@ -84,7 +83,7 @@ cd integrations/openclaw && pnpm install       # OpenClaw plugin
 
 ```bash
 # Environment setup (uses Hatch)
-hatch shell dev_py_3_11           # or dev_py_3_9, dev_py_3_10, dev_py_3_12
+hatch shell dev_py_3_11           # or dev_py_3_10, dev_py_3_11, dev_py_3_12
 
 # Linting and formatting
 make lint                          # ruff check
@@ -93,14 +92,14 @@ make sort                          # isort mem0/
 
 # Tests
 make test                          # pytest tests/
-make test-py-3.9                   # test specific Python version (3.9–3.12)
+make test-py-3.10                  # test specific Python version (3.10–3.12)
 
 # Build and publish
 make build                         # hatch build
 make publish                       # hatch publish
 ```
 
-- **Python:** 3.9, 3.10, 3.11, 3.12
+- **Python:** 3.10, 3.11, 3.12
 - **Linter/formatter:** Ruff (line length **120**)
 - **Import sorting:** isort (`profile = "black"`)
 - **Test framework:** pytest (with pytest-mock, pytest-asyncio)
@@ -325,7 +324,7 @@ python -m benchmarks.beam.run --project-name my-test --backend cloud --mem0-api-
 
 ### Python Conventions
 
-- **Provider pattern:** All providers (LLMs, embeddings, vector stores, graphs, rerankers) inherit from a `base.py` abstract class in their directory. Config classes live in `configs.py`.
+- **Provider pattern:** All providers (LLMs, embeddings, vector stores, rerankers) inherit from a `base.py` abstract class in their directory. Config classes live in `configs.py`.
 - **Pydantic v2** for all data models and configuration.
 - **Ruff** is the single linting and formatting tool — no black, no flake8.
   - Root SDK: line length **120**
