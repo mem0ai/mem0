@@ -15,6 +15,7 @@ import {
 	type ListOptions,
 	NotFoundError,
 	type SearchOptions,
+	type UpdateOptions,
 } from "./base.js";
 
 function encodePathSegment(value: unknown): string {
@@ -150,7 +151,13 @@ export class PlatformBackend implements Backend {
 		if (opts.immutable) payload.immutable = true;
 		if (opts.infer === false) payload.infer = false;
 		if (opts.expires) payload.expiration_date = opts.expires;
-		if (opts.categories) payload.categories = opts.categories;
+		if (opts.customInstructions)
+			payload.custom_instructions = opts.customInstructions;
+		if (opts.customCategories)
+			payload.custom_categories = opts.customCategories;
+		if (opts.structuredDataSchema)
+			payload.structured_data_schema = opts.structuredDataSchema;
+		if (opts.timestamp !== undefined) payload.timestamp = opts.timestamp;
 		payload.source = "CLI";
 
 		return (await this._request("POST", "/v3/memories/add/", {
@@ -211,6 +218,10 @@ export class PlatformBackend implements Backend {
 		if (opts.rerank) payload.rerank = true;
 		if (opts.keyword) payload.keyword_search = true;
 		if (opts.fields) payload.fields = opts.fields;
+		if (opts.showExpired) payload.show_expired = true;
+		if (opts.referenceDate !== undefined)
+			payload.reference_date = opts.referenceDate;
+		if (opts.latestOnly) payload.latest_only = true;
 		payload.source = "CLI";
 
 		const result = (await this._request("POST", "/v3/memories/search/", {
@@ -265,6 +276,8 @@ export class PlatformBackend implements Backend {
 			extraFilters: Object.keys(extra).length > 0 ? extra : undefined,
 		});
 		if (apiFilters) payload.filters = apiFilters;
+		if (opts.showExpired) payload.show_expired = true;
+		if (opts.latestOnly) payload.latest_only = true;
 		payload.source = "CLI";
 
 		const result = (await this._request("POST", "/v3/memories/", {
@@ -280,10 +293,13 @@ export class PlatformBackend implements Backend {
 		memoryId: string,
 		content?: string,
 		metadata?: Record<string, unknown>,
+		opts: UpdateOptions = {},
 	): Promise<Record<string, unknown>> {
 		const payload: Record<string, unknown> = {};
 		if (content) payload.text = content;
 		if (metadata) payload.metadata = metadata;
+		if (opts.expirationDate) payload.expiration_date = opts.expirationDate;
+		if (opts.timestamp !== undefined) payload.timestamp = opts.timestamp;
 		payload.source = "CLI";
 		return (await this._request(
 			"PUT",
@@ -309,12 +325,12 @@ export class PlatformBackend implements Backend {
 			})) as Record<string, unknown>;
 		}
 		if (memoryId) {
+			const params: Record<string, string> = { source: "CLI" };
+			if (opts.deleteLinked) params.delete_linked = "true";
 			return (await this._request(
 				"DELETE",
 				`/v1/memories/${encodePathSegment(memoryId)}/`,
-				{
-					params: { source: "CLI" },
-				},
+				{ params },
 			)) as Record<string, unknown>;
 		}
 		throw new Error("Either memoryId or --all is required");

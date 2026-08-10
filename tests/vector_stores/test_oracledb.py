@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Oracle and/or its affiliates.
 import os
 import uuid
 from contextlib import nullcontext
@@ -267,6 +268,16 @@ def test_index_parameters_reject_non_string_keys():
         )
 
 
+def test_index_accuracy_rejects_zero():
+    with pytest.raises(ValueError, match="index_accuracy.*between 1 and 100"):
+        OracleAIVectorSearchConfig(
+            collection_name=_unique_collection_name(),
+            embedding_model_dims=DIM,
+            client=object(),
+            index_accuracy=0,
+        )
+
+
 def test_index_parameters_canonicalize_int_subclasses():
     class FormattedInt(int):
         def __format__(self, format_spec):
@@ -329,6 +340,27 @@ def test_ivf_index_parameters_use_oracle_ddl_names():
 def test_config_rejects_none_for_non_optional_fields(field, value):
     with pytest.raises(ValueError):
         OracleAIVectorSearchConfig(client=object(), **{field: value})
+
+
+def test_init_closes_owned_client_when_post_connect_setup_fails(monkeypatch):
+    fake_connection = MagicMock(spec=oracledb.Connection)
+    fake_connection.thin = True
+    fake_connection.version = "23.4.0.0"
+
+    monkeypatch.setattr(oracledb, "connect", MagicMock(return_value=fake_connection))
+    monkeypatch.setattr(OracleAIVectorSearch, "create_col", MagicMock(side_effect=RuntimeError("boom")))
+    monkeypatch.setattr(OracleAIVectorSearch, "__del__", lambda self: None)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        OracleAIVectorSearch(
+            collection_name=_unique_collection_name(),
+            embedding_model_dims=DIM,
+            connection_params={"user": "u", "password": "p", "dsn": "d"},
+            use_connection_pool=False,
+            do_create_index=False,
+        )
+
+    fake_connection.close.assert_called_once()
 
 
 @pytest.mark.parametrize(

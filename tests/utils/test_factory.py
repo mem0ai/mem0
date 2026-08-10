@@ -51,3 +51,12 @@ def test_base_to_provider_without_reasoning_fields_still_builds():
 
     assert isinstance(built, AnthropicConfig)
     assert built.model == "claude-3-5-sonnet-20240620"
+
+
+def test_dict_config_not_mutated_by_kwargs():
+    config = {"model": "gpt-4o-mini"}
+
+    with patch("mem0.utils.factory.load_class", return_value=Mock(return_value=Mock())):
+        LlmFactory.create("openai", config, api_key="secret")
+
+    assert config == {"model": "gpt-4o-mini"}

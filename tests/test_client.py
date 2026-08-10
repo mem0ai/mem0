@@ -8,6 +8,8 @@ import httpx
 import pytest
 import requests
 
+from mem0.client.types import GetAllMemoryOptions, SearchMemoryOptions
+
 
 @pytest.fixture
 def mock_memory_client():
@@ -127,6 +129,55 @@ class TestGetAllEntityParamRejection:
         mock_memory_client.client.post.assert_called_once_with(
             "/v3/memories/",
             json={"filters": {"user_id": "u1"}, "show_expired": True},
+        )
+
+
+class TestSearchTypedOptionsParity:
+    """MEM-5893: SearchMemoryOptions' new typed fields serialize to their v3 snake_case keys."""
+
+    def test_search_options_pass_reference_date_latest_only_keyword_search(self, mock_memory_client):
+        """search(options=SearchMemoryOptions(...)) should forward the new fields verbatim."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        options = SearchMemoryOptions(
+            filters={"user_id": "u1"},
+            reference_date="2024-01-01",
+            latest_only=True,
+            keyword_search=True,
+        )
+        mock_memory_client.search("test query", options=options)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/search/",
+            json={
+                "query": "test query",
+                "filters": {"user_id": "u1"},
+                "reference_date": "2024-01-01",
+                "latest_only": True,
+                "keyword_search": True,
+            },
+        )
+
+
+class TestGetAllTypedOptionsParity:
+    """MEM-5893: GetAllMemoryOptions.latest_only serializes to its v3 snake_case key."""
+
+    def test_get_all_options_pass_latest_only(self, mock_memory_client):
+        """get_all(options=GetAllMemoryOptions(...)) should forward latest_only verbatim."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        options = GetAllMemoryOptions(filters={"user_id": "u1"}, latest_only=True)
+        mock_memory_client.get_all(options=options)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}, "latest_only": True},
         )
 
 
@@ -389,3 +440,51 @@ class TestValidateApiKeyHttpError:
 
         assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestAddAgentCustomInstructions:
+    """Per-request override of the project-level setting, forwarded to the add payload."""
+
+    def _mock_add(self, client):
+        response = MagicMock()
+        response.json.return_value = {"results": []}
+        response.raise_for_status.return_value = None
+        client.client.post.return_value = response
+        return response
+
+    def test_kwarg_reaches_the_add_payload(self, mock_memory_client):
+        self._mock_add(mock_memory_client)
+
+        mock_memory_client.add(
+            "hello",
+            filters={"agent_id": "a1"},
+            agent_custom_instructions="remember tool failures",
+        )
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["json"]["agent_custom_instructions"] == "remember tool failures"
+
+    def test_typed_option_reaches_the_add_payload(self, mock_memory_client):
+        from mem0.client.types import AddMemoryOptions
+
+        self._mock_add(mock_memory_client)
+
+        mock_memory_client.add(
+            "hello",
+            AddMemoryOptions(
+                filters={"agent_id": "a1"},
+                agent_custom_instructions="remember tool failures",
+            ),
+        )
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert kwargs["json"]["agent_custom_instructions"] == "remember tool failures"
+
+    def test_absent_when_not_passed(self, mock_memory_client):
+        """Callers that don't use the feature send an unchanged payload."""
+        self._mock_add(mock_memory_client)
+
+        mock_memory_client.add("hello", filters={"user_id": "u1"})
+
+        _, kwargs = mock_memory_client.client.post.call_args
+        assert "agent_custom_instructions" not in kwargs["json"]
