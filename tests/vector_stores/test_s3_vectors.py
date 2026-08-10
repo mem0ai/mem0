@@ -251,6 +251,77 @@ def test_reset(mock_boto_client):
     assert mock_boto_client.create_index.call_count == 2
 
 
+def test_search_rejects_dict_filter_value(mock_boto_client):
+    """search() must raise ValueError when a filter value is a dict (injection risk)."""
+    mock_boto_client.get_vector_bucket.return_value = {}
+    mock_boto_client.get_index.return_value = {}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    with pytest.raises(ValueError, match="string, int, float, or bool"):
+        store.search(
+            query="test",
+            vectors=[0.1, 0.2],
+            filters={"user_id": {"$exists": True}},
+        )
+
+
+def test_search_rejects_list_filter_value(mock_boto_client):
+    """search() must raise ValueError when a filter value is a list."""
+    mock_boto_client.get_vector_bucket.return_value = {}
+    mock_boto_client.get_index.return_value = {}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    with pytest.raises(ValueError, match="string, int, float, or bool"):
+        store.search(
+            query="test",
+            vectors=[0.1, 0.2],
+            filters={"user_id": ["alice", "bob"]},
+        )
+
+
+def test_search_rejects_invalid_filter_key(mock_boto_client):
+    """search() must raise ValueError when a filter key contains special characters."""
+    mock_boto_client.get_vector_bucket.return_value = {}
+    mock_boto_client.get_index.return_value = {}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        store.search(
+            query="test",
+            vectors=[0.1, 0.2],
+            filters={"user_id; DROP TABLE memories": "alice"},
+        )
+
+
+def test_search_accepts_valid_scalar_filters(mock_boto_client):
+    """search() must pass valid scalar filters through to the AWS API."""
+    mock_boto_client.get_vector_bucket.return_value = {}
+    mock_boto_client.get_index.return_value = {}
+    mock_boto_client.query_vectors.return_value = {"vectors": []}
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    store.search(query="test", vectors=[0.1, 0.2], filters={"user_id": "alice"})
+
+    call_kwargs = mock_boto_client.query_vectors.call_args[1]
+    assert call_kwargs["filter"] == {"user_id": "alice"}
+
+
 def test_list_filters_metadata_client_side(mock_boto_client):
     """S3 list_vectors does not support metadata filters, so the store filters returned payloads locally."""
     mock_paginator = mock_boto_client.get_paginator.return_value

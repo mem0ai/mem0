@@ -1,10 +1,30 @@
 import json
 import logging
+import re
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
 from mem0.vector_stores.base import VectorStoreBase
+
+_VALID_FILTER_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]{0,127}$")
+_SCALAR_TYPES = (str, int, float, bool)
+
+
+def _validate_filters(filters: dict) -> None:
+    """Validate filter keys and values before passing to the AWS S3 Vectors API.
+
+    S3 Vectors filter keys are metadata attribute names; values must be scalars.
+    Accepting arbitrary nested structures would allow callers to inject unexpected
+    filter operators into the API request.
+    """
+    for key, value in filters.items():
+        if not _VALID_FILTER_KEY.match(key):
+            raise ValueError(f"Invalid filter key {key!r}: only letters, digits, underscores, and dots are allowed")
+        if not isinstance(value, _SCALAR_TYPES):
+            raise ValueError(
+                f"Invalid filter value for key {key!r}: expected a string, int, float, or bool, got {type(value).__name__}"
+            )
 
 try:
     import boto3
@@ -111,6 +131,7 @@ class S3Vectors(VectorStoreBase):
             "returnDistance": True,
         }
         if filters:
+            _validate_filters(filters)
             params["filter"] = filters
 
         response = self.client.query_vectors(**params)
