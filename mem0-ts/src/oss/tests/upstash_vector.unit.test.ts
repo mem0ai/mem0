@@ -79,6 +79,62 @@ describe("UpstashVector", () => {
     ]);
   });
 
+  // Regression: operator dicts, "in" arrays and "*" used to serialize to
+  // `key = [object Object]` (a filter Upstash rejects) or, on the client-side
+  // list() path, silently match nothing.
+  it("translates operator dicts, in-arrays and the * wildcard to Upstash syntax", async () => {
+    const client = createClient();
+    const store = new UpstashVector({
+      collectionName: namespace,
+      client: client as any,
+    });
+
+    await store.search([0.1, 0.2], 3, {
+      user_id: "user-1",
+      age: { gte: 18, lte: 65 },
+      tier: { in: ["gold", "silver"] },
+      city: "*",
+    } as any);
+
+    expect(client.query.mock.calls[0][0].filter).toBe(
+      'user_id = "user-1" AND age >= 18 AND age <= 65 ' +
+        'AND tier IN ("gold", "silver") AND HAS FIELD city',
+    );
+  });
+
+  it("applies every operator when listing (client-side range filter)", async () => {
+    const client = createClient({
+      range: jest.fn().mockResolvedValue({
+        nextCursor: "",
+        vectors: [
+          { id: "1", metadata: { user_id: "u", age: 10 } },
+          { id: "2", metadata: { user_id: "u", age: 30 } },
+          { id: "3", metadata: { user_id: "u", age: 100 } },
+        ],
+      }),
+    });
+    const store = new UpstashVector({
+      collectionName: namespace,
+      client: client as any,
+    });
+
+    const [rows] = await store.list(
+      { user_id: "u", age: { gte: 18, lte: 65 } } as any,
+      100,
+    );
+    expect(rows.map((r) => r.payload.age)).toEqual([30]);
+  });
+
+  it("throws on an unsupported filter operator rather than dropping it", async () => {
+    const store = new UpstashVector({
+      collectionName: namespace,
+      client: createClient() as any,
+    });
+    await expect(
+      store.search([0.1, 0.2], 3, { name: { regex: "^a" } } as any),
+    ).rejects.toThrow(/Unsupported Upstash filter operator 'regex'/);
+  });
+
   it("fetches, updates, deletes, resets, and lists vectors in the namespace", async () => {
     const client = createClient({
       fetch: jest.fn().mockResolvedValue([
