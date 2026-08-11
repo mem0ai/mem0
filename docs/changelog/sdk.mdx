@@ -7,6 +7,13 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-08-11" description="v2.0.18">
+
+**Bug Fixes:**
+- **Core:** Percent-escape `%`, `&`, and `=` in `user_id`, `agent_id`, and `run_id` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
+
+</Update>
+
 <Update label="2026-08-05" description="v2.0.17">
 
 **New Features:**
@@ -1195,6 +1202,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-08-11" description="v3.1.6">
+
+**Bug Fixes:**
+- **Core:** Percent-escape `%`, `&`, and `=` in `userId`, `agentId`, and `runId` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
+
+</Update>
 
 <Update label="2026-08-05" description="v3.1.5">
 
