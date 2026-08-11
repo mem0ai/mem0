@@ -1,6 +1,8 @@
 import itertools
 
-from mem0.memory.main import _build_session_scope, _escape_scope_value
+import pytest
+
+from mem0.memory.main import Memory, _build_session_scope, _escape_scope_value
 
 DELIMITER_VALUES = [
     "u1",
@@ -52,6 +54,12 @@ class TestBuildSessionScope:
         split_agent = {"agent_id": "a1", "run_id": "proj-y"}
         assert _build_session_scope(collapsed_agent) != _build_session_scope(split_agent)
 
+    def test_ids_containing_delimiters_get_a_new_key_format(self):
+        """Ids holding a delimiter character map to a new key, so their buffer starts empty once after upgrade."""
+        assert _build_session_scope({"user_id": "dXNlcl9pZDE="}) == "user_id=dXNlcl9pZDE%3D"
+        assert _build_session_scope({"agent_id": "x&y"}) == "agent_id=x%26y"
+        assert _build_session_scope({"run_id": "50% off"}) == "run_id=50%25 off"
+
     def test_scope_keys_are_unique_per_filter_combination(self):
         """Every distinct filter dict built from delimiter-heavy id values maps to a distinct scope key."""
         keys = ["user_id", "agent_id", "run_id"]
@@ -81,3 +89,43 @@ class TestEscapeScopeValue:
         assert _escape_scope_value("%") == "%25"
         assert _escape_scope_value("&") == "%26"
         assert _escape_scope_value("=") == "%3D"
+
+
+class TestSessionScopeWiring:
+    """Tests that the add pipeline keys the conversation buffer through the builder."""
+
+    @pytest.fixture
+    def memory(self, mocker):
+        mocker.patch("mem0.memory.main.capture_event")
+        mock_embedder = mocker.MagicMock()
+        mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mock_embedder)
+        mock_vector_store = mocker.MagicMock()
+        mock_vector_store.return_value.search.return_value = []
+        mocker.patch(
+            "mem0.utils.factory.VectorStoreFactory.create",
+            side_effect=[mock_vector_store.return_value, mocker.MagicMock()],
+        )
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mocker.MagicMock())
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = mocker.MagicMock(return_value=[])
+        memory.db.save_messages = mocker.MagicMock()
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        return memory
+
+    def test_add_pipeline_uses_the_escaped_key(self, memory):
+        """The pipeline must route through the builder, not assemble the key inline."""
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            filters={"run_id": "proj-x&user_id=u1"},
+            infer=True,
+        )
+        assert memory.db.get_last_messages.call_args[0][0] == "run_id=proj-x%26user_id%3Du1"
+        assert memory.db.save_messages.call_args[0][1] == "run_id=proj-x%26user_id%3Du1"

@@ -120,6 +120,24 @@ describe("Memory session scope key", () => {
     }
   });
 
+  it("gives ids containing delimiter characters a new key format", () => {
+    expect(scopeOf(memory, { user_id: "dXNlcl9pZDE=" })).toBe(
+      "user_id=dXNlcl9pZDE%3D",
+    );
+    expect(scopeOf(memory, { agent_id: "x&y" })).toBe("agent_id=x%26y");
+    expect(scopeOf(memory, { run_id: "50% off" })).toBe("run_id=50%25 off");
+  });
+
+  it("routes the add pipeline through the builder", async () => {
+    const db = (memory as any).db;
+    const spy = jest.spyOn(db, "getLastMessages");
+    await memory.add([{ role: "user", content: "hello" }], {
+      runId: "proj-x&user_id=u1",
+    });
+    expect(spy).toHaveBeenCalledWith("run_id=proj-x%26user_id%3Du1", 10);
+    spy.mockRestore();
+  });
+
   it("pins the exact key strings shared with the Python test suite", () => {
     expect(
       scopeOf(memory, { user_id: "550e8400-e29b-41d4-a716-446655440000" }),
