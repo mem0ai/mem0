@@ -443,6 +443,7 @@ Publishing is routed through a single entry point: **`release.yml` (Release Rout
 
 | Workflow | File | Purpose |
 |----------|------|---------|
+| PR Gate | `pr-gate.yml` | Closes PRs that don't link an issue labeled `accepted`, with a reopen path. Exempts members, bots, drafts, and docs-only changes. Never checks out PR code. |
 | Issue Labeler | `issue-labeler.yml` | Automatic issue labeling |
 | PR Labeler | `pr-labeler.yml` | Path-based PR labeling plus propagating labels from linked issues |
 | Stale Bot | `stale.yml` | Marks stale issues and PRs |
