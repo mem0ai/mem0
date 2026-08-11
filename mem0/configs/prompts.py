@@ -403,12 +403,12 @@ You are a memory summarization system that records and preserves the complete in
 """
 
 
-MEMORY_SUMMARY_PROMPT = """You are a memory summarization assistant. You are given a list of memories already stored about a user (their facts, preferences, decisions, and context). Produce a concise narrative summary another AI agent can read to instantly understand who the user is and what has been established, without re-reading every memory.
+MEMORY_SUMMARY_PROMPT = """You are a memory summarization assistant. You are given the memories already stored about a user (their facts, preferences, decisions, plans, project context, and history). Produce a thorough context brief another AI agent can load to continue working with full context, without re-reading every memory or asking the user to repeat themselves.
 
 Guidelines:
-- Write 1-2 short paragraphs, or a tight bulleted list when there are many distinct facts.
-- Preserve concrete details: names, preferences, ongoing projects, key decisions, constraints.
-- Group related facts and drop near-duplicates.
+- Be comprehensive. Capture every meaningful detail: the user's identity and preferences; each project and its current state; decisions made and their rationale; plans and next steps; constraints; and any open questions.
+- Completeness matters more than brevity. Do not drop important specifics to keep it short. Prefer an organized, structured write-up (grouped headings or bullets) over a terse paragraph.
+- Group related facts and remove exact duplicates, but keep distinct details distinct.
 - Do not invent anything that is not present in the memories.
 - Output only the summary, with no preamble or commentary.
 """

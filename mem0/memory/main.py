@@ -1321,11 +1321,11 @@ class Memory(MemoryBase):
 
     def get_summary(self, *, filters: Optional[Dict[str, Any]] = None, limit: int = 100) -> Dict[str, Any]:
         """
-        Summarize a scope's memories into a compact context brief.
+        Summarize a scope's memories into a comprehensive context brief.
 
         Fetches the scope's non-expired memories and runs a single LLM pass to produce a
-        narrative summary an agent can load as prior context instead of re-reading every
-        memory. Read-only: nothing is stored.
+        thorough context brief an agent can load to continue with full context instead of
+        re-reading every memory. Read-only: nothing is stored.
 
         Args:
             filters (dict): Filter dict; must contain at least one of user_id, agent_id, run_id.
@@ -3024,11 +3024,11 @@ class AsyncMemory(MemoryBase):
 
     async def get_summary(self, *, filters: Optional[Dict[str, Any]] = None, limit: int = 100) -> Dict[str, Any]:
         """
-        Summarize a scope's memories into a compact context brief.
+        Summarize a scope's memories into a comprehensive context brief.
 
         Fetches the scope's non-expired memories and runs a single LLM pass to produce a
-        narrative summary an agent can load as prior context instead of re-reading every
-        memory. Read-only: nothing is stored.
+        thorough context brief an agent can load to continue with full context instead of
+        re-reading every memory. Read-only: nothing is stored.
 
         Args:
             filters (dict): Filter dict; must contain at least one of user_id, agent_id, run_id.
