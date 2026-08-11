@@ -452,3 +452,87 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+
+# ---------------------------------------------------------------------------
+# Injectable boto3 client / session
+# ---------------------------------------------------------------------------
+
+
+class TestInjectableBoto3:
+    """Tests for boto3_client and boto3_session injection into AWSBedrockConfig / AWSBedrockLLM.
+
+    Enterprise deployments (cross-account assume-role, IRSA on EKS) often need to
+    supply a pre-built boto3 client or Session instead of relying on the global
+    boto3 credential chain.  These tests verify the full precedence behaviour.
+    """
+
+    def test_boto3_client_used_directly(self):
+        """When boto3_client is provided it must be stored on self.client without
+        calling boto3.client() and without triggering _test_connection."""
+        pre_built_client = MagicMock()
+
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            config = AWSBedrockConfig(
+                model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                boto3_client=pre_built_client,
+            )
+            llm = AWSBedrockLLM(config)
+
+        # The pre-built client must be used as-is
+        assert llm.client is pre_built_client
+        # boto3.client() must NOT have been called (injected client bypasses it)
+        mock_b3.client.assert_not_called()
+
+    def test_boto3_client_skips_test_connection(self):
+        """When boto3_client is injected, _test_connection must NOT be called."""
+        pre_built_client = MagicMock()
+
+        with patch("mem0.llms.aws_bedrock.boto3"):
+            with patch.object(AWSBedrockLLM, "_test_connection") as mock_test:
+                config = AWSBedrockConfig(
+                    model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                    boto3_client=pre_built_client,
+                )
+                AWSBedrockLLM(config)
+
+        mock_test.assert_not_called()
+
+    def test_boto3_session_derives_runtime_client(self):
+        """When boto3_session is provided, bedrock-runtime client must be derived
+        from the session, not created via the top-level boto3.client()."""
+        mock_session = MagicMock()
+        mock_runtime_client = MagicMock()
+        mock_bedrock_client = MagicMock()
+        mock_bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+
+        def _session_client(service):
+            if service == "bedrock-runtime":
+                return mock_runtime_client
+            return mock_bedrock_client
+
+        mock_session.client.side_effect = _session_client
+
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            config = AWSBedrockConfig(
+                model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                boto3_session=mock_session,
+            )
+            llm = AWSBedrockLLM(config)
+
+        # bedrock-runtime client must come from the injected session
+        assert llm.client is mock_runtime_client
+        mock_session.client.assert_any_call("bedrock-runtime")
+        # top-level boto3.client() must NOT have been called for the runtime client
+        for call in mock_b3.client.call_args_list:
+            assert call.args[0] != "bedrock-runtime", (
+                "boto3.client('bedrock-runtime') must not be called when a session is injected"
+            )
+
+    def test_no_injection_falls_back_to_default_boto3(self, mock_boto3):
+        """When neither boto3_client nor boto3_session is set, the existing
+        behaviour (boto3.client called with aws config kwargs) must be preserved."""
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        # The client set on llm must be the one returned by the mocked boto3.client
+        assert llm.client is mock_boto3

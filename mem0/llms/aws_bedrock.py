@@ -75,12 +75,35 @@ class AWSBedrockLLM(LLMBase):
         self._initialize_provider_settings()
 
     def _initialize_aws_client(self):
-        """Initialize AWS Bedrock client with proper credentials."""
-        try:
-            aws_config = self.config.get_aws_config()
+        """Initialize AWS Bedrock client with proper credentials.
 
-            # Create Bedrock runtime client
-            self.client = boto3.client("bedrock-runtime", **aws_config)
+        Credential precedence:
+
+        1. ``config.boto3_client`` — used as-is; ``_test_connection`` is skipped
+           because the caller is responsible for the client's validity.
+        2. ``config.boto3_session`` — a ``bedrock-runtime`` client is derived via
+           ``session.client("bedrock-runtime")``.  Recommended for cross-account
+           assume-role / IRSA setups.
+        3. Fallback — a new client is created from the AWS config parameters
+           (``aws_access_key_id``, ``aws_region``, etc.).
+        """
+        try:
+            if self.config.boto3_client is not None:
+                # Use the pre-built client directly; skip _test_connection because
+                # the caller is responsible for validating the client's credentials.
+                self.client = self.config.boto3_client
+                self.available_models = []
+                return
+
+            if self.config.boto3_session is not None:
+                # Derive a bedrock-runtime client from the provided session.
+                # This is the recommended pattern for cross-account assume-role and
+                # IRSA deployments where a custom Session already holds the correct
+                # temporary credentials.
+                self.client = self.config.boto3_session.client("bedrock-runtime")
+            else:
+                aws_config = self.config.get_aws_config()
+                self.client = boto3.client("bedrock-runtime", **aws_config)
 
             # Test connection
             self._test_connection()
@@ -104,7 +127,10 @@ class AWSBedrockLLM(LLMBase):
         """Test connection to AWS Bedrock service."""
         try:
             # List available models to test connection
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            if self.config.boto3_session is not None:
+                bedrock_client = self.config.boto3_session.client("bedrock")
+            else:
+                bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
             response = bedrock_client.list_foundation_models()
             self.available_models = [model["modelId"] for model in response["modelSummaries"]]
 
@@ -648,7 +674,10 @@ class AWSBedrockLLM(LLMBase):
     def list_available_models(self) -> List[Dict[str, Any]]:
         """List all available models in the current region."""
         try:
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            if self.config.boto3_session is not None:
+                bedrock_client = self.config.boto3_session.client("bedrock")
+            else:
+                bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
             response = bedrock_client.list_foundation_models()
 
             models = []
