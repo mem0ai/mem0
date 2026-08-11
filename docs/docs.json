@@ -439,7 +439,8 @@
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/tavily-search"
+                      "cookbooks/integrations/tavily-search",
+                      "cookbooks/integrations/unstructured-transform-mcp"
                     ]
                   },
                   {
