@@ -83,7 +83,6 @@ class TestTelemetryEnabled:
             mock_at = MagicMock()
             with patch.object(telemetry_module, "_oss_telemetry_instance", mock_at):
                 mock_memory = MagicMock()
-                mock_memory.config.graph_store.config = None
                 mock_memory.api_version = "v1"
                 telemetry_module.capture_event("test.event", mock_memory)
                 mock_at.capture_event.assert_called_once()
@@ -223,7 +222,6 @@ class TestTelemetrySingleton:
                 with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="u"):
                     with patch("atexit.register"):
                         mock_memory = MagicMock()
-                        mock_memory.config.graph_store.config = None
                         mock_memory.api_version = "v1"
 
                         telemetry_module.capture_event("e1", mock_memory)
@@ -242,7 +240,6 @@ class TestTelemetrySingleton:
                 with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="u"):
                     with patch("atexit.register"):
                         mock_memory = MagicMock()
-                        mock_memory.config.graph_store.config = None
                         mock_memory.api_version = "v1"
 
                         for i in range(50):
@@ -421,7 +418,6 @@ class TestTelemetryNullUserIdHandling:
 
             with patch.object(telemetry_module, "_oss_telemetry_instance", mock_at):
                 mock_memory = MagicMock()
-                mock_memory.config.graph_store.config = None
                 mock_memory.api_version = "v1"
 
                 # This should not raise, even when telemetry fails
