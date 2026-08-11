@@ -23,7 +23,20 @@ in code.
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach
   before starting significant work.
 
-Every pull request must link to an issue using `Closes #<issue-number>`.
+Every pull request must link to an issue using `Closes #<issue-number>`, and that
+issue must carry the `accepted` label. A maintainer applies `accepted` once we
+agree the change is one we want.
+
+Pull requests that don't link an accepted issue are closed automatically by the
+[PR Gate](./.github/workflows/pr-gate.yml). **Closed does not mean rejected.** It
+means the change isn't in the queue yet. Once a maintainer labels the issue,
+reopen the pull request and it stays open. Documentation-only changes skip the
+gate entirely.
+
+Security fixes are the one exception, and they don't go through public pull
+requests at all. Follow the [Security Policy](./SECURITY.md) instead, which uses
+a private advisory and a private fork so the vulnerability isn't disclosed before
+the fix ships.
 
 ### 2. Sign the Contributor License Agreement (CLA)
 

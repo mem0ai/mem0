@@ -1,0 +1,86 @@
+name: PR Gate
+
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, ready_for_review]
+
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  gate:
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.type != 'Bot' &&
+      !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            if (files.length > 0 && files.every((file) => file.filename.startsWith('docs/'))) {
+              core.info('Docs-only PR, gate skipped');
+              return;
+            }
+
+            const { repository } = await github.graphql(
+              `query ($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 20) {
+                      nodes { number labels(first: 50) { nodes { name } } }
+                    }
+                  }
+                }
+              }`,
+              { owner, repo, number: pr.number },
+            );
+
+            const accepted = repository.pullRequest.closingIssuesReferences.nodes
+              .filter((issue) => issue.labels.nodes.some((label) => label.name === 'accepted'))
+              .map((issue) => issue.number);
+
+            if (accepted.length > 0) {
+              core.info(`Accepted issue linked: #${accepted.join(', #')}`);
+              return;
+            }
+
+            const body = [
+              'Thanks for taking the time to open this.',
+              '',
+              'We only review pull requests that fix an issue we have already agreed to take on, so this one is closed for now.',
+              '**Closed does not mean rejected.** It means it is not in the queue yet, and reopening takes about a minute.',
+              '',
+              'To get it reviewed:',
+              '',
+              '1. Make sure an issue describes the problem, with the version you are on, a runnable reproduction, and the real output or traceback you saw.',
+              '2. Link it from this pull request description with `Closes #<number>`.',
+              '3. Ask a maintainer to label that issue `accepted`.',
+              '4. Reopen this pull request. The check runs again and it stays open.',
+              '',
+              'Already linked an accepted issue? Edit the description to include `Closes #<number>` and reopen. The check reruns automatically.',
+              '',
+              'Documentation-only changes skip this gate entirely.',
+              '',
+              'See [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md) for the full policy.',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: pr.number, body,
+            });
+            await github.rest.pulls.update({
+              owner, repo, pull_number: pr.number, state: 'closed',
+            });
+            core.info(`Closed #${pr.number}: no accepted issue linked`);
