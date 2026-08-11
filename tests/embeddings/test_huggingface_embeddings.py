@@ -72,7 +72,8 @@ def test_embed_with_custom_embedding_dims(mock_sentence_transformer):
     assert result == [1.0, 1.1, 1.2]
 
 
-def test_embed_with_huggingface_base_url():
+def test_embed_with_huggingface_base_url(monkeypatch):
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
     config = BaseEmbedderConfig(
         huggingface_base_url="http://localhost:8080",
         model="my-custom-model",
@@ -94,7 +95,7 @@ def test_embed_with_huggingface_base_url():
         embedder = HuggingFaceEmbedding(config)
         result = embedder.embed("Hello from custom endpoint")
 
-        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key=None)
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf")
         mock_client.embeddings.create.assert_called_once_with(
             input="Hello from custom endpoint",
             model="my-custom-model",
@@ -103,7 +104,8 @@ def test_embed_with_huggingface_base_url():
         assert result == [0.1, 0.2, 0.3]
 
 
-def test_embed_with_huggingface_base_url_forwards_api_key():
+def test_embed_with_huggingface_base_url_forwards_api_key(monkeypatch):
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
     config = BaseEmbedderConfig(
         huggingface_base_url="http://localhost:8080",
         model="my-custom-model",
@@ -113,6 +115,49 @@ def test_embed_with_huggingface_base_url_forwards_api_key():
         HuggingFaceEmbedding(config)
 
         mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="tei-token")
+
+
+def test_base_url_api_key_falls_back_to_env(monkeypatch):
+    monkeypatch.setenv("HUGGINGFACE_API_KEY", "hf_from_env")
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf_from_env")
+
+
+def test_base_url_config_api_key_wins_over_env(monkeypatch):
+    monkeypatch.setenv("HUGGINGFACE_API_KEY", "hf_from_env")
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080", api_key="tei-token")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="tei-token")
+
+
+def test_base_url_api_key_defaults_to_placeholder(monkeypatch):
+    """An unauthenticated TEI endpoint must construct without any credential set.
+
+    With api_key=None the OpenAI client resolves OPENAI_API_KEY and raises when it is
+    unset, so the placeholder is what keeps a no-auth local endpoint usable.
+    """
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    config = BaseEmbedderConfig(huggingface_base_url="http://localhost:8080")
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        HuggingFaceEmbedding(config)
+
+        mock_openai.assert_called_once_with(base_url="http://localhost:8080", api_key="hf")
+
+
+def test_base_url_no_auth_endpoint_constructs_without_credentials(monkeypatch):
+    """End-to-end guard with the real OpenAI client, not the patched one."""
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    embedder = HuggingFaceEmbedding(BaseEmbedderConfig(huggingface_base_url="http://localhost:8080"))
+
+    assert embedder.client.api_key == "hf"
 
 
 def test_embed_batch_sentence_transformer(mock_sentence_transformer):

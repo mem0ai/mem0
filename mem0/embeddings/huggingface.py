@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Literal, Optional
 
 from openai import OpenAI
@@ -17,6 +18,10 @@ class HuggingFaceEmbedding(EmbeddingBase):
         super().__init__(config)
 
         if self.config.huggingface_base_url:
+            # Without a placeholder the OpenAI client falls back to OPENAI_API_KEY and raises
+            # when that is unset, so an unauthenticated TEI endpoint cannot be constructed at
+            # all. Mirrors mem0/embeddings/lmstudio.py and the Node SDK's huggingface.ts.
+            self.config.api_key = self.config.api_key or os.getenv("HUGGINGFACE_API_KEY") or "hf"
             self.client = OpenAI(base_url=self.config.huggingface_base_url, api_key=self.config.api_key)
             self.config.model = self.config.model or "tei"
         else:
