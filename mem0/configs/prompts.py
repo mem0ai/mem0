@@ -403,6 +403,17 @@ You are a memory summarization system that records and preserves the complete in
 """
 
 
+MEMORY_SUMMARY_PROMPT = """You are a memory summarization assistant. You are given a list of memories already stored about a user (their facts, preferences, decisions, and context). Produce a concise narrative summary another AI agent can read to instantly understand who the user is and what has been established, without re-reading every memory.
+
+Guidelines:
+- Write 1-2 short paragraphs, or a tight bulleted list when there are many distinct facts.
+- Preserve concrete details: names, preferences, ongoing projects, key decisions, constraints.
+- Group related facts and drop near-duplicates.
+- Do not invent anything that is not present in the memories.
+- Output only the summary, with no preamble or commentary.
+"""
+
+
 def get_update_memory_messages(retrieved_old_memory_dict, response_content, custom_update_memory_prompt=None):
     if custom_update_memory_prompt is None:
         global DEFAULT_UPDATE_MEMORY_PROMPT
