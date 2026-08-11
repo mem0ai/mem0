@@ -17,10 +17,9 @@
   },
   "mcpServers": {
     "mem0": {
+      "transport": "http",
       "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token ${env:MEM0_API_KEY}"
-      }
+      "bearerTokenEnvVar": "MEM0_API_KEY"
     }
   },
   "interface": {
