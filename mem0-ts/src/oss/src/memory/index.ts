@@ -993,7 +993,8 @@ export class Memory {
 
     for (const mem of extractedMemories) {
       const text = mem.text;
-      if (!text || !(text in embedMap)) continue;
+      if (!text || !Object.prototype.hasOwnProperty.call(embedMap, text))
+        continue;
 
       const memHash = createHash("md5").update(text).digest("hex");
       if (existingHashes.has(memHash) || seenHashes.has(memHash)) {
@@ -1936,8 +1937,12 @@ export class Memory {
     metadata: Record<string, any>,
   ): Promise<string> {
     const memoryId = uuidv4();
-    const embedding =
-      existingEmbeddings[data] || (await this.embedder.embed(data, "add"));
+    const embedding = Object.prototype.hasOwnProperty.call(
+      existingEmbeddings,
+      data,
+    )
+      ? existingEmbeddings[data]
+      : await this.embedder.embed(data, "add");
 
     const memoryMetadata = {
       ...metadata,
@@ -1980,9 +1985,12 @@ export class Memory {
     }
     const textChanged = newData !== prevValue;
 
-    const embedding =
-      existingEmbeddings[newData] ||
-      (await this.embedder.embed(newData, "update"));
+    const embedding = Object.prototype.hasOwnProperty.call(
+      existingEmbeddings,
+      newData,
+    )
+      ? existingEmbeddings[newData]
+      : await this.embedder.embed(newData, "update");
 
     const sanitizedMetadata = stripIdentityKeys(metadata);
 
