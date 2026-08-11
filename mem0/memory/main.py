@@ -22,7 +22,7 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError
+from mem0.exceptions import LLMError, VectorStoreError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
@@ -1048,13 +1048,26 @@ class Memory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
-        except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+        except Exception as batch_error:
+            # Fallback: insert one by one. Records the store still rejects are dropped so
+            # history, entity linking, and the returned payload never reference a memory
+            # that was not persisted.
+            persisted = []
+            for record in records:
+                mid, _, vec, pay = record
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    persisted.append(record)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+
+            if not persisted:
+                raise VectorStoreError(
+                    message="Failed to persist any extracted memories to the vector store",
+                    details={"attempted": len(records)},
+                ) from batch_error
+
+            records = persisted
 
         # Batch history
         history_records = [
@@ -2701,12 +2714,26 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+        except Exception as batch_error:
+            # Fallback: insert one by one. Records the store still rejects are dropped so
+            # history, entity linking, and the returned payload never reference a memory
+            # that was not persisted.
+            persisted = []
+            for record in records:
+                mid, _, vec, pay = record
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    persisted.append(record)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+
+            if not persisted:
+                raise VectorStoreError(
+                    message="Failed to persist any extracted memories to the vector store",
+                    details={"attempted": len(records)},
+                ) from batch_error
+
+            records = persisted
 
         # Batch history
         history_records = [
