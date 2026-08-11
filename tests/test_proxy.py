@@ -1,8 +1,9 @@
 import builtins
 import importlib
 import inspect
+import logging
 import sys
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, create_autospec, patch
 
 import pytest
 
@@ -62,6 +63,80 @@ def test_mem0_initialization_without_params(mock_openai_embedding_client, mock_o
 def test_chat_initialization(mock_memory_client):
     chat = Chat(mock_memory_client)
     assert isinstance(chat.completions, Completions)
+
+
+def test_async_add_to_memory_uses_oss_add_signature():
+    memory = create_autospec(Memory, instance=True)
+    completions = Completions(memory)
+    messages = [{"role": "user", "content": "Remember this"}]
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        completions._async_add_to_memory(
+            messages=messages,
+            user_id="alice",
+            agent_id=None,
+            run_id="run-1",
+            metadata={"source": "proxy"},
+            filters={"category": "preference"},
+        )
+        add_task = mock_thread.call_args.kwargs["target"]
+        add_task()
+
+    memory.add.assert_called_once_with(
+        messages=messages,
+        user_id="alice",
+        agent_id=None,
+        run_id="run-1",
+        metadata={"source": "proxy"},
+    )
+    mock_thread.assert_called_once()
+    assert mock_thread.call_args.kwargs["daemon"] is True
+    mock_thread.return_value.start.assert_called_once_with()
+
+
+def test_async_add_to_memory_combines_hosted_filters(mock_memory_client):
+    completions = Completions(mock_memory_client)
+    messages = [{"role": "user", "content": "Remember this"}]
+    filters = {"category": "preference", "user_id": "outdated"}
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        completions._async_add_to_memory(
+            messages=messages,
+            user_id="alice",
+            agent_id="assistant",
+            run_id=None,
+            metadata={"source": "proxy"},
+            filters=filters,
+        )
+        mock_thread.call_args.kwargs["target"]()
+
+    mock_memory_client.add.assert_called_once_with(
+        messages=messages,
+        metadata={"source": "proxy"},
+        filters={"category": "preference", "user_id": "alice", "agent_id": "assistant"},
+    )
+    assert filters == {"category": "preference", "user_id": "outdated"}
+
+
+def test_async_add_to_memory_logs_background_failures(caplog):
+    memory = create_autospec(Memory, instance=True)
+    memory.add.side_effect = RuntimeError("storage unavailable")
+    completions = Completions(memory)
+
+    with patch("mem0.proxy.main.threading.Thread") as mock_thread:
+        completions._async_add_to_memory(
+            messages=[{"role": "user", "content": "Remember this"}],
+            user_id="alice",
+            agent_id=None,
+            run_id=None,
+            metadata=None,
+            filters=None,
+        )
+        with caplog.at_level(logging.ERROR, logger="mem0.proxy.main"):
+            mock_thread.call_args.kwargs["target"]()
+
+    assert "Failed to add messages to memory asynchronously" in caplog.text
+    assert "storage unavailable" in caplog.text
 
 
 def test_completions_create(mock_memory_client, mock_litellm):
