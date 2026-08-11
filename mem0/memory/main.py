@@ -874,6 +874,7 @@ class Memory(MemoryBase):
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
             returned_memories = []
+            valid_messages = []
             for message_dict in messages:
                 if (
                     not isinstance(message_dict, dict)
@@ -885,6 +886,22 @@ class Memory(MemoryBase):
 
                 if message_dict["role"] == "system":
                     continue
+                valid_messages.append(message_dict)
+
+            if not valid_messages:
+                return returned_memories
+
+            # Batch embed
+            msg_contents = [msg["content"] for msg in valid_messages]
+            msg_embeddings = self.embedding_model.embed_batch(msg_contents, "add")
+            
+            vectors = []
+            ids = []
+            payloads = []
+
+            for idx, message_dict in enumerate(valid_messages):
+                msg_content = msg_contents[idx]
+                embedding = msg_embeddings[idx]
 
                 per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
@@ -893,19 +910,47 @@ class Memory(MemoryBase):
                 if actor_name:
                     per_msg_meta["actor_id"] = actor_name
 
-                msg_content = message_dict["content"]
-                msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
+                memory_id = str(uuid.uuid4())
+                new_metadata = deepcopy(per_msg_meta)
+                new_metadata["data"] = msg_content
+                new_metadata["hash"] = hashlib.md5(msg_content.encode()).hexdigest()
+                if "created_at" not in new_metadata:
+                    new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+                new_metadata["updated_at"] = new_metadata["created_at"]
+                new_metadata["text_lemmatized"] = lemmatize_for_bm25(msg_content)
+
+                vectors.append(embedding)
+                ids.append(memory_id)
+                payloads.append(new_metadata)
 
                 returned_memories.append(
                     {
-                        "id": mem_id,
+                        "id": memory_id,
                         "memory": msg_content,
                         "event": "ADD",
                         "actor_id": actor_name if actor_name else None,
                         "role": message_dict["role"],
                     }
                 )
+
+            # Batch insert to vector store
+            self.vector_store.insert(
+                vectors=vectors,
+                ids=ids,
+                payloads=payloads,
+            )
+
+            # Add history
+            for idx, memory_id in enumerate(ids):
+                self.db.add_history(
+                    memory_id,
+                    None,
+                    msg_contents[idx],
+                    "ADD",
+                    created_at=payloads[idx].get("updated_at"),
+                    is_deleted=0,
+                )
+
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE ===
