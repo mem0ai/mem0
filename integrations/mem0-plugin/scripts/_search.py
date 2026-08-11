@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.request
 
 SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
@@ -83,7 +84,8 @@ def search_memories(
         if min_score > 0:
             results = [m for m in results if m.get("score", 0) >= min_score]
         return results
-    except Exception:
+    except Exception as e:
+        print(f"[mem0] search request failed: {e}", file=sys.stderr)
         return []
 
 
