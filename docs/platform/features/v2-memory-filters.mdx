@@ -29,6 +29,35 @@ Filters use a nested JSON structure with logical operators at the root:
 }
 ```
 
+A single bare condition is fine on its own, no wrapper required:
+
+```python
+# Works: one condition, no wrapper needed
+filters = {"user_id": "user_123"}
+```
+
+But the moment you have more than one condition, a flat object with multiple sibling keys is rejected. Wrap them in `AND` (or `OR`/`NOT`) instead:
+
+```python
+# Rejected: multiple sibling keys with no logical wrapper
+filters = {
+    "user_id": "user_123",
+    "categories": {"in": ["finance"]}
+}
+
+# Correct: wrap the conditions in AND
+filters = {
+    "AND": [
+        {"user_id": "user_123"},
+        {"categories": {"in": ["finance"]}}
+    ]
+}
+```
+
+<Callout type="info" icon="cloud" color="#00A8FF">
+This wrapper requirement is specific to the hosted Platform API. The self-hosted OSS SDK is more forgiving: sibling top-level keys are implicitly ANDed there, so `{"user_id": "user_123", "categories": {"in": ["finance"]}}` works as-is. See [Enhanced Metadata Filtering](/open-source/features/metadata-filtering) for the OSS grammar.
+</Callout>
+
 ## Available fields and operators
 
 ### Entity fields
@@ -64,6 +93,14 @@ The `*` wildcard matches any non-null value. Records with null values for that f
 
 <Callout type="info" icon="keyboard" color="#00A8FF">
 Use operator keywords exactly as shown (`eq`, `ne`, `gte`, etc.). SQL-style symbols such as `>=` or `!=` are rejected by the Platform API.
+</Callout>
+
+<Callout type="warning" icon="exclamation-triangle" color="#E74C3C">
+There is no `nin` ("not in") operator on Platform. It is an OSS-only operator; see [Enhanced Metadata Filtering](/open-source/features/metadata-filtering). To exclude a set of values on Platform, wrap an `in` clause in `NOT`:
+
+```python
+{"NOT": {"categories": {"in": ["spam", "test"]}}}
+```
 </Callout>
 
 ## Common filter patterns
