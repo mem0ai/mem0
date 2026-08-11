@@ -1208,6 +1208,9 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Update label="2026-08-11" description="v3.1.6">
 
+**New Features:**
+- **Vector Stores:** Add an Oracle AI Vector Search vector store (`oracledb`) to the OSS SDK, with pooled connections, `HNSW`/`IVF` indexes, an optional `indexAccuracy` target, JSON payload filtering, and six selectable distance metrics ([#6690](https://github.com/mem0ai/mem0/pull/6690))
+
 **Bug Fixes:**
 - **Core:** Percent-escape `%`, `&`, and `=` in `userId`, `agentId`, and `runId` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
 - **Vector Stores:** Close and clear the Oracle pool that Mem0 created when `initialize()` fails, and reset the cached init promise so the next call retries instead of replaying the rejection forever. A caller-supplied `client` is left untouched ([#6839](https://github.com/mem0ai/mem0/pull/6839))
@@ -1224,7 +1227,6 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 <Update label="2026-08-05" description="v3.1.5">
 
 **New Features:**
-- **Vector Stores:** Add an Oracle AI Vector Search vector store (`oracledb`) to the OSS SDK, with pooled connections, `HNSW`/`IVF` indexes, an optional `indexAccuracy` target, JSON payload filtering, and six selectable distance metrics ([#6690](https://github.com/mem0ai/mem0/pull/6690))
 - **Client:** Add `agentCustomInstructions` to `PromptUpdatePayload`, `AddMemoryOptions`, and `ProjectResponse`. It sets a second extraction instruction set that applies only to agent-scoped memories: an add passing `agentId` without `userId` uses it, one passing both splits by attribution, and while it is unset `customInstructions` continues to apply to every memory ([#6809](https://github.com/mem0ai/mem0/pull/6809))
 
 </Update>
