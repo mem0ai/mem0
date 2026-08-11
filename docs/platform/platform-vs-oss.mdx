@@ -37,7 +37,7 @@ Mem0 offers two ways to add memory to your AI applications. Both run the same co
 The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `update`, `delete`, `delete_all`, and per-memory `history` all exist on the self-hosted `Memory`/`AsyncMemory` classes and on the hosted `MemoryClient`/`AsyncMemoryClient`. Both support:
 
 - **Entity scoping** by `user_id`, `agent_id`, and `run_id`
-- **Enhanced metadata filtering**: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`, wildcards, and nested `AND`/`OR`/`NOT` logic
+- **Metadata filtering**: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `icontains`, and wildcards match on both, and both understand `AND`/`OR`/`NOT` grouping. The grammar around that grouping differs (see below)
 - **Entity-aware ranking**: both extract entities from memory text and use shared entities to boost related results at search time
 - **Multimodal input**, **memory expiration** (`expiration_date`), **reranking**, **procedural memory** (Python), and **custom extraction instructions** (`custom_instructions`)
 - Python and JavaScript SDKs, plus a REST API (self-hosted via `server/`, or hosted)
@@ -79,6 +79,8 @@ The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `u
     | **Custom categories** | Set per project or per `add` call ([details](/platform/features/custom-categories)) | Not supported. `Memory.add()` has no `custom_categories` parameter, and OSS project updates are rejected outright |
     | **Webhooks** | Project-scoped HTTP callbacks on memory and ingest events ([details](/platform/features/webhooks)) | Not available |
     | **Memory Export** | Schema-driven structured export jobs over filtered memories ([details](/platform/features/memory-export)) | Not available |
+    | **Filter grouping grammar** | A bare single-condition filter works on its own, but combining more than one condition requires an explicit `AND`/`OR`/`NOT` wrapper ([details](/platform/features/v2-memory-filters)) | Top-level filter keys are implicitly ANDed, so a flat multi-key filter like `{"user_id": "alice", "category": "work"}` works without a wrapper |
+    | **`nin` (not-in) operator** | Not supported | Supported, alongside `in` |
   </Accordion>
 
   <Accordion title="Support" icon="life-ring">
