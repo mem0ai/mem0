@@ -2,7 +2,22 @@ import itertools
 
 from mem0.memory.main import _build_session_scope, _escape_scope_value
 
-DELIMITER_VALUES = ["%", "&", "=", "%25", "%26", "%3D", "a=="]
+DELIMITER_VALUES = [
+    "u1",
+    "r1",
+    "a1",
+    "%",
+    "&",
+    "=",
+    "%25",
+    "%26",
+    "%3D",
+    "a==",
+    "a1&run_id=r1",
+    "a1&user_id=u1",
+    "r1&user_id=u1",
+    "a1&run_id=r1&user_id=u1",
+]
 
 
 class TestBuildSessionScope:

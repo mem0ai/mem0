@@ -90,7 +90,19 @@ describe("Memory session scope key", () => {
 
   it("maps every distinct filter combination of delimiter-heavy ids to a distinct key", () => {
     const keys: string[] = ["user_id", "agent_id", "run_id"];
-    const values = ["%", "&", "=", "a=="];
+    const values = [
+      "u1",
+      "r1",
+      "a1",
+      "%",
+      "&",
+      "=",
+      "a==",
+      "a1&run_id=r1",
+      "a1&user_id=u1",
+      "r1&user_id=u1",
+      "a1&run_id=r1&user_id=u1",
+    ];
     const seen = new Map<string, SearchFilters>();
 
     for (let mask = 1; mask < 1 << keys.length; mask++) {
