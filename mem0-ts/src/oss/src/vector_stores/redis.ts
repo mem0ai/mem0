@@ -157,6 +157,18 @@ function toCamelCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
+function toCamelCasePreservingIds(
+  payload: Record<string, any>,
+): Record<string, any> {
+  const { agent_id, run_id, user_id, ...rest } = payload;
+  return {
+    ...toCamelCase(rest),
+    ...(agent_id !== undefined && { agent_id }),
+    ...(run_id !== undefined && { run_id }),
+    ...(user_id !== undefined && { user_id }),
+  };
+}
+
 export class RedisDB implements VectorStore {
   private client!: RedisClientType<
     RedisDefaultModules & RedisModules & RedisFunctions & RedisScripts
@@ -468,7 +480,7 @@ export class RedisDB implements VectorStore {
 
         return {
           id: doc.value.memory_id,
-          payload: toCamelCase(resultPayload),
+          payload: toCamelCasePreservingIds(resultPayload),
           score: Math.max(0, 1 - (Number(doc.value.__vector_score) ?? 0)),
         };
       });
@@ -573,7 +585,7 @@ export class RedisDB implements VectorStore {
 
       return {
         id: vectorId,
-        payload: toCamelCase(payload),
+        payload: toCamelCasePreservingIds(payload),
       };
     } catch (error) {
       console.error("Error getting vector:", error);
@@ -680,7 +692,7 @@ export class RedisDB implements VectorStore {
 
     const items = results.documents.map((doc) => ({
       id: doc.value.memory_id,
-      payload: toCamelCase({
+      payload: toCamelCasePreservingIds({
         hash: doc.value.hash,
         data: doc.value.memory,
         created_at: new Date(parseInt(doc.value.created_at)).toISOString(),

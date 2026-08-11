@@ -55,6 +55,18 @@ function toCamelCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
+function toCamelCasePreservingIds(
+  payload: Record<string, any>,
+): Record<string, any> {
+  const { agent_id, run_id, user_id, ...rest } = payload;
+  return {
+    ...toCamelCase(rest),
+    ...(agent_id !== undefined && { agent_id }),
+    ...(run_id !== undefined && { run_id }),
+    ...(user_id !== undefined && { user_id }),
+  };
+}
+
 interface ValkeySearchDoc {
   memory_id?: string;
   hash?: string;
@@ -388,7 +400,7 @@ export class ValkeyDB implements VectorStore {
 
     return {
       id: doc.memory_id ?? "",
-      payload: toCamelCase(resultPayload),
+      payload: toCamelCasePreservingIds(resultPayload),
       score,
     };
   }
