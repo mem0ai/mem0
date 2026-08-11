@@ -642,7 +642,7 @@ class Memory(MemoryBase):
                     payloads=[entity_payload],
                 )
         except Exception as e:
-            logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
+            logger.warning(f"Entity upsert failed for {entity_type} entity on memory {memory_id}: {e}")
 
     def _remove_memory_from_entity_store(self, memory_id, filters):
         """Strip `memory_id` from every entity record scoped to `filters`.
@@ -683,7 +683,7 @@ class Memory(MemoryBase):
                         try:
                             vec = self.embedding_model.embed(entity_text, "update")
                         except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
+                            logger.debug(f"Entity re-embed failed for entity id={row.id}: {e}")
                             continue
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
@@ -718,7 +718,7 @@ class Memory(MemoryBase):
                 try:
                     self._upsert_entity(entity_text, entity_type, memory_id, filters)
                 except Exception as e:
-                    logger.debug(f"Entity link failed for '{entity_text}': {e}")
+                    logger.debug(f"Entity link failed for {entity_type} entity on memory {memory_id}: {e}")
         except Exception as e:
             logger.warning(f"Entity linking failed for memory_id={memory_id}: {e}")
 
@@ -880,7 +880,10 @@ class Memory(MemoryBase):
                     or message_dict.get("role") is None
                     or message_dict.get("content") is None
                 ):
-                    logger.warning(f"Skipping invalid message format: {message_dict}")
+                    logger.warning(
+                        "Skipping invalid message format: expected dict with 'role' and 'content', "
+                        f"got {type(message_dict).__name__}"
+                    )
                     continue
 
                 if message_dict["role"] == "system":
@@ -1014,7 +1017,7 @@ class Memory(MemoryBase):
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
+                logger.debug(f"Skipping duplicate memory (hash match): {mem_hash}")
                 continue
             seen_hashes.add(mem_hash)
 
@@ -1159,7 +1162,7 @@ class Memory(MemoryBase):
                                     payload=payload,
                                 )
                             except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                                logger.debug(f"Entity update failed for {entity_type} entity id={match.id}: {e}")
                         else:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
@@ -1954,7 +1957,7 @@ class Memory(MemoryBase):
         return history
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
-        logger.debug(f"Creating memory with {data=}")
+        logger.debug(f"Creating memory ({len(data)} chars)")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
@@ -2025,7 +2028,7 @@ class Memory(MemoryBase):
         return result
 
     def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
-        logger.info(f"Updating memory with {data=}")
+        logger.info(f"Updating memory with {memory_id=}")
 
         try:
             existing_memory = self.vector_store.get(vector_id=memory_id)
@@ -2064,7 +2067,6 @@ class Memory(MemoryBase):
             vector=embeddings,
             payload=new_metadata,
         )
-        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
         self.db.add_history(
             memory_id,
@@ -2303,7 +2305,7 @@ class AsyncMemory(MemoryBase):
                     payloads=[entity_payload],
                 )
         except Exception as e:
-            logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
+            logger.warning(f"Entity upsert failed for {entity_type} entity on memory {memory_id} (async): {e}")
 
     async def _bulk_clear_entity_store(self, filters):
         """Delete all entity records matching the given scope filters.
@@ -2354,7 +2356,7 @@ class AsyncMemory(MemoryBase):
                         try:
                             vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
                         except Exception as e:
-                            logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
+                            logger.debug(f"Entity re-embed failed for entity id={row.id} (async): {e}")
                             continue
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
@@ -2386,7 +2388,7 @@ class AsyncMemory(MemoryBase):
                 try:
                     await self._upsert_entity_async(entity_text, entity_type, memory_id, filters)
                 except Exception as e:
-                    logger.debug(f"Entity link failed for '{entity_text}' (async): {e}")
+                    logger.debug(f"Entity link failed for {entity_type} entity on memory {memory_id} (async): {e}")
         except Exception as e:
             logger.warning(f"Entity linking failed for memory_id={memory_id} (async): {e}")
 
@@ -2535,7 +2537,10 @@ class AsyncMemory(MemoryBase):
                     or message_dict.get("role") is None
                     or message_dict.get("content") is None
                 ):
-                    logger.warning(f"Skipping invalid message format (async): {message_dict}")
+                    logger.warning(
+                        "Skipping invalid message format (async): expected dict with 'role' and "
+                        f"'content', got {type(message_dict).__name__}"
+                    )
                     continue
 
                 if message_dict["role"] == "system":
@@ -2666,7 +2671,7 @@ class AsyncMemory(MemoryBase):
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
+                logger.debug(f"Skipping duplicate memory (hash match, async): {mem_hash}")
                 continue
             seen_hashes.add(mem_hash)
 
@@ -2811,7 +2816,7 @@ class AsyncMemory(MemoryBase):
                                     payload=payload,
                                 )
                             except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+                                logger.debug(f"Entity update failed for {entity_type} entity id={match.id} (async): {e}")
                         else:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
@@ -3621,7 +3626,7 @@ class AsyncMemory(MemoryBase):
         return history
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
-        logger.debug(f"Creating memory with {data=}")
+        logger.debug(f"Creating memory ({len(data)} chars)")
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
@@ -3714,7 +3719,7 @@ class AsyncMemory(MemoryBase):
         return result
 
     async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
-        logger.info(f"Updating memory with {data=}")
+        logger.info(f"Updating memory with {memory_id=}")
 
         try:
             existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
@@ -3754,7 +3759,6 @@ class AsyncMemory(MemoryBase):
             vector=embeddings,
             payload=new_metadata,
         )
-        logger.info(f"Updating memory with ID {memory_id=} with {data=}")
 
         await asyncio.to_thread(
             self.db.add_history,

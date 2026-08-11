@@ -1178,3 +1178,88 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+# Memory content is personal data by design - the extraction prompts explicitly
+# harvest health, dietary, relationship and professional details. It must never
+# reach application logs, which have different retention and access controls than
+# the memory store the operator actually vetted.
+SENSITIVE_TEXT = "User has type 2 diabetes and takes metformin daily"
+
+
+def _log_messages(caplog):
+    return " || ".join(record.message for record in caplog.records)
+
+
+class TestMemoryContentNotLogged:
+    def test_update_memory_does_not_log_content(self, mocker, caplog):
+        memory = _build_memory_instance(mocker, Memory)
+        memory.vector_store.get.return_value = SimpleNamespace(
+            payload={"data": "old value", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            memory._update_memory("mem-1", SENSITIVE_TEXT, {})
+
+        assert SENSITIVE_TEXT not in _log_messages(caplog)
+
+    def test_update_memory_still_logs_the_memory_id(self, mocker, caplog):
+        """Redaction must not cost us the correlation handle."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.vector_store.get.return_value = SimpleNamespace(
+            payload={"data": "old value", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        with caplog.at_level(logging.INFO):
+            memory._update_memory("mem-correlate-42", SENSITIVE_TEXT, {})
+
+        assert "mem-correlate-42" in _log_messages(caplog)
+
+    def test_create_memory_does_not_log_content(self, mocker, caplog):
+        memory = _build_memory_instance(mocker, Memory)
+
+        with caplog.at_level(logging.DEBUG):
+            memory._create_memory(SENSITIVE_TEXT, {SENSITIVE_TEXT: [0.1, 0.2, 0.3]}, metadata={})
+
+        assert SENSITIVE_TEXT not in _log_messages(caplog)
+
+    def test_invalid_message_is_not_logged_verbatim(self, mocker, caplog):
+        """The rejected dict carries raw conversation content - log its shape, not its value."""
+        memory = _build_memory_instance(mocker, Memory)
+
+        with caplog.at_level(logging.DEBUG):
+            memory._add_to_vector_store(
+                messages=[{"content": SENSITIVE_TEXT}],  # no 'role' -> rejected
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=False,
+            )
+
+        messages = _log_messages(caplog)
+        assert SENSITIVE_TEXT not in messages
+        assert "Skipping invalid message format" in messages
+
+    def test_entity_upsert_failure_does_not_log_entity_value(self, mocker, caplog):
+        """Entity values are extracted names, orgs and locations - personal data."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory._entity_store = mocker.MagicMock()
+        memory._entity_store.search.side_effect = RuntimeError("entity store down")
+
+        with caplog.at_level(logging.DEBUG):
+            memory._upsert_entity("Gwendolyn Fairweather-Blythe", "PERSON", "mem-1", {"user_id": "u1"})
+
+        messages = _log_messages(caplog)
+        assert "Gwendolyn Fairweather-Blythe" not in messages
+        assert "Entity upsert failed" in messages
+
+    @pytest.mark.asyncio
+    async def test_async_update_memory_does_not_log_content(self, mocker, caplog):
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.vector_store.get.return_value = SimpleNamespace(
+            payload={"data": "old value", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        with caplog.at_level(logging.DEBUG):
+            await memory._update_memory("mem-1", SENSITIVE_TEXT, {})
+
+        assert SENSITIVE_TEXT not in _log_messages(caplog)
