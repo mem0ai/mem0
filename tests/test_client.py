@@ -181,6 +181,91 @@ class TestGetAllTypedOptionsParity:
         )
 
 
+class TestGetAllPageSizeQueryParams:
+    """MEM-6227: page and page_size must reach the API as query params independently."""
+
+    def test_get_all_page_size_alone_lands_in_query_params(self, mock_memory_client):
+        """get_all(page_size=...) without page should send page_size as a query param."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page_size=50)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page_size": 50},
+        )
+
+    def test_get_all_page_alone_lands_in_query_params(self, mock_memory_client):
+        """get_all(page=...) without page_size should send page as a query param."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page=2)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page": 2},
+        )
+
+    def test_get_all_page_and_page_size_together(self, mock_memory_client):
+        """get_all(page=..., page_size=...) should send both as query params."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.get_all(filters={"user_id": "u1"}, page=2, page_size=50)
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page": 2, "page_size": 50},
+        )
+
+    def test_get_all_neither_page_nor_page_size_sends_no_query_params(self, mock_memory_client):
+        """get_all() without page or page_size should not pass a params kwarg."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.get_all(filters={"user_id": "u1"})
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+        )
+
+    def test_async_get_all_page_size_alone_lands_in_query_params(self):
+        asyncio.run(self._assert_async_get_all_page_size_alone())
+
+    async def _assert_async_get_all_page_size_alone(self):
+        from mem0.client.main import AsyncMemoryClient
+
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        client.async_client.post = AsyncMock(return_value=mock_response)
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get_all(filters={"user_id": "u1"}, page_size=50)
+
+        client.async_client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page_size": 50},
+        )
+
+
 class TestUpdateExpirationDate:
     """Tests for update expiration_date payload handling."""
 
