@@ -505,7 +505,10 @@ export class Memory {
           if (!exactMatch) {
             try {
               matches = await entityStore.search(entityVec, 1, filters);
-            } catch {}
+            } catch (e) {
+              console.warn(`Entity search failed for '${entity.text}': ${e}`);
+              continue;
+            }
           }
 
           const semanticMatch =
@@ -1200,7 +1203,10 @@ export class Memory {
             if (!exactMatch) {
               try {
                 matches = await entityStore.search(entityVec, 1, filters);
-              } catch {}
+              } catch (e) {
+                console.warn(`Entity search failed for '${entityText}': ${e}`);
+                continue;
+              }
             }
 
             const semanticMatch =
