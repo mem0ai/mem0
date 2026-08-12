@@ -220,32 +220,3 @@ export async function cleanupTestUser(
     // ignore
   }
 }
-
-/**
- * Full project wipe — deletes all memories and all entities.
- * Equivalent to Python SDK's:
- *   client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
- *
- * Used as cleanup before and after integration test runs so tests
- * start from a clean slate and don't leave data behind.
- */
-export async function fullProjectCleanup(client: MemoryClient): Promise<void> {
-  // Delete all memories — all four filters set explicitly
-  try {
-    await client.deleteAll({
-      userId: "*",
-      agentId: "*",
-      appId: "*",
-      runId: "*",
-    });
-  } catch {
-    // ignore — may 404 if no data exists
-  }
-
-  // Delete all entities (users, agents, apps, runs)
-  try {
-    await client.deleteUsers();
-  } catch {
-    // ignore — may throw "No entities to delete"
-  }
-}
