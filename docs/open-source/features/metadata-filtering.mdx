@@ -265,7 +265,7 @@ Vector store support varies widely. This table reflects what each provider's fil
 | pgvector | Full support (`in`/`nin` must be a list, or the call raises `ValueError`) | Yes, via SQL `LIKE`/`ILIKE` | Yes, nested | Requires the key to exist in the payload |
 | Chroma | Full support | No: silently falls back to equality | Yes, one level of nesting | No-op: the filter is dropped |
 | Pinecone | Full support | Not implemented | Not implemented: filters are only ANDed field-by-field | Not implemented: `"*"` is matched as the literal string `"*"`, not a wildcard |
-| Weaviate | Not implemented: every filter value is matched as an exact equality | Not implemented | Not implemented: only an implicit AND across fields | Not implemented |
+| Weaviate | Not implemented: only `user_id`, `agent_id` and `run_id` are filtered on, as exact equality. Every other key, including all metadata, is silently dropped | Not implemented | Not implemented: only an implicit AND across the three supported keys | Not implemented |
 
 <Warning>
   If an operator is unsupported, most stores silently ignore it or fall back to equality rather than raising an error. Test filters against your actual store instead of assuming operator parity with Qdrant.
