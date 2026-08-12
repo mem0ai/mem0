@@ -27,8 +27,8 @@ This is a polyglot monorepo and **every package sets its own rules**. Read the `
 | `mem0/` | [`mem0/AGENTS.md`](mem0/AGENTS.md) | hatch, ruff 120, pytest |
 | `tests/` | [`tests/AGENTS.md`](tests/AGENTS.md) | pytest |
 | `mem0-ts/` | [`mem0-ts/AGENTS.md`](mem0-ts/AGENTS.md) | pnpm, tsup, Prettier, jest |
-| `cli/python/` | `CONTRIBUTING.md` | ruff **100**, pytest |
-| `cli/node/` | `CONTRIBUTING.md` | pnpm, tsup, Biome, vitest |
+| `cli/python/` | [`cli/python/AGENTS.md`](cli/python/AGENTS.md) | ruff **100**, pytest |
+| `cli/node/` | [`cli/node/AGENTS.md`](cli/node/AGENTS.md) | pnpm, tsup, Biome, vitest |
 | `integrations/` | [`integrations/AGENTS.md`](integrations/AGENTS.md) | varies per integration |
 | `server/` | [`server/AGENTS.md`](server/AGENTS.md) | Docker Compose, FastAPI |
 | `docs/` | [`docs/AGENTS.md`](docs/AGENTS.md) | Mintlify |
