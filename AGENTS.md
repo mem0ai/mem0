@@ -512,7 +512,7 @@ Every PR must follow the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md`)
 2. **Description** — Explain what the PR does and why it's needed.
 3. **Type of Change** — Check the appropriate box:
    - Bug fix / New feature / Breaking change / Refactor / Documentation update
-4. **AI Assistance** — Declare how the diff was written:
+4. **AI Assistance** — Declare how the **code** was written (writing the PR description with AI is fine):
    - No AI assistance / AI-assisted / AI-generated
    - Name the tool and say what you verified yourself
    - Attest that you can explain every line without an AI tool
@@ -549,6 +549,8 @@ Closes #<!-- issue number -->
 - [ ] Documentation update
 
 ## AI Assistance
+
+<!-- This is about the code, not this description. Writing the description with AI is fine. -->
 
 - [ ] No AI assistance
 - [ ] AI-assisted (autocomplete, or I asked a model questions while writing this)
@@ -592,7 +594,7 @@ N/A
 | Code contributions | `docs/contributing/development.mdx` |
 | Documentation contributions | `docs/contributing/documentation.mdx` |
 | PR template | `.github/PULL_REQUEST_TEMPLATE.md` |
-| Bug reports | `.github/ISSUE_TEMPLATE/bug_report.md` (markdown, not a form) |
+| Bug reports | `.github/ISSUE_TEMPLATE/bug_report.yml` |
 | Feature requests | `.github/ISSUE_TEMPLATE/feature_request.yml` |
 | Documentation issues | `.github/ISSUE_TEMPLATE/documentation_issue.yml` |
 

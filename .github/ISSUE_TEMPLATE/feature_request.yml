@@ -1,27 +1,8 @@
 name: Feature Request
-description: Propose a change to what mem0 does
+description: Suggest a new feature or improvement for mem0
 labels: ["enhancement"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Opening this does not mean the feature will be built, and it is not a
-        licence to open a pull request. A maintainer labels the issue `accepted`
-        when we agree it is work we want. Pull requests that don't link an
-        accepted issue are closed automatically.
-
-        Start with the problem, not the solution. Proposals that describe an
-        implementation without a concrete use case are usually closed.
-
-  - type: checkboxes
-    id: preflight
-    attributes:
-      label: Before you file
-      options:
-        - label: I searched open and closed issues and this is not a duplicate.
-          required: true
-
   - type: dropdown
     id: component
     attributes:
@@ -38,34 +19,20 @@ body:
       required: true
 
   - type: textarea
-    id: problem
+    id: description
     attributes:
-      label: The problem
-      description: >
-        What are you trying to do that mem0 makes hard or impossible today?
-        Describe the situation you hit, not the feature you want.
+      label: Description
+      value: |
+        ### Use Case
+
+        What problem are you trying to solve?
+
+        ### Proposed Solution
+
+        How should this work? Include API examples or pseudocode if helpful.
+
+        ### Alternatives Considered
+
+        Any workarounds you've tried or other approaches considered.
     validations:
       required: true
-
-  - type: textarea
-    id: workaround
-    attributes:
-      label: What you do today
-      description: The workaround you are currently living with, and why it is not enough.
-    validations:
-      required: true
-
-  - type: textarea
-    id: proposal
-    attributes:
-      label: Proposed solution
-      description: How it might work. API sketches or pseudocode welcome.
-    validations:
-      required: false
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-    validations:
-      required: false

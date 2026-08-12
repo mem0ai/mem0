@@ -18,7 +18,7 @@ in code.
 - Search [existing issues](https://github.com/mem0ai/mem0/issues) first to see if
   your bug or idea already exists.
 - If it doesn't, open a
-  [bug report](https://github.com/mem0ai/mem0/issues/new?template=bug_report.md) or
+  [bug report](https://github.com/mem0ai/mem0/issues/new?template=bug_report.yml) or
   [feature request](https://github.com/mem0ai/mem0/issues/new?template=feature_request.yml).
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach
   before starting significant work.
@@ -54,10 +54,12 @@ by interrogating an agent about this codebase until you grasp the edge cases and
 the blast radius of your change. What is not fine is opening a pull request for
 a diff you cannot defend in review.
 
-Disclose it in the pull request template. We ask because it tells reviewers
-where to look, not because it counts against you. An honest "an agent wrote
-this, here is what I verified myself" is welcome. Silence, followed by a review
-comment you cannot answer, is what wastes everyone's time.
+Disclose it in the pull request template and say what you checked yourself.
+We ask about the code, not the write-up: using AI to draft the pull request
+description is fine. We ask because it tells reviewers where to look, not
+because it counts against you. An honest "an agent wrote this, here is what I
+verified" is welcome. Silence, followed by a review comment you cannot answer,
+is what wastes everyone's time.
 
 Signs your pull request will be closed:
 

@@ -1,6 +1,6 @@
 ## Linked Issue
 
-Closes #<!-- issue number. The issue must carry the `accepted` label, or this PR is closed automatically. Docs-only changes are exempt. -->
+Closes #<!-- issue number -->
 
 ## Description
 
@@ -16,16 +16,13 @@ Closes #<!-- issue number. The issue must carry the `accepted` label, or this PR
 
 ## AI Assistance
 
-Using AI to write code is fine and we do it too. Not understanding the code you
-submit is not. Tell us how this was written so reviewers know where to look.
+<!-- This is about the code, not this description. Writing the description with AI is fine. -->
 
 - [ ] No AI assistance
 - [ ] AI-assisted (autocomplete, or I asked a model questions while writing this)
 - [ ] AI-generated (an agent wrote most or all of this diff)
 
-If you ticked either AI box, tell us which tool and what you checked yourself:
-
-<!-- e.g. "Claude Code wrote the retry loop. I verified the backoff math by hand and ran the new tests against a live Qdrant instance." -->
+<!-- If you ticked either AI box, name the tool and what you checked yourself. -->
 
 - [ ] **I can explain every line of this diff and how it interacts with the rest of the codebase, without asking an AI tool.**
 

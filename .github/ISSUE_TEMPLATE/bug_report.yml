@@ -1,26 +1,8 @@
 name: Bug Report
-description: Something in mem0 is broken and you can reproduce it
+description: Report a bug in mem0
 labels: ["bug"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        A bug report needs a reproduction we can run. Reports without one
-        cannot be acted on and will be closed.
-
-        Not sure it's a bug? Ask on [Discord](https://discord.gg/6PzXDgEjG5) first.
-
-  - type: checkboxes
-    id: preflight
-    attributes:
-      label: Before you file
-      options:
-        - label: I searched open and closed issues and this is not a duplicate.
-          required: true
-        - label: I am on the latest version, or I confirmed the bug still exists there.
-          required: true
-
   - type: dropdown
     id: component
     attributes:
@@ -36,55 +18,36 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: version
-    attributes:
-      label: mem0 version
-      placeholder: "mem0ai 0.1.31"
-    validations:
-      required: true
-
-  - type: input
-    id: environment
-    attributes:
-      label: Runtime and OS
-      placeholder: "Python 3.11.6 on macOS 15.2"
-    validations:
-      required: true
-
   - type: textarea
-    id: summary
+    id: description
     attributes:
-      label: What happened
-      description: What you expected, and what you got instead.
+      label: Description
+      value: |
+        ### Summary
+
+        A clear summary of the bug.
+
+        ### Steps to Reproduce
+
+        ```python
+        from mem0 import Memory
+
+        m = Memory()
+        # Your code here...
+        ```
+
+        ### Expected Behavior
+
+        What you expected to happen.
+
+        ### Actual Behavior
+
+        What actually happened. Paste the full error traceback if applicable.
+
+        ### Environment
+
+        - mem0 version:
+        - Python/Node version:
+        - OS:
     validations:
       required: true
-
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Reproduction
-      description: >
-        The smallest complete program that triggers the bug. We must be able to
-        run this as-is. Replace secrets with placeholders, but leave the config
-        structure intact.
-      render: python
-    validations:
-      required: true
-
-  - type: textarea
-    id: output
-    attributes:
-      label: Actual output
-      description: The full traceback or error, copied verbatim. Not a summary of it.
-      render: text
-    validations:
-      required: true
-
-  - type: textarea
-    id: context
-    attributes:
-      label: Anything else
-      description: Vector store, LLM provider, graph store, or config that might matter.
-    validations:
-      required: false
