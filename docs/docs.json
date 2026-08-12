@@ -1036,6 +1036,10 @@
       "destination": "/platform/features/graph-memory"
     },
     {
+      "source": "/open-source/features/graph-memory",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
       "source": "/features/:slug",
       "destination": "/platform/features/:slug"
     },
