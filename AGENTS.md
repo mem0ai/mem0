@@ -505,6 +505,9 @@ When uncertain about expected artifacts, ask for clarification.
 5. Run `pre-commit install` on first setup — hooks run ruff + isort automatically.
 6. Commit with a clear message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat:`, `fix:`, `docs:`, `refactor:`).
 7. Push and open a Pull Request against `main`.
+8. Sign the CLA. The `CLAassistant` bot comments on your first PR with a link. **No PR is merged until it is signed**, and it only needs doing once per account.
+
+All participation is covered by [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Beyond the usual conduct rules, its **Contribution Conduct** section is the enforceable form of this repo's anti-slop policy: disclose AI use, do not submit work you have not run, do not fabricate reproductions or benchmarks, keep your volume matched to your engagement, and do not press for merges.
 
 ### Pull Request Requirements
 
@@ -595,6 +598,9 @@ N/A
 |------|-------|
 | Code contributions | `docs/contributing/development.mdx` |
 | Documentation contributions | `docs/contributing/documentation.mdx` |
+| Code of conduct | `CODE_OF_CONDUCT.md` |
+| Security reports | `SECURITY.md` |
+| Trust list (vouch) | `.github/VOUCHED.td` |
 | PR template | `.github/PULL_REQUEST_TEMPLATE.md` |
 | Bug reports | `.github/ISSUE_TEMPLATE/bug_report.yml` |
 | Feature requests | `.github/ISSUE_TEMPLATE/feature_request.yml` |

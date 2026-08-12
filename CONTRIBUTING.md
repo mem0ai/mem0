@@ -7,6 +7,12 @@ new features, documentation, examples, and integrations.
 Mem0 is a polyglot monorepo, and this guide covers contributing to both the
 **Python SDK** and the **TypeScript SDK** (and the rest of the repository).
 
+By participating you agree to our [Code of Conduct](./CODE_OF_CONDUCT.md). Its
+**Contribution Conduct** section is the enforceable form of the rules on this
+page: disclose AI use, don't submit work you haven't run, don't fabricate
+reproductions or benchmarks, keep your volume matched to your engagement, and
+don't press for merges.
+
 ## Before You Start
 
 ### 1. Open an Issue First
