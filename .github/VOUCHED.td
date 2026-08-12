@@ -5,8 +5,11 @@
 #
 # Vouch automatically allows two kinds of account without consulting this file:
 # accounts ending in [bot], and repo collaborators with write or admin
-# permission. Org membership on its own is NOT enough, so every mem0ai org
-# member is listed here explicitly and must stay listed.
+# permission. Org membership on its own is NOT one of them, so
+# vouch-check-pr.yml skips the check entirely for OWNER, MEMBER, and
+# COLLABORATOR authors. mem0ai org members are listed below as well, but that
+# workflow guard is what actually protects them: a missing, misspelled, or
+# miscased entry here can never cause a member to be flagged.
 #
 # Syntax:
 #  - One handle per line (without @), sorted alphabetically.

@@ -14,7 +14,9 @@ permissions:
 
 jobs:
   check:
-    if: github.event.pull_request.user.type != 'Bot'
+    if: >-
+      github.event.pull_request.user.type != 'Bot' &&
+      !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     steps:
       - uses: mitchellh/vouch/action/check-pr@d66fa29a64600490892131ad87597c30c91fcac4 # v1.5.0
