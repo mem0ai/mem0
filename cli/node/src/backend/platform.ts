@@ -153,6 +153,8 @@ export class PlatformBackend implements Backend {
 		if (opts.expires) payload.expiration_date = opts.expires;
 		if (opts.customInstructions)
 			payload.custom_instructions = opts.customInstructions;
+		if (opts.agentCustomInstructions)
+			payload.agent_custom_instructions = opts.agentCustomInstructions;
 		if (opts.customCategories)
 			payload.custom_categories = opts.customCategories;
 		if (opts.structuredDataSchema)
