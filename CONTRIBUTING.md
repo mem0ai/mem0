@@ -38,7 +38,31 @@ requests at all. Follow the [Security Policy](./SECURITY.md) instead, which uses
 a private advisory and a private fork so the vulnerability isn't disclosed before
 the fix ships.
 
-### 2. Sign the Contributor License Agreement (CLA)
+### 2. Understand Your Code
+
+**You must be able to explain what your changes do and how they interact with
+the rest of the codebase without the help of an AI tool.** This is the one rule
+we will not bend on.
+
+Using AI to write code is fine. Most of us do. You can build real understanding
+by interrogating an agent about this codebase until you grasp the edge cases and
+the blast radius of your change. What is not fine is opening a pull request for
+a diff you cannot defend in review.
+
+Disclose it in the pull request template. We ask because it tells reviewers
+where to look, not because it counts against you. An honest "an agent wrote
+this, here is what I verified myself" is welcome. Silence, followed by a review
+comment you cannot answer, is what wastes everyone's time.
+
+Signs your pull request will be closed:
+
+- Invented APIs, config keys, or providers that don't exist in this repo.
+- Tests that assert the implementation back at itself rather than the behaviour.
+- A description that describes a different change than the diff makes.
+- Sweeping unrelated reformatting bundled with a small fix.
+- You cannot answer a direct question about your own diff.
+
+### 3. Sign the Contributor License Agreement (CLA)
 
 **We cannot accept or merge any pull request until you have signed our Contributor
 License Agreement (CLA).**

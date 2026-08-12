@@ -1,23 +1,33 @@
 name: Documentation Issue
-description: Report an issue or suggest an improvement to the mem0 docs
+description: Something in the docs is wrong, missing, or unclear
 labels: ["documentation"]
 
 body:
-  - type: textarea
-    id: description
+  - type: markdown
     attributes:
-      label: Description
       value: |
-        ### Page
+        Documentation-only pull requests skip the accepted-issue gate, so if you
+        already know the fix you can open one directly instead of filing this.
 
-        Link to the docs page: https://docs.mem0.ai/...
-
-        ### What's Wrong or Missing
-
-        Describe what's incorrect, unclear, or missing.
-
-        ### Suggested Fix
-
-        How should the docs be improved?
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      placeholder: "https://docs.mem0.ai/open-source/python-quickstart"
     validations:
       required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong
+      description: Quote the specific text that is incorrect, unclear, or missing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested fix
+    validations:
+      required: false

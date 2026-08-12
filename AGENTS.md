@@ -508,61 +508,15 @@ When uncertain about expected artifacts, ask for clarification.
 
 Every PR must follow the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md`):
 
-1. **Linked Issue** — Reference the issue with `Closes #<number>`. If no issue exists, create one first or explain why in the description.
+1. **Linked Issue** — Reference the issue with `Closes #<number>`. The issue must carry the `accepted` label or the [PR Gate](.github/workflows/pr-gate.yml) closes the PR automatically. Docs-only PRs are exempt.
 2. **Description** — Explain what the PR does and why it's needed.
-3. **Type of Change** — Check the appropriate box:
-   - Bug fix / New feature / Breaking change / Refactor / Documentation update
-4. **Breaking Changes** — If applicable, describe what breaks and the migration path.
-5. **Test Coverage** — Check what applies:
-   - Added/updated unit tests
-   - Added/updated integration tests
-   - Tested manually (describe how)
-   - No tests needed (explain why)
-6. **Checklist** — All must be checked before merge:
-   - [ ] Code follows the project's style guidelines
-   - [ ] Self-review performed
-   - [ ] Tests added that prove the fix/feature works
-   - [ ] New and existing tests pass locally
-   - [ ] Documentation updated if needed
+3. **Type of Change** — Bug fix / New feature / Breaking change / Refactor / Documentation update.
+4. **AI Assistance** — Declare whether the diff was written unaided, AI-assisted, or AI-generated, and attest that you can explain every line without an AI tool. See ["Understand Your Code"](CONTRIBUTING.md) for the policy.
+5. **Breaking Changes** — If applicable, describe what breaks and the migration path.
+6. **Test Coverage** — Unit tests / integration tests / manual testing / no tests needed (explain why).
+7. **Checklist** — Style guidelines, self-review, tests added, tests pass locally, docs updated.
 
-### PR Description Template
-
-```markdown
-## Linked Issue
-
-Closes #<!-- issue number -->
-
-## Description
-
-<!-- What does this PR do? Why is it needed? -->
-
-## Type of Change
-
-- [ ] Bug fix (non-breaking change that fixes an issue)
-- [ ] New feature (non-breaking change that adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to change)
-- [ ] Refactor (no functional changes)
-- [ ] Documentation update
-
-## Breaking Changes
-
-N/A
-
-## Test Coverage
-
-- [ ] I added/updated unit tests
-- [ ] I added/updated integration tests
-- [ ] I tested manually (describe below)
-- [ ] No tests needed (explain why)
-
-## Checklist
-
-- [ ] My code follows the project's style guidelines
-- [ ] I have performed a self-review of my code
-- [ ] I have added tests that prove my fix/feature works
-- [ ] New and existing tests pass locally
-- [ ] I have updated documentation if needed
-```
+The canonical template lives at [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Read it there rather than duplicating it here.
 
 ### General Rules
 

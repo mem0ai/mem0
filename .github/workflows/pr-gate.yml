@@ -8,6 +8,9 @@ concurrency:
   group: pr-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+env:
+  GATE_EFFECTIVE_FROM: '2026-08-12T00:00:00Z'
+
 permissions:
   contents: read
   pull-requests: write
@@ -26,6 +29,12 @@ jobs:
           script: |
             const pr = context.payload.pull_request;
             const { owner, repo } = context.repo;
+
+            const effectiveFrom = process.env.GATE_EFFECTIVE_FROM;
+            if (effectiveFrom && Date.parse(pr.created_at) < Date.parse(effectiveFrom)) {
+              core.info(`Opened ${pr.created_at}, before the gate took effect ${effectiveFrom}. Skipped.`);
+              return;
+            }
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number: pr.number, per_page: 100,
