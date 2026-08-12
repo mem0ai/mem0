@@ -43,11 +43,11 @@ mem0-ts/src/
 
 ## Public API
 
-| Export | Purpose | Import |
-|--------|---------|--------|
-| `MemoryClient` | Hosted platform client | `import { MemoryClient } from 'mem0ai'` |
-| `Memory` | Self-hosted OSS memory | `import { Memory } from 'mem0ai/oss'` |
-| Providers | OSS building blocks | `import { OpenAIEmbedding } from 'mem0ai/oss'` |
+| Export         | Purpose                | Import                                         |
+| -------------- | ---------------------- | ---------------------------------------------- |
+| `MemoryClient` | Hosted platform client | `import { MemoryClient } from 'mem0ai'`        |
+| `Memory`       | Self-hosted OSS memory | `import { Memory } from 'mem0ai/oss'`          |
+| Providers      | OSS building blocks    | `import { OpenAIEmbedding } from 'mem0ai/oss'` |
 
 The method surface mirrors the Python SDK: `add`, `search`, `get`, `getAll`, `update`, `delete`, `deleteAll`, `history`. Changing any public signature means updating `docs/` in the same PR.
 
