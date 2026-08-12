@@ -18,10 +18,15 @@ in code.
 - Search [existing issues](https://github.com/mem0ai/mem0/issues) first to see if
   your bug or idea already exists.
 - If it doesn't, open a
-  [bug report](https://github.com/mem0ai/mem0/issues/new?template=bug_report.yml) or
+  [bug report](https://github.com/mem0ai/mem0/issues/new?template=bug_report.md) or
   [feature request](https://github.com/mem0ai/mem0/issues/new?template=feature_request.yml).
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach
   before starting significant work.
+
+A bug report needs a reproduction we can run, the version you are on, and the
+real output or traceback you saw. Reports without those cannot be acted on and
+get closed. A feature request needs the problem you hit and the workaround you
+are living with, not just the API you would like.
 
 Every pull request must link to an issue using `Closes #<issue-number>`, and that
 issue must carry the `accepted` label. A maintainer applies `accepted` once we
