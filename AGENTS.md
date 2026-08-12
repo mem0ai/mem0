@@ -18,7 +18,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 
 | Directory | Description |
 |-----------|-------------|
-| `mem0/` | Core Python SDK (`mem0ai` on PyPI) — memory, LLMs, embeddings, vector stores, graphs, rerankers |
+| `mem0/` | Core Python SDK (`mem0ai` on PyPI) — memory, LLMs, embeddings, vector stores, rerankers |
 | `mem0-ts/` | TypeScript SDK (`mem0ai` on npm) — client + OSS memory |
 | `cli/python/` | Python CLI (`mem0-cli` on PyPI) — Typer-based, entry point `mem0` |
 | `cli/node/` | Node CLI (`@mem0/cli` on npm) — Commander-based, entry point `mem0` |
@@ -41,13 +41,29 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 ### Core Package Dependencies
 
 ```
-mem0 (Python SDK)          mem0-ts (TypeScript SDK)
-├── mem0/memory/           ├── src/client/        (MemoryClient — hosted)
-├── mem0/llms/             └── src/oss/           (Memory — self-hosted)
-├── mem0/embeddings/           ├── src/llms/
-├── mem0/vector_stores/        ├── src/embeddings/
-├── mem0/graphs/               ├── src/vector_stores/
-└── mem0/reranker/             └── src/graphs/
+mem0 (Python SDK)
+├── mem0/memory/
+├── mem0/llms/
+├── mem0/embeddings/
+├── mem0/vector_stores/
+└── mem0/reranker/
+
+mem0-ts (TypeScript SDK)
+├── src/client/       (MemoryClient – hosted)
+└── src/oss/          (Memory – self-hosted)
+   ├── examples/
+   ├── src/
+   │   ├── config/
+   │   ├── embeddings/
+   │   ├── llms/
+   │   ├── memory/
+   │   ├── prompts/
+   │   ├── rerankers/
+   │   ├── storage/
+   │   ├── types/
+   │   ├── utils/
+   │   └── vector_stores/
+   └── tests/
 
 cli/python/ ──▶ mem0ai (optional, for OSS mode)
 cli/node/   ──▶ mem0ai (npm, for API calls)
@@ -304,7 +320,7 @@ python -m benchmarks.beam.run --project-name my-test --backend cloud --mem0-api-
 
 ### Python Conventions
 
-- **Provider pattern:** All providers (LLMs, embeddings, vector stores, graphs, rerankers) inherit from a `base.py` abstract class in their directory. Config classes live in `configs.py`.
+- **Provider pattern:** All providers (LLMs, embeddings, vector stores, rerankers) inherit from a `base.py` abstract class in their directory. Config classes live in `configs.py`.
 - **Pydantic v2** for all data models and configuration.
 - **Ruff** is the single linting and formatting tool — no black, no flake8.
   - Root SDK: line length **120**
@@ -341,11 +357,13 @@ The SDK uses a consistent plugin architecture across 5 categories. Each category
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| **LLMs** | 24 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
-| **Vector Stores** | 30 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
-| **Embeddings** | 15 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
-| **Graph Stores** | 4 | Neo4j, Memgraph, Kuzu, Apache AGE |
+| **LLMs** | 18 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
+| **Vector Stores** | 25 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
+| **Embeddings** | 11 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
+
 | **Rerankers** | 5 | Cohere, HuggingFace, LLM-based, Sentence Transformer, Zero Entropy |
+
+Provider counts are derived from the `provider_to_class` registries in `mem0/utils/factory.py`; update this table when those registries change.
 
 ### Two Usage Modes
 
@@ -353,7 +371,20 @@ Self-hosted `Memory` / `AsyncMemory` classes and hosted-platform `MemoryClient` 
 
 ### Graph Memory
 
-Optional layer on top of vector memory for relationship-aware retrieval. Configured via the `graph` section of `MemoryConfig`.
+### Relationship-Aware Retrieval
+
+Relationship-aware retrieval is handled through entity extraction and additive
+scoring in the current memory pipeline. During memory creation, entities are
+linked to memories via `_link_entities_for_memory`. During search, matching
+entities contribute to result ranking through `_compute_entity_boosts`.
+
+The relevant implementation lives in `mem0/utils/entity_extraction.py`,
+`mem0/utils/scoring.py`, and `mem0/utils/lemmatization.py`.
+
+Graph memory was removed as part of the v3 pipeline migration in #4805
+("feat(oss): port v3 pipeline with hybrid search, entity extraction, and
+additive scoring"). Do not reintroduce the removed graph-memory subsystem when
+adding or modifying memory functionality.
 
 ### MCP Integration
 
