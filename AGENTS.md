@@ -396,7 +396,16 @@ Agent/editor integrations live under `integrations/`. Each is a self-contained d
 
 ### CI Workflows (automated testing)
 
-PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** runs on every PR, detects which packages changed, and invokes only the relevant package workflows below as reusable workflows (`workflow_call`). Its final **`CI Gate`** job aggregates the results (skipped pipelines pass; failed or cancelled ones fail) and is the **only status check that needs to be required** in branch protection. Package workflows keep their own push-to-main and manual triggers; their `pull_request` triggers moved into the gate's path filters.
+PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** runs on every PR, detects which packages changed, and invokes only the relevant package workflows below as reusable workflows (`workflow_call`). Its final **`CI Gate`** job aggregates the results (skipped pipelines pass; failed or cancelled ones fail) and is the **only CI status check that needs to be required** in branch protection. Package workflows keep their own push-to-main and manual triggers; their `pull_request` triggers moved into the gate's path filters.
+
+**Branch protection on `main`** is a repository ruleset (`Main Branch Rule`, id `11813754`). It enforces squash-only merges, linear history, no deletion, no force-push, and 1 approving review. Two status checks must be in its `required_status_checks` rule:
+
+| Context | Posted by | Why |
+|---------|-----------|-----|
+| `CI Gate` | `ci-gate.yml` | Aggregates every package pipeline. |
+| `license/cla` | CLA Assistant | The CLA is signed, not just requested. |
+
+Editing the ruleset requires repo **admin**; `maintain` is not enough and the API returns 404 rather than 403 for it. Until `license/cla` is required, the statement in `CONTRIBUTING.md` that unsigned PRs are "blocked from merging" is enforced by convention only. Requiring `CI Gate` also means fork PRs from first-time contributors cannot merge until a maintainer approves the workflow run (they sit at `action_required`), which is intended.
 
 | Workflow | File | Standalone Triggers | Tests |
 |----------|------|---------------------|-------|
