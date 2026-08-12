@@ -329,10 +329,6 @@ program
 		"Custom instructions for fact extraction.",
 	)
 	.option(
-		"--agent-custom-instructions <text>",
-		"Extraction instructions for agent-scoped memories, overriding the project setting.",
-	)
-	.option(
 		"--custom-categories <json>",
 		"Custom categories as a JSON array of {name: description} objects.",
 	)
