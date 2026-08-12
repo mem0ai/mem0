@@ -1,8 +1,12 @@
 # The list of vouched (or denounced) users for this repository.
 #
-# Only vouched users can open pull requests here. A denounced user is blocked
-# outright. Maintainers, org members, and bots are trusted automatically and do
-# not need to appear in this file.
+# Only vouched users can open pull requests here. A denounced user (prefixed
+# with a minus) is blocked outright.
+#
+# Vouch automatically allows two kinds of account without consulting this file:
+# accounts ending in [bot], and repo collaborators with write or admin
+# permission. Org membership on its own is NOT enough, so every mem0ai org
+# member is listed here explicitly and must stay listed.
 #
 # Syntax:
 #  - One handle per line (without @), sorted alphabetically.
@@ -13,8 +17,11 @@
 # Maintainers vouch by commenting "!vouch @username" on any issue, and denounce
 # with "!denounce @username". The bot commits the change back to this file.
 #
-# Seeded from every author with at least one merged pull request as of
-# 2026-08-12. Bot accounts are excluded because they are trusted automatically.
+# Seeded on 2026-08-12 from every author with at least one merged pull request,
+# then filtered: accounts with a merge rate at or below 16% across six or more
+# attempts were dropped, since landing one change out of many is the signature
+# of automated submission rather than contribution. Removal is not a ban. Any
+# maintainer can !vouch these accounts back in.
 1MikeMakuch
 aaishikdutta
 Aarkin7
@@ -50,6 +57,7 @@ AnkushMalaker
 AnnaSuSu
 anujshandillya
 ArchishmanSengupta
+Arsh-mem0
 ArthurHoward1
 aryankhanna475
 Ashu463
@@ -61,11 +69,11 @@ axelray-dev
 ayaangazali
 aymenkrifa
 barry166
-Bartok9
 being-abhi
 berwinjoule
 BillionClaw
 bioshazard
+bisla
 bkidd1
 blino
 bmsvinci1729
@@ -85,6 +93,7 @@ clementantonyk
 codexvn
 Colsrch
 CrepuscularIRIS
+ctxlong
 danielsiwiec
 darkhaniop
 davidatorres
@@ -100,7 +109,6 @@ dimigerontaki
 Diveyam-Mishra
 divyansh-1009
 Divyanshu9822
-Diwak4r
 dog-last
 DrJsPBs
 dtee1
@@ -113,7 +121,6 @@ EnzoFanAccount
 Esparon1
 Fahmid-Arman
 Failfail2603
-faizan842
 FarukhS52
 farzad528
 felipeavilis
@@ -139,7 +146,6 @@ gauravagerwala
 Genarojrsanchez
 ghdcksgml1
 GingerMoon
-giulio-leone
 gmdorf
 golemus
 GongRzhe
@@ -148,11 +154,10 @@ Gyubin
 haarishmk26
 hackice20
 halanm
-haosenwang1018
 hardik1408
 Harin329
 harshgupta-mem0
-harshitanand
+harshpandit007
 hayescode
 hcsum
 he-yufeng
@@ -160,6 +165,7 @@ heng-ah
 Hexecu
 Himanshu-Sangshetti
 hjlarry
+HowieG
 HrushiYadav
 HScarb
 huveewomg
@@ -207,7 +213,6 @@ kmitul
 koi646
 kratos0718
 krescent
-krishna231122-del
 Krishnachaitanyakc
 kriszlazar
 KushagraB424
@@ -282,6 +287,7 @@ Parteeksachdeva
 parthshr370
 parzival418
 Paulie-Aditya
+paurushmittal
 pc9
 Pecunia201
 peterj
@@ -300,7 +306,6 @@ raghavtyagii
 rahulsharmavishwakarma
 rajib76
 rakheesingh
-ranfysvalle02
 ranjithkumar8352
 Rayhanpatel
 reachAnushaKondam
@@ -344,7 +349,6 @@ shubhampal123
 shuoli84
 sidmohanty11
 siroa
-sjsjsjjs534
 slobodaapl
 soapun
 soumil-rathi
@@ -366,7 +370,6 @@ tgabi333
 theagenticguy
 thomasgtaylor
 tomasonjo
-tomatotomata
 TommyZihao
 TruptiAgrawal
 turtletongue
@@ -377,7 +380,6 @@ utkarsh240799
 UzairNaeem3
 V-Silpin
 vatsalrathod16
-VectorPeak
 vedant381
 veeceey
 vgvoleg
@@ -395,6 +397,7 @@ xu-xiang
 xyb
 yashikabadaya
 yashs33244
+ygorth
 youneshima
 ytkimirti
 YuriyTW
