@@ -36,6 +36,14 @@ jobs:
               return;
             }
 
+            const { data: current } = await github.rest.pulls.get({
+              owner, repo, pull_number: pr.number,
+            });
+            if (current.state !== 'open') {
+              core.info(`#${pr.number} is already ${current.state}. Skipped.`);
+              return;
+            }
+
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number: pr.number, per_page: 100,
             });

@@ -1,0 +1,25 @@
+name: Vouch - Check PR
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+concurrency:
+  group: vouch-check-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mitchellh/vouch/action/check-pr@d66fa29a64600490892131ad87597c30c91fcac4 # v1.5.0
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          auto-close: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
