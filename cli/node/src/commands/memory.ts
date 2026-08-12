@@ -53,7 +53,6 @@ export async function cmdAdd(
 		expires?: string;
 		categories?: string;
 		customInstructions?: string;
-		agentCustomInstructions?: string;
 		customCategories?: string;
 		structuredDataSchema?: string;
 		timestamp?: number;
@@ -154,7 +153,6 @@ export async function cmdAdd(
 				infer: opts.infer !== false,
 				expires: opts.expires,
 				customInstructions: opts.customInstructions,
-				agentCustomInstructions: opts.agentCustomInstructions,
 				customCategories: customCats,
 				structuredDataSchema: schema,
 				timestamp: opts.timestamp,

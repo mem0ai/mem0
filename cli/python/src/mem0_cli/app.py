@@ -278,11 +278,6 @@ def add(
     custom_instructions: str | None = typer.Option(
         None, "--custom-instructions", help="Custom instructions for fact extraction."
     ),
-    agent_custom_instructions: str | None = typer.Option(
-        None,
-        "--agent-custom-instructions",
-        help="Extraction instructions for agent-scoped memories, overriding the project setting.",
-    ),
     custom_categories: str | None = typer.Option(
         None,
         "--custom-categories",
@@ -332,7 +327,6 @@ def add(
         expires=expires,
         categories=categories,
         custom_instructions=custom_instructions,
-        agent_custom_instructions=agent_custom_instructions,
         custom_categories=custom_categories,
         structured_data_schema=structured_data_schema,
         timestamp=timestamp,
@@ -1145,7 +1139,6 @@ def _build_help_json() -> dict:
                 "--expires": "Expiration date (YYYY-MM-DD).",
                 "--categories": "Not supported on add, use --custom-categories instead.",
                 "--custom-instructions": "Custom instructions for fact extraction.",
-                "--agent-custom-instructions": "Extraction instructions for agent-scoped memories, overriding the project setting.",
                 "--custom-categories": "Custom categories as a JSON array of {name: description} objects.",
                 "--structured-data-schema": "Schema for structured data extraction, as JSON.",
                 "--timestamp": "Unix timestamp for the memory.",

@@ -15,7 +15,6 @@ export interface AddOptions {
 	infer?: boolean;
 	expires?: string;
 	customInstructions?: string;
-	agentCustomInstructions?: string;
 	customCategories?: Record<string, string>[];
 	structuredDataSchema?: Record<string, unknown>;
 	timestamp?: number;
