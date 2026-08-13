@@ -81,3 +81,45 @@ describe("add() with infer=false and Object.prototype-colliding text", () => {
     },
   );
 });
+
+describe("update() metadata-only on Object.prototype-colliding text (#6323)", () => {
+  let memory: Memory;
+  let updateSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    memory = createMemory();
+    updateSpy = jest.spyOn(MemoryVectorStore.prototype, "update");
+  });
+
+  afterEach(async () => {
+    updateSpy.mockRestore();
+    await memory.reset();
+  });
+
+  test.each([
+    "constructor",
+    "toString",
+    "valueOf",
+    "hasOwnProperty",
+    "__proto__",
+  ])(
+    're-embeds "%s" on a metadata-only update instead of resolving it off Object.prototype',
+    async (text) => {
+      const added: SearchResult = await memory.add(text, {
+        userId: "u1",
+        infer: false,
+      });
+      const memoryId = added.results[0].id!;
+      mockEmbed.mockClear();
+
+      await memory.update(memoryId, { metadata: { pinned: true } });
+
+      expect(mockEmbed).toHaveBeenCalledWith(text, "update");
+
+      const [, storedVector] =
+        updateSpy.mock.calls[updateSpy.mock.calls.length - 1];
+      expect(Array.isArray(storedVector)).toBe(true);
+      expect(storedVector).toEqual(mockEmbedding);
+    },
+  );
+});
