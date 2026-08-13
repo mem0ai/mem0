@@ -374,9 +374,6 @@ export class ValkeyDB implements VectorStore {
         this.timezone,
       );
     }
-    if (doc.agent_id) resultPayload.agent_id = doc.agent_id;
-    if (doc.run_id) resultPayload.run_id = doc.run_id;
-    if (doc.user_id) resultPayload.user_id = doc.user_id;
 
     if (doc.metadata) {
       try {
@@ -386,9 +383,20 @@ export class ValkeyDB implements VectorStore {
       }
     }
 
+    // Entity ids are part of the canonical payload contract in snake_case:
+    // index.ts and the other vector stores read payload.user_id, not
+    // payload.userId. Running the whole payload through toCamelCase renamed
+    // them to userId/agentId/runId, which dropped them from search/getAll/get
+    // results and leaked them into metadata. Attach them in snake_case after
+    // the camelCase pass (timestamps stay camelCase as the contract expects).
+    const payload = toCamelCase(resultPayload);
+    if (doc.agent_id) payload.agent_id = doc.agent_id;
+    if (doc.run_id) payload.run_id = doc.run_id;
+    if (doc.user_id) payload.user_id = doc.user_id;
+
     return {
       id: doc.memory_id ?? "",
-      payload: toCamelCase(resultPayload),
+      payload,
       score,
     };
   }
