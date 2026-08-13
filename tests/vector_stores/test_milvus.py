@@ -107,6 +107,14 @@ class TestMilvusDB:
         assert 'metadata["category"] == "work"' in filter_str
         assert ' and ' in filter_str
 
+    def test_create_filter_wildcard_conditions(self, milvus_db):
+        """Test filter creation with wildcard conditions."""
+        filters = {"user_id": "alice", "run_id": "*"}
+        filter_str = milvus_db._create_filter(filters)
+
+        assert 'metadata["user_id"] == "alice"' in filter_str
+        assert 'metadata["run_id"] == "*"' not in filter_str
+
     def test_search_with_filters(self, milvus_db, mock_milvus_client):
         """Test search with metadata filters (reproduces user's bug scenario)."""
         # Setup mock return value
@@ -131,7 +139,8 @@ class TestMilvusDB:
         # Verify results are parsed correctly
         assert len(results) == 1
         assert results[0].id == "mem1"
-        assert results[0].score == 0.8
+        # fixture uses COSINE metric: distance must be converted to similarity
+        assert results[0].score == pytest.approx(0.2)  # max(0, 1 - 0.8)
 
     def test_search_different_user_ids(self, milvus_db, mock_milvus_client):
         """Test that search works with different user_ids (reproduces reported bug)."""
@@ -178,7 +187,7 @@ class TestMilvusDB:
         
         mock_milvus_client.delete.assert_called_once_with(
             collection_name="test_collection",
-            ids=vector_id
+            ids=[vector_id]
         )
 
     def test_get(self, milvus_db, mock_milvus_client):
@@ -233,13 +242,14 @@ class TestMilvusDB:
         ]
         
         parsed = milvus_db._parse_output(raw_data)
-        
+
         assert len(parsed) == 2
         assert parsed[0].id == "mem1"
-        assert parsed[0].score == 0.9
+        # fixture uses COSINE metric: distance must be converted to similarity
+        assert parsed[0].score == pytest.approx(0.1)  # max(0, 1 - 0.9)
         assert parsed[0].payload == {"user_id": "alice"}
         assert parsed[1].id == "mem2"
-        assert parsed[1].score == 0.85
+        assert parsed[1].score == pytest.approx(0.15)  # max(0, 1 - 0.85)
 
     def test_update_with_none_vector_fetches_existing(self, milvus_db, mock_milvus_client):
         """Test that update with vector=None fetches the existing vector (fixes #3708)."""
@@ -310,10 +320,71 @@ class TestMilvusDB:
         with pytest.raises(ValueError, match="no vector data"):
             milvus_db.update(vector_id="test_id", vector=None, payload={"data": "test"})
 
+    def test_create_filter_rejects_expression_injection(self, milvus_db):
+        """Crafted string value must not break out of the quoted expression."""
+        with pytest.raises(ValueError, match="must be str, int, float, or bool"):
+            milvus_db._create_filter({"user_id": {"$ne": ""}})
+
+    def test_create_filter_rejects_malicious_key(self, milvus_db):
+        """Keys with special characters must be rejected."""
+        with pytest.raises(ValueError, match="Invalid filter key"):
+            milvus_db._create_filter({'"] == "") or true or ("': "x"})
+
+    def test_create_filter_escapes_quotes_in_value(self, milvus_db):
+        """Double-quotes inside string values must be escaped."""
+        result = milvus_db._create_filter({"user_id": 'alice"}'})
+        assert '\\"' in result
+        assert 'alice\\"' in result
+
+    def test_create_filter_escapes_backslash_and_quote(self, milvus_db):
+        """Backslashes and double-quotes in the same value must both be escaped."""
+        result = milvus_db._create_filter({"user_id": r'alice\path"beta'})
+        assert result == r'(metadata["user_id"] == "alice\\path\"beta")'
+
+    def test_create_filter_renders_boolean(self, milvus_db):
+        """Boolean values must be rendered unquoted in the backend's expected format."""
+        result = milvus_db._create_filter({"active": True, "deleted": False})
+        assert '(metadata["active"] == True)' in result
+        assert '(metadata["deleted"] == False)' in result
+
+    def test_update_omits_text_field_on_pre_v3_collection(self, mock_milvus_client):
+        """update() must not include 'text' for collections without BM25 schema."""
+        mock_milvus_client.has_collection.return_value = True
+        mock_milvus_client.describe_collection.return_value = {
+            "fields": [
+                {"name": "id"},
+                {"name": "vectors"},
+                {"name": "metadata"},
+            ]
+        }
+        db = MilvusDB(
+            url="http://localhost:19530",
+            token="test_token",
+            collection_name="legacy_collection",
+            embedding_model_dims=1536,
+            metric_type=MetricType.COSINE,
+            db_name="test_db",
+        )
+        assert db._has_bm25_schema is False
+
+        db.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "hello"})
+
+        upserted = mock_milvus_client.upsert.call_args[1]["data"]
+        assert "text" not in upserted
+
+    def test_update_includes_text_field_on_v3_collection(self, milvus_db, mock_milvus_client):
+        """update() must include 'text' for collections with BM25 schema."""
+        assert milvus_db._has_bm25_schema is True
+
+        milvus_db.update(vector_id="id1", vector=[0.1] * 1536, payload={"data": "hello"})
+
+        upserted = mock_milvus_client.upsert.call_args[1]["data"]
+        assert upserted["text"] == "hello"
+
     def test_collection_already_exists(self, mock_milvus_client):
         """Test that existing collection is not recreated."""
         mock_milvus_client.has_collection.return_value = True
-        
+
         MilvusDB(
             url="http://localhost:19530",
             token="test_token",
@@ -322,9 +393,40 @@ class TestMilvusDB:
             metric_type=MetricType.L2,
             db_name="test_db"
         )
-        
+
         # create_collection should not be called
         mock_milvus_client.create_collection.assert_not_called()
+
+    def test_keyword_search_keeps_raw_bm25_score(self, milvus_db, mock_milvus_client):
+        """BM25 keyword hits must keep their higher-is-better score, not be distance-converted."""
+        mock_milvus_client.search.return_value = [[
+            {"id": "mem1", "distance": 5.0, "entity": {"metadata": {"user_id": "alice"}}}
+        ]]
+
+        # Force the BM25 schema path so keyword_search proceeds.
+        milvus_db._has_bm25_schema = True
+
+        results = milvus_db.keyword_search("hello", top_k=5, filters={"user_id": "alice"})
+
+        assert len(results) == 1
+        # BM25 score 5.0 must pass through unchanged (not 1/(1+5) = ~0.167).
+        assert results[0].score == 5.0
+
+    def test_cosine_distance_converted_to_similarity(self, milvus_db):
+        """Regression for #6933: COSINE distance must become similarity per the base contract."""
+        # milvus_db fixture uses MetricType.COSINE
+        raw_data = [
+            {"id": "mem1", "distance": 0.0, "entity": {"metadata": {"user_id": "alice"}}},
+            {"id": "mem2", "distance": 1.0, "entity": {"metadata": {"user_id": "bob"}}},
+            {"id": "mem3", "distance": 2.0, "entity": {"metadata": {"user_id": "carol"}}},
+        ]
+
+        parsed = milvus_db._parse_output(raw_data)
+
+        # Best match (distance 0) must score highest, per base.py contract
+        assert parsed[0].score == pytest.approx(1.0)  # max(0, 1-0)
+        assert parsed[1].score == pytest.approx(0.0)  # max(0, 1-1)
+        assert parsed[2].score == pytest.approx(0.0)  # max(0, 1-2) clamps at 0
 
 
 if __name__ == "__main__":
