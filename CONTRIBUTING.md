@@ -35,6 +35,19 @@ sign. Signing takes less than a minute and only needs to be done once. Pull
 requests from contributors who have not signed the CLA will be blocked from
 merging.
 
+## First Contribution Fast Path
+
+Fixing a typo or a small docs issue? You don't need the full workflow below.
+
+1. **Pick something small.** Look for issues labeled `documentation` or `good first issue`, or a typo/broken link you noticed while reading the docs.
+2. **Branch from `main`** with a name that says what you're fixing, e.g. `docs/fix-quickstart-typo` or `fix/broken-crewai-link`.
+3. **Make the change, then run only what applies:**
+   - Docs-only change (`docs/**`): preview with `make docs`. If you added or removed an `.mdx` page, run `python scripts/check-llms-txt-coverage.py --write` so `docs/llms.txt` stays in sync.
+   - Code change: run the linter and tests for the package you touched, see [Development Workflow](#development-workflow) below.
+4. **Open a PR** against `main` with `Closes #<issue-number>` and a one-line description of what you fixed.
+
+For anything larger than a docs fix or a small bug, follow the full workflow below.
+
 ## Repository Layout
 
 The two most common contribution targets are the SDKs:
