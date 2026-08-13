@@ -81,6 +81,11 @@ class TestExtractProvider:
     def test_explicit_provider_takes_precedence_over_regex(self):
         assert extract_provider("anthropic.claude-3-5-sonnet-20240620-v1:0", "amazon") == "amazon"
 
+    def test_explicit_provider_typo_raises(self):
+        arn = "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz"
+        with pytest.raises(ValueError, match="Unknown provider_override 'anthorpic'"):
+            extract_provider(arn, "anthorpic")
+
 
 # ---------------------------------------------------------------------------
 # AWSBedrockConfig
@@ -158,6 +163,10 @@ class TestApplicationInferenceProfileArn:
     def test_cross_region_inference_profile_unaffected(self, mock_boto3):
         llm = _make_llm("us.anthropic.claude-haiku-4-5-20251001-v1:0", mock_boto3)
         assert llm.provider == "anthropic"
+
+    def test_arn_with_misspelled_provider_override_raises(self, mock_boto3):
+        with pytest.raises(ValueError, match="Unknown provider_override 'anthorpic'"):
+            _make_llm(self.ARN, mock_boto3, provider_override="anthorpic")
 
 
 # ---------------------------------------------------------------------------

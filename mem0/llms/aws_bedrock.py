@@ -26,6 +26,10 @@ PROVIDERS = [
 def extract_provider(model: str, explicit_provider: Optional[str] = None) -> str:
     """Extract provider from model identifier, or return explicit_provider when set."""
     if explicit_provider:
+        if explicit_provider not in PROVIDERS:
+            raise ValueError(
+                f"Unknown provider_override '{explicit_provider}'. Valid providers: {', '.join(PROVIDERS)}"
+            )
         return explicit_provider
     for provider in PROVIDERS:
         if re.search(rf"\b{re.escape(provider)}\b", model):
