@@ -8,6 +8,7 @@ import type {
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import { loadPeer } from "../utils/load_peer";
+import { toCamelCasePreservingIds } from "../utils/casing";
 
 /**
  * Escape RediSearch TAG filter special characters. Any punctuation in the
@@ -143,30 +144,6 @@ export function buildRedisFilterExpr(filters?: SearchFilters): string {
     .filter(([, value]) => value !== null && value !== undefined)
     .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
   return conditions.length > 0 ? conditions.join(" ") : "*";
-}
-
-// Utility function to convert object keys to camelCase
-function toCamelCase(obj: Record<string, any>): Record<string, any> {
-  if (typeof obj !== "object" || obj === null) return obj;
-
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [
-      key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase()),
-      value,
-    ]),
-  );
-}
-
-function toCamelCasePreservingIds(
-  payload: Record<string, any>,
-): Record<string, any> {
-  const { agent_id, run_id, user_id, ...rest } = payload;
-  return {
-    ...toCamelCase(rest),
-    ...(agent_id !== undefined && { agent_id }),
-    ...(run_id !== undefined && { run_id }),
-    ...(user_id !== undefined && { user_id }),
-  };
 }
 
 export class RedisDB implements VectorStore {
