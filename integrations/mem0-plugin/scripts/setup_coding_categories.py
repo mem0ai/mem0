@@ -24,6 +24,7 @@ import sys
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
+from _api import is_self_hosted  # noqa: E402
 from _identity import resolve_api_key  # noqa: E402
 
 _plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", os.path.join(_script_dir, ".."))
@@ -179,6 +180,16 @@ def main() -> int:
     if not api_key:
         print("ERROR: MEM0_API_KEY is not set. Export it or configure it via plugin userConfig.", file=sys.stderr)
         return 1
+
+    if is_self_hosted():
+        print(
+            "Custom category taxonomies require the hosted Mem0 Platform (client.project.update\n"
+            "has no self-hosted equivalent). Unset MEM0_BASE_URL to use the hosted platform, or\n"
+            "skip this step on a self-hosted server.",
+            file=sys.stderr,
+        )
+        return 1
+
     os.environ["MEM0_API_KEY"] = api_key
 
     try:

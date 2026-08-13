@@ -83,5 +83,12 @@ else
 fi
 export MEM0_AUTO_SAVE MEM0_AUTO_SEARCH MEM0_SEARCH_LIMIT MEM0_RETENTION_SESSION_DAYS MEM0_CONFIDENCE_THRESHOLD MEM0_GLOBAL_SEARCH MEM0_DEBUG
 
+# Resolve base URL: MEM0_BASE_URL env var > settings.json "base_url" > hosted platform
+if [ -z "${MEM0_BASE_URL:-}" ] && command -v python3 >/dev/null 2>&1; then
+  MEM0_BASE_URL=$(PYTHONPATH="$_SCRIPT_DIR" python3 -c "from _identity import resolve_base_url; print(resolve_base_url())" 2>/dev/null || echo "https://api.mem0.ai")
+fi
+: "${MEM0_BASE_URL:=https://api.mem0.ai}"
+export MEM0_BASE_URL
+
 # Also resolve project context
 . "$_SCRIPT_DIR/_project.sh"

@@ -38,6 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Importing setup_coding_categories also injects the plugin venv's site-packages
 # onto sys.path (its module-level bootstrap), so ``from mem0 import MemoryClient``
 # works even when this script is run with the system python3.
+from _api import is_self_hosted  # noqa: E402
 from _identity import resolve_api_key  # noqa: E402
 from setup_coding_categories import CODING_CATEGORIES, _categories_match  # noqa: E402
 
@@ -187,6 +188,10 @@ def main() -> None:
     api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping coding-categories setup")
+        return
+
+    if is_self_hosted():
+        log.debug("Self-hosted server detected; category customization requires the hosted Mem0 Platform, skipping")
         return
 
     key_fp = apikey_fingerprint(api_key)

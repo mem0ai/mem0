@@ -25,6 +25,7 @@ import urllib.request
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _api import add_url, auth_headers, project_field
 from _identity import resolve_api_key, resolve_user_id
 from _instructions import load_instructions
 from _project import resolve_branch, resolve_project_id
@@ -45,7 +46,6 @@ if os.environ.get("MEM0_DEBUG"):
     except OSError:
         pass
 
-API_URL = "https://api.mem0.ai"
 MAX_TAIL_LINES = 2000
 MAX_SUMMARY_CHARS = 50000
 # Compact summaries describe a single session's state -- stale after a quarter.
@@ -111,7 +111,7 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
     body = {
         "messages": [{"role": "assistant", "content": summary}],
         "user_id": user_id,
-        "app_id": project_id,
+        project_field(): project_id,
         "metadata": metadata,
         "infer": True,
         "expiration_date": expires,
@@ -120,15 +120,8 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
     body.update(load_instructions(cwd))
 
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/add/",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Token {api_key}",
-        },
-        method="POST",
-    )
+    headers = {**auth_headers(api_key), "Content-Type": "application/json"}
+    req = urllib.request.Request(add_url(), data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             if resp.status in (200, 201):

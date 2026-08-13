@@ -21,6 +21,7 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _api import add_url, auth_headers, delete_url, project_field, search_url
 from _chunking import filter_and_truncate, split_by_headers
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id, save_project_mapping
@@ -41,7 +42,6 @@ if os.environ.get("MEM0_DEBUG"):
     except OSError:
         pass
 
-API_URL = "https://api.mem0.ai"
 MAX_FILE_SIZE = 100_000  # skip files over 100 KB
 TARGET_FILES = ["CLAUDE.md", "AGENTS.md", ".cursorrules", ".windsurfrules", "mem0.md"]
 HASH_STORE = os.path.expanduser("~/.mem0/file_hashes.json")
@@ -127,19 +127,15 @@ def already_imported(api_key: str, user_id: str, project_id: str, filename: str)
         "filters": {
             "AND": [
                 {"user_id": user_id},
-                {"app_id": project_id},
+                {project_field(): project_id},
                 {"metadata": {"source": "auto-import"}},
             ]
         },
         "top_k": 10,
         "threshold": 0.0,
     }).encode()
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/search/",
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
-        method="POST",
-    )
+    headers = {**auth_headers(api_key), "Content-Type": "application/json"}
+    req = urllib.request.Request(search_url(), data=body, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             data = json.loads(r.read())
@@ -161,19 +157,15 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
         "filters": {
             "AND": [
                 {"user_id": user_id},
-                {"app_id": project_id},
+                {project_field(): project_id},
                 {"metadata": {"source": "auto-import"}},
             ]
         },
         "top_k": 20,
         "threshold": 0.0,
     }).encode()
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/search/",
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
-        method="POST",
-    )
+    headers = {**auth_headers(api_key), "Content-Type": "application/json"}
+    req = urllib.request.Request(search_url(), data=body, headers=headers, method="POST")
     ids_to_delete = []
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
@@ -196,8 +188,8 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
     for mid in ids_to_delete:
         try:
             del_req = urllib.request.Request(
-                f"{API_URL}/v1/memories/{mid}/",
-                headers={"Authorization": f"Token {api_key}"},
+                delete_url(mid),
+                headers=auth_headers(api_key),
                 method="DELETE",
             )
             with urllib.request.urlopen(del_req, timeout=10):
@@ -227,21 +219,14 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
             }
         ],
         "user_id": user_id,
-        "app_id": project_id,
+        project_field(): project_id,
         "metadata": metadata,
         "infer": False,
     }
 
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/add/",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Token {api_key}",
-        },
-        method="POST",
-    )
+    headers = {**auth_headers(api_key), "Content-Type": "application/json"}
+    req = urllib.request.Request(add_url(), data=data, headers=headers, method="POST")
 
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
