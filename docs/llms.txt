@@ -295,7 +295,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Essentials
 - [Building an AI Companion](https://docs.mem0.ai/cookbooks/essentials/building-ai-companion) [Both]: Use when starting a companion app from scratch.
 - [Partition Memories by Entity](https://docs.mem0.ai/cookbooks/essentials/entity-partitioning-playbook) [Both]: Use when isolating multi-tenant memories.
-- [Controlling Memory Ingestion](https://docs.mem0.ai/cookbooks/essentials/controlling-memory-ingestion) [Both]: Use when deciding what to store and what to skip.
 - [Tagging and Organizing Memories](https://docs.mem0.ai/cookbooks/essentials/tagging-and-organizing-memories) [Both]: Use when memory taxonomy matters.
 - [Exporting Memories](https://docs.mem0.ai/cookbooks/essentials/exporting-memories) [Both]: Use when backing up or migrating memory data.
 
