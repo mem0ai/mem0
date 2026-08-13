@@ -151,72 +151,6 @@ class PolignDB(VectorStoreBase):
                 raise ValueError(f"Unsupported filter operator '{op}' for field '{key}' in Polign")
         return {key: ops} if ops else None
 
-    def _matches(self, payload: Dict, filters: Optional[Dict]) -> bool:
-        """Client-side filter evaluation (list() has no server-side filter)."""
-        if not filters:
-            return True
-
-        key_map = {"$or": "OR", "$not": "NOT", "$and": "AND"}
-        for key, value in filters.items():
-            key = key_map.get(key, key)
-            if key == "AND":
-                if not all(self._matches(payload, sub) for sub in value):
-                    return False
-            elif key == "OR":
-                if not any(self._matches(payload, sub) for sub in value):
-                    return False
-            elif key == "NOT":
-                if any(self._matches(payload, sub) for sub in value):
-                    return False
-            elif not self._matches_field(payload, key, value):
-                return False
-        return True
-
-    def _matches_field(self, payload: Dict, key: str, value: Any) -> bool:
-        present = key in payload
-        stored = _scalar_str(payload[key]) if present and payload[key] is not None else None
-        if not isinstance(value, dict):
-            if value == "*":
-                return present
-            if isinstance(value, list):
-                return stored in [_scalar_str(v) for v in value]
-            return stored == _scalar_str(value)
-
-        def _compare(a: str, b: str) -> int:
-            try:
-                fa, fb = float(a), float(b)
-                return (fa > fb) - (fa < fb)
-            except (TypeError, ValueError):
-                return (a > b) - (a < b)
-
-        for op, operand in value.items():
-            if op == "eq":
-                if stored != _scalar_str(operand):
-                    return False
-            elif op == "ne":
-                if stored == _scalar_str(operand):
-                    return False
-            elif op == "in":
-                if stored not in [_scalar_str(v) for v in operand]:
-                    return False
-            elif op == "nin":
-                if stored in [_scalar_str(v) for v in operand]:
-                    return False
-            elif op in ("gt", "gte", "lt", "lte"):
-                if stored is None:
-                    return False
-                cmp = _compare(stored, _scalar_str(operand))
-                if (
-                    (op == "gt" and cmp <= 0)
-                    or (op == "gte" and cmp < 0)
-                    or (op == "lt" and cmp >= 0)
-                    or (op == "lte" and cmp > 0)
-                ):
-                    return False
-            else:
-                raise ValueError(f"Unsupported filter operator '{op}' for field '{key}' in Polign")
-        return True
-
     # ── VectorStoreBase ─────────────────────────────────────────────
 
     def create_col(self, name=None, vector_size=None, distance=None):
@@ -403,8 +337,9 @@ class PolignDB(VectorStoreBase):
         """
         List vectors with optional filtering.
 
-        Polign's list endpoint has no filter parameter, so pages are filtered
-        client-side.
+        Filters run server-side (polign's list takes the same filter language
+        as search); offset and the page total count matching vectors only, so
+        pagination works unchanged under a filter.
 
         Args:
             filters (dict, optional): Filters to apply.
@@ -413,19 +348,19 @@ class PolignDB(VectorStoreBase):
         Returns:
             list: Wrapped list of OutputData objects ([[results]]).
         """
+        translated = self._translate_filters(filters)
         results: List[OutputData] = []
         offset = 0
         try:
             while top_k is None or len(results) < top_k:
-                page = self.client.list(self.collection_name, limit=self.batch_size, offset=offset)
+                limit = self.batch_size if top_k is None else min(self.batch_size, top_k - len(results))
+                page = self.client.list(self.collection_name, limit=limit, offset=offset, filter=translated)
                 if not page.vectors:
                     break
                 for vector in page.vectors:
-                    payload = self._decode_payload(vector.metadata)
-                    if self._matches(payload, filters):
-                        results.append(OutputData(id=vector.id, score=None, payload=payload))
-                        if top_k is not None and len(results) >= top_k:
-                            break
+                    results.append(OutputData(id=vector.id, score=None, payload=self._decode_payload(vector.metadata)))
+                    if top_k is not None and len(results) >= top_k:
+                        break
                 offset += len(page.vectors)
                 if offset >= page.total:
                     break

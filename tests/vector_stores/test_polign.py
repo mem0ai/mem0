@@ -248,10 +248,16 @@ class TestList:
         ]
         return VectorPage(vectors=vectors, total=total if total is not None else len(vectors))
 
-    def test_list_filters_client_side(self, db, mock_client):
-        mock_client.list.return_value = self._page([{"data": "a", "user_id": "alice"}, {"data": "b", "user_id": "bob"}])
+    def test_list_passes_translated_filter_server_side(self, db, mock_client):
+        mock_client.list.return_value = self._page([{"data": "a", "user_id": "alice"}])
         [results] = db.list(filters={"user_id": "alice"})
+        assert mock_client.list.call_args.kwargs["filter"] == {"user_id": "alice"}
         assert [r.payload["data"] for r in results] == ["a"]
+
+    def test_list_without_filters_sends_none(self, db, mock_client):
+        mock_client.list.return_value = self._page([{"data": "a"}])
+        db.list()
+        assert mock_client.list.call_args.kwargs["filter"] is None
 
     def test_list_paginates_until_total(self, db, mock_client):
         page1 = self._page([{"data": "a"}, {"data": "b"}], ids=["a", "b"], total=3)
@@ -270,16 +276,6 @@ class TestList:
     def test_list_missing_collection_returns_empty(self, db, mock_client):
         mock_client.list.side_effect = NotFoundError("nope")
         assert db.list() == [[]]
-
-    def test_client_side_operator_matching(self, db):
-        payload = {"user_id": "alice", "score": 0.7}
-        assert db._matches(payload, {"score": {"gte": 0.5}})
-        assert not db._matches(payload, {"score": {"lt": 0.5}})
-        assert db._matches(payload, {"user_id": "*"})
-        assert db._matches(payload, {"user_id": ["alice", "bob"]})
-        assert db._matches(payload, {"OR": [{"user_id": "bob"}, {"score": 0.7}]})
-        assert not db._matches(payload, {"NOT": [{"user_id": "alice"}]})
-        assert db._matches(payload, {"missing": {"nin": ["x"]}})
 
 
 # ── Collection ops ──────────────────────────────────────────────────
