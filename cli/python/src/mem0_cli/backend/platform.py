@@ -88,6 +88,7 @@ class PlatformBackend(Backend):
         infer: bool = True,
         expires: str | None = None,
         custom_instructions: str | None = None,
+        agent_custom_instructions: str | None = None,
         custom_categories: list[dict] | None = None,
         structured_data_schema: dict | None = None,
         timestamp: int | None = None,
@@ -117,6 +118,8 @@ class PlatformBackend(Backend):
             payload["expiration_date"] = expires
         if custom_instructions:
             payload["custom_instructions"] = custom_instructions
+        if agent_custom_instructions:
+            payload["agent_custom_instructions"] = agent_custom_instructions
         if custom_categories:
             payload["custom_categories"] = custom_categories
         if structured_data_schema:
