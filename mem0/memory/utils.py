@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -112,7 +112,7 @@ def normalize_facts(raw_facts):
     return normalized
 
 
-def remove_code_blocks(content: str) -> str:
+def remove_code_blocks(content: Union[str, List[Union[str, Dict[str, Any]]], None]) -> str:
     """
     Removes enclosing code block markers ```[language] and ``` from a given string.
 
@@ -120,9 +120,15 @@ def remove_code_blocks(content: str) -> str:
     - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
     - If a code block is detected, it returns only the inner content, stripping out the markers.
     - If no code block markers are found, the original content is returned as-is.
+    - Block-style content (a LangChain message whose `.content` is a list of text
+      blocks) is flattened to its concatenated text before matching.
     """
     if content is None:
         return ""
+    if isinstance(content, list):
+        content = "".join(
+            part if isinstance(part, str) else part.get("text", "") for part in content if isinstance(part, (str, dict))
+        )
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
     match_res=match.group(1).strip() if match else content.strip()

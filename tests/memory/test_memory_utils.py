@@ -192,3 +192,21 @@ class TestProcessTelemetryFilters:
 class TestRemoveCodeBlocks:
     def test_none_content_returns_empty_string(self):
         assert remove_code_blocks(None) == ""
+
+    def test_block_list_content_is_flattened(self):
+        assert remove_code_blocks([{"type": "text", "text": "step one"}]) == "step one"
+
+    def test_block_list_content_strips_code_fences(self):
+        content = [{"type": "text", "text": '```json\n{"a": 1}\n```'}]
+        assert remove_code_blocks(content) == '{"a": 1}'
+
+    def test_block_list_content_joins_multiple_blocks(self):
+        content = [{"type": "text", "text": "step one. "}, {"type": "text", "text": "step two"}]
+        assert remove_code_blocks(content) == "step one. step two"
+
+    def test_block_list_content_ignores_non_text_blocks(self):
+        content = [{"type": "thinking", "thinking": "hmm"}, {"type": "text", "text": "answer"}]
+        assert remove_code_blocks(content) == "answer"
+
+    def test_plain_string_blocks_are_supported(self):
+        assert remove_code_blocks(["step one. ", "step two"]) == "step one. step two"
