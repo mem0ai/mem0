@@ -21,6 +21,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_api_key, resolve_user_id
+from _instructions import load_instructions
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-auto-capture")
@@ -126,6 +127,8 @@ def store_exchange(api_key: str, messages: list[dict], user_id: str,
         "metadata": metadata,
         "infer": True,
     }
+    # Apply the project's mem0.md extraction policy (custom/agent instructions).
+    body.update(load_instructions())
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
