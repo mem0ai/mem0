@@ -1,6 +1,6 @@
-# Mem0 - The Memory Layer for AI Agents
+# Mem0 - The Memory Layer for Your AI Apps
 
-Mem0 is the memory layer for AI agents, giving them persistent, personalized context across sessions. We offer both cloud and open-source solutions to cater to different needs.
+Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users. We offer both cloud and open-source solutions to cater to different needs.
 
 See the complete [OSS Docs](https://docs.mem0.ai/open-source/node-quickstart).
 See the complete [Platform API Reference](https://docs.mem0.ai/api-reference).
