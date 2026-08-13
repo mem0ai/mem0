@@ -269,9 +269,7 @@ describe("Memory - add()", () => {
         "runId",
         "actor_id",
       ]) {
-        if (key !== canonicalKey) {
-          expect(stored!.metadata).not.toHaveProperty(key);
-        }
+        expect(stored!.metadata).not.toHaveProperty(key);
       }
     },
   );
