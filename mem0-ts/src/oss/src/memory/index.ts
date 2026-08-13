@@ -505,7 +505,15 @@ export class Memory {
           if (!exactMatch) {
             try {
               matches = await entityStore.search(entityVec, 1, filters);
-            } catch {}
+            } catch (e) {
+              // A failed lookup is not the same as "no match found". Skip this
+              // entity instead of inserting a competing row that would silently
+              // fork the graph (mem0ai/mem0#6925).
+              console.warn(
+                `Entity lookup failed for '${entity.text}', skipping to avoid a duplicate entity row: ${e}`,
+              );
+              continue;
+            }
           }
 
           const semanticMatch =
@@ -1200,7 +1208,15 @@ export class Memory {
             if (!exactMatch) {
               try {
                 matches = await entityStore.search(entityVec, 1, filters);
-              } catch {}
+              } catch (e) {
+                // A failed lookup is not the same as "no match found". Skip this
+                // entity instead of collecting a competing row for batch insert
+                // that would silently fork the graph (mem0ai/mem0#6925).
+                console.warn(
+                  `Entity lookup failed for '${entityText}', skipping to avoid a duplicate entity row: ${e}`,
+                );
+                continue;
+              }
             }
 
             const semanticMatch =
