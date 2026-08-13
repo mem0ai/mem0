@@ -113,8 +113,8 @@ m = Memory()   # needs OPENAI_API_KEY; see components/ for custom providers
 m.add("I love hiking on weekends", user_id="alice")
 
 # Read
-m.search("What does Alice like to do?", user_id="alice")
-m.get_all(user_id="alice")
+m.search("What does Alice like to do?", filters={"user_id": "alice"})
+m.get_all(filters={"user_id": "alice"})
 m.get(memory_id="<id>")
 
 # Update
@@ -140,8 +140,8 @@ const memory = new Memory();
 await memory.add("I love hiking on weekends", { userId: "alice" });
 
 // Read
-await memory.search("What does Alice like to do?", { userId: "alice" });
-await memory.getAll({ userId: "alice" });
+await memory.search("What does Alice like to do?", { filters: { user_id: "alice" } });
+await memory.getAll({ filters: { user_id: "alice" } });
 await memory.get("<memory_id>");
 
 // Update
