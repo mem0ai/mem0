@@ -164,7 +164,7 @@ npm list mem0ai --depth 0 2>/dev/null | grep mem0ai
 mem0 --version          # Python or Node CLI, whichever is on PATH
 ```
 
-If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_format: "v1.1"`), route them through the matching migration guide in the Platform section before quoting current docs. If no Mem0 package is installed, recommend `pip install mem0ai` or `npm install mem0ai` and the corresponding quickstart above.
+If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call still passing `output_format`, `api_version`, `async_mode`, or `enable_graph`, all removed in the current major), route them through the matching migration guide in the Platform section before quoting current docs. If no Mem0 package is installed, recommend `pip install mem0ai` or `npm install mem0ai` and the corresponding quickstart above.
 
 ## Getting Started
 
