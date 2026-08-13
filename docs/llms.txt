@@ -266,6 +266,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
+- [Claude.ai](https://docs.mem0.ai/integrations/claude-ai) [Platform]: Use when connecting Mem0 to Claude.ai (the hosted web app) via a custom remote MCP connector, or when Claude's native memory seems to be crowding out mem0 tool calls.
 - [Cursor](https://docs.mem0.ai/integrations/cursor) [Both]: Use when wiring memory into Cursor.
 - [Codex](https://docs.mem0.ai/integrations/codex) [Both]: Use when wiring memory into Codex / other editor assistants.
 - [OpenCode](https://docs.mem0.ai/integrations/opencode) [Both]: Use when wiring memory into OpenCode.
