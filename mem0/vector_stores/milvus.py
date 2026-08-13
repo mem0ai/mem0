@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, Optional
 
 from pydantic import BaseModel
@@ -143,6 +144,8 @@ class MilvusDB(VectorStoreBase):
         data = [_build_record(idx, embedding, metadata) for idx, embedding, metadata in zip(ids, vectors, payloads)]
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
+    _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
     def _create_filter(self, filters: dict):
         """Prepare filters for efficient query.
 
@@ -154,19 +157,32 @@ class MilvusDB(VectorStoreBase):
         """
         operands = []
         for key, value in filters.items():
-            if isinstance(value, str):
-                operands.append(f'(metadata["{key}"] == "{value}")')
-            else:
+            if not self._SAFE_FILTER_KEY.match(key):
+                raise ValueError(f"Invalid filter key: {key!r}")
+            if value == "*":
+                # Wildcard - match any value (MilvusDB doesn't have direct wildcard, so we skip this filter)
+                continue
+            elif isinstance(value, str):
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                operands.append(f'(metadata["{key}"] == "{escaped}")')
+            elif isinstance(value, (int, float, bool)):
                 operands.append(f'(metadata["{key}"] == {value})')
+            else:
+                raise ValueError(
+                    f"Filter value for {key!r} must be str, int, float, or bool, "
+                    f"got {type(value).__name__}"
+                )
 
         return " and ".join(operands)
 
-    def _parse_output(self, data: list):
+    def _parse_output(self, data: list, is_keyword: bool = False):
         """
         Parse the output data.
 
         Args:
             data (Dict): Output data.
+            is_keyword (bool): Whether this is a keyword (BM25) search result. BM25
+                scores are higher-is-better and must not be distance-converted.
 
         Returns:
             List[OutputData]: Parsed output data.
@@ -178,10 +194,23 @@ class MilvusDB(VectorStoreBase):
             raw_distance = value.get("distance")
             metadata = value.get("entity", {}).get("metadata")
 
-            if raw_distance is not None and self.metric_type in (MetricType.L2, "L2"):
-                score = 1.0 / (1.0 + raw_distance)
-            else:
+            if is_keyword:
+                # BM25 full-text hits: score is higher-is-better already.
                 score = raw_distance
+            elif raw_distance is not None:
+                # Dense vector hits: convert distance to similarity per the
+                # VectorStoreBase contract (base.py:19-23).
+                if self.metric_type in (MetricType.COSINE, "COSINE"):
+                    score = max(0.0, 1.0 - raw_distance)
+                elif self.metric_type in (MetricType.L2, "L2"):
+                    score = 1.0 / (1.0 + raw_distance)
+                else:
+                    # IP returns the inner product (higher = better); HAMMING/JACCARD
+                    # are distance-based but have no defined contract conversion here,
+                    # so pass the raw value through rather than inverting it.
+                    score = raw_distance
+            else:
+                score = None
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)
@@ -249,7 +278,7 @@ class MilvusDB(VectorStoreBase):
                 filter=query_filter,
                 output_fields=["*"],
             )
-            result = self._parse_output(data=hits[0])
+            result = self._parse_output(data=hits[0], is_keyword=True)
             return result
         except Exception as e:
             logger.debug(f"Keyword search not available for collection {self.collection_name}: {e}")
@@ -262,7 +291,7 @@ class MilvusDB(VectorStoreBase):
         Args:
             vector_id (str): ID of the vector to delete.
         """
-        self.client.delete(collection_name=self.collection_name, ids=vector_id)
+        self.client.delete(collection_name=self.collection_name, ids=[vector_id])
 
     def update(self, vector_id=None, vector=None, payload=None):
         """
@@ -284,10 +313,12 @@ class MilvusDB(VectorStoreBase):
             if payload is None:
                 payload = existing[0].get("metadata")
 
-        text = ""
-        if payload:
-            text = (payload.get("text_lemmatized") or payload.get("data", ""))[:65535]
-        schema = {"id": vector_id, "vectors": vector, "metadata": payload, "text": text}
+        schema = {"id": vector_id, "vectors": vector, "metadata": payload}
+        if self._has_bm25_schema:
+            text = ""
+            if payload:
+                text = (payload.get("text_lemmatized") or payload.get("data", ""))[:65535]
+            schema["text"] = text
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
     def get(self, vector_id) -> Optional[OutputData]:
