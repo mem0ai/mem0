@@ -1,0 +1,74 @@
+---
+title: "Polign"
+description: "Use Polign as a vector database in Mem0 — a single-binary vector store built for agent memory, with your data in your own object-storage bucket."
+---
+[Polign](https://polign.com) is a vector database built for agent memory. It runs as a single binary with no external dependencies, stores data in object storage you own, and serves vector, BM25, and hybrid search over HTTP or gRPC.
+
+### Usage
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "polign",
+        "config": {
+            "collection_name": "movie_preferences",
+            "embedding_model_dims": 1536,
+            "url": "http://localhost:23000",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thrillers but I love sci-fi."},
+    {"role": "assistant", "content": "Got it! I'll suggest sci-fi movies instead."}
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+
+# Search memories
+results = m.search(query="sci-fi recommendations", filters={"user_id": "alice"})
+```
+
+Collections are created automatically on first write, so no schema setup is needed.
+
+### Config
+
+Here are the parameters available for configuring Polign:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | Name of the collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model (must match your chosen embedding model) | `1536` |
+| `url` | Base URL of the polign server's HTTP listener | `http://localhost:23000` |
+| `api_key` | API key (`plgn_<key_id>_<secret>`); optional — servers started without `-auth-stores` need none | Environment variable: `POLIGN_API_KEY` |
+| `ef` | HNSW beam width override for searches (`0` = server default) | `0` |
+| `batch_size` | Vectors per bulk-insert request (server max 5000) | `1000` |
+
+### Config Example
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "polign",
+        "config": {
+            "collection_name": "my_memories",
+            "embedding_model_dims": 1536,
+            "url": "https://db.example.com:23000",
+            "api_key": "plgn_xxxxxxxx_xxxxxxxx",
+        }
+    }
+}
+```
+
+<Note>
+Polign metadata is string-to-string. Mem0 stores each memory's full payload JSON-encoded and additionally promotes scalar fields (like `user_id`, `agent_id`, `run_id`) to plain metadata keys, so session filters are applied server-side. Numeric range filters compare string forms literally.
+</Note>
