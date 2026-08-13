@@ -18,9 +18,6 @@ DEFAULTS = {
     "confidence_threshold": 0.3,
     "global_search": False,
     "debug": False,
-    # Project-level mem0 extraction policy; empty leaves it untouched. The
-    # MEM0_CUSTOM_INSTRUCTIONS env var takes precedence.
-    "custom_instructions": "",
 }
 
 

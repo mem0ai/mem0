@@ -184,13 +184,6 @@ if [ "$SOURCE" = "startup" ]; then
     MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
   fi
 
-  # Apply the custom_instructions extraction policy (idempotent, no-op when unset).
-  if [ -x "$_VENV_PY" ]; then
-    MEM0_CWD="$MEM0_CWD_RESOLVED" "$_VENV_PY" "$SCRIPT_DIR/auto_setup_instructions.py" 2>/dev/null &
-  else
-    MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_instructions.py" 2>/dev/null &
-  fi
-
 elif [ "$SOURCE" = "resume" ]; then
   echo "Session resumed. Search mem0 for session_state and decision memories to pick up where you left off. Run 2 parallel searches."
 
