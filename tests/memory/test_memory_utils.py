@@ -192,3 +192,6 @@ class TestProcessTelemetryFilters:
 class TestRemoveCodeBlocks:
     def test_none_content_returns_empty_string(self):
         assert remove_code_blocks(None) == ""
+
+    def test_list_content_from_langchain_aimessage_returns_empty_string(self):
+        assert remove_code_blocks([{"type": "text", "text": "hello"}]) == ""
