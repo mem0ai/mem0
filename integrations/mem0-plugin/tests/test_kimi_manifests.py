@@ -13,8 +13,6 @@ the structural contract so a stray edit cannot silently break the plugin:
 import json
 import os
 
-import pytest
-
 PLUGIN_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(os.path.dirname(PLUGIN_DIR))
 
