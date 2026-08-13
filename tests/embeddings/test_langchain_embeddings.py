@@ -1,8 +1,11 @@
 import pytest
-from langchain.embeddings.base import Embeddings
 
-from mem0.configs.embeddings.base import BaseEmbedderConfig
-from mem0.embeddings.langchain import LangchainEmbedding
+pytest.importorskip("langchain", reason="langchain is an optional extra")
+
+from langchain.embeddings.base import Embeddings  # noqa: E402
+
+from mem0.configs.embeddings.base import BaseEmbedderConfig  # noqa: E402
+from mem0.embeddings.langchain import LangchainEmbedding  # noqa: E402
 
 
 class DummyEmbeddings(Embeddings):
@@ -27,11 +30,26 @@ def test_model_that_is_not_an_embeddings_instance_raises():
         LangchainEmbedding(BaseEmbedderConfig(model="text-embedding-3-small"))
 
 
+def test_configured_model_instance_is_kept():
+    model = DummyEmbeddings()
+
+    assert LangchainEmbedding(BaseEmbedderConfig(model=model)).langchain_model is model
+
+
 def test_embed_delegates_to_embed_query():
     model = DummyEmbeddings()
     embedder = LangchainEmbedding(BaseEmbedderConfig(model=model))
 
     assert embedder.embed("hello", "add") == [0.1, 0.2, 0.3]
+    assert model.queries == ["hello"]
+
+
+def test_memory_action_never_reaches_the_model():
+    model = DummyEmbeddings()
+    embedder = LangchainEmbedding(BaseEmbedderConfig(model=model))
+
+    embedder.embed("hello", memory_action="add")
+
     assert model.queries == ["hello"]
 
 
