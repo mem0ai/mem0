@@ -3,16 +3,15 @@ title: Build a Companion with Mem0
 description: "Spin up a fitness coach that remembers goals, adapts tone, and keeps sessions personal."
 ---
 
+<Info icon="layer-group">
+**Works with:** Mem0 OSS (`Memory`) and Mem0 Platform (`MemoryClient`)
+</Info>
 
 Essentially, creating a companion out of LLMs is as simple as a loop. But these loops work great for one type of character without personalization and fall short as soon as you restart the chat.
 
 Problem: LLMs are stateless. GPT doesn't remember conversations. You could stuff everything inside the context window, but that becomes slow, expensive, and breaks at scale.
 
 The solution: Mem0. It extracts and stores what matters from conversations, then retrieves it when needed. Your companion remembers user preferences, past events, and history.
-
-<Info icon="layer-group">
-**Works with:** Mem0 OSS (`Memory`) and Mem0 Platform (`MemoryClient`)
-</Info>
 
 <Tabs>
   <Tab title="Platform">
