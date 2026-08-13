@@ -8,6 +8,7 @@ import httpx
 import pytest
 import requests
 
+from mem0.client.main import AsyncMemoryClient
 from mem0.client.types import GetAllMemoryOptions, SearchMemoryOptions
 
 
@@ -247,8 +248,6 @@ class TestGetAllPageSizeQueryParams:
         asyncio.run(self._assert_async_get_all_page_size_alone())
 
     async def _assert_async_get_all_page_size_alone(self):
-        from mem0.client.main import AsyncMemoryClient
-
         client = AsyncMemoryClient.__new__(AsyncMemoryClient)
         client.async_client = MagicMock()
         mock_response = MagicMock()
@@ -263,6 +262,67 @@ class TestGetAllPageSizeQueryParams:
             "/v3/memories/",
             json={"filters": {"user_id": "u1"}},
             params={"page_size": 50},
+        )
+
+    def test_async_get_all_page_alone_lands_in_query_params(self):
+        asyncio.run(self._assert_async_get_all_page_alone())
+
+    async def _assert_async_get_all_page_alone(self):
+        """get_all(page=0) without page_size should still send page=0 as a query param."""
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        client.async_client.post = AsyncMock(return_value=mock_response)
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get_all(filters={"user_id": "u1"}, page=0)
+
+        client.async_client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page": 0},
+        )
+
+    def test_async_get_all_page_and_page_size_together(self):
+        asyncio.run(self._assert_async_get_all_page_and_page_size_together())
+
+    async def _assert_async_get_all_page_and_page_size_together(self):
+        """get_all(page=0, page_size=0) should send both as query params despite being falsy."""
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        client.async_client.post = AsyncMock(return_value=mock_response)
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get_all(filters={"user_id": "u1"}, page=0, page_size=0)
+
+        client.async_client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
+            params={"page": 0, "page_size": 0},
+        )
+
+    def test_async_get_all_neither_page_nor_page_size_sends_no_query_params(self):
+        asyncio.run(self._assert_async_get_all_neither_page_nor_page_size())
+
+    async def _assert_async_get_all_neither_page_nor_page_size(self):
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        client.async_client.post = AsyncMock(return_value=mock_response)
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get_all(filters={"user_id": "u1"})
+
+        client.async_client.post.assert_called_once_with(
+            "/v3/memories/",
+            json={"filters": {"user_id": "u1"}},
         )
 
 
