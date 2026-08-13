@@ -1,7 +1,7 @@
 {
   "name": "mem0",
   "version": "0.2.13",
-  "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search using the Mem0 Platform MCP server.",
+  "description": "Mem0, the memory layer for AI agents. Add persistent memory, personalization, and semantic search using the Mem0 Platform MCP server.",
   "author": {
     "name": "Mem0",
     "email": "support@mem0.ai"

@@ -1,12 +1,17 @@
 <p align="center">
   <a href="https://github.com/mem0ai/mem0">
-    <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
+    <img src="docs/images/banner-sm.png" width="520px" alt="Mem0 - The Memory Layer for AI Agents">
   </a>
 </p>
-<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
-  <a href="https://trendshift.io/repositories/11194" target="blank">
-    <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
-  </a>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/11194" target="blank"><img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai/mem0 | Trendshift" height="20"></a>
+  <a href="https://pypi.org/project/mem0ai" target="blank"><img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi" alt="PyPI version"></a>
+  <a href="https://www.npmjs.com/package/mem0ai" target="blank"><img src="https://img.shields.io/npm/v/mem0ai?label=npm" alt="npm version"></a>
+  <a href="https://pepy.tech/project/mem0ai"><img src="https://img.shields.io/pypi/dm/mem0ai?label=downloads" alt="PyPI downloads"></a>
+  <a href="https://mem0.dev/DiG"><img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://www.ycombinator.com/companies/mem0"><img src="https://img.shields.io/badge/Y%20Combinator-S24-orange" alt="Y Combinator S24"></a>
+  <a href="https://github.com/mem0ai/mem0/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="Apache 2.0"></a>
 </p>
 
 <p align="center">
@@ -15,62 +20,29 @@
   <a href="https://mem0.dev/DiG">Join Discord</a>
   ·
   <a href="https://mem0.dev/demo">Demo</a>
+  ·
+  <a href="https://mem0.ai/research">Research</a>
 </p>
-
-<p align="center">
-  <a href="https://mem0.dev/DiG">
-    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Mem0 Discord">
-  </a>
-  <a href="https://pepy.tech/project/mem0ai">
-    <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads">
-  </a>
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
-  </a>
-  <a href="https://pypi.org/project/mem0ai" target="blank">
-    <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
-  </a>
-  <a href="https://www.npmjs.com/package/mem0ai" target="blank">
-    <img src="https://img.shields.io/npm/v/mem0ai" alt="Npm package">
-  </a>
-  <a href="https://www.ycombinator.com/companies/mem0">
-    <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Benchmarking Mem0's token-efficient memory algorithm →</strong></a>
-</p>
-
-## New Memory Algorithm (April 2026)
-
-| Benchmark | Old | New  | Tokens  | Latency p50  |
-| --- | --- | --- | --- | --- |
-| **LoCoMo** | 71.4 | **92.5** | 7.0K  | 0.88s  |
-| **LongMemEval** | 67.8 | **94.4** | 6.8K  | 1.09s  |
-| **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
-| **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
-
-All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops) at a top_200 retrieval budget. Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK; open-source users should expect directionally similar gains but not identical numbers.
-
-**What changed:**
-- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
-- **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
-- **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
-- **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
-- **Temporal Reasoning** -- time-aware retrieval that ranks the right dated instance for queries about current state, past events, and upcoming plans.
-
-See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
-
-## Research Highlights
-- **92.5 on LoCoMo** -- +21 points over the previous algorithm
-- **94.4 on LongMemEval** -- +27 points, with 98.2 on assistant memory recall
-- **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
-- [Read the full paper](https://mem0.ai/research)
 
 # Introduction
 
-[Mem0](https://mem0.ai) ("mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. It remembers user preferences, adapts to individual needs, and continuously learns over time—ideal for customer support chatbots, AI assistants, and autonomous systems.
+[Mem0](https://mem0.ai) ("mem-zero") is the memory layer for AI agents. It remembers user preferences, decisions, and history across sessions, so your agents stop asking the same questions and stay useful over weeks instead of a single conversation.
+
+## How it works
+
+Mem0 sits between your app and your LLM. Two calls do the work.
+
+**On `add()`, Mem0 writes memory:**
+1. Your conversation messages go to an LLM in a single extraction pass, which pulls out durable facts ("prefers dark mode", "ships to Berlin") and discards small talk.
+2. Entities in those facts are extracted, embedded, and linked to entities already stored, so related memories connect to each other.
+3. Facts are stored additively. Nothing is overwritten or deleted, so history stays auditable and a wrong extraction cannot silently erase a correct one.
+
+**On `search()`, Mem0 reads memory:**
+1. Your query runs against three signals in parallel: semantic vector similarity, BM25 keyword matching, and entity overlap.
+2. The three scores are fused, and time-aware ranking picks the right dated instance when facts changed over time ("where do I live" vs "where did I live before").
+3. You get back a short, ranked list to drop into your prompt, typically under 7K tokens instead of replaying a 25K+ token conversation history.
+
+That is the whole loop: `add()` after a turn, `search()` before the next one. Everything else (vector store, embedder, LLM, reranker) is swappable.
 
 ### Key Features & Use Cases
 
@@ -83,6 +55,19 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 - **Customer Support**: Recall past tickets and user history for tailored help
 - **Healthcare**: Track patient preferences and history for personalized care
 - **Productivity & Gaming**: Adaptive workflows and environments based on user behavior
+
+## Benchmarks
+
+| Benchmark | Previous | Current | Tokens | Latency p50 |
+| --- | --- | --- | --- | --- |
+| **LoCoMo** | 71.4 | **92.5** | 7.0K | 0.88s |
+| **LongMemEval** | 67.8 | **94.4** | 6.8K | 1.09s |
+| **BEAM (1M)** | -- | **64.1** | 6.7K | 1.00s |
+| **BEAM (10M)** | -- | **48.6** | 6.9K | 1.05s |
+
+All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops) at a top_200 retrieval budget. Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK; open-source users should expect directionally similar gains but not identical numbers.
+
+The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers, and the [full paper](https://mem0.ai/research) covers the methodology. Upgrading from v2? See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3).
 
 ## 🚀 Quickstart Guide <a name="quickstart"></a>
 
