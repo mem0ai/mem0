@@ -57,6 +57,33 @@ For detailed guidance on pull requests, refer to [GitHub's documentation](https:
 
 ---
 
+## Installing from Source
+
+If you just want to run the latest, unreleased SDK code instead of the published `mem0ai` package, for example to try out a fix before it ships, or to depend on a fork, install directly from a local clone rather than setting up the full contributor environment below.
+
+### Python SDK
+
+```bash
+git clone https://github.com/mem0ai/mem0.git
+cd mem0
+pip install -e .
+```
+
+This installs `mem0ai` in editable mode, so edits under `mem0/` take effect immediately without reinstalling. Add an extra if you need one, e.g. `pip install -e ".[graph]"` (see `pyproject.toml` for the full list). If you are contributing to the SDK itself and need every optional dependency for the test suite, use `hatch` instead, see [Dependency Management](#dependency-management).
+
+### TypeScript SDK
+
+```bash
+git clone https://github.com/mem0ai/mem0.git
+cd mem0/mem0-ts
+pnpm install
+pnpm run build
+```
+
+This builds `mem0-ts/dist` (CJS + ESM). To use it from another local project, add it as a `file:` dependency pointing at `mem0-ts`, or run `pnpm link --global` inside `mem0-ts` and `pnpm link --global mem0ai` in the consuming project.
+
+---
+
 ## Python SDK (`mem0/`)
 
 ### Dependency Management
