@@ -164,7 +164,7 @@ npm list mem0ai --depth 0 2>/dev/null | grep mem0ai
 mem0 --version          # Python or Node CLI, whichever is on PATH
 ```
 
-If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_format: "v1.1"`), route them through the matching migration guide in the Platform section before quoting current docs. If no Mem0 package is installed, recommend `pip install mem0ai` or `npm install mem0ai` and the corresponding quickstart above.
+If the user is on a pre-current major (Python < 2, TS < 3, or Platform code still passing `output_format`, `api_version`, `async_mode`, or `enable_graph`, all of which the current majors removed), route them through the matching migration guide in the Platform section before quoting current docs. If no Mem0 package is installed, recommend `pip install mem0ai` or `npm install mem0ai` and the corresponding quickstart above.
 
 ## Getting Started
 
@@ -235,7 +235,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Open Source Features Overview](https://docs.mem0.ai/open-source/features/overview) [OSS]: Use when surveying OSS-only capabilities.
 - [Metadata Filtering](https://docs.mem0.ai/open-source/features/metadata-filtering) [OSS]: Use when filtering by custom metadata fields in self-hosted.
 - [Reranker Search](https://docs.mem0.ai/open-source/features/reranker-search) [OSS]: Use when improving OSS search quality with a reranker.
-- [Reranking](https://docs.mem0.ai/open-source/features/reranking) [OSS]: Use when configuring reranking end-to-end in OSS.
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory) [OSS]: Use when the self-hosted app needs `AsyncMemory`.
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.

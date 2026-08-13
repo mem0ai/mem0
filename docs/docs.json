@@ -1040,6 +1040,10 @@
       "destination": "/platform/features/graph-memory"
     },
     {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
+    {
       "source": "/features/:slug",
       "destination": "/platform/features/:slug"
     },
