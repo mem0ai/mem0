@@ -7,6 +7,10 @@ description: 'Export memories in a structured format using customizable Pydantic
 
 The Memory Export feature allows you to create structured exports of memories using customizable Pydantic schemas. This process enables you to transform your stored memories into specific data formats that match your needs. You can apply various filters to narrow down which memories to export and define exactly how the data should be structured.
 
+<Warning>
+Memory Export transforms matching memories into the schema you provide. It is not a raw backup or a byte-for-byte download of every stored memory record. If you need the original memory records, retrieve them with the paginated `get_all()` API instead. For an account-level data access or compliance request that cannot be completed through the API, contact support.
+</Warning>
+
 ## Creating a Memory Export
 
 To create a memory export, you'll need to:
@@ -277,6 +281,8 @@ You can apply various filters to customize which memories are included in the ex
 <Note>
 The export process may take some time to complete, especially when dealing with a large number of memories or complex schemas.
 </Note>
+
+If an export remains in progress unexpectedly, do not submit duplicate jobs. Retrieve the job by its export ID to check its status, then contact support with that ID if it does not complete.
 
 If you have any questions, please feel free to reach out to us using one of the following methods:
 
