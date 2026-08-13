@@ -22,12 +22,14 @@ class TestAddOptions:
                 metadata={"source": "test"},
                 expires="2099-01-01",
                 custom_instructions="Extract only preferences.",
+                agent_custom_instructions="Extract only tool outcomes.",
                 custom_categories=[{"prefs": "user preferences"}],
                 structured_data_schema={"type": "object"},
                 timestamp=1700000000,
             )
         payload = mock_request.call_args.kwargs["json"]
         assert payload["custom_instructions"] == "Extract only preferences."
+        assert payload["agent_custom_instructions"] == "Extract only tool outcomes."
         assert payload["custom_categories"] == [{"prefs": "user preferences"}]
         assert payload["structured_data_schema"] == {"type": "object"}
         assert payload["timestamp"] == 1700000000
@@ -40,6 +42,7 @@ class TestAddOptions:
             backend.add(content="hello", user_id="alice")
         payload = mock_request.call_args.kwargs["json"]
         assert "custom_instructions" not in payload
+        assert "agent_custom_instructions" not in payload
         assert "custom_categories" not in payload
         assert "structured_data_schema" not in payload
         assert "timestamp" not in payload

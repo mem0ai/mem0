@@ -148,6 +148,14 @@ if command -v python3 >/dev/null 2>&1; then
   if [ -n "$MEM0_PROJECT_CONFIG" ] && [ "$MEM0_PROJECT_CONFIG" != "{}" ]; then
     _CONFIG_KEYS=$(echo "$MEM0_PROJECT_CONFIG" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo "?")
     echo "mem0.md loaded (${_CONFIG_KEYS} sections configured)."
+    # Surface the project's memory policy so the model applies it when choosing
+    # what to store via add_memory (the hook writes also send it as an
+    # extraction param — see _instructions.py).
+    _INSTR=$(echo "$MEM0_PROJECT_CONFIG" | python3 -c "import sys,json; print(json.load(sys.stdin).get('instructions',''))" 2>/dev/null || echo "")
+    if [ -n "$_INSTR" ]; then
+      echo ""
+      echo "Project memory policy (from mem0.md): ${_INSTR}"
+    fi
   fi
 fi
 
