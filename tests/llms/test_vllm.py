@@ -58,6 +58,17 @@ def test_openai_client_receives_base_url_from_env(monkeypatch):
     assert base_url != "http://localhost:8000/v1"
 
 
+def test_openai_client_receives_base_url_from_env_via_base_llm_config(monkeypatch):
+    """Original #6256 repro: BaseLlmConfig (not VllmConfig) plus VLLM_BASE_URL only."""
+    monkeypatch.setenv("VLLM_BASE_URL", "http://remote-vllm:8000/v1")
+    with patch("mem0.llms.vllm.OpenAI") as mock_openai:
+        VllmLLM(BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct"))
+
+    base_url = mock_openai.call_args.kwargs["base_url"]
+    assert base_url == "http://remote-vllm:8000/v1"
+    assert base_url != "http://localhost:8000/v1"
+
+
 def test_generate_response_without_tools(mock_vllm_client):
     config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = VllmLLM(config)
