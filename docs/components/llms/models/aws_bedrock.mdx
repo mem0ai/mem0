@@ -80,9 +80,10 @@ await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } }
 
 ### Application inference profiles
 
-Bedrock resolves the model family from the model identifier. An application inference profile ARN ends in an opaque ID, so there is nothing to resolve from. Set `provider_override` when your model is one:
+Bedrock resolves the model family from the model identifier. An application inference profile ARN ends in an opaque ID, so there is nothing to resolve from. Set `provider_override` (Python) / `providerOverride` (TypeScript) when your model is one:
 
-```python
+<CodeGroup>
+```python Python
 config = {
     "llm": {
         "provider": "aws_bedrock",
@@ -94,7 +95,20 @@ config = {
 }
 ```
 
-Without it, initialization raises `ValueError: Unknown provider`. Plain model IDs and cross-region inference profiles such as `us.anthropic.claude-sonnet-4-20250514-v1:0` still resolve automatically and need no override.
+```typescript TypeScript
+const config = {
+  llm: {
+    provider: 'aws_bedrock',
+    config: {
+      model: 'arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz',
+      providerOverride: 'anthropic',
+    },
+  },
+};
+```
+</CodeGroup>
+
+Without it, initialization raises `Unknown provider in model` (Python: `ValueError`; TypeScript: `Error`). Plain model IDs and cross-region inference profiles such as `us.anthropic.claude-sonnet-4-20250514-v1:0` still resolve automatically and need no override.
 
 ### Config
 
