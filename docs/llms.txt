@@ -264,7 +264,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
 
 ### AI Coding Tools
-- [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Platform]: Use when wiring memory into Claude Code.
+- [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
 - [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when wiring memory into Cursor.
 - [Codex](https://docs.mem0.ai/integrations/codex) [Platform]: Use when wiring memory into Codex / other editor assistants.
 - [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when wiring memory into OpenCode.
@@ -409,10 +409,10 @@ The `integrations/mem0-plugin/` directory provides MCP server connection, lifecy
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
 - `integrations/claude-code` [Both]
-- `integrations/cursor` [Both]
-- `integrations/codex` [Both]
-- `integrations/opencode` [Both]
-- `integrations/antigravity` [Both]
+- `integrations/cursor` [Platform]
+- `integrations/codex` [Platform]
+- `integrations/opencode` [Platform]
+- `integrations/antigravity` [Platform]
 - `integrations/openclaw` [Both]
 
 ### MCP Endpoints
