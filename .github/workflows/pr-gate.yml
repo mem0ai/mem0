@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GATE_EFFECTIVE_FROM: '2026-08-12T00:00:00Z'
+  GATE_EFFECTIVE_FROM: '2026-08-14T11:35:27Z'
 
 permissions:
   contents: read
