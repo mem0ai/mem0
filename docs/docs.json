@@ -613,6 +613,10 @@
   },
   "redirects": [
     {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
+    {
       "source": "/platform/features/contextual-add",
       "destination": "/core-concepts/memory-operations/add"
     },

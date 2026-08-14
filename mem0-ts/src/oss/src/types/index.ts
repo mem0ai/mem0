@@ -78,6 +78,7 @@ export interface LLMConfig {
   awsAccessKeyId?: string;
   awsSecretAccessKey?: string;
   awsSessionToken?: string;
+  providerOverride?: string;
   // Optional pre-constructed client (e.g. BedrockRuntimeClient) for DI/testing.
   client?: any;
 }
