@@ -49,7 +49,7 @@ Filters use a nested JSON structure with logical operators at the root:
 ### Content fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `categories` | `eq`, `ne`, `in` (matches any category in the list), `contains` (case-insensitive) | `{"categories": {"in": ["finance"]}}` |
+| `categories` | `in` (takes a list, matches any category in it), `contains` (case-insensitive). `eq` and `ne` are rejected | `{"categories": {"in": ["finance"]}}` |
 | `metadata` | `eq`, `ne`, `contains` | `{"metadata": {"key": "value"}}` |
 | `keywords` | `contains` (case-sensitive), `icontains` (case-insensitive) | `{"keywords": {"icontains": "invoice"}}` |
 
@@ -328,7 +328,7 @@ Level up foundational patterns with compound filters that coordinate entity scop
 ## Best practices
 
 <Callout type="tip" icon="lightbulb" color="#26A17B">
-The root does not have to be `AND`, `OR`, or `NOT`. A bare filter like `{"user_id": "alice"}` works on its own; wrap conditions in a logical operator only when you need to combine more than one.
+The root does not have to be `AND`, `OR`, or `NOT`. A bare filter like `{"user_id": "alice"}` works on its own, and several top-level keys in one flat filter are implicitly ANDed. Wrap conditions in a logical operator when you need OR/NOT semantics or nested grouping.
 </Callout>
 
 <Callout type="tip" icon="lightbulb" color="#26A17B">
@@ -392,7 +392,7 @@ A filter object with both an `AND` key and a sibling `OR` key at the same level 
 
 <AccordionGroup>
   <Accordion title="Do I need AND/OR/NOT?">
-    No. A bare filter like `{"user_id": "u1"}` works on its own. Add `AND`, `OR`, or `NOT` only when you need to combine more than one condition.
+    No. A bare filter like `{"user_id": "u1"}` works on its own, and several top-level keys in one flat filter like `{"user_id": "u1", "agent_id": "a1"}` are implicitly ANDed. Reach for `AND`, `OR`, or `NOT` when you need OR/NOT semantics or nested grouping, not merely to combine conditions.
   </Accordion>
 
   <Accordion title="What does * match?">

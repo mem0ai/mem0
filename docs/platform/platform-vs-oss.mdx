@@ -37,7 +37,7 @@ Mem0 offers two ways to add memory to your AI applications. Both run the same co
 The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `update`, `delete`, `delete_all`, and per-memory `history` all exist on the self-hosted `Memory`/`AsyncMemory` classes and on the hosted `MemoryClient`/`AsyncMemoryClient`. Both support:
 
 - **Entity scoping** by `user_id`, `agent_id`, and `run_id`
-- **Metadata filtering**: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `icontains`, and wildcards match on both, and both understand `AND`/`OR`/`NOT` grouping. The grammar around that grouping differs (see below)
+- **Filter grouping**: both accept `AND`/`OR`/`NOT` wrappers, both implicitly AND a flat multi-key filter like `{"user_id": "alice", "agent_id": "a1"}`, and both accept `*` as a wildcard value. Which fields you may filter on, and which operators each field accepts, differ (see below)
 - **Entity-aware ranking**: both extract entities from memory text and use shared entities to boost related results at search time
 - **Multimodal input**, **memory expiration** (`expiration_date`), **reranking**, **procedural memory** (Python), and **custom extraction instructions** (`custom_instructions`)
 - Python and JavaScript SDKs, plus a REST API (self-hosted via `server/`, or hosted)
@@ -79,8 +79,8 @@ The core memory loop is identical on both: `add`, `search`, `get`, `get_all`, `u
     | **Custom categories** | Set per project or per `add` call ([details](/platform/features/custom-categories)) | Not supported. `Memory.add()` has no `custom_categories` parameter, and OSS project updates are rejected outright |
     | **Webhooks** | Project-scoped HTTP callbacks on memory and ingest events ([details](/platform/features/webhooks)) | Not available |
     | **Memory Export** | Schema-driven structured export jobs over filtered memories ([details](/platform/features/memory-export)) | Not available |
-    | **Filter grouping grammar** | A bare single-condition filter works on its own, but combining more than one condition requires an explicit `AND`/`OR`/`NOT` wrapper ([details](/platform/features/v2-memory-filters)) | Top-level filter keys are implicitly ANDed, so a flat multi-key filter like `{"user_id": "alice", "category": "work"}` works without a wrapper |
-    | **`nin` (not-in) operator** | Not supported | Supported, alongside `in` |
+    | **Filterable fields** | Top-level filter keys come from a fixed allowlist: `user_id`, `agent_id`, `app_id`, `run_id`, `created_at`, `updated_at`, `timestamp`, `expiration_date`, `text`, `categories`, `metadata`, `keywords_search`, `memory_ids`, `keywords`, plus the `AND`/`OR`/`NOT` operators. Any other key is rejected with a `400` ([details](/platform/features/v2-memory-filters)) | Any metadata key is filterable directly, with no allowlist |
+    | **Comparison operators** | Depends on the field: `metadata` accepts `eq`, `ne`, `contains`; `categories` accepts `contains`, `in`; the date fields accept the range operators | The full set on any key: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains` |
   </Accordion>
 
   <Accordion title="Support" icon="life-ring">

@@ -18,7 +18,7 @@ Mem0's Python SDK exposes a `memory_type` parameter on `add()`. The underlying `
 | Episodic memory | `episodic_memory` | **Not implemented** | Same as above: defined, never wired into the extraction pipeline, rejected by validation, no documented roadmap. |
 
 <Warning>
-  Only `procedural_memory` is a real, working value. Calling `memory.add(messages, memory_type="semantic_memory")` (or `episodic_memory`) raises `Mem0ValidationError`, telling you to pass `procedural_memory` instead.
+  Only `procedural_memory` is a real, working value. Calling `memory.add(messages, memory_type="semantic_memory")` (or `episodic_memory`) is rejected and tells you to pass `procedural_memory` instead. Sync `Memory.add()` raises `Mem0ValidationError`; `AsyncMemory.add()` raises a plain `ValueError`.
 </Warning>
 
 ## Procedural memory
@@ -40,7 +40,7 @@ memory.add(
 )
 ```
 
-If everything else about your call is unchanged but you omit `memory_type`, or set it to anything other than `procedural_memory`, Mem0 stores the messages as an ordinary memory instead: there is no semantic/episodic pathway for it to fall into.
+Omit `memory_type` entirely and Mem0 stores the messages as an ordinary memory: there is no semantic/episodic pathway for it to fall into. Any other explicit value is rejected by validation rather than quietly falling back to an ordinary memory.
 
 ## How every other memory is scoped
 
