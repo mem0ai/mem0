@@ -2,13 +2,13 @@ name: PR Gate
 
 on:
   pull_request_target:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, edited]
   issues:
     types: [labeled]
 
 concurrency:
-  group: pr-gate-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
+  group: pr-gate-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
 
 env:
   GATE_EFFECTIVE_FROM: '2026-08-12T00:00:00Z'
@@ -22,6 +22,7 @@ jobs:
   gate:
     if: >-
       github.event_name == 'pull_request_target' &&
+      github.event.action != 'edited' &&
       github.event.pull_request.draft == false &&
       github.event.pull_request.user.type != 'Bot' &&
       github.event.pull_request.head.repo.full_name != github.repository &&
@@ -91,7 +92,7 @@ jobs:
               '2. Link it from this pull request description with `Closes #<number>`.',
               '3. Ask a maintainer to label that issue `accepted`. This pull request reopens by itself when they do.',
               '',
-              'Issue already labeled `accepted`? Add `Closes #<number>` to the description, then reopen this pull request yourself.',
+              'Issue already labeled `accepted`? Just add `Closes #<number>` to the description. That reopens this too.',
               '',
               'Documentation-only changes skip this gate entirely.',
               '',
@@ -107,58 +108,82 @@ jobs:
             core.info(`Closed #${pr.number}: no accepted issue linked`);
 
   reopen:
-    if: github.event_name == 'issues' && github.event.label.name == 'accepted'
+    if: >-
+      (github.event_name == 'issues' && github.event.label.name == 'accepted') ||
+      (github.event.action == 'edited' && github.event.pull_request.state == 'closed')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issue = context.payload.issue.number;
             const marker = '<!-- pr-gate -->';
 
-            const { repository } = await github.graphql(
-              `query ($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  issue(number: $number) {
-                    closedByPullRequestsReferences(first: 20, includeClosedPrs: true) {
-                      nodes { number state }
+            const isClosedWithAcceptedIssue = async (number) => {
+              const { repository } = await github.graphql(
+                `query ($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      state
+                      closingIssuesReferences(first: 20) {
+                        nodes { labels(first: 50) { nodes { name } } }
+                      }
                     }
                   }
-                }
-              }`,
-              { owner, repo, number: issue },
-            );
+                }`,
+                { owner, repo, number },
+              );
+              const pullRequest = repository.pullRequest;
+              return pullRequest.state === 'CLOSED' &&
+                pullRequest.closingIssuesReferences.nodes.some((issue) =>
+                  issue.labels.nodes.some((label) => label.name === 'accepted'));
+            };
 
-            const candidates = repository.issue.closedByPullRequestsReferences.nodes
-              .filter((pr) => pr.state === 'CLOSED');
-
-            if (candidates.length === 0) {
-              core.info(`No closed pull request links #${issue}. Nothing to reopen.`);
-              return;
+            let candidates;
+            if (context.eventName === 'issues') {
+              const { repository } = await github.graphql(
+                `query ($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    issue(number: $number) {
+                      closedByPullRequestsReferences(first: 20, includeClosedPrs: true) {
+                        nodes { number }
+                      }
+                    }
+                  }
+                }`,
+                { owner, repo, number: context.payload.issue.number },
+              );
+              candidates = repository.issue.closedByPullRequestsReferences.nodes.map((pr) => pr.number);
+            } else {
+              candidates = [context.payload.pull_request.number];
             }
 
-            for (const pr of candidates) {
+            for (const number of candidates) {
+              if (!(await isClosedWithAcceptedIssue(number))) {
+                core.info(`#${number} is not a closed pull request linking an accepted issue. Skipped.`);
+                continue;
+              }
+
               const comments = await github.paginate(github.rest.issues.listComments, {
-                owner, repo, issue_number: pr.number, per_page: 100,
+                owner, repo, issue_number: number, per_page: 100,
               });
               if (!comments.some((comment) => comment.body?.startsWith(marker))) {
-                core.info(`#${pr.number} was not closed by this gate. Left alone.`);
+                core.info(`#${number} was not closed by this gate. Left alone.`);
                 continue;
               }
 
               try {
                 await github.rest.pulls.update({
-                  owner, repo, pull_number: pr.number, state: 'open',
+                  owner, repo, pull_number: number, state: 'open',
                 });
               } catch (error) {
-                core.warning(`Could not reopen #${pr.number}: ${error.message}`);
+                core.warning(`Could not reopen #${number}: ${error.message}`);
                 continue;
               }
 
               await github.rest.issues.createComment({
-                owner, repo, issue_number: pr.number,
-                body: `#${issue} is now labeled \`accepted\`, so this is open again and ready for review.`,
+                owner, repo, issue_number: number,
+                body: 'An `accepted` issue is linked now, so this is open again and ready for review.',
               });
-              core.info(`Reopened #${pr.number}`);
+              core.info(`Reopened #${number}`);
             }
