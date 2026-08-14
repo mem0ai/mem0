@@ -3,6 +3,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from anyio import to_thread
 from db import SessionLocal
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
@@ -141,6 +142,18 @@ def _resolve_user_from_api_key(key: str, db: Session) -> User:
     raise HTTPException(status_code=401, detail="Invalid API key.")
 
 
+def _resolve_user_from_api_key_sync(key: str) -> User:
+    """Open a short-lived session and resolve the API key inside it.
+
+    Wraps _resolve_user_from_api_key so the whole blocking unit — the DB query
+    plus the bcrypt verify — runs in a single worker thread (see verify_auth),
+    and the pooled connection is opened and released on that thread rather than
+    held across an await.
+    """
+    with SessionLocal() as db:
+        return _resolve_user_from_api_key(key, db)
+
+
 async def verify_auth(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -161,8 +174,10 @@ async def verify_auth(
             _mark_auth_type(request, "admin_api_key")
             return None
         _mark_auth_type(request, "api_key")
-        with SessionLocal() as db:
-            return _resolve_user_from_api_key(x_api_key, db)
+        # bcrypt verify (~100-300ms) plus the DB lookup are blocking and CPU-bound.
+        # Run them in a worker thread so a single in-flight API-key request does not
+        # stall the event loop for every other concurrent request.
+        return await to_thread.run_sync(_resolve_user_from_api_key_sync, x_api_key)
 
     if AUTH_DISABLED:
         _mark_auth_type(request, "disabled")
