@@ -134,6 +134,8 @@ _SENSITIVE_SUFFIXES = (
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 DELETE_ALL_BATCH_SIZE = 1000
+# Maximum characters for search query embedding text (~8,000 tokens) to prevent exceeding embedding model token limits
+MAX_SEARCH_EMBEDDING_CHARS = 32000
 
 # Tenant-scoping fields that caller-supplied metadata must never set, on either the
 # creation or the update path (issues #4490, #6277, #6655).
@@ -922,9 +924,16 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        search_messages = parsed_messages
+        if len(search_messages) > MAX_SEARCH_EMBEDDING_CHARS:
+            logger.warning(
+                f"Search query text length ({len(search_messages)} characters) exceeds maximum safe embedding limit "
+                f"({MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context."
+            )
+            search_messages = search_messages[-MAX_SEARCH_EMBEDDING_CHARS:]
+        query_embedding = self.embedding_model.embed(search_messages, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=search_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -2577,10 +2586,17 @@ class AsyncMemory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        search_messages = parsed_messages
+        if len(search_messages) > MAX_SEARCH_EMBEDDING_CHARS:
+            logger.warning(
+                f"Search query text length ({len(search_messages)} characters) exceeds maximum safe embedding limit "
+                f"({MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context."
+            )
+            search_messages = search_messages[-MAX_SEARCH_EMBEDDING_CHARS:]
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, search_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=search_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
