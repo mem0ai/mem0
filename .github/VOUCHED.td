@@ -6,10 +6,15 @@
 # Vouch automatically allows two kinds of account without consulting this file:
 # accounts ending in [bot], and repo collaborators with write or admin
 # permission. Org membership on its own is NOT one of them, so
-# vouch-check-pr.yml skips the check entirely for OWNER, MEMBER, and
-# COLLABORATOR authors. mem0ai org members are listed below as well, but that
-# workflow guard is what actually protects them: a missing, misspelled, or
-# miscased entry here can never cause a member to be flagged.
+# vouch-check-pr.yml skips the check for OWNER, MEMBER, and COLLABORATOR
+# authors, and for any branch pushed to this repository.
+#
+# Keep every mem0ai member listed below anyway. The author_association arm of
+# that guard is weaker than it looks: MEMBER needs the member's org membership
+# to be public and COLLABORATOR needs a direct repo invite, so a member with
+# private membership and a team-derived role reads as CONTRIBUTOR. Working from
+# a branch here covers them, working from their own fork leaves this file as
+# the only thing that does. A missing or miscased entry is a real gap.
 #
 # Syntax:
 #  - One handle per line (without @), sorted alphabetically.
