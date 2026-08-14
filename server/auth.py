@@ -11,6 +11,7 @@ from models import APIKey, RefreshTokenJti, User
 from passlib.context import CryptContext
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
@@ -123,14 +124,15 @@ def _resolve_user_from_jwt(token: str, db: Session) -> User:
     return user
 
 
-def _resolve_user_from_api_key(key: str, db: Session) -> User:
+async def _resolve_user_from_api_key(key: str, db: Session) -> User:
     prefix = key[:12] if len(key) >= 12 else key
     candidates = (
         db.execute(select(APIKey).where(APIKey.key_prefix == prefix, APIKey.revoked_at.is_(None))).scalars().all()
     )
 
     for candidate in candidates:
-        if verify_api_key_hash(key, candidate.key_hash):
+        match = await run_in_threadpool(verify_api_key_hash, key, candidate.key_hash)
+        if match:
             candidate.last_used_at = datetime.now(timezone.utc)
             db.commit()
             user = db.get(User, candidate.created_by)
@@ -162,7 +164,7 @@ async def verify_auth(
             return None
         _mark_auth_type(request, "api_key")
         with SessionLocal() as db:
-            return _resolve_user_from_api_key(x_api_key, db)
+            return await _resolve_user_from_api_key(x_api_key, db)
 
     if AUTH_DISABLED:
         _mark_auth_type(request, "disabled")
