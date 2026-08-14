@@ -56,8 +56,8 @@ client.add(
 )
 
 # Read
-client.search("What does Alice like to do?", user_id="alice")
-client.get_all(user_id="alice")
+client.search("What does Alice like to do?", filters={"user_id": "alice"})
+client.get_all(filters={"user_id": "alice"})
 client.get(memory_id="<id>")
 
 # Update
@@ -86,8 +86,8 @@ await client.add(
 );
 
 // Read
-await client.search("What does Alice like to do?", { user_id: "alice" });
-await client.getAll({ user_id: "alice" });
+await client.search("What does Alice like to do?", { filters: { user_id: "alice" } });
+await client.getAll({ filters: { user_id: "alice" } });
 await client.get("<memory_id>");
 
 // Update
@@ -113,8 +113,8 @@ m = Memory()   # needs OPENAI_API_KEY; see components/ for custom providers
 m.add("I love hiking on weekends", user_id="alice")
 
 # Read
-m.search("What does Alice like to do?", user_id="alice")
-m.get_all(user_id="alice")
+m.search("What does Alice like to do?", filters={"user_id": "alice"})
+m.get_all(filters={"user_id": "alice"})
 m.get(memory_id="<id>")
 
 # Update
@@ -140,8 +140,8 @@ const memory = new Memory();
 await memory.add("I love hiking on weekends", { userId: "alice" });
 
 // Read
-await memory.search("What does Alice like to do?", { userId: "alice" });
-await memory.getAll({ userId: "alice" });
+await memory.search("What does Alice like to do?", { filters: { user_id: "alice" } });
+await memory.getAll({ filters: { user_id: "alice" } });
 await memory.get("<memory_id>");
 
 // Update
@@ -164,7 +164,7 @@ npm list mem0ai --depth 0 2>/dev/null | grep mem0ai
 mem0 --version          # Python or Node CLI, whichever is on PATH
 ```
 
-If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_format: "v1.1"`), route them through the matching migration guide in the Platform section before quoting current docs. If no Mem0 package is installed, recommend `pip install mem0ai` or `npm install mem0ai` and the corresponding quickstart above.
+If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call still passing `output_format`, `api_version`, `async_mode`, or `enable_graph`, all removed in the current major), route them through the matching migration guide in the Platform section before quoting current docs. If no Mem0 package is installed, recommend `pip install mem0ai` or `npm install mem0ai` and the corresponding quickstart above.
 
 ## Getting Started
 
@@ -235,7 +235,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Open Source Features Overview](https://docs.mem0.ai/open-source/features/overview) [OSS]: Use when surveying OSS-only capabilities.
 - [Metadata Filtering](https://docs.mem0.ai/open-source/features/metadata-filtering) [OSS]: Use when filtering by custom metadata fields in self-hosted.
 - [Reranker Search](https://docs.mem0.ai/open-source/features/reranker-search) [OSS]: Use when improving OSS search quality with a reranker.
-- [Reranking](https://docs.mem0.ai/open-source/features/reranking) [OSS]: Use when configuring reranking end-to-end in OSS.
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory) [OSS]: Use when the self-hosted app needs `AsyncMemory`.
 - [OSS Multimodal Support (features)](https://docs.mem0.ai/open-source/features/multimodal-support) [OSS]: Use when handling images and PDFs self-hosted (feature guide).
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
@@ -247,46 +246,46 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Integrations Overview](https://docs.mem0.ai/integrations) [Both]: Use when surveying every available integration.
 
 ### Agent Frameworks
-- [LangChain](https://docs.mem0.ai/integrations/langchain) [Both]: Use when the user is on LangChain.
-- [LangGraph](https://docs.mem0.ai/integrations/langgraph) [Both]: Use when building stateful multi-actor LangGraph apps.
-- [LangChain Tools](https://docs.mem0.ai/integrations/langchain-tools) [Both]: Use when Mem0 should be exposed as a LangChain tool.
+- [LangChain](https://docs.mem0.ai/integrations/langchain) [Platform]: Use when the user is on LangChain.
+- [LangGraph](https://docs.mem0.ai/integrations/langgraph) [Platform]: Use when building stateful multi-actor LangGraph apps.
+- [LangChain Tools](https://docs.mem0.ai/integrations/langchain-tools) [Platform]: Use when Mem0 should be exposed as a LangChain tool.
 - [LlamaIndex](https://docs.mem0.ai/integrations/llama-index) [Both]: Use when layering memory on a LlamaIndex RAG app.
-- [CrewAI](https://docs.mem0.ai/integrations/crewai) [Both]: Use when building CrewAI multi-agent systems.
-- [AutoGen](https://docs.mem0.ai/integrations/autogen) [Both]: Use when the user is on Microsoft AutoGen.
-- [Agno](https://docs.mem0.ai/integrations/agno) [Both]: Use when the user is on Agno.
+- [CrewAI](https://docs.mem0.ai/integrations/crewai) [Platform]: Use when building CrewAI multi-agent systems.
+- [AutoGen](https://docs.mem0.ai/integrations/autogen) [Platform]: Use when the user is on Microsoft AutoGen.
+- [Agno](https://docs.mem0.ai/integrations/agno) [Platform]: Use when the user is on Agno.
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
-- [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Both]: Use when the user is on ChatDev.
+- [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Platform]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
 - [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
-- [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Both]: Use when the user is on the OpenAI Agents SDK.
-- [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Both]: Use when the user is on Google's Agent Development Kit.
-- [Mastra](https://docs.mem0.ai/integrations/mastra) [Both]: Use when the user is on Mastra (TypeScript).
+- [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Platform]: Use when the user is on the OpenAI Agents SDK.
+- [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Platform]: Use when the user is on Google's Agent Development Kit.
+- [Mastra](https://docs.mem0.ai/integrations/mastra) [Platform]: Use when the user is on Mastra (TypeScript).
 - [OpenClaw](https://docs.mem0.ai/integrations/openclaw) [Both]: Use when wiring Mem0 into Claude Code or editors via OpenClaw.
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
 
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
-- [Cursor](https://docs.mem0.ai/integrations/cursor) [Both]: Use when wiring memory into Cursor.
-- [Codex](https://docs.mem0.ai/integrations/codex) [Both]: Use when wiring memory into Codex / other editor assistants.
-- [OpenCode](https://docs.mem0.ai/integrations/opencode) [Both]: Use when wiring memory into OpenCode.
-- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Both]: Use when wiring memory into Google Antigravity.
+- [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when wiring memory into Cursor.
+- [Codex](https://docs.mem0.ai/integrations/codex) [Platform]: Use when wiring memory into Codex / other editor assistants.
+- [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when wiring memory into OpenCode.
+- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Platform]: Use when wiring memory into Google Antigravity.
 
 ### Voice & Real-time
-- [LiveKit](https://docs.mem0.ai/integrations/livekit) [Both]: Use when building real-time voice/video with memory.
-- [Pipecat](https://docs.mem0.ai/integrations/pipecat) [Both]: Use when the voice pipeline is Pipecat.
-- [ElevenLabs](https://docs.mem0.ai/integrations/elevenlabs) [Both]: Use when voice synthesis uses ElevenLabs.
+- [LiveKit](https://docs.mem0.ai/integrations/livekit) [Platform]: Use when building real-time voice/video with memory.
+- [Pipecat](https://docs.mem0.ai/integrations/pipecat) [Platform]: Use when the voice pipeline is Pipecat.
+- [ElevenLabs](https://docs.mem0.ai/integrations/elevenlabs) [Platform]: Use when voice synthesis uses ElevenLabs.
 
 ### Cloud & Infrastructure
-- [AWS Bedrock](https://docs.mem0.ai/integrations/aws-bedrock) [Both]: Use when the user is on AWS Bedrock managed AI services.
+- [AWS Bedrock](https://docs.mem0.ai/integrations/aws-bedrock) [OSS]: Use when the user is on AWS Bedrock managed AI services.
 
 ### Developer Tools
-- [Dify](https://docs.mem0.ai/integrations/dify) [Both]: Use when the user is on Dify LLMOps.
-- [Flowise](https://docs.mem0.ai/integrations/flowise) [Both]: Use when the user is on Flowise no-code.
+- [Dify](https://docs.mem0.ai/integrations/dify) [Platform]: Use when the user is on Dify LLMOps.
+- [Flowise](https://docs.mem0.ai/integrations/flowise) [Platform]: Use when the user is on Flowise no-code.
 - [n8n](https://docs.mem0.ai/integrations/n8n) [Both]: Use when the user builds workflows or AI agents in n8n.
 - [Zapier](https://docs.mem0.ai/integrations/zapier) [Both]: Use when the user automates workflows with Zapier.
 - [AgentOps](https://docs.mem0.ai/integrations/agentops) [Both]: Use when tracking agent observability with memory metadata.
-- [Respan](https://docs.mem0.ai/integrations/respan) [Both]: Use when monitoring Mem0 with Respan (formerly Keywords AI) LLM observability.
-- [Raycast](https://docs.mem0.ai/integrations/raycast) [Both]: Use when the user wants quick memory access via Raycast.
+- [Respan](https://docs.mem0.ai/integrations/respan) [OSS]: Use when monitoring Mem0 with Respan (formerly Keywords AI) LLM observability.
+- [Raycast](https://docs.mem0.ai/integrations/raycast) [Platform]: Use when the user wants quick memory access via Raycast.
 
 ## Cookbooks
 
@@ -318,10 +317,10 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Integration Examples
 - [Agents SDK Tool](https://docs.mem0.ai/cookbooks/integrations/agents-sdk-tool) [Platform]: Use when exposing Mem0 as a tool in OpenAI Agents SDK.
 - [OpenAI Tool Calls](https://docs.mem0.ai/cookbooks/integrations/openai-tool-calls) [Platform]: Use when hooking Mem0 into OpenAI function calling.
-- [Mastra Agent](https://docs.mem0.ai/cookbooks/integrations/mastra-agent) [Both]: Use when the agent is built in Mastra.
-- [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk) [Both]: Use when the domain is medical and the framework is Google ADK.
-- [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock) [Both]: Use when deploying with AWS managed model services.
-- [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search) [Both]: Use when the agent layers web search on memory.
+- [Mastra Agent](https://docs.mem0.ai/cookbooks/integrations/mastra-agent) [Platform]: Use when the agent is built in Mastra.
+- [Healthcare Google ADK](https://docs.mem0.ai/cookbooks/integrations/healthcare-google-adk) [Platform]: Use when the domain is medical and the framework is Google ADK.
+- [AWS Bedrock](https://docs.mem0.ai/cookbooks/integrations/aws-bedrock) [OSS]: Use when deploying with AWS managed model services.
+- [Tavily Search](https://docs.mem0.ai/cookbooks/integrations/tavily-search) [Platform]: Use when the agent layers web search on memory.
 
 ### Framework Examples
 - [LlamaIndex React](https://docs.mem0.ai/cookbooks/frameworks/llamaindex-react) [Both]: Use when building a React UI with LlamaIndex and memory.
@@ -410,10 +409,10 @@ The `integrations/mem0-plugin/` directory provides MCP server connection, lifecy
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
 - `integrations/claude-code` [Both]
-- `integrations/cursor` [Both]
-- `integrations/codex` [Both]
-- `integrations/opencode` [Both]
-- `integrations/antigravity` [Both]
+- `integrations/cursor` [Platform]
+- `integrations/codex` [Platform]
+- `integrations/opencode` [Platform]
+- `integrations/antigravity` [Platform]
 - `integrations/openclaw` [Both]
 
 ### MCP Endpoints

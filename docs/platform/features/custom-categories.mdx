@@ -75,7 +75,7 @@ print(response)
 ```
 </CodeGroup>
 
-This "Updated custom categories" message is specific to a PATCH-style partial update, which is what `client.project.update()` sends. Calling the raw API with a full PUT instead returns a generic `{"message": "Project updated successfully."}`, regardless of which fields changed.
+Treat the `message` string as informational. The project endpoint accepts `PATCH` only, and its documented response is the generic `{"message": "Project updated successfully"}`. Confirm an update by reading the field back, as in the next step, rather than by matching on the message.
 
 ### 2. Confirm the active catalog
 

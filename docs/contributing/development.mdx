@@ -14,7 +14,8 @@ Follow the steps below for a smooth contribution process.
 <Note>
   For the complete contributor checklist, see
   [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md) in
-  the repository root.
+  the repository root. By participating you agree to our
+  [Code of Conduct](https://github.com/mem0ai/mem0/blob/main/CODE_OF_CONDUCT.md).
 </Note>
 
 ## Before You Start
@@ -30,7 +31,28 @@ change, avoid duplicate work, and agree on the approach before you write code.
   or [feature request](https://github.com/mem0ai/mem0/issues/new?template=feature_request.yml).
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach.
 
-Every pull request must link to an issue using `Closes #<issue-number>`.
+Every pull request must link to an issue using `Closes #<issue-number>`, and that
+issue must carry the `accepted` label. A maintainer applies `accepted` once we
+agree the change is worth making. Pull requests that do not link an accepted
+issue are closed automatically, with instructions to reopen once the label is
+applied. Documentation-only changes are exempt.
+
+<Note>
+  Closed does not mean rejected. Getting the label and reopening takes about a
+  minute, and the check reruns on reopen.
+</Note>
+
+### Show Your Work
+
+Both issue forms ask how you verified the problem: what you ran, the real output
+you saw, and why it is a bug rather than expected behavior. Reports without that
+are hard to act on and usually sit unanswered.
+
+They also ask whether AI was involved. That question is about how the problem was
+found and confirmed, not about how the text was written: drafting the write-up
+with a model is fine. The same applies to pull requests, where the AI disclosure
+covers the code in the diff. We ask because it tells reviewers where to look, not
+because it counts against you.
 
 ### 2. Sign the Contributor License Agreement (CLA)
 

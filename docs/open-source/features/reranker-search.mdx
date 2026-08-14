@@ -53,7 +53,7 @@ const memory = new Memory({
 });
 
 const results = await memory.search("What are my food preferences?", {
-  filters: { userId: "alice" },
+  filters: { user_id: "alice" },
   rerank: true,
 });
 ```
@@ -86,7 +86,7 @@ const memory = new Memory({
 });
 
 const results = await memory.search("What movies do I like?", {
-  filters: { userId: "alice" },
+  filters: { user_id: "alice" },
   rerank: true,
 });
 ```
@@ -108,7 +108,7 @@ const memory = new Memory({
 });
 
 const results = await memory.search("What movies do I like?", {
-  filters: { userId: "alice" },
+  filters: { user_id: "alice" },
   rerank: true,
 });
 ```
