@@ -1,10 +1,37 @@
+import builtins
+import importlib
 import inspect
-from unittest.mock import Mock, patch
+import logging
+import subprocess
+import sys
+from pathlib import Path
+from unittest.mock import Mock, create_autospec, patch
 
 import pytest
 
+import mem0.proxy.main as proxy_main
 from mem0 import Memory, MemoryClient
 from mem0.proxy.main import Chat, Completions, Mem0
+
+
+class _ImmediateThread:
+    """Stand-in for threading.Thread that runs the target inline.
+
+    _async_add_to_memory fires a daemon thread and never returns a handle, so
+    without this the write is unobservable from a test.
+    """
+
+    def __init__(self, target=None, daemon=None, **kwargs):
+        self._target = target
+
+    def start(self):
+        self._target()
+
+
+@pytest.fixture
+def run_threads_inline():
+    with patch("mem0.proxy.main.threading.Thread", _ImmediateThread):
+        yield
 
 
 @pytest.fixture
@@ -138,3 +165,131 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+# --- proxy write path -------------------------------------------------------
+#
+# Regression tests: _async_add_to_memory used to pass `filters=` unconditionally.
+# OSS Memory.add() has no such parameter, so every proxy write died with
+# TypeError inside an unobserved daemon thread while create() still returned a
+# normal completion.
+
+MESSAGES = [{"role": "user", "content": "I'm vegetarian and allergic to nuts."}]
+
+
+def test_oss_add_does_not_receive_filters(run_threads_inline):
+    """autospec enforces the real Memory.add signature, so the old call raises."""
+    oss_client = create_autospec(Memory, instance=True)
+    completions = Completions(oss_client)
+
+    completions._async_add_to_memory(MESSAGES, "alice", None, None, None, None)
+
+    oss_client.add.assert_called_once()
+    assert "filters" not in oss_client.add.call_args.kwargs
+    assert oss_client.add.call_args.kwargs["user_id"] == "alice"
+
+
+def test_oss_add_call_binds_against_the_real_memory_add_signature(run_threads_inline):
+    """The strongest pin: whatever the proxy sends must bind to Memory.add for
+    real, independent of how the client is mocked."""
+    oss_client = create_autospec(Memory, instance=True)
+    Completions(oss_client)._async_add_to_memory(MESSAGES, "alice", None, None, None, None)
+
+    sent = oss_client.add.call_args.kwargs
+    inspect.signature(Memory.add).bind(Mock(), **sent)  # must not raise
+
+    # And the historical call shape must still be rejected, so this test fails
+    # loudly if `filters` is ever reintroduced on the OSS path.
+    with pytest.raises(TypeError):
+        inspect.signature(Memory.add).bind(Mock(), **sent, filters=None)
+
+
+def test_platform_add_still_receives_filters(run_threads_inline):
+    """filters is a documented Platform add() option (AddMemoryOptions), so the
+    fix must not strip it from MemoryClient."""
+    platform_client = Mock(spec=MemoryClient)
+    completions = Completions(platform_client)
+    filters = {"AND": [{"user_id": "alice"}]}
+
+    completions._async_add_to_memory(MESSAGES, "alice", None, None, None, filters)
+
+    assert platform_client.add.call_args.kwargs["filters"] == filters
+
+
+def test_oss_filters_are_reported_not_silently_dropped(run_threads_inline, caplog):
+    oss_client = create_autospec(Memory, instance=True)
+    completions = Completions(oss_client)
+
+    with caplog.at_level(logging.WARNING, logger="mem0.proxy.main"):
+        completions._async_add_to_memory(MESSAGES, "alice", None, None, None, {"a": 1})
+
+    assert "filters" in caplog.text
+    assert "filters" not in oss_client.add.call_args.kwargs
+
+
+def test_background_add_failure_is_logged_not_swallowed(run_threads_inline, caplog):
+    """create() returns a normal completion either way, so a failed write has to
+    leave a trace somewhere the user can find."""
+    oss_client = create_autospec(Memory, instance=True)
+    oss_client.add.side_effect = RuntimeError("vector store unreachable")
+    completions = Completions(oss_client)
+
+    with caplog.at_level(logging.ERROR, logger="mem0.proxy.main"):
+        completions._async_add_to_memory(MESSAGES, "alice", None, None, None, None)
+
+    assert "Failed to add conversation to memory" in caplog.text
+    assert "vector store unreachable" in caplog.text
+
+
+# --- optional-dependency handling -------------------------------------------
+#
+# Regression tests: importing mem0.proxy.main used to shell out to
+# `pip install litellm` and, if that failed, call sys.exit(1) — so a library
+# import could mutate the environment or kill the host process instead of
+# raising a catchable ImportError.
+
+PROXY_SOURCE = Path(proxy_main.__file__).read_text(encoding="utf-8")
+
+
+def test_missing_litellm_raises_importerror_and_installs_nothing(monkeypatch):
+    """With litellm absent the import must fail the ordinary way: an ImportError
+    naming the extra, no subprocess, no SystemExit."""
+    pip_calls = []
+    for name in ("check_call", "run", "Popen", "call", "check_output"):
+        monkeypatch.setattr(subprocess, name, lambda *a, **k: pip_calls.append(a))
+
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name == "litellm" or name.startswith("litellm."):
+            raise ImportError("No module named 'litellm'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
+    monkeypatch.delitem(sys.modules, "litellm", raising=False)
+
+    try:
+        with pytest.raises(ImportError) as excinfo:
+            importlib.reload(proxy_main)
+    finally:
+        # reload() leaves a partially-executed module behind on failure.
+        monkeypatch.undo()
+        importlib.reload(proxy_main)
+
+    message = str(excinfo.value)
+    assert "litellm" in message
+    assert "mem0ai[llms]" in message, f"error should name the extra to install: {message!r}"
+    assert pip_calls == [], f"import must not invoke pip: {pip_calls!r}"
+
+
+def test_import_does_not_shell_out_or_exit():
+    """Source-level pin against the auto-install path returning.
+
+    Checks the two mechanisms, not the word "pip" — the install *hint* in the
+    ImportError legitimately says `pip install "mem0ai[llms]"`.
+    """
+    assert "subprocess" not in PROXY_SOURCE, (
+        "mem0/proxy/main.py must not spawn subprocesses — dependency management "
+        "does not belong at import time."
+    )
+    assert "sys.exit" not in PROXY_SOURCE, "a library import must never terminate the host process"
