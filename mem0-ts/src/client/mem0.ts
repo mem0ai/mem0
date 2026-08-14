@@ -404,10 +404,10 @@ export default class MemoryClient {
       ...(filters && { filters }),
     };
 
-    let url = `${this.host}/v3/memories/`;
-    if (page && pageSize) {
-      url += `?page=${page}&page_size=${pageSize}`;
-    }
+    const queryParams: string[] = [];
+    if (page !== undefined) queryParams.push(`page=${page}`);
+    if (pageSize !== undefined) queryParams.push(`page_size=${pageSize}`);
+    const url = `${this.host}/v3/memories/${queryParams.length ? `?${queryParams.join("&")}` : ""}`;
 
     const response = await this._fetchWithErrorHandling(url, {
       method: "POST",

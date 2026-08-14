@@ -283,11 +283,8 @@ class MemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = self.client.post("/v3/memories/", json=params)
@@ -1207,11 +1204,8 @@ class AsyncMemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = await self.async_client.post("/v3/memories/", json=params)
