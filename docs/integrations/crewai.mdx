@@ -40,7 +40,7 @@ client = MemoryClient()
 ```
 
 <Note>
-  Newer versions of CrewAI removed the `memory_config={"provider": "mem0"}` shortcut that older guides referenced. CrewAI's built-in `Memory` class now only supports its own local storage backends (LanceDB by default), so Mem0 is wired in explicitly through `MemoryClient` instead of through a CrewAI-native provider setting. This keeps memory under your control and works with any CrewAI version.
+  Newer versions of CrewAI removed the `memory_config={"provider": "mem0"}` shortcut on `Crew(...)` that older guides referenced. CrewAI still offers a native Mem0 path through its `ExternalMemory` API, so that option remains open; check [CrewAI's memory documentation](https://docs.crewai.com/en/concepts/memory) for the shape your version expects. This guide wires Mem0 in explicitly through `MemoryClient` instead, which keeps retrieval under your control and stays valid as CrewAI's memory API changes.
 </Note>
 
 ## Store User Preferences
