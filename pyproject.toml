@@ -133,6 +133,11 @@ features = [
   "dev",
 ]
 
+[tool.hatch.envs.default]
+features = [
+  "dev",
+]
+
 [tool.hatch.envs.default.scripts]
 format = [
     "ruff format",
