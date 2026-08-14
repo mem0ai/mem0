@@ -33,6 +33,7 @@ import { ValkeyDB } from "../vector_stores/valkey";
 import { OllamaLLM } from "../llms/ollama";
 import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
+import { OrcaRouterLLM } from "../llms/orcarouter";
 import { XAILLM } from "../llms/xai";
 import { SarvamLLM } from "../llms/sarvam";
 import { AWSBedrockLLM } from "../llms/aws_bedrock";
@@ -131,6 +132,8 @@ export class LLMFactory {
         return new LangchainLLM(config);
       case "deepseek":
         return new DeepSeekLLM(config);
+      case "orcarouter":
+        return new OrcaRouterLLM(config);
       case "xai":
         return new XAILLM(config);
       case "sarvam":
