@@ -6,17 +6,15 @@ versionFrom: "Open Source"
 versionTo: "Platform"
 ---
 
-# Migrate from Open Source to Platform
-
-Move your Mem0 implementation to managed infrastructure with enterprise features.
+## Overview
 
 | Scope                 | Effort         | Downtime                     |
 | --------------------- | -------------- | ---------------------------- |
 | Infrastructure & Code | Low (~30 mins) | None (Parallel run possible) |
 
-<Info>
+<Note>
   Using Mem0 Open Source with **hosted Qdrant**? You can migrate your existing memories to Mem0 Platform with a one-line script below.
-</Info>
+</Note>
 
 <Info>
   **Why migrate to Platform?**
@@ -30,11 +28,28 @@ Move your Mem0 implementation to managed infrastructure with enterprise features
   - **Production Grade**: Auto-scaling, high availability, dedicated support
 </Info>
 
-## Plan
+### Plan
 
 1. **Sign up**: Create an account on <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform" rel="nofollow">Mem0 Platform</a>.
 2. **Get API Key**: Navigate to **Settings > API Keys** and generate a new key.
 3. **Review Usage**: Identify where you instantiate `Memory` and where you call `search` or `get_all`.
+
+## Migrate with Agent Skill
+
+Paste this prompt into your coding agent. It uses a migration skill to produce a plan; once you review and approve it, the agent implements the changes.
+
+```text
+Migrate my project from Mem0 OSS to the Mem0 Platform SDK using the
+mem0-oss-to-platform skill in the mem0ai/mem0 repo, at
+skills/mem0-oss-to-platform/
+
+Get the skill whichever way is easiest:
+- install it: npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
+- if the mem0 repo is cloned locally, read it from skills/mem0-oss-to-platform/
+- otherwise fetch that folder from github.com/mem0ai/mem0 (SKILL.md + references/)
+
+Then read SKILL.md and begin the migration.
+```
 
 ## Migrate
 
@@ -324,21 +339,22 @@ The Platform introduces powerful capabilities not available in OSS:
     </Info>
     ```python
     # Set custom categories for your project
-    client.projects.update_categories(
-        project_id="proj_123",
-        categories=[
-            "Customer Preferences",
-            "Product Feedback",
-            "Support Issues",
-            "Feature Requests"
+    client.project.update(
+        custom_categories=[
+            {"customer_preferences": "Likes, dislikes, and product preferences"},
+            {"product_feedback": "Feature requests and complaints about the product"},
+            {"support_issues": "Problems reported and how they were resolved"}
         ]
     )
 
-    # Memories will use these categories
+    # Mem0 assigns these categories automatically as memories come in
+    client.add("User wants dark mode in dashboard", user_id="alex")
+
+    # Or pass a different catalog for a single call
     client.add(
         "User wants dark mode in dashboard",
         user_id="alex",
-        categories=["Customer Preferences"]
+        custom_categories=[{"ui_requests": "Requests about interface and appearance"}]
     )
     ```
   </Accordion>

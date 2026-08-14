@@ -28,7 +28,11 @@ class AddMemoryOptions(BaseModel):
         default=None, description="Custom categories for memory classification"
     )
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
+    agent_custom_instructions: Optional[str] = Field(
+        default=None, description="Custom instructions for fact extraction from agent-scoped memories"
+    )
     timestamp: Optional[int] = Field(default=None, description="Unix timestamp for the memory")
+    expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format")
     structured_data_schema: Optional[Dict[str, Any]] = Field(
         default=None, description="Schema for structured data extraction"
     )
@@ -50,6 +54,12 @@ class SearchMemoryOptions(BaseModel):
     threshold: Optional[float] = Field(default=None, description="Minimum similarity score threshold")
     fields: Optional[List[str]] = Field(default=None, description="Fields to include in the response")
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
+    show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
+    reference_date: Optional[Union[str, int]] = Field(
+        default=None, description="Reference date for relative time queries (YYYY-MM-DD or Unix timestamp)"
+    )
+    latest_only: Optional[bool] = Field(default=None, description="Whether to only return the latest memory version")
+    keyword_search: Optional[bool] = Field(default=None, description="Whether to use keyword search")
 
 
 class GetAllMemoryOptions(BaseModel):
@@ -71,6 +81,8 @@ class GetAllMemoryOptions(BaseModel):
         default=None, description="Filter memories created on or before this date (ISO 8601)"
     )
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
+    show_expired: Optional[bool] = Field(default=None, description="Whether to include expired memories")
+    latest_only: Optional[bool] = Field(default=None, description="Whether to only return the latest memory version")
 
 
 class DeleteAllMemoryOptions(BaseModel):
@@ -91,16 +103,19 @@ class UpdateMemoryOptions(BaseModel):
     text: Optional[str] = Field(default=None, description="New text content for the memory")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Updated metadata")
     timestamp: Optional[Union[int, float, str]] = Field(default=None, description="Updated timestamp")
+    expiration_date: Optional[str] = Field(default=None, description="Expiration date in YYYY-MM-DD format, or None to clear")
 
 
 class ProjectUpdateOptions(BaseModel):
     """Options for project update operations."""
 
     custom_instructions: Optional[str] = Field(default=None, description="Custom instructions for fact extraction")
+    agent_custom_instructions: Optional[str] = Field(
+        default=None, description="Custom instructions for fact extraction from agent-scoped memories"
+    )
     custom_categories: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Custom categories for classification"
     )
     memory_depth: Optional[str] = Field(default=None, description="Memory depth configuration")
     usecase_setting: Optional[Any] = Field(default=None, description="Use case specific settings")
     multilingual: Optional[bool] = Field(default=None, description="Whether to enable multilingual support")
-    retrieval_criteria: Optional[List[Any]] = Field(default=None, description="Criteria for memory retrieval")

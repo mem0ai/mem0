@@ -15,7 +15,12 @@ import {
 	type ListOptions,
 	NotFoundError,
 	type SearchOptions,
+	type UpdateOptions,
 } from "./base.js";
+
+function encodePathSegment(value: unknown): string {
+	return encodeURIComponent(String(value));
+}
 
 export class PlatformBackend implements Backend {
 	private baseUrl: string;
@@ -146,7 +151,15 @@ export class PlatformBackend implements Backend {
 		if (opts.immutable) payload.immutable = true;
 		if (opts.infer === false) payload.infer = false;
 		if (opts.expires) payload.expiration_date = opts.expires;
-		if (opts.categories) payload.categories = opts.categories;
+		if (opts.customInstructions)
+			payload.custom_instructions = opts.customInstructions;
+		if (opts.agentCustomInstructions)
+			payload.agent_custom_instructions = opts.agentCustomInstructions;
+		if (opts.customCategories)
+			payload.custom_categories = opts.customCategories;
+		if (opts.structuredDataSchema)
+			payload.structured_data_schema = opts.structuredDataSchema;
+		if (opts.timestamp !== undefined) payload.timestamp = opts.timestamp;
 		payload.source = "CLI";
 
 		return (await this._request("POST", "/v3/memories/add/", {
@@ -207,6 +220,10 @@ export class PlatformBackend implements Backend {
 		if (opts.rerank) payload.rerank = true;
 		if (opts.keyword) payload.keyword_search = true;
 		if (opts.fields) payload.fields = opts.fields;
+		if (opts.showExpired) payload.show_expired = true;
+		if (opts.referenceDate !== undefined)
+			payload.reference_date = opts.referenceDate;
+		if (opts.latestOnly) payload.latest_only = true;
 		payload.source = "CLI";
 
 		const result = (await this._request("POST", "/v3/memories/search/", {
@@ -218,9 +235,13 @@ export class PlatformBackend implements Backend {
 	}
 
 	async get(memoryId: string): Promise<Record<string, unknown>> {
-		return (await this._request("GET", `/v1/memories/${memoryId}/`, {
-			params: { source: "CLI" },
-		})) as Record<string, unknown>;
+		return (await this._request(
+			"GET",
+			`/v1/memories/${encodePathSegment(memoryId)}/`,
+			{
+				params: { source: "CLI" },
+			},
+		)) as Record<string, unknown>;
 	}
 
 	async listMemories(
@@ -257,6 +278,8 @@ export class PlatformBackend implements Backend {
 			extraFilters: Object.keys(extra).length > 0 ? extra : undefined,
 		});
 		if (apiFilters) payload.filters = apiFilters;
+		if (opts.showExpired) payload.show_expired = true;
+		if (opts.latestOnly) payload.latest_only = true;
 		payload.source = "CLI";
 
 		const result = (await this._request("POST", "/v3/memories/", {
@@ -272,14 +295,21 @@ export class PlatformBackend implements Backend {
 		memoryId: string,
 		content?: string,
 		metadata?: Record<string, unknown>,
+		opts: UpdateOptions = {},
 	): Promise<Record<string, unknown>> {
 		const payload: Record<string, unknown> = {};
 		if (content) payload.text = content;
 		if (metadata) payload.metadata = metadata;
+		if (opts.expirationDate) payload.expiration_date = opts.expirationDate;
+		if (opts.timestamp !== undefined) payload.timestamp = opts.timestamp;
 		payload.source = "CLI";
-		return (await this._request("PUT", `/v1/memories/${memoryId}/`, {
-			json: payload,
-		})) as Record<string, unknown>;
+		return (await this._request(
+			"PUT",
+			`/v1/memories/${encodePathSegment(memoryId)}/`,
+			{
+				json: payload,
+			},
+		)) as Record<string, unknown>;
 	}
 
 	async delete(
@@ -297,9 +327,13 @@ export class PlatformBackend implements Backend {
 			})) as Record<string, unknown>;
 		}
 		if (memoryId) {
-			return (await this._request("DELETE", `/v1/memories/${memoryId}/`, {
-				params: { source: "CLI" },
-			})) as Record<string, unknown>;
+			const params: Record<string, string> = { source: "CLI" };
+			if (opts.deleteLinked) params.delete_linked = "true";
+			return (await this._request(
+				"DELETE",
+				`/v1/memories/${encodePathSegment(memoryId)}/`,
+				{ params },
+			)) as Record<string, unknown>;
 		}
 		throw new Error("Either memoryId or --all is required");
 	}
@@ -316,16 +350,18 @@ export class PlatformBackend implements Backend {
 		if (entities.length === 0) {
 			throw new Error("At least one entity ID is required for deleteEntities.");
 		}
-		// Delete each provided entity via the v2 path-based endpoint
-		let result: Record<string, unknown> = {};
+		// Delete each provided entity via the v2 path-based endpoint. Key each
+		// response by entity type so a multi-entity delete (e.g. --user-id and
+		// --agent-id together) doesn't discard everything but the last result.
+		const results: Record<string, unknown> = {};
 		for (const [entityType, entityId] of entities) {
-			result = (await this._request(
+			results[entityType] = (await this._request(
 				"DELETE",
-				`/v2/entities/${entityType}/${entityId}/`,
+				`/v2/entities/${encodePathSegment(entityType)}/${encodePathSegment(entityId)}/`,
 				{ params: { source: "CLI" } },
 			)) as Record<string, unknown>;
 		}
-		return result;
+		return results;
 	}
 
 	async ping(): Promise<Record<string, unknown>> {
@@ -384,9 +420,9 @@ export class PlatformBackend implements Backend {
 	}
 
 	async getEvent(eventId: string): Promise<Record<string, unknown>> {
-		return (await this._request("GET", `/v1/event/${eventId}/`)) as Record<
-			string,
-			unknown
-		>;
+		return (await this._request(
+			"GET",
+			`/v1/event/${encodePathSegment(eventId)}/`,
+		)) as Record<string, unknown>;
 	}
 }

@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +14,42 @@ from mem0.configs.vector_stores.opensearch import OpenSearchConfig
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
+_IDENTITY_FILTER_KEYS = ("user_id", "agent_id", "run_id")
+
+
+def _validate_filter(key: str, value) -> None:
+    if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
+        raise ValueError(f"Invalid filter key: {key!r}")
+    if not isinstance(value, (str, int, float, bool)):
+        raise ValueError(
+            f"Filter value for {key!r} must be str, int, float, or bool, "
+            f"got {type(value).__name__}"
+        )
+
+
+def _build_filter_clauses(filters):
+    """Build term clauses from every filter key, not just the identity keys."""
+    filter_clauses = []
+    for key, value in (filters or {}).items():
+        if value is None:
+            continue
+        if value == "*":
+            # "Any value" wildcard (a documented Platform pattern): match
+            # documents where the field exists — as opensearch.ts already
+            # does for every key — instead of a literal, near-always-empty
+            # term match on the string "*".
+            _validate_filter(key, value)
+            filter_clauses.append({"exists": {"field": f"payload.{key}"}})
+            continue
+        if key not in _IDENTITY_FILTER_KEYS and not isinstance(value, (str, int, float, bool)):
+            logger.debug(f"Ignoring non-scalar filter value for key {key!r}")
+            continue
+        _validate_filter(key, value)
+        field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
+        filter_clauses.append({"term": {field: value}})
+    return filter_clauses
 
 
 class OutputData(BaseModel):
@@ -39,6 +76,8 @@ class OpenSearchDB(VectorStoreBase):
 
         self.collection_name = config.collection_name
         self.embedding_model_dims = config.embedding_model_dims
+        self.auto_refresh = config.auto_refresh
+
         self.create_col(self.collection_name, self.embedding_model_dims)
 
     def create_index(self) -> None:
@@ -148,8 +187,6 @@ class OpenSearchDB(VectorStoreBase):
             }
             try:
                 self.client.index(index=self.collection_name, body=body)
-                # Force refresh to make documents immediately searchable for tests
-                self.client.indices.refresh(index=self.collection_name)
 
                 results.append(
                     OutputData(
@@ -161,6 +198,14 @@ class OpenSearchDB(VectorStoreBase):
             except Exception as e:
                 logger.error(f"Error inserting vector {id_}: {e}", exc_info=True)
                 raise
+
+        # Refresh once after the full batch (not per document) if explicitly enabled.
+        # Disabled by default for Serverless compatibility: OpenSearch Serverless does not
+        # support the indices.refresh() API, and refreshing per document would cause a
+        # cluster-level I/O stall on every insert.
+        # See: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html
+        if self.auto_refresh:
+            self.client.indices.refresh(index=self.collection_name)
 
         return results
 
@@ -183,12 +228,7 @@ class OpenSearchDB(VectorStoreBase):
         query_body = {"size": top_k * 2, "query": None}
 
         # Prepare filter conditions if applicable
-        filter_clauses = []
-        if filters:
-            for key in ["user_id", "run_id", "agent_id"]:
-                value = filters.get(key)
-                if value:
-                    filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+        filter_clauses = _build_filter_clauses(filters)
 
         # Combine knn with filters if needed
         if filter_clauses:
@@ -208,7 +248,7 @@ class OpenSearchDB(VectorStoreBase):
             return results
         except Exception as e:
             logger.error(f"Error during search: {e}", exc_info=True)
-            return []
+            raise
 
     def keyword_search(self, query, top_k=5, filters=None):
         """Search for memories using BM25 keyword matching.
@@ -233,12 +273,7 @@ class OpenSearchDB(VectorStoreBase):
         }
 
         # Apply filters consistently with the existing search() method
-        filter_clauses = []
-        if filters:
-            for key in ["user_id", "run_id", "agent_id"]:
-                value = filters.get(key)
-                if value:
-                    filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+        filter_clauses = _build_filter_clauses(filters)
 
         if filter_clauses:
             bool_query["filter"] = filter_clauses
@@ -258,8 +293,12 @@ class OpenSearchDB(VectorStoreBase):
             ]
             return results
         except Exception as e:
-            logger.error(f"Error during keyword search: {e}")
-            return []
+            # Do NOT re-raise here: keyword_search() is a best-effort helper that
+            # search() may call to augment semantic results. Raising would crash
+            # the whole search() call on a keyword-only failure (regression per
+            # maintainer review on #6519). Log with exc_info and degrade to None.
+            logger.error(f"Error during keyword search: {e}", exc_info=True)
+            return None
 
     def delete(self, vector_id: str) -> None:
         """Delete a vector by custom ID."""
@@ -347,12 +386,7 @@ class OpenSearchDB(VectorStoreBase):
             """List all memories with optional filters."""
             query: Dict = {"query": {"match_all": {}}}
 
-            filter_clauses = []
-            if filters:
-                for key in ["user_id", "run_id", "agent_id"]:
-                    value = filters.get(key)
-                    if value:
-                        filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+            filter_clauses = _build_filter_clauses(filters)
 
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
@@ -371,7 +405,7 @@ class OpenSearchDB(VectorStoreBase):
             return [results]  # VectorStore expects tuple/list format
         except Exception as e:
             logger.error(f"Error listing vectors: {e}", exc_info=True)
-            return []
+            return [[]]
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

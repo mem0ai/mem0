@@ -1,9 +1,12 @@
 import logging
+import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from mem0.exceptions import LLMError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -76,6 +79,28 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 only makes 1 LLM call (no separate merge step)
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
+
+    def test_llm_extraction_exception_is_reraised(self, mocker, mock_memory):
+        """A provider error during fact extraction must propagate, not be swallowed.
+
+        Regression guard for the silent ``return []`` that made it impossible for
+        callers to tell "LLM unavailable" (429/5xx/timeout) from "no facts found".
+        Without the fix this raises AssertionError because the call returns [].
+        """
+
+        class _ProviderError(Exception):
+            pass
+
+        mock_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(LLMError) as exc_info:
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+        # The documented LLMError contract is honoured, and the original
+        # provider exception is preserved as the cause for debugging.
+        assert isinstance(exc_info.value.__cause__, _ProviderError)
 
 
 class TestPromptOverridesCustomInstructions:
@@ -165,6 +190,55 @@ class TestAsyncUpdate:
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
         )
 
+    @pytest.mark.asyncio
+    async def test_async_update_data_is_deprecated_alias_for_text(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        # `data=` still works but emits a deprecation warning
+        with caplog.at_level(logging.WARNING):
+            await mock_async_memory.update("test_id", data="via data")
+
+        assert any("deprecated" in record.message for record in caplog.records)
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "via data", {"via data": [0.1, 0.2, 0.3]}, None
+        )
+
+        # `text` takes precedence when both are passed
+        mock_async_memory._update_memory.reset_mock()
+        await mock_async_memory.update("test_id", text="preferred", data="ignored")
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "preferred", {"preferred": [0.1, 0.2, 0.3]}, None
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.vector_store.get = Mock(
+            return_value=Mock(
+                payload={
+                    "data": "Existing memory",
+                    "user_id": "test_user",
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "expiration_date": "2026-12-31",
+                }
+            )
+        )
+        mock_async_memory.vector_store.update = Mock()
+        mock_async_memory.db.add_history = Mock()
+        mock_async_memory._remove_memory_from_entity_store = mocker.AsyncMock()
+        mock_async_memory._link_entities_for_memory = mocker.AsyncMock()
+
+        result = await mock_async_memory.update("test_id", expiration_date="2999-01-01")
+
+        assert result["message"] == "Memory updated successfully!"
+        payload = mock_async_memory.vector_store.update.call_args.kwargs["payload"]
+        assert payload["data"] == "Existing memory"
+        assert payload["expiration_date"] == "2999-01-01"
+        mock_async_memory._remove_memory_from_entity_store.assert_not_called()
+        mock_async_memory._link_entities_for_memory.assert_not_called()
+
 
 @pytest.mark.asyncio
 class TestAsyncAddToVectorStoreErrors:
@@ -215,6 +289,29 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_llm_extraction_exception_is_reraised(self, mock_async_memory, mocker):
+        """Async counterpart of the sync re-raise guard.
+
+        A provider error during fact extraction must propagate as ``LLMError``
+        (with the original exception preserved as the cause), not be swallowed
+        into ``return []``. Without the fix a future revert of the async
+        ``raise`` back to ``return []`` would pass the suite silently.
+        """
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
+
+        class _ProviderError(Exception):
+            pass
+
+        mock_async_memory.llm.generate_response.side_effect = _ProviderError("429 rate limit")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with pytest.raises(LLMError) as exc_info:
+            await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+            )
+        assert isinstance(exc_info.value.__cause__, _ProviderError)
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -319,6 +416,147 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
     assert payload["updated_at"] is not None
+
+
+_ATTACKER_UPDATE_METADATA = {
+    "user_id": "attacker_tenant",
+    "agent_id": "attacker_agent",
+    "run_id": "attacker_run",
+    "actor_id": "attacker_actor",
+    "category": "sports",
+}
+
+# Omits agent_id on purpose, so one payload covers both overwriting and injecting an identity field.
+_EXISTING_UPDATE_PAYLOAD = {
+    "data": "old memory",
+    "user_id": "tenant_a",
+    "run_id": "run_a",
+    "actor_id": "actor_a",
+}
+
+
+def test_update_memory_metadata_cannot_change_identity_fields(mocker, caplog):
+    """Regression (issues #4490, #6277): update() metadata must not overwrite or inject identity fields."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["run_id"] == "run_a"
+    assert "agent_id" not in payload
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
+    assert "ignoring metadata['user_id']" in caplog.text
+
+
+_ATTACKER_ADD_METADATA = {
+    "agent_id": "victim-agent",
+    "run_id": "victim-run",
+    "actor_id": "victim-actor",
+    "category": "sports",
+}
+
+
+def _captured_add_metadata(memory, mocker, **add_kwargs):
+    """Run add() with the pipeline stubbed and return the metadata template it produced."""
+    captured = {}
+
+    def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    memory.add("I like coffee", infer=False, **add_kwargs)
+    return captured
+
+
+def test_add_metadata_cannot_set_identity_fields(mocker, caplog):
+    """Regression (issue #6655): add() metadata must not inject identity scope.
+
+    The caller scopes by user_id only, so the agent_id/run_id re-pins in
+    _build_filters_and_metadata never fire and cannot defend the payload.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        metadata = _captured_add_metadata(
+            memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA)
+        )
+
+    assert metadata["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in metadata, f"{key} was injected through add() metadata"
+    # Non-identity metadata is untouched.
+    assert metadata["category"] == "sports"
+    assert "ignoring metadata['agent_id']" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_async_add_metadata_cannot_set_identity_fields(mocker):
+    """Async counterpart of test_add_metadata_cannot_set_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    captured = {}
+
+    async def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    await memory.add(
+        "I like coffee",
+        user_id="attacker",
+        metadata=dict(_ATTACKER_ADD_METADATA),
+        infer=False,
+    )
+
+    assert captured["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in captured, f"{key} was injected through async add() metadata"
+    assert captured["category"] == "sports"
+
+
+def test_add_entity_params_still_set_scope(mocker):
+    """The documented top-level params remain the only way to set scope."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(
+        memory, mocker, user_id="u1", agent_id="a1", run_id="r1", metadata={"category": "sports"}
+    )
+
+    assert metadata["user_id"] == "u1"
+    assert metadata["agent_id"] == "a1"
+    assert metadata["run_id"] == "r1"
+    assert metadata["category"] == "sports"
+
+
+def test_add_without_metadata_is_unaffected(mocker):
+    """No metadata argument means no stripping and no behaviour change."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(memory, mocker, user_id="u1")
+
+    assert metadata == {"user_id": "u1"}
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_metadata_cannot_change_identity_fields(mocker):
+    """Async counterpart of test_update_memory_metadata_cannot_change_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    await memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["run_id"] == "run_a"
+    assert "agent_id" not in payload
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
@@ -617,49 +855,326 @@ class TestMetadataNotMutated:
         )
 
 
-def test_update_preserves_actor_id_when_different_actor_updates(mocker):
-    """actor_id must be preserved from the original memory even when the
-    updating caller passes a different actor_id in metadata (issue #4490)."""
-    memory = _build_memory_instance(mocker, Memory)
-    memory.vector_store.get.return_value = MagicMock(
-        payload={
-            "data": "I am player #1",
-            "user_id": "team",
-            "actor_id": "Alice",
-            "created_at": "2026-01-01T00:00:00+00:00",
+def _make_match(score, linked_memory_ids):
+    return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
+
+
+class TestEntityBoostParallelism:
+    """Tests for parallelized entity boost searches (#5214)."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        return Memory()
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        return AsyncMemory()
+
+    def test_sync_boosts_preserve_scoring(self, mock_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
         }
-    )
 
-    memory._update_memory(
-        "mem-id", "Player #1 is a good person",
-        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
-        metadata={"user_id": "team", "actor_id": "Bob"},
-    )
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
 
-    stored = memory.vector_store.update.call_args.kwargs["payload"]
-    assert stored["actor_id"] == "Alice"
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
 
+        boosts = mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
 
-@pytest.mark.asyncio
-async def test_async_update_preserves_actor_id_when_different_actor_updates(mocker):
-    """Async variant: actor_id must be preserved from the original memory (issue #4490)."""
-    memory = _build_memory_instance(mocker, AsyncMemory)
-    memory.vector_store.get.return_value = MagicMock(
-        payload={
-            "data": "I am player #1",
-            "user_id": "team",
-            "actor_id": "Alice",
-            "created_at": "2026-01-01T00:00:00+00:00",
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    def test_sync_embed_batch_called_once(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
+    @pytest.mark.asyncio
+    async def test_async_boosts_preserve_scoring(self, mock_async_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
         }
-    )
 
-    await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
-        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
-        metadata={"user_id": "team", "actor_id": "Bob"},
-    )
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
 
-    stored = memory.vector_store.update.call_args.kwargs["payload"]
-    assert stored["actor_id"] == "Alice"
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    @pytest.mark.asyncio
+    async def test_async_embed_batch_called_once(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_async_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
+    def test_sync_one_entity_failure_does_not_abort_others(self, mock_memory, caplog):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = mock_memory._compute_entity_boosts(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = await mock_async_memory._compute_entity_boosts_async(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    def test_sync_searches_run_concurrently(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = mock_memory._compute_entity_boosts(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4
+
+    @pytest.mark.asyncio
+    async def test_async_searches_run_concurrently(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = await mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4
 
 
+class TestAddPipelineEntityEmbeddingCountGuard:
+    """A misbehaving embedder returning fewer (or more) vectors than entity
+    texts must not silently drop ALL entity links via a swallowed IndexError.
+
+    Before the fix, `entity_embeddings[i]` (indexed by ordered_keys length) raised
+    IndexError on a short return; the outer `except Exception` in the Phase 7
+    entity-linking block swallowed it, so no entity was ever searched/inserted and
+    no error surfaced. The search path (_compute_entity_boosts) already guarded
+    this; the add path did not.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _short_entity_embed_batch(texts, memory_action="add"):
+        # Memory-text embeddings are well-behaved; entity embeddings come back short.
+        if memory_action == "add" and any(t in ("Alice", "Bob") for t in texts):
+            return [[0.1] * 10]  # 1 vector for 2 entity texts
+        return [[0.1] * 10 for _ in texts]
+
+    def test_sync_short_entity_embeddings_still_link_valid_entity(self, mock_memory, mocker, caplog):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "Alice met Bob"}, {"text": "Bob called Alice"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=self._short_entity_embed_batch)
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search_batch = Mock(return_value=[[]])
+        mock_memory._entity_store.insert = Mock()
+        mock_memory._entity_store.update = Mock()
+
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=[
+                [("person", "Alice"), ("person", "Bob")],
+                [("person", "Bob"), ("person", "Alice")],
+            ],
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "Alice met Bob; Bob called Alice"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        # Both memories persist regardless.
+        assert len(result) == 2
+        # The entity block did NOT abort: it searched + inserted the one valid entity
+        # instead of swallowing an IndexError and linking nothing.
+        assert mock_memory._entity_store.search_batch.call_count == 1
+        assert mock_memory._entity_store.insert.call_count == 1
+        assert not any("Batch entity linking failed" in r.message for r in caplog.records), (
+            "entity linking aborted on a swallowed IndexError"
+        )
+        assert any("padding/truncating" in r.message for r in caplog.records), (
+            "expected count-mismatch warning was not emitted"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_short_entity_embeddings_still_link_valid_entity(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "Alice met Bob"}, {"text": "Bob called Alice"}]}'
+        )
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._short_entity_embed_batch)
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search_batch = Mock(return_value=[[]])
+        mock_async_memory._entity_store.insert = Mock()
+        mock_async_memory._entity_store.update = Mock()
+
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=[
+                [("person", "Alice"), ("person", "Bob")],
+                [("person", "Bob"), ("person", "Alice")],
+            ],
+        )
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "Alice met Bob; Bob called Alice"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert len(result) == 2
+        assert mock_async_memory._entity_store.search_batch.call_count == 1
+        assert mock_async_memory._entity_store.insert.call_count == 1
+        assert not any("Batch entity linking failed" in r.message for r in caplog.records), (
+            "async entity linking aborted on a swallowed IndexError"
+        )
+        assert any("padding/truncating" in r.message for r in caplog.records), (
+            "expected count-mismatch warning was not emitted"
+        )

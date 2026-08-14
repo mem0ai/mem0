@@ -290,6 +290,7 @@ describe("Memory – auto-initialization", () => {
 
     jest.doMock("../src/utils/telemetry", () => ({
       captureClientEvent: jest.fn().mockResolvedValue(undefined),
+      isTelemetryEnabled: jest.fn(() => false),
     }));
 
     MemoryClass = require("../src/memory").Memory;

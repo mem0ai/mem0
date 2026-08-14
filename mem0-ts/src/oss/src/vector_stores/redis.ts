@@ -1,4 +1,3 @@
-import { createClient } from "redis";
 import type {
   RedisClientType,
   RedisDefaultModules,
@@ -8,6 +7,7 @@ import type {
 } from "redis";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+import { loadPeer } from "../utils/load_peer";
 
 /**
  * Escape RediSearch TAG filter special characters. Any punctuation in the
@@ -133,6 +133,18 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   );
 }
 
+// Build a RediSearch pre-filter expression from filters. Returns "*" (match
+// all) when there are no usable conditions — including an empty filters object
+// or one whose values are all null/undefined — since an empty expression is an
+// invalid RediSearch query (e.g. ` =>[KNN ...]`).
+export function buildRedisFilterExpr(filters?: SearchFilters): string {
+  if (!filters) return "*";
+  const conditions = Object.entries(toSnakeCase(filters))
+    .filter(([, value]) => value !== null && value !== undefined)
+    .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`);
+  return conditions.length > 0 ? conditions.join(" ") : "*";
+}
+
 // Utility function to convert object keys to camelCase
 function toCamelCase(obj: Record<string, any>): Record<string, any> {
   if (typeof obj !== "object" || obj === null) return obj;
@@ -146,15 +158,21 @@ function toCamelCase(obj: Record<string, any>): Record<string, any> {
 }
 
 export class RedisDB implements VectorStore {
-  private client: RedisClientType<
+  private client!: RedisClientType<
     RedisDefaultModules & RedisModules & RedisFunctions & RedisScripts
   >;
+  private readonly redisUrl: string;
+  private readonly username?: string;
+  private readonly password?: string;
   private readonly indexName: string;
   private readonly indexPrefix: string;
   private readonly schema: RedisSchema;
   private _initPromise?: Promise<void>;
 
   constructor(config: RedisConfig) {
+    this.redisUrl = config.redisUrl;
+    this.username = config.username;
+    this.password = config.password;
     this.indexName = config.collectionName;
     this.indexPrefix = `mem0:${config.collectionName}`;
 
@@ -177,12 +195,24 @@ export class RedisDB implements VectorStore {
       }),
     };
 
-    this.client = createClient({
-      url: config.redisUrl,
-      username: config.username,
-      password: config.password,
+    this.initialize().catch((err) => {
+      console.error("Failed to initialize Redis:", err);
+    });
+  }
+
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+    const sdk = await loadPeer(
+      "redis",
+      "Redis vector store",
+      () => import("redis"),
+    );
+    this.client = sdk.createClient({
+      url: this.redisUrl,
+      username: this.username,
+      password: this.password,
       socket: {
-        reconnectStrategy: (retries) => {
+        reconnectStrategy: (retries: number) => {
           if (retries > 10) {
             console.error("Max reconnection attempts reached");
             return new Error("Max reconnection attempts reached");
@@ -194,11 +224,6 @@ export class RedisDB implements VectorStore {
 
     this.client.on("error", (err) => console.error("Redis Client Error:", err));
     this.client.on("connect", () => console.log("Redis Client Connected"));
-
-    this.initialize().catch((err) => {
-      console.error("Failed to initialize Redis:", err);
-      throw err;
-    });
   }
 
   private async createIndex(): Promise<void> {
@@ -261,6 +286,7 @@ export class RedisDB implements VectorStore {
   }
 
   private async _doInitialize(): Promise<void> {
+    await this.ensureClient();
     try {
       await this.client.connect();
       console.log("Connected to Redis");
@@ -332,16 +358,20 @@ export class RedisDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
+    await this.initialize();
     const data = vectors.map((vector, idx) => {
       const payload = toSnakeCase(payloads[idx]);
       const id = ids[idx];
 
       // Create entry with required fields
+      const createdAt = payload.created_at
+        ? new Date(payload.created_at).getTime()
+        : 0;
       const entry: Record<string, any> = {
         memory_id: id,
-        hash: payload.hash,
-        memory: payload.data,
-        created_at: new Date(payload.created_at).getTime(),
+        hash: payload.hash ?? "",
+        memory: payload.data ?? "",
+        created_at: createdAt,
         embedding: new Float32Array(vector).buffer,
       };
 
@@ -387,13 +417,8 @@ export class RedisDB implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    await this.initialize();
+    const filterExpr = buildRedisFilterExpr(filters);
 
     const queryVector = new Float32Array(query).buffer;
 
@@ -444,7 +469,7 @@ export class RedisDB implements VectorStore {
         return {
           id: doc.value.memory_id,
           payload: toCamelCase(resultPayload),
-          score: Number(doc.value.__vector_score) ?? 0,
+          score: Math.max(0, 1 - (Number(doc.value.__vector_score) ?? 0)),
         };
       });
     } catch (error) {
@@ -454,6 +479,7 @@ export class RedisDB implements VectorStore {
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
+    await this.initialize();
     try {
       // Check if the memory exists first
       const exists = await this.client.exists(
@@ -560,13 +586,20 @@ export class RedisDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    await this.initialize();
     const snakePayload = toSnakeCase(payload);
+    const createdAt = snakePayload.created_at
+      ? new Date(snakePayload.created_at).getTime()
+      : 0;
+    const updatedAt = snakePayload.updated_at
+      ? new Date(snakePayload.updated_at).getTime()
+      : 0;
     const entry: Record<string, any> = {
       memory_id: vectorId,
-      hash: snakePayload.hash,
-      memory: snakePayload.data,
-      created_at: new Date(snakePayload.created_at).getTime(),
-      updated_at: new Date(snakePayload.updated_at).getTime(),
+      hash: snakePayload.hash ?? "",
+      memory: snakePayload.data ?? "",
+      created_at: createdAt,
+      updated_at: updatedAt,
       embedding: Buffer.from(new Float32Array(vector).buffer),
     };
 
@@ -593,6 +626,7 @@ export class RedisDB implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
+    await this.initialize();
     try {
       // Check if memory exists first
       const key = `${this.indexPrefix}:${vectorId}`;
@@ -618,6 +652,7 @@ export class RedisDB implements VectorStore {
   }
 
   async deleteCol(): Promise<void> {
+    await this.initialize();
     await this.client.ft.dropIndex(this.indexName);
   }
 
@@ -625,13 +660,8 @@ export class RedisDB implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    const snakeFilters = filters ? toSnakeCase(filters) : undefined;
-    const filterExpr = snakeFilters
-      ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null && value !== undefined)
-          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
-          .join(" ")
-      : "*";
+    await this.initialize();
+    const filterExpr = buildRedisFilterExpr(filters);
 
     const searchOptions = {
       SORTBY: "created_at",
@@ -668,10 +698,11 @@ export class RedisDB implements VectorStore {
   }
 
   async close(): Promise<void> {
-    await this.client.quit();
+    if (this.client) await this.client.quit();
   }
 
   async getUserId(): Promise<string> {
+    await this.initialize();
     try {
       // Check if the user ID exists in Redis
       const userId = await this.client.get("memory_migrations:1");
@@ -694,6 +725,7 @@ export class RedisDB implements VectorStore {
   }
 
   async setUserId(userId: string): Promise<void> {
+    await this.initialize();
     try {
       await this.client.set("memory_migrations:1", userId);
     } catch (error) {

@@ -22,6 +22,7 @@ class OpenAIConfig(BaseLlmConfig):
         vision_details: Optional[str] = "auto",
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[dict] = None,
+        is_reasoning_model: Optional[bool] = None,
         # OpenAI-specific parameters
         openai_base_url: Optional[str] = None,
         models: Optional[List[str]] = None,
@@ -47,6 +48,9 @@ class OpenAIConfig(BaseLlmConfig):
             vision_details: Vision detail level, defaults to "auto"
             reasoning_effort: Effort level for reasoning models ("low", "medium", "high"), defaults to None
             http_client_proxies: HTTP client proxy settings, defaults to None
+            is_reasoning_model: Explicit override for reasoning-model detection.
+                None (default) uses the name-based heuristic. Set True to drop
+                max_tokens/temperature, or False to force standard params.
             openai_base_url: OpenAI API base URL, defaults to None
             models: List of models for OpenRouter, defaults to None
             route: OpenRouter route strategy, defaults to "fallback"
@@ -72,6 +76,7 @@ class OpenAIConfig(BaseLlmConfig):
             vision_details=vision_details,
             reasoning_effort=reasoning_effort,
             http_client_proxies=http_client_proxies,
+            is_reasoning_model=is_reasoning_model,
         )
 
         # OpenAI-specific parameters

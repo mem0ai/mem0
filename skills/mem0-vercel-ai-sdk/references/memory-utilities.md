@@ -2,7 +2,7 @@
 
 Complete reference for standalone utility functions exported from `@mem0/vercel-ai-provider`. These functions give you manual control over memory retrieval and storage, independent of the wrapped model pattern.
 
-Source: `vercel-ai-sdk/src/mem0-utils.ts`
+Source: `integrations/vercel-ai-sdk/src/mem0-utils.ts`
 
 ## `addMemories(messages, config?)`
 

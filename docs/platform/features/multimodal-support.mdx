@@ -9,6 +9,10 @@ Mem0 extends its capabilities beyond text by supporting multimodal data, includi
 
 When a user submits an image or document, Mem0 processes it to extract textual information and other pertinent details. These details are then added to the user's memory, enhancing the system's ability to understand and recall multimodal inputs.
 
+<Warning>
+Multimodal content (`image_url`, `pdf_url`, `txt_url`, `mdx_url`) requires the default `infer=True`. Do not combine structured multimodal `content` with `infer=False` (Direct Import): the Direct Import path expects plain-text `content` and rejects structured multimodal messages with a `400`.
+</Warning>
+
 <CodeGroup>
 ```python Python
 import os
@@ -172,20 +176,18 @@ await client.add([imageMessage], { userId: "alice" })
 
 ### 2. Text Documents (MDX/TXT)
 
-Mem0 supports both online and local text documents in MDX or TXT format.
+Mem0 supports both online and local text documents in MDX or TXT format. Use `"type": "mdx_url"` for Markdown/MDX content and `"type": "txt_url"` for plain text; both accept the same shape (`{"url": ...}`, either an HTTP(S) URL or a base64-encoded string).
 
 #### Using a Document URL
 
 ```python
-# Define the document URL
 document_url = "https://www.w3.org/TR/2003/REC-PNG-20031110/iso_8859-1.txt"
 
-# Create the message dictionary with the document URL
 document_message = {
     "role": "user",
     "content": {
-        "type": "mdx_url",
-        "mdx_url": {
+        "type": "txt_url",
+        "txt_url": {
             "url": document_url
         }
     }

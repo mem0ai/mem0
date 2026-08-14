@@ -48,7 +48,7 @@ config = {
         "provider": "llm_reranker",
         "config": {
             "provider": "openai",
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "your-openai-key",
             "scoring_prompt": custom_prompt,
             "top_k": 5
@@ -198,4 +198,4 @@ for i, prompt in enumerate(prompts):
 - **Too Long**: Keep prompts under token limits for your chosen LLM
 - **Too Vague**: Be specific about scoring criteria
 - **Wrong Scale**: Use 0.0-1.0 scale to match the default score extractor
-- **Extra Output**: Ask for only the numeric score — extra text can confuse score extraction
+- **Extra Output**: Ask for only the numeric score: extra text can confuse score extraction

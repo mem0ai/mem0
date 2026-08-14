@@ -71,4 +71,50 @@ describe("MemoryClient - deleteUser() (deprecated)", () => {
       findFetchCall(mock, "/v1/entities/user/456/", "DELETE"),
     ).toBeDefined();
   });
+
+  test("URL-encodes entity path segments", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/entities/team%2Ftype/org%2Fteam%3Factive%23frag/", {
+      status: 200,
+      body: { message: "Entity deleted successfully!" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.deleteUser({
+      entity_id: "org/team?active#frag" as never,
+      entity_type: "team/type",
+    });
+
+    expect(
+      findFetchCall(
+        mock,
+        "/v1/entities/team%2Ftype/org%2Fteam%3Factive%23frag/",
+        "DELETE",
+      ),
+    ).toBeDefined();
+  });
+});
+
+describe("MemoryClient - deleteUsers()", () => {
+  test("URL-encodes entity path segments", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/entities/user/org%2Fteam%3Factive%23frag/", {
+      status: 200,
+      body: { message: "Entity deleted successfully!" },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+
+    await client.deleteUsers({ userId: "org/team?active#frag" });
+
+    expect(
+      findFetchCall(
+        mock,
+        "/v2/entities/user/org%2Fteam%3Factive%23frag/",
+        "DELETE",
+      ),
+    ).toBeDefined();
+  });
 });

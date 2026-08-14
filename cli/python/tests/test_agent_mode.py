@@ -32,12 +32,13 @@ def _run(args: list[str], home_dir: str | None = None) -> subprocess.CompletedPr
         if key.startswith("MEM0_"):
             del env[key]
     env.pop("FORCE_COLOR", None)
+    env["PYTHONIOENCODING"] = "utf-8"
     if home_dir:
         env["HOME"] = home_dir
     result = subprocess.run(
         [sys.executable, "-m", "mem0_cli", *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env,
         timeout=15,
     )
@@ -99,12 +100,13 @@ class TestArgvPreprocessing:
         result = subprocess.run(
             [sys.executable, "-m", "mem0_cli", "init", "--agent"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             env={
                 **{k: v for k, v in os.environ.items() if not k.startswith("MEM0_")},
                 "HOME": clean_home,
                 "MEM0_BASE_URL": "http://127.0.0.1:1",  # blackhole
                 "FORCE_COLOR": "0",
+                "PYTHONIOENCODING": "utf-8",
             },
             timeout=15,
         )
@@ -133,12 +135,13 @@ class TestJsonEnvelopeParity:
         result = subprocess.run(
             [sys.executable, "-m", "mem0_cli", "init", "--agent", "--json"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             env={
                 **{k: v for k, v in os.environ.items() if not k.startswith("MEM0_")},
                 "HOME": clean_home,
                 "MEM0_BASE_URL": "http://127.0.0.1:1",
                 "FORCE_COLOR": "0",
+                "PYTHONIOENCODING": "utf-8",
             },
             timeout=15,
         )

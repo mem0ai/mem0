@@ -1,8 +1,10 @@
 import os
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
+from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.llms.openai import OpenAILLM
 
@@ -328,6 +330,92 @@ def test_is_reasoning_model_classification(mock_openai_client):
     assert llm._is_reasoning_model("gpt-4.1-nano-2025-04-14") is False
 
 
+def test_is_reasoning_model_explicit_override(mock_openai_client):
+    """Explicit is_reasoning_model overrides the name-based heuristic both ways.
+
+    See https://github.com/mem0ai/mem0/issues/5296 — deployments with custom or
+    versioned names need to opt in/out without relying on string matching.
+    None (default) must preserve the existing heuristic.
+    """
+    # Force True: a name the heuristic would reject is now reasoning.
+    config_true = OpenAIConfig(model="gpt-5.4-nano-2026-03-17", is_reasoning_model=True)
+    llm_true = OpenAILLM(config_true)
+    assert llm_true._is_reasoning_model("gpt-5.4-nano-2026-03-17") is True
+
+    # Force False: an o-series name the heuristic would accept is now standard.
+    config_false = OpenAIConfig(model="o3-mini", is_reasoning_model=False)
+    llm_false = OpenAILLM(config_false)
+    assert llm_false._is_reasoning_model("o3-mini") is False
+
+    # None (default) preserves the existing heuristic.
+    config_none = OpenAIConfig(model="gpt-4.1")
+    llm_none = OpenAILLM(config_none)
+    assert config_none.is_reasoning_model is None
+    assert llm_none._is_reasoning_model("o3-mini") is True
+    assert llm_none._is_reasoning_model("gpt-5.4-mini") is False
+
+
+def test_is_reasoning_model_override_generates_correct_params(mock_openai_client):
+    """End-to-end: is_reasoning_model=True drops max_tokens/temperature from the actual API call."""
+    config = OpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=0.7,
+        max_tokens=100,
+        is_reasoning_model=True,
+    )
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert "temperature" not in call_kwargs
+
+
+def test_gpt5_uses_max_completion_tokens(mock_openai_client):
+    """gpt-5.x (non-reasoning) must send max_completion_tokens, not max_tokens.
+
+    The GPT-5 family rejects the legacy max_tokens param on Chat Completions and
+    requires max_completion_tokens. Regression test for
+    https://github.com/mem0ai/mem0/issues/5054
+    """
+    config = OpenAIConfig(model="gpt-5.4-mini", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs.get("max_completion_tokens") == 100
+    assert "max_tokens" not in call_kwargs
+
+
+def test_gpt4_uses_max_tokens(mock_openai_client):
+    """Older models (gpt-4.x) keep using max_tokens — guards against regressions."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs.get("max_tokens") == 100
+    assert "max_completion_tokens" not in call_kwargs
+
+
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)
@@ -365,3 +453,14 @@ def test_callback_with_tools(mock_openai_client):
     mock_callback.assert_called_once()
     # Check that tool_calls exists in the message
     assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
+
+
+def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):
+    config = BaseLlmConfig(
+        model="gpt-4.1-nano-2025-04-14",
+        api_key="api_key",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    llm = OpenAILLM(config)
+    assert llm.config.http_client_proxies == "http://proxy.local:8080"
+    assert isinstance(llm.config.http_client, httpx.Client)

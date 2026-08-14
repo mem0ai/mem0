@@ -1,14 +1,13 @@
-from datetime import datetime
 import uuid
+from datetime import datetime
 
+from auth import require_admin
+from db import get_db
 from fastapi import APIRouter, Depends, Query
+from models import RequestLog
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from auth import require_auth
-from db import get_db
-from models import RequestLog, User
 
 router = APIRouter(prefix="/requests", tags=["requests"])
 
@@ -30,7 +29,7 @@ API_KEY_AUTH_TYPES = ("api_key", "admin_api_key")
 
 @router.get("", response_model=list[RequestLogItem])
 def list_requests(
-    user: User = Depends(require_auth),
+    _auth=Depends(require_admin),
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=200),
 ):

@@ -1026,7 +1026,8 @@ def get_user_preferences(user_id: str):
 ### AutoGen Integration
 
 ```python
-from cookbooks.helper.mem0_teachability import Mem0Teachability
+# Mem0Teachability lives in examples/notebooks/helper/ — see examples/notebooks/mem0-autogen.ipynb
+from helper.mem0_teachability import Mem0Teachability
 from mem0 import Memory
 
 # Add memory capability to AutoGen agents

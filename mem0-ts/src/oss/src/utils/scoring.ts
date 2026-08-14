@@ -56,10 +56,21 @@ export function normalizeBm25(
   return 1.0 / (1.0 + Math.exp(-steepness * (rawScore - midpoint)));
 }
 
+export interface ScoreDetails {
+  semanticScore: number;
+  bm25Score: number;
+  entityBoost: number;
+  rawScore: number;
+  maxPossibleScore: number;
+  finalScore: number;
+  threshold: number;
+}
+
 export interface ScoredResult {
   id: string;
   score: number;
   payload: Record<string, any>;
+  scoreDetails?: ScoreDetails;
 }
 
 /**
@@ -82,6 +93,7 @@ export interface ScoredResult {
  * @param entityBoosts - Map of memory ID to entity boost score.
  * @param threshold - Minimum semantic score to include a candidate.
  * @param topK - Maximum number of results to return.
+ * @param explain - Include scoreDetails in each result when true.
  * @returns Sorted list of scored results, highest score first.
  */
 export function scoreAndRank(
@@ -94,6 +106,7 @@ export function scoreAndRank(
   entityBoosts: Record<string, number>,
   threshold: number,
   topK: number,
+  explain: boolean = false,
 ): ScoredResult[] {
   const hasBm25 = Object.keys(bm25Scores).length > 0;
   const hasEntity = Object.keys(entityBoosts).length > 0;
@@ -126,11 +139,23 @@ export function scoreAndRank(
     const rawCombined = semanticScore + bm25Score + entityBoost;
     const combined = Math.min(rawCombined / maxPossible, 1.0);
 
-    scored.push({
+    const entry: ScoredResult = {
       id: memIdStr,
       score: combined,
       payload: result.payload,
-    });
+    };
+    if (explain) {
+      entry.scoreDetails = {
+        semanticScore,
+        bm25Score,
+        entityBoost,
+        rawScore: rawCombined,
+        maxPossibleScore: maxPossible,
+        finalScore: combined,
+        threshold,
+      };
+    }
+    scored.push(entry);
   }
 
   scored.sort((a, b) => b.score - a.score);

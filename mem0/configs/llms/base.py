@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import Dict, Optional, Union
 
-import httpx
+from mem0.utils.http import build_http_client
 
 
 class BaseLlmConfig(ABC):
@@ -25,12 +25,13 @@ class BaseLlmConfig(ABC):
         vision_details: Optional[str] = "auto",
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
+        is_reasoning_model: Optional[bool] = None,
     ):
         """
         Initialize a base configuration class instance for the LLM.
 
         Args:
-            model: The model identifier to use (e.g., "gpt-4.1-nano-2025-04-14", "claude-3-5-sonnet-20240620")
+            model: The model identifier to use (e.g., "gpt-5-mini", "claude-3-5-sonnet-20240620")
                 Defaults to None (will be set by provider-specific configs)
             temperature: Controls the randomness of the model's output.
                 Higher values (closer to 1) make output more random, lower values make it more deterministic.
@@ -54,6 +55,14 @@ class BaseLlmConfig(ABC):
                 Defaults to None (uses the model's default reasoning effort)
             http_client_proxies: Proxy settings for HTTP client.
                 Can be a dict or string. Defaults to None
+            is_reasoning_model: Explicit override for reasoning-model detection.
+                When None (default), the model is classified automatically from its
+                name (preserving existing behavior). Set to True to force the
+                reasoning-model parameter set (drop max_tokens and temperature),
+                or False to force the standard parameter set. Useful for
+                deployments with custom/versioned model names (e.g. Azure
+                "gpt-5.4-nano-2026-03-17") that the name-based heuristic cannot
+                recognize. Defaults to None
         """
         self.model = model
         self.temperature = temperature
@@ -64,4 +73,6 @@ class BaseLlmConfig(ABC):
         self.enable_vision = enable_vision
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
-        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.is_reasoning_model = is_reasoning_model
+        self.http_client_proxies = http_client_proxies
+        self.http_client = build_http_client(http_client_proxies)

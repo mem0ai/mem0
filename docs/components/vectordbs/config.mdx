@@ -7,7 +7,7 @@ description: "Reference for vector database configuration options in Mem0, inclu
 
 The `config` is defined as an object with two main keys:
 - `vector_store`: Specifies the vector database provider and its configuration
-  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus", "upstash_vector", "azure_ai_search", "vertex_ai_vector_search", "valkey")
+  - `provider`: The name of the vector database (e.g., "chroma", "pgvector", "qdrant", "milvus", "upstash_vector", "azure_ai_search", "vertex_ai_vector_search", "valkey", "oracledb")
   - `config`: A nested dictionary containing provider-specific settings
 
 
@@ -95,6 +95,11 @@ Here's a comprehensive list of all parameters that can be used across different 
 | `connection_string` | PostgreSQL connection string (for Supabase/PGVector) |
 | `index_method` | Vector index method (for Supabase) |
 | `index_measure` | Distance measure for similarity search (for Supabase) |
+| `connection_params` | Connection settings for Oracle AI Vector Search |
+| `use_connection_pool` | Create an Oracle connection pool from `connection_params` |
+| `distance_metric` | Distance metric for Oracle vector indexing and search |
+| `index_type` | Oracle vector index type: `HNSW` or `IVF` |
+| `index_parameters` | Oracle vector-index parameters for the selected index type |
 </Tab>
 <Tab title="TypeScript">
 | Parameter | Description |
@@ -118,10 +123,10 @@ Here's a comprehensive list of all parameters that can be used across different 
 
 Each vector database has its own specific configuration requirements. To customize the config for your chosen vector store:
 
-1. Identify the vector database you want to use from [supported vector databases](./dbs).
+1. Identify the vector database you want to use from [supported vector databases](./overview).
 2. Refer to the `Config` section in the respective vector database's documentation.
 3. Include only the relevant parameters for your chosen database in the `config` dictionary.
 
 ## Supported Vector Databases
 
-For detailed information on configuring specific vector databases, please visit the [Supported Vector Databases](./dbs) section. There you'll find individual pages for each supported vector store with provider-specific usage examples and configuration details.
+For detailed information on configuring specific vector databases, please visit the [Supported Vector Databases](./overview) section. There you'll find individual pages for each supported vector store with provider-specific usage examples and configuration details.
