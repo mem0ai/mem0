@@ -26,6 +26,7 @@ class Backend(ABC):
         infer: bool = True,
         expires: str | None = None,
         custom_instructions: str | None = None,
+        agent_custom_instructions: str | None = None,
         custom_categories: list[dict] | None = None,
         structured_data_schema: dict | None = None,
         timestamp: int | None = None,

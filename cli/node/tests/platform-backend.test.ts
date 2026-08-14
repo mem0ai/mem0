@@ -84,6 +84,7 @@ describe("PlatformBackend option-parity payloads (MEM-5893)", () => {
 			metadata: { source: "test" },
 			expires: "2099-01-01",
 			customInstructions: "Extract only preferences.",
+			agentCustomInstructions: "Extract only tool outcomes.",
 			customCategories: [{ prefs: "user preferences" }],
 			structuredDataSchema: { type: "object" },
 			timestamp: 1700000000,
@@ -91,6 +92,9 @@ describe("PlatformBackend option-parity payloads (MEM-5893)", () => {
 
 		const payload = spy.mock.calls[0][2].json;
 		expect(payload.custom_instructions).toBe("Extract only preferences.");
+		expect(payload.agent_custom_instructions).toBe(
+			"Extract only tool outcomes.",
+		);
 		expect(payload.custom_categories).toEqual([{ prefs: "user preferences" }]);
 		expect(payload.structured_data_schema).toEqual({ type: "object" });
 		expect(payload.timestamp).toBe(1700000000);
@@ -109,6 +113,7 @@ describe("PlatformBackend option-parity payloads (MEM-5893)", () => {
 
 		const payload = spy.mock.calls[0][2].json;
 		expect(payload).not.toHaveProperty("custom_instructions");
+		expect(payload).not.toHaveProperty("agent_custom_instructions");
 		expect(payload).not.toHaveProperty("custom_categories");
 		expect(payload).not.toHaveProperty("structured_data_schema");
 		expect(payload).not.toHaveProperty("timestamp");

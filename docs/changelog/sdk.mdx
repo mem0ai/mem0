@@ -7,6 +7,16 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-08-11" description="v2.0.18">
+
+**Bug Fixes:**
+- **Core:** Percent-escape `%`, `&`, and `=` in `user_id`, `agent_id`, and `run_id` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
+- **Vector Stores:** Raise `ValueError` when a PGVector `in`/`nin` filter value is not a list. A string value was previously iterated character by character into the generated `= ANY(...)` array (so `{"user_id": {"in": "alice"}}` matched `a`, `l`, `i`, `c`, `e`), and a non-iterable value raised a bare `TypeError` from deep inside filter building ([#6879](https://github.com/mem0ai/mem0/pull/6879))
+- **Vector Stores:** Reject `index_accuracy=0` in the Oracle AI Vector Search config. The range check sat behind a truthiness test, so `0` skipped validation entirely and was passed through to `WITH TARGET ACCURACY 0` instead of raising ([#6848](https://github.com/mem0ai/mem0/pull/6848))
+- **Vector Stores:** Close the Oracle connection or pool that Mem0 opened when initialization fails. A client version check, a database version check, or a `create_col()` error previously propagated with the connection still open, leaking it for the life of the process. A caller-supplied `client` is left untouched ([#6839](https://github.com/mem0ai/mem0/pull/6839))
+
+</Update>
+
 <Update label="2026-08-05" description="v2.0.17">
 
 **New Features:**
@@ -1195,6 +1205,24 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-08-11" description="v3.1.6">
+
+**New Features:**
+- **Vector Stores:** Add an Oracle AI Vector Search vector store (`oracledb`) to the OSS SDK, with pooled connections, `HNSW`/`IVF` indexes, an optional `indexAccuracy` target, JSON payload filtering, and six selectable distance metrics ([#6690](https://github.com/mem0ai/mem0/pull/6690))
+
+**Bug Fixes:**
+- **Core:** Percent-escape `%`, `&`, and `=` in `userId`, `agentId`, and `runId` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
+- **Vector Stores:** Close and clear the Oracle pool that Mem0 created when `initialize()` fails, and reset the cached init promise so the next call retries instead of replaying the rejection forever. A caller-supplied `client` is left untouched ([#6839](https://github.com/mem0ai/mem0/pull/6839))
+- **Vector Stores:** Validate Oracle `insert()` batches before touching the database: `ids` and `payloads` must match `vectors` in length, so a short array can no longer write rows with `undefined` ids or silently drop payloads ([#6839](https://github.com/mem0ai/mem0/pull/6839))
+
+**Improvements:**
+- **Vector Stores:** Cut Oracle round trips. `insert()` now sends the whole batch through one `executeMany()` with explicit `bindDefs` instead of one `INSERT` per vector, `list()` reads the total from a `COUNT(*) OVER ()` window in the same statement instead of issuing a second count query, and an unfiltered `search()` adds the `VECTOR_INDEX_TRANSFORM` hint so the vector index is used ([#6835](https://github.com/mem0ai/mem0/pull/6835))
+
+**Security:**
+- **Dependencies:** Patched 8 high and 18 medium severity dependency vulnerabilities across the pnpm workspace via `pnpm.overrides` (`undici`, `brace-expansion`, `ip-address`) ([#6847](https://github.com/mem0ai/mem0/pull/6847))
+
+</Update>
 
 <Update label="2026-08-05" description="v3.1.5">
 

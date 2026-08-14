@@ -157,6 +157,22 @@ def test_platform_codex(monkeypatch):
     assert telemetry.detect_platform() == "codex"
 
 
+def test_platform_kimi(monkeypatch):
+    """Kimi Code usage must be attributed to its own platform so it can be
+    counted distinctly. The shim also pins MEM0_PLATFORM=kimi; this covers the
+    KIMI_PLUGIN_ROOT auto-detection fallback."""
+    import telemetry
+
+    monkeypatch.delenv("MEM0_PLATFORM", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_PLUGIN_ROOT", raising=False)
+    monkeypatch.delenv("CLAUDECODE", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
+    monkeypatch.delenv("CURSOR_PLUGIN_ROOT", raising=False)
+    monkeypatch.delenv("PLUGIN_ROOT", raising=False)
+    monkeypatch.setenv("KIMI_PLUGIN_ROOT", "/path")
+    assert telemetry.detect_platform() == "kimi"
+
+
 def test_platform_explicit_override(monkeypatch):
     """MEM0_PLATFORM wins over auto-detection so each editor can label
     itself reliably even when host env vars are ambiguous or absent."""
@@ -190,6 +206,7 @@ def test_plugin_version_is_per_editor(monkeypatch):
         "claude-code": os.path.join(".claude-plugin", "plugin.json"),
         "cursor": os.path.join(".cursor-plugin", "plugin.json"),
         "codex": os.path.join(".codex-plugin", "plugin.json"),
+        "kimi": os.path.join(".kimi-plugin", "plugin.json"),
     }
     for plat, rel in manifests.items():
         monkeypatch.setenv("MEM0_PLATFORM", plat)

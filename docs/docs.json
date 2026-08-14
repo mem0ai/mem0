@@ -612,6 +612,10 @@
   },
   "redirects": [
     {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
+    {
       "source": "/platform/features/contextual-add",
       "destination": "/core-concepts/memory-operations/add"
     },
@@ -1033,6 +1037,10 @@
     },
     {
       "source": "/features/graph-memory",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
+      "source": "/open-source/features/graph-memory",
       "destination": "/platform/features/graph-memory"
     },
     {
