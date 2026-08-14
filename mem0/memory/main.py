@@ -1354,6 +1354,8 @@ class Memory(MemoryBase):
         for mem in actual_memories:
             if not show_expired and _payload_is_expired(mem.payload):
                 continue
+            if output_limit is not None and len(formatted_memories) >= output_limit:
+                break
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1371,8 +1373,6 @@ class Memory(MemoryBase):
                 memory_item_dict["metadata"] = additional_metadata
 
             formatted_memories.append(memory_item_dict)
-            if output_limit is not None and len(formatted_memories) >= output_limit:
-                break
 
         return formatted_memories
 
@@ -3006,6 +3006,8 @@ class AsyncMemory(MemoryBase):
         for mem in actual_memories:
             if not show_expired and _payload_is_expired(mem.payload):
                 continue
+            if output_limit is not None and len(formatted_memories) >= output_limit:
+                break
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -3023,8 +3025,6 @@ class AsyncMemory(MemoryBase):
                 memory_item_dict["metadata"] = additional_metadata
 
             formatted_memories.append(memory_item_dict)
-            if output_limit is not None and len(formatted_memories) >= output_limit:
-                break
 
         return formatted_memories
 

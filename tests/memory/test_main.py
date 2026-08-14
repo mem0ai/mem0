@@ -334,6 +334,48 @@ def _assert_utc_timestamp(timestamp: str):
     assert parsed.utcoffset().total_seconds() == 0
 
 
+def _vector_memory(memory_id="m1", data="hello"):
+    mem = MagicMock()
+    mem.id = memory_id
+    mem.payload = {
+        "data": data,
+        "user_id": "u1",
+        "hash": "h",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+    return mem
+
+
+def test_get_all_from_vector_store_top_k_zero_returns_empty(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.list.return_value = [[_vector_memory()]]
+
+    results = memory._get_all_from_vector_store({"user_id": "u1"}, limit=60, output_limit=0)
+
+    assert results == []
+
+
+def test_get_all_from_vector_store_top_k_one_returns_one(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.list.return_value = [[_vector_memory("m1"), _vector_memory("m2")]]
+
+    results = memory._get_all_from_vector_store({"user_id": "u1"}, limit=60, output_limit=1)
+
+    assert len(results) == 1
+    assert results[0]["id"] == "m1"
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_from_vector_store_top_k_zero_returns_empty(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.list.return_value = [[_vector_memory()]]
+
+    results = await memory._get_all_from_vector_store({"user_id": "u1"}, limit=60, output_limit=0)
+
+    assert results == []
+
+
 def test_create_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
