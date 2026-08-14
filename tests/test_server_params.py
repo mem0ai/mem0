@@ -652,6 +652,30 @@ class TestGetMemories:
         assert response.status_code == 422
         mock_memory.get_all.assert_not_called()
 
+    def test_admin_list_all_memories_excludes_internal_payload_keys(self, client, mock_memory):
+        row = MagicMock()
+        row.id = "mem-1"
+        row.payload = {
+            "data": "I love hiking on weekends",
+            "text_lemmatized": "love hike weekend",
+            "user_id": "alice",
+            "hash": "abc",
+            "created_at": "2024-01-01T00:00:00+00:00",
+            "updated_at": "2024-01-01T00:00:00+00:00",
+            "role": "user",
+            "category": "outdoors",
+        }
+        mock_memory.vector_store.list.return_value = [[row]]
+
+        response = client.get("/memories")
+
+        assert response.status_code == 200
+        item = response.json()["results"][0]
+        assert item["memory"] == "I love hiking on weekends"
+        assert "text_lemmatized" not in (item.get("metadata") or {})
+        assert "role" not in (item.get("metadata") or {})
+        assert item["metadata"] == {"category": "outdoors"}
+
 
 # ===========================================================================
 # SearchRequest: entity IDs mapped into filters (fix for server 502)
