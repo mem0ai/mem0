@@ -2,7 +2,7 @@ name: PR Gate
 
 on:
   pull_request_target:
-    types: [opened, reopened, edited, ready_for_review]
+    types: [opened, reopened, ready_for_review]
 
 concurrency:
   group: pr-gate-${{ github.event.pull_request.number }}
