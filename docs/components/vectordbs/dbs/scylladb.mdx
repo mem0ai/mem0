@@ -7,19 +7,18 @@ description: "Use ScyllaDB as a real-time distributed vector store in Mem0 with 
 
 ### Prerequisites
 
-- A ScyllaDB Cloud cluster
-- Python package: `scylla-driver` (install instructions below)
+- A ScyllaDB cluster ([Cloud](https://cloud.scylladb.com) or [self-hosted](https://docs.scylladb.com/manual/stable/getting-started/install-scylla/index.html))
 
 ### Installation
 
 pip:
 ```bash
-pip install mem0ai scylla-driver
+pip install mem0ai[scylladb]
 ```
 
 uv:
 ```bash
-uv add mem0ai scylla-driver
+uv add mem0ai[scylladb]
 ```
 
 ### Usage
