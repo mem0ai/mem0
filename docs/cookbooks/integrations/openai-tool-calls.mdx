@@ -3,6 +3,9 @@ title: Memory as OpenAI Tool
 description: "Wire Mem0 memories into OpenAI's inbuilt function-calling flow."
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`MemoryClient`)
+</Info>
 
 Integrate Mem0’s memory capabilities with OpenAI’s Inbuilt Tools to create AI agents with persistent memory.
 
@@ -55,9 +58,8 @@ await addUserPreferences();
 
 ```json Output
 {
-  "message": "Memory processing has been queued for background execution",
-  "status": "PENDING",
-  "event_id": "9f8c2b1a-4e7d-4c3a-9b21-1a2b3c4d5e6f"
+  "event_id": "9f8c2b1a-4e7d-4c3a-9b21-1a2b3c4d5e6f",
+  "status": "PENDING"
 }
 ```
 </CodeGroup>

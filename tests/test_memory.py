@@ -1,6 +1,7 @@
 import json
+import sys
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -982,7 +983,7 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
     mem3.id = "mem-3"
     mem3.payload = {"data": "three", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
 
-    mock_vector_store.list.return_value = ([mem1, mem2, mem3],)
+    mock_vector_store.list.side_effect = [([mem1, mem2, mem3],), ([],)]
 
     def _get_side_effect(vector_id):
         if vector_id == "mem-2":
@@ -998,6 +999,10 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 
     assert result == {"message": "Memories deleted successfully!"}
     assert mock_vector_store.delete.call_count == 2
+    assert mock_vector_store.list.call_args_list[0].kwargs == {
+        "filters": {"user_id": "test-user"},
+        "top_k": 1000,
+    }
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -1472,7 +1477,7 @@ class TestAsyncDeleteAllEntityRace:
         mem_b = MagicMock()
         mem_b.id = "mem-b"
         mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
-        mock_vector_store.list.return_value = ([mem_a, mem_b],)
+        mock_vector_store.list.side_effect = [([mem_a, mem_b],), ([],)]
         mock_vector_store.get.side_effect = lambda vector_id: {"mem-a": mem_a, "mem-b": mem_b}[vector_id]
         mock_vector_factory.return_value = mock_vector_store
 
@@ -1529,3 +1534,43 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.VectorStoreFactory")
+@patch("mem0.memory.main.EmbedderFactory")
+@patch("mem0.memory.main.LlmFactory")
+async def test_async_procedural_memory_default_path_without_langchain(mock_llm_factory, mock_emb, mock_vs):
+    """Async procedural memory must not require langchain-core on the default
+    (llm=None) path, which uses self.llm and never calls convert_to_messages.
+    The sync path already works without it; this keeps the async path in parity.
+    """
+    mock_vs.return_value = MagicMock()
+    mock_emb.return_value = MagicMock()
+    mock_emb.return_value.embed.return_value = [0.1] * 1536
+    mock_llm_factory.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory.vector_store = MagicMock()
+    memory.vector_store.insert = MagicMock()
+    memory.embedding_model.embed = Mock(return_value=[0.1] * 1536)
+    memory.llm.generate_response = Mock(return_value="- deploy with the release script")
+
+    messages = [{"role": "user", "content": "how do we deploy"}]
+
+    # Simulate langchain-core being unavailable; the default path must still work.
+    with patch.dict(
+        sys.modules,
+        {
+            "langchain_core": None,
+            "langchain_core.messages": None,
+            "langchain_core.messages.utils": None,
+        },
+    ):
+        result = await memory._create_procedural_memory(messages, metadata={"agent_id": "agent_1"})
+
+    assert result["results"][0]["event"] == "ADD"
+    memory.llm.generate_response.assert_called_once()

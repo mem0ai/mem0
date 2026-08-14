@@ -26,6 +26,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_api_key, resolve_user_id
+from _instructions import load_instructions
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-compact-summary")
@@ -95,7 +96,7 @@ def find_compact_summary(lines: list[str]) -> str:
     return ""
 
 
-def store_summary(api_key: str, summary: str, user_id: str, session_id: str, project_id: str = "", branch: str = "") -> bool:
+def store_summary(api_key: str, summary: str, user_id: str, session_id: str, project_id: str = "", branch: str = "", cwd: str | None = None) -> bool:
     expires = (date.today() + timedelta(days=COMPACT_SUMMARY_EXPIRY_DAYS)).isoformat()
     metadata = {
         "type": "compact_summary",
@@ -104,14 +105,19 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
     }
     if branch:
         metadata["branch"] = branch
+    # The compact summary is model-authored prose, in the first person and with no
+    # framing to mark it as such. Under role="user" mem0 reads "I recommend X" as
+    # the human saying it and stores "User recommends X".
     body = {
-        "messages": [{"role": "user", "content": summary}],
+        "messages": [{"role": "assistant", "content": summary}],
         "user_id": user_id,
         "app_id": project_id,
         "metadata": metadata,
         "infer": True,
         "expiration_date": expires,
     }
+    # Apply the project's mem0.md extraction policy (custom/agent instructions).
+    body.update(load_instructions(cwd))
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -179,7 +185,7 @@ def main():
         return
 
     log.info("Capturing compact summary (%d chars)", len(summary))
-    if store_summary(api_key, summary, user_id, session_id, project_id, branch):
+    if store_summary(api_key, summary, user_id, session_id, project_id, branch, cwd):
         if session_id:
             try:
                 os.makedirs(marker_dir, exist_ok=True)

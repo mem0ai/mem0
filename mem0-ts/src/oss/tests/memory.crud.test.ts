@@ -128,6 +128,16 @@ describe("Memory - get()", () => {
     expect(item!.createdAt).toBeDefined();
     expect(new Date(item!.createdAt!).toString()).not.toBe("Invalid Date");
   });
+
+  test("does not duplicate the entity id inside metadata", async () => {
+    const addResult: SearchResult = await memory.add("Metadata leak test", {
+      userId,
+    });
+    const item: any = await memory.get(addResult.results[0].id);
+    expect(item.user_id).toBe(userId);
+    expect(item.metadata).not.toHaveProperty("user_id");
+    expect(item.metadata).not.toHaveProperty("userId");
+  });
 });
 
 // ─── update() ────────────────────────────────────────────
@@ -206,6 +216,79 @@ describe("Memory - update()", () => {
     expect(after!.metadata).toEqual(
       expect.objectContaining({ category: "hobbies", priority: "high" }),
     );
+  });
+
+  // Regression: metadata passed to update() must never overwrite a memory's
+  // identity fields (issues #6277 / #6278).
+  test("metadata cannot overwrite identity fields (tenant isolation)", async () => {
+    const tenantA = `tenant_a_${Date.now()}`;
+    const tenantB = `tenant_b_${Date.now()}`;
+    const addResult: SearchResult = await memory.add("Tenant A secret", {
+      userId: tenantA,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+
+    // Caller metadata attempts to re-scope the memory to tenant B.
+    await memory.update(id, {
+      text: "Updated text",
+      metadata: { user_id: tenantB, agent_id: "attacker", run_id: "attacker" },
+    });
+
+    // The memory must remain in tenant A's scope...
+    const aList: SearchResult = await memory.getAll({
+      filters: { user_id: tenantA },
+    });
+    expect(aList.results.map((m) => m.id)).toContain(id);
+
+    // ...and must never leak into tenant B's scope.
+    const bList: SearchResult = await memory.getAll({
+      filters: { user_id: tenantB },
+    });
+    expect(bList.results.map((m) => m.id)).not.toContain(id);
+  });
+
+  // A memory created with only some identity fields (e.g. run_id only) must not
+  // let update() metadata inject a brand-new identity key. The default vector
+  // store promotes camelCase aliases to snake_case on read, so both casings must be covered.
+  test("metadata cannot inject an identity field on update (snake_case or camelCase)", async () => {
+    const runId = `run_only_${Date.now()}`;
+    const attacker = `attacker_${Date.now()}`;
+    const addResult: SearchResult = await memory.add("Run-scoped secret", {
+      runId,
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+
+    // Memory has no user_id/agent_id/actor_id — metadata tries to inject them,
+    // in both snake_case and camelCase.
+    await memory.update(id, {
+      text: "Updated text",
+      metadata: {
+        user_id: attacker,
+        agent_id: attacker,
+        actor_id: attacker,
+        userId: attacker,
+        agentId: attacker,
+      },
+    });
+
+    // Still reachable under its original run_id scope...
+    const runList: SearchResult = await memory.getAll({
+      filters: { run_id: runId },
+    });
+    expect(runList.results.map((m) => m.id)).toContain(id);
+
+    // ...and the injected identity scopes must not resolve to it.
+    const userList: SearchResult = await memory.getAll({
+      filters: { user_id: attacker },
+    });
+    expect(userList.results.map((m) => m.id)).not.toContain(id);
+
+    const agentList: SearchResult = await memory.getAll({
+      filters: { agent_id: attacker },
+    });
+    expect(agentList.results.map((m) => m.id)).not.toContain(id);
   });
 });
 
@@ -575,6 +658,66 @@ describe("Memory - deleteAll()", () => {
     await expect(memory.deleteAll({} as any)).rejects.toThrow(
       "At least one filter is required to delete all memories",
     );
+  });
+
+  test("deletes past the vector store default page limit", async () => {
+    const mem = createMemory();
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    const pagedUserId = `deleteall_paged_${Date.now()}`;
+    const total = 150;
+
+    await internals.vectorStore.insert(
+      Array.from({ length: total }, () => new Array(1536).fill(0.1)),
+      Array.from({ length: total }, (_, index) => `paged-${index}`),
+      Array.from({ length: total }, (_, index) => ({
+        data: `Fact ${index}`,
+        hash: `hash-${index}`,
+        user_id: pagedUserId,
+        createdAt: new Date().toISOString(),
+      })),
+    );
+
+    const [before] = await internals.vectorStore.list(
+      { user_id: pagedUserId },
+      total * 2,
+    );
+    expect(before).toHaveLength(total);
+
+    const result = await mem.deleteAll({ userId: pagedUserId });
+    expect(result.message).toBe("Memories deleted successfully!");
+
+    const [after] = await internals.vectorStore.list(
+      { user_id: pagedUserId },
+      total * 2,
+    );
+    expect(after).toHaveLength(0);
+  }, 60000);
+
+  test("stops when the vector store keeps returning the same batch", async () => {
+    const mem = createMemory();
+    const internals = mem as any;
+    await internals._ensureInitialized();
+    const stale = [
+      { id: "stale-1", payload: { data: "x", user_id: "u1" } },
+      { id: "stale-2", payload: { data: "x", user_id: "u1" } },
+    ];
+    const listSpy = jest
+      .spyOn(internals.vectorStore, "list")
+      .mockResolvedValueOnce([stale, stale.length])
+      .mockResolvedValueOnce([stale, stale.length])
+      .mockImplementation(async () => {
+        throw new Error("deleteAll should have stopped after a repeated batch");
+      });
+    const deleteSpy = jest
+      .spyOn(internals, "deleteMemory")
+      .mockResolvedValue("stale-1");
+
+    const result = await mem.deleteAll({ userId: "u1" });
+
+    expect(result.message).toBe("Memories deleted successfully!");
+    expect(listSpy).toHaveBeenCalledTimes(2);
+    expect(deleteSpy).toHaveBeenCalledTimes(2);
   });
 });
 

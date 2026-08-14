@@ -89,6 +89,10 @@ def _build_filter_conditions(filters):
                     raise ValueError(f"Unsupported filter operator: {op}")
                 template, is_numeric = OPERATOR_SQL_MAP[op]
                 if op in ("in", "nin"):
+                    if not isinstance(op_value, list):
+                        raise ValueError(
+                            f"Filter operator {op!r} for key {key!r} requires a list value, got {type(op_value).__name__}"
+                        )
                     str_list = [str(v) for v in op_value]
                     conditions.append(template)
                     params.extend([key, str_list])
@@ -459,13 +463,13 @@ class PGVector(VectorStoreBase):
         self._ensure_collection()
         with self._get_cursor() as cur:
             cur.execute(
-                sql.SQL("SELECT id, vector, payload FROM {} WHERE id = %s").format(self._col()),
+                sql.SQL("SELECT id, payload FROM {} WHERE id = %s").format(self._col()),
                 (vector_id,),
             )
             result = cur.fetchone()
             if not result:
                 return None
-            return OutputData(id=str(result[0]), score=None, payload=result[2])
+            return OutputData(id=str(result[0]), score=None, payload=result[1])
 
     def list_cols(self) -> List[str]:
         """
@@ -528,7 +532,7 @@ class PGVector(VectorStoreBase):
         with self._get_cursor() as cur:
             cur.execute(
                 sql.SQL("""
-                SELECT id, vector, payload
+                SELECT id, payload
                 FROM {}
                 {}
                 LIMIT %s
@@ -536,7 +540,7 @@ class PGVector(VectorStoreBase):
                 (*filter_params, top_k),
             )
             results = cur.fetchall()
-        return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
+        return [[OutputData(id=str(r[0]), score=None, payload=r[1]) for r in results]]
 
     def __del__(self) -> None:
         """

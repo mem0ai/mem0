@@ -46,7 +46,7 @@ When new messages arrive, Mem0 extracts durable facts and stores them with the i
 1. **Context lookup.** Mem0 checks related existing memories so it can avoid storing the same fact again.
 2. **Fact extraction.** An LLM extracts preferences, decisions, plans, and other details your agent can reuse.
 3. **Deduplication and embedding.** Redundant facts are removed, then each memory is embedded for semantic search.
-4. **Entity linking.** When configured, Mem0 links people, places, organizations, and concepts across memories.
+4. **Entity extraction.** Mem0 pulls out the people, places, organizations, and concepts each memory mentions and stores them for entity matching at search time. On Platform these entities also become the nodes of [Graph Memory](/platform/features/graph-memory).
 
 The automatic extraction path is additive. If a user says, "I moved from Austin to Seattle," Mem0 can store the new fact without silently rewriting the old one. Use explicit `update` or `delete` operations when your application needs to correct or remove a memory.
 
@@ -61,7 +61,7 @@ When you call `search`, Mem0 ranks stored memories against your query and filter
 | **Entity** | Boosts memories linked to entities in the query | Questions about a person, project, or account |
 | **Temporal** | Scores candidates on time metadata extracted at write time against the query's temporal intent | Temporal questions ("when did...", current state, recency) |
 
-Platform retrieval fuses these signals in the managed service. OSS retrieval depends on your configured vector store, optional reranker, and graph store.
+Platform retrieval fuses these signals in the managed service, where the entity signal is powered by built-in [Graph Memory](/platform/features/graph-memory). OSS retrieval depends on your configured vector store and optional reranker, and boosts on entity overlap alone: it has no graph memory.
 
 <Note>
   Always scope searches with filters such as `user_id`, `agent_id`, or `run_id`. This keeps memories from different users, agents, or sessions from mixing.
@@ -75,7 +75,7 @@ Mem0 stores different parts of a memory in stores built for different lookup pat
 |---|---|---|
 | **SQL database** | Facts and metadata | The source of truth for each memory |
 | **Vector database** | Embeddings | Semantic similarity search |
-| **Entity or graph store** | Entities and relationships | Relationship-aware retrieval when graph memory is enabled |
+| **Entity store** | Entities extracted from memory text | Boosts memories sharing entities with the query. On Platform it also backs [Graph Memory](/platform/features/graph-memory) |
 
 On Mem0 Platform, these stores are managed for you. In OSS, you choose and operate the backing stores through your configuration.
 

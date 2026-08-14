@@ -36,6 +36,11 @@ export interface SearchMemoryOptions {
   threshold?: number;
   explain?: boolean;
   referenceDate?: number | string | Date | null;
+  /**
+   * Re-rank the results with the configured reranker before returning. No-op
+   * when no `reranker` is configured on the Memory.
+   */
+  rerank?: boolean;
   /** Include expired memories in the results. Defaults to false. */
   showExpired?: boolean;
 }

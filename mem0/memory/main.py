@@ -133,6 +133,33 @@ _SENSITIVE_SUFFIXES = (
 
 # Entity parameters that must be passed via filters, not top-level kwargs
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
+DELETE_ALL_BATCH_SIZE = 1000
+
+# Tenant-scoping fields that caller-supplied metadata must never set, on either the
+# creation or the update path (issues #4490, #6277, #6655).
+_IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
+
+
+def _strip_identity_keys(
+    metadata: Dict[str, Any],
+    existing_payload: Dict[str, Any],
+    *,
+    context: str = "update()",
+) -> Dict[str, Any]:
+    """Drop identity keys from caller metadata; scope is set by the entity params, not metadata.
+
+    On the update path `existing_payload` carries the memory's current scope, so
+    re-sending an identical value is silently accepted; only a changed value warns.
+    On the creation path there is no prior payload, so pass an empty dict and every
+    identity key present in `metadata` is dropped with a warning.
+    """
+    clean = {}
+    for key, value in metadata.items():
+        if key not in _IDENTITY_KEYS:
+            clean[key] = value
+        elif value != existing_payload.get(key):
+            logger.warning(f"{context}: ignoring metadata['{key}'] - identity fields cannot be set through metadata")
+    return clean
 
 
 def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
@@ -145,9 +172,10 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
-def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
+def _validate_and_trim_entity_id(value: Optional[Any], name: str) -> Optional[str]:
     """
     Validates and normalizes an entity ID.
+    - Coerces non-string values (e.g. integer ids) to str
     - Trims leading/trailing whitespace
     - Rejects empty or whitespace-only strings
     - Rejects strings containing internal whitespace
@@ -164,6 +192,11 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     """
     if value is None:
         return None
+    # Callers commonly pass integer ids (e.g. a database primary key). Coerce
+    # to str at this single validation point so scoping stays consistent across
+    # add/search/get_all/delete_all instead of crashing on `.strip()`.
+    if not isinstance(value, str):
+        value = str(value)
     trimmed = value.strip()
     if trimmed == "":
         raise ValueError(
@@ -294,7 +327,9 @@ def _build_filters_and_metadata(
     for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
 
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
+       It includes all provided session identifier(s) and any `input_metadata`. Identity
+       scope is set from the entity params only; identity keys in `input_metadata` are
+       dropped, so freeform metadata cannot place a memory into an unrequested scope.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
        provided session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
@@ -322,7 +357,12 @@ def _build_filters_and_metadata(
               scoped to the provided session(s) and potentially a resolved actor.
     """
 
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    # Identity scope is set below from the entity params only. Stripping the keys here
+    # stops caller metadata from placing a memory into a scope the caller did not pass,
+    # which the re-pins below cannot prevent for a param that was left unset (issue #6655).
+    base_metadata_template = (
+        _strip_identity_keys(deepcopy(input_metadata), {}, context="add()") if input_metadata else {}
+    )
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
     # ---------- validate and add all provided session ids ----------
@@ -364,13 +404,18 @@ def _build_filters_and_metadata(
     return base_metadata_template, effective_query_filters
 
 
+def _escape_scope_value(val: Any) -> str:
+    """Escape the structural delimiters of the session scope key."""
+    return str(val).replace("%", "%25").replace("&", "%26").replace("=", "%3D")
+
+
 def _build_session_scope(filters):
     """Build deterministic session scope string from entity IDs."""
     parts = []
     for key in sorted(["user_id", "agent_id", "run_id"]):
         val = filters.get(key)
         if val:
-            parts.append(f"{key}={val}")
+            parts.append(f"{key}={_escape_scope_value(val)}")
     return "&".join(parts)
 
 
@@ -418,7 +463,6 @@ class _OSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -432,7 +476,6 @@ class _AsyncOSSProject:
         self,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[list] = None,
-        retrieval_criteria: Optional[list] = None,
         multilingual: Optional[bool] = None,
         decay: Optional[bool] = None,
     ):
@@ -752,6 +795,11 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
 
 
         Returns:
@@ -1779,6 +1827,8 @@ class Memory(MemoryBase):
             memory_id (str): ID of the memory to update.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+                ``user_id``/``agent_id``/``run_id``/``actor_id`` are ignored here - they are
+                immutable after creation.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
             data (str, optional): Deprecated alias for ``text``. Will be removed in the next
                 major release; use ``text`` instead.
@@ -1865,14 +1915,28 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Keep listing after each batch is deleted. Most vector stores cap
+        # list() at 100 results by default, which silently truncates deletes.
+        deleted_count = 0
+        seen_batches = set()
+        while True:
+            memories = self.vector_store.list(
+                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
+            )[0]
+            if not memories:
+                break
+            batch_ids = tuple(sorted(str(memory.id) for memory in memories))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
+            for memory in memories:
+                self._delete_memory(memory.id)
+            deleted_count += len(memories)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
         else:
@@ -1987,17 +2051,13 @@ class Memory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            new_metadata.update(metadata)
+            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -2397,6 +2457,12 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
@@ -3410,6 +3476,8 @@ class AsyncMemory(MemoryBase):
             memory_id (str): ID of the memory to update.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update with the memory. Defaults to None.
+                ``user_id``/``agent_id``/``run_id``/``actor_id`` are ignored here - they are
+                immutable after creation.
             expiration_date (Any, optional): Date in YYYY-MM-DD format, or None to clear it.
             data (str, optional): Deprecated alias for ``text``. Will be removed in the next
                 major release; use ``text`` instead.
@@ -3497,26 +3565,45 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
-
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
-
-        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        deleted_count = 0
+        errors = []
+        seen_batches = set()
+        while True:
+            memories = await asyncio.to_thread(
+                self.vector_store.list,
+                filters=filters,
+                top_k=DELETE_ALL_BATCH_SIZE,
+            )
+            batch = memories[0] if memories else []
+            if not batch:
+                break
+            batch_ids = tuple(sorted(str(memory.id) for memory in batch))
+            if batch_ids in seen_batches:
+                logger.warning("Stopping delete_all after a repeated memory batch")
+                break
+            seen_batches.add(batch_ids)
+            delete_tasks = [
+                self._delete_memory(memory.id, skip_entity_cleanup=True)
+                for memory in batch
+            ]
+            results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+            batch_errors = [
+                result for result in results if isinstance(result, BaseException)
+            ]
+            errors.extend(batch_errors)
+            deleted_count += len(results) - len(batch_errors)
 
         if self._entity_store is not None:
             await self._bulk_clear_entity_store(filters)
 
-        errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
-            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            logger.warning("Failed to delete %d memories", len(errors))
             for err in errors:
                 logger.warning("Delete error: %s", err)
 
-        logger.info(f"Deleted {len(results) - len(errors)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
-        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        decay_usage_notice = detect_decay_usage_from_delete_all(deleted_count)
         if decay_usage_notice:
             await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
         else:
@@ -3585,16 +3672,6 @@ class AsyncMemory(MemoryBase):
             llm (llm, optional): LLM to use for the procedural memory creation. Defaults to None.
             prompt (str, optional): Prompt to use for the procedural memory creation. Defaults to None.
         """
-        try:
-            from langchain_core.messages.utils import (
-                convert_to_messages,  # type: ignore
-            )
-        except Exception:
-            logger.error(
-                "Import error while loading langchain-core. Please install 'langchain-core' to use procedural memory."
-            )
-            raise
-
         logger.info("Creating procedural memory")
 
         parsed_messages = [
@@ -3605,6 +3682,19 @@ class AsyncMemory(MemoryBase):
 
         try:
             if llm is not None:
+                # langchain-core is only needed to adapt messages for a custom
+                # LangChain LLM. The default path uses self.llm and must not
+                # require the optional dependency, mirroring the sync version.
+                try:
+                    from langchain_core.messages.utils import (
+                        convert_to_messages,  # type: ignore
+                    )
+                except ImportError as e:
+                    raise ImportError(
+                        "langchain-core is required to pass a custom LLM to procedural memory. "
+                        "Install it with 'pip install langchain-core'."
+                    ) from e
+
                 parsed_messages = convert_to_messages(parsed_messages)
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = remove_code_blocks(response.content)
@@ -3650,17 +3740,13 @@ class AsyncMemory(MemoryBase):
 
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
-            new_metadata.update(metadata)
+            new_metadata.update(_strip_identity_keys(metadata, existing_memory.payload))
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-        # actor_id is immutable after creation (issue #4490)
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]

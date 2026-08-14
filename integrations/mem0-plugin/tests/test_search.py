@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 
@@ -99,6 +100,39 @@ def test_search_memories_no_api_key_returns_empty():
 
     results = search_memories("", "user", "proj", "query")
     assert results == []
+
+
+def test_search_memories_logs_rate_limit_error(capsys):
+    """Bug bash #22: a 429 must not look identical to a genuine empty result."""
+    from _search import search_memories
+
+    def mock_urlopen(req, timeout=None):
+        raise urllib.error.HTTPError("http://x", 429, "Too Many Requests", {}, None)
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        results = search_memories("key", "user", "proj", "query")
+
+    assert results == []
+    err = capsys.readouterr().err
+    assert "429" in err
+    assert "Too Many Requests" in err
+
+
+def test_search_memories_happy_path_is_silent(capsys):
+    from _search import search_memories
+
+    def mock_urlopen(req, timeout=None):
+        resp = MagicMock()
+        resp.read.return_value = json.dumps({"results": []}).encode()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        results = search_memories("key", "user", "proj", "query")
+
+    assert results == []
+    assert capsys.readouterr().err == ""
 
 
 def test_search_memories_omits_rerank_by_default():

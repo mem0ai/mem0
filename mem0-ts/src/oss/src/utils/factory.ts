@@ -1,4 +1,5 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
+import { AWSBedrockEmbedder } from "../embeddings/aws_bedrock";
 import { OllamaEmbedder } from "../embeddings/ollama";
 import { LMStudioEmbedder } from "../embeddings/lmstudio";
 import { TogetherEmbedder } from "../embeddings/together";
@@ -12,11 +13,18 @@ import {
   EmbeddingConfig,
   HistoryStoreConfig,
   LLMConfig,
+  RerankerConfig,
   VectorStoreConfig,
 } from "../types";
+import { Reranker } from "../rerankers/base";
+import { CohereReranker } from "../rerankers/cohere";
+import { LLMReranker } from "../rerankers/llm";
+import { ZeroEntropyReranker } from "../rerankers/zeroentropy";
+import { CrossEncoderReranker } from "../rerankers/cross_encoder";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
+import { BaiduDB } from "../vector_stores/baidu";
 import { Qdrant } from "../vector_stores/qdrant";
 import { ChromaDB } from "../vector_stores/chroma";
 import { VectorizeDB } from "../vector_stores/vectorize";
@@ -27,6 +35,7 @@ import { LMStudioLLM } from "../llms/lmstudio";
 import { DeepSeekLLM } from "../llms/deepseek";
 import { XAILLM } from "../llms/xai";
 import { SarvamLLM } from "../llms/sarvam";
+import { AWSBedrockLLM } from "../llms/aws_bedrock";
 import { LiteLLM } from "../llms/litellm";
 import { MiniMaxLLM } from "../llms/minimax";
 import { TogetherLLM } from "../llms/together";
@@ -47,6 +56,9 @@ import { HuggingFaceEmbedder } from "../embeddings/huggingface";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { DatabricksVectorStore } from "../vector_stores/databricks";
+import { NeptuneAnalyticsVectorStore } from "../vector_stores/neptune_analytics";
+import { VertexAIEmbedder } from "../embeddings/vertexai";
 import { ElasticsearchDB } from "../vector_stores/elasticsearch";
 import { OpenSearchDB } from "../vector_stores/opensearch";
 import { UpstashVector } from "../vector_stores/upstash_vector";
@@ -59,12 +71,15 @@ import { TurbopufferDB } from "../vector_stores/turbopuffer";
 import { Milvus } from "../vector_stores/milvus";
 import { MongoDB } from "../vector_stores/mongodb";
 import { WeaviateDB } from "../vector_stores/weaviate";
+import { OracleAIVectorSearch } from "../vector_stores/oracledb";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
     switch (provider.toLowerCase()) {
       case "openai":
         return new OpenAIEmbedder(config);
+      case "aws_bedrock":
+        return new AWSBedrockEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
       case "lmstudio":
@@ -80,6 +95,8 @@ export class EmbedderFactory {
         return new FastEmbedEmbedder(config);
       case "langchain":
         return new LangchainEmbedder(config);
+      case "vertexai":
+        return new VertexAIEmbedder(config);
       case "huggingface":
         return new HuggingFaceEmbedder(config);
       default:
@@ -118,6 +135,8 @@ export class LLMFactory {
         return new XAILLM(config);
       case "sarvam":
         return new SarvamLLM(config);
+      case "aws_bedrock":
+        return new AWSBedrockLLM(config);
       case "litellm":
         return new LiteLLM(config);
       case "minimax":
@@ -137,6 +156,8 @@ export class VectorStoreFactory {
     switch (provider.toLowerCase()) {
       case "memory":
         return new MemoryVectorStore(config);
+      case "baidu":
+        return new BaiduDB(config as any);
       case "qdrant":
         return new Qdrant(config as any);
       case "chroma":
@@ -157,6 +178,11 @@ export class VectorStoreFactory {
         return new VertexAIVectorSearch(config as any);
       case "pgvector":
         return new PGVector(config as any);
+      case "databricks":
+        return new DatabricksVectorStore(config as any);
+      case "neptune":
+      case "neptune-analytics":
+        return new NeptuneAnalyticsVectorStore(config as any);
       case "elasticsearch":
         return new ElasticsearchDB(config as any);
       case "opensearch":
@@ -180,9 +206,74 @@ export class VectorStoreFactory {
         return new MongoDB(config as any);
       case "weaviate":
         return new WeaviateDB(config as any);
+      case "oracledb":
+        return new OracleAIVectorSearch(config as any);
       default:
         throw new Error(`Unsupported vector store provider: ${provider}`);
     }
+  }
+}
+
+export class RerankerFactory {
+  static create(provider: string, config: RerankerConfig): Reranker {
+    switch (provider.toLowerCase()) {
+      case "cohere":
+        return new CohereReranker(config);
+      case "zero_entropy":
+        return new ZeroEntropyReranker(config);
+      case "sentence_transformer":
+        return new CrossEncoderReranker(
+          config,
+          "Xenova/ms-marco-MiniLM-L-6-v2",
+        );
+      case "huggingface":
+        return new CrossEncoderReranker(
+          config,
+          "Xenova/bge-reranker-base",
+          512,
+        );
+      case "llm_reranker": {
+        const llm = RerankerFactory.buildLLMRerankerLLM(config);
+        return new LLMReranker(config, llm);
+      }
+      default:
+        throw new Error(`Unsupported reranker provider: ${provider}`);
+    }
+  }
+
+  private static buildLLMRerankerLLM(config: RerankerConfig): LLM {
+    const nested = config.llm;
+    let llmProvider: string;
+    let llmConfig: LLMConfig;
+
+    if (nested) {
+      llmProvider = nested.provider || config.provider || "openai";
+      llmConfig = { ...(nested.config || {}) };
+      if (llmConfig.model === undefined) {
+        llmConfig.model = config.model ?? "gpt-5-mini";
+      }
+      if (llmConfig.temperature === undefined) {
+        llmConfig.temperature = config.temperature ?? 0.0;
+      }
+      if (llmConfig.maxTokens === undefined) {
+        llmConfig.maxTokens = config.maxTokens ?? 100;
+      }
+      if (config.apiKey && llmConfig.apiKey === undefined) {
+        llmConfig.apiKey = config.apiKey;
+      }
+    } else {
+      llmProvider = config.provider || "openai";
+      llmConfig = {
+        model: config.model ?? "gpt-5-mini",
+        temperature: config.temperature ?? 0.0,
+        maxTokens: config.maxTokens ?? 100,
+      };
+      if (config.apiKey) {
+        llmConfig.apiKey = config.apiKey;
+      }
+    }
+
+    return LLMFactory.create(llmProvider, llmConfig);
   }
 }
 

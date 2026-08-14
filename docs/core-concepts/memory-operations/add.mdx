@@ -83,6 +83,50 @@ await client.add(messages, {
   Expect a `status: "PENDING"` response with an `event_id`. Poll `GET /v1/event/{event_id}/` to confirm completion.
 </Info>
 
+### Automatic conversation context
+
+On the Platform, you only send new messages. Mem0 automatically pulls the earlier messages that share the same identifiers (`user_id`, and `run_id` if you use one) and uses them as context when extracting memories, so you never need to resend conversation history.
+
+This means a follow-up turn is understood against what came before it:
+
+<CodeGroup>
+```python Python
+# First interaction
+client.add(
+    [{"role": "user", "content": "My dog's name is Biscuit. He's a golden retriever."}],
+    user_id="alice",
+)
+
+# Later — send only the new turn, no history
+client.add(
+    [{"role": "user", "content": "He turned 5 today, and I'm taking him to the vet on Friday."}],
+    user_id="alice",
+)
+# Stored as: "User's dog Biscuit turned 5" — "He" is resolved against the earlier turn.
+```
+
+```javascript JavaScript
+// First interaction
+await client.add(
+  [{ role: "user", content: "My dog's name is Biscuit. He's a golden retriever." }],
+  { userId: "alice" },
+);
+
+// Later — send only the new turn, no history
+await client.add(
+  [{ role: "user", content: "He turned 5 today, and I'm taking him to the vet on Friday." }],
+  { userId: "alice" },
+);
+// Stored as: "User's dog Biscuit turned 5" — "He" is resolved against the earlier turn.
+```
+</CodeGroup>
+
+Without that earlier turn, the same message can only be stored as "User's male pet turned 5", because there is nothing to resolve "He" against. Scope each conversation with a consistent `user_id` (plus `run_id` for a distinct session) and Mem0 handles the rest.
+
+<Info>
+  This is default behavior and needs no configuration. Earlier SDK versions gated it behind a `version="v2"` argument on `add`; that argument no longer exists and is ignored if sent.
+</Info>
+
 ## Add with Mem0 Open Source
 
 <CodeGroup>

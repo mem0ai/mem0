@@ -84,10 +84,9 @@
                         "pages": [
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
-                          "platform/features/criteria-retrieval",
-                          "platform/features/contextual-add",
                           "platform/features/custom-instructions",
-                          "platform/features/memory-decay"
+                          "platform/features/memory-decay",
+                          "platform/features/dream"
                         ]
                       },
                       {
@@ -96,7 +95,8 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp"
+                          "platform/features/timestamp",
+                          "platform/features/memory-expiration"
                         ]
                       },
                       {
@@ -152,7 +152,8 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
-                      "open-source/features/openai_compatibility"
+                      "open-source/features/openai_compatibility",
+                      "platform/features/memory-expiration"
                     ]
                   },
                   {
@@ -207,6 +208,7 @@
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
@@ -348,6 +350,8 @@
                     "pages": [
                       "integrations/dify",
                       "integrations/flowise",
+                      "integrations/n8n",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",
@@ -608,6 +612,14 @@
   },
   "redirects": [
     {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
+    {
+      "source": "/platform/features/contextual-add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
+    {
       "source": "/changelog/openclaw",
       "destination": "/changelog/sdk"
     },
@@ -629,7 +641,7 @@
     },
     {
       "source": "/platform/features/expiration-date",
-      "destination": "/"
+      "destination": "/platform/features/memory-expiration"
     },
     {
       "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
@@ -1028,6 +1040,10 @@
       "destination": "/platform/features/graph-memory"
     },
     {
+      "source": "/open-source/features/graph-memory",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
       "source": "/features/:slug",
       "destination": "/platform/features/:slug"
     },
@@ -1226,6 +1242,14 @@
     {
       "source": "/open-source/multimodal-support",
       "destination": "/open-source/features/multimodal-support"
+    },
+    {
+      "source": "/platform/features/criteria-retrieval",
+      "destination": "/platform/features/advanced-retrieval"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations/respan"
     }
   ]
 }

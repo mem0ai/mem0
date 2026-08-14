@@ -20,7 +20,13 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.setup import (
+    get_user_id,
+    is_aliased,
+    mark_aliased,
+    read_anon_ids,
+    setup_config,
+)
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
@@ -269,11 +275,8 @@ class MemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = self.client.post("/v3/memories/", json=params)
@@ -725,10 +728,10 @@ class MemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -736,10 +739,10 @@ class MemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -761,10 +764,10 @@ class MemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -773,7 +776,7 @@ class MemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 
@@ -1192,11 +1195,8 @@ class AsyncMemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = await self.async_client.post("/v3/memories/", json=params)
@@ -1630,10 +1630,10 @@ class AsyncMemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -1641,10 +1641,10 @@ class AsyncMemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -1666,10 +1666,10 @@ class AsyncMemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -1678,7 +1678,7 @@ class AsyncMemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 

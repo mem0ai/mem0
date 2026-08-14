@@ -3,73 +3,64 @@
 // the module-level `__mocks__` object that is populated inside the factory so
 // that the hoisted mock can reach them via a stable reference.
 
-const __mocks__: {
-  upsert: jest.Mock;
-  query: jest.Mock;
-  fetch: jest.Mock;
-  deleteOne: jest.Mock;
-  namespace: jest.Mock;
-  describeIndexStats: jest.Mock;
-  index: jest.Mock;
-  listIndexes: jest.Mock;
-  createIndex: jest.Mock;
-  deleteIndex: jest.Mock;
-  Pinecone: jest.Mock;
-} = {} as any;
+// The provider imports `@pinecone-database/pinecone` lazily (await import) only
+// on first use, so the jest.mock factory no longer runs at module-eval time.
+// Create the shared mock handles at module top-level (not inside the factory)
+// so `beforeEach` can reach them before the lazy import has fired; the factory,
+// which runs on first use, just returns a reference to the Pinecone class mock.
+const upsert = jest.fn().mockResolvedValue(undefined);
+const query = jest.fn().mockResolvedValue({ matches: [] });
+const fetch = jest.fn().mockResolvedValue({ records: {} });
+const deleteOne = jest.fn().mockResolvedValue(undefined);
+const deleteAll = jest.fn().mockResolvedValue(undefined);
 
-jest.mock("@pinecone-database/pinecone", () => {
-  // These are created fresh inside the factory so hoisting is safe.
-  const upsert = jest.fn().mockResolvedValue(undefined);
-  const query = jest.fn().mockResolvedValue({ matches: [] });
-  const fetch = jest.fn().mockResolvedValue({ records: {} });
-  const deleteOne = jest.fn().mockResolvedValue(undefined);
+const nsHandle = { upsert, query, fetch, deleteOne, deleteAll };
+const namespace = jest.fn().mockReturnValue(nsHandle);
 
-  const nsHandle = { upsert, query, fetch, deleteOne };
-  const namespace = jest.fn().mockReturnValue(nsHandle);
+const describeIndexStats = jest
+  .fn()
+  .mockResolvedValue({ totalRecordCount: 0, namespaces: {} });
 
-  const describeIndexStats = jest
-    .fn()
-    .mockResolvedValue({ totalRecordCount: 0, namespaces: {} });
+const indexHandle = {
+  namespace,
+  describeIndexStats,
+  // expose ops directly for the no-namespace path
+  upsert,
+  query,
+  fetch,
+  deleteOne,
+};
+const index = jest.fn().mockReturnValue(indexHandle);
 
-  const indexHandle = {
-    namespace,
-    describeIndexStats,
-    // expose ops directly for the no-namespace path
-    upsert,
-    query,
-    fetch,
-    deleteOne,
-  };
-  const index = jest.fn().mockReturnValue(indexHandle);
+const listIndexes = jest.fn().mockResolvedValue({ indexes: [] });
+const createIndex = jest.fn().mockResolvedValue(undefined);
+const deleteIndex = jest.fn().mockResolvedValue(undefined);
 
-  const listIndexes = jest.fn().mockResolvedValue({ indexes: [] });
-  const createIndex = jest.fn().mockResolvedValue(undefined);
-  const deleteIndex = jest.fn().mockResolvedValue(undefined);
+const Pinecone = jest.fn().mockImplementation(() => ({
+  listIndexes,
+  createIndex,
+  deleteIndex,
+  index,
+}));
 
-  const Pinecone = jest.fn().mockImplementation(() => ({
-    listIndexes,
-    createIndex,
-    deleteIndex,
-    index,
-  }));
+const __mocks__ = {
+  upsert,
+  query,
+  fetch,
+  deleteOne,
+  deleteAll,
+  namespace,
+  describeIndexStats,
+  index,
+  listIndexes,
+  createIndex,
+  deleteIndex,
+  Pinecone,
+};
 
-  // Populate the shared reference so tests can reach the mocks.
-  Object.assign(__mocks__, {
-    upsert,
-    query,
-    fetch,
-    deleteOne,
-    namespace,
-    describeIndexStats,
-    index,
-    listIndexes,
-    createIndex,
-    deleteIndex,
-    Pinecone,
-  });
-
-  return { Pinecone };
-});
+jest.mock("@pinecone-database/pinecone", () => ({
+  Pinecone: __mocks__.Pinecone,
+}));
 
 import { PineconeDB } from "../vector_stores/pinecone";
 import { VectorStoreFactory } from "../utils/factory";
@@ -105,6 +96,7 @@ beforeEach(() => {
   __mocks__.query.mockResolvedValue({ matches: [] });
   __mocks__.fetch.mockResolvedValue({ records: {} });
   __mocks__.deleteOne.mockResolvedValue(undefined);
+  __mocks__.deleteAll.mockResolvedValue(undefined);
   __mocks__.describeIndexStats.mockResolvedValue({
     totalRecordCount: 0,
     namespaces: {},
@@ -115,6 +107,7 @@ beforeEach(() => {
     query: __mocks__.query,
     fetch: __mocks__.fetch,
     deleteOne: __mocks__.deleteOne,
+    deleteAll: __mocks__.deleteAll,
   };
   __mocks__.namespace.mockReturnValue(nsHandle);
   __mocks__.index.mockReturnValue({
@@ -434,6 +427,14 @@ describe("deleteCol", () => {
     __mocks__.listIndexes.mockResolvedValue({ indexes: [] });
     await db.initialize();
     expect(__mocks__.createIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears only the namespace and never drops the shared index", async () => {
+    const db = await initDb({ namespace: "tenant-a" });
+    await db.deleteCol();
+    expect(__mocks__.namespace).toHaveBeenCalledWith("tenant-a");
+    expect(__mocks__.deleteAll).toHaveBeenCalled();
+    expect(__mocks__.deleteIndex).not.toHaveBeenCalled();
   });
 });
 
