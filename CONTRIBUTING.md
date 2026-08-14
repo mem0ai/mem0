@@ -7,6 +7,12 @@ new features, documentation, examples, and integrations.
 Mem0 is a polyglot monorepo, and this guide covers contributing to both the
 **Python SDK** and the **TypeScript SDK** (and the rest of the repository).
 
+By participating you agree to our [Code of Conduct](./CODE_OF_CONDUCT.md). Its
+**Contribution Conduct** section is the enforceable form of the rules on this
+page: disclose AI use, don't submit work you haven't run, don't fabricate
+reproductions or benchmarks, keep your volume matched to your engagement, and
+don't press for merges.
+
 ## Before You Start
 
 ### 1. Open an Issue First
@@ -23,9 +29,53 @@ in code.
 - For anything beyond a trivial fix, wait for a maintainer to confirm the approach
   before starting significant work.
 
-Every pull request must link to an issue using `Closes #<issue-number>`.
+A bug report needs a reproduction we can run, the version you are on, and the
+real output or traceback you saw. Reports without those cannot be acted on and
+get closed. A feature request needs the problem you hit and the workaround you
+are living with, not just the API you would like.
 
-### 2. Sign the Contributor License Agreement (CLA)
+Every pull request must link to an issue using `Closes #<issue-number>`, and that
+issue must carry the `accepted` label. A maintainer applies `accepted` once we
+agree the change is one we want.
+
+Pull requests that don't link an accepted issue are closed automatically by the
+[PR Gate](./.github/workflows/pr-gate.yml). **Closed does not mean rejected.** It
+means the change isn't in the queue yet. Once a maintainer labels the issue,
+reopen the pull request and it stays open. Documentation-only changes skip the
+gate entirely.
+
+Security fixes are the one exception, and they don't go through public pull
+requests at all. Follow the [Security Policy](./SECURITY.md) instead, which uses
+a private advisory and a private fork so the vulnerability isn't disclosed before
+the fix ships.
+
+### 2. Understand Your Code
+
+**You must be able to explain what your changes do and how they interact with
+the rest of the codebase without the help of an AI tool.** This is the one rule
+we will not bend on.
+
+Using AI to write code is fine. Most of us do. You can build real understanding
+by interrogating an agent about this codebase until you grasp the edge cases and
+the blast radius of your change. What is not fine is opening a pull request for
+a diff you cannot defend in review.
+
+Disclose it in the pull request template and say what you checked yourself.
+We ask about the code, not the write-up: using AI to draft the pull request
+description is fine. We ask because it tells reviewers where to look, not
+because it counts against you. An honest "an agent wrote this, here is what I
+verified" is welcome. Silence, followed by a review comment you cannot answer,
+is what wastes everyone's time.
+
+Signs your pull request will be closed:
+
+- Invented APIs, config keys, or providers that don't exist in this repo.
+- Tests that assert the implementation back at itself rather than the behaviour.
+- A description that describes a different change than the diff makes.
+- Sweeping unrelated reformatting bundled with a small fix.
+- You cannot answer a direct question about your own diff.
+
+### 3. Sign the Contributor License Agreement (CLA)
 
 **We cannot accept or merge any pull request until you have signed our Contributor
 License Agreement (CLA).**

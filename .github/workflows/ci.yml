@@ -28,7 +28,7 @@ jobs:
           }
 
           base_version=$(git show "$BASE_SHA:pyproject.toml" 2>/dev/null | extract_version || echo "")
-          head_version=$(extract_version < pyproject.toml)
+          head_version=$(git show "$HEAD_SHA:pyproject.toml" | extract_version)
 
           echo "Base version: ${base_version:-<unknown>}"
           echo "Head version: $head_version"
