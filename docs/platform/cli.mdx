@@ -143,6 +143,7 @@ Search memories using natural language.
 ```bash
 mem0 search "dietary restrictions" --user-id alice
 mem0 search "preferred tools" --user-id alice --output json --top-k 5
+mem0 search "invoices" --user-id alice --filter '{"AND": [{"categories": {"in": ["work"]}}]}'
 ```
 
 | Flag | Description |
@@ -155,7 +156,7 @@ mem0 search "preferred tools" --user-id alice --output json --top-k 5
 | `--threshold` | Minimum similarity score (default: 0.3) |
 | `--rerank` | Enable reranking |
 | `--keyword` | Use keyword search instead of semantic |
-| `--filter` | Advanced filter expression (JSON) |
+| `--filter` | Advanced filter as JSON: `{"AND": [...]}` or `{"OR": [...]}`, e.g. `{"AND": [{"categories": {"in": ["work"]}}]}` |
 | `--fields` | Return only the named fields |
 | `--show-expired` | Include expired memories |
 | `--reference-date` | Reference date for relative queries (`YYYY-MM-DD` or Unix timestamp) |
@@ -471,7 +472,7 @@ These two flags belong to `mem0` itself, so they go **before** the command name:
 |------|-------------|
 | `--json` | Enable agent mode: structured JSON envelope output, no colors or spinners |
 | `--agent` | Alias for `--json` |
-| `--version` | Print the CLI version and exit |
+| `--version` | Print the CLI version and exit. `mem0 version` does the same thing as a regular subcommand |
 
 <Warning>
 On `init` only, `--agent` means something different. `mem0 init --agent` creates an Agent Mode account (see [Sign up as an agent](/platform/agent-signup)); it does not switch the output to JSON. To get JSON from `init`, put the flag first: `mem0 --json init`.
