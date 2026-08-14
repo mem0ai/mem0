@@ -59,6 +59,17 @@ await memory.add(messages, { userId: "john" });
 ```
 </CodeGroup>
 
+### Embedding types
+
+Gemini embeds the same text differently depending on the task you declare via `task_type`. The Python SDK maps the add, update, and search memory actions to these types, so stored memories use a document-oriented type and searches use a query-oriented one. Supported types include:
+- SEMANTIC_SIMILARITY
+- CLASSIFICATION
+- CLUSTERING
+- RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, QUESTION_ANSWERING, FACT_VERIFICATION
+- CODE_RETRIEVAL_QUERY
+
+Check out the [Gemini embeddings documentation](https://ai.google.dev/gemini-api/docs/embeddings#task-types) for more information. Override the defaults with `memory_add_embedding_type`, `memory_update_embedding_type`, and `memory_search_embedding_type`.
+
 ### Config
 
 Here are the parameters available for configuring Gemini embedder:
@@ -70,6 +81,9 @@ Here are the parameters available for configuring Gemini embedder:
 | `embedding_dims` | Dimensions of the embedding model     | `768`                   |
 | `api_key`        | The Google API key                   | `None`                  |
 | `output_dimensionality` | Output dimensionality for the embedding model (Gemini-specific; used when `embedding_dims` is not set) | `None` |
+| `memory_add_embedding_type`    | The `task_type` to use for the add memory action    | `RETRIEVAL_DOCUMENT` |
+| `memory_update_embedding_type` | The `task_type` to use for the update memory action | `RETRIEVAL_DOCUMENT` |
+| `memory_search_embedding_type` | The `task_type` to use for the search memory action | `RETRIEVAL_QUERY`    |
 </Tab>
 <Tab title="TypeScript">
 | Parameter         | Description                                   | Default Value              |
