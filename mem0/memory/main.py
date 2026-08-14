@@ -90,6 +90,38 @@ def _vector_store_list_rows(listed):
     return []
 
 
+def _bounded_linked_memory_ids(existing, new_ids, cap):
+    """Return the merged linked_memory_ids list, dropping oldest entries to fit ``cap``.
+
+    ``existing`` is the current list on the entity record; ``new_ids`` is an iterable
+    of memory IDs about to be linked. IDs already present in ``existing`` keep their
+    original position (so we do not disturb ordering just because a duplicate came
+    through), and new IDs are appended in order. When ``cap`` is a positive int and
+    the merged list exceeds it, the oldest IDs are dropped (FIFO) so the newest
+    ``cap`` IDs remain — matching the intent of the cap, which is to protect vector
+    stores like embedded Chroma whose metadata segment cannot materialize a single
+    array larger than a backend-specific limit (see chroma-core/chroma#2181).
+
+    ``cap`` of ``None`` or ``0`` (or negative) disables the bound entirely; the
+    merged list is returned unchanged.
+    """
+    if not isinstance(existing, list):
+        existing = list(existing or [])
+    else:
+        existing = list(existing)
+    seen = set(existing)
+    for mid in new_ids or []:
+        if mid in seen:
+            continue
+        existing.append(mid)
+        seen.add(mid)
+    if not cap or cap <= 0:
+        return existing
+    if len(existing) <= cap:
+        return existing
+    return existing[-cap:]
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -625,7 +657,9 @@ class Memory(MemoryBase):
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
+                    linked_ids = _bounded_linked_memory_ids(
+                        linked_ids, [memory_id], self.config.entity_max_linked_memory_ids
+                    )
                     payload["linked_memory_ids"] = linked_ids
                     self.entity_store.update(
                         vector_id=match.id,
@@ -1154,9 +1188,11 @@ class Memory(MemoryBase):
                         if match:
                             # Update existing entity
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                            payload["linked_memory_ids"] = _bounded_linked_memory_ids(
+                                payload.get("linked_memory_ids", []),
+                                memory_ids,
+                                self.config.entity_max_linked_memory_ids,
+                            )
                             try:
                                 self.entity_store.update(
                                     vector_id=match.id,
@@ -1172,7 +1208,9 @@ class Memory(MemoryBase):
                             to_insert_payloads.append({
                                 "data": entity_text,
                                 "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
+                                "linked_memory_ids": _bounded_linked_memory_ids(
+                                    [], memory_ids, self.config.entity_max_linked_memory_ids
+                                ),
                                 **search_filters,
                             })
 
@@ -2285,7 +2323,9 @@ class AsyncMemory(MemoryBase):
                 payload = match.payload or {}
                 linked_ids = payload.get("linked_memory_ids", [])
                 if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
+                    linked_ids = _bounded_linked_memory_ids(
+                        linked_ids, [memory_id], self.config.entity_max_linked_memory_ids
+                    )
                     payload["linked_memory_ids"] = linked_ids
                     await asyncio.to_thread(
                         self.entity_store.update,
@@ -2805,9 +2845,11 @@ class AsyncMemory(MemoryBase):
                         match = exact_match or semantic_match
                         if match:
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                            payload["linked_memory_ids"] = _bounded_linked_memory_ids(
+                                payload.get("linked_memory_ids", []),
+                                memory_ids,
+                                self.config.entity_max_linked_memory_ids,
+                            )
                             try:
                                 await asyncio.to_thread(
                                     self.entity_store.update,
@@ -2823,7 +2865,9 @@ class AsyncMemory(MemoryBase):
                             to_insert_payloads.append({
                                 "data": entity_text,
                                 "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
+                                "linked_memory_ids": _bounded_linked_memory_ids(
+                                    [], memory_ids, self.config.entity_max_linked_memory_ids
+                                ),
                                 **search_filters,
                             })
 

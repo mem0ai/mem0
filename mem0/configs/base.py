@@ -55,6 +55,20 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    entity_max_linked_memory_ids: Optional[int] = Field(
+        description=(
+            "Maximum number of memory IDs kept in an entity record's "
+            "``linked_memory_ids`` array. When appending would exceed this "
+            "cap, the oldest IDs are dropped (FIFO) so the newest are kept. "
+            "Guards against high-cardinality entities pushing a single "
+            "metadata array past a vector-store backend limit — with "
+            "embedded Chroma, arrays around 5,461 elements are known to "
+            "stall the metadata segment (see chroma-core/chroma#2181). "
+            "Set to ``None`` or ``0`` to disable the cap (previous "
+            "behavior)."
+        ),
+        default=5000,
+    )
 
 
 class AzureConfig(BaseModel):

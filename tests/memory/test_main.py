@@ -1067,6 +1067,7 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         memory.config = mocker.MagicMock()
         memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
+        memory.config.entity_max_linked_memory_ids = None
         memory.custom_instructions = None
         memory.api_version = "v1.1"
         memory.db.get_last_messages = MagicMock(return_value=[])
@@ -1081,12 +1082,14 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         memory.config = mocker.MagicMock()
         memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
+        memory.config.entity_max_linked_memory_ids = None
         memory.custom_instructions = None
         memory.api_version = "v1.1"
         memory.db.get_last_messages = MagicMock(return_value=[])
         memory.db.save_messages = MagicMock()
         memory.db.batch_add_history = MagicMock()
         return memory
+
 
     @staticmethod
     def _short_entity_embed_batch(texts, memory_action="add"):
