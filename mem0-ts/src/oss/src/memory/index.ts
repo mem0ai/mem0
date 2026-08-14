@@ -105,6 +105,18 @@ const ENTITY_PARAMS = [
 // actor_id has no camelCase alias.
 const IDENTITY_KEYS = [...ENTITY_PARAMS, "actor_id"];
 
+const PAYLOAD_METADATA_EXCLUDED_KEYS = new Set([
+  "user_id",
+  "agent_id",
+  "run_id",
+  "hash",
+  "data",
+  "createdAt",
+  "updatedAt",
+  "textLemmatized",
+  "attributedTo",
+]);
+
 // Caller metadata must not overwrite or inject an identity scope (#6342 / #6367 / #6371).
 function stripIdentityKeys(
   metadata: Record<string, any> = {},
@@ -1298,20 +1310,8 @@ export class Memory {
       metadata: {},
     };
 
-    // Add additional metadata
-    const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
     for (const [key, value] of Object.entries(memory.payload)) {
-      if (!excludedKeys.has(key)) {
+      if (!PAYLOAD_METADATA_EXCLUDED_KEYS.has(key)) {
         memoryItem.metadata![key] = value;
       }
     }
@@ -1567,18 +1567,6 @@ export class Memory {
     );
 
     // Step 9: Format results
-    const excludedKeys = new Set([
-      "user_id",
-      "agent_id",
-      "run_id",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
-
     const results = scoredResults
       .filter((scored) => scored.payload?.data)
       .map((scored) => {
@@ -1591,7 +1579,7 @@ export class Memory {
           updatedAt: payload.updatedAt,
           score: scored.score,
           metadata: Object.entries(payload)
-            .filter(([key]) => !excludedKeys.has(key))
+            .filter(([key]) => !PAYLOAD_METADATA_EXCLUDED_KEYS.has(key))
             .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
@@ -1897,17 +1885,6 @@ export class Memory {
       ? memories
       : memories.filter((mem) => !payloadIsExpired(mem.payload));
 
-    const excludedKeys = new Set([
-      "user_id",
-      "agent_id",
-      "run_id",
-      "hash",
-      "data",
-      "createdAt",
-      "updatedAt",
-      "textLemmatized",
-      "attributedTo",
-    ]);
     const results = visibleMemories.slice(0, topK).map((mem) => ({
       id: mem.id,
       memory: mem.payload.data,
@@ -1915,7 +1892,7 @@ export class Memory {
       createdAt: mem.payload.createdAt,
       updatedAt: mem.payload.updatedAt,
       metadata: Object.entries(mem.payload)
-        .filter(([key]) => !excludedKeys.has(key))
+        .filter(([key]) => !PAYLOAD_METADATA_EXCLUDED_KEYS.has(key))
         .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
       ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
       ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
