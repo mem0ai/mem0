@@ -430,3 +430,43 @@ def test_output_data_allows_none():
     data = OutputData(id=None, score=None, payload=None)
     assert data.id is None
     assert data.score is None
+
+
+# ---------------------------------------------------------------------------
+# _wait_for_index_ready
+# ---------------------------------------------------------------------------
+
+
+def test_wait_for_index_ready_retries_on_not_available_yet(scylladb_instance):
+    scylladb_instance.session.execute = Mock(
+        side_effect=[Exception("... is not available yet ..."), Mock()]
+    )
+
+    with patch("mem0.vector_stores.scylladb.time.sleep"):
+        scylladb_instance._wait_for_index_ready("test_collection", 3)
+
+    assert scylladb_instance.session.execute.call_count == 2
+
+
+def test_wait_for_index_ready_retries_on_missing_index(scylladb_instance):
+    scylladb_instance.session.execute = Mock(
+        side_effect=[
+            Exception(
+                'Error from server: code=2200 [Invalid query] message="Vector Store error: '
+                'HTTP status 404 Not Found, message: missing index: test_keyspace.test_collection_vector_idx"'
+            ),
+            Mock(),
+        ]
+    )
+
+    with patch("mem0.vector_stores.scylladb.time.sleep"):
+        scylladb_instance._wait_for_index_ready("test_collection", 3)
+
+    assert scylladb_instance.session.execute.call_count == 2
+
+
+def test_wait_for_index_ready_raises_on_unrelated_error(scylladb_instance):
+    scylladb_instance.session.execute = Mock(side_effect=Exception("syntax error"))
+
+    with pytest.raises(Exception, match="syntax error"):
+        scylladb_instance._wait_for_index_ready("test_collection", 3)

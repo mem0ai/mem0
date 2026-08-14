@@ -25,11 +25,13 @@ logger = logging.getLogger(__name__)
 _SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,127}$")
 
 
-_INDEX_BUILDING_RE = re.compile(r"is not available yet", re.IGNORECASE)
+_INDEX_BUILDING_RE = re.compile(r"is not available yet|missing index", re.IGNORECASE)
 
 # The vector index builds asynchronously in the background after CREATE
-# CUSTOM INDEX returns, so it can reject ANN queries with a transient 503
-# ("... is not available yet ...") for a short time right after creation.
+# CUSTOM INDEX returns, so it can reject ANN queries with a transient error
+# for a short time right after creation -- either a 503 ("... is not
+# available yet ...") or a 404 ("missing index: ...") depending on which
+# node serves the query.
 _INDEX_READY_TIMEOUT_SECONDS = 30
 _INDEX_READY_POLL_INTERVAL_SECONDS = 1
 
