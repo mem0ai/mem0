@@ -42,10 +42,10 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         if not texts:
             return []
         config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims)
-        MAX_BATCH = 100
+        max_batch = self.config.embedding_batch_size or 100
         all_embeddings = []
-        for i in range(0, len(texts), MAX_BATCH):
-            chunk = [t.replace("\n", " ") for t in texts[i : i + MAX_BATCH]]
+        for i in range(0, len(texts), max_batch):
+            chunk = [t.replace("\n", " ") for t in texts[i : i + max_batch]]
             response = self.client.models.embed_content(model=self.config.model, contents=chunk, config=config)
             all_embeddings.extend(e.values for e in response.embeddings)
         if len(all_embeddings) != len(texts):

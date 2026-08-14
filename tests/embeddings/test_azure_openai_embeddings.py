@@ -191,3 +191,32 @@ def test_embed_batch_count_mismatch_raises(mock_openai_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_batch_honors_configured_batch_size(mock_openai_client):
+    """A lower embedding_batch_size must shrink the per-request chunk size.
+
+    Azure deployments can cap embedding inputs below 100; without an override the
+    hardcoded 100 sends them all in one call and the deployment rejects the batch.
+    """
+    config = BaseEmbedderConfig(model="text-embedding-ada-002", embedding_batch_size=10)
+    embedder = AzureOpenAIEmbedding(config)
+
+    def make_chunk_response(input, model):
+        return Mock(data=[Mock(index=i, embedding=[0.1, 0.2]) for i in range(len(input))])
+
+    mock_openai_client.embeddings.create.side_effect = make_chunk_response
+
+    texts = [f"text {i}" for i in range(25)]
+    result = embedder.embed_batch(texts)
+
+    # 25 texts at batch size 10 -> 3 requests, and no request exceeds 10 inputs.
+    assert mock_openai_client.embeddings.create.call_count == 3
+    assert all(len(call.kwargs["input"]) <= 10 for call in mock_openai_client.embeddings.create.call_args_list)
+    assert len(result) == 25
+
+
+def test_invalid_embedding_batch_size_raises():
+    for bad in (0, -5, True, 3.5):
+        with pytest.raises(ValueError, match="embedding_batch_size must be a positive integer"):
+            BaseEmbedderConfig(model="text-embedding-ada-002", embedding_batch_size=bad)

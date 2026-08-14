@@ -109,6 +109,32 @@ def test_embed_batch_chunks_over_100_texts(mock_genai, config):
     assert len(result) == 150
 
 
+def test_embed_batch_honors_configured_batch_size(mock_genai):
+    """A lower embedding_batch_size must shrink the per-request chunk size.
+
+    Some Gemini deployments accept fewer than 100 inputs per request; without an
+    override the hardcoded 100 sends them all in one call and the API rejects it.
+    """
+    def make_chunk_response(**kwargs):
+        chunk = kwargs["contents"]
+        emb = type("Embedding", (), {"values": [0.1, 0.2]})
+        return type("Response", (), {"embeddings": [emb() for _ in chunk]})()
+
+    mock_genai.side_effect = make_chunk_response
+
+    config = BaseEmbedderConfig(
+        api_key="dummy_api_key", model="test_model", embedding_dims=786, embedding_batch_size=10
+    )
+    embedder = GoogleGenAIEmbedding(config)
+    texts = [f"text {i}" for i in range(25)]
+    result = embedder.embed_batch(texts)
+
+    # 25 texts at batch size 10 -> 3 requests, and no request exceeds 10 inputs.
+    assert mock_genai.call_count == 3
+    assert all(len(call.kwargs["contents"]) <= 10 for call in mock_genai.call_args_list)
+    assert len(result) == 25
+
+
 def test_embed_batch_strips_newlines(mock_genai, config):
     emb0 = type("Embedding", (), {"values": [0.1, 0.2, 0.3]})()
     mock_genai.return_value = type("Response", (), {"embeddings": [emb0]})()

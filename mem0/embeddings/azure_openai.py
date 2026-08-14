@@ -57,13 +57,15 @@ class AzureOpenAIEmbedding(EmbeddingBase):
     def embed_batch(self, texts, memory_action="add"):
         """Embed multiple texts in a single Azure OpenAI API call.
 
-        Automatically chunks into batches of 100 to stay within API limits.
+        Chunks requests to stay within API limits. The batch size defaults to 100
+        but can be lowered via ``BaseEmbedderConfig.embedding_batch_size`` for Azure
+        deployments whose per-request input limit is below 100.
         """
-        MAX_BATCH = 100
+        max_batch = self.config.embedding_batch_size or 100
         texts = [text.replace("\n", " ") for text in texts]
         all_embeddings = []
-        for i in range(0, len(texts), MAX_BATCH):
-            chunk = texts[i : i + MAX_BATCH]
+        for i in range(0, len(texts), max_batch):
+            chunk = texts[i : i + max_batch]
             response = self.client.embeddings.create(
                 input=chunk,
                 model=self.config.model,

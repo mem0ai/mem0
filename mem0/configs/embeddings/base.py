@@ -16,6 +16,8 @@ class BaseEmbedderConfig(ABC):
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         embedding_dims: Optional[int] = None,
+        # Batch embedding
+        embedding_batch_size: Optional[int] = None,
         # Ollama specific
         ollama_base_url: Optional[str] = None,
         # Openai specific
@@ -50,6 +52,11 @@ class BaseEmbedderConfig(ABC):
         :type api_key: Optional[str], optional
         :param embedding_dims: The number of dimensions in the embedding, defaults to None
         :type embedding_dims: Optional[int], optional
+        :param embedding_batch_size: Max number of texts sent in one embed_batch() request. Lets
+            OpenAI-compatible providers whose per-request limit is below the embedder default
+            (e.g. some Azure OpenAI deployments, or Gemini) batch without hitting HTTP 400s.
+            Defaults to None (each embedder falls back to its own safe default).
+        :type embedding_batch_size: Optional[int], optional
         :param ollama_base_url: Base URL for the Ollama API, defaults to None
         :type ollama_base_url: Optional[str], optional
         :param model_kwargs: key-value arguments for the huggingface embedding model, defaults a dict inside init
@@ -74,10 +81,18 @@ class BaseEmbedderConfig(ABC):
         :type lmstudio_base_url: Optional[str], optional
         """
 
+        if embedding_batch_size is not None and (
+            isinstance(embedding_batch_size, bool)
+            or not isinstance(embedding_batch_size, int)
+            or embedding_batch_size <= 0
+        ):
+            raise ValueError("embedding_batch_size must be a positive integer")
+
         self.model = model
         self.api_key = api_key
         self.openai_base_url = openai_base_url
         self.embedding_dims = embedding_dims
+        self.embedding_batch_size = embedding_batch_size
 
         # AzureOpenAI specific
         self.http_client_proxies = http_client_proxies
