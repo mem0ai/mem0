@@ -1,4 +1,4 @@
-"""Drift test: the provider counts in AGENTS.md must match the factory registries."""
+"""Drift test: the provider counts in mem0/AGENTS.md must match the factory registries."""
 
 import re
 from pathlib import Path
@@ -12,26 +12,26 @@ from mem0.utils.factory import (
     VectorStoreFactory,
 )
 
-AGENTS_MD = Path(__file__).resolve().parents[1] / "AGENTS.md"
+AGENTS_MD = Path(__file__).resolve().parents[1] / "mem0" / "AGENTS.md"
 
 ROW_TO_FACTORY = {
     "LLMs": LlmFactory,
-    "Vector Stores": VectorStoreFactory,
+    "Vector stores": VectorStoreFactory,
     "Embeddings": EmbedderFactory,
     "Rerankers": RerankerFactory,
 }
 
 
-def _documented_counts() -> dict[str, int]:
-    rows = re.findall(r"^\|\s*\*\*(.+?)\*\*\s*\|\s*(\d+)\s*\|", AGENTS_MD.read_text(), re.M)
-    return {name: int(count) for name, count in rows}
+def _documented_count(row_name: str) -> int:
+    match = re.search(rf"^\|\s*{re.escape(row_name)}\s*\|\s*(\d+)\s*\|", AGENTS_MD.read_text(), re.M)
+    return int(match.group(1)) if match else None
 
 
 @pytest.mark.parametrize("row_name,factory", ROW_TO_FACTORY.items())
 def test_documented_count_matches_registry(row_name, factory):
-    documented = _documented_counts()
-    assert row_name in documented, f"AGENTS.md provider table has no {row_name!r} row"
-    assert documented[row_name] == len(factory.provider_to_class), (
-        f"AGENTS.md says {documented[row_name]} {row_name} but "
+    documented = _documented_count(row_name)
+    assert documented is not None, f"mem0/AGENTS.md provider table has no {row_name!r} row"
+    assert documented == len(factory.provider_to_class), (
+        f"mem0/AGENTS.md says {documented} {row_name} but "
         f"{factory.__name__}.provider_to_class has {len(factory.provider_to_class)}"
     )

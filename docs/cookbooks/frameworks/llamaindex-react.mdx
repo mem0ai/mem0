@@ -3,6 +3,9 @@ title: ReAct Agents with Memory
 description: "Teach a ReAct agent to store and recall context via Mem0."
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`Mem0Memory.from_client`)
+</Info>
 
 Create a ReAct Agent with LlamaIndex which uses Mem0 as the memory store.
 
@@ -78,7 +81,7 @@ from llama_index.core.agent import FunctionCallingAgent
 agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool, order_food_tool],
     llm=llm,
-    memory=memory_from_client,  # or memory_from_config
+    memory=memory_from_client,
     verbose=True,
 )
 ```
@@ -161,7 +164,7 @@ agent = FunctionCallingAgent.from_tools(
     [call_tool, email_tool, order_food_tool],
     llm=llm,
     # memory is provided
-    memory=memory_from_client,  # or memory_from_config
+    memory=memory_from_client,
     verbose=True,
 )
 response = agent.chat("I am feeling hungry, order me something and send me the bill")
