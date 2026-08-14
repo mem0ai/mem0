@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import ssl
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +23,15 @@ from mem0.vector_stores.base import VectorStoreBase
 logger = logging.getLogger(__name__)
 
 _SAFE_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,127}$")
+
+
+_INDEX_BUILDING_RE = re.compile(r"is not available yet", re.IGNORECASE)
+
+# The vector index builds asynchronously in the background after CREATE
+# CUSTOM INDEX returns, so it can reject ANN queries with a transient 503
+# ("... is not available yet ...") for a short time right after creation.
+_INDEX_READY_TIMEOUT_SECONDS = 30
+_INDEX_READY_POLL_INTERVAL_SECONDS = 1
 
 
 def _validate_identifier(name: str, label: str = "identifier") -> str:
@@ -56,7 +66,7 @@ class ScyllaDB(VectorStoreBase):
         """
         Initialize the ScyllaDB vector store.
 
-        Uses ScyllaDB's native SAI vector index for ANN (Approximate Nearest Neighbor)
+        Uses ScyllaDB's native vector index for ANN (Approximate Nearest Neighbor)
         search, which is far more efficient than loading all vectors into memory.
 
         Args:
@@ -145,8 +155,31 @@ class ScyllaDB(VectorStoreBase):
             logger.error(f"Failed to create keyspace: {e}")
             raise
 
+    def _wait_for_index_ready(self, table_name: str, dims: int):
+        """
+        Block until the vector index on *table_name* can serve ANN queries.
+
+        The index builds asynchronously after CREATE CUSTOM INDEX returns, so
+        querying it immediately can fail with a transient 503 ("... is not
+        available yet ..."). Polling a cheap ANN query here means callers of
+        insert()/search() never have to handle that transient state themselves.
+        """
+        probe = self.session.prepare(
+            f"SELECT id FROM {self.keyspace}.{table_name} ORDER BY vector ANN OF ? LIMIT 1"
+        )
+        probe_vector = [0.0] * dims
+        deadline = time.monotonic() + _INDEX_READY_TIMEOUT_SECONDS
+        while True:
+            try:
+                self.session.execute(probe, (probe_vector,))
+                return
+            except Exception as e:
+                if not _INDEX_BUILDING_RE.search(str(e)) or time.monotonic() >= deadline:
+                    raise
+                time.sleep(_INDEX_READY_POLL_INTERVAL_SECONDS)
+
     def _create_table(self):
-        """Create the table and SAI vector index if they do not already exist."""
+        """Create the table and vector index if they do not already exist."""
         try:
             # ScyllaDB requires a fixed-width VECTOR<FLOAT, N> type for ANN search.
             self.session.execute(
@@ -164,19 +197,20 @@ class ScyllaDB(VectorStoreBase):
                 f"USING 'vector_index' "
                 f"WITH OPTIONS = {{'similarity_function': 'COSINE'}}"
             )
-            logger.info(f"Table '{self.collection_name}' and SAI index are ready")
+            self._wait_for_index_ready(self.collection_name, self.embedding_model_dims)
+            logger.info(f"Table '{self.collection_name}' and vector index are ready")
         except Exception as e:
             logger.error(f"Failed to create table or index: {e}")
             raise
 
     def create_col(self, name: str = None, vector_size: int = None, distance: str = "cosine"):
         """
-        Create a new collection (table + SAI index) in ScyllaDB.
+        Create a new collection (table + vector index) in ScyllaDB.
 
         Args:
             name: Collection name (uses self.collection_name if not provided)
             vector_size: Vector dimension (uses self.embedding_model_dims if not provided)
-            distance: Distance metric — only 'cosine' is supported by the SAI index
+            distance: Distance metric — only 'cosine' is supported by the vector index
         """
         table_name = _validate_identifier(name, "table_name") if name else self.collection_name
         dims = vector_size or self.embedding_model_dims
@@ -195,6 +229,7 @@ class ScyllaDB(VectorStoreBase):
                 f"USING 'vector_index' "
                 f"WITH OPTIONS = {{'similarity_function': 'COSINE'}}"
             )
+            self._wait_for_index_ready(table_name, dims)
             logger.info(f"Created collection '{table_name}' with vector dimension {dims}")
         except Exception as e:
             logger.error(f"Failed to create collection: {e}")
