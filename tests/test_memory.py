@@ -1574,3 +1574,99 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
 
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+@pytest.mark.parametrize("output_limit,expected", [(0, 0), (1, 1), (2, 2), (5, 3), (None, 3)])
+def test_get_all_honours_output_limit_including_zero(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, output_limit, expected
+):
+    """`top_k=0` is a documented-valid input (_validate_search_params only rejects
+    negatives, and the REST layer declares `ge=0`), and it means "return nothing".
+
+    The limit used to be applied after appending with `>=`, so for output_limit=0
+    the first memory was appended, `1 >= 0` tripped, and exactly one memory leaked
+    past a limit of zero — while `search(top_k=0)` correctly returned none.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    mock_vector_store.list.return_value = [
+        MockVectorMemory(f"mem_{i}", {"data": f"fact {i}", "user_id": "alice"}) for i in range(3)
+    ]
+
+    result = memory._get_all_from_vector_store(
+        {"user_id": "alice"}, 100, show_expired=False, output_limit=output_limit
+    )
+
+    assert len(result) == expected
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_get_all_limit_counts_only_unexpired_memories(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Moving the check to the top of the loop must not start counting skipped
+    (expired) memories against the limit."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+    mock_vector_store.list.return_value = [
+        MockVectorMemory("expired_1", {"data": "old", "user_id": "alice", "expiration_date": "2020-01-01"}),
+        MockVectorMemory("live_1", {"data": "fact 1", "user_id": "alice"}),
+        MockVectorMemory("expired_2", {"data": "old", "user_id": "alice", "expiration_date": "2020-01-01"}),
+        MockVectorMemory("live_2", {"data": "fact 2", "user_id": "alice"}),
+    ]
+
+    result = memory._get_all_from_vector_store(
+        {"user_id": "alice"}, 100, show_expired=False, output_limit=2
+    )
+
+    assert [m["memory"] for m in result] == ["fact 1", "fact 2"]
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_get_all_top_k_zero_does_not_query_the_vector_store(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """With show_expired=True the fetch limit is the caller's top_k verbatim, so
+    top_k=0 used to reach the store as limit=0 — which Qdrant rejects outright
+    ("limit value 0 is invalid. Must be 1 or larger."). Asking for nothing must
+    not hit the store at all."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    memory = MemoryClass(MemoryConfig())
+
+    result = memory._get_all_from_vector_store(
+        {"user_id": "alice"}, 0, show_expired=True, output_limit=0
+    )
+
+    assert result == []
+    mock_vector_store.list.assert_not_called()
