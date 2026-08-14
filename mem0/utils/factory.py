@@ -2,6 +2,7 @@ import importlib
 import inspect
 from typing import Dict, Optional, Union
 
+from mem0.configs.base import MemoryConfig
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.anthropic import AnthropicConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
@@ -278,3 +279,40 @@ class RerankerFactory:
             raise ImportError(f"Could not import reranker for provider '{provider_name}': {e}")
 
         return reranker_class(config)
+
+
+class HistoryStoreFactory:
+    """Factory for pluggable memory history / session-message backends."""
+
+    provider_to_class = {
+        "sqlite": "mem0.memory.storage.SQLiteManager",
+        "postgres": "mem0.memory.history_store.postgres.PostgresHistoryStore",
+    }
+
+    @classmethod
+    def create(cls, provider_name: str, config: Optional[Dict] = None):
+        class_type = cls.provider_to_class.get(provider_name)
+        if not class_type:
+            raise ValueError(f"Unsupported history store provider: {provider_name}")
+
+        store_class = load_class(class_type)
+        config = dict(config or {})
+        if provider_name == "sqlite":
+            db_path = config.pop("path", None) or config.pop("db_path", None) or ":memory:"
+            return store_class(db_path)
+        return store_class(**config)
+
+    @classmethod
+    def from_memory_config(cls, memory_config: MemoryConfig):
+        history_store = getattr(memory_config, "history_store", None)
+        if history_store is None:
+            return cls.create("sqlite", {"path": memory_config.history_db_path})
+
+        provider = history_store.provider
+        cfg = history_store.config or {}
+        if hasattr(cfg, "model_dump"):
+            cfg = cfg.model_dump()
+        cfg = dict(cfg)
+        if provider == "sqlite" and not cfg.get("path") and not cfg.get("db_path"):
+            cfg["path"] = memory_config.history_db_path
+        return cls.create(provider, cfg)

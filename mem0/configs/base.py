@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
@@ -26,6 +26,27 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class HistoryStoreConfig(BaseModel):
+    provider: str = Field(
+        description="History store provider ('sqlite' or 'postgres')",
+        default="sqlite",
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        description="Provider-specific configuration (sqlite: path; postgres: url)",
+        default=None,
+    )
+
+    @model_validator(mode="after")
+    def validate_provider(self) -> "HistoryStoreConfig":
+        if self.provider not in {"sqlite", "postgres"}:
+            raise ValueError(f"Unsupported history store provider: {self.provider}")
+        if self.config is None:
+            self.config = {}
+        if self.provider == "postgres" and not self.config.get("url"):
+            raise ValueError("postgres history store requires config.url")
+        return self
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -40,8 +61,12 @@ class MemoryConfig(BaseModel):
         default_factory=EmbedderConfig,
     )
     history_db_path: str = Field(
-        description="Path to the history database",
+        description="Path to the SQLite history database (used when history_store is unset or sqlite)",
         default=os.path.join(mem0_dir, "history.db"),
+    )
+    history_store: Optional[HistoryStoreConfig] = Field(
+        description="Pluggable history store. Defaults to sqlite using history_db_path.",
+        default=None,
     )
     reranker: Optional[RerankerConfig] = Field(
         description="Configuration for the reranker",

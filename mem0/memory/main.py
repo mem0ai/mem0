@@ -49,7 +49,6 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message_async,
 )
 from mem0.memory.setup import mem0_dir, setup_config
-from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
@@ -61,6 +60,7 @@ from mem0.memory.utils import (
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
     EmbedderFactory,
+    HistoryStoreFactory,
     LlmFactory,
     RerankerFactory,
     VectorStoreFactory,
@@ -497,7 +497,7 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = HistoryStoreFactory.from_memory_config(self.config)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
@@ -2132,7 +2132,7 @@ class Memory(MemoryBase):
 
         self.db.reset()
         self.db.close()
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = HistoryStoreFactory.from_memory_config(self.config)
 
         if hasattr(self.vector_store, "reset"):
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
@@ -2154,7 +2154,7 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "reset")
 
     def close(self):
-        """Release resources held by this Memory instance (SQLite connections, etc.)."""
+        """Release resources held by this Memory instance (history store connections, etc.)."""
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
             self.db = None
@@ -2176,7 +2176,7 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = HistoryStoreFactory.from_memory_config(self.config)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
@@ -3830,7 +3830,7 @@ class AsyncMemory(MemoryBase):
 
         await asyncio.to_thread(self.db.reset)
         await asyncio.to_thread(self.db.close)
-        self.db = SQLiteManager(self.config.history_db_path)
+        self.db = HistoryStoreFactory.from_memory_config(self.config)
 
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config

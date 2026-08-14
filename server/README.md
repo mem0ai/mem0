@@ -271,6 +271,38 @@ postgres:
 Then `docker compose down -v`, `docker compose up -d --build`, and restore from
 `mem0_backup.sql` into the old container the same way.
 
+## Horizontal scaling (multi-pod)
+
+The API process itself is stateless once history lives in Postgres. Vector memories
+already use pgvector; users, API keys, and settings already use `mem0_app`.
+History and session messages used to sit in a local SQLite file (`/app/history/history.db`),
+which is why `replicas: 1` was required.
+
+**Default in this build:** `HISTORY_STORE_PROVIDER=postgres` writes `history` and
+`messages` into `mem0_app`. You can run multiple API pods behind a Service.
+
+Do **not** share `history.db` over a PVC or NFS. Concurrent SQLite writers will lock.
+
+### Rollout
+
+1. Keep `replicas: 1` and deploy this image so history switches to Postgres.
+2. Call `GET /memories/{id}/history` and add a memory to confirm rows land in `mem0_app`.
+3. If you have an existing `history.db`, copy it first:
+
+```bash
+python scripts/migrate_history_sqlite_to_postgres.py \
+  --sqlite /path/to/history.db \
+  --url postgresql+psycopg://USER:PASS@HOST:5432/mem0_app
+```
+
+4. Raise Deployment replicas to 2+. Drop the `/app/history` volume from the pod spec.
+
+To keep the old single-pod file backend: `HISTORY_STORE_PROVIDER=sqlite`.
+
+`POST /configure` still rebuilds the in-process `Memory` instance on the pod that
+handled the request. After a config change, roll the Deployment so every replica
+reloads from the database.
+
 ## Reference
 
 Additional product and API documentation lives at [docs.mem0.ai](https://docs.mem0.ai/open-source/overview).

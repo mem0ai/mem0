@@ -114,8 +114,31 @@ POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories"
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+HISTORY_STORE_PROVIDER = os.environ.get("HISTORY_STORE_PROVIDER", "postgres").lower()
+APP_DB_NAME = os.environ.get("APP_DB_NAME", "mem0_app")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-5-mini")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+
+
+def _app_history_db_url() -> str:
+    return f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{APP_DB_NAME}"
+
+
+def _history_store_config() -> Dict[str, Any]:
+    """Postgres is the default so multiple API pods can share history.
+
+    Set HISTORY_STORE_PROVIDER=sqlite to keep the single-pod file backend.
+    """
+    if HISTORY_STORE_PROVIDER == "sqlite":
+        return {"history_db_path": HISTORY_DB_PATH}
+    return {
+        "history_db_path": HISTORY_DB_PATH,
+        "history_store": {
+            "provider": "postgres",
+            "config": {"url": _app_history_db_url()},
+        },
+    }
+
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -135,7 +158,7 @@ DEFAULT_CONFIG = {
         "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
     },
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
-    "history_db_path": HISTORY_DB_PATH,
+    **_history_store_config(),
 }
 
 

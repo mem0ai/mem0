@@ -815,7 +815,7 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Test that deleting a memory records created_at and updated_at in history.
@@ -853,7 +853,7 @@ def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, moc
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that non-UTC created_at timestamps are normalized to UTC on delete."""
     mock_embedder_factory.return_value = MagicMock()
@@ -884,7 +884,7 @@ def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_facto
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that delete works when created_at is absent from the payload (pre-existing memories)."""
     mock_embedder_factory.return_value = MagicMock()
@@ -917,7 +917,7 @@ def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_ve
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
+@patch('mem0.memory.storage.SQLiteManager')
 async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Test that async deleting a memory records created_at and updated_at in history.
@@ -956,7 +956,7 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.main.SQLiteManager')
+@patch('mem0.memory.storage.SQLiteManager')
 async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """async delete_all must not abort when a single memory fails to delete.
 
@@ -1228,7 +1228,7 @@ class TestHybridSearchWarning:
     """Warn at init when vector store does not support keyword_search."""
 
     @patch("mem0.memory.telemetry.capture_event")
-    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.memory.storage.SQLiteManager")
     @patch("mem0.utils.factory.LlmFactory.create")
     @patch("mem0.utils.factory.EmbedderFactory.create")
     @patch("mem0.utils.factory.VectorStoreFactory.create")
@@ -1264,7 +1264,7 @@ class TestHybridSearchWarning:
         assert any("does not support keyword search" in r.message for r in caplog.records)
 
     @patch("mem0.memory.telemetry.capture_event")
-    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.memory.storage.SQLiteManager")
     @patch("mem0.utils.factory.LlmFactory.create")
     @patch("mem0.utils.factory.EmbedderFactory.create")
     @patch("mem0.utils.factory.VectorStoreFactory.create")

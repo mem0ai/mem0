@@ -12,6 +12,8 @@ services:
     networks:
       - mem0_network
     volumes:
+      # Only needed when HISTORY_STORE_PROVIDER=sqlite. Multi-pod deployments
+      # store history in Postgres (mem0_app) and should not share this file.
       - ./history:/app/history
       - .:/app
     depends_on:
