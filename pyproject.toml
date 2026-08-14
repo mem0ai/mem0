@@ -83,7 +83,6 @@ test = [
 dev = [
     "ruff==0.16.0",
     "isort>=5.13.2",
-    "pytest>=8.2.2",
     "pre-commit>=3.5.0",
 ]
 
