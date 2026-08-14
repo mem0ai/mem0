@@ -7,7 +7,7 @@ icon: "filter"
 Enhanced metadata filtering in Mem0 lets you run complex queries across memory metadata. Combine comparisons, logical operators, and wildcard matches to zero in on the exact memories your agent needs.
 
 <Info>
-This page covers the self-hosted `Memory` / `AsyncMemory` grammar. On self-hosted, sibling top-level keys are implicitly ANDed, so a flat filter like `{"user_id": "alice", "category": "work"}` works without wrapping it in `AND`. The hosted Platform API is stricter: combining more than one condition requires an explicit `AND` / `OR` / `NOT` wrapper, and the `nin` operator documented below is not part of the Platform contract. See [Memory Filters (Platform)](/platform/features/v2-memory-filters) for the hosted grammar, including the exact flat shape the API rejects.
+This page covers the self-hosted `Memory` / `AsyncMemory` grammar. Sibling top-level keys are implicitly ANDed on both self-hosted and the hosted Platform API, so a flat filter like `{"user_id": "alice", "category": "work"}` works without wrapping it in `AND` on either. Two real differences remain: the `nin` operator documented below is not part of the Platform contract, and Platform validates every top-level key against a fixed allow-list, rejecting anything else with a 400. See [Memory Filters (Platform)](/platform/features/v2-memory-filters) for the hosted grammar.
 </Info>
 
 ---
@@ -433,6 +433,6 @@ except ValueError as e:
     Practice building workflows that label and retrieve memories with clear metadata filters.
   </Card>
   <Card title="Memory Filters (Platform)" icon="cloud" href="/platform/features/v2-memory-filters">
-    Using the hosted API instead? See the stricter AND/OR wrapper grammar, the exact flat shape it rejects, and Platform-only fields like `created_at` and `memory_ids`.
+    Using the hosted API instead? See the allow-listed top-level fields, the missing `nin` operator, and Platform-only fields like `created_at` and `memory_ids`.
   </Card>
 </CardGroup>

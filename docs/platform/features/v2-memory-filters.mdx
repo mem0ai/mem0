@@ -29,23 +29,23 @@ Filters use a nested JSON structure with logical operators at the root:
 }
 ```
 
-A single bare condition is fine on its own, no wrapper required:
+A single bare condition needs no wrapper:
 
 ```python
 # Works: one condition, no wrapper needed
 filters = {"user_id": "user_123"}
 ```
 
-But the moment you have more than one condition, a flat object with multiple sibling keys is rejected. Wrap them in `AND` (or `OR`/`NOT`) instead:
+Sibling top-level keys in a flat object are accepted too: the API implicitly ANDs them, so the flat form and the explicit `AND` form are equivalent:
 
 ```python
-# Rejected: multiple sibling keys with no logical wrapper
+# Works: sibling keys are implicitly ANDed
 filters = {
     "user_id": "user_123",
     "categories": {"in": ["finance"]}
 }
 
-# Correct: wrap the conditions in AND
+# Equivalent, explicit form
 filters = {
     "AND": [
         {"user_id": "user_123"},
@@ -54,8 +54,19 @@ filters = {
 }
 ```
 
+Reach for an explicit `AND`, `OR`, or `NOT` wrapper when you need `OR` or `NOT` semantics, or when you need to nest conditions. What the API does reject is an unrecognized top-level key:
+
+```python
+# Rejected: unknown top-level key
+filters = {"user_id": "user_123", "bogus_key": "z"}
+# 400: Top-level key must be a logical operator or an allowed field:
+# ['AND', 'OR', 'NOT', 'user_id', 'agent_id', 'app_id', 'run_id',
+#  'created_at', 'updated_at', 'timestamp', 'expiration_date', 'text',
+#  'categories', 'metadata', 'keywords_search', 'memory_ids', 'keywords']
+```
+
 <Callout type="info" icon="cloud" color="#00A8FF">
-This wrapper requirement is specific to the hosted Platform API. The self-hosted OSS SDK is more forgiving: sibling top-level keys are implicitly ANDed there, so `{"user_id": "user_123", "categories": {"in": ["finance"]}}` works as-is. See [Enhanced Metadata Filtering](/open-source/features/metadata-filtering) for the OSS grammar.
+Both the hosted Platform API and the self-hosted OSS SDK implicitly AND sibling top-level keys, so the flat and explicit `AND` forms behave the same way on either. The real differences: Platform validates each top-level key against a fixed allow-list and returns a 400 for anything else, and Platform has no `nin` operator. See [Enhanced Metadata Filtering](/open-source/features/metadata-filtering) for the OSS grammar.
 </Callout>
 
 ## Available fields and operators
