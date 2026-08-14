@@ -47,7 +47,7 @@ jobs:
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number: pr.number, per_page: 100,
             });
-            if (files.length > 0 && files.every((file) => file.filename.startsWith('docs/'))) {
+            if (files.length > 0 && files.every((file) => file.filename.startsWith('docs/') || (!file.filename.includes('/') && file.filename.endsWith('.md')))) {
               core.info('Docs-only PR, gate skipped');
               return;
             }

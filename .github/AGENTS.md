@@ -70,8 +70,8 @@ Requiring `CI Gate` also means fork PRs from first-time contributors cannot merg
 | Workflow | File | Purpose |
 |----------|------|---------|
 | PR Gate | `pr-gate.yml` | Closes PRs that do not link an issue labeled `accepted`, with a reopen path. Exempts members, bots, drafts, and docs-only changes. Never checks out PR code. |
-| Vouch (check PR) | `vouch-check-pr.yml` | Comments on PRs from authors absent from `VOUCHED.td`. Comment-only mode (`auto-close: false`). |
-| Vouch (manage list) | `vouch-manage-by-issue.yml` | Maintainers edit the trust list by commenting `!vouch @user`, `!denounce @user`, or `!unvouch @user` on any issue. Commits back to `VOUCHED.td` through a GitHub App token. |
+| Vouch (check PR) | `vouch-check-pr.yml` | Comments on PRs from authors absent from `VOUCHED.td`. Comment-only, and the comment comes from this workflow rather than the action. |
+| Vouch (manage list) | `vouch-manage-by-issue.yml` | Maintainers edit the trust list by commenting `!vouch @user`, `!denounce @user`, or `!unvouch @user` on any issue. Opens a PR against `VOUCHED.td` through a GitHub App token, for a maintainer to merge. |
 | Issue Labeler | `issue-labeler.yml` | Labels issues from the `component` field in the issue forms |
 | PR Labeler | `pr-labeler.yml` | Path-based labels, plus propagating labels from linked issues |
 | Stale Bot | `stale.yml` | Marks stale issues and PRs |
@@ -80,6 +80,14 @@ Requiring `CI Gate` also means fork PRs from first-time contributors cannot merg
 `pr-gate.yml` and `vouch-check-pr.yml` use `pull_request_target`, which is required to label and close fork PRs. Neither checks out PR code and neither has a `run:` step, so there is no pwn-request or script-injection surface. Keep it that way: any future `run:` step in these files must never interpolate `github.event.*` text.
 
 `GATE_EFFECTIVE_FROM` in `pr-gate.yml` is a `created_at` cutoff. `edited`, `reopened`, and `ready_for_review` fire on PRs opened long before the gate existed, so without the cutoff the whole open backlog would be closed by a rule that did not exist when those PRs were filed. Set it to the actual merge date in UTC.
+
+The gate's docs-only exemption covers `docs/` and top-level markdown such as `README.md` and `CONTRIBUTING.md`. Markdown nested anywhere else stays gated on purpose: `skills/**/*.md` and everything under `.github/` are functional files, not prose.
+
+`auto-close: false` on `mitchellh/vouch/action/check-pr` is silent, not comment-only. In v1.5.0 the unvouched and denounced branches both return before posting anything, so the action leaves nothing but a line in the run log. The workflow reads the action's `status` output and posts the comment itself, keyed on a `<!-- vouch-check -->` marker so a reopen does not comment twice. Flipping `auto-close` to `true` later means deleting that step, or the author gets two comments.
+
+`vouch-manage-by-issue.yml` runs with `merge-immediately: "false"`. The `Main Branch Rule` ruleset requires one approving review and has no bypass actors, so the action's immediate `PUT /pulls/{n}/merge` would return 405 and leave `VOUCHED.td` unchanged on `main`. The bot opens the PR, a maintainer merges it. Setting `pull-request: "false"` is not an alternative: the same ruleset blocks direct pushes.
+
+That workflow also needs `VOUCH_APP_ID` and `VOUCH_APP_PRIVATE_KEY` repository secrets. Without them it fails at the token step before doing anything. `vouch-check-pr.yml` needs neither.
 
 ## Issue forms and templates
 

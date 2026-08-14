@@ -37,6 +37,6 @@ jobs:
           denounce-keyword: "!denounce"
           unvouch-keyword: "!unvouch"
           pull-request: "true"
-          merge-immediately: "true"
+          merge-immediately: "false"
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
