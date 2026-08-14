@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.request
 
 from _api import auth_headers, project_field, search_url
@@ -81,7 +82,8 @@ def search_memories(
         if min_score > 0:
             results = [m for m in results if m.get("score", 0) >= min_score]
         return results
-    except Exception:
+    except Exception as e:
+        print(f"[mem0] search request failed: {e}", file=sys.stderr)
         return []
 
 
