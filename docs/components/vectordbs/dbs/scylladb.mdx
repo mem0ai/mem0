@@ -23,6 +23,73 @@ uv add mem0ai[scylladb]
 
 ### Usage
 
+#### Self-hosted ScyllaDB (Docker)
+
+Start a single-node ScyllaDB instance with Docker:
+
+```bash
+docker run -p 9042:9042 --name scylla -d scylladb/scylla --smp 1
+```
+
+Wait for it to become ready, then point Mem0 at `localhost`:
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "scylladb",
+        "config": {
+            "contact_points": ["localhost"],
+            "port": 9042,
+            "keyspace": "mem0",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm looking for a good sci-fi book."},
+    {"role": "assistant", "content": "Have you tried Dune? It's a classic."},
+    {"role": "user", "content": "I've read Dune. I prefer hard sci-fi with realistic physics."},
+    {"role": "assistant", "content": "Then you'll love The Martian or Project Hail Mary by Andy Weir."},
+]
+m.add(messages, user_id="alice", metadata={"category": "books"})
+```
+
+No `username`/`password` are required by default (ScyllaDB ships with authentication disabled unless you enable it), and `datacenter` can be omitted for a single-node/single-DC setup.
+
+For a multi-node cluster, use Docker Compose:
+
+```yaml
+services:
+  scylla-node1:
+    image: scylladb/scylla
+    command: --smp 1 --seeds=scylla-node1
+    ports:
+      - "9042:9042"
+  scylla-node2:
+    image: scylladb/scylla
+    command: --smp 1 --seeds=scylla-node1
+    depends_on:
+      - scylla-node1
+  scylla-node3:
+    image: scylladb/scylla
+    command: --smp 1 --seeds=scylla-node1
+    depends_on:
+      - scylla-node1
+```
+
+```bash
+docker compose up -d
+```
+
+Then connect using `contact_points: ["localhost"]` (any node works as an initial contact point; the driver discovers the rest of the cluster automatically).
+
 #### ScyllaDB Cloud
 
 ```python
@@ -74,6 +141,15 @@ m.add(messages, user_id="alice", metadata={"category": "books"})
 
 
 ### Setup
+
+#### Self-hosted (Docker)
+1. Run `docker run -p 9042:9042 --name scylla -d scylladb/scylla --smp 1`
+2. Check readiness with `docker exec -it scylla nodetool status` until the node shows state `UN` (up/normal)
+3. Connect using `contact_points: ["localhost"]` and `port: 9042`
+
+See the [ScyllaDB Docker docs](https://hub.docker.com/r/scylladb/scylla) or the [manual installation guide](https://docs.scylladb.com/manual/stable/getting-started/install-scylla/index.html) for other self-hosted options.
+
+#### ScyllaDB Cloud
 1. Sign up at [cloud.scylladb.com](https://cloud.scylladb.com)
 2. Create a new cluster
 3. In the cluster dashboard, open the **Connect** tab and note your **connection details**:
