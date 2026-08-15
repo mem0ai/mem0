@@ -24,11 +24,12 @@ jobs:
         id: vouch
         with:
           pr-number: ${{ github.event.pull_request.number }}
-          auto-close: false
+          require-vouch: false
+          auto-close: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - if: steps.vouch.outputs.status == 'closed'
+      - if: steps.vouch.outputs.status == 'allowed'
         uses: actions/github-script@v7
         with:
           script: |

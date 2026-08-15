@@ -70,7 +70,7 @@ Requiring `CI Gate` also means fork PRs from first-time contributors cannot merg
 | Workflow | File | Purpose |
 |----------|------|---------|
 | PR Gate | `pr-gate.yml` | Closes PRs that do not link an issue labeled `accepted`, and reopens them when that label arrives. Exempts members, bots, drafts, and docs-only changes. Never checks out PR code. |
-| Vouch (check PR) | `vouch-check-pr.yml` | Comments on PRs from authors absent from `VOUCHED.td`. Comment-only, and the comment comes from this workflow rather than the action. |
+| Vouch (check PR) | `vouch-check-pr.yml` | Closes PRs from authors denounced in `VOUCHED.td`. Comments once on PRs from authors merely absent from it, and blocks nothing in that case. |
 | Vouch (manage list) | `vouch-manage-by-issue.yml` | Maintainers edit the trust list by commenting `!vouch @user`, `!denounce @user`, or `!unvouch @user` on any issue. Opens a PR against `VOUCHED.td` through a GitHub App token, for a maintainer to merge. |
 | Issue Labeler | `issue-labeler.yml` | Labels issues from the `component` field in the issue forms |
 | PR Labeler | `pr-labeler.yml` | Path-based labels, plus propagating labels from linked issues |
@@ -83,7 +83,9 @@ Both workflows exempt maintainers twice, and the second guard is the one that ho
 
 `pr-gate.yml` carries two jobs whose `if:` conditions are deliberately disjoint. `gate` closes, and only ever runs on `opened`, `reopened`, and `ready_for_review`. `reopen` reopens, and only ever runs on `edited` or on `issues: labeled` with the `accepted` label. Nothing can both close and reopen on the same event, which is the property to preserve when editing either guard.
 
-That split exists because the two halves of a gated PR's recovery arrive in either order. A maintainer usually labels the issue `accepted` at triage, before the author has linked it; sometimes the link lands first and the label follows. So `reopen` handles both directions. From `issues: labeled` it walks `closedByPullRequestsReferences` back to the pull requests that link the issue. From `edited` it takes the edited pull request directly. Both paths then apply the same three tests: the PR is `CLOSED`, it links an issue labeled `accepted`, and it carries the `<!-- pr-gate -->` marker comment. Without the label path, a maintainer's label is inert. Without the `edited` path, an author who links the issue after it was labeled is stuck, since no other event fires.
+That split exists because the two halves of a gated PR's recovery arrive in either order. A maintainer usually labels the issue `accepted` at triage, before the author has linked it; sometimes the link lands first and the label follows. So `reopen` handles both directions. From `issues: labeled` it walks `closedByPullRequestsReferences` back to the pull requests that link the issue. From `edited` it takes the edited pull request directly. Both paths then apply the same four tests: the author is not denounced in `VOUCHED.td`, the PR is `CLOSED`, it links an issue labeled `accepted`, and it carries the `<!-- pr-gate -->` marker comment. Without the label path, a maintainer's label is inert. Without the `edited` path, an author who links the issue after it was labeled is stuck, since no other event fires.
+
+The denounce test is what keeps the two gates from cancelling each other out. A denounced author whose PR also lacked an accepted issue was closed by both workflows, so it carries the `<!-- pr-gate -->` marker, and labeling the linked issue would otherwise reopen it. Vouch cannot undo that: reopening runs through `GITHUB_TOKEN`, which raises no events, so `vouch-check-pr.yml` never fires a second time. Reading the list here is the only place the check can live. It fails open like vouch does, warning and treating nobody as denounced if the file cannot be read, and it is the one piece of vouch semantics duplicated outside `vouch-check-pr.yml`, because `pr-gate.yml` never checks out the repository and so cannot import a shared parser. `.github/scripts/vouch-decision.test.js` covers the parsing and asserts `pr-gate.yml` still filters the list the same way.
 
 `edited` must never reach the `gate` job. It fires on any title or description change, so when `gate` listened for it the gate re-judged pull requests that had been open for days and closed them the moment their author touched the description, which is what closed #6948. Rescuing on `edited` is safe for the same reason closing on it was not: the job can only move a PR from closed to open.
 
@@ -97,7 +99,23 @@ Two known gaps, both mild. A PR that the gate closed, that someone reopened, and
 
 The gate's docs-only exemption covers `docs/` and top-level markdown such as `README.md` and `CONTRIBUTING.md`. Markdown nested anywhere else stays gated on purpose: `skills/**/*.md` and everything under `.github/` are functional files, not prose.
 
-`auto-close: false` on `mitchellh/vouch/action/check-pr` is silent, not comment-only. In v1.5.0 the unvouched and denounced branches both return before posting anything, so the action leaves nothing but a line in the run log. The workflow reads the action's `status` output and posts the comment itself, keyed on a `<!-- vouch-check -->` marker so a reopen does not comment twice. Flipping `auto-close` to `true` later means deleting that step, or the author gets two comments.
+The two contribution gates answer different questions and neither covers for the other. `pr-gate.yml` judges the change, and the `accepted` label is how a maintainer says yes to it. `vouch-check-pr.yml` judges the author, and `VOUCHED.td` is how a maintainer says no to one. A vouched author with no accepted issue is still closed by the gate; a denounced author with an accepted issue is still closed by vouch. Read either one as a backstop for the other and both get weakened.
+
+Vouch enforces on the denounce axis only, through `require-vouch: false` with `auto-close: true`. That pair is not the obvious reading of either input, so the decision table from v1.5.0 (`vouch/github.nu` at pinned SHA `d66fa29`) is worth stating outright:
+
+| Author | `status` | Effect |
+|---|---|---|
+| ends in `[bot]` | `skipped` | nothing |
+| collaborator with write or admin | `vouched` | nothing |
+| listed in `VOUCHED.td` | `vouched` | nothing |
+| listed as `-handle` | `closed` | action comments and closes |
+| absent from the file | `allowed` | workflow comments, nothing closed |
+
+`require-vouch: true` would close every first-time contributor, which is the opposite of what a trust list is for: the funnel has to stay open or nobody ever earns a vouch. `auto-close: false` is the setting that looked safe and did nothing at all, since in v1.5.0 both the unvouched and the denounced branch return before posting anything, leaving only a line in the run log. That is why `!denounce` was decorative until this pair landed.
+
+Only the `allowed` arm is ours: a `github-script` step posts the soft comment, keyed on a `<!-- vouch-check -->` marker so a reopen does not comment twice. The `closed` arm belongs to the action, message and all. Keeping the two arms disjoint is what stops a denounced author getting two comments, so if that step is ever re-keyed off `allowed`, check the overlap first. `.github/scripts/vouch-decision.test.js` asserts the whole table against the workflow file, including the comment count. Run `node .github/scripts/vouch-decision.test.js` after touching either input or bumping the pinned SHA.
+
+Failure is open by design. If the action cannot read `VOUCHED.td` it falls back to an empty list, every author reads as absent, and nobody is closed by an API hiccup.
 
 `vouch-manage-by-issue.yml` runs with `merge-immediately: "false"`. The `Main Branch Rule` ruleset requires one approving review and has no bypass actors, so the action's immediate `PUT /pulls/{n}/merge` would return 405 and leave `VOUCHED.td` unchanged on `main`. The bot opens the PR, a maintainer merges it. Setting `pull-request: "false"` is not an alternative: the same ruleset blocks direct pushes.
 

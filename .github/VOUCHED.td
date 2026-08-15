@@ -1,7 +1,16 @@
 # The list of vouched (or denounced) users for this repository.
 #
-# Only vouched users can open pull requests here. A denounced user (prefixed
-# with a minus) is blocked outright.
+# A denounced user (prefixed with a minus) is blocked outright: their pull
+# requests are closed on sight, whatever they link. Being absent from this file
+# blocks nothing. An unvouched author gets one comment saying so and their pull
+# request is reviewed like anyone else's, because a first contribution has to
+# start somewhere. Vouching is how that comment stops.
+#
+# This list is about who, and it is the only thing that judges who. Whether a
+# change is wanted is a separate question, answered by the accepted label and
+# enforced by pr-gate.yml. Neither gate substitutes for the other: a vouched
+# author still needs an accepted issue, and a denounced author is turned away
+# even holding one.
 #
 # Vouch automatically allows two kinds of account without consulting this file:
 # accounts ending in [bot], and repo collaborators with write or admin

@@ -119,12 +119,31 @@ jobs:
             const { owner, repo } = context.repo;
             const marker = '<!-- pr-gate -->';
 
-            const isClosedWithAcceptedIssue = async (number) => {
+            const denounced = await (async () => {
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  owner, repo, path: '.github/VOUCHED.td',
+                  ref: context.payload.repository.default_branch,
+                });
+                return new Set(Buffer.from(data.content, 'base64').toString('utf8')
+                  .split('\n')
+                  .map((line) => line.trim())
+                  .filter((line) => line.startsWith('-'))
+                  .map((line) => line.slice(1).split(/\s+/)[0].split(':').pop().toLowerCase())
+                  .filter(Boolean));
+              } catch (error) {
+                core.warning(`Could not read VOUCHED.td, treating nobody as denounced: ${error.message}`);
+                return new Set();
+              }
+            })();
+
+            const isReopenable = async (number) => {
               const { repository } = await github.graphql(
                 `query ($owner: String!, $repo: String!, $number: Int!) {
                   repository(owner: $owner, name: $repo) {
                     pullRequest(number: $number) {
                       state
+                      author { login }
                       closingIssuesReferences(first: 20) {
                         nodes { labels(first: 50) { nodes { name } } }
                       }
@@ -134,6 +153,10 @@ jobs:
                 { owner, repo, number },
               );
               const pullRequest = repository.pullRequest;
+              if (denounced.has(pullRequest.author?.login?.toLowerCase())) {
+                core.info(`#${number} is from a denounced author. Vouch outranks this gate.`);
+                return false;
+              }
               return pullRequest.state === 'CLOSED' &&
                 pullRequest.closingIssuesReferences.nodes.some((issue) =>
                   issue.labels.nodes.some((label) => label.name === 'accepted'));
@@ -159,7 +182,7 @@ jobs:
             }
 
             for (const number of candidates) {
-              if (!(await isClosedWithAcceptedIssue(number))) {
+              if (!(await isReopenable(number))) {
                 core.info(`#${number} is not a closed pull request linking an accepted issue. Skipped.`);
                 continue;
               }
