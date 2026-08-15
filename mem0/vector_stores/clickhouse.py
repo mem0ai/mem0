@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import uuid
 
 try:
+    # pyrefly: ignore [missing-import]
     import clickhouse_connect
 except ImportError:
     clickhouse_connect = None
