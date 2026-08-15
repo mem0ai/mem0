@@ -19,7 +19,7 @@ on:
 jobs:
   build-n-publish:
     name: Build and publish @mem0/kilo-plugin 📦 to npm
-    if: startsWith(inputs.tag, 'kilo-v')
+    if: startsWith(inputs.tag, 'kilo-v') && github.ref == format('refs/tags/{0}', inputs.tag)
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag }}
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
@@ -47,6 +47,17 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Verify package version matches release tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${RELEASE_TAG#kilo-v}
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error file=integrations/kilo-plugin/package.json::Tag version $TAG_VERSION does not match package version $PACKAGE_VERSION"
+            exit 1
+          fi
 
       - name: Publish to npm
         run: |

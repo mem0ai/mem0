@@ -21,7 +21,7 @@ Package workflows keep their own push-to-main and manual triggers. Their `pull_r
 | Mem0 Plugin | `mem0-plugin-checks.yml` | Push to main (`integrations/mem0-plugin/`, excluding `.opencode-plugin/`), manual | pytest + hook exec bits + JSON manifest validation on Python 3.10, 3.11, 3.12 |
 | OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (`.opencode-plugin/`), manual | Bun: tsc + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (`integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup on Node 20, 22 |
-| Kilo Plugin | `kilo-plugin-checks.yml` | Push to main (`integrations/kilo-plugin/`), manual | Bun: tsc + build + dist artifact check |
+| Kilo Plugin | `kilo-plugin-checks.yml` | Push to main (`integrations/kilo-plugin/`), manual | Bun: test + tsc + build + dist artifact check |
 | n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (`integrations/n8n-nodes-mem0/`), manual | ESLint + tsc build on Node 20 |
 | Zapier App | `zapier-mem0-checks.yml` | Push to main (`integrations/zapier-mem0/`), manual | tsc + `zapier validate` + offline unit tests on Node 22 |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage |
