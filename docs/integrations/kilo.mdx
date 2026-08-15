@@ -41,7 +41,7 @@ Restart Kilo Code after installing.
 | 10 memory tools | Native, registered by the plugin via the `mem0ai` SDK (no MCP server) |
 | Lifecycle hooks | 8 hooks for auto-search, memory injection, redacted tool capture, session summaries, error lookup, and compaction |
 | Auto-dream | Automatic memory consolidation, gated by time / sessions / memory count |
-| Secret redaction | User text is scrubbed of common secret patterns before it reaches Mem0 |
+| Secret redaction | User and tool text is scrubbed of common tokens, credentials, private keys, and secret assignments; sensitive files and environment-dump commands are not auto-captured |
 
 ## Available Memory Tools
 
@@ -53,8 +53,8 @@ Restart Kilo Code after installing.
 | `get_memory` | Retrieve a specific memory by ID |
 | `update_memory` | Overwrite a memory's text by ID |
 | `delete_memory` | Delete a single memory by ID |
-| `delete_all_memories` | Bulk delete all memories in scope |
-| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `delete_all_memories` | Bulk delete memories in the active scope after explicit confirmation |
+| `delete_entities` | Delete a confirmed user/agent/app/run entity constrained to the active identity |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 | `get_event_status` | Check the status of an asynchronous memory operation |
 
@@ -71,6 +71,8 @@ Restart Kilo Code after installing.
 Just ask naturally — e.g. *"search my memories across all my projects"* — and the agent passes `scope: "global"`. For normal questions it stays scoped to the current project automatically.
 
 The **default** scope (used when no scope is passed) is read from `~/.mem0/settings.json` (`default_scope`) fresh on each memory operation, so a change applies immediately without a restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
+
+Bulk and entity deletion require `confirm: true`. Entity deletion accepts exactly one selector and verifies it against Kilo's active user, project, session, or agent before calling Mem0. Cross-project deletion requires an explicit `scope: "global"` for the active user.
 
 The project id (`app_id`) is derived from the git remote in Kilo's active worktree (`owner-repo`), falling back to that worktree's root directory name. This keeps memories attached to the correct project when one Kilo server handles multiple directories or worktrees.
 

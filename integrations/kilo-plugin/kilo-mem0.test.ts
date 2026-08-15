@@ -140,6 +140,11 @@ describe("redact", () => {
     ["slack", "xo" + "xb-" + lower.slice(0, 24)],
     ["github-pat", "gh" + "p_" + lower.slice(0, 36)],
     ["github-oauth", "gh" + "o_" + lower.slice(0, 36)],
+    ["bearer", "Bearer " + lower],
+    ["jwt", "ey" + "JhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signaturevalue"],
+    ["database-url", "postgres://dbuser:super-secret-password@db.example.com/app"],
+    ["secret-assignment", "DATABASE_PASSWORD=super-secret-password"],
+    ["private-key", "-----BEGIN PRIVATE KEY-----\nsecret-key-material\n-----END PRIVATE KEY-----"],
   ];
 
   for (const [name, secret] of cases) {

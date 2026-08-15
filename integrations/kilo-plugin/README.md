@@ -21,7 +21,7 @@ Restart Kilo.
 | Component | Description |
 |-----------|-------------|
 | **10 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, `get_event_status`, registered as Kilo tools, backed by the `mem0ai` SDK (no MCP server required) |
-| **Lifecycle Hooks** | Auto-search on session start and every prompt, redacted tool capture, error memory lookup, session summaries, compaction context |
+| **Lifecycle Hooks** | Auto-search on session start and every prompt, redacted tool capture with sensitive-file guards, error memory lookup, session summaries, compaction context |
 
 ## Hooks
 
@@ -50,8 +50,8 @@ The TUI skills and slash commands from the OpenCode plugin are intentionally out
 | `get_memory` | Retrieve a specific memory by ID |
 | `update_memory` | Overwrite a memory's text by ID |
 | `delete_memory` | Delete a single memory by ID |
-| `delete_all_memories` | Bulk delete all memories in scope |
-| `delete_entities` | Delete an entity and its memories |
+| `delete_all_memories` | Bulk delete memories in the active scope after explicit confirmation |
+| `delete_entities` | Delete a confirmed entity constrained to the active user/project/session |
 | `list_entities` | List users/agents/apps stored in Mem0 |
 | `get_event_status` | Check the status of an async memory operation |
 
@@ -66,6 +66,8 @@ The TUI skills and slash commands from the OpenCode plugin are intentionally out
 | `global` | all your projects (`app_id="*"`) | user-wide (drops `app_id`) |
 
 `delete_all_memories` always requires an explicit `scope="global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
+
+Bulk and entity deletion also require `confirm=true`. Entity deletion accepts exactly one selector and checks it against Kilo's active user, project, session, or agent before sending the single selector expected by the Mem0 SDK. Only an explicit `scope="global"` can remove the active user's memories across projects.
 
 ## Environment
 

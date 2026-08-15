@@ -52,6 +52,10 @@ class FakeMemoryClient {
     calls.push(["deleteUsers", params]);
     return { message: "deleted" };
   }
+  async deleteAll(params: unknown) {
+    calls.push(["deleteAll", params]);
+    return { message: "deleted" };
+  }
 }
 
 mock.module("mem0ai", () => ({ MemoryClient: FakeMemoryClient }));
@@ -165,6 +169,78 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
       "at least one",
     );
     expect(calls.some((c) => c[0] === "deleteUsers")).toBe(false);
+  });
+
+  test("bulk deletion requires confirmation and rejects foreign identity selectors", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+    const context = {sessionID: "session-a"} as any;
+
+    await expect(hooks.tool.delete_all_memories.execute({}, context)).rejects.toThrow("confirmation");
+    await expect(
+      hooks.tool.delete_all_memories.execute({confirm: true, user_id: "another-user"}, context),
+    ).rejects.toThrow("active user");
+    await expect(
+      hooks.tool.delete_entities.execute({confirm: true, app_id: "another-project"}, context),
+    ).rejects.toThrow("active project");
+    expect(calls.some((c) => c[0] === "deleteAll" || c[0] === "deleteUsers")).toBe(false);
+  });
+
+  test("confirmed entity deletion sends exactly the active project selector", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+
+    await hooks.tool.delete_entities.execute(
+      {confirm: true, app_id: "mem0ai-mem0"},
+      {sessionID: "session-a"} as any,
+    );
+
+    const call = calls.find((c) => c[0] === "deleteUsers");
+    expect(call?.[1]).toMatchObject({appId: "mem0ai-mem0"});
+    expect((call?.[1] as any).userId).toBeUndefined();
+    expect((call?.[1] as any).agentId).toBeUndefined();
+    expect((call?.[1] as any).runId).toBeUndefined();
+  });
+
+  test("entity deletion rejects ambiguous selectors and scope mismatches", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+    const context = {sessionID: "session-a", agent: "build-agent"} as any;
+
+    await expect(
+      hooks.tool.delete_entities.execute(
+        {confirm: true, user_id: "test-user"},
+        context,
+      ),
+    ).rejects.toThrow('scope="global"');
+    await expect(
+      hooks.tool.delete_entities.execute(
+        {confirm: true, app_id: "mem0ai-mem0", run_id: "session-a"},
+        context,
+      ),
+    ).rejects.toThrow("exactly one");
+    expect(calls.some((c) => c[0] === "deleteUsers")).toBe(false);
+  });
+
+  test("entity deletion routes user, run, and agent scopes as single SDK selectors", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+    const context = {sessionID: "session-a", agent: "build-agent"} as any;
+
+    await hooks.tool.delete_entities.execute(
+      {confirm: true, scope: "global", user_id: "test-user"},
+      context,
+    );
+    await hooks.tool.delete_entities.execute(
+      {confirm: true, scope: "session", run_id: "session-a"},
+      context,
+    );
+    await hooks.tool.delete_entities.execute(
+      {confirm: true, agent_id: "build-agent"},
+      context,
+    );
+
+    expect(calls.filter((c) => c[0] === "deleteUsers").map((c) => c[1])).toEqual([
+      {userId: "test-user"},
+      {runId: "session-a"},
+      {agentId: "build-agent"},
+    ]);
   });
 
   test("session-scoped tools use the real Kilo session ID", async () => {
@@ -300,6 +376,49 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
       run_id: "session-a",
       metadata: { type: "tool_output", source: "kilo", session_id: "session-a" },
     });
+  });
+
+  test("does not capture tools that expose sensitive files or environment variables", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+
+    await hooks["tool.execute.after"](
+      {tool: "read", sessionID: "session-a", args: {file_path: "/workspace/.env"}},
+      {title: "Environment", output: "DATABASE_PASSWORD=do-not-store", metadata: {}},
+    );
+    await hooks["tool.execute.after"](
+      {tool: "bash", sessionID: "session-a", args: {command: "printenv"}},
+      {title: "Environment", output: "DATABASE_PASSWORD=do-not-store", metadata: {}},
+    );
+    await hooks.event({
+      event: {type: "session.deleted", properties: {info: {id: "session-a"}}},
+    });
+
+    expect(calls.some((c) => c[0] === "add" && (c[2] as any)?.metadata?.type === "tool_output")).toBe(false);
+  });
+
+  test("session.idle waits for its queued summary write", async () => {
+    const messages = [{
+      info: {id: "message-1", role: "user", sessionID: "session-a"},
+      parts: [{type: "text", text: "Remember the validated lifecycle decision."}],
+    }];
+    addGate = new Promise<void>((resolve) => {
+      releaseAddGate = resolve;
+    });
+    const hooks: any = await Mem0Plugin(ctx(messages));
+    let settled = false;
+
+    const idle = hooks.event({
+      event: {type: "session.idle", properties: {sessionID: "session-a"}},
+    }).then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    releaseAddGate!();
+    await idle;
+    expect(settled).toBe(true);
   });
 
   test("serializes tool-result captures and drains them before session deletion", async () => {

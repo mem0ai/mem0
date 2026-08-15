@@ -85,6 +85,11 @@ export const SECRET_PATTERNS = [
   /xox[baprs]-[A-Za-z0-9-]{20,}/g,
   /ghp_[A-Za-z0-9]{36,}/g,
   /gho_[A-Za-z0-9]{36,}/g,
+  /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/gi,
+  /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\b/g,
+  /\b[a-z][a-z0-9+.-]*:\/\/[^:\s/@]+:[^@\s/]+@[^\s]+/gi,
+  /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API_KEY|PRIVATE_KEY|DATABASE_URL|CREDENTIALS?)[A-Z0-9_]*\s*[:=]\s*(?:"[^"\n]*"|'[^'\n]*'|[^\s]+)/gi,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
 ];
 
 export function redact(text: string): string {
@@ -184,6 +189,15 @@ const ERROR_MULTI_RE = /(Error:|Exception:)/g;
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "write", "edit", "multiEdit"]);
 const AUTO_CAPTURE_TOOLS = new Set(["bash", "read", "write", "edit"]);
 const MAX_TOOL_CAPTURE_CHARS = 4_000;
+const SENSITIVE_FILE_RE = /(?:^|[\\/])(?:\.env(?:\.[^\\/]*)?|\.npmrc|\.pypirc|\.netrc|credentials(?:\.[^\\/]*)?|secrets?(?:\.[^\\/]*)?|id_(?:rsa|dsa|ecdsa|ed25519)|[^\\/]+\.(?:pem|key|p12|pfx))(?:$|[\\/])/i;
+const SENSITIVE_SHELL_RE = /(?:^|[;&|]\s*)(?:env|printenv)(?:\s|$)|(?:cat|head|tail|less|more|sed)\s+[^\n;&|]*(?:\.env|\.npmrc|\.pypirc|\.netrc|credentials|secrets?|id_(?:rsa|dsa|ecdsa|ed25519)|\.(?:pem|key|p12|pfx))(?:\s|$)/i;
+
+function exposesSensitiveMaterial(toolName: string, args: any): boolean {
+  const normalized = toolName.toLowerCase();
+  if (normalized === "bash") return SENSITIVE_SHELL_RE.test(String(args?.command ?? ""));
+  const path = String(args?.file_path ?? args?.filePath ?? args?.path ?? "");
+  return SENSITIVE_FILE_RE.test(path);
+}
 
 function resolveFilters(args: any, globalSearch: boolean, userId: string, appId: string): any {
   if (args.filters) {
@@ -381,10 +395,11 @@ export const Mem0Plugin: Plugin = async (ctx) => {
     );
   }
 
-  function enqueueWrite(state: SessionState, write: () => Promise<void>): void {
-    state.writeQueue = state.writeQueue.then(write, write).catch(() => {
+  function enqueueWrite(state: SessionState, write: () => Promise<void>): Promise<void> {
+    state.writeQueue = state.writeQueue.then(write).catch(() => {
       // Memory capture is best-effort and must not break Kilo tool execution.
     });
+    return state.writeQueue;
   }
 
   // Auto-configure coding categories in background (idempotent, never blocks)
@@ -573,21 +588,35 @@ export const Mem0Plugin: Plugin = async (ctx) => {
       }),
 
       delete_all_memories: tool({
-        description: "Delete all memories.",
+        description: "Delete all memories in the selected active scope. Only use after the user explicitly confirms the destructive action.",
         args: {
           user_id: tool.schema.string().optional().describe("User ID whose memories to delete"),
           app_id: tool.schema.string().optional().describe("App ID whose memories to delete"),
           agent_id: tool.schema.string().optional().describe("Agent ID whose memories to delete"),
           scope: tool.schema.string().optional().describe('Scope to delete: "project" (default), "session", or "global" (user-wide). Use "global" only when explicitly asked.'),
+          confirm: tool.schema.boolean().optional().describe("Must be true after the user explicitly confirms deletion"),
         },
         async execute(args, context) {
           const session = getSession(context.sessionID);
+          if (args.confirm !== true) {
+            throw new Error("delete_all_memories requires explicit user confirmation");
+          }
+          if (args.user_id && args.user_id.trim() !== userId) {
+            throw new Error("delete_all_memories cannot target a user other than the active user");
+          }
+          if (args.app_id && args.app_id.trim() !== appId) {
+            throw new Error("delete_all_memories cannot target a project other than the active project");
+          }
+          const scope = asScope(args.scope);
+          if (scope === "global" && args.app_id) {
+            throw new Error("global deletion cannot include an app_id; omit it to target the active user globally");
+          }
           if (session.dreamTriggered) session.dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
-          const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, session.id) : null;
+          const sp = scopeWriteParams(scope, userId, appId, session.id);
           const res = await mem0.deleteAll({
-            user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
-            app_id: sp ? sp.app_id : (args.app_id ?? appId),
+            user_id: sp.user_id,
+            app_id: sp.app_id,
             run_id: sp?.run_id,
             agent_id: args.agent_id,
           } as any);
@@ -596,28 +625,71 @@ export const Mem0Plugin: Plugin = async (ctx) => {
       }),
 
       delete_entities: tool({
-        description: "Delete user/agent/app/run entities and all their associated memories.",
+        description: "Delete entities and their memories within the active user/project/session scope. Only use after the user explicitly confirms the destructive action.",
         args: {
           user_id: tool.schema.string().optional().describe("User ID of the entity to delete"),
           agent_id: tool.schema.string().optional().describe("Agent ID of the entity to delete"),
           app_id: tool.schema.string().optional().describe("App/Project ID of the entity to delete"),
           run_id: tool.schema.string().optional().describe("Run ID of the entity to delete"),
+          scope: tool.schema.string().optional().describe('Deletion scope: "project" (default), "session", or "global" (active user only)'),
+          confirm: tool.schema.boolean().optional().describe("Must be true after the user explicitly confirms deletion"),
         },
-        async execute(args) {
-          captureEvent("tool_use", {tool: "delete_entities"}, apiKey, appId);
+        async execute(args, context) {
+          const session = getSession(context.sessionID);
           const userIdSelector = args.user_id?.trim() || undefined;
           const agentIdSelector = args.agent_id?.trim() || undefined;
           const appIdSelector = args.app_id?.trim() || undefined;
           const runIdSelector = args.run_id?.trim() || undefined;
-          if (!userIdSelector && !agentIdSelector && !appIdSelector && !runIdSelector) {
+          const selectorCount = [userIdSelector, agentIdSelector, appIdSelector, runIdSelector]
+            .filter(Boolean).length;
+          if (selectorCount === 0) {
             throw new Error("delete_entities requires at least one non-empty entity selector");
           }
-          const res = await mem0.deleteUsers({
-            userId: userIdSelector,
-            agentId: agentIdSelector,
-            appId: appIdSelector,
-            runId: runIdSelector,
-          });
+          if (selectorCount !== 1) {
+            throw new Error("delete_entities requires exactly one entity selector");
+          }
+          if (args.confirm !== true) {
+            throw new Error("delete_entities requires explicit user confirmation");
+          }
+          const scope = asScope(args.scope);
+          let selector: {userId?: string; agentId?: string; appId?: string; runId?: string};
+          if (userIdSelector) {
+            if (userIdSelector !== userId) {
+              throw new Error("delete_entities cannot target a user other than the active user");
+            }
+            if (scope !== "global") {
+              throw new Error('deleting the active user requires explicit scope="global"');
+            }
+            selector = {userId: userIdSelector};
+          } else if (appIdSelector) {
+            if (appIdSelector !== appId) {
+              throw new Error("delete_entities cannot target a project other than the active project");
+            }
+            if (scope !== "project") {
+              throw new Error('deleting the active project requires scope="project"');
+            }
+            selector = {appId: appIdSelector};
+          } else if (runIdSelector) {
+            if (runIdSelector !== session.id) {
+              throw new Error("delete_entities cannot target a run other than the active session");
+            }
+            if (scope !== "session") {
+              throw new Error('deleting the active run requires scope="session"');
+            }
+            selector = {runId: runIdSelector};
+          } else {
+            const activeAgent = context.agent?.trim();
+            if (!activeAgent || agentIdSelector !== activeAgent) {
+              throw new Error("delete_entities can only target the active Kilo agent");
+            }
+            if (args.scope && scope !== "project") {
+              throw new Error('deleting the active agent requires scope="project"');
+            }
+            selector = {agentId: agentIdSelector};
+          }
+          if (session.dreamTriggered) session.dreamWriteSeen = true;
+          captureEvent("tool_use", {tool: "delete_entities"}, apiKey, appId);
+          const res = await mem0.deleteUsers(selector);
           return JSON.stringify(res);
         }
       }),
@@ -916,7 +988,11 @@ export const Mem0Plugin: Plugin = async (ctx) => {
     const toolName: string = input?.tool ?? "";
     const toolOutput: string = input?.output ?? _output?.output ?? "";
 
-    if (AUTO_CAPTURE_TOOLS.has(toolName.toLowerCase()) && toolOutput.trim()) {
+    if (
+      AUTO_CAPTURE_TOOLS.has(toolName.toLowerCase())
+      && toolOutput.trim()
+      && !exposesSensitiveMaterial(toolName, input?.args)
+    ) {
       const safeOutput = redact(toolOutput).slice(-MAX_TOOL_CAPTURE_CHARS);
       session.activityVersion++;
       enqueueWrite(session, async () => {
@@ -1090,16 +1166,18 @@ export const Mem0Plugin: Plugin = async (ctx) => {
     }
   }
 
-  function scheduleSessionSummary(state: SessionState): void {
-    if (state.summaryPromise || state.summarizedVersion >= state.activityVersion) return;
+  function scheduleSessionSummary(state: SessionState): Promise<void> {
+    if (state.summaryPromise) return state.summaryPromise;
+    if (state.summarizedVersion >= state.activityVersion) return Promise.resolve();
     const version = state.activityVersion;
-    state.summaryPromise = storeSessionSummary(state)
-      .then((stored) => {
-        if (stored) state.summarizedVersion = Math.max(state.summarizedVersion, version);
-      })
-      .finally(() => {
-        state.summaryPromise = undefined;
-      });
+    const queued = enqueueWrite(state, async () => {
+      const stored = await storeSessionSummary(state);
+      if (stored) state.summarizedVersion = Math.max(state.summarizedVersion, version);
+    });
+    state.summaryPromise = queued.finally(() => {
+      state.summaryPromise = undefined;
+    });
+    return state.summaryPromise;
   }
 
   async function eventHook(input: any): Promise<void> {
@@ -1112,9 +1190,8 @@ export const Mem0Plugin: Plugin = async (ctx) => {
 
     const state = getSession(sessionId);
     if (event.type === "session.idle") {
-      await state.writeQueue;
       finishDream(state);
-      scheduleSessionSummary(state);
+      await scheduleSessionSummary(state);
       return;
     }
 
