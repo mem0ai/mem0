@@ -10,10 +10,6 @@ export const includeApiKey = (
 		request.headers = request.headers || {};
 		request.headers.Authorization = `Token ${bundle.authData.apiKey}`;
 	}
-	// Tag every request so Mem0 attributes Zapier usage server-side (telemetry
-	// lives in the Mem0 API, not in this integration).
-	request.headers = request.headers || {};
-	request.headers['Mem0-Source'] = 'zapier';
 	// Resolve relative URLs against the configured base URL.
 	if (request.url && request.url.startsWith('/')) {
 		const base = (bundle.authData && bundle.authData.baseUrl) || 'https://api.mem0.ai';
