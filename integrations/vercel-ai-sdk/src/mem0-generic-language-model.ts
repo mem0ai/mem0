@@ -164,7 +164,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
       return streamResponse;
     } catch (error) {
       console.error("Error in doStream:", error);
-      throw error;
+      throw new Error("Streaming failed or method not implemented.");
     }
   }
 }
