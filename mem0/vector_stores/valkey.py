@@ -299,20 +299,15 @@ class ValkeyDB(VectorStoreBase):
                 # Create the key for the hash
                 key = f"{self.prefix}:{id}"
 
-                # Check for required fields and provide defaults if missing
-                if "data" not in payload:
-                    # Silently use default value for missing 'data' field
-                    pass
-
-                # Ensure created_at is present
-                if "created_at" not in payload:
+                # Default created_at when missing or None to current time
+                if not payload.get("created_at"):
                     payload["created_at"] = datetime.now(pytz.timezone(self.timezone)).isoformat()
 
                 # Prepare the hash data
                 hash_data = {
                     "memory_id": id,
-                    "hash": payload.get("hash", f"hash_{id}"),  # Use a default hash if not provided
-                    "memory": payload.get("data", f"data_{id}"),  # Use a default data if not provided
+                    "hash": payload.get("hash", ""),
+                    "memory": payload.get("data", ""),
                     "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
                     "embedding": np.array(vector, dtype=np.float32).tobytes(),
                 }
@@ -499,20 +494,15 @@ class ValkeyDB(VectorStoreBase):
         try:
             key = f"{self.prefix}:{vector_id}"
 
-            # Check for required fields and provide defaults if missing
-            if "data" not in payload:
-                # Silently use default value for missing 'data' field
-                pass
-
-            # Ensure created_at is present
-            if "created_at" not in payload:
+            # Default created_at when missing or None to current time
+            if not payload.get("created_at"):
                 payload["created_at"] = datetime.now(pytz.timezone(self.timezone)).isoformat()
 
             # Prepare the hash data
             hash_data = {
                 "memory_id": vector_id,
-                "hash": payload.get("hash", f"hash_{vector_id}"),  # Use a default hash if not provided
-                "memory": payload.get("data", f"data_{vector_id}"),  # Use a default data if not provided
+                "hash": payload.get("hash", ""),
+                "memory": payload.get("data", ""),
                 "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
             }
 
@@ -521,7 +511,7 @@ class ValkeyDB(VectorStoreBase):
                 hash_data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
             # Add updated_at if available
-            if "updated_at" in payload:
+            if payload.get("updated_at"):
                 hash_data["updated_at"] = int(datetime.fromisoformat(payload["updated_at"]).timestamp())
 
             # Add optional fields

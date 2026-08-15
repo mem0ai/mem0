@@ -158,6 +158,21 @@ def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
+def test_insert_and_update_with_empty_timestamps(valkey_db, mock_valkey_client):
+    """Regression: None created_at/updated_at must not crash insert() or update().
+
+    Realistic (infer=True) consolidation feeds back payloads with None timestamps;
+    fromisoformat(None) previously would be hit and raise a TypeError.
+    """
+    vector = np.random.rand(1536).tolist()
+    payload = {"hash": "h", "data": "d", "created_at": None, "updated_at": None}
+
+    valkey_db.insert(vectors=[vector], payloads=[payload], ids=["id1"])
+    valkey_db.update(vector_id="id1", vector=vector, payload=payload)
+
+    assert mock_valkey_client.hset.call_count == 2
+
+
 def test_delete(valkey_db, mock_valkey_client):
     """Test deleting a vector."""
     # Call delete
