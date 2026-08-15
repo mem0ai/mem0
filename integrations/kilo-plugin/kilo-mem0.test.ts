@@ -1,12 +1,27 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import Mem0Plugin, { redact } from "./kilo-mem0";
+import PluginModuleExport, { redact } from "./kilo-mem0";
+import packageJson from "./package.json";
+
+const PluginModule: any = PluginModuleExport;
+const Mem0Plugin: any = typeof PluginModuleExport === "function"
+  ? PluginModuleExport
+  : (PluginModuleExport as any).server;
 
 // A minimal Kilo plugin context: the plugin only touches `client.app.log` and the
 // `$` shell helper (for git identity resolution), so we stub just those.
-function fakeContext(logs: unknown[] = []) {
-  const $ = () => ({ quiet: async () => ({ stdout: "" }) });
+function fakeContext(logs: unknown[] = [], shellCwds: Array<string | undefined> = []) {
+  const makeShell = (cwd?: string): any => {
+    const shell = () => {
+      shellCwds.push(cwd);
+      return { quiet: async () => ({ stdout: "" }) };
+    };
+    shell.cwd = (nextCwd: string) => makeShell(nextCwd);
+    return shell;
+  };
   return {
-    $,
+    $: makeShell(),
+    directory: "/workspace/mem0/packages/kilo",
+    worktree: "/workspace/mem0",
     client: {
       app: {
         log: async (msg: unknown) => {
@@ -37,17 +52,30 @@ describe("kilo-mem0 plugin", () => {
     expect(logs.some((l) => String(l?.body?.message).includes("MEM0_API_KEY"))).toBe(true);
   });
 
+  test("exports Kilo's server plugin module shape", () => {
+    expect(PluginModule.server).toBe(Mem0Plugin);
+  });
+
+  test("publishes the Kilo server entrypoint", () => {
+    expect(packageJson.exports["./server"]).toEqual({
+      types: "./dist/kilo-mem0.d.ts",
+      import: "./dist/index.js",
+    });
+  });
+
   test("registers the memory hooks and all native tools when a key is present", async () => {
     process.env.MEM0_API_KEY = "m0-testkey1234567890";
     const hooks: any = await Mem0Plugin(fakeContext());
 
     // lifecycle hooks (the TUI-only `config` hook is intentionally out of scope)
     for (const hook of [
+      "event",
       "chat.message",
       "experimental.chat.messages.transform",
       "tool.execute.before",
       "tool.execute.after",
       "experimental.session.compacting",
+      "experimental.text.complete",
       "shell.env",
     ]) {
       expect(typeof hooks[hook]).toBe("function");
@@ -76,16 +104,26 @@ describe("kilo-mem0 plugin", () => {
     const hooks: any = await Mem0Plugin(fakeContext());
 
     const output = { env: {} as Record<string, string> };
-    await hooks["shell.env"]({ cwd: process.cwd() }, output);
+    await hooks["shell.env"]({ cwd: process.cwd(), sessionID: "session-from-kilo" }, output);
 
     // all five keys the downstream shell depends on must be present
     expect(typeof output.env.MEM0_USER_ID).toBe("string");
     expect(output.env.MEM0_USER_ID.length).toBeGreaterThan(0);
     expect(typeof output.env.MEM0_APP_ID).toBe("string");
-    expect(typeof output.env.MEM0_SESSION_ID).toBe("string");
+    expect(output.env.MEM0_SESSION_ID).toBe("session-from-kilo");
     expect(typeof output.env.MEM0_BRANCH).toBe("string");
     // MEM0_GLOBAL_SEARCH is a strict "true"/"false" string contract
     expect(["true", "false"]).toContain(output.env.MEM0_GLOBAL_SEARCH);
+  });
+
+  test("runs git identity commands in Kilo's worktree", async () => {
+    process.env.MEM0_API_KEY = "m0-testkey1234567890";
+    const shellCwds: Array<string | undefined> = [];
+
+    await Mem0Plugin(fakeContext([], shellCwds));
+
+    expect(shellCwds.length).toBeGreaterThan(0);
+    expect(shellCwds.every((cwd) => cwd === "/workspace/mem0")).toBe(true);
   });
 });
 

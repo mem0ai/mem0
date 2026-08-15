@@ -39,7 +39,7 @@ Restart Kilo Code after installing.
 | Component | Description |
 |-----------|-------------|
 | 10 memory tools | Native, registered by the plugin via the `mem0ai` SDK (no MCP server) |
-| Lifecycle hooks | 6 hooks for auto-search, memory injection, error lookup, and compaction |
+| Lifecycle hooks | 8 hooks for auto-search, memory injection, redacted tool capture, session summaries, error lookup, and compaction |
 | Auto-dream | Automatic memory consolidation, gated by time / sessions / memory count |
 | Secret redaction | User text is scrubbed of common secret patterns before it reaches Mem0 |
 
@@ -72,7 +72,7 @@ Just ask naturally — e.g. *"search my memories across all my projects"* — an
 
 The **default** scope (used when no scope is passed) is read from `~/.mem0/settings.json` (`default_scope`) fresh on each memory operation, so a change applies immediately without a restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
 
-The project id (`app_id`) is derived from your git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory. Launch Kilo Code from inside your repo so memories scope to the project rather than your home directory.
+The project id (`app_id`) is derived from the git remote in Kilo's active worktree (`owner-repo`), falling back to that worktree's root directory name. This keeps memories attached to the correct project when one Kilo server handles multiple directories or worktrees.
 
 ## Lifecycle Hooks
 
@@ -81,11 +81,13 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 | Kilo Code Event | Hook | What happens |
 |----------------|------|-------------|
 | `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
+| `event` | **Session lifecycle** | Stores an incremental, redacted summary on `session.idle` and releases auto-dream state when a session finishes |
 | `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
-| `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |
+| `tool.execute.after` | **Post-tool** | Stores a bounded, redacted result for Bash/read/write/edit tools and pre-fetches memories related to Bash errors |
 | `experimental.chat.messages.transform` | **Messages transform** | Injects memory context (session memories, search results, error lookups) into the prompt |
 | `experimental.session.compacting` | **Compaction** | Stores session state, then injects prior memories into compaction context so nothing is lost |
-| `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to spawned shells |
+| `experimental.text.complete` | **Text complete** | Appends the number of unique Mem0 memories used in the completed response |
+| `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, `MEM0_BRANCH`, and `MEM0_GLOBAL_SEARCH` to spawned shells |
 
 <Info>
   The TUI skills and `/mem0-*` slash commands from the OpenCode plugin are out of scope for this initial release — it ships the memory tools and lifecycle hooks only. Slash-command support can land in a later version once Kilo's TUI command surface is confirmed.
@@ -111,7 +113,7 @@ A filesystem lock (`~/.mem0/mem0-dream.lock`) keeps two sessions from consolidat
 
 - **No tools appearing** — Restart Kilo Code after installing the plugin
 - **"Connection failed" / 401** — Verify your key is set: `echo $MEM0_API_KEY` should print your `m0-` key
-- **Wrong project name / memories not found** — The project id comes from your git remote; launch Kilo Code from inside the repo (not your home directory)
+- **Wrong project name / memories not found** — The project id comes from the git remote in Kilo's active worktree; set `MEM0_APP_ID` only when you intentionally need to override it
 - **Auto-dream never runs** — It's gated (time + sessions + memories). Lower the thresholds in `~/.mem0/settings.json`, or check that you have enough stored memories for the project
 
 <CardGroup cols={2}>

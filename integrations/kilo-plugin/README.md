@@ -21,7 +21,7 @@ Restart Kilo.
 | Component | Description |
 |-----------|-------------|
 | **10 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, `get_event_status`, registered as Kilo tools, backed by the `mem0ai` SDK (no MCP server required) |
-| **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
+| **Lifecycle Hooks** | Auto-search on session start and every prompt, redacted tool capture, error memory lookup, session summaries, compaction context |
 
 ## Hooks
 
@@ -30,11 +30,13 @@ Pure TypeScript, no Python, no shell scripts. Memory operations are native Kilo 
 | Hook | Event | What it does |
 |------|-------|-------------|
 | **Chat message** | `chat.message` | Loads prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
+| **Session lifecycle** | `event` | Stores an incremental, redacted session summary on `session.idle` and releases auto-dream state when sessions finish |
 | **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
-| **Post-tool** | `tool.execute.after` | Scans bash errors and pre-fetches related memories |
+| **Post-tool** | `tool.execute.after` | Stores a bounded, redacted result for Bash/read/write/edit tools and pre-fetches memories related to Bash errors |
 | **Messages transform** | `experimental.chat.messages.transform` | Injects memory context (session memories, search results, error lookups) into the prompt |
 | **Compaction** | `experimental.session.compacting` | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
-| **Shell env** | `shell.env` | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to shell |
+| **Text complete** | `experimental.text.complete` | Appends the number of unique Mem0 memories used in the completed response |
+| **Shell env** | `shell.env` | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, `MEM0_BRANCH`, and `MEM0_GLOBAL_SEARCH` to shell |
 
 The TUI skills and slash commands from the OpenCode plugin are intentionally out of scope for this initial release (the linked issue excludes TUI features); they can follow once Kilo's TUI command surface is confirmed.
 
@@ -55,7 +57,7 @@ The TUI skills and slash commands from the OpenCode plugin are intentionally out
 
 ## Memory scope
 
-Every memory tool accepts an optional `scope`. The default scope (used when none is passed) persists in `~/.mem0/settings.json` (`default_scope`) and is read fresh on each memory operation.
+`search_memories`, `get_memories`, `add_memory`, and `delete_all_memories` accept an optional `scope`. The default scope (used when none is passed) persists in `~/.mem0/settings.json` (`default_scope`) and is read fresh on each memory operation.
 
 | Scope | Reads | Writes |
 |-------|-------|--------|
@@ -72,6 +74,7 @@ Every memory tool accepts an optional `scope`. The default scope (used when none
 | `MEM0_API_KEY` | yes | none (plugin no-ops without it) |
 | `MEM0_USER_ID` | no | OS username |
 | `MEM0_APP_ID` | no | git remote `owner-repo`, else repo dir name |
+| `MEM0_GLOBAL_SEARCH` | no | exported to child shells as `true` or `false` from `~/.mem0/settings.json` |
 | `MEM0_TELEMETRY` | no | enabled (set `false` to opt out of anonymous usage events) |
 
 ## Develop

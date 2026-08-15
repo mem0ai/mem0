@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/kilo-mem0.d.ts",
       "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/kilo-mem0.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "publishConfig": {
@@ -44,13 +48,18 @@
   "kilo": {
     "type": "plugin",
     "hooks": [
+      "event",
       "chat.message",
       "tool.execute.before",
       "tool.execute.after",
       "experimental.chat.messages.transform",
       "experimental.session.compacting",
+      "experimental.text.complete",
       "shell.env"
     ]
+  },
+  "engines": {
+    "opencode": "^7.0.0"
   },
   "dependencies": {
     "@kilocode/plugin": "7.3.46",
