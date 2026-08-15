@@ -721,11 +721,44 @@ class ValkeyDB(VectorStoreBase):
             logger.error(f"Error deleting index {collection_name}: {e}")
             raise
 
+    @staticmethod
+    def _escape_glob(value):
+        """Escape glob metacharacters (``* ? [ ] \\``) so a SCAN MATCH pattern matches
+        ``value`` literally; otherwise a collection name containing one would under-match
+        and leave documents behind."""
+        return "".join(f"\\{c}" if c in "\\*?[]" else c for c in str(value))
+
+    def _delete_documents(self):
+        """Delete the document hashes backing this collection.
+
+        valkey-search's FT.DROPINDEX has no DD flag, so it leaves the ``mem0:<collection>:*``
+        hashes behind. Otherwise they would be silently re-indexed on the next FT.CREATE over
+        the same prefix (e.g. in reset()).
+        """
+        pattern = f"{self._escape_glob(self.prefix)}:*"
+        # Multi-key UNLINK across hash slots raises CROSSSLOT on a cluster, so unlink one
+        # key at a time there; batch otherwise to bound round-trips and command size.
+        chunk_size = 1 if self.cluster_mode else 500
+        keys, deleted = [], 0
+        for key in self.client.scan_iter(match=pattern, count=1000):
+            keys.append(key)
+            if len(keys) >= chunk_size:
+                self.client.unlink(*keys)
+                deleted, keys = deleted + len(keys), []
+        if keys:
+            self.client.unlink(*keys)
+            deleted += len(keys)
+        logger.info(f"Deleted {deleted} document(s) for collection {self.collection_name}")
+
     def delete_col(self):
         """
-        Delete the current collection (index).
+        Delete the current collection: drop the index and its stored documents.
+
+        Returns True if index was dropped, False if index didn't exist.
         """
-        return self._drop_index(self.collection_name, log_level="info")
+        dropped = self._drop_index(self.collection_name, log_level="info")
+        self._delete_documents()
+        return dropped
 
     def col_info(self, name=None):
         """

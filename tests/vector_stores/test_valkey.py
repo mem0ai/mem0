@@ -1,3 +1,4 @@
+import fnmatch
 import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -21,6 +22,8 @@ def mock_valkey_client():
         mock_client.return_value.hset = MagicMock()
         mock_client.return_value.hgetall = MagicMock()
         mock_client.return_value.delete = MagicMock()
+        mock_client.return_value.scan_iter = MagicMock(return_value=[])
+        mock_client.return_value.unlink = MagicMock()
         yield mock_client.return_value
 
 
@@ -322,6 +325,37 @@ def test_delete_col(valkey_db, mock_valkey_client):
     mock_valkey_client.execute_command.side_effect = ResponseError("Unknown index name")
     result = valkey_db.delete_col()
     assert result is False
+
+
+def test_delete_col_deletes_documents(valkey_db, mock_valkey_client):
+    """delete_col()/reset() must delete this collection's document hashes and nothing else.
+
+    valkey-search's FT.DROPINDEX has no DD flag, so leftover mem0:<col>:* keys would be
+    re-indexed on the next FT.CREATE over the same prefix. The fake keyspace verifies the
+    documents are removed while other collections are left intact.
+    """
+    keyspace = {
+        "mem0:test_collection:a",
+        "mem0:test_collection:b",
+        "mem0:test_collection_2:x",  # different collection; excluded by the ':' boundary
+        "mem0:other:z",  # unrelated collection
+    }
+    mock_valkey_client.scan_iter.side_effect = lambda match, count=None: [
+        k for k in list(keyspace) if fnmatch.fnmatchcase(k, match)
+    ]
+    mock_valkey_client.unlink.side_effect = lambda *keys: [keyspace.discard(k) for k in keys]
+
+    valkey_db.delete_col()
+
+    assert keyspace == {"mem0:test_collection_2:x", "mem0:other:z"}
+
+
+def test_escape_glob_escapes_metacharacters(valkey_db):
+    """Glob metacharacters in a collection name must be escaped so the SCAN MATCH delete
+    pattern matches literally (mirrors _escape_tag_value handling for FT.SEARCH)."""
+    assert valkey_db._escape_glob("plain_name") == "plain_name"
+    assert valkey_db._escape_glob("a*b") == "a\\*b"
+    assert valkey_db._escape_glob("x[1]?") == "x\\[1\\]\\?"
 
 
 def test_context_aware_logging(valkey_db, mock_valkey_client):
@@ -898,6 +932,8 @@ def mock_valkey_cluster_client():
         mock_client.hset = MagicMock()
         mock_client.hgetall = MagicMock()
         mock_client.delete = MagicMock()
+        mock_client.scan_iter = MagicMock(return_value=[])
+        mock_client.unlink = MagicMock()
         mock_from_url.return_value = mock_client
         yield mock_client
 
