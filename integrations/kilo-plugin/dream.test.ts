@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -65,6 +65,27 @@ describe("auto-dream gates", () => {
     expect(acquireDreamLock(dir)).toBe(false);
     releaseDreamLock(dir);
     expect(acquireDreamLock(dir)).toBe(true);
+  });
+
+  test("dream lock reclaims malformed plugin-owned lock files", () => {
+    writeFileSync(join(dir, "mem0-dream.lock"), '{"pid":');
+
+    expect(acquireDreamLock(dir)).toBe(true);
+    const lock = JSON.parse(readFileSync(join(dir, "mem0-dream.lock"), "utf8"));
+    expect(lock.pid).toBe(process.pid);
+    expect(typeof lock.startedAt).toBe("number");
+  });
+
+  test("dream lock reclaims impossible future timestamps", () => {
+    writeFileSync(
+      join(dir, "mem0-dream.lock"),
+      JSON.stringify({pid: 1234, startedAt: Date.now() + 24 * 60 * 60 * 1000}),
+    );
+
+    expect(acquireDreamLock(dir)).toBe(true);
+    const lock = JSON.parse(readFileSync(join(dir, "mem0-dream.lock"), "utf8"));
+    expect(lock.pid).toBe(process.pid);
+    expect(lock.startedAt).toBeLessThanOrEqual(Date.now());
   });
 });
 

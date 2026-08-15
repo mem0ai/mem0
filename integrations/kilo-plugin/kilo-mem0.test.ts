@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import PluginModuleExport, { redact } from "./kilo-mem0";
+import PluginModuleExport, { redact, sanitizeMetadata } from "./kilo-mem0";
 import packageJson from "./package.json";
 
 const PluginModule: any = PluginModuleExport;
@@ -159,5 +159,46 @@ describe("redact", () => {
   test("leaves benign text untouched", () => {
     const benign = "Refactor the auth module and add a test for the login flow.";
     expect(redact(benign)).toBe(benign);
+  });
+});
+
+describe("sanitizeMetadata", () => {
+  test("redacts nested secret values and preserves caller input", () => {
+    const secret = "s" + "k-" + "abcdefghijklmnopqrstuvwxyz";
+    const input = {
+      owner: "team-a",
+      nested: {
+        token: "short-value",
+        notes: ["safe", `credential ${secret}`],
+      },
+    };
+
+    expect(sanitizeMetadata(input)).toEqual({
+      owner: "team-a",
+      nested: {
+        token: "[REDACTED]",
+        notes: ["safe", "credential [REDACTED]"],
+      },
+    });
+    expect(input.nested.token).toBe("short-value");
+    expect(input.nested.notes[1]).toContain(secret);
+  });
+
+  test("redacts camel-case sensitive metadata keys", () => {
+    expect(sanitizeMetadata({
+      apiKey: "short-api-value",
+      nested: {
+        accessToken: "short-access-value",
+        privateKey: "short-private-value",
+        databaseUrl: "short-database-value",
+      },
+    })).toEqual({
+      apiKey: "[REDACTED]",
+      nested: {
+        accessToken: "[REDACTED]",
+        privateKey: "[REDACTED]",
+        databaseUrl: "[REDACTED]",
+      },
+    });
   });
 });

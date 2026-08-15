@@ -24,8 +24,11 @@ import {
   recordDreamCompletion,
   DREAM_PROTOCOL,
 } from "./dream";
-import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
+import {asScope, isScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
 import {parseProjectFromRemote} from "./project";
+
+const SCOPE_SCHEMA = tool.schema.enum(["project", "session", "global"]);
+const EVENT_ID_SCHEMA = tool.schema.uuid();
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -98,6 +101,33 @@ export function redact(text: string): string {
     out = out.replace(re, "[REDACTED]");
   }
   return out;
+}
+
+const SENSITIVE_METADATA_KEY_RE =
+  /(?:^|[_-])(?:secret|token|password|passwd|api[_-]?key|private[_-]?key|database[_-]?url|credentials?)(?:$|[_-])/i;
+
+function isSensitiveMetadataKey(key: string): boolean {
+  const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
+  return SENSITIVE_METADATA_KEY_RE.test(normalizedKey);
+}
+
+function sanitizeMetadataValue(value: unknown, key?: string): unknown {
+  if (key && isSensitiveMetadataKey(key)) return "[REDACTED]";
+  if (typeof value === "string") return redact(value);
+  if (Array.isArray(value)) return value.map((item) => sanitizeMetadataValue(item));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([nestedKey, nestedValue]) => [
+        nestedKey,
+        sanitizeMetadataValue(nestedValue, nestedKey),
+      ]),
+    );
+  }
+  return value;
+}
+
+export function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+  return sanitizeMetadataValue(metadata) as Record<string, unknown>;
 }
 
 /** Read & parse `~/.mem0/settings.json`, returning {} when missing/invalid. */
@@ -279,6 +309,7 @@ interface SessionState {
   stats: {adds: number; searches: number; messages: number};
   dreamTriggered: boolean;
   dreamWriteSeen: boolean;
+  dreamWriteFailed: boolean;
   lastSummaryMessageId?: string;
   summaryPromise?: Promise<void>;
   activityVersion: number;
@@ -295,6 +326,7 @@ function createSessionState(id: string): SessionState {
     stats: {adds: 0, searches: 0, messages: 0},
     dreamTriggered: false,
     dreamWriteSeen: false,
+    dreamWriteFailed: false,
     activityVersion: 1,
     summarizedVersion: 0,
     writeQueue: Promise.resolve(),
@@ -377,13 +409,25 @@ export const Mem0Plugin: Plugin = async (ctx) => {
 
   function finishDream(state: SessionState): void {
     if (!state.dreamTriggered) return;
-    if (state.dreamWriteSeen) {
+    if (state.dreamWriteSeen && !state.dreamWriteFailed) {
       recordDreamCompletion(mem0StateDir);
       captureEvent("dream_completed", {}, apiKey, appId);
     }
     releaseDreamLock(mem0StateDir);
     state.dreamTriggered = false;
     state.dreamWriteSeen = false;
+    state.dreamWriteFailed = false;
+  }
+
+  async function runDreamMutation<T>(state: SessionState, mutation: () => Promise<T>): Promise<T> {
+    try {
+      const result = await mutation();
+      if (state.dreamTriggered) state.dreamWriteSeen = true;
+      return result;
+    } catch (error) {
+      if (state.dreamTriggered) state.dreamWriteFailed = true;
+      throw error;
+    }
   }
 
   function emitSessionStop(state: SessionState): void {
@@ -452,41 +496,43 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           agent_id: tool.schema.string().optional().describe("Agent ID"),
           metadata: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("Metadata key-value pairs"),
           infer: tool.schema.boolean().optional().describe("Set to false to store memory verbatim without LLM fact extraction"),
-          scope: tool.schema.string().optional().describe('Write scope: "project" (this repo, default), "session" (this run), or "global" (user-wide, all projects). Use "global" only when explicitly asked.')
+          scope: SCOPE_SCHEMA.optional().describe('Write scope: "project" (this repo, default), "session" (this run), or "global" (user-wide, all projects). Use "global" only when explicitly asked.')
         },
         async execute(args, context) {
           const session = getSession(context.sessionID);
           session.stats.adds++;
-          if (session.dreamTriggered) session.dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
           const effScope: Scope = args.scope ? asScope(args.scope) : loadDefaultScope();
           const sp = scopeWriteParams(effScope, userId, appId, session.id);
           const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
           const finalAppId = args.app_id ?? sp.app_id;
 
-          const meta = args.metadata ?? {};
+          const meta = sanitizeMetadata(args.metadata ?? {});
           if (meta.confidence === undefined) meta.confidence = 0.7;
           if (!meta.source) meta.source = "kilo";
           if (!meta.type) meta.type = "task_learning";
-          if (!meta.session_id) meta.session_id = session.id;
+          meta.session_id = session.id;
           if (!meta.files) meta.files = ["*"];
-          if (!meta.branch) meta.branch = branch;
+          meta.branch = branch;
 
           let infer = args.infer;
-          if (meta.confidence >= 1.0 && infer === undefined) {
+          if (typeof meta.confidence === "number" && meta.confidence >= 1.0 && infer === undefined) {
             infer = false;
           }
 
-          const res = await mem0.add(
-            [{ role: "user", content: redact(args.text) }],
-            {
-              user_id: finalUserId,
-              app_id: finalAppId,
-              run_id: sp.run_id,
-              agent_id: args.agent_id,
-              metadata: meta,
-              infer
-            } as any
+          const res = await runDreamMutation(
+            session,
+            () => mem0.add(
+              [{ role: "user", content: redact(args.text) }],
+              {
+                user_id: finalUserId,
+                app_id: finalAppId,
+                run_id: sp.run_id,
+                agent_id: args.agent_id,
+                metadata: meta,
+                infer
+              } as any,
+            ),
           );
           return JSON.stringify(res);
         }
@@ -502,7 +548,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           filters: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("Key-value filters (e.g. metadata or user/app filters)"),
           limit: tool.schema.number().optional().describe("Maximum number of results to return (top_k)"),
           top_k: tool.schema.number().optional().describe("Maximum number of results to return (alternative parameter)"),
-          scope: tool.schema.string().optional().describe('Search scope: "project" (this repo, default), "session" (this run only), or "global" (across ALL your projects). Only use "global" when the user explicitly asks to search across projects.'),
+          scope: SCOPE_SCHEMA.optional().describe('Search scope: "project" (this repo, default), "session" (this run only), or "global" (across ALL your projects). Only use "global" when the user explicitly asks to search across projects.'),
         },
         async execute(args, context) {
           const session = getSession(context.sessionID);
@@ -529,7 +575,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           filters: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("Metadata/identity filters"),
           page: tool.schema.number().optional().describe("Page number"),
           page_size: tool.schema.number().optional().describe("Page size"),
-          scope: tool.schema.string().optional().describe('Scope: "project" (default), "session", or "global" (across ALL your projects). Use "global" only when explicitly asked.'),
+          scope: SCOPE_SCHEMA.optional().describe('Scope: "project" (default), "session", or "global" (across ALL your projects). Use "global" only when explicitly asked.'),
         },
         async execute(args, context) {
           captureEvent("tool_use", {tool: "get_memories"}, apiKey, appId);
@@ -567,7 +613,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           captureEvent("tool_use", {tool: "update_memory"}, apiKey, appId);
           const res = await mem0.update(args.id, {
             text: args.text === undefined ? undefined : redact(args.text),
-            metadata: args.metadata,
+            metadata: args.metadata === undefined ? undefined : sanitizeMetadata(args.metadata),
           });
           return JSON.stringify(res);
         }
@@ -580,9 +626,8 @@ export const Mem0Plugin: Plugin = async (ctx) => {
         },
         async execute(args, context) {
           const session = getSession(context.sessionID);
-          if (session.dreamTriggered) session.dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_memory"}, apiKey, appId);
-          const res = await mem0.delete(args.id);
+          const res = await runDreamMutation(session, () => mem0.delete(args.id));
           return JSON.stringify(res);
         }
       }),
@@ -593,7 +638,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           user_id: tool.schema.string().optional().describe("User ID whose memories to delete"),
           app_id: tool.schema.string().optional().describe("App ID whose memories to delete"),
           agent_id: tool.schema.string().optional().describe("Agent ID whose memories to delete"),
-          scope: tool.schema.string().optional().describe('Scope to delete: "project" (default), "session", or "global" (user-wide). Use "global" only when explicitly asked.'),
+          scope: SCOPE_SCHEMA.optional().describe('Scope to delete: "project" (default), "session", or "global" (user-wide). Use "global" only when explicitly asked.'),
           confirm: tool.schema.boolean().optional().describe("Must be true after the user explicitly confirms deletion"),
         },
         async execute(args, context) {
@@ -607,19 +652,24 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           if (args.app_id && args.app_id.trim() !== appId) {
             throw new Error("delete_all_memories cannot target a project other than the active project");
           }
+          if (args.scope !== undefined && !isScope(args.scope)) {
+            throw new Error("delete_all_memories received an invalid scope");
+          }
           const scope = asScope(args.scope);
           if (scope === "global" && args.app_id) {
             throw new Error("global deletion cannot include an app_id; omit it to target the active user globally");
           }
-          if (session.dreamTriggered) session.dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
           const sp = scopeWriteParams(scope, userId, appId, session.id);
-          const res = await mem0.deleteAll({
-            user_id: sp.user_id,
-            app_id: sp.app_id,
-            run_id: sp?.run_id,
-            agent_id: args.agent_id,
-          } as any);
+          const res = await runDreamMutation(
+            session,
+            () => mem0.deleteAll({
+              user_id: sp.user_id,
+              app_id: sp.app_id,
+              run_id: sp?.run_id,
+              agent_id: args.agent_id,
+            } as any),
+          );
           return JSON.stringify(res);
         }
       }),
@@ -631,7 +681,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           agent_id: tool.schema.string().optional().describe("Agent ID of the entity to delete"),
           app_id: tool.schema.string().optional().describe("App/Project ID of the entity to delete"),
           run_id: tool.schema.string().optional().describe("Run ID of the entity to delete"),
-          scope: tool.schema.string().optional().describe('Deletion scope: "project" (default), "session", or "global" (active user only)'),
+          scope: SCOPE_SCHEMA.optional().describe('Deletion scope: "project" (default), "session", or "global" (active user only)'),
           confirm: tool.schema.boolean().optional().describe("Must be true after the user explicitly confirms deletion"),
         },
         async execute(args, context) {
@@ -650,6 +700,9 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           }
           if (args.confirm !== true) {
             throw new Error("delete_entities requires explicit user confirmation");
+          }
+          if (args.scope !== undefined && !isScope(args.scope)) {
+            throw new Error("delete_entities received an invalid scope");
           }
           const scope = asScope(args.scope);
           let selector: {userId?: string; agentId?: string; appId?: string; runId?: string};
@@ -687,9 +740,8 @@ export const Mem0Plugin: Plugin = async (ctx) => {
             }
             selector = {agentId: agentIdSelector};
           }
-          if (session.dreamTriggered) session.dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_entities"}, apiKey, appId);
-          const res = await mem0.deleteUsers(selector);
+          const res = await runDreamMutation(session, () => mem0.deleteUsers(selector));
           return JSON.stringify(res);
         }
       }),
@@ -713,11 +765,15 @@ export const Mem0Plugin: Plugin = async (ctx) => {
       get_event_status: tool({
         description: "Check the status of an asynchronous memory operation by event_id.",
         args: {
-          event_id: tool.schema.string().describe("The ID of the event/async operation to check"),
+          event_id: EVENT_ID_SCHEMA.describe("The UUID of the event/async operation to check"),
         },
         async execute(args) {
           captureEvent("tool_use", {tool: "get_event_status"}, apiKey, appId);
-          const response = await mem0.client.get(`/v1/event/${args.event_id}/`);
+          const eventId = EVENT_ID_SCHEMA.safeParse(args.event_id);
+          if (!eventId.success) {
+            throw new Error("get_event_status requires a valid event UUID");
+          }
+          const response = await mem0.client.get(`/v1/event/${encodeURIComponent(eventId.data)}/`);
           return JSON.stringify(response.data);
         }
       }),

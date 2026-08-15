@@ -12,6 +12,13 @@ let addGate: Promise<void> | undefined;
 let releaseAddGate: (() => void) | undefined;
 let activeAdds = 0;
 let maxActiveAdds = 0;
+let nextMutationFailure: "add" | "delete" | "deleteAll" | "deleteUsers" | undefined;
+
+function rejectArmedMutation(name: typeof nextMutationFailure): void {
+  if (nextMutationFailure !== name) return;
+  nextMutationFailure = undefined;
+  throw new Error(`${name} failed`);
+}
 
 mock.module("os", () => ({
   homedir: () => testHome,
@@ -19,15 +26,24 @@ mock.module("os", () => ({
 }));
 
 class FakeMemoryClient {
-  client = { get: async (path: string) => ({ data: { path } }) };
+  client = {
+    get: async (path: string) => {
+      calls.push(["event.get", path]);
+      return {data: {path}};
+    },
+  };
   constructor(public opts: unknown) {}
   async add(messages: unknown, params: unknown) {
     activeAdds++;
     maxActiveAdds = Math.max(maxActiveAdds, activeAdds);
-    await addGate;
-    calls.push(["add", messages, params]);
-    activeAdds--;
-    return { id: "mem_1" };
+    try {
+      await addGate;
+      rejectArmedMutation("add");
+      calls.push(["add", messages, params]);
+      return {id: "mem_1"};
+    } finally {
+      activeAdds--;
+    }
   }
   async search(query: unknown, params: unknown) {
     calls.push(["search", query, params]);
@@ -49,12 +65,19 @@ class FakeMemoryClient {
     return { id };
   }
   async deleteUsers(params: unknown) {
+    rejectArmedMutation("deleteUsers");
     calls.push(["deleteUsers", params]);
     return { message: "deleted" };
   }
   async deleteAll(params: unknown) {
+    rejectArmedMutation("deleteAll");
     calls.push(["deleteAll", params]);
     return { message: "deleted" };
+  }
+  async delete(id: unknown) {
+    rejectArmedMutation("delete");
+    calls.push(["delete", id]);
+    return {message: "deleted"};
   }
 }
 
@@ -73,7 +96,9 @@ function ctx(sessionMessages: unknown[] = []) {
         quiet: async () => ({
           stdout: command.includes("remote get-url")
             ? "git@github.com:mem0ai/mem0.git\n"
-            : "/workspace/mem0\n",
+            : command.includes("branch --show-current")
+              ? "main\n"
+              : "/workspace/mem0\n",
         }),
       };
     };
@@ -105,6 +130,7 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
     releaseAddGate = undefined;
     activeAdds = 0;
     maxActiveAdds = 0;
+    nextMutationFailure = undefined;
     testHome = mkdtempSync(join(tmpdir(), "mem0-kilo-tools-"));
     process.env.MEM0_API_KEY = "m0-testkey1234567890";
     process.env.MEM0_TELEMETRY = "false"; // no PostHog fetch during tests
@@ -162,6 +188,45 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
     expect((call![2] as any).text).toBe("credential [REDACTED]");
   });
 
+  test("add_memory sanitizes nested metadata before calling the SDK", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+    const secret = "s" + "k-" + "abcdefghijklmnopqrstuvwxyz";
+
+    await hooks.tool.add_memory.execute(
+      {
+        text: "store safe metadata",
+        metadata: {
+          owner: "team-a",
+          nested: {token: "short-value", notes: ["safe", `credential ${secret}`]},
+        },
+      },
+      {sessionID: "session-a"} as any,
+    );
+
+    const call = calls.find((candidate) => candidate[0] === "add");
+    expect((call![2] as any).metadata).toMatchObject({
+      owner: "team-a",
+      nested: {token: "[REDACTED]", notes: ["safe", "credential [REDACTED]"]},
+      session_id: "session-a",
+      branch: "main",
+    });
+  });
+
+  test("update_memory sanitizes nested metadata before calling the SDK", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+
+    await hooks.tool.update_memory.execute(
+      {id: "mem_1", metadata: {credentials: {password: "short-value"}, owner: "team-a"}},
+      {sessionID: "session-a"} as any,
+    );
+
+    const call = calls.find((candidate) => candidate[0] === "update");
+    expect((call![2] as any).metadata).toEqual({
+      credentials: "[REDACTED]",
+      owner: "team-a",
+    });
+  });
+
   test("delete_entities rejects an empty selector without calling the SDK", async () => {
     const hooks: any = await Mem0Plugin(ctx());
 
@@ -183,6 +248,23 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
       hooks.tool.delete_entities.execute({confirm: true, app_id: "another-project"}, context),
     ).rejects.toThrow("active project");
     expect(calls.some((c) => c[0] === "deleteAll" || c[0] === "deleteUsers")).toBe(false);
+  });
+
+  test("destructive tools reject an invalid explicit scope without SDK deletion", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+    const context = {sessionID: "session-a"} as any;
+
+    await expect(
+      hooks.tool.delete_all_memories.execute({confirm: true, scope: "sessionn"}, context),
+    ).rejects.toThrow("invalid scope");
+    await expect(
+      hooks.tool.delete_entities.execute(
+        {confirm: true, scope: "projectt", app_id: "mem0ai-mem0"},
+        context,
+      ),
+    ).rejects.toThrow("invalid scope");
+
+    expect(calls.some((call) => call[0] === "deleteAll" || call[0] === "deleteUsers")).toBe(false);
   });
 
   test("confirmed entity deletion sends exactly the active project selector", async () => {
@@ -341,6 +423,88 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
     expect(state.sessionsSince).toBe(0);
   });
 
+  for (const mutation of ["add", "delete", "deleteAll", "deleteUsers"] as const) {
+    test(`failed dream ${mutation} mutation does not record consolidation completion`, async () => {
+      delete process.env.MEM0_DREAM;
+      const stateDir = join(testHome, ".mem0");
+      mkdirSync(stateDir, {recursive: true});
+      writeFileSync(
+        join(stateDir, "settings.json"),
+        JSON.stringify({dream: {enabled: true, auto: true, minHours: 0, minSessions: 0, minMemories: 0}}),
+      );
+      const hooks: any = await Mem0Plugin(ctx());
+
+      await hooks["chat.message"](
+        {sessionID: "session-a"},
+        {parts: [{type: "text", text: "Please remember the tested decision."}]},
+      );
+      expect(existsSync(join(stateDir, "mem0-dream.lock"))).toBe(true);
+
+      nextMutationFailure = mutation;
+      const mutationCall = mutation === "add"
+        ? hooks.tool.add_memory.execute(
+            {text: "The tested decision", scope: "session"},
+            {sessionID: "session-a"} as any,
+          )
+        : mutation === "delete"
+          ? hooks.tool.delete_memory.execute(
+              {id: "mem_1"},
+              {sessionID: "session-a"} as any,
+            )
+          : mutation === "deleteAll"
+            ? hooks.tool.delete_all_memories.execute(
+                {confirm: true, scope: "project"},
+                {sessionID: "session-a"} as any,
+              )
+            : hooks.tool.delete_entities.execute(
+                {confirm: true, scope: "project", app_id: "mem0ai-mem0"},
+                {sessionID: "session-a"} as any,
+              );
+
+      await expect(mutationCall).rejects.toThrow(`${mutation} failed`);
+      await hooks.event({event: {type: "session.idle", properties: {sessionID: "session-a"}}});
+
+      expect(existsSync(join(stateDir, "mem0-dream.lock"))).toBe(false);
+      const state = JSON.parse(readFileSync(join(stateDir, "mem0-dream-state.json"), "utf8"));
+      expect(state.lastConsolidatedAt).toBe(0);
+      expect(state.sessionsSince).toBeGreaterThan(0);
+    });
+  }
+
+  test("a later failed dream mutation prevents completion after an earlier success", async () => {
+    delete process.env.MEM0_DREAM;
+    const stateDir = join(testHome, ".mem0");
+    mkdirSync(stateDir, {recursive: true});
+    writeFileSync(
+      join(stateDir, "settings.json"),
+      JSON.stringify({dream: {enabled: true, auto: true, minHours: 0, minSessions: 0, minMemories: 0}}),
+    );
+    const hooks: any = await Mem0Plugin(ctx());
+
+    await hooks["chat.message"](
+      {sessionID: "session-a"},
+      {parts: [{type: "text", text: "Please remember the tested decision."}]},
+    );
+    await hooks.tool.add_memory.execute(
+      {text: "The consolidated decision", scope: "session"},
+      {sessionID: "session-a"} as any,
+    );
+
+    nextMutationFailure = "delete";
+    await expect(
+      hooks.tool.delete_memory.execute(
+        {id: "mem_1"},
+        {sessionID: "session-a"} as any,
+      ),
+    ).rejects.toThrow("delete failed");
+    await hooks.event({event: {type: "session.idle", properties: {sessionID: "session-a"}}});
+
+    expect(existsSync(join(stateDir, "mem0-dream.lock"))).toBe(false);
+    const state = JSON.parse(readFileSync(join(stateDir, "mem0-dream-state.json"), "utf8"));
+    expect(state.lastConsolidatedAt).toBe(0);
+    expect(state.sessionsSince).toBeGreaterThan(0);
+  });
+
   test("deleting a Kilo session clears its in-memory state", async () => {
     const hooks: any = await Mem0Plugin(ctx());
     const output = { parts: [{ type: "text", text: "A sufficiently long user message" }] };
@@ -467,8 +631,18 @@ describe("kilo-mem0 tool execution (mocked mem0ai SDK)", () => {
 
   test("get_event_status uses the SDK's authed raw client", async () => {
     const hooks: any = await Mem0Plugin(ctx());
-    const res = await hooks.tool.get_event_status.execute({ event_id: "evt_42" }, {} as any);
+    const eventId = "3c90c3cc-0d44-4b50-8888-8dd25736052a";
+    const res = await hooks.tool.get_event_status.execute({event_id: eventId}, {} as any);
 
-    expect(JSON.parse(res)).toEqual({ path: "/v1/event/evt_42/" });
+    expect(JSON.parse(res)).toEqual({path: `/v1/event/${eventId}/`});
+  });
+
+  test("get_event_status rejects non-UUID path input before the authenticated client", async () => {
+    const hooks: any = await Mem0Plugin(ctx());
+
+    await expect(
+      hooks.tool.get_event_status.execute({event_id: "../memories"}, {} as any),
+    ).rejects.toThrow("valid event UUID");
+    expect(calls.some((call) => call[0] === "event.get")).toBe(false);
   });
 });

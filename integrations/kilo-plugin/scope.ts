@@ -13,6 +13,11 @@
 
 export type Scope = "project" | "session" | "global";
 
+/** Return whether an arbitrary value is one of the public scope literals. */
+export function isScope(value: unknown): value is Scope {
+  return value === "project" || value === "session" || value === "global";
+}
+
 /** Filters for `search` / `get_memories` at the given scope. */
 export function scopeSearchFilters(
   scope: Scope,
@@ -51,7 +56,7 @@ export function scopeWriteParams(
 
 /** Normalize an arbitrary value to a valid Scope (defaults to "project"). */
 export function asScope(value: unknown): Scope {
-  return value === "session" || value === "global" ? value : "project";
+  return isScope(value) ? value : "project";
 }
 
 /**

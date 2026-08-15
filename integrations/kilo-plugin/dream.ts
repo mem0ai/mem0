@@ -155,19 +155,43 @@ export function checkMemoryGate(
 export function acquireDreamLock(stateDir: string): boolean {
   ensureDir(stateDir);
   const lp = lockPath(stateDir);
+  let contents: string | undefined;
 
   try {
-    const lock = JSON.parse(readFileSync(lp, "utf-8")) as DreamLock;
-    if (Date.now() - lock.startedAt < LOCK_STALE_MS) {
+    contents = readFileSync(lp, "utf-8");
+  } catch (error) {
+    if ((error as {code?: string})?.code !== "ENOENT") return false;
+  }
+
+  if (contents !== undefined) {
+    let lock: DreamLock | undefined;
+    const now = Date.now();
+    try {
+      const candidate = JSON.parse(contents) as Partial<DreamLock>;
+      if (
+        typeof candidate.pid === "number"
+        && Number.isInteger(candidate.pid)
+        && candidate.pid > 0
+        && typeof candidate.startedAt === "number"
+        && Number.isSafeInteger(candidate.startedAt)
+        && candidate.startedAt > 0
+        && candidate.startedAt <= now
+      ) {
+        lock = candidate as DreamLock;
+      }
+    } catch {
+      // A truncated plugin-owned lock cannot have an active valid owner.
+    }
+
+    if (lock && now - lock.startedAt < LOCK_STALE_MS) {
       return false;
     }
+
     try {
       unlinkSync(lp);
     } catch {
-      /* race ok */
+      /* race ok; the exclusive create below decides ownership */
     }
-  } catch {
-    /* no lock file */
   }
 
   const lock: DreamLock = { pid: process.pid, startedAt: Date.now() };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { scopeSearchFilters, scopeWriteParams, asScope, resolveDefaultScope } from "./scope";
+import { scopeSearchFilters, scopeWriteParams, asScope, isScope, resolveDefaultScope } from "./scope";
 
 describe("memory scope (pi-agent parity)", () => {
   test("project scope = this repo", () => {
@@ -58,5 +58,13 @@ describe("memory scope (pi-agent parity)", () => {
     expect(asScope("project")).toBe("project");
     expect(asScope("nonsense")).toBe("project");
     expect(asScope(undefined)).toBe("project");
+  });
+
+  test("isScope accepts only the three public scope literals", () => {
+    expect(isScope("project")).toBe(true);
+    expect(isScope("session")).toBe(true);
+    expect(isScope("global")).toBe(true);
+    expect(isScope("sessionn")).toBe(false);
+    expect(isScope(undefined)).toBe(false);
   });
 });
