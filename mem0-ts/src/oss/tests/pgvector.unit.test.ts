@@ -38,13 +38,17 @@ function mockPgQuery(sql: string) {
     return { rows: searchRows };
   }
 
+  if (sql.includes("SELECT COUNT(*)")) {
+    return { rows: [{ count: "0" }] };
+  }
+
   return { rows: [] };
 }
 
 jest.mock("pg", () => {
   const clients: any[] = [];
 
-  const Client = jest.fn().mockImplementation((config: any) => {
+  const Pool = jest.fn().mockImplementation((config: any) => {
     const client = {
       config,
       connect: jest.fn().mockResolvedValue(undefined),
@@ -62,10 +66,10 @@ jest.mock("pg", () => {
 
   return {
     __esModule: true,
-    default: { Client, escapeIdentifier },
-    Client,
+    default: { Pool, escapeIdentifier },
+    Pool,
     escapeIdentifier,
-    __mock: { Client, clients },
+    __mock: { Pool, clients },
   };
 });
 
@@ -79,7 +83,7 @@ describe("PGVector", () => {
   beforeEach(() => {
     const pg = require("pg");
     mockState.databaseExists = true;
-    pg.__mock.Client.mockClear();
+    pg.__mock.Pool.mockClear();
     pg.__mock.clients.length = 0;
   });
 
@@ -99,8 +103,8 @@ describe("PGVector", () => {
     await store.initialize();
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(1);
-    expect(pg.__mock.Client).toHaveBeenCalledWith({
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(1);
+    expect(pg.__mock.Pool).toHaveBeenCalledWith({
       connectionString:
         "postgresql://postgres:postgres@db.example.com:5432/neondb",
       ssl,
@@ -144,8 +148,8 @@ describe("PGVector", () => {
     await store.initialize();
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
-    expect(pg.__mock.Client).toHaveBeenNthCalledWith(1, {
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(2);
+    expect(pg.__mock.Pool).toHaveBeenNthCalledWith(1, {
       database: "postgres",
       user: "postgres",
       password: "postgres",
@@ -153,7 +157,7 @@ describe("PGVector", () => {
       port: 5432,
       ssl,
     });
-    expect(pg.__mock.Client).toHaveBeenNthCalledWith(2, {
+    expect(pg.__mock.Pool).toHaveBeenNthCalledWith(2, {
       database: "vector_store",
       user: "postgres",
       password: "postgres",
@@ -233,12 +237,77 @@ describe("PGVector", () => {
     ]);
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(2);
 
     const activeClient = pg.__mock.clients[1];
     expect(activeClient.query).toHaveBeenCalledWith(
       expect.stringContaining("vector <=> $1::vector AS distance"),
       ["[1,0,0]", 4],
     );
+  });
+
+  test("insert() fires concurrent queries that all land on the same pooled connection set (no client.query() overlap warning)", async () => {
+    const store = new PGVector({
+      collectionName: "memories",
+      user: "postgres",
+      password: "postgres",
+      host: "localhost",
+      port: 5432,
+      embeddingModelDims: 3,
+      dimension: 3,
+    } as any);
+
+    await store.initialize();
+
+    const pg = require("pg");
+    const activeClient = pg.__mock.clients[1];
+    activeClient.query.mockClear();
+
+    await store.insert(
+      [
+        [0.1, 0.2, 0.3],
+        [0.4, 0.5, 0.6],
+        [0.7, 0.8, 0.9],
+      ],
+      ["id-1", "id-2", "id-3"],
+      [{ data: "one" }, { data: "two" }, { data: "three" }],
+    );
+
+    // With a Pool, each concurrent insert query() call is independently
+    // checked out and awaited by the mock — all three land, none are
+    // dropped or queued behind one another on a single connection.
+    const insertCalls = activeClient.query.mock.calls.filter(
+      ([sql]: [string]) => sql.includes("INSERT INTO"),
+    );
+    expect(insertCalls).toHaveLength(3);
+  });
+
+  test("list() fires its two concurrent queries (list + count) without contending for one connection", async () => {
+    const store = new PGVector({
+      collectionName: "memories",
+      user: "postgres",
+      password: "postgres",
+      host: "localhost",
+      port: 5432,
+      embeddingModelDims: 3,
+      dimension: 3,
+    } as any);
+
+    await store.initialize();
+
+    const pg = require("pg");
+    const activeClient = pg.__mock.clients[1];
+    activeClient.query.mockClear();
+
+    const [results, count] = await store.list(undefined, 10);
+
+    expect(Array.isArray(results)).toBe(true);
+    expect(typeof count).toBe("number");
+
+    const listAndCountCalls = activeClient.query.mock.calls.filter(
+      ([sql]: [string]) =>
+        sql.includes("SELECT id, payload") || sql.includes("SELECT COUNT(*)"),
+    );
+    expect(listAndCountCalls).toHaveLength(2);
   });
 });
