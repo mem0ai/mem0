@@ -323,10 +323,14 @@ export class Memory {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
-      // For file-based stores (memory/SQLite), always use a separate DB for entities
+      // For file-based stores (memory/SQLite), always use a separate DB for entities.
+      // The suffix swap only fires on a .db path, so anything else needs appending
+      // or both stores open the same file and the same table.
       if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
-        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
+        entityConfig.dbPath = basePath.endsWith(".db")
+          ? basePath.replace(/\.db$/, "_entities.db")
+          : `${basePath}_entities`;
       }
       // Some stores name their physical storage with tableName or indexName and
       // never read collectionName, so renaming the collection alone would leave

@@ -41,6 +41,9 @@ jest.mock("../src/vector_stores/vectorize", () => ({
 jest.mock("../src/vector_stores/databricks", () => ({
   DatabricksVectorStore: jest.fn().mockImplementation(mockStoreStub),
 }));
+jest.mock("../src/vector_stores/memory", () => ({
+  MemoryVectorStore: jest.fn().mockImplementation(mockStoreStub),
+}));
 jest.mock("../src/utils/telemetry", () => ({
   captureClientEvent: jest.fn(),
   captureEvent: jest.fn(),
@@ -94,6 +97,23 @@ describe("entity store does not share storage with the memory store", () => {
     });
     expect(memoryCfg.indexName).toBe("memories");
     expect(entityCfg.indexName).toBe("memories_entities");
+  });
+
+  it("memory: entity db is separate even when dbPath does not end in .db", async () => {
+    const [memoryCfg, entityCfg] = await configsFor("memory", {
+      collectionName: "memories",
+      dbPath: "/tmp/mem0-isolation/store.sqlite",
+    });
+    expect(memoryCfg.dbPath).toBe("/tmp/mem0-isolation/store.sqlite");
+    expect(entityCfg.dbPath).not.toBe(memoryCfg.dbPath);
+  });
+
+  it("memory: existing .db naming is unchanged", async () => {
+    const [, entityCfg] = await configsFor("memory", {
+      collectionName: "memories",
+      dbPath: "/tmp/mem0-isolation/store.db",
+    });
+    expect(entityCfg.dbPath).toBe("/tmp/mem0-isolation/store_entities.db");
   });
 
   it("databricks: existing naming is unchanged", async () => {
