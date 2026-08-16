@@ -185,7 +185,9 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     }
     faiss_instance.index_to_id = {0: "id1", 1: "id2", 2: "id3", 3: "id4"}
 
-    # top_k=2 with filters -> fetch_k = 4; the index returns all four candidates.
+    # With filters the search scans the whole index (ntotal = 4) instead of a
+    # fixed multiple of top_k, so the two matching vectors are still surfaced.
+    mock_faiss_index.ntotal = 4
     search_scores = np.array([[0.9, 0.8, 0.7, 0.6]])
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
@@ -754,3 +756,74 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+
+class TestFilteredSearchRecall:
+    """Filtered search must surface matches ranked below the fetch window.
+
+    Regression test for the bug where search() fetched only ``top_k * 2``
+    candidates from the index and applied filters afterwards, so a scoped
+    user whose vectors all ranked below that cutoff got silently
+    under-returned (or zero) results even though enough matches existed.
+    """
+
+    @staticmethod
+    def _populated_store(temp_dir):
+        # 15 "bob" memories clustered near the query at the origin, plus 5
+        # "alice" memories much farther away, so every alice vector ranks
+        # below the old top_k*2 fetch window for the [0, 0] query.
+        store = FAISS(
+            collection_name="recall_col",
+            path=os.path.join(temp_dir, "recall"),
+            distance_strategy="euclidean",
+            embedding_model_dims=2,
+        )
+        store.insert(
+            vectors=[[0.01 * (i + 1), 0.0] for i in range(15)],
+            payloads=[{"user_id": "bob"} for _ in range(15)],
+            ids=[f"bob-{i}" for i in range(15)],
+        )
+        store.insert(
+            vectors=[[10.0 + i, 0.0] for i in range(5)],
+            payloads=[{"user_id": "alice"} for _ in range(5)],
+            ids=[f"alice-{i}" for i in range(5)],
+        )
+        return store
+
+    def test_filtered_search_returns_matches_below_overfetch_cutoff(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._populated_store(temp_dir)
+
+            results = store.search(query="", vectors=[[0.0, 0.0]], top_k=5, filters={"user_id": "alice"})
+
+            # All 5 alice memories match the filter and must be returned,
+            # even though bob's 15 vectors rank closer to the query.
+            assert [r.id for r in results] == [f"alice-{i}" for i in range(5)]
+            assert all(r.payload["user_id"] == "alice" for r in results)
+
+    def test_filtered_search_respects_top_k(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._populated_store(temp_dir)
+
+            results = store.search(query="", vectors=[[0.0, 0.0]], top_k=3, filters={"user_id": "alice"})
+
+            # Ranked by distance: alice-0 (10.0) < alice-1 (10.01) < ...
+            assert [r.id for r in results] == ["alice-0", "alice-1", "alice-2"]
+
+    def test_filtered_search_with_no_matching_vectors_returns_empty(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._populated_store(temp_dir)
+
+            results = store.search(query="", vectors=[[0.0, 0.0]], top_k=5, filters={"user_id": "carol"})
+
+            assert results == []
+
+    def test_unfiltered_search_still_returns_nearest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = self._populated_store(temp_dir)
+
+            results = store.search(query="", vectors=[[0.0, 0.0]], top_k=5)
+
+            # Without filters the fetch window is top_k and bob's memories
+            # nearest the origin win, closest first.
+            assert [r.id for r in results] == [f"bob-{i}" for i in range(5)]

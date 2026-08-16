@@ -400,7 +400,12 @@ class FAISS(VectorStoreBase):
         if self._should_normalize():
             faiss.normalize_L2(query_vectors)
 
-        fetch_k = top_k * 2 if filters else top_k
+        # Filters are applied after the index lookup, so a fixed fetch window
+        # can miss matching vectors ranked below it and silently return fewer
+        # than top_k results. The indexes used here (IndexFlatL2/IndexFlatIP)
+        # are exhaustive, so scan the whole index when filtering; the loop
+        # below still stops as soon as top_k matches are collected.
+        fetch_k = (self.index.ntotal or top_k) if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
         results = self._parse_output(scores[0], indices[0], fetch_k)
