@@ -657,16 +657,18 @@ class Memory(MemoryBase):
           - otherwise re-embed the entity text and update the payload
             (the vector store's update() requires a vector).
 
-        No-op if the entity store has never been initialized in this process.
         Errors on individual entities are swallowed at debug level; outer
         failures are swallowed at warning level so the primary delete/update
         path is never broken by entity cleanup.
         """
-        if self._entity_store is None:
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Entity store initialization failed for memory_id={memory_id}: {e}")
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
+            listed = entity_store.list(filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
@@ -677,7 +679,7 @@ class Memory(MemoryBase):
                     remaining = [mid for mid in linked if mid != memory_id]
                     if not remaining:
                         try:
-                            self.entity_store.delete(vector_id=row.id)
+                            entity_store.delete(vector_id=row.id)
                         except Exception as e:
                             logger.debug(f"Entity delete failed for id={row.id}: {e}")
                     else:
@@ -692,7 +694,7 @@ class Memory(MemoryBase):
                             continue
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
-                            self.entity_store.update(
+                            entity_store.update(
                                 vector_id=row.id,
                                 vector=vec,
                                 payload=new_payload,
@@ -2142,10 +2144,17 @@ class Memory(MemoryBase):
             self.vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, self.config.vector_store.config
             )
-        # Reset entity store if initialized
-        if self._entity_store is not None:
+        # Reset the entity store, initializing it if needed so a persistent
+        # entity collection from a prior process is still cleared even when
+        # nothing in this process has touched the lazy entity store yet.
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Failed to initialize entity store for reset: {e}")
+            entity_store = None
+        if entity_store is not None:
             try:
-                self._entity_store.reset()
+                entity_store.reset()
             except Exception as e:
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
@@ -2317,15 +2326,18 @@ class AsyncMemory(MemoryBase):
         concurrent _delete_memory coroutines each try to read-modify-write
         the same entity rows' linked_memory_ids lists.
         """
-        if self._entity_store is None:
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Entity store initialization failed for bulk cleanup: {e}")
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            listed = await asyncio.to_thread(entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
-                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                    await asyncio.to_thread(entity_store.delete, vector_id=row.id)
                 except Exception as e:
                     logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
         except Exception as e:
@@ -2333,11 +2345,14 @@ class AsyncMemory(MemoryBase):
 
     async def _remove_memory_from_entity_store(self, memory_id, filters):
         """Async variant of `Memory._remove_memory_from_entity_store`."""
-        if self._entity_store is None:
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Entity store initialization failed for memory_id={memory_id} (async): {e}")
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            listed = await asyncio.to_thread(entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
@@ -2348,7 +2363,7 @@ class AsyncMemory(MemoryBase):
                     remaining = [mid for mid in linked if mid != memory_id]
                     if not remaining:
                         try:
-                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                            await asyncio.to_thread(entity_store.delete, vector_id=row.id)
                         except Exception as e:
                             logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
                     else:
@@ -2364,7 +2379,7 @@ class AsyncMemory(MemoryBase):
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
                             await asyncio.to_thread(
-                                self.entity_store.update,
+                                entity_store.update,
                                 vector_id=row.id,
                                 vector=vec,
                                 payload=new_payload,
@@ -3593,8 +3608,10 @@ class AsyncMemory(MemoryBase):
             errors.extend(batch_errors)
             deleted_count += len(results) - len(batch_errors)
 
-        if self._entity_store is not None:
-            await self._bulk_clear_entity_store(filters)
+        # Clear entity links unconditionally; _bulk_clear_entity_store routes
+        # through the lazy entity store so a persistent entity collection is
+        # still cleaned up in a fresh process that never called add().
+        await self._bulk_clear_entity_store(filters)
 
         if errors:
             logger.warning("Failed to delete %d memories", len(errors))
@@ -3836,9 +3853,17 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
 
-        if self._entity_store is not None:
+        # Reset the entity store, initializing it if needed so a persistent
+        # entity collection from a prior process is still cleared even when
+        # nothing in this process has touched the lazy entity store yet.
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Failed to initialize entity store for reset: {e}")
+            entity_store = None
+        if entity_store is not None:
             try:
-                await asyncio.to_thread(self._entity_store.reset)
+                await asyncio.to_thread(entity_store.reset)
             except Exception as e:
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
