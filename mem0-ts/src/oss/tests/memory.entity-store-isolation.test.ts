@@ -108,6 +108,14 @@ describe("entity store does not share storage with the memory store", () => {
     expect(entityCfg.dbPath).not.toBe(memoryCfg.dbPath);
   });
 
+  it("memory: :memory: is left alone so it stays in memory", async () => {
+    const [, entityCfg] = await configsFor("memory", {
+      collectionName: "memories",
+      dbPath: ":memory:",
+    });
+    expect(entityCfg.dbPath).toBe(":memory:");
+  });
+
   it("memory: existing .db naming is unchanged", async () => {
     const [, entityCfg] = await configsFor("memory", {
       collectionName: "memories",

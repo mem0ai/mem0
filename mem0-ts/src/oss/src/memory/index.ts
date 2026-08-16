@@ -328,9 +328,11 @@ export class Memory {
       // or both stores open the same file and the same table.
       if (entityProvider === "memory") {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
-        entityConfig.dbPath = basePath.endsWith(".db")
-          ? basePath.replace(/\.db$/, "_entities.db")
-          : `${basePath}_entities`;
+        if (basePath !== ":memory:") {
+          entityConfig.dbPath = basePath.endsWith(".db")
+            ? basePath.replace(/\.db$/, "_entities.db")
+            : `${basePath}_entities`;
+        }
       }
       // Some stores name their physical storage with tableName or indexName and
       // never read collectionName, so renaming the collection alone would leave
