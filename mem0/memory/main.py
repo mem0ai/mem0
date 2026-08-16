@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import contextlib
 import gc
 import hashlib
 import json
@@ -2209,6 +2210,18 @@ class AsyncMemory(MemoryBase):
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
 
+        # Embedded vector stores (Qdrant with `path=...`) keep their data in a
+        # process-local database that is not safe to write from several threads
+        # at once. Every store write here goes through asyncio.to_thread, so
+        # concurrent callers produce genuinely parallel writes and a share of
+        # them fail. Serialize writes for those backends only; server-backed
+        # stores handle their own concurrency and keep writing in parallel.
+        #
+        # This lock coordinates coroutines within a single process. Deployments
+        # running multiple workers or containers against one embedded database
+        # need server-mode Qdrant instead.
+        self._write_lock = asyncio.Lock() if getattr(self.vector_store, "is_local", False) else None
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
@@ -2236,6 +2249,17 @@ class AsyncMemory(MemoryBase):
             )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
+
+    async def _store_write(self, fn, *args, **kwargs):
+        """Run a blocking vector/entity store write in a worker thread.
+
+        Identical to `asyncio.to_thread(fn, ...)` except that the call is
+        serialized against other store writes when the backend cannot take
+        concurrent ones. Reads, embeddings and LLM calls stay parallel.
+        """
+        guard = self._write_lock if self._write_lock is not None else contextlib.nullcontext()
+        async with guard:
+            return await asyncio.to_thread(fn, *args, **kwargs)
 
     @property
     def project(self):
@@ -2314,7 +2338,7 @@ class AsyncMemory(MemoryBase):
                 if memory_id not in linked_ids:
                     linked_ids.append(memory_id)
                     payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
+                    await self._store_write(
                         self.entity_store.update,
                         vector_id=match.id,
                         vector=None,
@@ -2328,7 +2352,7 @@ class AsyncMemory(MemoryBase):
                     "linked_memory_ids": [memory_id],
                     **{k: v for k, v in search_filters.items()},
                 }
-                await asyncio.to_thread(
+                await self._store_write(
                     self.entity_store.insert,
                     vectors=[entity_embedding],
                     ids=[entity_id],
@@ -2352,7 +2376,7 @@ class AsyncMemory(MemoryBase):
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
-                    await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                    await self._store_write(self.entity_store.delete, vector_id=row.id)
                 except Exception as e:
                     logger.debug(f"Bulk entity delete failed for id={row.id}: {e}")
         except Exception as e:
@@ -2375,7 +2399,7 @@ class AsyncMemory(MemoryBase):
                     remaining = [mid for mid in linked if mid != memory_id]
                     if not remaining:
                         try:
-                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                            await self._store_write(self.entity_store.delete, vector_id=row.id)
                         except Exception as e:
                             logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
                     else:
@@ -2390,7 +2414,7 @@ class AsyncMemory(MemoryBase):
                             continue
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
-                            await asyncio.to_thread(
+                            await self._store_write(
                                 self.entity_store.update,
                                 vector_id=row.id,
                                 vector=vec,
@@ -2733,7 +2757,7 @@ class AsyncMemory(MemoryBase):
         # never be reported back as a successful ADD.
         persisted_records = []
         try:
-            await asyncio.to_thread(
+            await self._store_write(
                 self.vector_store.insert,
                 vectors=all_vectors,
                 ids=all_ids,
@@ -2743,7 +2767,7 @@ class AsyncMemory(MemoryBase):
         except Exception:
             for rec in records:
                 try:
-                    await asyncio.to_thread(
+                    await self._store_write(
                         self.vector_store.insert, vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]]
                     )
                     persisted_records.append(rec)
@@ -2852,7 +2876,7 @@ class AsyncMemory(MemoryBase):
                             linked |= memory_ids
                             payload["linked_memory_ids"] = sorted(linked)
                             try:
-                                await asyncio.to_thread(
+                                await self._store_write(
                                     self.entity_store.update,
                                     vector_id=match.id,
                                     vector=None,
@@ -2873,7 +2897,7 @@ class AsyncMemory(MemoryBase):
                     # 7e: Batch insert new entities
                     if to_insert_vectors:
                         try:
-                            await asyncio.to_thread(
+                            await self._store_write(
                                 self.entity_store.insert,
                                 vectors=to_insert_vectors,
                                 ids=to_insert_ids,
@@ -3684,7 +3708,7 @@ class AsyncMemory(MemoryBase):
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
-        await asyncio.to_thread(
+        await self._store_write(
             self.vector_store.insert,
             vectors=[embeddings],
             ids=[memory_id],
@@ -3802,7 +3826,7 @@ class AsyncMemory(MemoryBase):
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
-        await asyncio.to_thread(
+        await self._store_write(
             self.vector_store.update,
             vector_id=memory_id,
             vector=embeddings,
@@ -3843,7 +3867,7 @@ class AsyncMemory(MemoryBase):
         payload = existing_memory.payload or {}
         session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
 
-        await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
+        await self._store_write(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
             self.db.add_history,
             memory_id,
