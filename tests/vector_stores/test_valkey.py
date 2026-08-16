@@ -158,6 +158,26 @@ def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
+def test_insert_handles_none_created_at(valkey_db, mock_valkey_client):
+    """Test inserting vectors whose payload carries created_at=None.
+
+    Regression test for #6994: list() read-back supplies created_at=None for
+    records stored without it, and datetime.fromisoformat(None) raises
+    TypeError inside insert().
+    """
+    # Prepare test data
+    vectors = [np.random.rand(1536).tolist()]
+    payloads = [{"hash": "test_hash", "data": "test_data", "created_at": None}]
+    ids = ["test_id"]
+
+    # Call insert — must not raise, and must store a real timestamp
+    valkey_db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    assert isinstance(kwargs["mapping"]["created_at"], int)
+
+
 def test_delete(valkey_db, mock_valkey_client):
     """Test deleting a vector."""
     # Call delete
@@ -202,6 +222,49 @@ def test_update_handles_missing_created_at(valkey_db, mock_valkey_client):
     mock_valkey_client.hset.assert_called_once()
     args, kwargs = mock_valkey_client.hset.call_args
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
+
+
+def test_update_handles_none_timestamps(valkey_db, mock_valkey_client):
+    """Test updating a vector whose payload carries created_at=None and updated_at=None.
+
+    Regression test for #6994: entity payloads read back via list() contain
+    updated_at=None (insert() never writes updated_at), and update() used to
+    call datetime.fromisoformat(None) → TypeError, silently dropping entity
+    link updates during consolidation.
+    """
+    # Prepare test data — mirrors the read-back payload shape from list()
+    vector = np.random.rand(1536).tolist()
+    payload = {
+        "hash": "test_hash",
+        "data": "updated_data",
+        "created_at": None,
+        "updated_at": None,
+        "user_id": "test_user",
+    }
+
+    # Call update — must not raise
+    valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    # created_at=None falls back to a fresh timestamp, like the missing case
+    assert isinstance(kwargs["mapping"]["created_at"], int)
+    # updated_at=None means "not set" — omitted so the stored value is preserved
+    assert "updated_at" not in kwargs["mapping"]
+
+
+def test_update_with_real_updated_at_still_written(valkey_db, mock_valkey_client):
+    """A genuine updated_at string must still be written (guards the new None
+    check against over-matching)."""
+    ts = datetime.now(pytz.timezone("UTC")).isoformat()
+    vector = np.random.rand(1536).tolist()
+    payload = {"hash": "test_hash", "data": "updated_data", "updated_at": ts}
+
+    valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    assert kwargs["mapping"]["updated_at"] == int(datetime.fromisoformat(ts).timestamp())
 
 
 def test_update_with_none_vector_preserves_embedding(valkey_db, mock_valkey_client):

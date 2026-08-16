@@ -304,8 +304,9 @@ class ValkeyDB(VectorStoreBase):
                     # Silently use default value for missing 'data' field
                     pass
 
-                # Ensure created_at is present
-                if "created_at" not in payload:
+                # Ensure created_at is present (treat None like missing —
+                # list() read-back supplies created_at=None for records stored without it)
+                if not payload.get("created_at"):
                     payload["created_at"] = datetime.now(pytz.timezone(self.timezone)).isoformat()
 
                 # Prepare the hash data
@@ -504,8 +505,9 @@ class ValkeyDB(VectorStoreBase):
                 # Silently use default value for missing 'data' field
                 pass
 
-            # Ensure created_at is present
-            if "created_at" not in payload:
+            # Ensure created_at is present (treat None like missing —
+            # list() read-back supplies created_at=None for records stored without it)
+            if not payload.get("created_at"):
                 payload["created_at"] = datetime.now(pytz.timezone(self.timezone)).isoformat()
 
             # Prepare the hash data
@@ -520,8 +522,9 @@ class ValkeyDB(VectorStoreBase):
             if vector is not None:
                 hash_data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
-            # Add updated_at if available
-            if "updated_at" in payload:
+            # Add updated_at if available (treat None like missing — entity payloads
+            # read back via list() carry updated_at=None because insert() never writes it)
+            if payload.get("updated_at"):
                 hash_data["updated_at"] = int(datetime.fromisoformat(payload["updated_at"]).timestamp())
 
             # Add optional fields
