@@ -1628,7 +1628,8 @@ def test_add_long_conversation_truncates_search_embedding(
     ]
     assert len(search_embed_calls) == 1
     embedded_query = search_embed_calls[0][0][0]
-    assert len(embedded_query) == MAX_SEARCH_EMBEDDING_CHARS
+    assert len(embedded_query) <= MAX_SEARCH_EMBEDDING_CHARS
+    assert not embedded_query[0].isspace()
     assert embedded_query.endswith("user: Recent note: I live in New York.\n")
 
     # 2. Verify vector_store.search received truncated query
@@ -1744,6 +1745,7 @@ async def test_async_add_long_conversation_truncates_search_embedding(
     ]
     assert len(search_embed_calls) == 1
     embedded_query = search_embed_calls[0][0][0]
-    assert len(embedded_query) == MAX_SEARCH_EMBEDDING_CHARS
+    assert len(embedded_query) <= MAX_SEARCH_EMBEDDING_CHARS
+    assert not embedded_query[0].isspace()
     assert embedded_query.endswith("user: Recent note: I live in Tokyo.\n")
     assert any("exceeds maximum safe embedding limit" in record.message for record in caplog.records)

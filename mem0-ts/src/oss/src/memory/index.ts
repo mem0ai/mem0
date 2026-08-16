@@ -889,11 +889,13 @@ export class Memory {
 
     // Phase 1: Existing memory retrieval
     let searchMessages = parsedMessages;
-    if (searchMessages.length > MAX_SEARCH_EMBEDDING_CHARS) {
+    const maxChars = (this.config as any).maxSearchEmbeddingChars || MAX_SEARCH_EMBEDDING_CHARS;
+    if (searchMessages.length > maxChars) {
       logger.warn(
-        `Search query text length (${searchMessages.length} characters) exceeds maximum safe embedding limit (${MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context.`,
+        `Search query text length (${searchMessages.length} characters) exceeds maximum safe embedding limit (${maxChars} characters). Truncating to keep the most recent context while preserving word boundaries.`,
       );
-      searchMessages = searchMessages.slice(-MAX_SEARCH_EMBEDDING_CHARS);
+      const sliceIdx = searchMessages.indexOf(" ", searchMessages.length - maxChars);
+      searchMessages = sliceIdx !== -1 ? searchMessages.slice(sliceIdx + 1) : searchMessages.slice(-maxChars);
     }
     const queryEmbedding = await this.embedder.embed(searchMessages, "search");
     const existingResults = await this.vectorStore.search(

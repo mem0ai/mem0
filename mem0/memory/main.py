@@ -925,12 +925,14 @@ class Memory(MemoryBase):
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         search_messages = parsed_messages
-        if len(search_messages) > MAX_SEARCH_EMBEDDING_CHARS:
+        max_chars = getattr(self.config, 'max_search_embedding_chars', None) or MAX_SEARCH_EMBEDDING_CHARS
+        if len(search_messages) > max_chars:
             logger.warning(
                 f"Search query text length ({len(search_messages)} characters) exceeds maximum safe embedding limit "
-                f"({MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context."
+                f"({max_chars} characters). Truncating to keep the most recent context while preserving word boundaries."
             )
-            search_messages = search_messages[-MAX_SEARCH_EMBEDDING_CHARS:]
+            slice_idx = search_messages.find(' ', -max_chars)
+            search_messages = search_messages[slice_idx+1:] if slice_idx != -1 else search_messages[-max_chars:]
         query_embedding = self.embedding_model.embed(search_messages, "search")
         existing_results = self.vector_store.search(
             query=search_messages,
@@ -2587,12 +2589,14 @@ class AsyncMemory(MemoryBase):
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         search_messages = parsed_messages
-        if len(search_messages) > MAX_SEARCH_EMBEDDING_CHARS:
+        max_chars = getattr(self.config, 'max_search_embedding_chars', None) or MAX_SEARCH_EMBEDDING_CHARS
+        if len(search_messages) > max_chars:
             logger.warning(
                 f"Search query text length ({len(search_messages)} characters) exceeds maximum safe embedding limit "
-                f"({MAX_SEARCH_EMBEDDING_CHARS} characters). Truncating to keep the most recent context."
+                f"({max_chars} characters). Truncating to keep the most recent context while preserving word boundaries."
             )
-            search_messages = search_messages[-MAX_SEARCH_EMBEDDING_CHARS:]
+            slice_idx = search_messages.find(' ', -max_chars)
+            search_messages = search_messages[slice_idx+1:] if slice_idx != -1 else search_messages[-max_chars:]
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, search_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
