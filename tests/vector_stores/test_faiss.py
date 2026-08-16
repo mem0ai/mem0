@@ -190,9 +190,7 @@ def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_
     search_indices = np.array([[0, 1, 2, 3]])
     mock_faiss_index.search.return_value = (search_scores, search_indices)
 
-    results = faiss_instance.search(
-        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
-    )
+    results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2, filters={"category": "A"})
 
     # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
     assert len(results) == 2
@@ -754,3 +752,35 @@ class TestCosineNormalization:
 
             assert results[0].id == "x"
             assert results[0].score == pytest.approx(1.0, abs=1e-5)
+
+    def test_search_with_filters_scoped_recall_beyond_top_k_multiplier(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = FAISS(
+                collection_name="filtered_col",
+                path=os.path.join(temp_dir, "filtered"),
+                distance_strategy="euclidean",
+                embedding_model_dims=3,
+            )
+            # 10 vectors for user "bob" positioned close to [0, 0, 0]
+            bob_vectors = [[0.01 * i, 0.0, 0.0] for i in range(10)]
+            bob_payloads = [{"user_id": "bob", "text": f"bob {i}"} for i in range(10)]
+            bob_ids = [f"bob_{i}" for i in range(10)]
+            store.insert(bob_vectors, bob_payloads, bob_ids)
+
+            # 5 vectors for user "alice" positioned further from [0, 0, 0]
+            alice_vectors = [[0.5 + 0.01 * i, 0.0, 0.0] for i in range(5)]
+            alice_payloads = [{"user_id": "alice", "text": f"alice {i}"} for i in range(5)]
+            alice_ids = [f"alice_{i}" for i in range(5)]
+            store.insert(alice_vectors, alice_payloads, alice_ids)
+
+            # Query with filters={"user_id": "alice"} and top_k=5
+            results = store.search(
+                query="",
+                vectors=[0.0, 0.0, 0.0],
+                top_k=5,
+                filters={"user_id": "alice"},
+            )
+
+            assert len(results) == 5
+            assert [r.id for r in results] == [f"alice_{i}" for i in range(5)]
+            assert all(r.payload["user_id"] == "alice" for r in results)

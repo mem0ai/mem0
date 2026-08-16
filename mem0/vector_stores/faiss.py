@@ -400,7 +400,8 @@ class FAISS(VectorStoreBase):
         if self._should_normalize():
             faiss.normalize_L2(query_vectors)
 
-        fetch_k = top_k * 2 if filters else top_k
+        total_count = max(getattr(self.index, "ntotal", 0), len(self.index_to_id))
+        fetch_k = max(total_count, top_k) if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
         results = self._parse_output(scores[0], indices[0], fetch_k)
