@@ -328,10 +328,16 @@ export class Memory {
         const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
         entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
-      if (entityProvider === "databricks") {
-        entityConfig.tableName = entityConfig.tableName
-          ? `${entityConfig.tableName}_entities`
-          : entityCollectionName;
+      // Some stores name their physical storage with tableName or indexName and
+      // never read collectionName, so renaming the collection alone would leave
+      // the entity store pointing at the memory store's own table.
+      if (entityConfig.tableName) {
+        entityConfig.tableName = `${entityConfig.tableName}_entities`;
+      } else if (entityProvider === "databricks") {
+        entityConfig.tableName = entityCollectionName;
+      }
+      if (entityConfig.indexName) {
+        entityConfig.indexName = `${entityConfig.indexName}_entities`;
       }
       this._entityStore = VectorStoreFactory.create(
         entityProvider,
