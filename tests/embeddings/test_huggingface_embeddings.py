@@ -51,11 +51,11 @@ def test_embed_with_model_kwargs(mock_sentence_transformer):
 def test_embed_sets_embedding_dims(mock_sentence_transformer):
     config = BaseEmbedderConfig()
 
-    mock_sentence_transformer.get_sentence_embedding_dimension.return_value = 384
+    mock_sentence_transformer.get_embedding_dimension.return_value = 384
     embedder = HuggingFaceEmbedding(config)
 
     assert embedder.config.embedding_dims == 384
-    mock_sentence_transformer.get_sentence_embedding_dimension.assert_called_once()
+    mock_sentence_transformer.get_embedding_dimension.assert_called_once()
 
 
 def test_embed_with_custom_embedding_dims(mock_sentence_transformer):
@@ -181,3 +181,14 @@ def test_embed_batch_count_mismatch_raises_sentence_transformer(mock_sentence_tr
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_sets_embedding_dims_legacy_sentence_transformer():
+    legacy_model = Mock(spec=["get_sentence_embedding_dimension"])
+    legacy_model.get_sentence_embedding_dimension.return_value = 384
+
+    with patch("mem0.embeddings.huggingface.SentenceTransformer", return_value=legacy_model):
+        embedder = HuggingFaceEmbedding(BaseEmbedderConfig())
+
+    assert embedder.config.embedding_dims == 384
+    legacy_model.get_sentence_embedding_dimension.assert_called_once()
