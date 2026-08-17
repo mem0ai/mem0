@@ -694,14 +694,20 @@ class ValkeyDB(VectorStoreBase):
 
     def _drop_index(self, collection_name, log_level="error"):
         """
-        Drop an index by name using the documented FT.DROPINDEX command.
+        Drop an index by name using the documented FT.DROPINDEX command,
+        including the ``DD`` flag so the underlying documents are deleted too.
+
+        Without ``DD``, ``FT.DROPINDEX`` only removes the index; the hashes
+        remain in the keyspace and are re-adopted the next time an index is
+        created over the same key prefix (e.g. ``reset()`` recreates the index
+        over ``mem0:<collection>``, resurrecting supposedly-cleared memories).
 
         Args:
             collection_name (str): Name of the index to drop.
             log_level (str): Logging level for missing index ("silent", "info", "error").
         """
         try:
-            self.client.execute_command("FT.DROPINDEX", collection_name)
+            self.client.execute_command("FT.DROPINDEX", collection_name, "DD")
             logger.info(f"Successfully deleted index {collection_name}")
             return True
         except ResponseError as e:

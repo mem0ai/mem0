@@ -311,7 +311,11 @@ def test_delete_col(valkey_db, mock_valkey_client):
     assert result is True
 
     # Check that execute_command was called with the correct command
-    mock_valkey_client.execute_command.assert_called_once_with("FT.DROPINDEX", "test_collection")
+    # The DD flag ensures the underlying documents are deleted too, so a
+    # later reset() over the same key prefix doesn't resurrect them.
+    mock_valkey_client.execute_command.assert_called_once_with(
+        "FT.DROPINDEX", "test_collection", "DD"
+    )
 
     # Test error handling - real errors should still raise
     mock_valkey_client.execute_command.side_effect = ResponseError("Error dropping index")
