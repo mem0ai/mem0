@@ -1,5 +1,5 @@
 jest.mock("pg", () => {
-  const Client = jest.fn().mockImplementation(() => ({
+  const Pool = jest.fn().mockImplementation(() => ({
     connect: jest.fn().mockResolvedValue(undefined),
     end: jest.fn().mockResolvedValue(undefined),
     query: jest.fn().mockResolvedValue({ rows: [] }),
@@ -7,8 +7,8 @@ jest.mock("pg", () => {
   const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
   return {
     __esModule: true,
-    default: { Client, escapeIdentifier },
-    Client,
+    default: { Pool, escapeIdentifier },
+    Pool,
     escapeIdentifier,
   };
 });

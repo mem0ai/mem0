@@ -1,6 +1,6 @@
-import type { Client as ClientType, ClientConfig } from "pg";
+import type { Pool as PoolType, PoolConfig } from "pg";
 import pkg from "pg";
-const { Client, escapeIdentifier } = pkg;
+const { Pool, escapeIdentifier } = pkg;
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -162,7 +162,7 @@ interface PGVectorConfig extends VectorStoreConfig {
   host?: string;
   port?: number;
   connectionString?: string;
-  ssl?: ClientConfig["ssl"];
+  ssl?: PoolConfig["ssl"];
   embeddingModelDims: number;
   diskann?: boolean;
   hnsw?: boolean;
@@ -192,7 +192,7 @@ function validateConnectionConfig(config: PGVectorConfig): void {
 function buildClientConfig(
   config: PGVectorConfig,
   database?: string,
-): ClientConfig {
+): PoolConfig {
   const connectionString = getConnectionString(config);
   if (connectionString) {
     return {
@@ -212,7 +212,12 @@ function buildClientConfig(
 }
 
 export class PGVector implements VectorStore {
-  private client: ClientType;
+  // A single pg.Client cannot serve overlapping query() calls: node-postgres
+  // queues them on the one connection, so the concurrent queries issued by
+  // insert() and list() stall or fail. A Pool hands each concurrent query its
+  // own connection. The Python implementation already uses a ConnectionPool
+  // for the same reason.
+  private client: PoolType;
   private collectionName: string;
   private useDiskann: boolean;
   private useHnsw: boolean;
@@ -235,7 +240,7 @@ export class PGVector implements VectorStore {
       : validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
-    this.client = new Client(
+    this.client = new Pool(
       buildClientConfig(
         config,
         this.useDirectConnection ? undefined : "postgres",
@@ -257,8 +262,6 @@ export class PGVector implements VectorStore {
 
   private async _doInitialize(): Promise<void> {
     try {
-      await this.client.connect();
-
       if (!this.useDirectConnection) {
         const dbExists = await this.checkDatabaseExists(this.dbName);
         if (!dbExists) {
@@ -267,8 +270,7 @@ export class PGVector implements VectorStore {
 
         await this.client.end();
 
-        this.client = new Client(buildClientConfig(this.config, this.dbName));
-        await this.client.connect();
+        this.client = new Pool(buildClientConfig(this.config, this.dbName));
       }
 
       await this.client.query("CREATE EXTENSION IF NOT EXISTS vector");

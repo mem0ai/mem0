@@ -42,10 +42,10 @@ function mockPgQuery(sql: string) {
 }
 
 jest.mock("pg", () => {
-  const clients: any[] = [];
+  const pools: any[] = [];
 
-  const Client = jest.fn().mockImplementation((config: any) => {
-    const client = {
+  const Pool = jest.fn().mockImplementation((config: any) => {
+    const pool = {
       config,
       connect: jest.fn().mockResolvedValue(undefined),
       end: jest.fn().mockResolvedValue(undefined),
@@ -54,36 +54,36 @@ jest.mock("pg", () => {
         .mockImplementation(async (sql: string) => mockPgQuery(sql)),
     };
 
-    clients.push(client);
-    return client;
+    pools.push(pool);
+    return pool;
   });
 
   const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
 
   return {
     __esModule: true,
-    default: { Client, escapeIdentifier },
-    Client,
+    default: { Pool, escapeIdentifier },
+    Pool,
     escapeIdentifier,
-    __mock: { Client, clients },
+    __mock: { Pool, pools },
   };
 });
 
 import { PGVector } from "../src/vector_stores/pgvector";
 
-function getClientQueries(client: { query: jest.Mock }) {
-  return client.query.mock.calls.map(([sql]) => sql as string);
+function getPoolQueries(pool: { query: jest.Mock }) {
+  return pool.query.mock.calls.map(([sql]) => sql as string);
 }
 
 describe("PGVector", () => {
   beforeEach(() => {
     const pg = require("pg");
     mockState.databaseExists = true;
-    pg.__mock.Client.mockClear();
-    pg.__mock.clients.length = 0;
+    pg.__mock.Pool.mockClear();
+    pg.__mock.pools.length = 0;
   });
 
-  test("uses one direct client for connectionString mode and skips bootstrap database creation", async () => {
+  test("uses one direct Pool for connectionString mode and skips bootstrap database creation", async () => {
     mockState.databaseExists = false;
 
     const ssl = { rejectUnauthorized: false };
@@ -99,15 +99,15 @@ describe("PGVector", () => {
     await store.initialize();
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(1);
-    expect(pg.__mock.Client).toHaveBeenCalledWith({
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(1);
+    expect(pg.__mock.Pool).toHaveBeenCalledWith({
       connectionString:
         "postgresql://postgres:postgres@db.example.com:5432/neondb",
       ssl,
     });
 
-    const directClient = pg.__mock.clients[0];
-    const queries = getClientQueries(directClient);
+    const directClient = pg.__mock.pools[0];
+    const queries = getPoolQueries(directClient);
 
     expect(queries).not.toEqual(
       expect.arrayContaining([
@@ -144,8 +144,8 @@ describe("PGVector", () => {
     await store.initialize();
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
-    expect(pg.__mock.Client).toHaveBeenNthCalledWith(1, {
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(2);
+    expect(pg.__mock.Pool).toHaveBeenNthCalledWith(1, {
       database: "postgres",
       user: "postgres",
       password: "postgres",
@@ -153,7 +153,7 @@ describe("PGVector", () => {
       port: 5432,
       ssl,
     });
-    expect(pg.__mock.Client).toHaveBeenNthCalledWith(2, {
+    expect(pg.__mock.Pool).toHaveBeenNthCalledWith(2, {
       database: "vector_store",
       user: "postgres",
       password: "postgres",
@@ -162,9 +162,9 @@ describe("PGVector", () => {
       ssl,
     });
 
-    const bootstrapClient = pg.__mock.clients[0];
-    const activeClient = pg.__mock.clients[1];
-    const bootstrapQueries = getClientQueries(bootstrapClient);
+    const bootstrapClient = pg.__mock.pools[0];
+    const activeClient = pg.__mock.pools[1];
+    const bootstrapQueries = getPoolQueries(bootstrapClient);
 
     expect(bootstrapQueries).toEqual(
       expect.arrayContaining([
@@ -173,7 +173,7 @@ describe("PGVector", () => {
       ]),
     );
     expect(bootstrapClient.end).toHaveBeenCalledTimes(1);
-    expect(getClientQueries(activeClient)).toEqual(
+    expect(getPoolQueries(activeClient)).toEqual(
       expect.arrayContaining([
         "CREATE EXTENSION IF NOT EXISTS vector",
         expect.stringContaining("FROM information_schema.tables"),
@@ -233,9 +233,9 @@ describe("PGVector", () => {
     ]);
 
     const pg = require("pg");
-    expect(pg.__mock.Client).toHaveBeenCalledTimes(2);
+    expect(pg.__mock.Pool).toHaveBeenCalledTimes(2);
 
-    const activeClient = pg.__mock.clients[1];
+    const activeClient = pg.__mock.pools[1];
     expect(activeClient.query).toHaveBeenCalledWith(
       expect.stringContaining("vector <=> $1::vector AS distance"),
       ["[1,0,0]", 4],
