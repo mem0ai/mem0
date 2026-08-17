@@ -85,7 +85,8 @@
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
                           "platform/features/custom-instructions",
-                          "platform/features/memory-decay"
+                          "platform/features/memory-decay",
+                          "platform/features/dream"
                         ]
                       },
                       {
@@ -400,7 +401,6 @@
                     "pages": [
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
-                      "cookbooks/essentials/controlling-memory-ingestion",
                       "cookbooks/essentials/tagging-and-organizing-memories",
                       "cookbooks/essentials/exporting-memories"
                     ]
@@ -610,6 +610,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
     {
       "source": "/platform/features/contextual-add",
       "destination": "/core-concepts/memory-operations/add"
@@ -1035,6 +1039,10 @@
       "destination": "/platform/features/graph-memory"
     },
     {
+      "source": "/open-source/features/graph-memory",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
       "source": "/features/:slug",
       "destination": "/platform/features/:slug"
     },
@@ -1241,6 +1249,10 @@
     {
       "source": "/integrations/keywords",
       "destination": "/integrations/respan"
+    },
+    {
+      "source": "/cookbooks/essentials/controlling-memory-ingestion",
+      "destination": "/platform/features/custom-instructions"
     }
   ]
 }

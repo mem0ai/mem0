@@ -3,16 +3,24 @@ title: "Oracle AI Vector Search"
 description: "Use Oracle Database AI Vector Search as a vector store in Mem0 for semantic and relational queries."
 ---
 
+{/* Copyright (c) 2026, Oracle and/or its affiliates. */}
+
 [Oracle AI Vector Search](https://www.oracle.com/database/ai-vector-search/) stores embeddings in an Oracle table using the native `VECTOR` data type, so you can combine semantic search over unstructured data with relational queries over business data in a single database.
 
 ### Requirements
 
 - Oracle Database 23.4 or later, with a user that can create tables and vector indexes
-- The `python-oracledb` driver. In thick mode, Oracle Client 23.4 or later is also required.
+- The `python-oracledb` or `node-oracledb` driver. In thick mode, Oracle Client 23.4 or later is also required.
 
-```bash
+<CodeGroup>
+```bash Python
 pip install oracledb
 ```
+
+```bash TypeScript
+npm install oracledb
+```
+</CodeGroup>
 
 ### Usage
 
@@ -47,11 +55,58 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+  vectorStore: {
+    provider: "oracledb",
+    config: {
+      collectionName: "mem0",
+      embeddingModelDims: 1536,
+      connectionParams: {
+        user: "mem0_user",
+        password: "your-password",
+        connectString: "localhost:1521/FREEPDB1",
+      },
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+const messages = [
+  {
+    role: "user",
+    content: "I'm planning to watch a movie tonight. Any recommendations?",
+  },
+  {
+    role: "assistant",
+    content: "How about thriller movies? They can be quite engaging.",
+  },
+  {
+    role: "user",
+    content: "I'm not a big fan of thriller movies but I love sci-fi movies.",
+  },
+  {
+    role: "assistant",
+    content:
+      "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future.",
+  },
+];
+
+await memory.add(messages, {
+  userId: "alice",
+  metadata: { category: "movies" },
+});
+```
 </CodeGroup>
 
-To reuse a connection or pool you already manage, pass it as `client` instead of `connection_params`:
+To reuse a connection or pool you already manage, pass it as `client` instead of the connection parameters:
 
-```python
+<CodeGroup>
+```python Python
 import oracledb
 
 pool = oracledb.create_pool(user="mem0_user", password="your-password", dsn="localhost:1521/FREEPDB1")
@@ -64,33 +119,52 @@ config = {
 }
 ```
 
+```typescript TypeScript
+import oracledb from "oracledb";
+
+const pool = await oracledb.createPool({
+  user: "mem0_user",
+  password: "your-password",
+  connectString: "localhost:1521/FREEPDB1",
+});
+
+const config = {
+  vectorStore: {
+    provider: "oracledb",
+    config: { client: pool },
+  },
+};
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Oracle AI Vector Search:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `connection_params` | Connection settings passed to `python-oracledb`, such as `user`, `password` and `dsn`. See the [connection handling guide](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html). | `None` |
-| `use_connection_pool` | Create a connection pool from `connection_params` instead of a single connection | `True` |
-| `client` | An existing `oracledb.Connection` or `oracledb.ConnectionPool` to use instead of building one from `connection_params` | `None` |
-| `collection_name` | Name of the Oracle table that stores vectors and payloads | `mem0` |
-| `embedding_model_dims` | Dimension of your embedding vectors, must be greater than 0 | `1536` |
-| `distance_metric` | Distance function used for indexing and search: `COSINE`, `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `DOT`, `HAMMING` or `MANHATTAN` | `COSINE` |
-| `do_create_index` | Whether to create a vector index on the collection | `True` |
-| `index_type` | Vector index type: `HNSW` or `IVF` | `HNSW` |
-| `index_name` | Name of the vector index | `<collection_name>_VEC_IDX` |
-| `index_parameters` | Index tuning parameters. For `HNSW`: `neighbors`, `efconstruction`. For `IVF`: `neighbor partitions`, `samples_per_partition`, `min_vectors_per_partition`. | `None` |
-| `index_accuracy` | Target index accuracy from 1 to 100, applied as `WITH TARGET ACCURACY <n>` | `None` |
+| Python | TypeScript | Description | Default Value |
+| --- | --- | --- | --- |
+| `connection_params` | `connectionParams` | Connection settings passed to the Oracle driver, such as `user`, `password` and `dsn` (`connectString` in TypeScript). See the [Python](https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html) or [Node.js](https://node-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html) connection handling guide. | `None` |
+| `use_connection_pool` | `useConnectionPool` | Create a connection pool from the connection parameters instead of a single connection | `True` |
+| `client` | `client` | An existing Oracle connection or pool to use instead of building one from the connection parameters | `None` |
+| `collection_name` | `collectionName` | Name of the Oracle table that stores vectors and payloads | `mem0` |
+| `embedding_model_dims` | `embeddingModelDims` | Dimension of your embedding vectors, must be greater than 0 | `1536` |
+| `distance_metric` | `distanceMetric` | Distance function used for indexing and search: `COSINE`, `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `DOT`, `HAMMING` or `MANHATTAN` | `COSINE` |
+| `do_create_index` | `doCreateIndex` | Whether to create a vector index on the collection | `True` |
+| `index_type` | `indexType` | Vector index type: `HNSW` or `IVF` | `HNSW` |
+| `index_name` | `indexName` | Name of the vector index | `<collection_name>_VEC_IDX` |
+| `index_parameters` | `indexParameters` | Index tuning parameters. For `HNSW`: `neighbors`, `efconstruction`. For `IVF`: `neighbor partitions`, `samples_per_partition`, `min_vectors_per_partition`. | `None` |
+| `index_accuracy` | `indexAccuracy` | Target index accuracy from 1 to 100, applied as `WITH TARGET ACCURACY <n>` | `None` |
 
 <Note>
-  When you pass a pre-built `client`, Mem0 uses it as-is and ignores `connection_params` and `use_connection_pool`. Mem0 does not close a client it did not create.
+  When you pass a pre-built `client`, Mem0 uses it as-is and ignores the connection parameters and pooling options. Mem0 does not close a client it did not create.
 </Note>
 
 ### Vector indexes
 
 Set the index type with `index_type` and tune it with `index_parameters`:
 
-```python
+<CodeGroup>
+```python Python
 config = {
     "vector_store": {
         "provider": "oracledb",
@@ -103,6 +177,25 @@ config = {
     }
 }
 ```
+
+```typescript TypeScript
+const config = {
+  vectorStore: {
+    provider: "oracledb",
+    config: {
+      connectionParams: {
+        user: "mem0_user",
+        password: "your-password",
+        connectString: "localhost:1521/FREEPDB1",
+      },
+      indexType: "HNSW",
+      indexParameters: { neighbors: 32, efconstruction: 200 },
+      indexAccuracy: 95,
+    },
+  },
+};
+```
+</CodeGroup>
 
 For the full list of supported options, see the Oracle [`CREATE VECTOR INDEX`](https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/create-vector-index.html) reference.
 
@@ -121,14 +214,23 @@ Filters run against the JSON `payload` column and support:
 | Comparison | `{"score": {"gte": 0.5}}`, also `eq`, `ne`, `gt`, `lt`, `lte` |
 | Membership | `{"category": {"in": ["movies", "books"]}}`, also `nin` |
 | String matching | `{"title": {"contains": "sci-fi"}}`, also `icontains` for case-insensitive |
-| Logical groups | `{"AND": [...]}`, `{"OR": [...]}`, `{"NOT": [...]}` |
+| Logical groups | `{"AND": [...]}`, `{"OR": [...]}`, `{"NOT": [...]}`, also `$and`, `$or`, `$not` |
 
 Multiple fields at the top level are combined with `AND`:
 
-```python
+<CodeGroup>
+```python Python
 m.search(
     "movie recommendations",
     user_id="alice",
     filters={"category": {"in": ["movies", "books"]}, "rating": {"gte": 4}},
 )
 ```
+
+```typescript TypeScript
+await memory.search("movie recommendations", {
+  userId: "alice",
+  filters: { category: { in: ["movies", "books"] }, rating: { gte: 4 } },
+});
+```
+</CodeGroup>

@@ -7,6 +7,43 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-08-11" description="v2.0.18">
+
+**Bug Fixes:**
+- **Core:** Percent-escape `%`, `&`, and `=` in `user_id`, `agent_id`, and `run_id` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
+- **Vector Stores:** Raise `ValueError` when a PGVector `in`/`nin` filter value is not a list. A string value was previously iterated character by character into the generated `= ANY(...)` array (so `{"user_id": {"in": "alice"}}` matched `a`, `l`, `i`, `c`, `e`), and a non-iterable value raised a bare `TypeError` from deep inside filter building ([#6879](https://github.com/mem0ai/mem0/pull/6879))
+- **Vector Stores:** Reject `index_accuracy=0` in the Oracle AI Vector Search config. The range check sat behind a truthiness test, so `0` skipped validation entirely and was passed through to `WITH TARGET ACCURACY 0` instead of raising ([#6848](https://github.com/mem0ai/mem0/pull/6848))
+- **Vector Stores:** Close the Oracle connection or pool that Mem0 opened when initialization fails. A client version check, a database version check, or a `create_col()` error previously propagated with the connection still open, leaking it for the life of the process. A caller-supplied `client` is left untouched ([#6839](https://github.com/mem0ai/mem0/pull/6839))
+
+</Update>
+
+<Update label="2026-08-05" description="v2.0.17">
+
+**New Features:**
+- **Client:** Add `agent_custom_instructions` to `project.update()`/`update_project()` (sync and async) and to the `ProjectUpdateOptions` and `AddMemoryOptions` typed models. It sets a second extraction instruction set that applies only to agent-scoped memories: an add passing `agent_id` without `user_id` uses it, one passing both splits by attribution, and while it is unset `custom_instructions` continues to apply to every memory ([#6809](https://github.com/mem0ai/mem0/pull/6809))
+
+</Update>
+
+<Update label="2026-08-04" description="v2.0.16">
+
+**New Features:**
+- **Client:** Add `reference_date`, `latest_only`, and `keyword_search` to `SearchMemoryOptions`, and `latest_only` to `GetAllMemoryOptions`, keeping the Python client's typed options in sync with the Platform API and the CLIs ([#6696](https://github.com/mem0ai/mem0/pull/6696))
+
+**Bug Fixes:**
+- **Core:** Stop `add()` metadata from setting a memory's identity scope. `_build_filters_and_metadata()` now strips `user_id`, `agent_id`, `run_id`, and `actor_id` from caller-supplied `metadata` before building the creation template, so metadata can no longer place a memory into a scope that was never passed through the entity params ([#6656](https://github.com/mem0ai/mem0/pull/6656))
+- **Vector Stores:** Validate Upstash filter keys and values in `search()`, `keyword_search()`, and `list()`. Filter keys must match a safe identifier pattern, values must be `str`/`int`/`float`/`bool`, and string values containing a double quote or backslash are now rejected instead of being interpolated unescaped into the generated query string ([#5981](https://github.com/mem0ai/mem0/pull/5981))
+- **Embeddings:** `FastEmbedEmbedding.embed()` now converts its result with `.tolist()` before returning, so callers get a plain `List[float]` instead of a numpy array ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Embeddings:** `HuggingFaceEmbedding` now passes `api_key` to the OpenAI-compatible client when `huggingface_base_url` is set. The configured key was previously dropped, so the client fell back to `OPENAI_API_KEY` from the environment or raised `OpenAIError` at construction when that was unset ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Embeddings:** Replace Ollama's interactive `pip install` prompt on import with a plain `ImportError`. Importing `mem0.embeddings.ollama` without the `ollama` package previously blocked on stdin and then called `sys.exit(1)`, killing the host process instead of raising ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Core:** `remove_code_blocks()` now returns an empty string for `None` input instead of raising `AttributeError` ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Core:** `parse_vision_messages()` now chains the original exception (`raise ... from e`) when an image download fails, so the root cause is preserved in the traceback ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Core:** `process_telemetry_filters(None)` now returns `([], {})`, matching the two-value tuple every caller unpacks, instead of `{}` ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Core:** `LlmFactory.create()` no longer mutates the caller's config dict in place via `.update(kwargs)`; the merge now builds a new dict ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Rerankers:** The Cohere, HuggingFace, SentenceTransformer, and Zero Entropy rerankers' failure-fallback path no longer mutates the caller's document dicts in place when stamping `rerank_score`; it now falls back on copies ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+- **Vector Stores:** Remove `logging.basicConfig()` calls from the MongoDB and Vertex AI Vector Search providers, so selecting either provider no longer reconfigures the host application's root logger as a side effect ([#6770](https://github.com/mem0ai/mem0/pull/6770))
+
+</Update>
+
 <Update label="2026-08-01" description="v2.0.15">
 
 **Bug Fixes:**
@@ -1169,6 +1206,44 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-08-11" description="v3.1.6">
+
+**New Features:**
+- **Vector Stores:** Add an Oracle AI Vector Search vector store (`oracledb`) to the OSS SDK, with pooled connections, `HNSW`/`IVF` indexes, an optional `indexAccuracy` target, JSON payload filtering, and six selectable distance metrics ([#6690](https://github.com/mem0ai/mem0/pull/6690))
+
+**Bug Fixes:**
+- **Core:** Percent-escape `%`, `&`, and `=` in `userId`, `agentId`, and `runId` when building the session scope key for the recent-conversation buffer, so the key stays unambiguous for ids containing those characters. Ordinary ids keep their existing key; an id already containing `%`, `&`, or `=` maps to a new key, so its buffer starts empty once and refills on the next `add()`. Stored memories are unaffected ([#6892](https://github.com/mem0ai/mem0/pull/6892))
+- **Vector Stores:** Close and clear the Oracle pool that Mem0 created when `initialize()` fails, and reset the cached init promise so the next call retries instead of replaying the rejection forever. A caller-supplied `client` is left untouched ([#6839](https://github.com/mem0ai/mem0/pull/6839))
+- **Vector Stores:** Validate Oracle `insert()` batches before touching the database: `ids` and `payloads` must match `vectors` in length, so a short array can no longer write rows with `undefined` ids or silently drop payloads ([#6839](https://github.com/mem0ai/mem0/pull/6839))
+
+**Improvements:**
+- **Vector Stores:** Cut Oracle round trips. `insert()` now sends the whole batch through one `executeMany()` with explicit `bindDefs` instead of one `INSERT` per vector, `list()` reads the total from a `COUNT(*) OVER ()` window in the same statement instead of issuing a second count query, and an unfiltered `search()` adds the `VECTOR_INDEX_TRANSFORM` hint so the vector index is used ([#6835](https://github.com/mem0ai/mem0/pull/6835))
+
+**Security:**
+- **Dependencies:** Patched 8 high and 18 medium severity dependency vulnerabilities across the pnpm workspace via `pnpm.overrides` (`undici`, `brace-expansion`, `ip-address`) ([#6847](https://github.com/mem0ai/mem0/pull/6847))
+
+</Update>
+
+<Update label="2026-08-05" description="v3.1.5">
+
+**New Features:**
+- **Client:** Add `agentCustomInstructions` to `PromptUpdatePayload`, `AddMemoryOptions`, and `ProjectResponse`. It sets a second extraction instruction set that applies only to agent-scoped memories: an add passing `agentId` without `userId` uses it, one passing both splits by attribution, and while it is unset `customInstructions` continues to apply to every memory ([#6809](https://github.com/mem0ai/mem0/pull/6809))
+
+</Update>
+
+<Update label="2026-08-04" description="v3.1.4">
+
+**New Features:**
+- **Client:** Add `referenceDate` and `keywordSearch` to `SearchMemoryOptions`, keeping the TypeScript client's typed search options in sync with the Platform API ([#6696](https://github.com/mem0ai/mem0/pull/6696))
+
+**Bug Fixes:**
+- **Client:** Take the `/v1/ping/` identity/telemetry call off the request critical path. Every method previously did `if (this.telemetryId === "") await this.ping();`, blocking the first call on each client instance on a network round trip; the ping now resolves in the background through a shared, credentials-keyed promise cache (FIFO-capped at 50 entries), so concurrent clients on the same host/API key share one ping instead of issuing one each, and a failed ping is not cached so the process can retry ([#6788](https://github.com/mem0ai/mem0/pull/6788))
+- **Client:** `deleteUsers()` now issues its per-entity DELETE requests through the shared `fetch()`-based helper instead of the axios instance, which defaulted to `keepAlive: false`. Deleting every user, agent, app, and run now reuses pooled connections instead of paying a fresh TCP/TLS handshake per entity ([#6788](https://github.com/mem0ai/mem0/pull/6788))
+- **Memory (OSS):** Stop `add()` metadata from setting or overwriting a memory's identity scope. Metadata now runs through the same `stripIdentityKeys()` helper as `update()`, so `user_id`/`agent_id`/`run_id` (snake_case or camelCase) and `actor_id` passed in metadata can no longer place a memory into a scope the caller didn't request through `userId`/`agentId`/`runId`/`filters` ([#6377](https://github.com/mem0ai/mem0/pull/6377))
+- **Vector Stores:** Fix Redis `search()` and `list()` building an invalid, empty RediSearch filter expression when `filters` was an empty object or contained only null/undefined values. The shared `buildRedisFilterExpr()` helper now falls back to `"*"` (match all) instead of joining zero conditions into `""` ([#6014](https://github.com/mem0ai/mem0/pull/6014))
+
+</Update>
+
 <Update label="2026-08-01" description="v3.1.3">
 
 **New Features:**
@@ -1748,6 +1823,26 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-08-04" description="Python v0.2.11 / Node v0.2.12">
+
+**New Features:**
+- **`add`:** New `--custom-instructions`, `--custom-categories`, `--structured-data-schema`, and `--timestamp` flags, matching the Platform `/v3/memories/add/` payload fields (Python and Node [#6696](https://github.com/mem0ai/mem0/pull/6696))
+- **`search`:** New `--show-expired`, `--reference-date`, and `--latest-only` flags, forwarded to `/v3/memories/search/` as `show_expired`, `reference_date`, and `latest_only` (Python and Node [#6696](https://github.com/mem0ai/mem0/pull/6696))
+- **`list`:** New `--show-expired` and `--latest-only` flags (Python and Node [#6696](https://github.com/mem0ai/mem0/pull/6696))
+- **`update`:** New `--expires` and `--timestamp` flags (Python and Node [#6696](https://github.com/mem0ai/mem0/pull/6696))
+- **`delete`:** New `--delete-linked` flag to also delete memories linked to the target memory (Python and Node [#6696](https://github.com/mem0ai/mem0/pull/6696))
+
+**Bug Fixes:**
+- **`help --json`:** Emit JSON automatically under agent mode (`--agent`), not only when `--json` is passed explicitly. Python checks `is_agent_mode()` and now renders through `console.print_json()` instead of a plain `console.print(json.dumps(...))` call; Node also checks the root `--agent` flag in addition to the subcommand's `--json` flag (Python and Node [#6773](https://github.com/mem0ai/mem0/pull/6773))
+
+**Changes:**
+- **`add`:** `--categories` is no longer forwarded on `add`. The `/v3/memories/add/` payload has no `categories` field (only `custom_categories`), so the CLI was sending a key the endpoint does not accept. Passing the flag now exits 1 with a message pointing to `--custom-categories` (Python and Node [#6696](https://github.com/mem0ai/mem0/pull/6696))
+
+**Security:**
+- **Dependencies (Node):** Tighten the `postcss` pnpm override from `<8.5.10 → >=8.5.10` to `<8.5.18 → >=8.5.18 <9.0.0`, closing a newer CVE range the previous floor didn't cover, as part of a wider dependency patch sweep across the pnpm workspaces ([#6639](https://github.com/mem0ai/mem0/pull/6639))
+
+</Update>
+
 <Update label="2026-07-13" description="Python v0.2.10 / Node v0.2.11">
 
 **Bug Fixes:**
@@ -1912,6 +2007,19 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 <Tabs>
 <Tab title="Mem0 Plugin">
+
+<Update label="2026-08-04" description="mem0-plugin v0.2.14">
+
+**Fixes:**
+- **Settings loading no longer crashes on a malformed `settings.json`:** If `~/.mem0/settings.json` parsed as valid JSON but wasn't an object (a list or a bare string, for example), `load_settings()` called `.items()` on it and raised. `resolve_config()` guards only against `ImportError`, so the failure escaped into every hook that resolves identity, not just setup. Settings loading now keeps the defaults instead. Setup also stopped claiming it "Created" the settings file when one already existed; it only prints that when it actually wrote one. Shared across Claude Code, Cursor, Codex, and Antigravity.
+
+**New Features:**
+- **Unknown settings key warning:** Setup now flags keys in `settings.json` that the plugin doesn't recognize, so a typo'd setting no longer fails silently.
+
+**Removed:**
+- Dropped the `mem0_doc_search` "openmemory" section now that OpenMemory has been removed from the docs site, so the skill no longer links to pages that don't exist.
+
+</Update>
 
 <Update label="2026-07-14" description="mem0-plugin v0.2.13">
 
@@ -2251,6 +2359,19 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 </Tab>
 
 <Tab title="Antigravity">
+
+<Update label="2026-08-04" description="Antigravity plugin v0.1.6">
+
+**Fixes:**
+- **Settings loading no longer crashes on a malformed `settings.json`:** If `~/.mem0/settings.json` parsed as valid JSON but wasn't an object, every hook that resolves identity previously raised, not just setup. It now keeps the defaults instead, and setup only reports it "Created" the settings file when it actually wrote one.
+
+**Improvements:**
+- **Unknown settings key warning:** Setup now flags keys in `settings.json` it doesn't recognize instead of ignoring them silently.
+
+**Removed:**
+- Dropped the doc-search skill's "openmemory" section now that OpenMemory has been removed from the docs site.
+
+</Update>
 
 <Update label="2026-07-14" description="Antigravity plugin v0.1.5">
 
@@ -2722,6 +2843,21 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="n8n">
 
+<Update label="2026-08-05" description="n8n-nodes-mem0 v0.1.3">
+
+**Changes:**
+- **License changed to MIT:** The published `@mem0/n8n-nodes-mem0` package is now MIT (was Apache-2.0). n8n's Creator Portal requires verified community nodes to be MIT, and the failing license check was the blocker for verification. The rest of the mem0 repo stays Apache-2.0 ([#6804](https://github.com/mem0ai/mem0/pull/6804))
+- **Themed icons:** The node and credential icons now declare `{ light, dark }` variants instead of a single icon, clearing the remaining `icon-prefer-themed-variants` warnings from the Creator Portal scan. No functional changes ([#6804](https://github.com/mem0ai/mem0/pull/6804))
+
+</Update>
+
+<Update label="2026-08-04" description="n8n-nodes-mem0 v0.1.2">
+
+**Changes:**
+- **Package contact:** `author.email` in the published package is now `integrations@mem0.ai` (was `founders@mem0.ai`), so npm and n8n Creator Portal correspondence reaches the integrations team directly. No functional changes ([#6791](https://github.com/mem0ai/mem0/pull/6791))
+
+</Update>
+
 <Update label="2026-07-30" description="n8n-nodes-mem0 v0.1.1">
 
 **Changes:**
@@ -2750,6 +2886,14 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Zapier">
+
+<Update label="2026-08-04" description="Zapier app v0.1.1">
+
+**Bug Fixes:**
+- **Add Memory:** **User ID** is now a required field. Mem0 rejects a write that carries no entity ID, so a Zap left blank failed at the API instead of in the editor. If you scoped memories only by Agent ID or Run ID, set a User ID as well ([#6790](https://github.com/mem0ai/mem0/pull/6790))
+- **Deployment:** Add a root `index.js` that re-exports the compiled app from `dist/`, and point `main` at it. Zapier's Lambda wrapper loads `<root>/index.js` and ignores the `package.json` `main` field, so the deployed app could not resolve its entry point ([#6789](https://github.com/mem0ai/mem0/pull/6789))
+
+</Update>
 
 <Update label="2026-07-29" description="Zapier app v0.1.0">
 

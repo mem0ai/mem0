@@ -21,7 +21,7 @@ export class Mem0 implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Mem0',
 		name: 'mem0',
-		icon: 'file:mem0.svg',
+		icon: { light: 'file:mem0.svg', dark: 'file:mem0.svg' },
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',

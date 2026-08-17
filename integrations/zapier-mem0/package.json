@@ -1,6 +1,6 @@
 {
   "name": "@mem0/zapier",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zapier integration for Mem0 — the memory layer for AI agents.",
   "keywords": [
     "zapier",
@@ -20,7 +20,7 @@
     "directory": "integrations/zapier-mem0"
   },
   "license": "Apache-2.0",
-  "main": "dist/index.js",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
     "test": "jest --testTimeout 180000",
@@ -41,10 +41,17 @@
   ],
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/test/**/*.test.ts"],
-    "setupFiles": ["<rootDir>/test/setup.ts"],
+    "testMatch": [
+      "**/test/**/*.test.ts"
+    ],
+    "setupFiles": [
+      "<rootDir>/test/setup.ts"
+    ],
     "transform": {
-      "^.+\\.tsx?$": ["ts-jest", {}]
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {}
+      ]
     }
   },
   "dependencies": {
@@ -62,8 +69,9 @@
       "form-data@<4.0.6": ">=4.0.6",
       "uuid@<11.1.1": ">=11.1.1",
       "esbuild": ">=0.28.1",
-      "undici@<6.27.0": ">=6.27.0 <8.0.0",
-      "undici@>=8.0.0 <8.5.0": ">=8.5.0"
+      "undici@<7.29.0": ">=7.29.0 <8.0.0",
+      "undici@>=8.0.0 <8.9.0": ">=8.9.0 <9.0.0",
+      "brace-expansion@<1.1.16": ">=1.1.16 <2.0.0"
     }
   }
 }

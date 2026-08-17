@@ -122,11 +122,19 @@ echo "Loves hiking on weekends" | mem0 add --user-id alice
 | `--messages` | Conversation messages as JSON |
 | `-f, --file` | Read messages from a JSON file |
 | `-m, --metadata` | Custom metadata as JSON |
-| `--categories` | Categories (JSON array or comma-separated) |
+| `--categories` | Rejected on `add`. Use `--custom-categories` instead |
+| `--custom-categories` | Custom categories as a JSON array of `{name: description}` objects |
+| `--custom-instructions` | Custom instructions for fact extraction |
+| `--structured-data-schema` | Schema for structured data extraction, as JSON |
+| `--timestamp` | Unix timestamp for the memory |
 | `--expires` | Expiration date, after which the memory stops being returned |
 | `--immutable` | Store the memory so it can never be updated or overwritten |
 | `--no-infer` | Store the text exactly as given, skipping fact extraction |
 | `-o, --output` | Output format: `text`, `json`, `quiet` |
+
+<Note>
+`--categories` is not supported on `add` and exits with an error pointing at `--custom-categories`.
+</Note>
 
 ### `mem0 search`
 
@@ -135,6 +143,7 @@ Search memories using natural language.
 ```bash
 mem0 search "dietary restrictions" --user-id alice
 mem0 search "preferred tools" --user-id alice --output json --top-k 5
+mem0 search "invoices" --user-id alice --filter '{"AND": [{"categories": {"in": ["work"]}}]}'
 ```
 
 | Flag | Description |
@@ -147,8 +156,11 @@ mem0 search "preferred tools" --user-id alice --output json --top-k 5
 | `--threshold` | Minimum similarity score (default: 0.3) |
 | `--rerank` | Enable reranking |
 | `--keyword` | Use keyword search instead of semantic |
-| `--filter` | Advanced filter expression (JSON) |
+| `--filter` | Advanced filter as JSON: `{"AND": [...]}` or `{"OR": [...]}`, e.g. `{"AND": [{"categories": {"in": ["work"]}}]}` |
 | `--fields` | Return only the named fields |
+| `--show-expired` | Include expired memories |
+| `--reference-date` | Reference date for relative queries (`YYYY-MM-DD` or Unix timestamp) |
+| `--latest-only` | Only return the latest version of each memory |
 | `-o, --output` | Output format: `text`, `json`, `table` |
 
 ### `mem0 list`
@@ -172,6 +184,8 @@ mem0 list --user-id alice --after 2024-01-01 --page-size 50
 | `--category` | Filter by category |
 | `--after` | Created after date (YYYY-MM-DD) |
 | `--before` | Created before date (YYYY-MM-DD) |
+| `--show-expired` | Include expired memories |
+| `--latest-only` | Only return the latest version of each memory |
 | `-o, --output` | Output format: `text`, `json`, `table` |
 
 ### `mem0 get`
@@ -200,6 +214,8 @@ echo "new text" | mem0 update <memory-id>
 | Flag | Description |
 |------|-------------|
 | `-m, --metadata` | Replace the memory's metadata with this JSON |
+| `--expires` | Expiration date (YYYY-MM-DD) |
+| `--timestamp` | Unix timestamp for the memory |
 | `-o, --output` | Output format: `text`, `json`, `quiet` |
 
 ### `mem0 delete`
@@ -229,6 +245,7 @@ mem0 delete --all --user-id alice --dry-run
 | `--all` | Delete all memories matching scope filters |
 | `--entity` | Delete the entity and all its memories |
 | `--project` | With `--all`: delete all memories project-wide |
+| `--delete-linked` | Also delete memories linked to this memory |
 | `--dry-run` | Preview without deleting |
 | `--force` | Skip confirmation prompt |
 
@@ -455,7 +472,7 @@ These two flags belong to `mem0` itself, so they go **before** the command name:
 |------|-------------|
 | `--json` | Enable agent mode: structured JSON envelope output, no colors or spinners |
 | `--agent` | Alias for `--json` |
-| `--version` | Print the CLI version and exit |
+| `--version` | Print the CLI version and exit. `mem0 version` does the same thing as a regular subcommand |
 
 <Warning>
 On `init` only, `--agent` means something different. `mem0 init --agent` creates an Agent Mode account (see [Sign up as an agent](/platform/agent-signup)); it does not switch the output to JSON. To get JSON from `init`, put the flag first: `mem0 --json init`.

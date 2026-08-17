@@ -1,0 +1,86 @@
+{
+  "name": "mem0",
+  "version": "0.1.0",
+  "description": "Persistent memory for Kimi Code. Remembers decisions, patterns, and preferences across sessions.",
+  "author": {
+    "name": "Mem0",
+    "email": "support@mem0.ai",
+    "url": "https://mem0.ai"
+  },
+  "homepage": "https://mem0.ai",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "personalization", "mcp", "semantic-search"],
+  "skills": "./skills/",
+  "sessionStart": {
+    "skill": "context-loader"
+  },
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "matcher": "^(startup|resume)$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_session_start.sh",
+      "timeout": 30
+    },
+    {
+      "event": "UserPromptSubmit",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_user_prompt.sh",
+      "timeout": 12
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^(Write|Edit|MultiEdit)$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" block_memory_write.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^mcp__.*mem0.*__(add_memory|search_memories|get_memories|delete_all_memories)$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" enforce_metadata_defaults.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "^Read$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_file_read.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "^mcp__.*mem0.*__",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_post_tool_use.sh",
+      "timeout": 5
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": "^Bash$",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_bash_output.sh",
+      "timeout": 12
+    },
+    {
+      "event": "Stop",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_stop.sh",
+      "timeout": 30
+    },
+    {
+      "event": "PreCompact",
+      "command": "\"$KIMI_PLUGIN_ROOT/scripts/kimi_hook_shim.sh\" on_pre_compact.sh",
+      "timeout": 30
+    }
+  ],
+  "mcpServers": {
+    "mem0": {
+      "transport": "http",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "bearerTokenEnvVar": "MEM0_API_KEY"
+    }
+  },
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Persistent memory layer for AI coding workflows",
+    "longDescription": "Mem0 adds long-term memory to Kimi Code. Store decisions, user preferences, project context, and session state across conversations. Memories are automatically retrieved via semantic search so Kimi always has the right context available.",
+    "developerName": "Mem0",
+    "websiteURL": "https://mem0.ai",
+    "logo": "./logo.svg"
+  }
+}

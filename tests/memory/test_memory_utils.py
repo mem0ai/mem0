@@ -1,9 +1,12 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
+    process_telemetry_filters,
+    remove_code_blocks,
     remove_spaces_from_entities,
     sanitize_relationship_for_cypher,
 )
@@ -114,6 +117,17 @@ class TestParseVisionMessages:
             parse_vision_messages(messages, llm=mock_llm)
         mock_llm.generate_response.assert_not_called()
 
+    def test_download_failure_preserves_original_exception(self):
+        mock_llm = Mock()
+        mock_llm.generate_response.side_effect = ValueError("network down")
+        messages = [
+            {"role": "user", "content": {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}}}
+        ]
+        with pytest.raises(Exception) as exc_info:
+            parse_vision_messages(messages, llm=mock_llm)
+        assert isinstance(exc_info.value.__cause__, ValueError)
+        assert "network down" in str(exc_info.value.__cause__)
+
 
 class TestRemoveSpacesFromEntities:
     """
@@ -168,3 +182,13 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestProcessTelemetryFilters:
+    def test_none_filters_returns_empty_list_and_dict(self):
+        assert process_telemetry_filters(None) == ([], {})
+
+
+class TestRemoveCodeBlocks:
+    def test_none_content_returns_empty_string(self):
+        assert remove_code_blocks(None) == ""

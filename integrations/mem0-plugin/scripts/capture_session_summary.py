@@ -24,6 +24,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_api_key, resolve_user_id
+from _instructions import load_instructions
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-session-summary")
@@ -163,6 +164,7 @@ def store_summary(
     project_id: str,
     branch: str,
     files: list[str],
+    cwd: str | None = None,
 ) -> bool:
     expires = (date.today() + timedelta(days=SUMMARY_EXPIRY_DAYS)).isoformat()
     metadata = {
@@ -188,6 +190,8 @@ def store_summary(
         "infer": True,
         "expiration_date": expires,
     }
+    # Apply the project's mem0.md extraction policy (custom/agent instructions).
+    body.update(load_instructions(cwd))
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -257,7 +261,7 @@ def main():
     summary_prompt = build_summary_prompt(assistant_msg, files)
 
     log.info("Capturing session summary (%d chars, %d files)", len(assistant_msg), len(files))
-    store_summary(api_key, summary_prompt, user_id, session_id, project_id, branch, files)
+    store_summary(api_key, summary_prompt, user_id, session_id, project_id, branch, files, cwd)
 
 
 if __name__ == "__main__":

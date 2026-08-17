@@ -34,6 +34,7 @@ _PLATFORM_MANIFESTS = {
     "claude-code": ("..", ".claude-plugin", "plugin.json"),
     "cursor": ("..", ".cursor-plugin", "plugin.json"),
     "codex": ("..", ".codex-plugin", "plugin.json"),
+    "kimi": ("..", ".kimi-plugin", "plugin.json"),
 }
 _DEFAULT_MANIFEST = ("..", ".claude-plugin", "plugin.json")
 
@@ -74,6 +75,8 @@ def detect_platform() -> str:
         return explicit
     if os.environ.get("ANTIGRAVITY_PLUGIN_ROOT"):
         return "antigravity"
+    if os.environ.get("KIMI_PLUGIN_ROOT"):
+        return "kimi"
     if os.environ.get("PLUGIN_ROOT"):
         return "codex"
     if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_PLUGIN_ROOT"):

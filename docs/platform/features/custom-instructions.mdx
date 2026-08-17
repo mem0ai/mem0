@@ -95,6 +95,100 @@ Exclude:
 - [Irrelevant information]
 ```
 
+## Agent Custom Instructions
+
+`custom_instructions` applies to every memory your project extracts, no matter whose it is. But what is worth remembering about an agent is rarely what is worth remembering about a user: an agent's useful memories are things like which tools fail, which retry strategies work, and how a given environment behaves, not personal preferences.
+
+`agent_custom_instructions` is an optional second set of extraction rules that applies only to agent-scoped memories.
+
+Available from Python SDK `v2.0.17` and TypeScript SDK `v3.1.5`. Upgrade first if you are on an earlier release.
+
+Set it on the project alongside `custom_instructions`:
+
+<CodeGroup>
+```python Python
+client.project.update(
+    custom_instructions="Extract the user's preferences, goals, and constraints.",
+    agent_custom_instructions=(
+        "Extract operational lessons for the agent:\n"
+        "- Tools that failed and the error returned\n"
+        "- Retry or fallback strategies that worked\n"
+        "- Environment quirks worth recalling on the next run\n\n"
+        "Exclude: user preferences, personal details."
+    ),
+)
+```
+
+```javascript JavaScript
+await client.updateProject({
+  customInstructions: "Extract the user's preferences, goals, and constraints.",
+  agentCustomInstructions: `Extract operational lessons for the agent:
+- Tools that failed and the error returned
+- Retry or fallback strategies that worked
+- Environment quirks worth recalling on the next run
+
+Exclude: user preferences, personal details.`,
+});
+```
+</CodeGroup>
+
+### Which instructions apply
+
+Which set governs an `add()` call depends on the entity IDs you pass with it:
+
+| The add call passes | Instructions applied |
+|---------------------|----------------------|
+| `user_id` only | `custom_instructions` |
+| `agent_id` only | `agent_custom_instructions` |
+| `user_id` **and** `agent_id` | `agent_custom_instructions` govern the memories attributed to the assistant; `custom_instructions` govern the rest |
+
+`agent_custom_instructions` is unset by default. While it is unset, `custom_instructions` applies to every memory, so projects that don't set it behave exactly as they did before.
+
+### Overriding for a single call
+
+Both fields are also accepted per request, overriding the project setting for that `add()` only:
+
+<CodeGroup>
+```python Python
+client.add(
+    messages,
+    filters={"agent_id": "support-agent"},
+    agent_custom_instructions="Only remember which tools errored and why.",
+)
+```
+
+```javascript JavaScript
+await client.add(messages, {
+  agentId: "support-agent",
+  agentCustomInstructions: "Only remember which tools errored and why.",
+});
+```
+</CodeGroup>
+
+### Reading and clearing
+
+<CodeGroup>
+```python Python
+# Read the current value
+response = client.project.get(fields=["agent_custom_instructions"])
+print(response["agent_custom_instructions"])
+
+# Clear it; agent memories fall back to custom_instructions
+client.project.update(agent_custom_instructions="")
+```
+
+```javascript JavaScript
+// Read the current value
+const response = await client.getProject({
+  fields: ["agentCustomInstructions"],
+});
+console.log(response.agentCustomInstructions);
+
+// Clear it; agent memories fall back to customInstructions
+await client.updateProject({ agentCustomInstructions: "" });
+```
+</CodeGroup>
+
 ## Real-World Examples
 
 <Tabs>
