@@ -787,13 +787,11 @@ class Memory(MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): If True (default), an LLM is used to extract key facts from
-                'messages' and decide whether to add, update, or delete related memories.
-                If False, 'messages' are added as raw memories directly.
-            memory_type (str, optional): Specifies the type of memory. Currently, only
-                `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
-                creating procedural memories (typically requires 'agent_id'). Otherwise, memories
-                are treated as general conversational/factual memories.
+            infer (bool, optional): If True (default), an LLM extracts key facts from 'messages'
+                and adds facts that are not already stored. Existing memories are used as context
+                but are not updated or deleted. If False, 'messages' are added as raw memories.
+            memory_type (str, optional): If provided, must be `MemoryType.PROCEDURAL.value`
+                ("procedural_memory"). When combined with 'agent_id', creates procedural memory.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
 
         Note:
@@ -804,7 +802,7 @@ class Memory(MemoryBase):
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation, typically
-                  including a list of memory items affected (added, updated) under a "results" key.
+                  including a list of added memory items under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
 
         Raises:
@@ -817,6 +815,14 @@ class Memory(MemoryBase):
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
+        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
+            raise Mem0ValidationError(
+                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
+                error_code="VALIDATION_002",
+                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
+            )
+
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
@@ -827,14 +833,6 @@ class Memory(MemoryBase):
         )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
-
-        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise Mem0ValidationError(
-                message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
-                error_code="VALIDATION_002",
-                details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
-                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
-            )
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -1264,8 +1262,8 @@ class Memory(MemoryBase):
         List all memories.
 
         Args:
-            filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+            filters (dict): Required filter dict containing entity IDs and optional metadata filters.
+                It must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
             show_expired (bool, optional): Include expired memories. Defaults to False.
@@ -1395,8 +1393,8 @@ class Memory(MemoryBase):
         Args:
             query (str): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
-            filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+            filters (dict): Required filter dict containing entity IDs and optional metadata filters.
+                It must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
 
                 Enhanced metadata filtering with operators:
@@ -2452,9 +2450,11 @@ class AsyncMemory(MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): Whether to infer the memories. Defaults to True.
-            memory_type (str, optional): Type of memory to create. Defaults to None.
-                                         Pass "procedural_memory" to create procedural memories.
+            infer (bool, optional): If True (default), an LLM extracts key facts from 'messages'
+                and adds facts that are not already stored. Existing memories are used as context
+                but are not updated or deleted. If False, 'messages' are added as raw memories.
+            memory_type (str, optional): If provided, must be "procedural_memory". When combined
+                with 'agent_id', creates procedural memory.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
 
@@ -2464,10 +2464,15 @@ class AsyncMemory(MemoryBase):
             the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
 
         Returns:
-            dict: A dictionary containing the result of the memory addition operation.
+            dict: A dictionary containing added memory items under a "results" key.
         """
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
+
+        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
+            raise ValueError(
+                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
+            )
 
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
@@ -2476,11 +2481,6 @@ class AsyncMemory(MemoryBase):
         )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
-
-        if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
-            raise ValueError(
-                f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
-            )
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -2916,8 +2916,8 @@ class AsyncMemory(MemoryBase):
         List all memories.
 
         Args:
-            filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+            filters (dict): Required filter dict containing entity IDs and optional metadata filters.
+                It must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
             show_expired (bool, optional): Include expired memories. Defaults to False.
@@ -3047,8 +3047,8 @@ class AsyncMemory(MemoryBase):
         Args:
             query (str): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
-            filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+            filters (dict): Required filter dict containing entity IDs and optional metadata filters.
+                It must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
 
                 Enhanced metadata filtering with operators:

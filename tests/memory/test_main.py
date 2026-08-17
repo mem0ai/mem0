@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import LLMError
+from mem0.exceptions import LLMError, ValidationError as Mem0ValidationError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -28,6 +28,49 @@ def _setup_mocks(mocker):
     mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
 
     return mock_llm, mock_vector_store
+
+
+class TestAddValidationOrder:
+    def test_add_rejects_invalid_memory_type_before_processing_metadata(self, mocker):
+        memory = Memory.__new__(Memory)
+        normalize_expiration = mocker.patch("mem0.memory.main._normalize_expiration_date", return_value=None)
+        detect_temporal_usage = mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata")
+        build_metadata = mocker.patch("mem0.memory.main._build_filters_and_metadata", return_value=({}, {}))
+
+        with pytest.raises(Mem0ValidationError, match="Invalid 'memory_type'"):
+            Memory.add(
+                memory,
+                "hello",
+                user_id="u1",
+                metadata={"source": "test"},
+                expiration_date="2999-01-01",
+                memory_type="semantic_memory",
+            )
+
+        normalize_expiration.assert_not_called()
+        detect_temporal_usage.assert_not_called()
+        build_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_add_rejects_invalid_memory_type_before_processing_metadata(self, mocker):
+        memory = AsyncMemory.__new__(AsyncMemory)
+        normalize_expiration = mocker.patch("mem0.memory.main._normalize_expiration_date", return_value=None)
+        detect_temporal_usage = mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata")
+        build_metadata = mocker.patch("mem0.memory.main._build_filters_and_metadata", return_value=({}, {}))
+
+        with pytest.raises(ValueError, match="Invalid 'memory_type'"):
+            await AsyncMemory.add(
+                memory,
+                "hello",
+                user_id="u1",
+                metadata={"source": "test"},
+                expiration_date="2999-01-01",
+                memory_type="semantic_memory",
+            )
+
+        normalize_expiration.assert_not_called()
+        detect_temporal_usage.assert_not_called()
+        build_metadata.assert_not_called()
 
 
 class TestAddToVectorStoreErrors:
