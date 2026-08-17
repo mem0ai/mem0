@@ -253,7 +253,8 @@
                               "components/embedders/models/together",
                               "components/embedders/models/langchain",
                               "components/embedders/models/aws_bedrock",
-                              "components/embedders/models/fastembed"
+                              "components/embedders/models/fastembed",
+                              "components/embedders/models/voyageai"
                             ]
                           }
                         ]
