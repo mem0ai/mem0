@@ -71,8 +71,10 @@ fi
 
 MEM0_COUNT="?"
 if command -v python3 >/dev/null 2>&1; then
-  MEM0_COUNT=$(python3 -c "
-import json, os, urllib.request, urllib.error
+  MEM0_COUNT=$(PYTHONPATH="$SCRIPT_DIR" python3 -c "
+import json, os, sys, urllib.request, urllib.error
+sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
+from _identity import global_search_filter
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
@@ -95,7 +97,10 @@ def get_count(filters):
 
 try:
     if global_search:
-        filters = {'OR': [{'user_id': '*'}]}
+        # The 4th copy of this filter, and the one missed the first time: a
+        # wildcard-only OR is rejected by the API, so this silently 400ed and the
+        # banner showed memories=?. Shared helper now, so it cannot drift again.
+        filters = global_search_filter(user_id)
     else:
         filters = {'AND': [{'user_id': user_id}, {'app_id': app_id}]}
     total = get_count(filters)

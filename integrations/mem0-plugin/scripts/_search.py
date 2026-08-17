@@ -10,6 +10,8 @@ import json
 import os
 import urllib.request
 
+from _identity import global_search_filter
+
 SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
 SEARCH_TIMEOUT = 5
 
@@ -62,9 +64,7 @@ def search_memories(
         return []
 
     if global_search:
-        # The API rejects wildcard-only filters ("filters must include at least
-        # one positively-scoped entity ID"); a positive user_id keeps the OR valid.
-        filters: dict = {"OR": [{"user_id": user_id}, {"agent_id": "*"}]}
+        filters: dict = global_search_filter(user_id)
     else:
         base_clauses: list[dict] = [{"user_id": user_id}, {"app_id": project_id}]
         if metadata_type:

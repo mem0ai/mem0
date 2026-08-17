@@ -183,6 +183,21 @@ const ERROR_STRONG_RE =
 const ERROR_MULTI_RE = /(Error:|Exception:)/g;
 const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "write", "edit", "multiEdit"]);
 
+/**
+ * Filter for global search — the one definition every caller must use.
+ *
+ * The platform rejects wildcard-only filters ("filters must include at least one
+ * positively-scoped entity ID"), so `{OR: [{user_id: "*"}]}` 400s. Anchoring the OR
+ * with a real user_id keeps it valid while `agent_id: "*"` still widens the search
+ * past the current project.
+ *
+ * Mirrors global_search_filter() in scripts/_identity.py. This literal was previously
+ * repeated at six sites in this file, all of them shipping the rejected shape.
+ */
+function globalSearchFilter(userId: string): any {
+  return { OR: [{ user_id: userId }, { agent_id: "*" }] };
+}
+
 function resolveFilters(args: any, globalSearch: boolean, userId: string, appId: string): any {
   if (args.filters) {
     const existingFilters = args.filters;
@@ -228,7 +243,7 @@ function resolveFilters(args: any, globalSearch: boolean, userId: string, appId:
   }
 
   if (globalSearch) {
-    return { OR: [{ user_id: "*" }] };
+    return globalSearchFilter(userId);
   }
 
   if (args.agent_id) {
@@ -643,7 +658,7 @@ Identity context (resolved at plugin startup):
       }
 
       const searchFilters = globalSearch
-        ? {OR: [{user_id: "*"}]}
+        ? globalSearchFilter(userId)
         : {AND: [{user_id: userId}, {app_id: appId}]};
 
       try {
@@ -762,7 +777,7 @@ Identity context (resolved at plugin startup):
     if (hasResume) {
       try {
         const resumeFilters = globalSearch
-          ? {OR: [{user_id: "*"}]}
+          ? globalSearchFilter(userId)
           : {
             AND: [
               {user_id: userId},
@@ -803,7 +818,7 @@ Identity context (resolved at plugin startup):
     if (!hasResume && memoryCount > 0) {
       try {
         const msgFilters = globalSearch
-          ? {OR: [{user_id: "*"}]}
+          ? globalSearchFilter(userId)
           : {AND: [{user_id: userId}, {app_id: appId}]};
         const res = await mem0.search(safeText, {
           filters: msgFilters,
@@ -921,7 +936,7 @@ Identity context (resolved at plugin startup):
         captureEvent("bash_error", {error_detected: true}, apiKey, appId);
 
         const errorFilters = globalSearch
-          ? {OR: [{user_id: "*"}]}
+          ? globalSearchFilter(userId)
           : {
             AND: [
               {user_id: userId},
@@ -979,7 +994,7 @@ Identity context (resolved at plugin startup):
       });
 
       const compactFilters = globalSearch
-        ? {OR: [{user_id: "*"}]}
+        ? globalSearchFilter(userId)
         : {AND: [{user_id: userId}, {app_id: appId}]};
       const res = await mem0.search("session state decisions learnings", {
         filters: compactFilters,

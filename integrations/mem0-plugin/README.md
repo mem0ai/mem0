@@ -279,7 +279,11 @@ Once installed, the following tools are available:
 
 ### Global search scoping
 
-With `global_search` enabled in `~/.mem0/settings.json`, the plugin widens search and list filters beyond the current project. The widened filter is `{"OR": [{"user_id": <your user id>}, {"agent_id": "*"}]}` — the platform API requires at least one positively-scoped entity ID in every filter and rejects wildcard-only filters, so global search covers all of your user's memories across projects plus agent-scoped memories. It cannot span other user IDs on the same account.
+With `global_search` enabled in `~/.mem0/settings.json`, the plugin widens search and list filters beyond the current project. The widened filter is `{"OR": [{"user_id": <your user id>}, {"agent_id": "*"}]}` — the platform API requires at least one positively-scoped entity ID in every filter and rejects wildcard-only filters, so the `user_id` clause is what keeps the filter valid.
+
+**Scope:** the `agent_id: "*"` clause is *not* constrained by `user_id`, so global search can return agent-scoped memories belonging to other user IDs on the same account. That is deliberate — it is what "all memories, all users, all projects" in `/mem0:switch-project --global` means — but it is worth knowing before enabling it on a shared account. It stays within one Mem0 account; it does not reach across accounts.
+
+Every caller builds this filter through a single definition — `global_search_filter()` in `scripts/_identity.py`, mirrored by `globalSearchFilter()` in `.opencode-plugin/opencode-mem0.ts`. Bash hooks reach the Python one over `PYTHONPATH`, the same way they reach `load_settings`. Add new callers through those helpers rather than writing the literal again.
 
 ## License
 

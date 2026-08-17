@@ -18,7 +18,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _formatting import TYPE_ICONS, format_age
-from _identity import resolve_api_key, resolve_user_id
+from _identity import resolve_api_key, resolve_user_id, global_search_filter
 from _project import resolve_project_id
 
 API_URL = "https://api.mem0.ai"
@@ -32,8 +32,7 @@ def fetch_recent_memories(api_key: str, user_id: str, project_id: str) -> list[d
     global_search = os.environ.get("MEM0_GLOBAL_SEARCH", "false") == "true"
 
     if global_search:
-        # Wildcard-only filters fail API validation; anchor the OR with the user id.
-        filters = {"OR": [{"user_id": user_id}, {"agent_id": "*"}]}
+        filters = global_search_filter(user_id)
     else:
         filters = {"AND": [{"user_id": user_id}, {"app_id": project_id}]}
 
