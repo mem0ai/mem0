@@ -96,6 +96,64 @@ def test_generate_response_legacy_model_uses_max_tokens(mock_litellm):
     assert "max_completion_tokens" not in kwargs
 
 
+def test_generate_response_gemma4_uses_max_output_tokens(mock_litellm):
+    """Gemma 4 models reject max_tokens and require max_output_tokens.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/6920
+    """
+    config = BaseLlmConfig(model="gemma-4-31b", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["max_output_tokens"] == 100
+    assert "max_tokens" not in kwargs
+    assert "max_completion_tokens" not in kwargs
+
+
+def test_generate_response_gemma4_with_provider_prefix_uses_max_output_tokens(mock_litellm):
+    """Gemma 4 detection must strip provider prefixes (e.g. openai/gemma-4-31b)."""
+    config = BaseLlmConfig(model="openai/gemma-4-31b", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["max_output_tokens"] == 100
+    assert "max_tokens" not in kwargs
+
+
+def test_generate_response_gemma3_uses_max_tokens(mock_litellm):
+    """Older Gemma models (gemma-3) keep using max_tokens — guards against regressions."""
+    config = BaseLlmConfig(model="gemma-3-27b", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["max_tokens"] == 100
+    assert "max_output_tokens" not in kwargs
+
+
 def test_generate_response_with_tools(mock_litellm):
     config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1)
     llm = litellm.LiteLLM(config)
