@@ -3,8 +3,13 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
-from mem0.embeddings import voyageai as voyageai_module
-from mem0.embeddings.voyageai import VoyageEmbedding
+from mem0.embeddings.configs import EmbedderConfig
+
+try:
+    from mem0.embeddings import voyageai as voyageai_module
+    from mem0.embeddings.voyageai import VoyageEmbedding
+except ImportError:
+    pytest.skip("voyageai not installed", allow_module_level=True)
 
 DEFAULT_MODEL = "voyage-3.5"
 DEFAULT_EMBEDDING_DIMS = 1024
@@ -209,3 +214,23 @@ def test_single_embed_contextualized_skips_token_counting(mock_voyage_client):
 
     mock_voyage_client.count_tokens.assert_not_called()
     mock_voyage_client.contextualized_embed.assert_called_once()
+
+
+# --- Config / factory integration path -----------------------------------------
+
+
+def test_embedder_config_accepts_voyageai_provider():
+    # The documented `Memory.from_config` path routes through EmbedderConfig, whose
+    # validator rejects any provider missing from its allowlist. This guards against
+    # the factory being registered while the config allowlist is not.
+    config = EmbedderConfig(provider="voyageai", config={"model": "voyage-3.5", "embedding_dims": 1024})
+
+    assert config.provider == "voyageai"
+
+
+def test_factory_creates_voyage_embedder(mock_voyage_client):
+    from mem0.utils.factory import EmbedderFactory
+
+    embedder = EmbedderFactory.create("voyageai", {"model": "voyage-3.5"}, vector_config=None)
+
+    assert isinstance(embedder, VoyageEmbedding)
