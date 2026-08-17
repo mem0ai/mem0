@@ -187,3 +187,25 @@ def test_batching_respects_item_count_cap(mock_voyage_client):
     assert len(embeddings) == 5
     batch_sizes = [len(c.args[0]) for c in mock_voyage_client.embed.call_args_list]
     assert batch_sizes == [2, 2, 1]
+
+
+def test_single_embed_skips_token_counting(mock_voyage_client):
+    # The single-text hot path must not touch token-aware batching: count_tokens
+    # loads a HuggingFace tokenizer on every call, so it must stay off `embed()`.
+    embedder = VoyageEmbedding(BaseEmbedderConfig(model=DEFAULT_MODEL))
+    mock_voyage_client.embed.return_value = Mock(embeddings=[[0.1, 0.2, 0.3]])
+
+    embedder.embed("Sample text to embed.")
+
+    mock_voyage_client.count_tokens.assert_not_called()
+    mock_voyage_client.embed.assert_called_once()
+
+
+def test_single_embed_contextualized_skips_token_counting(mock_voyage_client):
+    embedder = VoyageEmbedding(BaseEmbedderConfig(model="voyage-context-4"))
+    mock_voyage_client.contextualized_embed.return_value = _ctx_response([[0.1]])
+
+    embedder.embed("Sample text to embed.")
+
+    mock_voyage_client.count_tokens.assert_not_called()
+    mock_voyage_client.contextualized_embed.assert_called_once()

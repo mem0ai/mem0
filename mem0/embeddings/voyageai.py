@@ -113,17 +113,21 @@ class VoyageEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        return self.embed_batch([text], memory_action=memory_action or "add")[0]
+        # This is the hot path: mem0's memory layer only ever embeds one text at a
+        # time. A single input is always one request, so skip token-aware batching
+        # entirely — going through `_iter_batches` here would call
+        # `client.count_tokens`, which loads a HuggingFace tokenizer on every call.
+        input_type = self._input_type(memory_action or "add")
+        return self._embed_request([text], input_type)[0]
 
     def embed_batch(self, texts, memory_action="add"):
         if not texts:
             return []
 
         input_type = self._input_type(memory_action)
-        if self._is_contextualized:
-            embeddings = self._embed_contextualized(texts, input_type)
-        else:
-            embeddings = self._embed_plain(texts, input_type)
+        embeddings: List[List[float]] = []
+        for batch in self._iter_batches(texts):
+            embeddings.extend(self._embed_request(batch, input_type))
 
         if len(embeddings) != len(texts):
             raise ValueError(
@@ -132,18 +136,26 @@ class VoyageEmbedding(EmbeddingBase):
             )
         return embeddings
 
-    def _embed_plain(self, texts: List[str], input_type: str) -> List[List[float]]:
-        output_dimension = self._output_dimension()
-        embeddings: List[List[float]] = []
-        for batch in self._iter_batches(texts):
-            kwargs = {"model": self.config.model, "input_type": input_type}
-            if output_dimension is not None:
-                kwargs["output_dimension"] = output_dimension
-            response = self.client.embed(batch, **kwargs)
-            embeddings.extend(response.embeddings)
-        return embeddings
+    def _embed_request(self, batch: List[str], input_type: str) -> List[List[float]]:
+        """Embed one already-formed batch in a single request (no token counting).
 
-    def _embed_contextualized(self, texts: List[str], input_type: str) -> List[List[float]]:
+        Callers are responsible for keeping ``batch`` within Voyage's per-request
+        limits; ``embed`` passes a single text and ``embed_batch`` uses
+        ``_iter_batches``.
+        """
+        if self._is_contextualized:
+            return self._embed_contextualized(batch, input_type)
+        return self._embed_plain(batch, input_type)
+
+    def _embed_plain(self, batch: List[str], input_type: str) -> List[List[float]]:
+        output_dimension = self._output_dimension()
+        kwargs = {"model": self.config.model, "input_type": input_type}
+        if output_dimension is not None:
+            kwargs["output_dimension"] = output_dimension
+        response = self.client.embed(batch, **kwargs)
+        return list(response.embeddings)
+
+    def _embed_contextualized(self, batch: List[str], input_type: str) -> List[List[float]]:
         """Embed each input string as its OWN independent document.
 
         Every string is passed as a flat ``list[str]`` element with auto-chunking
@@ -155,16 +167,15 @@ class VoyageEmbedding(EmbeddingBase):
         for queries, so the retrieval path drops it.
         """
         output_dimension = self._output_dimension()
+        kwargs = {"inputs": batch, "model": self.config.model, "input_type": input_type}
+        if output_dimension is not None:
+            kwargs["output_dimension"] = output_dimension
+        if input_type != "query":
+            kwargs["enable_auto_chunking"] = True
+            kwargs["chunk_size"] = CONTEXT_CHUNK_SIZE
+        response = self.client.contextualized_embed(**kwargs)
         embeddings: List[List[float]] = []
-        for batch in self._iter_batches(texts):
-            kwargs = {"inputs": batch, "model": self.config.model, "input_type": input_type}
-            if output_dimension is not None:
-                kwargs["output_dimension"] = output_dimension
-            if input_type != "query":
-                kwargs["enable_auto_chunking"] = True
-                kwargs["chunk_size"] = CONTEXT_CHUNK_SIZE
-            response = self.client.contextualized_embed(**kwargs)
-            for result in sorted(response.results, key=lambda r: r.index):
-                # Each input is one document of one chunk -> take that single vector.
-                embeddings.append(result.embeddings[0])
+        for result in sorted(response.results, key=lambda r: r.index):
+            # Each input is one document of one chunk -> take that single vector.
+            embeddings.append(result.embeddings[0])
         return embeddings
