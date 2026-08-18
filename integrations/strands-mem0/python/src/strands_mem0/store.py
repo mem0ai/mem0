@@ -35,15 +35,12 @@ environment variable, or pass a Mem0 OSS ``config`` dict for a self-hosted backe
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from strands.memory import AddMessagesContext, MemoryEntry, MemoryStore, MemoryStoreConfig, SearchOptions
 from strands.types.content import Message
 
 from strands_mem0.client import Mem0ServiceClient
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_SEARCH_RESULTS = 5
 # Entity fields that scope a memory in Mem0. At least one must be set.

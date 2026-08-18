@@ -18,11 +18,8 @@ Two backends are supported, matching the ``mem0_memory`` tool in
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 # Platform client classes route entity scope through `filters` on search; the OSS
 # `Memory` takes it as top-level kwargs. We detect the platform by class name so we
