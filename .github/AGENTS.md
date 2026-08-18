@@ -56,6 +56,7 @@ Requiring `CI Gate` also means fork PRs from first-time contributors cannot merg
 | OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 | Pi Agent Plugin | `pi-agent-plugin-cd.yml` | `pi-agent-v*` | npm (`@mem0/pi-agent-plugin`) |
 | n8n Node | `n8n-nodes-mem0-cd.yml` | `n8n-nodes-mem0-v*` | npm (`@mem0/n8n-nodes-mem0`) |
+| strands-mem0 | `strands-mem0-cd.yml` | `strands-mem0-v*` | PyPI (`strands-mem0`) |
 
 - Package CD workflows are `workflow_dispatch`-only, with `tag` and `prerelease` inputs. They check out and build the given tag.
 - All publishing uses **OIDC trusted publishing**. No tokens, no secrets.

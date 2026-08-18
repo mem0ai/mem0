@@ -1,14 +1,14 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "strands-mem0"
-dynamic = ["version"]
+version = "0.1.0"
 description = "Persistent long-term memory for Strands agents, backed by Mem0."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 authors = [
     {name = "Mem0", email = "founders@mem0.ai"}
 ]
@@ -34,9 +34,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://mem0.ai"
-Documentation = "https://github.com/mem0ai/strands-mem0#readme"
-Repository = "https://github.com/mem0ai/strands-mem0"
-Issues = "https://github.com/mem0ai/strands-mem0/issues"
+Documentation = "https://github.com/mem0ai/mem0/tree/main/integrations/strands-mem0#readme"
+Repository = "https://github.com/mem0ai/mem0"
+Issues = "https://github.com/mem0ai/mem0/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -46,19 +46,6 @@ dev = [
     "mypy>=1.15.0,<2.0.0",
     "hatch",
 ]
-
-[tool.hatch.version]
-source = "vcs"
-
-[tool.hatch.version.raw-options]
-# The git repo lives one level up (monorepo-style layout with a python/ subdir,
-# matching the Strands extension-template). Tell hatch-vcs where the .git is.
-root = ".."
-# Match release tags like `python-v0.1.0` and strip the `python-v` prefix so the
-# published package version is a clean SemVer string.
-tag_regex = "^python-v(?P<version>.+)$"
-# hatch-vcs refuses a non-default `root` unless given a reference file next to it.
-relative_to = "pyproject.toml"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/strands_mem0"]
