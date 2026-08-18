@@ -147,9 +147,14 @@ class Completions:
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
-        if not messages or messages[0]["role"] != "system":
-            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
-        return messages
+        # Always return a fresh list of shallow-copied dicts so that mutations
+        # to prepared_messages (e.g. content enrichment in create()) never
+        # bleed back into the caller-owned `messages` list, and the background
+        # _async_add_to_memory thread always sees the original content.
+        copied = [{**msg} for msg in messages]
+        if not copied or copied[0]["role"] != "system":
+            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + copied
+        return copied
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
         def add_task():

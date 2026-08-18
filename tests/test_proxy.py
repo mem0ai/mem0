@@ -138,3 +138,99 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: caller-owned message dicts must not be mutated
+# ---------------------------------------------------------------------------
+
+
+def test_prepare_messages_does_not_alias_dicts_without_system_message(mock_memory_client):
+    """_prepare_messages() must return isolated dict copies when the caller has
+    no system message. Mutating the prepared list must NOT touch the originals."""
+    completions = Completions(mock_memory_client)
+
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "original"},
+    ]
+
+    # Temporarily remove the system message to exercise the prepend-system path.
+    user_only = [{"role": "user", "content": "original"}]
+    prepared = completions._prepare_messages(user_only)
+
+    # Mutate the prepared copy.
+    prepared[-1]["content"] = "MUTATED"
+
+    # The caller's dict must be untouched.
+    assert user_only[-1]["content"] == "original", (
+        "_prepare_messages() aliased the caller's dict (no-system-message path)"
+    )
+
+
+def test_prepare_messages_does_not_alias_dicts_with_system_message(mock_memory_client):
+    """_prepare_messages() must return isolated dict copies even when the caller
+    already provides a system message. This is the path that previously returned
+    the original list unchanged, leaving the dicts shared."""
+    completions = Completions(mock_memory_client)
+
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "original"},
+    ]
+
+    prepared = completions._prepare_messages(messages)
+
+    # Mutating the prepared copy must NOT bleed back to the caller's dicts.
+    prepared[-1]["content"] = "MUTATED"
+
+    assert messages[-1]["content"] == "original", (
+        "_prepare_messages() aliased the caller's dict (with-system-message path)"
+    )
+
+
+def test_create_does_not_mutate_caller_messages(mock_memory_client, mock_litellm):
+    """create() must not mutate the caller-owned messages list or any of its
+    nested dicts, even after memory-enrichment replaces the last user content."""
+    completions = Completions(mock_memory_client)
+
+    original_content = "original user question"
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": original_content},
+    ]
+
+    # Capture what _async_add_to_memory receives so we can verify it sees the
+    # original content and not the enriched prompt.
+    captured_add_messages = []
+
+    def fake_add(messages, **kwargs):
+        # Record a snapshot of the content at call time.
+        captured_add_messages.extend([dict(m) for m in messages])
+
+    mock_memory_client.add.side_effect = fake_add
+    mock_memory_client.search.return_value = [{"memory": "some fact"}]
+    mock_litellm.supports_function_calling.return_value = True
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "reply"}}]}
+
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        user_id="test_user",
+    )
+
+    # 1. The caller's list structure must be intact.
+    assert len(messages) == 2
+
+    # 2. The caller's last user dict must NOT have been overwritten.
+    assert messages[-1]["content"] == original_content, (
+        "create() mutated the caller's last user message content"
+    )
+
+    # 3. The memory write must have received the original question, not the
+    #    enriched prompt that contains "Relevant Memories/Facts".
+    # (The background thread runs synchronously via mock side_effect here.)
+    for msg in captured_add_messages:
+        assert "Relevant Memories/Facts" not in msg.get("content", ""), (
+            "_async_add_to_memory received the enriched prompt instead of the original message"
+        )
