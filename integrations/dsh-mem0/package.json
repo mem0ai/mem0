@@ -1,0 +1,39 @@
+{
+  "name": "dsh-mem0",
+  "version": "0.1.0",
+  "description": "Mem0 long-term memory as a native DeepSeek Harness (Cordis) plugin.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "mem0",
+    "memory",
+    "agent"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "mem0ai": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "latest",
+    "@deepseek-ai/dsh-tools": "latest",
+    "typescript": "^5.6.0"
+  }
+}

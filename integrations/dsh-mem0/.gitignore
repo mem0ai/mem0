@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+
+# local, uncommitted e2e
+*.local.mjs
+package-lock.json
