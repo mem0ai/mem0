@@ -138,3 +138,35 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+def test_prepare_messages_does_not_alias_input_dictionaries(mock_memory_client):
+    """Test that _prepare_messages clones dictionaries to prevent callers or downstreams mutating original objects."""
+    completions = Completions(mock_memory_client)
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "original question"},
+    ]
+
+    prepared = completions._prepare_messages(messages)
+    prepared[-1]["content"] = "injected content"
+
+    assert messages[-1]["content"] == "original question", "Original input messages must not be mutated"
+
+
+def test_completions_create_does_not_mutate_caller_messages(mock_memory_client, mock_litellm):
+    """Test that Completions.create does not mutate caller's messages when injecting retrieved memories."""
+    completions = Completions(mock_memory_client)
+    mock_litellm.supports_function_calling.return_value = True
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_memory_client.search.return_value = [{"memory": "User likes Python"}]
+
+    messages = [{"role": "user", "content": "What is my favorite language?"}]
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        user_id="test_user",
+    )
+
+    assert messages[0]["content"] == "What is my favorite language?", "Completions.create must not mutate input messages in-place"
+

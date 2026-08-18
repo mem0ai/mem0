@@ -147,9 +147,10 @@ class Completions:
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
-        if not messages or messages[0]["role"] != "system":
-            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
-        return messages
+        prepared = [dict(m) for m in messages]
+        if not prepared or prepared[0]["role"] != "system":
+            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + prepared
+        return prepared
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
         def add_task():
@@ -188,4 +189,13 @@ class Completions:
                 entities = [entity for entity in relevant_memories["relations"]]
         elif isinstance(self.mem0_client, mem0.client.main.MemoryClient):
             memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
+        else:
+            if isinstance(relevant_memories, dict) and "results" in relevant_memories:
+                memories_text = "\n".join(memory.get("memory", str(memory)) for memory in relevant_memories["results"])
+                if relevant_memories.get("relations"):
+                    entities = [entity for entity in relevant_memories["relations"]]
+            elif isinstance(relevant_memories, list):
+                memories_text = "\n".join(memory.get("memory", str(memory)) if isinstance(memory, dict) else str(memory) for memory in relevant_memories)
+            else:
+                memories_text = str(relevant_memories)
         return f"- Relevant Memories/Facts: {memories_text}\n\n- Entities: {entities}\n\n- User Question: {messages[-1]['content']}"
