@@ -47,6 +47,10 @@ Voyage AI exposes general-purpose, domain-specific, and contextualized embedding
 
 See the [Voyage AI model overview](https://docs.voyageai.com/docs/embeddings) for dimensions, context lengths, and per-model token limits.
 
+<Note>
+`voyage-4-nano` runs **on-device** through the `voyageai` SDK rather than the hosted API, so it needs the local extras (`pip install "voyageai[local]"`, which pulls in `torch` and `sentence-transformers`) and no `VOYAGE_API_KEY`. All other models call the hosted API. The Mem0 config is identical either way — only the model name changes.
+</Note>
+
 ### Contextualized embeddings
 
 Selecting a `voyage-context-*` model routes embeddings through Voyage's [contextualized embeddings](https://docs.voyageai.com/docs/contextualized-chunk-embeddings) endpoint.
