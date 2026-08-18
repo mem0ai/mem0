@@ -26,9 +26,11 @@ class FakeMemory:
     """Stand-in for mem0.Memory (OSS: scope goes as top-level kwargs)."""
 
     def __init__(self):
+        self.add_calls = []
         self.search_calls = []
 
     def add(self, messages, **kwargs):
+        self.add_calls.append((messages, kwargs))
         return {"results": []}
 
     def search(self, query, **kwargs):
@@ -79,6 +81,7 @@ def test_store_memory_is_verbatim():
     assert kwargs["infer"] is False
     assert kwargs["user_id"] == "alex"
     assert kwargs["metadata"] == {"k": "v"}
+    assert kwargs["source"] == "STRANDS"  # telemetry attribution
 
 
 def test_store_messages_infers():
@@ -92,6 +95,19 @@ def test_store_messages_infers():
     assert messages == turns
     assert kwargs["infer"] is True
     assert kwargs["user_id"] == "alex"
+    assert kwargs["source"] == "STRANDS"  # telemetry attribution
+
+
+def test_oss_writes_omit_source():
+    """OSS Memory.add has a fixed signature, so the source tag must be platform-only."""
+    fake = FakeMemory()
+    client = Mem0ServiceClient(client=fake)
+
+    client.store_memory("a fact", {"user_id": "alex"}, None)
+    client.store_messages([{"role": "user", "content": "hi"}], {"user_id": "alex"})
+
+    for _, kwargs in fake.add_calls:
+        assert "source" not in kwargs
 
 
 # ---------------------------------------------------------------------------

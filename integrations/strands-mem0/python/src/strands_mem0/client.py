@@ -26,6 +26,12 @@ from typing import Any
 # do not have to import (and thus hard-depend on) a specific mem0 submodule here.
 _PLATFORM_CLIENTS = {"MemoryClient", "AsyncMemoryClient"}
 
+# Tags platform writes so Mem0's backend attributes the memory to this integration
+# in telemetry (the backend keeps recognized values via its KNOWN_EVENT_SOURCES
+# allowlist; unknown ones bucket into "OTHERS"). Platform only: the OSS
+# ``Memory.add`` has a fixed signature and rejects unknown kwargs.
+_SOURCE = "STRANDS"
+
 
 def _is_platform_client(client: Any) -> bool:
     """Whether ``client`` is a hosted Mem0 platform client (vs an OSS ``Memory``)."""
@@ -99,7 +105,7 @@ class Mem0ServiceClient:
         fact (from the ``add_memory`` tool or a client-side extractor), so Mem0's
         own extraction is skipped to preserve it exactly.
         """
-        return self.mem0.add(content, metadata=metadata, infer=False, **scope)
+        return self.mem0.add(content, metadata=metadata, infer=False, **self._write_extras(), **scope)
 
     def store_messages(self, messages: list[dict[str, Any]], scope: dict[str, str]) -> Any:
         """Hand raw conversation turns to Mem0 for server-side extraction (``infer=True``).
@@ -108,7 +114,16 @@ class Mem0ServiceClient:
         facts on the server, so no client-side model call is needed; extraction
         writes are at-least-once, which Mem0 tolerates.
         """
-        return self.mem0.add(messages, infer=True, **scope)
+        return self.mem0.add(messages, infer=True, **self._write_extras(), **scope)
+
+    def _write_extras(self) -> dict[str, str]:
+        """Extra kwargs attached to platform writes: the telemetry ``source`` tag.
+
+        Platform only -- the OSS ``Memory.add`` has a fixed signature and would
+        raise on an unknown ``source`` kwarg, and source attribution is a
+        platform/backend concept in the first place.
+        """
+        return {"source": _SOURCE} if self.is_platform else {}
 
     def search_memories(self, query: str, scope: dict[str, str], top_k: int) -> list[dict[str, Any]]:
         """Semantic recall, scoped to the store's entity.
