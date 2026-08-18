@@ -1921,18 +1921,25 @@ class Memory(MemoryBase):
         seen_batches = set()
         while True:
             memories = self.vector_store.list(
-                filters=filters, top_k=DELETE_ALL_BATCH_SIZE
-            )[0]
-            if not memories:
+                filters=filters,
+                top_k=DELETE_ALL_BATCH_SIZE,
+            )
+            batch = memories[0] if memories else []
+
+            if not batch:
                 break
-            batch_ids = tuple(sorted(str(memory.id) for memory in memories))
+
+            batch_ids = tuple(sorted(str(memory.id) for memory in batch))
             if batch_ids in seen_batches:
                 logger.warning("Stopping delete_all after a repeated memory batch")
                 break
+
             seen_batches.add(batch_ids)
-            for memory in memories:
+
+            for memory in batch:
                 self._delete_memory(memory.id)
-            deleted_count += len(memories)
+
+            deleted_count += len(batch)
 
         logger.info(f"Deleted {deleted_count} memories")
 

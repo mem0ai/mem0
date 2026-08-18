@@ -296,6 +296,14 @@ def test_delete_all(memory_instance):
     assert result["message"] == "Memories deleted successfully!"
 
 
+def test_delete_all_handles_empty_outer_list(memory_instance):
+    """delete_all should succeed when the vector store returns an empty list."""
+    memory_instance.vector_store.list = Mock(return_value=[])
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+
 def test_delete_all_paginates_beyond_vector_store_page_size(memory_instance):
     first_batch = [Mock(id=str(index)) for index in range(1000)]
     second_batch = [Mock(id="1000")]
