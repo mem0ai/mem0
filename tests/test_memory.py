@@ -1008,6 +1008,33 @@ async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_l
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_sync_delete_all_empty_vector_store_result(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Regression test: sync delete_all must not raise IndexError when
+    vector_store.list() returns a flat empty list (e.g. LangChain adapter
+    on an empty/no-match collection), matching what AsyncMemory.delete_all
+    already handles via `batch = memories[0] if memories else []`.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_store.list.return_value = []
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    result = memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.delete.call_count == 0
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
 class TestProcessMetadataFiltersMerge:
     """Regression tests for issue #3952: multiple operators on the same key must be merged."""
