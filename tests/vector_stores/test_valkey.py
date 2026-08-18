@@ -21,6 +21,7 @@ def mock_valkey_client():
         mock_client.return_value.hset = MagicMock()
         mock_client.return_value.hgetall = MagicMock()
         mock_client.return_value.delete = MagicMock()
+        mock_client.return_value.scan_iter = MagicMock(return_value=[])
         yield mock_client.return_value
 
 
@@ -305,6 +306,8 @@ def test_delete_col(valkey_db, mock_valkey_client):
     """Test deleting a collection."""
     # Reset the mock to clear previous calls
     mock_valkey_client.execute_command.reset_mock()
+    mock_valkey_client.scan_iter.reset_mock()
+    mock_valkey_client.delete.reset_mock()
 
     # Test successful deletion
     result = valkey_db.delete_col()
@@ -312,6 +315,20 @@ def test_delete_col(valkey_db, mock_valkey_client):
 
     # Check that execute_command was called with the correct command
     mock_valkey_client.execute_command.assert_called_once_with("FT.DROPINDEX", "test_collection")
+
+    # Valkey's FT.DROPINDEX does not support DD, so the document hashes must be
+    # deleted explicitly: scan the collection prefix and delete the keys.
+    mock_valkey_client.scan_iter.assert_called_once_with(match="mem0:test_collection:*")
+
+    # With no keys, delete is not called
+    mock_valkey_client.delete.assert_not_called()
+
+    # When hashes exist under the prefix, they are deleted
+    mock_valkey_client.scan_iter.return_value = ["mem0:test_collection:abc", "mem0:test_collection:def"]
+    valkey_db.delete_col()
+    mock_valkey_client.delete.assert_called_once_with(
+        "mem0:test_collection:abc", "mem0:test_collection:def"
+    )
 
     # Test error handling - real errors should still raise
     mock_valkey_client.execute_command.side_effect = ResponseError("Error dropping index")

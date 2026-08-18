@@ -723,9 +723,23 @@ class ValkeyDB(VectorStoreBase):
 
     def delete_col(self):
         """
-        Delete the current collection (index).
+        Delete the current collection (index) and its documents.
+
+        Valkey's ``FT.DROPINDEX`` only removes the index — the underlying
+        ``mem0:<collection>:*`` hashes survive and are re-adopted the next
+        time an index is created over the same key prefix (e.g. ``reset()``
+        recreates the index over the same prefix, resurrecting supposedly
+        cleared memories). Delete the keys explicitly so a reset is actually
+        destructive.
         """
-        return self._drop_index(self.collection_name, log_level="info")
+        dropped = self._drop_index(self.collection_name, log_level="info")
+
+        # Delete the document hashes under this collection's key prefix.
+        keys = list(self.client.scan_iter(match=f"{self.prefix}:*"))
+        if keys:
+            self.client.delete(*keys)
+
+        return dropped
 
     def col_info(self, name=None):
         """
