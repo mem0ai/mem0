@@ -1574,3 +1574,18 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
 
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
+
+
+def test_sync_delete_all_empty_outer_list():
+    import mem0.memory.main as mm
+
+    with patch("mem0.memory.main.capture_event"):
+        memory = mm.Memory.__new__(mm.Memory)
+        memory.vector_store = MagicMock()
+        memory.vector_store.list.return_value = []
+        memory.db = MagicMock()
+        memory.graph = MagicMock()
+
+        result = memory.delete_all(user_id="u1")
+        assert result == {"message": "Memories deleted successfully!"}
+        memory.vector_store.list.assert_called_once()
