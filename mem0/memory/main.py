@@ -331,8 +331,9 @@ def _build_filters_and_metadata(
        scope is set from the entity params only; identity keys in `input_metadata` are
        dropped, so freeform metadata cannot place a memory into an unrequested scope.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
-       provided session identifier(s), any `input_filters`, and a resolved actor
-       identifier for targeted filtering if specified by any actor-related inputs.
+       provided session identifier(s), any `input_filters`, any promoted `input_metadata`
+       keys (for scope isolation), and a resolved actor identifier for targeted filtering
+       if specified by any actor-related inputs.
 
     Actor filtering precedence: explicit `actor_id` arg → `filters["actor_id"]`
     This resolved actor ID is used for querying but is not added to `base_metadata_template`,
@@ -396,6 +397,14 @@ def _build_filters_and_metadata(
             suggestion="Please provide at least one identifier to scope the memory operation."
         )
 
+    # ---------- metadata scope keys ----------
+    # Merge non-entity metadata keys into query filters so add() scopes
+    # Phase 1 retrieval and session partitioning the same way search() does.
+    if input_metadata:
+        for k, v in input_metadata.items():
+            if k not in effective_query_filters and v is not None:
+                effective_query_filters[k] = v
+
     # ---------- optional actor filter ----------
     resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
     if resolved_actor_id:
@@ -410,9 +419,9 @@ def _escape_scope_value(val: Any) -> str:
 
 
 def _build_session_scope(filters):
-    """Build deterministic session scope string from entity IDs."""
+    """Build deterministic session scope string from filter keys."""
     parts = []
-    for key in sorted(["user_id", "agent_id", "run_id"]):
+    for key in sorted(filters.keys()):
         val = filters.get(key)
         if val:
             parts.append(f"{key}={_escape_scope_value(val)}")
@@ -921,7 +930,8 @@ class Memory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = {k: v for k, v in filters.items() if v}
+        entity_search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -1139,7 +1149,7 @@ class Memory(MemoryBase):
                         queries=valid_texts,
                         vectors_list=valid_vectors,
                         top_k=1,
-                        filters=search_filters,
+                        filters=entity_search_filters,
                     )
 
                     # 7d: Separate into inserts vs updates
@@ -1173,7 +1183,7 @@ class Memory(MemoryBase):
                                 "data": entity_text,
                                 "entity_type": entity_type,
                                 "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
+                                **entity_search_filters,
                             })
 
                     # 7e: Single batch insert for all new entities
@@ -2576,7 +2586,8 @@ class AsyncMemory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = {k: v for k, v in effective_filters.items() if v}
+        entity_search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
@@ -2791,7 +2802,7 @@ class AsyncMemory(MemoryBase):
                         queries=valid_texts,
                         vectors_list=valid_vectors,
                         top_k=1,
-                        filters=search_filters,
+                        filters=entity_search_filters,
                     )
 
                     # 7d: Separate into inserts vs updates
@@ -2824,7 +2835,7 @@ class AsyncMemory(MemoryBase):
                                 "data": entity_text,
                                 "entity_type": entity_type,
                                 "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
+                                **entity_search_filters,
                             })
 
                     # 7e: Batch insert new entities
