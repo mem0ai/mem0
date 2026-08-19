@@ -620,20 +620,33 @@ class Memory(MemoryBase):
 
             semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
             match = exact_match or semantic_match
+            matched = False
             if match:
-                # Update existing entity's linked_memory_ids
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    self.entity_store.update(
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
+                if entity_type and payload.get("entity_type") and payload["entity_type"] != entity_type:
+                    logger.warning(
+                        "Skipping merge for entity %r: stored entity_type %r != new "
+                        "entity_type %r. A duplicate entity will be created instead of "
+                        "merging (this can happen after an entity_type vocabulary change).",
+                        entity_text,
+                        payload.get("entity_type"),
+                        entity_type,
                     )
-            else:
-                # Create new entity
+                else:
+                    matched = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        if entity_type and not payload.get("entity_type"):
+                            payload["entity_type"] = entity_type
+                        self.entity_store.update(
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not matched:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -1151,21 +1164,36 @@ class Memory(MemoryBase):
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
+                        matched = False
                         if match:
-                            # Update existing entity
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                self.entity_store.update(
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
+                            existing_type = payload.get("entity_type")
+                            if entity_type and existing_type and existing_type != entity_type:
+                                logger.warning(
+                                    "Skipping merge for entity %r: stored entity_type %r != new "
+                                    "entity_type %r. A duplicate entity will be created instead of "
+                                    "merging (this can happen after an entity_type vocabulary change).",
+                                    entity_text,
+                                    existing_type,
+                                    entity_type,
                                 )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
-                        else:
+                            else:
+                                matched = True
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                if not existing_type and entity_type:
+                                    payload["entity_type"] = entity_type
+                                try:
+                                    self.entity_store.update(
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}': {e}")
+
+                        if not matched:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
@@ -2281,19 +2309,34 @@ class AsyncMemory(MemoryBase):
 
             semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
             match = exact_match or semantic_match
+            matched = False
             if match:
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
-                        self.entity_store.update,
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
+                if entity_type and payload.get("entity_type") and payload["entity_type"] != entity_type:
+                    logger.warning(
+                        "Skipping merge for entity %r: stored entity_type %r != new "
+                        "entity_type %r. A duplicate entity will be created instead of "
+                        "merging (this can happen after an entity_type vocabulary change).",
+                        entity_text,
+                        payload.get("entity_type"),
+                        entity_type,
                     )
-            else:
+                else:
+                    matched = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        if entity_type and not payload.get("entity_type"):
+                            payload["entity_type"] = entity_type
+                        await asyncio.to_thread(
+                            self.entity_store.update,
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not matched:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -2803,21 +2846,37 @@ class AsyncMemory(MemoryBase):
 
                         semantic_match = matches[0] if matches and matches[0].score >= 0.95 else None
                         match = exact_match or semantic_match
+                        matched = False
                         if match:
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
+                            existing_type = payload.get("entity_type")
+                            if entity_type and existing_type and existing_type != entity_type:
+                                logger.warning(
+                                    "Skipping merge for entity %r: stored entity_type %r != new "
+                                    "entity_type %r. A duplicate entity will be created instead of "
+                                    "merging (this can happen after an entity_type vocabulary change).",
+                                    entity_text,
+                                    existing_type,
+                                    entity_type,
                                 )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
+                            else:
+                                matched = True
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                if not existing_type and entity_type:
+                                    payload["entity_type"] = entity_type
+                                try:
+                                    await asyncio.to_thread(
+                                        self.entity_store.update,
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+
+                        if not matched:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
                             to_insert_payloads.append({
