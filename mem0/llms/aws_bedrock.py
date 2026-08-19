@@ -394,9 +394,19 @@ class AWSBedrockLLM(LLMBase):
             response_body = response.get("body").read().decode()
             response_json = json.loads(response_body)
 
-            # Provider-specific response parsing
             if self.provider == "anthropic":
-                return response_json.get("content", [{"text": ""}])[0].get("text", "")
+                content_blocks = response_json.get("content", [])
+                if isinstance(content_blocks, list):
+                    for block in content_blocks:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            return block.get("text", "")
+                        elif isinstance(block, dict) and "text" in block:
+                            return block.get("text", "")
+                    return ""
+                elif isinstance(content_blocks, str):
+                    return content_blocks
+                return str(content_blocks)
+
             elif self.provider == "amazon":
                 # Handle both Nova and legacy Amazon models
                 if "nova" in self.config.model.lower():
@@ -580,12 +590,23 @@ class AWSBedrockLLM(LLMBase):
             response = self.client.converse(**converse_params)
 
             # Parse Converse API response
-            if hasattr(response, 'output') and hasattr(response.output, 'message'):
-                return response.output.message.content[0].text
-            elif 'output' in response and 'message' in response['output']:
-                return response['output']['message']['content'][0]['text']
+            if hasattr(response, "output") and hasattr(response.output, "message"):
+                for block in response.output.message.content:
+                    if hasattr(block, "text") and block.text:
+                        return block.text
+                    elif isinstance(block, dict) and "text" in block:
+                        return block["text"]
+                return ""
+            elif "output" in response and "message" in response["output"]:
+                for block in response["output"]["message"]["content"]:
+                    if isinstance(block, dict) and "text" in block:
+                        return block["text"]
+                    elif hasattr(block, "text") and block.text:
+                        return block.text
+                return ""
             else:
                 return str(response)
+
 
         elif self.provider == "minimax":
             # MiniMax models (e.g. minimax.minimax-m2.5) use the Bedrock Converse API.

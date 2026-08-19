@@ -298,3 +298,62 @@ def test_init_base_config_respects_vertexai_env(monkeypatch):
     with patch("mem0.llms.gemini.genai.Client") as mock_client_class:
         GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", api_key="ignored-key"))
     mock_client_class.assert_called_once_with(vertexai=True, project="env-project", location="us-west1")
+
+
+def test_parse_response_skips_thought_parts_without_tools(mock_gemini_client: Mock):
+    """Reasoning/thinking models (e.g. Gemini 2.0 Flash Thinking) return scratchpad thoughts as thought=True parts.
+    _parse_response must skip thought parts and return the actual answer text."""
+    config = BaseLlmConfig(model="gemini-2.0-flash-thinking-exp")
+    llm = GeminiLLM(config)
+
+    mock_thought_part = Mock()
+    mock_thought_part.text = "Thinking process: user mentions they work at Acme Corp."
+    mock_thought_part.thought = True
+
+    mock_answer_part = Mock()
+    mock_answer_part.text = '{"memory": [{"text": "Works at Acme Corp", "event": "ADD"}]}'
+    mock_answer_part.thought = False
+
+    mock_content = Mock(parts=[mock_thought_part, mock_answer_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+
+    result = llm._parse_response(mock_response, tools=None)
+    assert result == '{"memory": [{"text": "Works at Acme Corp", "event": "ADD"}]}'
+    assert "Thinking process" not in result
+
+
+def test_parse_response_skips_thought_parts_with_tools(mock_gemini_client: Mock):
+    """Reasoning models with tools return thought parts alongside function calls. Content should be answer text."""
+    config = BaseLlmConfig(model="gemini-2.0-flash-thinking-exp")
+    llm = GeminiLLM(config)
+
+    mock_thought_part = Mock()
+    mock_thought_part.text = "Thinking process: deciding which tool to call..."
+    mock_thought_part.thought = True
+    mock_thought_part.function_call = None
+
+    mock_answer_part = Mock()
+    mock_answer_part.text = "Adding memory for you."
+    mock_answer_part.thought = False
+    mock_answer_part.function_call = None
+
+    mock_tool_call = Mock()
+    mock_tool_call.name = "add_memory"
+    mock_tool_call.args = {"data": "Works at Acme Corp"}
+
+    mock_func_part = Mock()
+    mock_func_part.text = None
+    mock_func_part.function_call = mock_tool_call
+    mock_func_part.thought = False
+
+    mock_content = Mock(parts=[mock_thought_part, mock_answer_part, mock_func_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+
+    result = llm._parse_response(mock_response, tools=[{"function": {"name": "add_memory"}}])
+    assert result["content"] == "Adding memory for you."
+    assert "Thinking process" not in result["content"]
+    assert len(result["tool_calls"]) == 1
+    assert result["tool_calls"][0]["name"] == "add_memory"
+

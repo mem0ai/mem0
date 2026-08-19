@@ -64,11 +64,18 @@ class GeminiLLM(LLMBase):
             }
 
             if parts:
-                # Extract content from the first candidate
+                # Extract content from candidate (prefer non-thought text parts)
                 for part in parts:
-                    if hasattr(part, "text") and part.text:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
                         processed_response["content"] = part.text
                         break
+
+                # Fallback to any text part if only thought parts were present
+                if processed_response["content"] is None:
+                    for part in parts:
+                        if hasattr(part, "text") and part.text:
+                            processed_response["content"] = part.text
+                            break
 
                 # Extract function calls
                 for part in parts:
@@ -84,10 +91,16 @@ class GeminiLLM(LLMBase):
             return processed_response
         else:
             if parts:
+                # Prefer non-thought text parts (answer output) over internal reasoning parts
+                for part in parts:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
+                        return part.text
+                # Fallback to any text part if only thought parts were present
                 for part in parts:
                     if hasattr(part, "text") and part.text:
                         return part.text
             return ""
+
 
     def _reformat_messages(self, messages: List[Dict[str, str]]):
         """

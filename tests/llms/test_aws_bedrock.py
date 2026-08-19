@@ -506,3 +506,48 @@ class TestParseResponseLegacy:
         response = {"body": body}
         result = llm._parse_response(response, tools=None)
         assert result == "hello from ai21"
+
+    def test_anthropic_invoke_model_with_reasoning_blocks(self, mock_boto3):
+        """When Anthropic invoke_model response contains thinking/reasoning blocks before text block."""
+        llm = _make_llm("anthropic.claude-3-7-sonnet-20250219-v1:0", mock_boto3)
+        import io
+        import json
+        body = io.BytesIO(json.dumps({
+            "content": [
+                {"type": "thinking", "thinking": "Internal thinking process..."},
+                {"type": "text", "text": "Extracted memory payload."}
+            ]
+        }).encode())
+        response = {"body": body}
+        result = llm._parse_response(response, tools=None)
+        assert result == "Extracted memory payload."
+
+
+class TestAnthropicConverseReasoning:
+    def test_anthropic_converse_with_reasoning_content_block(self, mock_boto3):
+        """Converse API returns reasoningContent as block 0 on thinking models (e.g. Claude 3.7 Sonnet)."""
+        mock_response = {
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "reasoningContent": {
+                                "reasoningText": {"text": "Step-by-step thinking process..."}
+                            }
+                        },
+                        {
+                            "text": '{"memory": [{"text": "User likes Python", "event": "ADD"}]}'
+                        }
+                    ]
+                }
+            }
+        }
+        mock_boto3.converse.return_value = mock_response
+        llm = _make_llm("anthropic.claude-3-7-sonnet-20250219-v1:0", mock_boto3)
+
+        messages = [{"role": "user", "content": "Extract memories"}]
+        response = llm.generate_response(messages)
+
+        assert response == '{"memory": [{"text": "User likes Python", "event": "ADD"}]}'
+
