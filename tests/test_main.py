@@ -310,6 +310,17 @@ def test_delete_all_paginates_beyond_vector_store_page_size(memory_instance):
     assert memory_instance.vector_store.list.call_count == 3
 
 
+def test_delete_all_handles_empty_list_from_vector_store(memory_instance):
+    """Regression: vector stores that return [] instead of ([], None) should not raise IndexError."""
+    memory_instance.vector_store.list = Mock(return_value=[])
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    memory_instance._delete_memory.assert_not_called()
+    assert result["message"] == "Memories deleted successfully!"
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
