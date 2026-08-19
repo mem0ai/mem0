@@ -1,0 +1,48 @@
+---
+title: Cohere
+description: "Configure Cohere as an embedding provider in Mem0 using models like embed-english-v3.0 for vector generation."
+---
+
+To use Cohere embedding models, set the `COHERE_API_KEY` environment variable. You can obtain the Cohere API key from the [Cohere Dashboard](https://dashboard.cohere.com/api-keys).
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["COHERE_API_KEY"] = "your_api_key"
+
+config = {
+    "embedder": {
+        "provider": "cohere",
+        "config": {
+            "model": "embed-english-v3.0"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="john")
+```
+</CodeGroup>
+
+### Config
+
+Here are the parameters available for configuring the Cohere embedder:
+
+<Tabs>
+<Tab title="Python">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `model` | The name of the embedding model to use | `embed-english-v3.0` |
+| `api_key` | The Cohere API key | `None` |
+</Tab>
+</Tabs>
