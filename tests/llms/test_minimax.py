@@ -61,10 +61,10 @@ def test_minimax_llm_config_base_url():
 
 
 def test_minimax_llm_default_model(mock_minimax_client):
-    """Default model is MiniMax-M2.7 when not specified."""
+    """Default model is MiniMax-M3 when not specified."""
     config = MinimaxConfig(temperature=0.7, max_tokens=100, api_key="api_key")
     llm = MiniMaxLLM(config)
-    assert llm.config.model == "MiniMax-M2.7"
+    assert llm.config.model == "MiniMax-M3"
 
 
 def test_minimax_llm_env_api_key():
@@ -192,3 +192,10 @@ def test_factory_creates_minimax_llm(mock_minimax_client):
     llm = LlmFactory.create("minimax", {"model": "MiniMax-M2.7", "api_key": "test-key"})
     assert isinstance(llm, MiniMaxLLM)
     assert llm.config.model == "MiniMax-M2.7"
+
+
+def test_factory_creates_minimax_llm_default_model(mock_minimax_client):
+    """LlmFactory.create with no model returns MiniMaxLLM with MiniMax-M3 default."""
+    llm = LlmFactory.create("minimax", {"api_key": "test-key"})
+    assert isinstance(llm, MiniMaxLLM)
+    assert llm.config.model == "MiniMax-M3"
