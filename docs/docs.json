@@ -368,6 +368,7 @@
                     "icon": "terminal",
                     "pages": [
                       "integrations/claude-code",
+                      "integrations/claude-ai",
                       "integrations/cursor",
                       "integrations/codex",
                       "integrations/opencode",
