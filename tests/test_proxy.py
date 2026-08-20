@@ -138,3 +138,73 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
         f"Completions.create(messages=...) must default to None to avoid the "
         f"B006 shared-default-list bug; got {messages_default!r}."
     )
+
+
+def test_async_add_to_memory_does_not_pass_filters_to_oss_memory():
+    oss_memory = Mock(spec=Memory)
+    completions = Completions(oss_memory)
+
+    completions._async_add_to_memory(
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="alice",
+        agent_id=None,
+        run_id=None,
+        metadata=None,
+        filters={"category": "food"},
+    )
+    for _ in range(50):
+        if oss_memory.add.called:
+            break
+        import time
+
+        time.sleep(0.01)
+
+    oss_memory.add.assert_called_once()
+    assert "filters" not in oss_memory.add.call_args.kwargs
+
+
+def test_async_add_to_memory_forwards_filters_to_memory_client():
+    client = Mock(spec=MemoryClient)
+    completions = Completions(client)
+
+    completions._async_add_to_memory(
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="alice",
+        agent_id=None,
+        run_id=None,
+        metadata=None,
+        filters={"category": "food"},
+    )
+    for _ in range(50):
+        if client.add.called:
+            break
+        import time
+
+        time.sleep(0.01)
+
+    client.add.assert_called_once()
+    assert client.add.call_args.kwargs["filters"] == {"category": "food"}
+
+
+def test_async_add_to_memory_logs_background_failures(caplog):
+    oss_memory = Mock(spec=Memory)
+    oss_memory.add.side_effect = TypeError("boom")
+    completions = Completions(oss_memory)
+
+    with caplog.at_level("ERROR"):
+        completions._async_add_to_memory(
+            messages=[{"role": "user", "content": "hi"}],
+            user_id="alice",
+            agent_id=None,
+            run_id=None,
+            metadata=None,
+            filters=None,
+        )
+        for _ in range(50):
+            if "Failed to add memory asynchronously" in caplog.text:
+                break
+            import time
+
+            time.sleep(0.01)
+
+    assert "Failed to add memory asynchronously" in caplog.text

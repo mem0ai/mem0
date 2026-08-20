@@ -154,14 +154,20 @@ class Completions:
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
         def add_task():
             logger.debug("Adding to memory asynchronously")
-            self.mem0_client.add(
-                messages=messages,
-                user_id=user_id,
-                agent_id=agent_id,
-                run_id=run_id,
-                metadata=metadata,
-                filters=filters,
-            )
+            try:
+                add_kwargs = {
+                    "messages": messages,
+                    "user_id": user_id,
+                    "agent_id": agent_id,
+                    "run_id": run_id,
+                    "metadata": metadata,
+                }
+                # Memory.add() has no filters=; MemoryClient.add() still does.
+                if isinstance(self.mem0_client, MemoryClient) and filters is not None:
+                    add_kwargs["filters"] = filters
+                self.mem0_client.add(**add_kwargs)
+            except Exception:
+                logger.exception("Failed to add memory asynchronously")
 
         threading.Thread(target=add_task, daemon=True).start()
 
