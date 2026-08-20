@@ -64,6 +64,22 @@ Config is essential for:
 2. Providing necessary connection details (e.g., model, api_key, embedding_dims).
 3. Ensuring proper initialization and connection to your chosen embedder.
 
+## Environment variables
+
+Most embedders accept an API key from config **or** a provider-specific environment variable. Set the variable that matches your `provider`:
+
+| Provider | Environment variable |
+| --- | --- |
+| `openai` | `OPENAI_API_KEY` |
+| `gemini` | `GOOGLE_API_KEY` |
+| `azure_openai` | `EMBEDDING_AZURE_OPENAI_API_KEY` (or keys inside `azure_kwargs`) |
+| `ollama` | None required (defaults to `http://localhost:11434`) |
+| `vertexai` | `GOOGLE_APPLICATION_CREDENTIALS` or `vertex_credentials_json` in config |
+
+<Note>
+  Match `embedding_dims` (Python) / `embeddingDims` (TypeScript) to your vector store's `embedding_model_dims` / `embeddingModelDims`. A mismatch causes empty search results or dimension errors at insert time.
+</Note>
+
 ## Master List of All Params in Config
 
 Here's a comprehensive list of all parameters that can be used across different embedders:
