@@ -24,8 +24,11 @@ Package workflows keep their own push-to-main and manual triggers. Their `pull_r
 | n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (`integrations/n8n-nodes-mem0/`), manual | ESLint + tsc build on Node 20 |
 | Zapier App | `zapier-mem0-checks.yml` | Push to main (`integrations/zapier-mem0/`), manual | tsc + `zapier validate` + offline unit tests on Node 22 |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage |
+| GitHub Scripts | inline in `ci-gate.yml` | none | `node` over every `.github/scripts/*.test.js` |
 
 Adding a package CI workflow: give it `workflow_call` plus `push` / `workflow_dispatch` as needed but **no `pull_request` trigger**, then register it in `ci-gate.yml` with a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.
+
+`GitHub Scripts` is the one row that is a plain job inside `ci-gate.yml` rather than a called workflow, because a reusable workflow wrapping two `node` invocations would be more file than test. It runs on the `github_scripts` filter, which covers `.github/scripts/**` plus every file those tests read: `pr-gate.yml`, `vouch-check-pr.yml`, `issue-labeler.yml`, and `VOUCHED.td`. Add a new `.github/scripts/*.test.js` and it is picked up with no wiring; make a test read a new file and that file belongs in the filter.
 
 ## Branch protection on `main`
 
@@ -91,13 +94,17 @@ The denounce test is what keeps the two gates from cancelling each other out. A 
 
 Reopening runs through `GITHUB_TOKEN`, which by design raises no further workflow events, so `gate` cannot bounce a freshly reopened PR straight back out.
 
-Two details in the header exist for the `issues` event and are easy to undo by accident. The concurrency group is keyed on `github.event_name` as well as the number, and `cancel-in-progress` is on only for `pull_request_target`: without that, a maintainer applying `bug` right after `accepted` cancels the reopen mid-flight, since both label events land in the same group. And the `edited` arm of `reopen` requires `github.event.pull_request.state == 'closed'`, so ordinary description edits on open pull requests do not start a runner.
+The concurrency group is keyed on `github.event.action` as well as `github.event_name` and the number, and both keys carry weight. Without the event name, a maintainer applying `bug` right after `accepted` cancels the reopen mid-flight, since `cancel-in-progress` is on for `pull_request_target` and both label events would land in the same group. Without the action, `opened` and `edited` share a group on the same pull request, and an author who ticks a template checkbox in the seconds after opening cancels the run that was about to gate them: `gate` skips `edited` and `reopen` skips an open pull request, so the cancelled run is never replaced and the pull request stays ungated forever, since `opened` fires exactly once. Rapid successive edits still cancel each other, which is the dedup that was wanted.
+
+The `edited` arm of `reopen` requires `github.event.pull_request.state == 'closed'`, so ordinary description edits on open pull requests do not start a runner.
 
 Two known gaps, both mild. A PR that the gate closed, that someone reopened, and that a maintainer then closed deliberately still carries the marker, so labeling its issue reopens it again; a maintainer closes it once more. And an author who strips `Closes #<number>` out after passing keeps an open PR, which a reviewer sees anyway.
 
 `GATE_EFFECTIVE_FROM` in `pr-gate.yml` is a `created_at` cutoff. `reopened` and `ready_for_review` still fire on PRs opened long before the gate existed, so without the cutoff part of the open backlog would be closed by a rule that did not exist when those PRs were filed. Set it to the actual merge date in UTC.
 
-The gate's docs-only exemption covers `docs/` and top-level markdown such as `README.md` and `CONTRIBUTING.md`. Markdown nested anywhere else stays gated on purpose: `skills/**/*.md` and everything under `.github/` are functional files, not prose.
+The gate's docs-only exemption covers `docs/` plus a named allowlist of four root files: `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and `SECURITY.md`. It is an allowlist rather than a rule about top-level markdown because the repository root also holds `AGENTS.md`, `CLAUDE.md`, and `LLM.md`, which are the instructions coding agents read before touching this codebase. Those are functional files that happen to be written in prose, and rewriting them is a change to behaviour, so they stay gated. Markdown nested anywhere else stays gated for the same reason: `skills/**/*.md` and everything under `.github/` are functional too. Adding a genuinely prose root file means adding it to `rootDocs` in `pr-gate.yml`.
+
+`.github/scripts/pr-gate-docs-exemption.test.js` covers that predicate. It pulls the `rootDocs` and `isDocs` lines out of `pr-gate.yml` and evaluates them, so it exercises the shipped rule rather than a copy that could drift from it, and it pins `AGENTS.md`, `CLAUDE.md`, and `LLM.md` on the gated side along with `skills/**/*.md`, nested `.github/` files, and the empty file list. It only accepts those two declarations in a literal one-line form, so keep `rootDocs` a `Set` of quoted names and `isDocs` a single arrow expression.
 
 The two contribution gates answer different questions and neither covers for the other. `pr-gate.yml` judges the change, and the `accepted` label is how a maintainer says yes to it. `vouch-check-pr.yml` judges the author, and `VOUCHED.td` is how a maintainer says no to one. A vouched author with no accepted issue is still closed by the gate; a denounced author with an accepted issue is still closed by vouch. Read either one as a backstop for the other and both get weakened.
 
@@ -113,7 +120,9 @@ Vouch enforces on the denounce axis only, through `require-vouch: false` with `a
 
 `require-vouch: true` would close every first-time contributor, which is the opposite of what a trust list is for: the funnel has to stay open or nobody ever earns a vouch. `auto-close: false` is the setting that looked safe and did nothing at all, since in v1.5.0 both the unvouched and the denounced branch return before posting anything, leaving only a line in the run log. That is why `!denounce` was decorative until this pair landed.
 
-Only the `allowed` arm is ours: a `github-script` step posts the soft comment, keyed on a `<!-- vouch-check -->` marker so a reopen does not comment twice. The `closed` arm belongs to the action, message and all. Keeping the two arms disjoint is what stops a denounced author getting two comments, so if that step is ever re-keyed off `allowed`, check the overlap first. `.github/scripts/vouch-decision.test.js` asserts the whole table against the workflow file, including the comment count. Run `node .github/scripts/vouch-decision.test.js` after touching either input or bumping the pinned SHA.
+Only the `allowed` arm is ours: a `github-script` step posts the soft comment, keyed on a `<!-- vouch-check -->` marker so a reopen does not comment twice. The `closed` arm belongs to the action, message and all. Keeping the two arms disjoint is what stops a denounced author getting two comments, so if that step is ever re-keyed off `allowed`, check the overlap first.
+
+`.github/scripts/vouch-decision.test.js` holds that table as a `decide()` function and asserts the workflow's `require-vouch`, `auto-close`, and comment-step gating still produce it, comment counts included. Be clear about what that does and does not prove. `decide()` is a **hand transcription** of `gh-check-pr`, read from `vouch/github.nu` at the pinned SHA; the test cannot run the action, so it cannot notice the action changing underneath it. Left alone it would agree with itself forever, which makes bumping the pinned SHA the one edit it would otherwise sail through. So it also asserts `vouch-check-pr.yml` still pins `PINNED_VOUCH_SHA`, and a bump fails it on purpose: re-read `gh-check-pr` at the new revision, correct `decide()` and the table above, then move the constant. CI runs it through the `GitHub Scripts` job on any change to the scripts or the files they read.
 
 Failure is open by design. If the action cannot read `VOUCHED.td` it falls back to an empty list, every author reads as absent, and nobody is closed by an API hiccup.
 

@@ -5,6 +5,16 @@ const path = require('path');
 const workflowPath = path.join(__dirname, '..', 'workflows', 'vouch-check-pr.yml');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
 
+const PINNED_VOUCH_SHA = 'd66fa29a64600490892131ad87597c30c91fcac4';
+
+assert.ok(
+  workflow.includes(`mitchellh/vouch/action/check-pr@${PINNED_VOUCH_SHA}`),
+  `decide() below is a hand transcription of gh-check-pr from vouch/github.nu at ${PINNED_VOUCH_SHA} (v1.5.0). ` +
+    'It reads the action, it does not run it, so on its own it agrees with itself whatever the action does. ' +
+    'vouch-check-pr.yml now pins a different revision: re-read gh-check-pr there, update decide() and the ' +
+    'decision table in .github/AGENTS.md to match it, then set PINNED_VOUCH_SHA to the new SHA.',
+);
+
 const actionDefaults = { 'require-vouch': true, 'auto-close': false };
 
 const booleanInput = (name) => {
@@ -63,7 +73,7 @@ for (const expected of cases) {
   }
 }
 
-console.log(`\nrequire-vouch=${requireVouch} auto-close=${autoClose} comment-on=${commentedStatus}`);
+console.log(`\nvouch@${PINNED_VOUCH_SHA.slice(0, 7)} require-vouch=${requireVouch} auto-close=${autoClose} comment-on=${commentedStatus}`);
 
 const parseDenounced = (contents) => new Set(contents
   .split('\n')

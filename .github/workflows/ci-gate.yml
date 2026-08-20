@@ -44,6 +44,7 @@ jobs:
       n8n_nodes_mem0: ${{ steps.filter.outputs.n8n_nodes_mem0 }}
       zapier_mem0: ${{ steps.filter.outputs.zapier_mem0 }}
       docs_llms_txt: ${{ steps.filter.outputs.docs_llms_txt }}
+      github_scripts: ${{ steps.filter.outputs.github_scripts }}
     steps:
       - uses: dorny/paths-filter@v3
         id: filter
@@ -100,6 +101,13 @@ jobs:
               - 'scripts/check-llms-txt-coverage.py'
               - 'scripts/llms-txt-ignore.txt'
               - '.github/workflows/docs-llms-txt-check.yml'
+              - '.github/workflows/ci-gate.yml'
+            github_scripts:
+              - '.github/scripts/**'
+              - '.github/VOUCHED.td'
+              - '.github/workflows/pr-gate.yml'
+              - '.github/workflows/vouch-check-pr.yml'
+              - '.github/workflows/issue-labeler.yml'
               - '.github/workflows/ci-gate.yml'
 
   python-sdk:
@@ -177,6 +185,24 @@ jobs:
     uses: ./.github/workflows/docs-llms-txt-check.yml
     secrets: inherit
 
+  github-scripts:
+    name: GitHub Scripts
+    needs: changes
+    if: needs.changes.outputs.github_scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run .github/scripts tests
+        run: |
+          for test in .github/scripts/*.test.js; do
+            echo "::group::$test"
+            node "$test"
+            echo "::endgroup::"
+          done
+
   gate:
     name: CI Gate
     needs:
@@ -192,6 +218,7 @@ jobs:
       - n8n-nodes-mem0
       - zapier-mem0
       - docs-llms-txt
+      - github-scripts
     if: always()
     runs-on: ubuntu-latest
     steps:
