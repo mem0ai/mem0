@@ -124,6 +124,13 @@ results = m.search(
 )
 ```
 
+<Note>
+  OpenSearch, Qdrant, Milvus, Pinecone, and Cassandra enforce the wildcard as a
+  field-exists condition. Chroma and Databricks Vector Search have no
+  field-exists operator, so on those stores the wildcard leaves the field
+  unconstrained and matches records with or without it.
+</Note>
+
 ### Logical combinations
 
 Combine filters with `AND`, `OR`, and `NOT` to express complex decision trees. Nest logical operators to encode multi-branch workflows.
