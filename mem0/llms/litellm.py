@@ -1,5 +1,5 @@
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 try:
     import litellm
@@ -17,6 +17,28 @@ class LiteLLM(LLMBase):
 
         if not self.config.model:
             self.config.model = "gpt-5-mini"
+        elif isinstance(self.config.model, dict) and not self.config.model.get("name"):
+            self.config.model["name"] = "gpt-5-mini"
+
+    def _get_model_name(self) -> str:
+        """Return the LiteLLM model name from string or dict model config."""
+        if isinstance(self.config.model, dict):
+            return self.config.model.get("name", "gpt-5-mini")
+        return self.config.model
+
+    def _get_model_params(self) -> Dict[str, Union[str, float, int, List[str]]]:
+        params = {}
+
+        reasoning_effort = getattr(self.config, "reasoning_effort", None)
+        if reasoning_effort is not None:
+            params["reasoning_effort"] = reasoning_effort
+
+        if isinstance(self.config.model, dict):
+            for param in ["reasoning_effort", "frequency_penalty", "presence_penalty", "seed", "stop"]:
+                if self.config.model.get(param) is not None:
+                    params[param] = self.config.model[param]
+
+        return params
 
     def _parse_response(self, response, tools):
         """
@@ -67,19 +89,22 @@ class LiteLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        if tools and not litellm.supports_function_calling(self.config.model):
-            raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
+        model_name = self._get_model_name()
+
+        if tools and not litellm.supports_function_calling(model_name):
+            raise ValueError(f"Model '{model_name}' in litellm does not support function calling.")
 
         params = {
-            "model": self.config.model,
+            "model": model_name,
             "messages": messages,
             "temperature": self.config.temperature,
             "top_p": self.config.top_p,
         }
-        if self._uses_max_completion_tokens(self.config.model):
+        if self._uses_max_completion_tokens(model_name):
             params["max_completion_tokens"] = self.config.max_tokens
         else:
             params["max_tokens"] = self.config.max_tokens
+        params.update(self._get_model_params())
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
