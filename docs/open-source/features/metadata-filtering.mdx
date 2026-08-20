@@ -261,7 +261,7 @@ Vector store support varies widely. This table reflects what each provider's fil
 
 | Store | `eq`/`ne`/`gt`/`gte`/`lt`/`lte`/`in`/`nin` | `contains`/`icontains` | `AND`/`OR`/`NOT` | `*` wildcard |
 | --- | --- | --- | --- | --- |
-| Qdrant | Full support | Yes | Yes, nested | No-op: matches every record regardless of whether the field is present |
+| Qdrant | Full support (`in`/`nin` must be a list, or the Qdrant client raises a validation error) | Yes | Yes, nested | No-op: matches every record regardless of whether the field is present |
 | pgvector | Full support (`in`/`nin` must be a list, or the call raises `ValueError`) | Yes, via SQL `LIKE`/`ILIKE` | Yes, nested | Requires the key to exist in the payload |
 | Chroma | Full support | No: silently falls back to equality | Yes, one level of nesting | No-op: the filter is dropped |
 | Pinecone | Full support | Not implemented | Not implemented: filters are only ANDed field-by-field | Not implemented: `"*"` is matched as the literal string `"*"`, not a wildcard |
