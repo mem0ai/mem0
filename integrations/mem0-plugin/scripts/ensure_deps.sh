@@ -13,9 +13,22 @@ mkdir -p "${DATA_DIR}"
 
 LOCKDIR="${DATA_DIR}/.install-lock"
 
+# Venv layout differs by platform: POSIX puts interpreters in bin/,
+# Windows in Scripts/. Probe both instead of assuming bin/.
+find_venv_python() {
+  for _p in "${VENV_DIR}/bin/python3" "${VENV_DIR}/bin/python" \
+            "${VENV_DIR}/Scripts/python.exe" "${VENV_DIR}/Scripts/python"; do
+    if [ -x "${_p}" ]; then
+      printf '%s' "${_p}"
+      return 0
+    fi
+  done
+  return 1
+}
+
 needs_install=false
 
-if [ ! -f "${VENV_DIR}/bin/python3" ]; then
+if ! VENV_PY=$(find_venv_python); then
   needs_install=true
 elif ! diff -q "${REQ_SRC}" "${REQ_STAMP}" >/dev/null 2>&1; then
   needs_install=true
@@ -25,9 +38,14 @@ if [ "${needs_install}" = "true" ]; then
   if mkdir "${LOCKDIR}" 2>/dev/null; then
     # We acquired the lock — proceed with installation
     trap 'rmdir "${LOCKDIR}" 2>/dev/null || true' EXIT
-    python3 -m venv "${VENV_DIR}" 2>/dev/null || python -m venv "${VENV_DIR}"
-    "${VENV_DIR}/bin/pip" install --quiet --upgrade pip >/dev/null 2>&1 || true
-    if "${VENV_DIR}/bin/pip" install --quiet -r "${REQ_SRC}" 2>/dev/null; then
+    if ! VENV_PY=$(find_venv_python); then
+      python3 -m venv "${VENV_DIR}" 2>/dev/null || python -m venv "${VENV_DIR}"
+      VENV_PY=$(find_venv_python) || VENV_PY=""
+    fi
+    if [ -n "${VENV_PY}" ]; then
+      "${VENV_PY}" -m pip install --quiet --upgrade pip >/dev/null 2>&1 || true
+    fi
+    if [ -n "${VENV_PY}" ] && "${VENV_PY}" -m pip install --quiet -r "${REQ_SRC}" 2>/dev/null; then
       cp "${REQ_SRC}" "${REQ_STAMP}"
       rm -f "${DATA_DIR}/.install-failed"
     else

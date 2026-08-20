@@ -25,6 +25,9 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 
+# Normalize Windows backslashes so the glob patterns below match
+FILE_PATH="${FILE_PATH//\\//}"
+
 case "$FILE_PATH" in
   */.claude/*/MEMORY.md|*/.claude/memory/*)
     echo "BLOCKED: Do not write to $FILE_PATH. Use the mem0 MCP \`add_memory\` tool instead to persist memories. This project uses mem0 for all memory storage." >&2
