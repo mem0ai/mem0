@@ -217,6 +217,20 @@ export class Memory {
   private _initError?: Error;
   private _entityStore?: VectorStore;
 
+  // Per-session-scope mutex for the dedup-recheck + insert step in
+  // addToVectorStore, so concurrent add() calls extracting the same fact can't
+  // both pass a stale dedup snapshot and both insert (the hash-dedup TOCTOU
+  // race). Keyed by session scope (user_id/agent_id/run_id) so add() calls for
+  // different scopes — which can never hash-collide — don't serialize against
+  // each other; only same-scope callers do. Each map value is the tail of a
+  // promise chain; a caller awaits the current tail, then installs its own.
+  //
+  // Scope of protection: this map lives on the Memory instance, so it only
+  // serializes callers sharing one instance in one process. It does NOT
+  // coordinate across multiple processes/workers — that would need a
+  // shared/distributed lock and is out of scope here.
+  private addLocks: Map<string, Promise<void>> = new Map();
+
   constructor(config: Partial<MemoryConfig> = {}) {
     // Merge and validate config
     this.config = ConfigManager.mergeConfig(config);
@@ -582,6 +596,38 @@ export class Memory {
       if (val) parts.push(`${key}=${this.escapeScopeValue(val)}`);
     }
     return parts.join("&");
+  }
+
+  /**
+   * Serialize `fn` against all other callers sharing the same session scope.
+   * Runs `fn` only after the previous same-scope holder has released, so the
+   * dedup-recheck + insert step is atomic per scope. Different scopes run
+   * concurrently. The map entry is cleaned up once the chain drains, so it
+   * doesn't grow unbounded across distinct scopes.
+   */
+  private async withAddLock<T>(
+    scope: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const previous = this.addLocks.get(scope) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = previous.then(() => gate);
+    this.addLocks.set(scope, tail);
+
+    await previous;
+    try {
+      return await fn();
+    } finally {
+      release();
+      // If no later caller chained onto our tail, drop the entry so the map
+      // doesn't retain a lock object per distinct scope forever.
+      if (this.addLocks.get(scope) === tail) {
+        this.addLocks.delete(scope);
+      }
+    }
   }
 
   private async _initializeTelemetry() {
@@ -995,14 +1041,9 @@ export class Memory {
       }
     }
 
-    // Phase 4-5: CPU processing + hash dedup
-    const existingHashes = new Set<string>();
-    for (const mem of existingResults) {
-      const h = mem.payload?.hash;
-      if (h) existingHashes.add(h);
-    }
-
-    const records: Array<{
+    // Phase 4: CPU processing (intra-batch dedup only; the against-existing
+    // dedup is re-checked under the lock right before insert, see Phase 5/6).
+    let records: Array<{
       memoryId: string;
       text: string;
       embedding: number[];
@@ -1016,7 +1057,7 @@ export class Memory {
         continue;
 
       const memHash = createHash("md5").update(text).digest("hex");
-      if (existingHashes.has(memHash) || seenHashes.has(memHash)) {
+      if (seenHashes.has(memHash)) {
         continue;
       }
       seenHashes.add(memHash);
@@ -1063,26 +1104,66 @@ export class Memory {
       return [];
     }
 
-    // Phase 6: Batch persist
-    const allVectors = records.map((r) => r.embedding);
-    const allIds = records.map((r) => r.memoryId);
-    const allPayloads = records.map((r) => r.payload);
+    // Phase 5: Hash dedup + Phase 6: Batch persist, serialized per scope.
+    // The Phase 1 snapshot (existingResults) can go stale by the time we get
+    // here — an LLM round-trip plus embedding calls have happened since. Under
+    // the session-scoped lock we re-fetch existing hashes fresh and drop any
+    // record that now collides, then insert. This closes the TOCTOU window:
+    // two concurrent add() calls extracting the same fact can no longer both
+    // pass dedup and both insert a permanent duplicate. Only same-scope callers
+    // serialize here.
+    const inserted = await this.withAddLock(sessionScope, async () => {
+      const freshExisting = await this.vectorStore.search(
+        queryEmbedding,
+        10,
+        filters,
+      );
+      const freshHashes = new Set<string>();
+      for (const mem of freshExisting) {
+        const h = mem.payload?.hash;
+        if (h) freshHashes.add(h);
+      }
+      records = records.filter((r) => !freshHashes.has(r.payload.hash));
+      if (records.length === 0) return false;
 
-    try {
-      await this.vectorStore.insert(allVectors, allIds, allPayloads);
-    } catch {
-      // Fallback: insert one by one
-      for (let i = 0; i < allIds.length; i++) {
-        try {
-          await this.vectorStore.insert(
-            [allVectors[i]],
-            [allIds[i]],
-            [allPayloads[i]],
-          );
-        } catch (e) {
-          console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
+      const allVectors = records.map((r) => r.embedding);
+      const allIds = records.map((r) => r.memoryId);
+      const allPayloads = records.map((r) => r.payload);
+
+      try {
+        await this.vectorStore.insert(allVectors, allIds, allPayloads);
+      } catch {
+        // Fallback: insert one by one
+        for (let i = 0; i < allIds.length; i++) {
+          try {
+            await this.vectorStore.insert(
+              [allVectors[i]],
+              [allIds[i]],
+              [allPayloads[i]],
+            );
+          } catch (e) {
+            console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
+          }
         }
       }
+      return true;
+    });
+
+    if (!inserted) {
+      // Everything we extracted was already persisted by a concurrent same-scope
+      // add() that won the race; nothing new to store.
+      if (typeof this.db.saveMessages === "function") {
+        try {
+          await this.db.saveMessages(
+            messages.map((m) => ({
+              role: m.role,
+              content: m.content as string,
+            })),
+            sessionScope,
+          );
+        } catch {}
+      }
+      return [];
     }
 
     // Batch history
