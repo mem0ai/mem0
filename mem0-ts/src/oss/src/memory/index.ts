@@ -1021,7 +1021,7 @@ export class Memory {
       }
       seenHashes.add(memHash);
 
-      const textLemmatized = lemmatizeForBm25(text);
+      const textLemmatized = lemmatizeForBm25(text, this.config.locales);
       const memoryId = uuidv4();
       const now = new Date().toISOString();
 
@@ -1421,7 +1421,7 @@ export class Memory {
     const searchStartMs = Date.now();
 
     // Step 1: Preprocess query
-    const queryLemmatized = lemmatizeForBm25(query);
+    const queryLemmatized = lemmatizeForBm25(query, this.config.locales);
     const queryEntities = extractEntities(query);
 
     // Step 2: Embed query
@@ -1932,7 +1932,7 @@ export class Memory {
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
-      textLemmatized: lemmatizeForBm25(data),
+      textLemmatized: lemmatizeForBm25(data, this.config.locales),
       createdAt: new Date().toISOString(),
     };
 
@@ -1983,7 +1983,7 @@ export class Memory {
       ...sanitizedMetadata,
       data: newData,
       hash: createHash("md5").update(newData).digest("hex"),
-      textLemmatized: lemmatizeForBm25(newData),
+      textLemmatized: lemmatizeForBm25(newData, this.config.locales),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
     };
