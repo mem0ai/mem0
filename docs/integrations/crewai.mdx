@@ -39,6 +39,10 @@ os.environ["SERPER_API_KEY"] = "your-serper-api-key"
 client = MemoryClient()
 ```
 
+<Note>
+  Newer versions of CrewAI removed the `memory_config={"provider": "mem0"}` shortcut on `Crew(...)` that older guides referenced. CrewAI still offers a native Mem0 path through its `ExternalMemory` API, so that option remains open; check [CrewAI's memory documentation](https://docs.crewai.com/en/concepts/memory) for the shape your version expects. This guide wires Mem0 in explicitly through `MemoryClient` instead, which keeps retrieval under your control and stays valid as CrewAI's memory API changes.
+</Note>
+
 ## Store User Preferences
 
 Set up initial conversation and preferences storage:
@@ -69,9 +73,21 @@ messages = [
 store_user_preferences("crew_user_1", messages)
 ```
 
+## Retrieve Relevant Memories
+
+Look up what Mem0 already knows about the user before planning a trip, so the crew's output reflects their actual preferences:
+
+```python
+def get_user_context(user_id: str, query: str) -> str:
+    """Fetch relevant memories and format them for a task description"""
+    relevant_memories = client.search(query, filters={"user_id": user_id})
+    memories = [m["memory"] for m in relevant_memories.get("results", [])]
+    return "\n".join(f"- {memory}" for memory in memories)
+```
+
 ## Create CrewAI Agent
 
-Define an agent with memory capabilities:
+Define an agent with search capabilities:
 
 ```python
 def create_travel_agent():
@@ -83,61 +99,60 @@ def create_travel_agent():
         goal="Plan personalized travel itineraries",
         backstory="""You are a seasoned travel planner, known for your meticulous attention to detail.""",
         allow_delegation=False,
-        memory=True,
         tools=[search_tool],
     )
 ```
 
 ## Define Tasks
 
-Create tasks for your agent:
+Create a task that folds the retrieved memories into its description, so the agent plans around the user's known preferences:
 
 ```python
-def create_planning_task(agent, destination: str):
-    """Create a travel planning task"""
+def create_planning_task(agent, destination: str, user_context: str):
+    """Create a travel planning task personalized with the user's stored preferences"""
     return Task(
-        description=f"""Find places to live, eat, and visit in {destination}.""",
-        expected_output=f"A detailed list of places to live, eat, and visit in {destination}.",
+        description=f"""Find places to live, eat, and visit in {destination}.
+
+        Known preferences for this user:
+        {user_context or "No stored preferences yet."}
+        """,
+        expected_output=f"A detailed list of places to live, eat, and visit in {destination}, tailored to the user's preferences.",
         agent=agent,
     )
 ```
 
 ## Set Up Crew
 
-Configure the crew with memory integration:
+Configure the crew. Mem0 handles persistence outside of CrewAI, so the crew itself does not need `memory=True` or a `memory_config`:
 
 ```python
 def setup_crew(agents: list, tasks: list):
-    """Set up a crew with Mem0 memory integration"""
+    """Set up a crew; memory is managed through Mem0, not CrewAI's memory_config"""
     return Crew(
         agents=agents,
         tasks=tasks,
         process=Process.sequential,
-        memory=True,
-        memory_config={
-            "provider": "mem0",
-            "config": {"user_id": "crew_user_1"},
-        }
     )
 ```
 
 ## Main Execution Function
 
-Implement the main function to run the travel planning system:
+Implement the main function to run the travel planning system: retrieve context from Mem0, run the crew, then store the new conversation back:
 
 ```python
 def plan_trip(destination: str, user_id: str):
-    # Create agent
     travel_agent = create_travel_agent()
-
-    # Create task
-    planning_task = create_planning_task(travel_agent, destination)
-
-    # Setup crew
+    user_context = get_user_context(user_id, f"travel preferences for {destination}")
+    planning_task = create_planning_task(travel_agent, destination, user_context)
     crew = setup_crew([travel_agent], [planning_task])
+    result = crew.kickoff()
 
-    # Execute and return results
-    return crew.kickoff()
+    client.add(
+        [{"role": "user", "content": f"Planned a trip to {destination}."}],
+        user_id=user_id,
+    )
+
+    return result
 
 # Example usage
 if __name__ == "__main__":
