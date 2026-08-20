@@ -83,11 +83,23 @@ logger = logging.getLogger(__name__)
 
 
 def _vector_store_list_rows(listed):
-    if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list):
+    if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], (list, tuple)):
         return listed[0]
     if isinstance(listed, (list, tuple)):
         return listed
     return []
+
+
+def _should_fetch_more_for_expiration(rows, requested_limit, target_count, previous_count):
+    """Return whether increasing top_k may reveal enough non-expired rows."""
+    active_count = 0
+    for row in rows:
+        payload = row.payload if hasattr(row, "payload") else row.get("payload", {})
+        if not _payload_is_expired(payload):
+            active_count += 1
+
+    row_count = len(rows)
+    return active_count < target_count and row_count >= requested_limit and row_count > previous_count
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -1324,20 +1336,20 @@ class Memory(MemoryBase):
         return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
-        memories_result = self.vector_store.list(filters=filters, top_k=limit)
+        previous_count = 0
+        while True:
+            memories_result = self.vector_store.list(filters=filters, top_k=limit)
+            actual_memories = _vector_store_list_rows(memories_result)
 
-        # Handle different vector store return formats by inspecting first element
-        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
-            first_element = memories_result[0]
+            if (
+                show_expired
+                or output_limit is None
+                or not _should_fetch_more_for_expiration(actual_memories, limit, output_limit, previous_count)
+            ):
+                break
 
-            # If first element is a container, unwrap one level
-            if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
+            previous_count = len(actual_memories)
+            limit *= 2
 
         promoted_payload_keys = [
             "user_id",
@@ -1639,9 +1651,18 @@ class Memory(MemoryBase):
 
         # Step 3: Semantic search (over-fetch for scoring pool)
         internal_limit = max(limit * 4, 60)
-        semantic_results = self.vector_store.search(
-            query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
+        previous_count = 0
+        while True:
+            semantic_results = self.vector_store.search(
+                query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            )
+            if show_expired or not _should_fetch_more_for_expiration(
+                semantic_results, internal_limit, limit, previous_count
+            ):
+                break
+
+            previous_count = len(semantic_results)
+            internal_limit *= 2
 
         # Step 4: Keyword search (if store supports it)
         keyword_results = self.vector_store.keyword_search(
@@ -2982,20 +3003,20 @@ class AsyncMemory(MemoryBase):
         return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
-        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
+        previous_count = 0
+        while True:
+            memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
+            actual_memories = _vector_store_list_rows(memories_result)
 
-        # Handle different vector store return formats by inspecting first element
-        if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
-            first_element = memories_result[0]
+            if (
+                show_expired
+                or output_limit is None
+                or not _should_fetch_more_for_expiration(actual_memories, limit, output_limit, previous_count)
+            ):
+                break
 
-            # If first element is a container, unwrap one level
-            if isinstance(first_element, (list, tuple)):
-                actual_memories = first_element
-            else:
-                # First element is a memory object, structure is already flat
-                actual_memories = memories_result
-        else:
-            actual_memories = memories_result
+            previous_count = len(actual_memories)
+            limit *= 2
 
         promoted_payload_keys = [
             "user_id",
@@ -3303,9 +3324,18 @@ class AsyncMemory(MemoryBase):
 
         # Step 3: Semantic search (over-fetch)
         internal_limit = max(limit * 4, 60)
-        semantic_results = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
+        previous_count = 0
+        while True:
+            semantic_results = await asyncio.to_thread(
+                self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+            )
+            if show_expired or not _should_fetch_more_for_expiration(
+                semantic_results, internal_limit, limit, previous_count
+            ):
+                break
+
+            previous_count = len(semantic_results)
+            internal_limit *= 2
 
         # Step 4: Keyword search (if store supports it)
         keyword_results = await asyncio.to_thread(
