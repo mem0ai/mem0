@@ -40,9 +40,24 @@ agree the change is one we want.
 
 Pull requests that don't link an accepted issue are closed automatically by the
 [PR Gate](./.github/workflows/pr-gate.yml). **Closed does not mean rejected.** It
-means the change isn't in the queue yet. Once a maintainer labels the issue,
-reopen the pull request and it stays open. Documentation-only changes skip the
-gate entirely.
+means the change isn't in the queue yet. Once a maintainer labels the issue the
+pull request reopens itself, and you don't have to do anything. Documentation-only
+changes skip the gate entirely.
+
+A second check looks at who opened the pull request rather than what it changes.
+If you are not yet in this repo's contributor list
+([`.github/VOUCHED.td`](./.github/VOUCHED.td)) you get one comment saying so.
+**Nothing is blocked and there is nothing you need to do.** A maintainer can add
+you by commenting `!vouch @you` on any issue, which only stops that comment from
+appearing again. Being on the list is not permission to skip the accepted-issue
+rule, and being absent from it costs you nothing.
+
+The list has a negative side too. A maintainer can `!denounce` an account that
+has been through the
+[code of conduct](./CODE_OF_CONDUCT.md#contribution-conduct) enforcement process,
+and pull requests from that account are closed whether or not they link an
+accepted issue. This is rare, it is never where anyone starts, and it is
+reversible.
 
 Security fixes are the one exception, and they don't go through public pull
 requests at all. Follow the [Security Policy](./SECURITY.md) instead, which uses
