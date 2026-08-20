@@ -7,7 +7,7 @@ on:
     types: [labeled]
 
 concurrency:
-  group: pr-gate-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: pr-gate-${{ github.event_name }}-${{ github.event.action }}-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
 
 env:
@@ -52,7 +52,9 @@ jobs:
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner, repo, pull_number: pr.number, per_page: 100,
             });
-            if (files.length > 0 && files.every((file) => file.filename.startsWith('docs/') || (!file.filename.includes('/') && file.filename.endsWith('.md')))) {
+            const rootDocs = new Set(['README.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md']);
+            const isDocs = (filename) => filename.startsWith('docs/') || rootDocs.has(filename);
+            if (files.length > 0 && files.every((file) => isDocs(file.filename))) {
               core.info('Docs-only PR, gate skipped');
               return;
             }
