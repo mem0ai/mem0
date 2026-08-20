@@ -1574,3 +1574,178 @@ async def test_async_procedural_memory_default_path_without_langchain(mock_llm_f
 
     assert result["results"][0]["event"] == "ADD"
     memory.llm.generate_response.assert_called_once()
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_long_conversation_truncates_search_embedding(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, caplog
+):
+    """
+    Regression test for issue #5148:
+    When a long conversation exceeds the safe token limit (32,000 chars), the search
+    query for existing-memory retrieval must be truncated to the recent tail, avoiding
+    token limit errors while passing full messages to LLM extraction.
+    """
+    from mem0.memory.main import MAX_SEARCH_EMBEDDING_CHARS, Memory
+
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1] * 1536
+    embedder.embed_batch.return_value = [[0.1] * 1536]
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_factory.side_effect = [mock_vector_store, MagicMock()]
+
+    mock_llm = MagicMock()
+    mock_llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "User lives in New York"}]}
+    )
+    mock_llm_factory.return_value = mock_llm
+    mock_sqlite.return_value = MagicMock()
+
+    memory = Memory(MemoryConfig())
+
+    # Create a conversation that exceeds MAX_SEARCH_EMBEDDING_CHARS
+    long_text_chunk = "A" * 20000
+    messages = [
+        {"role": "user", "content": f"First part: {long_text_chunk}"},
+        {"role": "assistant", "content": f"Second part: {long_text_chunk}"},
+        {"role": "user", "content": "Recent note: I live in New York."},
+    ]
+
+    import logging
+    with caplog.at_level(logging.WARNING):
+        memory.add(messages, user_id="user_123", infer=True)
+
+    # 1. Verify embed was called with "search" action and truncated length
+    search_embed_calls = [
+        call for call in embedder.embed.call_args_list if len(call[0]) > 1 and call[0][1] == "search"
+    ]
+    assert len(search_embed_calls) == 1
+    embedded_query = search_embed_calls[0][0][0]
+    assert len(embedded_query) <= MAX_SEARCH_EMBEDDING_CHARS
+    assert not embedded_query[0].isspace()
+    assert embedded_query.endswith("user: Recent note: I live in New York.\n")
+
+    # 2. Verify vector_store.search received truncated query
+    mock_vector_store.search.assert_called_once()
+    assert mock_vector_store.search.call_args[1]["query"] == embedded_query
+
+    # 3. Verify LLM extraction received the full conversation
+    mock_llm.generate_response.assert_called_once()
+    llm_prompt = mock_llm.generate_response.call_args[1]["messages"][1]["content"]
+    assert f"First part: {long_text_chunk}" in llm_prompt
+    assert "Recent note: I live in New York." in llm_prompt
+
+    # 4. Verify warning was logged
+    assert any("exceeds maximum safe embedding limit" in record.message for record in caplog.records)
+
+
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_add_normal_conversation_keeps_full_search_embedding(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, caplog
+):
+    """
+    Normal-length conversations within limits should not be truncated or log warnings.
+    """
+    from mem0.memory.main import Memory
+
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1] * 1536
+    embedder.embed_batch.return_value = [[0.1] * 1536]
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_factory.side_effect = [mock_vector_store, MagicMock()]
+
+    mock_llm = MagicMock()
+    mock_llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "User loves skiing"}]}
+    )
+    mock_llm_factory.return_value = mock_llm
+    mock_sqlite.return_value = MagicMock()
+
+    memory = Memory(MemoryConfig())
+
+    messages = [
+        {"role": "user", "content": "I really enjoy skiing in the winter."},
+        {"role": "assistant", "content": "Skiing is great! Where do you go?"},
+    ]
+
+    import logging
+    with caplog.at_level(logging.WARNING):
+        memory.add(messages, user_id="user_123", infer=True)
+
+    search_embed_calls = [
+        call for call in embedder.embed.call_args_list if len(call[0]) > 1 and call[0][1] == "search"
+    ]
+    assert len(search_embed_calls) == 1
+    embedded_query = search_embed_calls[0][0][0]
+    assert "user: I really enjoy skiing in the winter." in embedded_query
+    assert "assistant: Skiing is great! Where do you go?" in embedded_query
+
+    assert not any("exceeds maximum safe embedding limit" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+async def test_async_add_long_conversation_truncates_search_embedding(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, caplog
+):
+    """
+    Regression test for async Memory add: long conversations must be truncated safely.
+    """
+    from mem0.memory.main import MAX_SEARCH_EMBEDDING_CHARS, AsyncMemory
+
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1] * 1536
+    embedder.embed_batch.return_value = [[0.1] * 1536]
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = []
+    mock_vector_store.insert.return_value = None
+    mock_vector_factory.side_effect = [mock_vector_store, MagicMock()]
+
+    mock_llm = MagicMock()
+    mock_llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "User lives in Tokyo"}]}
+    )
+    mock_llm_factory.return_value = mock_llm
+    mock_sqlite.return_value = MagicMock()
+
+    memory = AsyncMemory(MemoryConfig())
+
+    long_text_chunk = "B" * 20000
+    messages = [
+        {"role": "user", "content": f"First part: {long_text_chunk}"},
+        {"role": "assistant", "content": f"Second part: {long_text_chunk}"},
+        {"role": "user", "content": "Recent note: I live in Tokyo."},
+    ]
+
+    import logging
+    with caplog.at_level(logging.WARNING):
+        await memory.add(messages, user_id="user_123", infer=True)
+
+    search_embed_calls = [
+        call for call in embedder.embed.call_args_list if len(call[0]) > 1 and call[0][1] == "search"
+    ]
+    assert len(search_embed_calls) == 1
+    embedded_query = search_embed_calls[0][0][0]
+    assert len(embedded_query) <= MAX_SEARCH_EMBEDDING_CHARS
+    assert not embedded_query[0].isspace()
+    assert embedded_query.endswith("user: Recent note: I live in Tokyo.\n")
+    assert any("exceeds maximum safe embedding limit" in record.message for record in caplog.records)

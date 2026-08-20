@@ -129,6 +129,8 @@ function stripIdentityKeys(
 // Batch size for deleteAll pagination. Larger than most vector store default
 // page limits (~100) to minimize roundtrips while bounded to avoid memory pressure.
 const DELETE_ALL_BATCH_SIZE = 1000;
+// Maximum characters for search query embedding text (~8,000 tokens) to prevent exceeding embedding model token limits
+const MAX_SEARCH_EMBEDDING_CHARS = 32000;
 
 /**
  * Validates that no top-level entity parameters are passed in config.
@@ -886,7 +888,16 @@ export class Memory {
       .join("\n");
 
     // Phase 1: Existing memory retrieval
-    const queryEmbedding = await this.embedder.embed(parsedMessages, "search");
+    let searchMessages = parsedMessages;
+    const maxChars = (this.config as any).maxSearchEmbeddingChars || MAX_SEARCH_EMBEDDING_CHARS;
+    if (searchMessages.length > maxChars) {
+      logger.warn(
+        `Search query text length (${searchMessages.length} characters) exceeds maximum safe embedding limit (${maxChars} characters). Truncating to keep the most recent context while preserving word boundaries.`,
+      );
+      const sliceIdx = searchMessages.indexOf(" ", searchMessages.length - maxChars);
+      searchMessages = sliceIdx !== -1 ? searchMessages.slice(sliceIdx + 1) : searchMessages.slice(-maxChars);
+    }
+    const queryEmbedding = await this.embedder.embed(searchMessages, "search");
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,

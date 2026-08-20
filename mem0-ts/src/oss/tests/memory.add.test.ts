@@ -340,4 +340,26 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("truncates search query embedding when conversation exceeds safe token limit (#5148)", async () => {
+    const longChunk = "A".repeat(20000);
+    const messages = [
+      { role: "user", content: `First part: ${longChunk}` },
+      { role: "assistant", content: `Second part: ${longChunk}` },
+      { role: "user", content: "Recent note: I love coding." },
+    ];
+
+    const embedSpy = jest.spyOn((memory as any).embedder, "embed");
+
+    await memory.add(messages, { userId, infer: true });
+
+    // The search embed call should be the first call with "search" action
+    const searchCall = embedSpy.mock.calls.find((call) => call[1] === "search");
+    expect(searchCall).toBeDefined();
+    const embeddedQuery = searchCall![0] as string;
+    expect(embeddedQuery.length).toBe(32000);
+    expect(embeddedQuery.endsWith("user: Recent note: I love coding.")).toBe(
+      true,
+    );
+  });
 });
