@@ -55,6 +55,21 @@ describe("plugin registration modes", () => {
       expect.stringContaining("openclaw-mem0: registered"),
     );
   });
+
+  it("registers the memory capability with no artifact provider and a real search manager", async () => {
+    const api = createPluginApi();
+
+    memoryPlugin.register(api as any);
+
+    expect(api.registerMemoryCapability).toHaveBeenCalledTimes(1);
+    const capability = api.registerMemoryCapability.mock.calls[0]?.[0];
+    expect("publicArtifacts" in capability).toBe(false);
+    const { manager } = await capability.runtime.getMemorySearchManager();
+    expect(manager).not.toBeNull();
+    expect(typeof manager.search).toBe("function");
+    expect(typeof manager.readFile).toBe("function");
+    expect(typeof manager.status).toBe("function");
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,26 +1,85 @@
+// Hand-maintained mirror of the OpenClaw plugin SDK surface this plugin
+// uses. Keep shapes in sync with openclaw's src/plugins/memory-state.ts —
+// an invented MemoryArtifact stub here is how record-shaped public
+// artifacts shipped and crashed the gateway artifact sort.
 declare module "openclaw/plugin-sdk" {
-  export interface MemoryArtifact {
-    id: string;
-    type: "memory" | "dream" | "digest" | "entity";
-    title: string;
-    content: string;
-    metadata?: Record<string, unknown>;
-    createdAt?: string;
-    updatedAt?: string;
+  export type MemoryPluginPublicArtifactContentType = "markdown" | "json" | "text";
+
+  // Public artifacts are files on disk; every field below is required by
+  // the gateway's artifact sort.
+  export interface MemoryPluginPublicArtifact {
+    kind: string;
+    workspaceDir: string;
+    relativePath: string;
+    absolutePath: string;
+    agentIds: string[];
+    contentType: MemoryPluginPublicArtifactContentType;
   }
 
   export interface PublicArtifactsProvider {
-    listArtifacts(options?: {
-      userId?: string;
-      types?: string[];
-      limit?: number;
-    }): Promise<MemoryArtifact[]>;
+    listArtifacts(params: { cfg: unknown }): Promise<MemoryPluginPublicArtifact[]>;
+  }
+
+  export type MemorySource = "memory" | "sessions";
+
+  export type MemorySearchResult = {
+    path: string;
+    startLine: number;
+    endLine: number;
+    score: number;
+    snippet: string;
+    source: MemorySource;
+    citation?: string;
+  };
+
+  export type MemoryEmbeddingProbeResult = {
+    ok: boolean;
+    error?: string;
+  };
+
+  export type MemoryProviderStatus = {
+    backend: "builtin" | "qmd";
+    provider: string;
+    model?: string;
+    files?: number;
+    chunks?: number;
+    dirty?: boolean;
+    workspaceDir?: string;
+    custom?: Record<string, unknown>;
+  };
+
+  export interface MemorySearchManager {
+    search(query: string, opts?: {
+      maxResults?: number;
+      minScore?: number;
+      sessionKey?: string;
+    }): Promise<MemorySearchResult[]>;
+    readFile(params: {
+      relPath: string;
+      from?: number;
+      lines?: number;
+    }): Promise<{ text: string; path: string }>;
+    status(): MemoryProviderStatus;
+    probeEmbeddingAvailability(): Promise<MemoryEmbeddingProbeResult>;
+    probeVectorAvailability(): Promise<boolean>;
+    close?(): Promise<void>;
+  }
+
+  export type MemorySearchManagerResult = {
+    manager: MemorySearchManager | null;
+    error?: string;
+  };
+
+  export interface MemoryCapabilityRuntime {
+    getMemorySearchManager(params?: any): Promise<MemorySearchManagerResult>;
+    resolveMemoryBackendConfig(params?: any): Record<string, unknown>;
+    closeAllMemorySearchManagers(): Promise<void>;
   }
 
   export interface MemoryCapabilityConfig {
     promptBuilder?: (ctx: any) => Promise<string | null>;
     flushPlanResolver?: (ctx: any) => Promise<any>;
-    runtime?: Record<string, unknown>;
+    runtime?: MemoryCapabilityRuntime;
     publicArtifacts?: PublicArtifactsProvider;
   }
 
