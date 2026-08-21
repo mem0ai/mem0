@@ -1,6 +1,6 @@
 # Python SDK (`mem0/`)
 
-The `mem0ai` package on PyPI. Memory core plus five pluggable provider categories.
+The `mem0ai` package on PyPI. Memory core plus four pluggable provider categories.
 
 ## Commands
 
@@ -35,10 +35,9 @@ mem0/
 ├── memory/          Memory, AsyncMemory
 ├── client/          MemoryClient, AsyncMemoryClient
 ├── configs/         MemoryConfig and per-category config models
-├── llms/            24 providers
-├── embeddings/      15 providers
-├── vector_stores/   30 providers
-├── graphs/          4 providers
+├── llms/            18 providers
+├── embeddings/      11 providers
+├── vector_stores/   25 providers
 └── reranker/        5 providers
 ```
 
@@ -48,10 +47,9 @@ Every category follows the same shape: a `base.py` with the abstract class, one 
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| LLMs | 24 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
-| Vector stores | 30 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
-| Embeddings | 15 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
-| Graph stores | 4 | Neo4j, Memgraph, Kuzu, Apache AGE |
+| LLMs | 18 | OpenAI, Anthropic, AWS Bedrock, Azure OpenAI, Gemini, Groq, Ollama, Together, DeepSeek, vLLM, LiteLLM, LM Studio, xAI |
+| Vector stores | 25 | Qdrant, Pinecone, Chroma, Weaviate, Milvus, MongoDB, Redis, Elasticsearch, pgvector, Supabase, Faiss, S3 Vectors |
+| Embeddings | 11 | OpenAI, Azure OpenAI, Gemini, HuggingFace, FastEmbed, Together, AWS Bedrock, Ollama, Vertex AI |
 | Rerankers | 5 | Cohere, HuggingFace, LLM-based, Sentence Transformer, Zero Entropy |
 
 ### Adding a provider
@@ -100,6 +98,8 @@ Changing any of these signatures means updating `docs/` in the same PR.
 | Embedding provider | `from mem0.embeddings.<provider> import <ProviderEmbedding>` |
 | Vector store provider | `from mem0.vector_stores.<provider> import <ProviderVectorStore>` |
 
-## Graph memory
+## Graph memory (Platform only)
 
-An optional layer on top of vector memory for relationship-aware retrieval, configured through the `graph` section of `MemoryConfig`. It supplements vector search rather than replacing it.
+Removed from the OSS SDKs. `mem0/graphs/` and `mem0-ts/src/oss/src/graphs/` were deleted in `a488e1904` when the v3 pipeline landed; relationship-aware retrieval in OSS is now handled by entity extraction inside the pipeline itself. There is no `graph_store` key in `MemoryConfig` and no `enable_graph` flag in the OSS SDKs.
+
+Graph memory remains a hosted Platform feature. Do not add `graph_store` config, Neo4j/Memgraph/Kuzu/Apache AGE providers, or graph examples to OSS code, docs, or skills. See `3f717e545` for the docs framing.
