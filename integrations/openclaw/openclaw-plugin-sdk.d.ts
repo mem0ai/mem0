@@ -1,20 +1,23 @@
+// Hand-maintained mirror of the OpenClaw plugin SDK surface this plugin
+// uses. Keep shapes in sync with openclaw's src/plugins/memory-state.ts —
+// an invented MemoryArtifact stub here is how record-shaped public
+// artifacts shipped and crashed the gateway artifact sort.
 declare module "openclaw/plugin-sdk" {
-  export interface MemoryArtifact {
-    id: string;
-    type: "memory" | "dream" | "digest" | "entity";
-    title: string;
-    content: string;
-    metadata?: Record<string, unknown>;
-    createdAt?: string;
-    updatedAt?: string;
+  export type MemoryPluginPublicArtifactContentType = "markdown" | "json" | "text";
+
+  // Public artifacts are files on disk; every field below is required by
+  // the gateway's artifact sort.
+  export interface MemoryPluginPublicArtifact {
+    kind: string;
+    workspaceDir: string;
+    relativePath: string;
+    absolutePath: string;
+    agentIds: string[];
+    contentType: MemoryPluginPublicArtifactContentType;
   }
 
   export interface PublicArtifactsProvider {
-    listArtifacts(options?: {
-      userId?: string;
-      types?: string[];
-      limit?: number;
-    }): Promise<MemoryArtifact[]>;
+    listArtifacts(params: { cfg: unknown }): Promise<MemoryPluginPublicArtifact[]>;
   }
 
   export interface MemoryCapabilityConfig {

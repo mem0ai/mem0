@@ -32,7 +32,7 @@ import {
 } from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
-import { createPublicArtifactsProvider } from "./public-artifacts.ts";
+import { createMemoryCapability } from "./memory-capability.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
 import {
   effectiveUserId,
@@ -214,69 +214,11 @@ const memoryPlugin = definePluginEntry({
     );
 
     // ========================================================================
-    // Public Artifacts (for memory-wiki bridge mode)
+    // Memory runtime capability (consumed by memory-wiki, talk, status scans)
     // ========================================================================
     if (typeof api.registerMemoryCapability === "function") {
-      api.registerMemoryCapability({
-        publicArtifacts: createPublicArtifactsProvider({
-          provider,
-          cfg,
-          get stateDir() {
-            return pluginStateDir;
-          },
-          effectiveUserId: _effectiveUserId,
-        }),
-        runtime: {
-          async getMemorySearchManager(_params: any) {
-            try {
-              const userId = _effectiveUserId();
-              let memoryCount = 0;
-              try {
-                const memories = await provider.getAll({
-                  user_id: userId,
-                  page_size: 1,
-                  source: "OPENCLAW",
-                });
-                memoryCount = Array.isArray(memories) ? memories.length : 0;
-              } catch {
-                // Non-fatal: status still works without count
-              }
-              return {
-                manager: {
-                  status() {
-                    return {
-                      backend: cfg.mode,
-                      files: 0,
-                      chunks: memoryCount,
-                      dirty: false,
-                      workspaceDir: pluginStateDir ?? "",
-                      userId,
-                    };
-                  },
-                  async probeEmbeddingAvailability() {
-                    return { ok: true };
-                  },
-                  async close() {},
-                },
-              };
-            } catch (err) {
-              return {
-                manager: null,
-                error: `mem0 ${cfg.mode} backend unavailable: ${String(err)}`,
-              };
-            }
-          },
-          resolveMemoryBackendConfig(_params: any) {
-            return {
-              backend: cfg.mode,
-              baseUrl: cfg.baseUrl ?? "https://api.mem0.ai",
-              userId: cfg.userId,
-            };
-          },
-          async closeAllMemorySearchManagers() {},
-        },
-      });
-      api.logger.debug("openclaw-mem0: memory capability + runtime registered");
+      api.registerMemoryCapability(createMemoryCapability(cfg));
+      api.logger.debug("openclaw-mem0: memory runtime capability registered");
     }
 
     // Helper: build add options
