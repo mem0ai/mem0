@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import urllib.error
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -209,3 +212,96 @@ def test_format_results_for_context():
     assert "[decision]" in output
     assert "Use Postgres for auth" in output
     assert "abc12345" in output
+
+
+def test_global_search_filters_are_positively_scoped():
+    """Regression: the platform API rejects wildcard-only filters with
+    "filters must include at least one positively-scoped entity ID", so the
+    global_search path must anchor its OR with the caller's user_id.
+
+    Scope note: this patches ``urllib.request.urlopen`` wholesale, so it proves the
+    OUTGOING PAYLOAD SHAPE only — never that the platform accepts it. A green run here
+    is not evidence the 400 is gone; that was confirmed separately with a live request.
+    Treat this as a guard against the shape regressing, nothing more.
+    """
+    from _search import search_memories
+
+    captured_body = {}
+
+    def mock_urlopen(req, timeout=None):
+        captured_body.update(json.loads(req.data.decode()))
+        resp = MagicMock()
+        resp.read.return_value = json.dumps({"results": []}).encode()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        search_memories("test-key", "user1", "proj1", "anything", global_search=True)
+
+    clauses = captured_body["filters"]["OR"]
+    assert {"user_id": "user1"} in clauses
+    assert {"user_id": "*"} not in clauses
+
+
+def test_global_search_filter_helper_is_the_single_definition():
+    """Every caller must build the filter through one helper.
+
+    The first pass at this fix patched three sites and missed a fourth
+    (``on_session_start.sh``), which kept 400ing silently and showed ``memories=?``
+    in the session banner. The helper exists so that class of miss is structurally
+    impossible; this pins its shape.
+    """
+    from _identity import global_search_filter
+
+    assert global_search_filter("user1") == {
+        "OR": [{"user_id": "user1"}, {"agent_id": "*"}]
+    }
+    # The failure mode being guarded against.
+    assert {"user_id": "*"} not in global_search_filter("user1")["OR"]
+
+
+def test_session_timeline_uses_positively_scoped_global_filter():
+    """session_timeline.py hits the list endpoint and had no coverage of its own."""
+    import session_timeline
+
+    captured_body = {}
+
+    def mock_urlopen(req, timeout=None):
+        captured_body.update(json.loads(req.data.decode()))
+        resp = MagicMock()
+        resp.read.return_value = json.dumps({"results": []}).encode()
+        resp.__enter__ = lambda s: s
+        resp.__exit__ = MagicMock(return_value=False)
+        return resp
+
+    with patch.dict(os.environ, {"MEM0_GLOBAL_SEARCH": "true"}), \
+            patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        session_timeline.fetch_recent_memories("test-key", "user1", "proj1")
+
+    clauses = captured_body["filters"]["OR"]
+    assert {"user_id": "user1"} in clauses
+    assert {"user_id": "*"} not in clauses
+
+
+def test_on_session_start_banner_filter_is_positively_scoped():
+    """The 4th site. It builds its filter in an inline python block inside a bash
+    hook, so this runs that block's logic the same way the hook does."""
+    import subprocess
+
+    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+    code = (
+        "import json, os, sys\n"
+        "sys.path.insert(0, os.environ['PYTHONPATH'])\n"
+        "from _identity import global_search_filter\n"
+        "print(json.dumps(global_search_filter(os.environ['UID_IN'])))\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "PYTHONPATH": str(scripts_dir), "UID_IN": "user1"},
+        capture_output=True, text=True, check=True,
+    ).stdout
+
+    clauses = json.loads(out)["OR"]
+    assert {"user_id": "user1"} in clauses
+    assert {"user_id": "*"} not in clauses

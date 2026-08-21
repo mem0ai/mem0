@@ -102,3 +102,31 @@ except ImportError:
 
     def save_project_mapping(cwd: str, project_id: str) -> None:
         pass
+
+
+def global_search_filter(user_id: str) -> dict:
+    """Filter for global search — the one definition every caller must use.
+
+    The platform rejects wildcard-only filters with "filters must include at least
+    one positively-scoped entity ID", so ``{"OR": [{"user_id": "*"}]}`` 400s. Anchoring
+    the OR with a real ``user_id`` keeps it valid while ``agent_id: "*"`` still widens
+    the search past the current project.
+
+    This lives in one place deliberately. The same literal was previously duplicated
+    across _search.py, session_timeline.py, enforce_metadata_defaults.sh and
+    on_session_start.sh, and the last of those was missed in the first pass at this
+    fix — it kept 400ing silently and showed ``memories=?`` in the session banner.
+    A single definition makes that class of miss structurally impossible.
+
+    Bash callers reach this the same way they reach load_settings::
+
+        PYTHONPATH="$SCRIPT_DIR" python3 -c \
+          "from _identity import global_search_filter; import json; \
+           print(json.dumps(global_search_filter('$USER_ID')))"
+
+    Note the scope: ``agent_id: "*"`` is NOT constrained by ``user_id``, so global
+    search can surface agent-scoped memories belonging to other user IDs on the same
+    account. That is the documented intent ("all memories, all users, all projects"),
+    not a leak across accounts.
+    """
+    return {"OR": [{"user_id": user_id}, {"agent_id": "*"}]}
