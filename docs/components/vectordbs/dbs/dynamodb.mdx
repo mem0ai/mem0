@@ -1,0 +1,62 @@
+---
+title: Amazon DynamoDB
+description: "Use Amazon DynamoDB as a serverless vector store in Mem0, keeping memories next to your operational data."
+---
+
+[Amazon DynamoDB](https://aws.amazon.com/dynamodb/) is a serverless, fully managed NoSQL database. DynamoDB vector indexes store embeddings as an attribute on the item and query them with the `SearchVectors` API, so memories live in the same table infrastructure as your application data with no separate vector cluster to manage.
+
+### Installation
+
+DynamoDB vector search requires boto3 1.43.64 or newer:
+
+```bash Python
+pip install "boto3>=1.43.64"
+```
+
+### Usage
+
+To use Amazon DynamoDB with Mem0, you need an AWS account and IAM permissions for `dynamodb:CreateTable`, `dynamodb:DescribeTable`, `dynamodb:PutItem`, `dynamodb:GetItem`, `dynamodb:UpdateItem`, `dynamodb:DeleteItem`, `dynamodb:BatchWriteItem`, `dynamodb:Scan`, `dynamodb:SearchVectors`, `dynamodb:ListTables`, and `dynamodb:DeleteTable`. Ensure your environment is configured with AWS credentials (e.g., via `~/.aws/credentials` or environment variables).
+
+```python Python
+import os
+from mem0 import Memory
+
+# Ensure your AWS credentials are configured in your environment
+# e.g., by setting AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_DEFAULT_REGION
+
+config = {
+    "vector_store": {
+        "provider": "dynamodb",
+        "config": {
+            "collection_name": "mem0-memories",
+            "embedding_model_dims": 1536,
+            "distance_metric": "cosine",
+            "region_name": "us-east-1"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller movie? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thrillers, but I love sci-fi movies."},
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Configuration parameters
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `collection_name` | Name of the DynamoDB table | `mem0` |
+| `embedding_model_dims` | Dimension of the embedding vector | `1536` |
+| `distance_metric` | `cosine` or `euclidean` | `cosine` |
+| `region_name` | AWS region for the DynamoDB client | `None` |
+| `endpoint_url` | Optional endpoint override, e.g. a local DynamoDB-compatible server | `None` |
+
+### Notes
+
+- The table is created on first use with on-demand billing and a vector index over the `vector` attribute. `user_id`, `agent_id`, and `run_id` filters are applied server-side during the vector search; other metadata filters are applied to the returned results.
+- DynamoDB vector index maintenance is asynchronous: memories become searchable shortly after they are written rather than in the same instant.
+- Search scores follow the Mem0 convention (higher is more similar); the store converts DynamoDB's distance values.
