@@ -312,6 +312,28 @@ class TestOpenSearchDB(unittest.TestCase):
         self.assertEqual(len(result[0]), 1)
         self.assertEqual(result[0][0].id, "id1")
 
+    def test_list_unbounded_scrolls_and_excludes_vector(self):
+        # Unbounded list() must scroll (not one size=10000 request that caps at
+        # max_result_window and pulls every vector) and must exclude the stored vector.
+        page1 = {
+            "_scroll_id": "s1",
+            "hits": {"hits": [{"_source": {"id": f"id{i}", "payload": {"user_id": "u"}}} for i in range(1000)]},
+        }
+        page2 = {"_scroll_id": "s1", "hits": {"hits": [{"_source": {"id": "id1000", "payload": {"user_id": "u"}}}]}}
+        self.client_mock.search.return_value = page1
+        self.client_mock.scroll.return_value = page2
+
+        results = self.os_db.list()
+
+        # every match collected across scroll pages (not capped at 10 or one page)
+        self.assertEqual(len(results[0]), 1001)
+        self.client_mock.scroll.assert_called_once()
+        self.client_mock.clear_scroll.assert_called_once_with(scroll_id="s1")
+
+        call = self.client_mock.search.call_args
+        self.assertEqual(call.kwargs["body"]["_source"], ["id", "payload"])  # vector excluded
+        self.assertEqual(call.kwargs["scroll"], "2m")  # opened a scroll context
+
     @patch("mem0.vector_stores.opensearch.logger")
     def test_list_error_returns_nested_empty_list(self, mock_logger):
         """list() error path must return [[]] (not bare []) so callers can do
