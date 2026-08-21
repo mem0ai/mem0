@@ -116,7 +116,7 @@ def cmd_import(
         output = "agent"
 
     try:
-        data = json.loads(Path(file_path).read_text())
+        data = json.loads(Path(file_path).read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print_error(err_console, f"Failed to read file: {e}")
         raise typer.Exit(1) from None
