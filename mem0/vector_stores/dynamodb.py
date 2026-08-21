@@ -1,7 +1,6 @@
 import json
 import logging
-import time
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel
 
@@ -159,9 +158,7 @@ class DynamoDB(VectorStoreBase):
         response = self.client.search_vectors(**params)
         results = [self._parse_item(r["Item"], r.get("Score")) for r in response.get("SearchResults", [])]
         if remainder:
-            results = [
-                r for r in results if r.payload and all(r.payload.get(k) == v for k, v in remainder.items())
-            ]
+            results = [r for r in results if r.payload and all(r.payload.get(k) == v for k, v in remainder.items())]
         return results
 
     def delete(self, vector_id):
@@ -227,9 +224,7 @@ class DynamoDB(VectorStoreBase):
             items.extend(page.get("Items", []))
         results = [self._parse_item(item) for item in items]
         if remainder:
-            results = [
-                r for r in results if r.payload and all(r.payload.get(k) == v for k, v in remainder.items())
-            ]
+            results = [r for r in results if r.payload and all(r.payload.get(k) == v for k, v in remainder.items())]
         if top_k:
             results = results[:top_k]
         return [results]
