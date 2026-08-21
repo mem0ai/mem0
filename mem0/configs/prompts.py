@@ -1060,3 +1060,18 @@ def generate_additive_extraction_prompt(
 
     sections.append("# Output:")
     return "\n\n".join(sections)
+
+
+MEMORY_MERGE_PROMPT = """You are a memory consolidator. Merge the following related memories into a single comprehensive memory.
+
+Rules:
+- Combine all unique facts into one concise statement
+- When facts directly contradict (e.g. "name is Alice" vs "name is Bob"), keep the most recent
+- Non-contradictory facts about the same topic should all be preserved (e.g. "likes pizza" and "likes sushi" are both valid)
+- Do not lose any information
+- Return ONLY the merged memory text, nothing else
+
+Memories to merge:
+{memories}
+
+Merged memory:"""
