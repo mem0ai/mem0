@@ -1,13 +1,32 @@
+import asyncio
 import logging
 import time
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, call, patch as mock_patch
 
 import pytest
 
 from mem0.exceptions import LLMError
-from mem0.memory.main import AsyncMemory, Memory
+from mem0.memory.main import ADDITIVE_EXTRACTION_PROMPT, AsyncMemory, Memory, generate_additive_extraction_prompt
+from mem0.memory.utils import parse_messages
+
+
+@pytest.fixture
+def mocker():
+    stack = ExitStack()
+
+    class _Mocker:
+        MagicMock = MagicMock
+        AsyncMock = AsyncMock
+        Mock = Mock
+
+        def patch(self, target, *args, **kwargs):
+            return stack.enter_context(mock_patch(target, *args, **kwargs))
+
+    yield _Mocker()
+    stack.close()
 
 
 def _setup_mocks(mocker):
@@ -28,6 +47,17 @@ def _setup_mocks(mocker):
     mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
 
     return mock_llm, mock_vector_store
+
+
+def _asyncify_embedding_model(model):
+    model.aembed = AsyncMock(side_effect=lambda *args, **kwargs: model.embed(*args, **kwargs))
+    model.aembed_batch = AsyncMock(side_effect=lambda *args, **kwargs: model.embed_batch(*args, **kwargs))
+    return model
+
+
+def _asyncify_llm(model):
+    model.agenerate_response = AsyncMock(side_effect=lambda *args, **kwargs: model.generate_response(*args, **kwargs))
+    return model
 
 
 class TestAddToVectorStoreErrors:
@@ -63,7 +93,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -148,43 +180,40 @@ class TestAsyncUpdate:
         memory = AsyncMemory()
         return memory
 
-    @pytest.mark.asyncio
-    async def test_async_update_without_metadata(self, mock_async_memory, mocker):
+    def test_async_update_without_metadata(self, mock_async_memory, mocker):
         """Test async update passes None metadata by default"""
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory._update_memory = mocker.AsyncMock()
 
-        result = await mock_async_memory.update("test_id", "Updated memory")
+        result = asyncio.run(mock_async_memory.update("test_id", "Updated memory"))
 
         mock_async_memory._update_memory.assert_called_once_with(
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, None
         )
         assert result["message"] == "Memory updated successfully!"
 
-    @pytest.mark.asyncio
-    async def test_async_update_with_metadata(self, mock_async_memory, mocker):
+    def test_async_update_with_metadata(self, mock_async_memory, mocker):
         """Test async update correctly forwards metadata"""
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory._update_memory = mocker.AsyncMock()
         metadata = {"category": "sports", "priority": "high"}
 
-        result = await mock_async_memory.update("test_id", "Updated memory", metadata=metadata)
+        result = asyncio.run(mock_async_memory.update("test_id", "Updated memory", metadata=metadata))
 
         mock_async_memory._update_memory.assert_called_once_with(
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, metadata
         )
         assert result["message"] == "Memory updated successfully!"
 
-    @pytest.mark.asyncio
-    async def test_async_update_with_empty_metadata(self, mock_async_memory, mocker):
+    def test_async_update_with_empty_metadata(self, mock_async_memory, mocker):
         """Test async update with empty metadata dict"""
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory._update_memory = mocker.AsyncMock()
 
-        await mock_async_memory.update("test_id", "Updated memory", metadata={})
+        asyncio.run(mock_async_memory.update("test_id", "Updated memory", metadata={}))
 
         mock_async_memory._update_memory.assert_called_once_with(
             "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
@@ -192,7 +221,7 @@ class TestAsyncUpdate:
 
     @pytest.mark.asyncio
     async def test_async_update_data_is_deprecated_alias_for_text(self, mock_async_memory, mocker, caplog):
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory._update_memory = mocker.AsyncMock()
 
@@ -214,6 +243,7 @@ class TestAsyncUpdate:
 
     @pytest.mark.asyncio
     async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
+        mock_async_memory.embedding_model = _asyncify_embedding_model(mock_async_memory.embedding_model)
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory.vector_store.get = Mock(
             return_value=Mock(
@@ -248,6 +278,8 @@ class TestAsyncAddToVectorStoreErrors:
         mock_llm, _ = _setup_mocks(mocker)
 
         memory = AsyncMemory()
+        memory.llm = _asyncify_llm(memory.llm)
+        memory.embedding_model = _asyncify_embedding_model(memory.embedding_model)
         memory.config = mocker.MagicMock()
         memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
@@ -272,7 +304,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -325,6 +359,9 @@ def _build_memory_instance(mocker, memory_cls):
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()
     memory.db = mocker.MagicMock()
+    if memory_cls is AsyncMemory:
+        memory.llm = _asyncify_llm(memory.llm)
+        memory.embedding_model = _asyncify_embedding_model(memory.embedding_model)
     return memory
 
 
@@ -739,6 +776,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -912,11 +950,10 @@ class TestEntityBoostParallelism:
 
         mock_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
 
-    @pytest.mark.asyncio
-    async def test_async_boosts_preserve_scoring(self, mock_async_memory):
+    def test_async_boosts_preserve_scoring(self, mock_async_memory):
         from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
 
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
 
         results_by_query = {
@@ -930,9 +967,11 @@ class TestEntityBoostParallelism:
         mock_async_memory._entity_store = Mock()
         mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
 
-        boosts = await mock_async_memory._compute_entity_boosts_async(
-            [("person", "alice"), ("person", "bob")],
-            {"user_id": "u1"},
+        boosts = asyncio.run(
+            mock_async_memory._compute_entity_boosts_async(
+                [("person", "alice"), ("person", "bob")],
+                {"user_id": "u1"},
+            )
         )
 
         boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
@@ -940,16 +979,17 @@ class TestEntityBoostParallelism:
         assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
         assert boosts["mem-2"] == pytest.approx(boost_bob)
 
-    @pytest.mark.asyncio
-    async def test_async_embed_batch_called_once(self, mock_async_memory):
-        mock_async_memory.embedding_model = Mock()
+    def test_async_embed_batch_called_once(self, mock_async_memory):
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
         mock_async_memory._entity_store = Mock()
         mock_async_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
 
-        await mock_async_memory._compute_entity_boosts_async(
-            [("person", "alice"), ("person", "bob"), ("person", "carol")],
-            {"user_id": "u1"},
+        asyncio.run(
+            mock_async_memory._compute_entity_boosts_async(
+                [("person", "alice"), ("person", "bob"), ("person", "carol")],
+                {"user_id": "u1"},
+            )
         )
 
         mock_async_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
@@ -975,9 +1015,8 @@ class TestEntityBoostParallelism:
         assert "mem-9" in boosts
         assert any("Entity boost search failed" in r.message for r in caplog.records)
 
-    @pytest.mark.asyncio
-    async def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
-        mock_async_memory.embedding_model = Mock()
+    def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
 
         def fake_search(query, vectors, top_k, filters):
@@ -989,9 +1028,11 @@ class TestEntityBoostParallelism:
         mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
 
         with caplog.at_level(logging.WARNING):
-            boosts = await mock_async_memory._compute_entity_boosts_async(
-                [("person", "boom"), ("person", "ok")],
-                {"user_id": "u1"},
+            boosts = asyncio.run(
+                mock_async_memory._compute_entity_boosts_async(
+                    [("person", "boom"), ("person", "ok")],
+                    {"user_id": "u1"},
+                )
             )
 
         assert "mem-9" in boosts
@@ -1022,9 +1063,8 @@ class TestEntityBoostParallelism:
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4
 
-    @pytest.mark.asyncio
-    async def test_async_searches_run_concurrently(self, mock_async_memory):
-        mock_async_memory.embedding_model = Mock()
+    def test_async_searches_run_concurrently(self, mock_async_memory):
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
 
         concurrent_count = {"current": 0, "peak": 0}
@@ -1041,7 +1081,7 @@ class TestEntityBoostParallelism:
 
         entities = [("person", f"e{i}") for i in range(4)]
         start = time.perf_counter()
-        boosts = await mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"})
+        boosts = asyncio.run(mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"}))
         elapsed = time.perf_counter() - start
 
         assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
@@ -1138,12 +1178,12 @@ class TestAddPipelineEntityEmbeddingCountGuard:
             "expected count-mismatch warning was not emitted"
         )
 
-    @pytest.mark.asyncio
-    async def test_async_short_entity_embeddings_still_link_valid_entity(self, mock_async_memory, mocker, caplog):
+    def test_async_short_entity_embeddings_still_link_valid_entity(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm = _asyncify_llm(mock_async_memory.llm)
         mock_async_memory.llm.generate_response.return_value = (
             '{"memory": [{"text": "Alice met Bob"}, {"text": "Bob called Alice"}]}'
         )
-        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model = _asyncify_embedding_model(Mock())
         mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._short_entity_embed_batch)
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
 
@@ -1162,11 +1202,13 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         mocker.patch("mem0.memory.main.capture_event")
 
         with caplog.at_level(logging.WARNING):
-            result = await mock_async_memory._add_to_vector_store(
-                messages=[{"role": "user", "content": "Alice met Bob; Bob called Alice"}],
-                metadata={},
-                effective_filters={"user_id": "u1"},
-                infer=True,
+            result = asyncio.run(
+                mock_async_memory._add_to_vector_store(
+                    messages=[{"role": "user", "content": "Alice met Bob; Bob called Alice"}],
+                    metadata={},
+                    effective_filters={"user_id": "u1"},
+                    infer=True,
+                )
             )
 
         assert len(result) == 2
@@ -1178,3 +1220,129 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+def test_async_add_without_inference_uses_aembed(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.embedding_model = _asyncify_embedding_model(Mock())
+    memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory._create_memory = mocker.AsyncMock(return_value="memory-1")
+
+    result = asyncio.run(
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Hello"}],
+            metadata={"user_id": "u1"},
+            effective_filters={"user_id": "u1"},
+            infer=False,
+        )
+    )
+
+    assert result == [{"id": "memory-1", "memory": "Hello", "event": "ADD", "actor_id": None, "role": "user"}]
+    memory.embedding_model.aembed.assert_awaited_once_with("Hello", "add")
+    memory._create_memory.assert_awaited_once_with(
+        "Hello",
+        {"Hello": [0.1, 0.2, 0.3]},
+        {"user_id": "u1", "role": "user"},
+    )
+
+
+def test_async_add_inference_uses_aembed_batch_and_fallback(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.embedding_model = _asyncify_embedding_model(Mock())
+    memory.embedding_model.embed = Mock(return_value=[0.9, 0.8, 0.7])
+    memory.embedding_model.embed_batch = Mock(side_effect=RuntimeError("batch failed"))
+    memory.llm.generate_response.return_value = '{"memory": [{"text": "Alpha"}, {"text": "Beta"}]}'
+    memory.db.get_last_messages = Mock(return_value=[])
+    memory.vector_store.search = Mock(return_value=[])
+    memory.vector_store.insert = Mock()
+    memory.db.batch_add_history = Mock()
+    memory.db.save_messages = Mock()
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[])
+
+    result = asyncio.run(
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Hello"}],
+            metadata={"user_id": "u1"},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+    )
+
+    assert [item["memory"] for item in result] == ["Alpha", "Beta"]
+    memory.llm.agenerate_response.assert_awaited_once_with(
+        messages=[
+            {"role": "system", "content": ADDITIVE_EXTRACTION_PROMPT},
+            {
+                "role": "user",
+                "content": generate_additive_extraction_prompt(
+                    existing_memories=[],
+                    new_messages=parse_messages([{"role": "user", "content": "Hello"}]),
+                    last_k_messages=[],
+                    custom_instructions=None,
+                ),
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+    memory.embedding_model.aembed.assert_any_await(parse_messages([{"role": "user", "content": "Hello"}]), "search")
+    memory.embedding_model.aembed_batch.assert_awaited_once_with(["Alpha", "Beta"], "add")
+    assert memory.embedding_model.embed.call_args_list == [
+        call(parse_messages([{"role": "user", "content": "Hello"}]), "search"),
+        call("Alpha", "add"),
+        call("Beta", "add"),
+    ]
+
+
+def test_async_search_vector_store_uses_aembed(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.embedding_model = _asyncify_embedding_model(Mock())
+    memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory.vector_store.search = Mock(return_value=[])
+    memory.vector_store.keyword_search = Mock(return_value=[])
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+
+    result = asyncio.run(memory._search_vector_store("tea", filters={}, limit=5))
+
+    assert result == []
+    memory.embedding_model.aembed.assert_awaited_once_with("tea", "search")
+
+
+def test_async_update_uses_aembed(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.embedding_model = _asyncify_embedding_model(Mock())
+    memory.embedding_model.embed = Mock(return_value=[0.2, 0.3, 0.4])
+    memory._update_memory = mocker.AsyncMock(return_value=None)
+    mocker.patch("mem0.memory.main.display_first_run_notice_async", new=AsyncMock())
+    mocker.patch("mem0.memory.main.capture_event")
+
+    result = asyncio.run(memory.update("memory-id", data="Updated memory"))
+
+    assert result == {"message": "Memory updated successfully!"}
+    memory.embedding_model.aembed.assert_awaited_once_with("Updated memory", "update")
+    memory._update_memory.assert_awaited_once_with(
+        "memory-id",
+        "Updated memory",
+        {"Updated memory": [0.2, 0.3, 0.4]},
+        None,
+    )
+
+
+def test_async_create_procedural_memory_uses_async_provider_methods(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.llm.generate_response.return_value = "Procedural summary"
+    memory.embedding_model = _asyncify_embedding_model(Mock())
+    memory.embedding_model.embed = Mock(return_value=[0.5, 0.6, 0.7])
+    memory._create_memory = mocker.AsyncMock(return_value="memory-id")
+    mocker.patch("mem0.memory.main.capture_event")
+
+    result = asyncio.run(
+        memory._create_procedural_memory(
+            [{"role": "user", "content": "Remember this"}],
+            metadata={"user_id": "u1"},
+        )
+    )
+
+    assert result == {"results": [{"id": "memory-id", "memory": "Procedural summary", "event": "ADD"}]}
+    memory.llm.agenerate_response.assert_awaited_once()
+    memory.embedding_model.aembed.assert_awaited_once_with("Procedural summary", memory_action="add")
