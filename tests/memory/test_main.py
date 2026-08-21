@@ -407,6 +407,23 @@ async def test_async_create_memory_preserves_existing_created_at(mocker):
 
 
 @pytest.mark.asyncio
+async def test_async_reset_prefers_vector_store_reset(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    mocker.patch("mem0.memory.main.capture_event")
+    mocker.patch("mem0.memory.main.display_first_run_notice_async")
+    reset_factory = mocker.patch("mem0.memory.main.VectorStoreFactory.reset")
+    create_factory = mocker.patch("mem0.memory.main.VectorStoreFactory.create")
+    original_store = memory.vector_store
+
+    await memory.reset()
+
+    reset_factory.assert_called_once_with(original_store)
+    original_store.delete_col.assert_not_called()
+    create_factory.assert_not_called()
+    assert memory.vector_store is reset_factory.return_value
+
+
+@pytest.mark.asyncio
 async def test_async_update_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
     memory.vector_store.get.return_value = MagicMock(
