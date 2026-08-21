@@ -427,19 +427,74 @@ class FAISS(VectorStoreBase):
         Returns:
             bool: True if payload passes filters, False otherwise.
         """
-        if not filters or not payload:
+        if not filters:
             return True
+        payload = payload or {}
 
         for key, value in filters.items():
-            if key not in payload:
-                return False
-
-            if isinstance(value, list):
-                if payload[key] not in value:
+            if key == "$or":
+                if not any(self._apply_filters(payload, sub) for sub in value):
                     return False
-            elif payload[key] != value:
+                continue
+            if key == "$not":
+                if any(self._apply_filters(payload, sub) for sub in value):
+                    return False
+                continue
+
+            present = key in payload
+            actual = payload.get(key)
+
+            if value == "*":
+                if not present:
+                    return False
+            elif isinstance(value, dict):
+                if not self._match_operators(actual, present, value):
+                    return False
+            elif isinstance(value, list):
+                if not present or actual not in value:
+                    return False
+            elif not present or actual != value:
                 return False
 
+        return True
+
+    def _match_operators(self, actual, present: bool, operators: Dict) -> bool:
+        """Match a payload value against a universal-filter operator dict (eq/ne/gt/gte/lt/lte/in/nin/contains/icontains)."""
+        for op, expected in operators.items():
+            if not present:
+                return False
+            if op == "eq":
+                if actual != expected:
+                    return False
+            elif op == "ne":
+                if actual == expected:
+                    return False
+            elif op in ("gt", "gte", "lt", "lte"):
+                try:
+                    a, e = float(actual), float(expected)
+                except (TypeError, ValueError):
+                    return False
+                if (
+                    (op == "gt" and not a > e)
+                    or (op == "gte" and not a >= e)
+                    or (op == "lt" and not a < e)
+                    or (op == "lte" and not a <= e)
+                ):
+                    return False
+            elif op == "in":
+                if actual not in expected:
+                    return False
+            elif op == "nin":
+                if actual in expected:
+                    return False
+            elif op == "contains":
+                if str(expected) not in str(actual):
+                    return False
+            elif op == "icontains":
+                if str(expected).lower() not in str(actual).lower():
+                    return False
+            else:
+                raise ValueError(f"Unsupported filter operator: {op}")
         return True
 
     def delete(self, vector_id: str):
