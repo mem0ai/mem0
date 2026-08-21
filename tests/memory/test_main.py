@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import threading
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -1178,3 +1180,175 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+def _make_entity_store_mock():
+    """Return an in-memory dict-based mock for the entity store."""
+    store = {"rows": {}}
+
+    def _list(*, filters, top_k):
+        return [[SimpleNamespace(id=k, payload=v) for k, v in store["rows"].items()]]
+
+    def _search(*, query, vectors, top_k, filters):
+        for k, v in store["rows"].items():
+            data = (v or {}).get("data", "")
+            if data and data.lower() in query.lower():
+                return [_make_match(0.97, v.get("linked_memory_ids", []), row_id=k)]
+        return []
+
+    def _insert(*, vectors, ids, payloads):
+        for i, row_id in enumerate(ids):
+            store["rows"][row_id] = payloads[i]
+
+    def _update(*, vector_id, vector, payload):
+        store["rows"][vector_id] = payload
+
+    def _delete(*, vector_id):
+        store["rows"].pop(vector_id, None)
+
+    mock = Mock()
+    mock.list = Mock(side_effect=_list)
+    mock.search = Mock(side_effect=_search)
+    mock.insert = Mock(side_effect=_insert)
+    mock.update = Mock(side_effect=_update)
+    mock.delete = Mock(side_effect=_delete)
+    return store, mock
+
+
+def _make_match(score, linked_memory_ids, row_id="ent-1"):
+    return SimpleNamespace(id=row_id, score=score, payload={"data": "test", "linked_memory_ids": list(linked_memory_ids)})
+
+
+class TestEntityStoreConcurrency:
+    """Verify that the entity-store lock prevents lost updates under concurrency."""
+
+    @pytest.fixture
+    def sync_entity_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        memory._entity_lock = threading.Lock()
+        return memory
+
+    @pytest.fixture
+    def async_entity_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        memory._entity_lock = asyncio.Lock()
+        return memory
+
+    def test_concurrent_upsert_preserves_all_memory_ids(self, sync_entity_memory):
+        store, mock_store = _make_entity_store_mock()
+        sync_entity_memory._entity_store = mock_store
+        filters = {"user_id": "u1"}
+        errors = []
+
+        def _upsert(memory_id):
+            try:
+                sync_entity_memory._upsert_entity("Alice", "person", memory_id, filters)
+            except Exception as exc:
+                errors.append(exc)
+
+        t1 = threading.Thread(target=_upsert, args=("mem-a",))
+        t2 = threading.Thread(target=_upsert, args=("mem-b",))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert not errors, f"Unexpected errors: {errors}"
+        rows = store["rows"]
+        assert len(rows) == 1
+        linked = next(iter(rows.values())).get("linked_memory_ids", [])
+        assert "mem-a" in linked
+        assert "mem-b" in linked
+
+    def test_concurrent_upsert_and_remove_no_corruption(self, sync_entity_memory):
+        store, mock_store = _make_entity_store_mock()
+        sync_entity_memory._entity_store = mock_store
+        filters = {"user_id": "u1"}
+
+        sync_entity_memory._upsert_entity("Alice", "person", "mem-a", filters)
+        assert len(store["rows"]) == 1
+
+        errors = []
+
+        def _upsert():
+            try:
+                sync_entity_memory._upsert_entity("Alice", "person", "mem-b", filters)
+            except Exception as exc:
+                errors.append(exc)
+
+        def _remove():
+            try:
+                sync_entity_memory._remove_memory_from_entity_store("mem-a", filters)
+            except Exception as exc:
+                errors.append(exc)
+
+        t1 = threading.Thread(target=_upsert)
+        t2 = threading.Thread(target=_remove)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert not errors
+        rows = store["rows"]
+        if rows:
+            linked = next(iter(rows.values())).get("linked_memory_ids", [])
+            assert "mem-a" not in linked
+            if linked:
+                assert linked == ["mem-b"]
+
+    @pytest.mark.asyncio
+    async def test_async_concurrent_upsert_preserves_all_memory_ids(self, async_entity_memory):
+        store, mock_store = _make_entity_store_mock()
+        async_entity_memory._entity_store = mock_store
+        filters = {"user_id": "u1"}
+
+        async def _upsert(memory_id):
+            await async_entity_memory._upsert_entity_async("Alice", "person", memory_id, filters)
+
+        await asyncio.gather(_upsert("mem-a"), _upsert("mem-b"))
+
+        rows = store["rows"]
+        assert len(rows) == 1
+        linked = next(iter(rows.values())).get("linked_memory_ids", [])
+        assert "mem-a" in linked
+        assert "mem-b" in linked
+
+    @pytest.mark.asyncio
+    async def test_async_concurrent_upsert_and_remove_no_corruption(self, async_entity_memory):
+        store, mock_store = _make_entity_store_mock()
+        async_entity_memory._entity_store = mock_store
+        filters = {"user_id": "u1"}
+
+        await async_entity_memory._upsert_entity_async("Alice", "person", "mem-a", filters)
+        assert len(store["rows"]) == 1
+
+        await asyncio.gather(
+            async_entity_memory._upsert_entity_async("Alice", "person", "mem-b", filters),
+            async_entity_memory._remove_memory_from_entity_store("mem-a", filters),
+        )
+
+        rows = store["rows"]
+        if rows:
+            linked = next(iter(rows.values())).get("linked_memory_ids", [])
+            assert "mem-a" not in linked
+            if linked:
+                assert linked == ["mem-b"]
