@@ -375,11 +375,13 @@ class AWSBedrockLLM(LLMBase):
         """
         if tools:
             # Handle tool-enabled responses
-            processed_response = {"tool_calls": []}
+            processed_response = {"content": None, "tool_calls": []}
 
             if response.get("output", {}).get("message", {}).get("content"):
                 for item in response["output"]["message"]["content"]:
-                    if "toolUse" in item:
+                    if "text" in item:
+                        processed_response["content"] = item["text"]
+                    elif "toolUse" in item:
                         processed_response["tool_calls"].append(
                             {
                                 "name": item["toolUse"]["name"],
