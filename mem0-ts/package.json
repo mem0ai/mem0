@@ -150,7 +150,8 @@
     "zeroentropy": "^0.1.0-alpha.10",
     "mysql2": "^3.0.0",
     "@zilliz/milvus2-sdk-node": "^2.4.0 || ^3.0.0",
-    "@aws-sdk/client-bedrock-runtime": ">=3.0.0 <3.968.0"
+    "@aws-sdk/client-bedrock-runtime": ">=3.0.0 <3.968.0",
+    "@aws-sdk/client-bedrock-agent-runtime": ">=3.0.0 <3.968.0"
   },
   "peerDependenciesMeta": {
     "@qdrant/js-client-rest": {
@@ -199,6 +200,9 @@
       "optional": true
     },
     "@aws-sdk/client-bedrock-runtime": {
+      "optional": true
+    },
+    "@aws-sdk/client-bedrock-agent-runtime": {
       "optional": true
     },
     "@databricks/sql": {

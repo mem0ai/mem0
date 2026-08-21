@@ -127,6 +127,14 @@ export interface RerankerConfig {
     provider: string;
     config: LLMConfig;
   };
+  // AWS Bedrock provider config (used when provider === "aws_bedrock").
+  // Credentials otherwise resolve via the standard AWS credential chain.
+  awsRegion?: string;
+  awsAccessKeyId?: string;
+  awsSecretAccessKey?: string;
+  awsSessionToken?: string;
+  // Optional pre-constructed client (e.g. BedrockAgentRuntimeClient) for DI/testing.
+  client?: any;
   [key: string]: any;
 }
 
