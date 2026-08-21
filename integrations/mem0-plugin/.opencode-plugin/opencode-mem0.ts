@@ -6,7 +6,7 @@ import type {Plugin} from "@opencode-ai/plugin";
 import {tool} from "@opencode-ai/plugin";
 import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
-import {basename, resolve, dirname} from "path";
+import {resolve, dirname} from "path";
 import {randomBytes} from "crypto";
 import {existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync} from "fs";
 import {homedir} from "os";
@@ -24,7 +24,7 @@ import {
   DREAM_PROTOCOL,
 } from "./dream";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
-import {parseProjectFromRemote} from "./project";
+import {getBranch, getProjectId, selectActiveProjectPath} from "./project";
 import {resolveApiKey} from "./api-key";
 
 async function getUserId(): Promise<string> {
@@ -34,36 +34,6 @@ async function getUserId(): Promise<string> {
   } catch {
   }
   return process.env.USER || process.env.USERNAME || "unknown";
-}
-
-async function getProjectId($: any): Promise<string> {
-  if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
-  // Prefer the git remote's owner/repo — stable across clones, worktrees, and
-  // sub-directories (handles https + ssh, incl. custom host aliases).
-  try {
-    const r = await $`git remote get-url origin`.quiet();
-    const project = parseProjectFromRemote(r.stdout.toString());
-    if (project) return project;
-  } catch {
-  }
-  // No usable remote: use the git repo ROOT dir name, not cwd (which may be a
-  // sub-directory, or your home dir if OpenCode was launched outside a repo).
-  try {
-    const r = await $`git rev-parse --show-toplevel`.quiet();
-    const top = r.stdout.toString().trim();
-    if (top) return basename(top);
-  } catch {
-  }
-  return basename(process.cwd());
-}
-
-async function getBranch($: any): Promise<string> {
-  try {
-    const r = await $`git branch --show-current`.quiet();
-    return r.stdout.toString().trim() || "main";
-  } catch {
-  }
-  return "main";
 }
 
 function extractMemories(res: any): Array<{ memory: string; id: string }> {
@@ -278,8 +248,9 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const mem0 = new MemoryClient({apiKey});
   const userId = await getUserId();
-  const appId = await getProjectId($);
-  const branch = await getBranch($);
+  const projectPath = selectActiveProjectPath(ctx);
+  const appId = await getProjectId($, projectPath);
+  const branch = await getBranch($, projectPath);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
   const globalSearch = loadGlobalSearch();
