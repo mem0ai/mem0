@@ -16,9 +16,10 @@ describe("withTimeout", () => {
 	it("clears the timer after a timeout rejection", async () => {
 		vi.useFakeTimers();
 		const result = withTimeout(new Promise(() => {}), 5000);
+		const rejection = expect(result).rejects.toThrow("timeout");
 
 		await vi.advanceTimersByTimeAsync(5000);
-		await expect(result).rejects.toThrow("timeout");
+		await rejection;
 		expect(vi.getTimerCount()).toBe(0);
 	});
 });

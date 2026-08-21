@@ -1,7 +1,10 @@
 /**
  * Race a promise against a timeout without leaving the losing timer alive.
  */
-export async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+export async function withTimeout<T>(
+	promise: Promise<T>,
+	milliseconds: number,
+): Promise<T> {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
 	try {

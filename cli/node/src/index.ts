@@ -53,7 +53,10 @@ async function getBackendAndConfig(
 
 	// Validate the API key upfront with a fast timeout
 	try {
-		const pingData = (await withTimeout(backend.ping(), 5000)) as Record<string, unknown>;
+		const pingData = (await withTimeout(backend.ping(), 5000)) as Record<
+			string,
+			unknown
+		>;
 
 		const email = pingData?.user_email as string | undefined;
 		if (email) {
