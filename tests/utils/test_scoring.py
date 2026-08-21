@@ -155,6 +155,46 @@ class TestScoreAndRank:
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert "score_details" not in scored[0]
 
+    def test_tie_break_prefers_newer_updated_at(self):
+        results = [
+            {"id": "older", "score": 0.5, "payload": {"updated_at": "2026-01-01T00:00:00+00:00"}},
+            {"id": "newer", "score": 0.5, "payload": {"updated_at": "2026-06-01T00:00:00+00:00"}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert [r["id"] for r in scored] == ["newer", "older"]
+
+    def test_tie_break_prefers_newer_created_at_when_updated_equal(self):
+        results = [
+            {"id": "older", "score": 0.5, "payload": {"created_at": "2026-01-01T00:00:00+00:00"}},
+            {"id": "newer", "score": 0.5, "payload": {"created_at": "2026-06-01T00:00:00+00:00"}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert [r["id"] for r in scored] == ["newer", "older"]
+
+    def test_tie_break_uses_id_when_timestamps_equal(self):
+        results = [
+            {"id": "b", "score": 0.5, "payload": {"updated_at": "2026-01-01T00:00:00+00:00"}},
+            {"id": "a", "score": 0.5, "payload": {"updated_at": "2026-01-01T00:00:00+00:00"}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert [r["id"] for r in scored] == ["a", "b"]
+
+    def test_tie_break_treats_missing_timestamps_as_older(self):
+        results = [
+            {"id": "missing", "score": 0.5, "payload": {}},
+            {"id": "valid", "score": 0.5, "payload": {"updated_at": "2026-01-01T00:00:00+00:00"}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert [r["id"] for r in scored] == ["valid", "missing"]
+
+    def test_tie_break_treats_malformed_timestamps_as_older(self):
+        results = [
+            {"id": "bad", "score": 0.5, "payload": {"updated_at": "not-a-date"}},
+            {"id": "valid", "score": 0.5, "payload": {"updated_at": "2026-01-01T00:00:00+00:00"}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert [r["id"] for r in scored] == ["valid", "bad"]
+
 
 class TestEntityBoostWeight:
     def test_weight_value(self):
