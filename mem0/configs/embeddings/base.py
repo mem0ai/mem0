@@ -40,6 +40,8 @@ class BaseEmbedderConfig(ABC):
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
         aws_region: Optional[str] = None,
+        # Batch embedding
+        embedding_batch_size: Optional[int] = None,
     ):
         """
         Initializes a configuration class instance for the Embeddings.
@@ -72,6 +74,10 @@ class BaseEmbedderConfig(ABC):
         :type memory_search_embedding_type: Optional[str], optional
         :param lmstudio_base_url: LM Studio base URL to be use, defaults to "http://localhost:1234/v1"
         :type lmstudio_base_url: Optional[str], optional
+        :param embedding_batch_size: Max number of texts per embed_batch() request. Lets providers with
+            per-request limits below the embedder default (e.g. DashScope's 10) batch without HTTP 400s.
+            Defaults to None, which keeps the embedder's own default.
+        :type embedding_batch_size: Optional[int], optional
         """
 
         self.model = model
@@ -109,3 +115,9 @@ class BaseEmbedderConfig(ABC):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_session_token = aws_session_token
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
+
+        # Batch embedding: max texts per embed_batch() request. Some
+        # OpenAI-compatible providers cap this well below the OpenAI default of
+        # 100 (for example DashScope text-embedding-v4 allows 10), so it needs
+        # to be overridable. None keeps the embedder's own default.
+        self.embedding_batch_size = embedding_batch_size
