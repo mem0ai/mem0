@@ -63,7 +63,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -101,6 +103,29 @@ class TestAddToVectorStoreErrors:
         # The documented LLMError contract is honoured, and the original
         # provider exception is preserved as the cause for debugging.
         assert isinstance(exc_info.value.__cause__, _ProviderError)
+
+    def test_insert_failure_does_not_return_add_results(self, mocker, mock_memory, caplog):
+        """Failed vector-store inserts must not be reported as successful ADD events (#5245)."""
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "User loves hiking"}]}'
+        mock_memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        mock_memory.vector_store.search.return_value = []
+        mock_memory.vector_store.insert.side_effect = Exception("insert failed")
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mock_memory.db.batch_add_history = MagicMock()
+
+        with caplog.at_level(logging.ERROR):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I love hiking"}],
+                metadata={"user_id": "alice"},
+                filters={"user_id": "alice"},
+                infer=True,
+            )
+
+        assert result == []
+        assert any("Failed to insert memory" in record.message for record in caplog.records)
+        mock_memory.db.batch_add_history.assert_not_called()
 
 
 class TestPromptOverridesCustomInstructions:
@@ -272,7 +297,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -739,6 +766,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)

@@ -23,10 +23,7 @@ def _validate_filter(key: str, value) -> None:
     if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
         raise ValueError(f"Invalid filter key: {key!r}")
     if not isinstance(value, (str, int, float, bool)):
-        raise ValueError(
-            f"Filter value for {key!r} must be str, int, float, or bool, "
-            f"got {type(value).__name__}"
-        )
+        raise ValueError(f"Filter value for {key!r} must be str, int, float, or bool, got {type(value).__name__}")
 
 
 def _build_filter_clauses(filters):
@@ -309,7 +306,7 @@ class OpenSearchDB(VectorStoreBase):
         hits = response.get("hits", {}).get("hits", [])
 
         if not hits:
-            return
+            raise ValueError(f"Vector with id {vector_id} not found in index {self.collection_name}")
 
         opensearch_id = hits[0]["_id"]
 
@@ -335,7 +332,7 @@ class OpenSearchDB(VectorStoreBase):
         hits = response.get("hits", {}).get("hits", [])
 
         if not hits:
-            return
+            raise ValueError(f"Vector with id {vector_id} not found in index {self.collection_name}")
 
         opensearch_id = hits[0]["_id"]  # The actual document ID in OpenSearch
 
