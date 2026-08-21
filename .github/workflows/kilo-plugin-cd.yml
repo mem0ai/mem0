@@ -1,0 +1,69 @@
+name: Publish @mem0/kilo-plugin 📦 to npm
+
+# Dispatched by release.yml (Release Router) when a release tagged
+# kilo-v* is published. Can also be dispatched manually to re-publish
+# a tag.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and publish (e.g. kilo-v0.1.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Publish under the version preid dist-tag instead of latest'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-n-publish:
+    name: Build and publish @mem0/kilo-plugin 📦 to npm
+    if: startsWith(inputs.tag, 'kilo-v') && github.ref == format('refs/tags/{0}', inputs.tag)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: integrations/kilo-plugin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Verify package version matches release tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${RELEASE_TAG#kilo-v}
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error file=integrations/kilo-plugin/package.json::Tag version $TAG_VERSION does not match package version $PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: |
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            PREID=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+            npx npm@latest publish --provenance --access public --tag "$PREID"
+          else
+            npx npm@latest publish --provenance --access public
+          fi

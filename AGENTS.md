@@ -14,7 +14,7 @@ This is a polyglot monorepo and **every package sets its own rules**. Read the `
 - Modify anything in `.github/workflows/` without explicit maintainer approval. Publishing credentials are pinned to workflow filenames.
 - Commit `.env` files, API keys, or credentials.
 - Skip pre-commit hooks.
-- Use npm or yarn in TypeScript packages. This repo is pnpm-only (Bun in `.opencode-plugin/`).
+- Use npm or yarn in TypeScript packages. This repo uses pnpm except for the Bun-based `.opencode-plugin/` and `integrations/kilo-plugin/` packages.
 - Use `require()` in TypeScript. ES module `import` syntax only.
 - Mix up linter configs. Root Python is ruff at line length **120**, `cli/python/` is ruff at **100**, `cli/node/` is Biome, `mem0-ts/` is Prettier, `integrations/vercel-ai-sdk/` is ESLint.
 - Add Python dependencies to the core `dependencies` list in `pyproject.toml`. Use an optional group.
