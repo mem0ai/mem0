@@ -180,8 +180,12 @@ if [ "$SOURCE" = "startup" ]; then
     echo "Native MEMORY.md detected at ${_MEMORY_MD}. Add autoMemoryEnabled:false to settings.json or run /mem0:import."
   fi
 
-  MEM0_CWD="$MEM0_CWD_RESOLVED" \
-    python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+  # Honor auto_save=false in ~/.mem0/settings.json -- auto-import writes
+  # memories, so it belongs behind the same guard as every other writer.
+  if [ "${MEM0_AUTO_SAVE:-true}" != "false" ]; then
+    MEM0_CWD="$MEM0_CWD_RESOLVED" \
+      python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+  fi
 
   # Configure the coding-category taxonomy in the background (idempotent, never blocks).
   # Prefer the venv python since this path needs the mem0ai SDK.
