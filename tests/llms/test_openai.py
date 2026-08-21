@@ -319,12 +319,18 @@ def test_is_reasoning_model_classification(mock_openai_client):
     assert llm._is_reasoning_model("o3-mini") is True
     assert llm._is_reasoning_model("o3") is True
     assert llm._is_reasoning_model("gpt-5") is True
+    # Non-dotted GPT-5 originals reject temperature/top_p (#6241). gpt-5-mini is
+    # the default-resolved model, so it must classify as reasoning.
+    assert llm._is_reasoning_model("gpt-5-mini") is True
+    assert llm._is_reasoning_model("gpt-5-nano") is True
     assert llm._is_reasoning_model("o1-preview") is True
     assert llm._is_reasoning_model("o1-2024-12-17") is True
     assert llm._is_reasoning_model("openai/o3-mini") is True
 
-    # Non-reasoning models — should return False
+    # Non-reasoning models — should return False. Dotted gpt-5.x versions support
+    # temperature and must not be caught by the gpt-5-mini/nano additions (#4738).
     assert llm._is_reasoning_model("gpt-5.4-mini") is False
+    assert llm._is_reasoning_model("gpt-5.4-nano") is False
     assert llm._is_reasoning_model("gpt-5.4") is False
     assert llm._is_reasoning_model("gpt-4.1") is False
     assert llm._is_reasoning_model("gpt-4.1-nano-2025-04-14") is False
