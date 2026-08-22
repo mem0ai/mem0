@@ -1,7 +1,7 @@
 {
   "name": "mem0ai",
   "version": "3.1.6",
-  "description": "The Memory Layer For Your AI Apps",
+  "description": "The memory layer for AI agents",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

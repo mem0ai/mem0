@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/mem0ai/mem0">
-    <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
+    <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for AI Agents">
   </a>
 </p>
 <p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
