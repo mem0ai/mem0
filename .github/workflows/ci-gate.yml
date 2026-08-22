@@ -43,6 +43,7 @@ jobs:
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
       n8n_nodes_mem0: ${{ steps.filter.outputs.n8n_nodes_mem0 }}
       zapier_mem0: ${{ steps.filter.outputs.zapier_mem0 }}
+      strands_mem0: ${{ steps.filter.outputs.strands_mem0 }}
       docs_llms_txt: ${{ steps.filter.outputs.docs_llms_txt }}
       github_scripts: ${{ steps.filter.outputs.github_scripts }}
     steps:
@@ -94,6 +95,10 @@ jobs:
             zapier_mem0:
               - 'integrations/zapier-mem0/**'
               - '.github/workflows/zapier-mem0-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            strands_mem0:
+              - 'integrations/strands-mem0/**'
+              - '.github/workflows/strands-mem0-checks.yml'
               - '.github/workflows/ci-gate.yml'
             docs_llms_txt:
               - 'docs/**/*.mdx'
@@ -178,6 +183,13 @@ jobs:
     uses: ./.github/workflows/zapier-mem0-checks.yml
     secrets: inherit
 
+  strands-mem0:
+    name: strands-mem0
+    needs: changes
+    if: needs.changes.outputs.strands_mem0 == 'true'
+    uses: ./.github/workflows/strands-mem0-checks.yml
+    secrets: inherit
+
   docs-llms-txt:
     name: docs llms.txt
     needs: changes
@@ -217,6 +229,7 @@ jobs:
       - pi-agent-plugin
       - n8n-nodes-mem0
       - zapier-mem0
+      - strands-mem0
       - docs-llms-txt
       - github-scripts
     if: always()

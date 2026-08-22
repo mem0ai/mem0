@@ -262,6 +262,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Platform]: Use when the user is on Mastra (TypeScript).
 - [OpenClaw](https://docs.mem0.ai/integrations/openclaw) [Both]: Use when wiring Mem0 into Claude Code or editors via OpenClaw.
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
+- [Strands Agents](https://docs.mem0.ai/integrations/strands) [Both]: Use when the user is on AWS Strands and wants a native MemoryStore.
 
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
