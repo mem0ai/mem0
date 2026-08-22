@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
@@ -149,3 +150,18 @@ def test_embed_batch_count_mismatch_raises(mock_openai_client):
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_openai_embedding_uses_configured_http_client():
+    """The OpenAI client must route through config.http_client when proxies are set.
+
+    Regression test for #6651 — previously the client was built without
+    http_client=, so the SDK's internal httpx client ignored http_client_proxies.
+    """
+    config = BaseEmbedderConfig(
+        api_key="api_key",
+        http_client_proxies="http://proxy.local:8080",
+    )
+    embedder = OpenAIEmbedding(config)
+    assert isinstance(config.http_client, httpx.Client)
+    assert embedder.client._client is config.http_client
