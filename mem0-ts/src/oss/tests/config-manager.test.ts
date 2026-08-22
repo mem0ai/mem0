@@ -155,6 +155,35 @@ describe("ConfigManager", () => {
       expect(config.llm.config.baseURL).toBe("https://api.openai.com/v1");
     });
 
+    it("normalizes vllm_base_url to baseURL for vLLM", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "vllm",
+          config: {
+            model: "Qwen/Qwen2.5-32B-Instruct",
+            vllm_base_url: "http://localhost:8000/v1",
+          },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBe("http://localhost:8000/v1");
+    });
+
+    it("does not inject the OpenAI baseURL default for vLLM", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "vllm",
+          config: { model: "Qwen/Qwen2.5-32B-Instruct" },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBeUndefined();
+    });
+
     it("should preserve url in embedder config (existing behavior)", () => {
       const config = ConfigManager.mergeConfig({
         embedder: {
@@ -269,6 +298,38 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("mergeConfig - FastEmbed defaults", () => {
+    const baseLlm = { provider: "openai", config: { apiKey: "k" } };
+
+    it("does not inject the OpenAI default embedder model into fastembed", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "fastembed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("fastembed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+
+    it("treats FastEmbed provider casing the same way as the factory", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "FastEmbed",
+          config: {},
+        },
+        vectorStore: { provider: "memory", config: {} },
+        llm: baseLlm,
+      });
+
+      expect(cfg.embedder.provider).toBe("FastEmbed");
+      expect(cfg.embedder.config.model).toBeUndefined();
+    });
+  });
+
   describe("mergeConfig - LM Studio LLM config", () => {
     const baseEmbedder = { provider: "openai", config: { apiKey: "k" } };
 
@@ -317,6 +378,55 @@ describe("ConfigManager", () => {
     });
   });
 
+  describe("mergeConfig - AWS Bedrock credential passthrough", () => {
+    const baseEmbedder = { provider: "openai", config: { apiKey: "k" } };
+    const baseVectorStore = { provider: "memory", config: {} };
+
+    it("preserves explicit AWS Bedrock credentials through MemoryConfigSchema.parse", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "aws_bedrock",
+          config: {
+            model: "anthropic.claude-3-sonnet-20240229-v1:0",
+            awsRegion: "us-east-1",
+            awsAccessKeyId: "AKIAEXAMPLE",
+            awsSecretAccessKey: "secret-example",
+            awsSessionToken: "session-example",
+          } as any,
+        },
+      });
+
+      // Regression: zod default parse strips undeclared keys, which silently
+      // dropped credentials before .passthrough() + typed fields were added.
+      expect(cfg.llm.config.awsRegion).toBe("us-east-1");
+      expect(cfg.llm.config.awsAccessKeyId).toBe("AKIAEXAMPLE");
+      expect(cfg.llm.config.awsSecretAccessKey).toBe("secret-example");
+      expect(cfg.llm.config.awsSessionToken).toBe("session-example");
+    });
+
+    it("normalizes snake_case AWS credentials from the raw config", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "aws_bedrock",
+          config: {
+            model: "anthropic.claude-3-sonnet-20240229-v1:0",
+            aws_region: "eu-west-1",
+            aws_access_key_id: "AKIASNAKE",
+            aws_secret_access_key: "snake-secret",
+          } as any,
+        },
+      });
+
+      expect(cfg.llm.config.awsRegion).toBe("eu-west-1");
+      expect(cfg.llm.config.awsAccessKeyId).toBe("AKIASNAKE");
+      expect(cfg.llm.config.awsSecretAccessKey).toBe("snake-secret");
+    });
+  });
+
   describe("mergeConfig - full OpenClaw-style LM Studio config", () => {
     it("handles the exact config from issue #4235", () => {
       const cfg = ConfigManager.mergeConfig({
@@ -359,6 +469,85 @@ describe("ConfigManager", () => {
       expect(cfg.vectorStore.provider).toBe("qdrant");
       expect(cfg.vectorStore.config.host).toBe("192.168.200.12");
       expect(cfg.vectorStore.config.port).toBe(6333);
+    });
+  });
+
+  describe("mergeConfig - provider-specific embedder fields", () => {
+    // The embedder config used to be rebuilt from a fixed key list, which
+    // dropped every provider-specific field before the embedder was
+    // constructed. Vertex AI then authenticated against whatever ambient
+    // project ADC resolved to and ignored the configured task types.
+    it("preserves Vertex AI fields through the merge", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "vertexai",
+          config: {
+            model: "gemini-embedding-001",
+            googleProjectId: "my-proj",
+            location: "europe-west4",
+            vertexCredentialsJson: "/creds.json",
+            memoryAddEmbeddingType: "SEMANTIC_SIMILARITY",
+          },
+        },
+        vectorStore: { provider: "memory", config: { collectionName: "test" } },
+        llm: { provider: "openai", config: { apiKey: "test-key" } },
+      });
+
+      expect(cfg.embedder.config).toMatchObject({
+        model: "gemini-embedding-001",
+        googleProjectId: "my-proj",
+        location: "europe-west4",
+        vertexCredentialsJson: "/creds.json",
+        memoryAddEmbeddingType: "SEMANTIC_SIMILARITY",
+      });
+    });
+
+    it("still lets normalized values win over the raw user config", () => {
+      const cfg = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "lmstudio",
+          config: {
+            lmstudio_base_url: "http://localhost:1234/v1",
+            embedding_dims: 768,
+          },
+        } as never,
+        vectorStore: { provider: "memory", config: { collectionName: "test" } },
+        llm: { provider: "openai", config: { apiKey: "test-key" } },
+      });
+
+      expect(cfg.embedder.config.baseURL).toBe("http://localhost:1234/v1");
+      expect(cfg.embedder.config.embeddingDims).toBe(768);
+      // Snake_case aliases are normalized, not passed through to the provider.
+      expect(cfg.embedder.config).not.toHaveProperty("lmstudio_base_url");
+      expect(cfg.embedder.config).not.toHaveProperty("embedding_dims");
+    });
+  });
+
+  describe("mergeConfig - vector store provider normalization", () => {
+    const baseLlm = { provider: "openai", config: { apiKey: "test-key" } };
+    const baseEmbedder = { provider: "openai", config: { apiKey: "test-key" } };
+
+    it.each(["Memory", "DATABRICKS", "QdRaNt"])(
+      "lowercases the vector store provider %p",
+      (provider) => {
+        const config = ConfigManager.mergeConfig({
+          embedder: baseEmbedder,
+          vectorStore: { provider, config: { collectionName: "test" } },
+          llm: baseLlm,
+        });
+
+        expect(config.vectorStore.provider).toBe(provider.toLowerCase());
+      },
+    );
+
+    it("still falls back to the default provider when none is given", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: { config: { collectionName: "test" } } as any,
+        llm: baseLlm,
+      });
+
+      expect(config.vectorStore.provider).toBe("memory");
     });
   });
 });
@@ -568,10 +757,78 @@ describe("Memory – LM Studio end-to-end flow", () => {
       filters: { user_id: "u1" },
     });
 
-    expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");
+    expect(mockEmbedder.embed).toHaveBeenCalledWith(
+      "What does the user like?",
+      "search",
+    );
     expect(mockVStore.search).toHaveBeenCalled();
     expect(result.results).toHaveLength(1);
     expect(result.results[0].memory).toBe("User likes hiking");
+  });
+
+  it("preserves the FastEmbed provider default model through the Memory config path", async () => {
+    const mem = new MemoryClass({
+      embedder: {
+        provider: "fastembed",
+        config: {},
+      },
+      vectorStore: { provider: "memory", config: { collectionName: "test" } },
+      llm: {
+        provider: "openai",
+        config: { apiKey: "test-key" },
+      },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+
+    expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
+      "fastembed",
+      expect.objectContaining({
+        model: undefined,
+      }),
+    );
+  });
+
+  it("passes AWS Bedrock credentials to LLMFactory through the Memory stack", async () => {
+    const mem = new MemoryClass({
+      embedder: {
+        provider: "lmstudio",
+        config: {
+          model: "nomic-embed-text-v1.5",
+          baseURL: "http://localhost:1234/v1",
+          embeddingDims: 768,
+        },
+      },
+      vectorStore: {
+        provider: "memory",
+        config: { collectionName: "test", dimension: 768 },
+      },
+      llm: {
+        provider: "aws_bedrock",
+        config: {
+          model: "anthropic.claude-3-sonnet-20240229-v1:0",
+          awsRegion: "us-east-1",
+          awsAccessKeyId: "AKIAEXAMPLE",
+          awsSecretAccessKey: "secret-example",
+        },
+      },
+      disableHistory: true,
+    });
+
+    await mem.getAll({ filters: { user_id: "u1" } });
+
+    // Regression: credentials must survive ConfigManager -> Memory -> LLMFactory,
+    // otherwise Bedrock silently falls back to the ambient AWS credential chain.
+    expect(mockLlmFactory.create).toHaveBeenCalledWith(
+      "aws_bedrock",
+      expect.objectContaining({
+        model: "anthropic.claude-3-sonnet-20240229-v1:0",
+        awsRegion: "us-east-1",
+        awsAccessKeyId: "AKIAEXAMPLE",
+        awsSecretAccessKey: "secret-example",
+      }),
+    );
   });
 
   it("add flow works with lmstudio LLM for fact extraction", async () => {

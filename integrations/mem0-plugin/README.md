@@ -100,13 +100,16 @@ This points Codex at the repo's `.agents/plugins/marketplace.json`, which refere
 python3 ~/codex-plugins/mem0-source/integrations/mem0-plugin/scripts/install_codex_hooks.py
 ```
 
-This merges three entries into `~/.codex/hooks.json` with absolute paths pointing into your clone:
+This merges six event handlers into `~/.codex/hooks.json` with absolute paths pointing into your clone:
 
 | Event | What it does |
 |-------|--------------|
 | `SessionStart` | Loads prior memories as bootstrap context |
 | `UserPromptSubmit` | Injects relevant memories into the prompt |
+| `PreToolUse` (3 handlers) | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
+| `PostToolUse` (2 handlers) | Tracks stats, scans bash errors for related memories |
 | `Stop` | Reminds the agent to persist learnings at turn end |
+| `PreCompact` | Stores a summary before the context is compacted |
 
 Re-running the installer is idempotent (replaces the Mem0 entries rather than duplicating) and preserves any other hooks you have. To remove: `python3 .../install_codex_hooks.py --uninstall`. If you move or delete the clone directory, re-run the installer from the new location — the hooks file stores absolute paths.
 

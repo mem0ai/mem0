@@ -3,6 +3,9 @@ title: Export Stored Memories
 description: "Retrieve, review, and migrate user memories with structured exports."
 ---
 
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`MemoryClient`)
+</Info>
 
 Mem0 is a dynamic memory store that gives you full control over your data. Along with storing memories, it gives you the ability to retrieve, export, and migrate your data whenever you need.
 
@@ -169,20 +172,20 @@ export_job = client.create_memory_export(
 )
 
 print(f"Export ID: {export_job['id']}")
-print(f"Status: {export_job['status']}")
+print(f"Message: {export_job['message']}")
 
 ```
 
 **Output:**
 
 ```
-Export ID: exp_abc123
-Status: processing
+Export ID: 550e8400-e29b-41d4-a716-446655440000
+Message: Memory export request received. The export will be ready in a few seconds.
 
 ```
 
 <Info>
-**Export initiated:** Status is "processing". Large exports may take a few seconds. Poll with `get_memory_export()` until status changes to "completed" before downloading data.
+**Export initiated:** The export runs asynchronously and is usually ready within a few seconds. Retry `get_memory_export()` with the returned ID until it stops returning a "no export found" error.
 </Info>
 
 ### Step 3: Download the export
@@ -193,7 +196,7 @@ export_data = client.get_memory_export(
     memory_export_id=export_job['id']
 )
 
-print(export_data['data'])
+print(export_data)
 
 ```
 
@@ -216,7 +219,7 @@ export_by_filters = client.get_memory_export(
     filters={"user_id": "dev"}
 )
 
-print(export_by_filters['data'])
+print(export_by_filters)
 
 ```
 
@@ -240,7 +243,7 @@ export_with_instructions = client.create_memory_export(
 ```
 
 <Tip>
-Always check export status before downloading. Call `get_memory_export()` in a loop with a short delay until `status == "completed"`. Attempting to download while still processing returns incomplete data.
+If the export is still processing, `get_memory_export()` returns a 404 with `{"error": "No memory export request found"}`. Retry after a short delay until the call succeeds instead of polling a status field.
 </Tip>
 
 ---
@@ -284,8 +287,8 @@ Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, a
   <Card title="Build a Mem0 Companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
     Learn core memory patterns including temporary vs permanent data handling.
   </Card>
-  <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">
-    Ensure only verified insights make it into your export pipeline.
+  <Card title="Custom Instructions" icon="filter" href="/platform/features/custom-instructions">
+    Steer what Mem0 extracts so only verified insights make it into your export pipeline.
   </Card>
 </CardGroup>
 

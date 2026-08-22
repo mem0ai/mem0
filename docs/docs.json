@@ -84,10 +84,9 @@
                         "pages": [
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
-                          "platform/features/criteria-retrieval",
-                          "platform/features/contextual-add",
                           "platform/features/custom-instructions",
-                          "platform/features/memory-decay"
+                          "platform/features/memory-decay",
+                          "platform/features/dream"
                         ]
                       },
                       {
@@ -96,7 +95,8 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp"
+                          "platform/features/timestamp",
+                          "platform/features/memory-expiration"
                         ]
                       },
                       {
@@ -152,7 +152,8 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
-                      "open-source/features/openai_compatibility"
+                      "open-source/features/openai_compatibility",
+                      "platform/features/memory-expiration"
                     ]
                   },
                   {
@@ -207,6 +208,7 @@
                               "components/vectordbs/dbs/milvus",
                               "components/vectordbs/dbs/pinecone",
                               "components/vectordbs/dbs/mongodb",
+                              "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
                               "components/vectordbs/dbs/azure_mysql",
                               "components/vectordbs/dbs/redis",
@@ -348,6 +350,8 @@
                     "pages": [
                       "integrations/dify",
                       "integrations/flowise",
+                      "integrations/n8n",
+                      "integrations/zapier",
                       "integrations/langchain-tools",
                       "integrations/agentops",
                       "integrations/respan",
@@ -364,6 +368,7 @@
                     "icon": "terminal",
                     "pages": [
                       "integrations/claude-code",
+                      "integrations/claude-ai",
                       "integrations/cursor",
                       "integrations/codex",
                       "integrations/opencode",
@@ -397,7 +402,6 @@
                     "pages": [
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
-                      "cookbooks/essentials/controlling-memory-ingestion",
                       "cookbooks/essentials/tagging-and-organizing-memories",
                       "cookbooks/essentials/exporting-memories"
                     ]
@@ -608,6 +612,14 @@
   },
   "redirects": [
     {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
+    {
+      "source": "/platform/features/contextual-add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
+    {
       "source": "/changelog/openclaw",
       "destination": "/changelog/sdk"
     },
@@ -629,7 +641,7 @@
     },
     {
       "source": "/platform/features/expiration-date",
-      "destination": "/"
+      "destination": "/platform/features/memory-expiration"
     },
     {
       "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
@@ -940,24 +952,20 @@
       "destination": "/platform/features/memory-export"
     },
     {
-      "source": "/v0x/components/:a/:b/:c",
-      "destination": "/components/:a/:b/:c"
+      "source": "/v0x/components/:slug*",
+      "destination": "/components/:slug*"
     },
     {
-      "source": "/v0x/components/:a/:b",
-      "destination": "/components/:a/:b"
+      "source": "/v0x/core-concepts/:slug*",
+      "destination": "/core-concepts/:slug*"
     },
     {
-      "source": "/v0x/core-concepts/:a/:b",
-      "destination": "/core-concepts/:a/:b"
+      "source": "/v0x/integrations/:slug*",
+      "destination": "/integrations/:slug*"
     },
     {
-      "source": "/v0x/integrations/:slug",
-      "destination": "/integrations/:slug"
-    },
-    {
-      "source": "/v0x/open-source/:slug",
-      "destination": "/open-source/:slug"
+      "source": "/v0x/open-source/:slug*",
+      "destination": "/open-source/:slug*"
     },
     {
       "source": "/v0x/introduction",
@@ -1028,8 +1036,12 @@
       "destination": "/platform/features/graph-memory"
     },
     {
-      "source": "/features/:slug",
-      "destination": "/platform/features/:slug"
+      "source": "/open-source/features/graph-memory",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
+      "source": "/features/:slug*",
+      "destination": "/platform/features/:slug*"
     },
     {
       "source": "/platform/features/online-memory",
@@ -1156,7 +1168,7 @@
       "destination": "/open-source/overview"
     },
     {
-      "source": "/self-hosting/:slug",
+      "source": "/self-hosting/:slug*",
       "destination": "/open-source/overview"
     },
     {
@@ -1164,7 +1176,7 @@
       "destination": "/open-source/overview"
     },
     {
-      "source": "/self-hosted/:slug",
+      "source": "/self-hosted/:slug*",
       "destination": "/open-source/overview"
     },
     {
@@ -1172,7 +1184,7 @@
       "destination": "/platform/quickstart"
     },
     {
-      "source": "/getting-started/:slug",
+      "source": "/getting-started/:slug*",
       "destination": "/platform/quickstart"
     },
     {
@@ -1180,7 +1192,7 @@
       "destination": "/open-source/setup"
     },
     {
-      "source": "/deployment/:slug",
+      "source": "/deployment/:slug*",
       "destination": "/open-source/setup"
     },
     {
@@ -1192,12 +1204,12 @@
       "destination": "/open-source/overview"
     },
     {
-      "source": "/oss/:slug",
+      "source": "/oss/:slug*",
       "destination": "/open-source/overview"
     },
     {
-      "source": "/concepts/:slug",
-      "destination": "/core-concepts/:slug"
+      "source": "/concepts/:slug*",
+      "destination": "/core-concepts/:slug*"
     },
     {
       "source": "/pricing",
@@ -1222,6 +1234,50 @@
     {
       "source": "/open-source/features/supported-vector-dbs",
       "destination": "/components/vectordbs/overview"
+    },
+    {
+      "source": "/open-source/multimodal-support",
+      "destination": "/open-source/features/multimodal-support"
+    },
+    {
+      "source": "/platform/features/criteria-retrieval",
+      "destination": "/platform/features/advanced-retrieval"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations/respan"
+    },
+    {
+      "source": "/cookbooks/essentials/controlling-memory-ingestion",
+      "destination": "/platform/features/custom-instructions"
+    },
+    {
+      "source": "/open-source/quickstart",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/open-source/graph-memory/overview",
+      "destination": "/open-source/overview"
+    },
+    {
+      "source": "/what-is-mem0",
+      "destination": "https://mem0.ai/"
+    },
+    {
+      "source": "/platform-vs-oss",
+      "destination": "/platform/platform-vs-oss"
+    },
+    {
+      "source": "/components/overview",
+      "destination": "/components/llms/overview"
+    },
+    {
+      "source": "/v0x/core-concepts/memory-operations/add",
+      "destination": "/core-concepts/memory-operations/add"
+    },
+    {
+      "source": "/v0x/integrations/llama-index",
+      "destination": "/integrations/llama-index"
     }
   ]
 }

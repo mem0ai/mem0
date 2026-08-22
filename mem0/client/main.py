@@ -3,6 +3,7 @@ import logging
 import os
 import warnings
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import httpx
 import requests
@@ -19,7 +20,13 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.setup import (
+    get_user_id,
+    is_aliased,
+    mark_aliased,
+    read_anon_ids,
+    setup_config,
+)
 from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
@@ -40,6 +47,10 @@ def _validate_and_trim_search_query(query: str) -> str:
     if not trimmed:
         raise ValueError("Invalid query: cannot be empty or whitespace-only.")
     return trimmed
+
+
+def _encode_path_segment(value: Any) -> str:
+    return quote(str(value), safe="")
 
 
 def _maybe_alias_anon_to_email(user_email):
@@ -229,7 +240,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = self.client.get(f"/v1/memories/{memory_id}/", params=params)
+        response = self.client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         return response.json()
@@ -264,11 +275,8 @@ class MemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = self.client.post("/v3/memories/", json=params)
@@ -367,7 +375,7 @@ class MemoryClient:
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
-        response = self.client.put(f"/v1/memories/{memory_id}/", json=payload, params=params)
+        response = self.client.put(f"/v1/memories/{_encode_path_segment(memory_id)}/", json=payload, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -395,7 +403,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params({"delete_linked": delete_linked or None})
-        response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
+        response = self.client.delete(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "sync"}
@@ -452,7 +460,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = self.client.get(f"/v1/memories/{memory_id}/history/", params=params)
+        response = self.client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/history/", params=params)
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return response.json()
@@ -513,7 +521,10 @@ class MemoryClient:
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = self.client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = self.client.delete(
+                f"/v2/entities/{_encode_path_segment(entity['type'])}/{_encode_path_segment(entity['name'])}/",
+                params=params,
+            )
             response.raise_for_status()
 
         capture_client_event(
@@ -691,7 +702,9 @@ class MemoryClient:
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
-            "get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead."
+            "get_project() method is going to be deprecated in version v1.0 "
+            "of the package. Please use the client.project.get() method "
+            "instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
@@ -715,10 +728,10 @@ class MemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -726,10 +739,10 @@ class MemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -751,10 +764,10 @@ class MemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -763,7 +776,7 @@ class MemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 
@@ -1147,7 +1160,7 @@ class AsyncMemoryClient:
     @api_error_handler
     async def get(self, memory_id: str) -> Dict[str, Any]:
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/", params=params)
+        response = await self.async_client.get(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event("client.get", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1182,11 +1195,8 @@ class AsyncMemoryClient:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
-        if "page" in params and "page_size" in params:
-            query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
-            }
+        query_params = {key: params.pop(key) for key in ("page", "page_size") if key in params}
+        if query_params:
             response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
             response = await self.async_client.post("/v3/memories/", json=params)
@@ -1285,7 +1295,9 @@ class AsyncMemoryClient:
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()
-        response = await self.async_client.put(f"/v1/memories/{memory_id}/", json=payload, params=params)
+        response = await self.async_client.put(
+            f"/v1/memories/{_encode_path_segment(memory_id)}/", json=payload, params=params
+        )
         response.raise_for_status()
         return response.json()
 
@@ -1313,7 +1325,7 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params({"delete_linked": delete_linked or None})
-        response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
+        response = await self.async_client.delete(f"/v1/memories/{_encode_path_segment(memory_id)}/", params=params)
         response.raise_for_status()
         capture_client_event(
             "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "async"}
@@ -1365,7 +1377,10 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         params = self._prepare_params()
-        response = await self.async_client.get(f"/v1/memories/{memory_id}/history/", params=params)
+        response = await self.async_client.get(
+            f"/v1/memories/{_encode_path_segment(memory_id)}/history/",
+            params=params,
+        )
         response.raise_for_status()
         capture_client_event("client.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return response.json()
@@ -1426,7 +1441,10 @@ class AsyncMemoryClient:
 
         # Delete entities and check response immediately
         for entity in to_delete:
-            response = await self.async_client.delete(f"/v2/entities/{entity['type']}/{entity['name']}/", params=params)
+            response = await self.async_client.delete(
+                f"/v2/entities/{_encode_path_segment(entity['type'])}/{_encode_path_segment(entity['name'])}/",
+                params=params,
+            )
             response.raise_for_status()
 
         capture_client_event(
@@ -1590,7 +1608,9 @@ class AsyncMemoryClient:
             ValueError: If org_id or project_id are not set.
         """
         logger.warning(
-            "get_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.get() method instead."
+            "get_project() method is going to be deprecated in version v1.0 "
+            "of the package. Please use the client.project.get() method "
+            "instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to access instructions or categories")
@@ -1610,10 +1630,10 @@ class AsyncMemoryClient:
         options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
-        retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
+        agent_custom_instructions: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
@@ -1621,10 +1641,10 @@ class AsyncMemoryClient:
             options: Typed options for the update operation (ProjectUpdateOptions).
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
-            retrieval_criteria: New retrieval criteria for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
+            agent_custom_instructions: New extraction instructions for agent-scoped memories.
 
         Returns:
             Dictionary containing the API response.
@@ -1646,10 +1666,10 @@ class AsyncMemoryClient:
                 for k, v in {
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
-                    "retrieval_criteria": retrieval_criteria,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
+                    "agent_custom_instructions": agent_custom_instructions,
                 }.items()
                 if v is not None
             },
@@ -1658,7 +1678,7 @@ class AsyncMemoryClient:
         if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
-                "custom_categories or retrieval_criteria, so you must "
+                "custom_categories, so you must "
                 "provide at least one of them"
             )
 

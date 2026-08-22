@@ -1449,7 +1449,7 @@ export function registerCliCommands(
             console.log("    openclaw mem0 config set auto_recall false");
           } else {
             console.log("    openclaw mem0 config set vector_provider qdrant");
-            console.log("    openclaw mem0 config set llm_model gpt-4o");
+            console.log("    openclaw mem0 config set llm_model gpt-5-mini");
             console.log("    openclaw mem0 config set embedder_provider openai");
           }
           console.log("");

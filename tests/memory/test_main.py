@@ -191,6 +191,28 @@ class TestAsyncUpdate:
         )
 
     @pytest.mark.asyncio
+    async def test_async_update_data_is_deprecated_alias_for_text(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._update_memory = mocker.AsyncMock()
+
+        # `data=` still works but emits a deprecation warning
+        with caplog.at_level(logging.WARNING):
+            await mock_async_memory.update("test_id", data="via data")
+
+        assert any("deprecated" in record.message for record in caplog.records)
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "via data", {"via data": [0.1, 0.2, 0.3]}, None
+        )
+
+        # `text` takes precedence when both are passed
+        mock_async_memory._update_memory.reset_mock()
+        await mock_async_memory.update("test_id", text="preferred", data="ignored")
+        mock_async_memory._update_memory.assert_called_once_with(
+            "test_id", "preferred", {"preferred": [0.1, 0.2, 0.3]}, None
+        )
+
+    @pytest.mark.asyncio
     async def test_async_update_can_change_expiration_date_without_changing_text(self, mock_async_memory, mocker):
         mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
         mock_async_memory.vector_store.get = Mock(
@@ -394,6 +416,147 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
     assert payload["updated_at"] is not None
+
+
+_ATTACKER_UPDATE_METADATA = {
+    "user_id": "attacker_tenant",
+    "agent_id": "attacker_agent",
+    "run_id": "attacker_run",
+    "actor_id": "attacker_actor",
+    "category": "sports",
+}
+
+# Omits agent_id on purpose, so one payload covers both overwriting and injecting an identity field.
+_EXISTING_UPDATE_PAYLOAD = {
+    "data": "old memory",
+    "user_id": "tenant_a",
+    "run_id": "run_a",
+    "actor_id": "actor_a",
+}
+
+
+def test_update_memory_metadata_cannot_change_identity_fields(mocker, caplog):
+    """Regression (issues #4490, #6277): update() metadata must not overwrite or inject identity fields."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["run_id"] == "run_a"
+    assert "agent_id" not in payload
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
+    assert "ignoring metadata['user_id']" in caplog.text
+
+
+_ATTACKER_ADD_METADATA = {
+    "agent_id": "victim-agent",
+    "run_id": "victim-run",
+    "actor_id": "victim-actor",
+    "category": "sports",
+}
+
+
+def _captured_add_metadata(memory, mocker, **add_kwargs):
+    """Run add() with the pipeline stubbed and return the metadata template it produced."""
+    captured = {}
+
+    def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    memory.add("I like coffee", infer=False, **add_kwargs)
+    return captured
+
+
+def test_add_metadata_cannot_set_identity_fields(mocker, caplog):
+    """Regression (issue #6655): add() metadata must not inject identity scope.
+
+    The caller scopes by user_id only, so the agent_id/run_id re-pins in
+    _build_filters_and_metadata never fire and cannot defend the payload.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+
+    with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+        metadata = _captured_add_metadata(
+            memory, mocker, user_id="attacker", metadata=dict(_ATTACKER_ADD_METADATA)
+        )
+
+    assert metadata["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in metadata, f"{key} was injected through add() metadata"
+    # Non-identity metadata is untouched.
+    assert metadata["category"] == "sports"
+    assert "ignoring metadata['agent_id']" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_async_add_metadata_cannot_set_identity_fields(mocker):
+    """Async counterpart of test_add_metadata_cannot_set_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    captured = {}
+
+    async def _capture(messages, metadata, filters, infer, **kwargs):
+        captured.update(metadata)
+        return []
+
+    mocker.patch.object(memory, "_add_to_vector_store", side_effect=_capture)
+    await memory.add(
+        "I like coffee",
+        user_id="attacker",
+        metadata=dict(_ATTACKER_ADD_METADATA),
+        infer=False,
+    )
+
+    assert captured["user_id"] == "attacker"
+    for key in ("agent_id", "run_id", "actor_id"):
+        assert key not in captured, f"{key} was injected through async add() metadata"
+    assert captured["category"] == "sports"
+
+
+def test_add_entity_params_still_set_scope(mocker):
+    """The documented top-level params remain the only way to set scope."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(
+        memory, mocker, user_id="u1", agent_id="a1", run_id="r1", metadata={"category": "sports"}
+    )
+
+    assert metadata["user_id"] == "u1"
+    assert metadata["agent_id"] == "a1"
+    assert metadata["run_id"] == "r1"
+    assert metadata["category"] == "sports"
+
+
+def test_add_without_metadata_is_unaffected(mocker):
+    """No metadata argument means no stripping and no behaviour change."""
+    memory = _build_memory_instance(mocker, Memory)
+
+    metadata = _captured_add_metadata(memory, mocker, user_id="u1")
+
+    assert metadata == {"user_id": "u1"}
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_metadata_cannot_change_identity_fields(mocker):
+    """Async counterpart of test_update_memory_metadata_cannot_change_identity_fields."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(payload=dict(_EXISTING_UPDATE_PAYLOAD))
+
+    await memory._update_memory("memory-id", "new memory", {}, metadata=dict(_ATTACKER_UPDATE_METADATA))
+
+    payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert payload["user_id"] == "tenant_a"
+    assert payload["run_id"] == "run_a"
+    assert "agent_id" not in payload
+    assert payload["actor_id"] == "actor_a"
+    assert payload["category"] == "sports"
+    assert payload["data"] == "new memory"
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
@@ -690,52 +853,6 @@ class TestMetadataNotMutated:
         assert original_metadata == metadata_copy, (
             f"async _update_memory mutated the caller's metadata dict: {original_metadata} != {metadata_copy}"
         )
-
-
-def test_update_preserves_actor_id_when_different_actor_updates(mocker):
-    """actor_id must be preserved from the original memory even when the
-    updating caller passes a different actor_id in metadata (issue #4490)."""
-    memory = _build_memory_instance(mocker, Memory)
-    memory.vector_store.get.return_value = MagicMock(
-        payload={
-            "data": "I am player #1",
-            "user_id": "team",
-            "actor_id": "Alice",
-            "created_at": "2026-01-01T00:00:00+00:00",
-        }
-    )
-
-    memory._update_memory(
-        "mem-id", "Player #1 is a good person",
-        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
-        metadata={"user_id": "team", "actor_id": "Bob"},
-    )
-
-    stored = memory.vector_store.update.call_args.kwargs["payload"]
-    assert stored["actor_id"] == "Alice"
-
-
-@pytest.mark.asyncio
-async def test_async_update_preserves_actor_id_when_different_actor_updates(mocker):
-    """Async variant: actor_id must be preserved from the original memory (issue #4490)."""
-    memory = _build_memory_instance(mocker, AsyncMemory)
-    memory.vector_store.get.return_value = MagicMock(
-        payload={
-            "data": "I am player #1",
-            "user_id": "team",
-            "actor_id": "Alice",
-            "created_at": "2026-01-01T00:00:00+00:00",
-        }
-    )
-
-    await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
-        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
-        metadata={"user_id": "team", "actor_id": "Bob"},
-    )
-
-    stored = memory.vector_store.update.call_args.kwargs["payload"]
-    assert stored["actor_id"] == "Alice"
 
 
 def _make_match(score, linked_memory_ids):

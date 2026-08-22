@@ -1,0 +1,85 @@
+---
+title: Claude.ai
+description: "Add persistent memory to Claude.ai with the Mem0 remote MCP server: custom connector setup and native-memory troubleshooting."
+---
+
+Add persistent memory to [**Claude.ai**](https://claude.ai) (the hosted web app, not Claude Code) using Mem0's remote MCP server. Claude.ai connects to MCP servers over the internet as **custom connectors**; there is no local plugin or hook system here, since chats run in Anthropic's cloud, not on your machine.
+
+## Prerequisites
+
+1. A Mem0 Platform account: <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-claude-ai" rel="nofollow">sign up at app.mem0.ai</a>
+2. A Claude.ai account on any plan (free, Pro, Max, Team, or Enterprise)
+
+You don't need an API key up front: the connector uses browser-based sign-in the first time Claude calls a Mem0 tool (see [Signing in](#signing-in)).
+
+## Installation
+
+### Individual accounts (Pro, Max, or free)
+
+1. Go to **Customize > Connectors**
+2. Click **+**, then **Add custom connector**
+3. Enter the server URL: `https://mcp.mem0.ai/mcp/`
+4. Click **Add**
+
+<Note>
+  Free-tier accounts are limited to one custom connector. Pro, Max, Team, and Enterprise accounts can add multiple.
+</Note>
+
+### Team and Enterprise organizations
+
+An organization owner registers the connector once for everyone:
+
+1. Go to **Organization Settings > Connectors**
+2. Click **Add**, hover **Custom**, then select **Web**
+3. Enter the server URL: `https://mcp.mem0.ai/mcp/`
+4. Click **Add**
+
+Members then connect individually: **Customize > Connectors**, find **mem0**, and click **Connect**.
+
+### Enabling in a chat
+
+Connectors are opt-in per conversation. Click the **+** button next to the chat prompt, open **Connectors**, and toggle **mem0** on before you start.
+
+## Signing in
+
+The first time Claude calls a Mem0 tool, your browser opens a sign-in prompt to authorize the connector against your Mem0 account. Approve it once; Claude.ai stores and refreshes the resulting token for you. There's no API key to paste into the connector UI itself.
+
+## What's Included
+
+| Component | Included |
+|-----------|:--------:|
+| MCP Server (9 memory tools) | Yes |
+| Lifecycle Hooks | No (Claude.ai has no local hook system) |
+| Mem0 SDK Skill | No (Claude.ai has no local skills directory) |
+
+## Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Troubleshooting
+
+- **Claude never calls the mem0 tools, even though the connector shows as connected**: Claude.ai ships its own native memory (Settings > Capabilities > Memory, on by default), which synthesizes a running summary from your chat history automatically. When both are active, Claude's system prompt tends to favor its built-in memory and rarely reaches for a third-party memory tool on its own. Ask explicitly ("search my mem0 memories for...", "save this to mem0") to force the tool call, or pause Claude's native memory (Settings > Capabilities > Memory > Pause) if you want Mem0 to be the primary memory store for that account.
+- **"Connection failed" or the connector won't add**: Confirm the URL is exactly `https://mcp.mem0.ai/mcp/`. Custom connectors reach your MCP server from Anthropic's cloud, not your device, so a localhost URL will never work here.
+- **No tools appearing after adding the connector**: Make sure you toggled **mem0** on for the current conversation under the **+ > Connectors** menu; adding a connector doesn't enable it in every chat automatically.
+- **Can't add a second connector**: Free-tier accounts are capped at one custom connector; upgrade to Pro/Max/Team/Enterprise for more.
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Claude Code Integration" icon="/images/provider-icons/anthropic.svg" href="/integrations/claude-code">
+    Add Mem0 memory to Claude Code workflows
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

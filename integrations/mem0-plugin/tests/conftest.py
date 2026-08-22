@@ -23,15 +23,14 @@ def _scripts_on_path():
 
 
 @pytest.fixture(autouse=True)
-def _clean_project_map(monkeypatch):
-    """Remove project_map.json and clear MEM0_PROJECT_ID before each test."""
+def _isolated_home(tmp_path, monkeypatch):
+    """Point HOME at a tmp dir so ~/.mem0 writes never touch the real home."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.delenv("MEM0_PROJECT_ID", raising=False)
-    map_path = os.path.expanduser("~/.mem0/project_map.json")
-    if os.path.isfile(map_path):
-        os.remove(map_path)
-    yield
-    if os.path.isfile(map_path):
-        os.remove(map_path)
+    yield home
 
 
 @pytest.fixture()

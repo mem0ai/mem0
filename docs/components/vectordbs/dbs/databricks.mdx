@@ -6,7 +6,8 @@ description: "Use Databricks Vector Search as a serverless vector store in Mem0 
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
@@ -36,10 +37,44 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
 
+```typescript TypeScript
+// Requires the Databricks SQL driver (peer dependency): pnpm add @databricks/sql
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'databricks',
+    config: {
+      workspaceUrl: 'https://your-workspace.databricks.com',
+      // SQL warehouse HTTP path, used for index writes (required)
+      httpPath: '/sql/1.0/warehouses/your-warehouse-id',
+      accessToken: 'your-access-token',
+      catalog: 'your_catalog',
+      schema: 'your_schema',
+      tableName: 'your_table',
+      collectionName: 'your_index_name',
+      embeddingModelDims: 1536,
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+```
+</CodeGroup>
+
 ### Config
 
 Here are the parameters available for configuring Databricks Vector Search:
 
+<Tabs>
+<Tab title="Python">
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | `workspace_url` | The URL of your Databricks workspace | **Required** |
@@ -60,6 +95,32 @@ Here are the parameters available for configuring Databricks Vector Search:
 | `pipeline_type` | Sync pipeline type: `TRIGGERED` or `CONTINUOUS` | `TRIGGERED` |
 | `warehouse_name` | Databricks SQL warehouse name (if using SQL warehouse) | `None` |
 | `query_type` | Query type: `ANN` or `HYBRID` | `ANN` |
+</Tab>
+<Tab title="TypeScript">
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `workspaceUrl` | The URL of your Databricks workspace (or pass `host`) | **Required** |
+| `httpPath` | SQL warehouse HTTP path, used for index writes | **Required** |
+| `accessToken` | Personal Access Token for authentication | `None` |
+| `clientId` | Service principal client ID (alternative to `accessToken`) | `None` |
+| `clientSecret` | Service principal client secret (required with `clientId`) | `None` |
+| `endpointName` | Name of the Vector Search endpoint | `mem0_vector_search` |
+| `endpointType` | Type of endpoint (`STANDARD` or `STORAGE_OPTIMIZED`) | `STANDARD` |
+| `pipelineType` | Delta Sync pipeline type: `TRIGGERED` or `CONTINUOUS` | `TRIGGERED` |
+| `queryType` | Query type: `ANN` or `HYBRID` | `ANN` |
+| `catalog` | Unity Catalog catalog name | `main` |
+| `schema` | Unity Catalog schema name | `default` |
+| `collectionName` | Vector Search index name | `mem0` |
+| `tableName` | Source Delta table name | falls back to `collectionName` |
+| `embeddingModelDims` | Dimension of self-managed embeddings | `1536` |
+| `syncPollIntervalMs` | Poll interval while waiting for a `TRIGGERED` sync | `1000` |
+| `syncTimeoutMs` | Timeout while waiting for an index sync | `300000` |
+
+<Note>
+The TypeScript provider uses `DELTA_SYNC` indexes with self-managed embeddings: pass vectors directly. `DIRECT_ACCESS` indexes, Databricks-computed embeddings (`embedding_model_endpoint_name`), and Azure AD auth are Python-only today. It writes to the index through a SQL warehouse, so `httpPath` is required, and `@databricks/sql` must be installed as a peer dependency.
+</Note>
+</Tab>
+</Tabs>
 
 ### Authentication
 

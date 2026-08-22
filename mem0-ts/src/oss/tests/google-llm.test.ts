@@ -185,6 +185,37 @@ describe("GoogleLLM (unit)", () => {
     expect(response.toolCalls[1].name).toBe("add_graph_memory");
   });
 
+  // Regression: generateResponse accepted a responseFormat argument but never
+  // forwarded it, so Gemini was never told to emit JSON (parity with the Python
+  // SDK's mem0/llms/gemini.py, which sets response_mime_type/response_schema).
+  it("forwards json_object responseFormat as responseMimeType", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: '{"facts": ["fact1"]}',
+      functionCalls: null,
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "Extract facts" }], {
+      type: "json_object",
+    });
+
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    expect(callArgs.config.responseMimeType).toBe("application/json");
+  });
+
+  it("does not set responseMimeType when no responseFormat is given", async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: "plain text",
+      functionCalls: null,
+    });
+
+    const llm = new GoogleLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "Hello" }]);
+
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    expect(callArgs.config.responseMimeType).toBeUndefined();
+  });
+
   it("formats generateChat messages and joins Gemini response parts", async () => {
     mockGenerateContent.mockResolvedValueOnce({
       candidates: [

@@ -128,7 +128,10 @@ export default function ConfigurationPage() {
               <Label className="text-xs">Provider</Label>
               <Select
                 value={llmProvider}
-                onValueChange={setLlmProvider}
+                onValueChange={(value) => {
+                  setLlmProvider(value);
+                  setLlmApiKey("");
+                }}
                 disabled={!isAdmin || !providers}
               >
                 <SelectTrigger>
