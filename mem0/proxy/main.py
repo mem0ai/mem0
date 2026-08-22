@@ -140,9 +140,13 @@ class Completions:
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
-        if not messages or messages[0]["role"] != "system":
-            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
-        return messages
+        # Copy every message: create() rewrites the last one's content and litellm
+        # mutates message dicts in place, while _async_add_to_memory hands the
+        # caller's originals to a background thread.
+        prepared = [dict(message) for message in messages]
+        if not prepared or prepared[0]["role"] != "system":
+            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + prepared
+        return prepared
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
         def add_task():

@@ -104,6 +104,84 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     assert call_args["messages"][0]["content"] == "You are a helpful assistant."
 
 
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [{"role": "user", "content": "original"}],
+        [{"role": "system", "content": "system"}, {"role": "user", "content": "original"}],
+    ],
+    ids=["no_system_message", "with_system_message"],
+)
+def test_prepare_messages_does_not_alias_caller_messages(mock_memory_client, messages):
+    """`_prepare_messages` must hand back dicts the caller does not own.
+
+    Both branches used to alias: without a system message it built a new outer
+    list out of the caller's dicts, and with one it returned the caller's list
+    itself. Either way, `create()`'s later write to
+    `prepared_messages[-1]["content"]` landed in the caller's own message.
+    """
+    prepared = Completions(mock_memory_client)._prepare_messages(messages)
+
+    prepared[-1]["content"] = "injected"
+
+    assert messages[-1]["content"] == "original"
+
+
+def test_completions_create_does_not_mutate_caller_messages(mock_memory_client, mock_litellm):
+    """Enriching the LLM request must not rewrite the caller's conversation.
+
+    `create()` replaces the last message's content with the retrieved-memories
+    prompt before calling litellm, while `_async_add_to_memory` hands the
+    caller's list to a background thread. When those two shared dicts, the
+    caller saw its input rewritten and — depending on which side of the race
+    the thread landed on — the memory write could persist the generated
+    "Relevant Memories/Facts" block as new user content.
+
+    Asserting the caller's list is untouched after `create()` returns covers the
+    background write too: that thread is given this same list, so if it is never
+    mutated there is no interleaving in which the thread can observe the
+    injected prompt.
+    """
+    completions = Completions(mock_memory_client)
+
+    messages = [{"role": "user", "content": "What should I cook tonight?"}]
+    mock_memory_client.search.return_value = [{"memory": "User is allergic to peanuts"}]
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user")
+
+    assert messages == [{"role": "user", "content": "What should I cook tonight?"}]
+
+    # The enrichment still has to reach the model — this is not a fix that just
+    # stops writing anywhere.
+    sent = mock_litellm.completion.call_args[1]["messages"]
+    assert "User is allergic to peanuts" in sent[-1]["content"]
+    assert "What should I cook tonight?" in sent[-1]["content"]
+
+
+def test_async_add_to_memory_receives_the_unenriched_messages(mock_memory_client, mock_litellm):
+    """The background memory write must see the user's text, not the enriched prompt.
+
+    `create()` hands `_async_add_to_memory` the caller's list and only afterwards
+    writes the retrieved-memories prompt into the prepared copy. Pinning that
+    argument keeps a later refactor from passing `prepared_messages` instead, which
+    would persist the generated "Relevant Memories/Facts" block as new user content.
+    """
+    completions = Completions(mock_memory_client)
+
+    messages = [{"role": "user", "content": "What should I cook tonight?"}]
+    mock_memory_client.search.return_value = [{"memory": "User is allergic to peanuts"}]
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    with patch.object(Completions, "_async_add_to_memory") as add_to_memory:
+        completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages, user_id="test_user")
+
+    stored_messages = add_to_memory.call_args[0][0]
+    assert stored_messages[-1]["content"] == "What should I cook tonight?"
+
+
 def test_completions_create_messages_default_does_not_leak_between_calls(mock_memory_client, mock_litellm):
     """Regression test for the B006 mutable-default bug in Completions.create.
 
