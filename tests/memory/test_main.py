@@ -374,6 +374,37 @@ def test_update_memory_uses_utc_timestamps(mocker):
     assert payload["updated_at"] is not None
 
 
+def test_update_memory_does_not_log_memory_content(mocker, caplog):
+    """Regression for #6915: memory content must never be written to logs.
+
+    _update_memory previously logged the full memory text at INFO twice per
+    update. Logs should carry non-reversible correlation handles (memory_id)
+    instead of the raw content.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={"data": "old memory", "created_at": "2026-03-17T17:00:00-07:00"}
+    )
+    sensitive = "I have type 2 diabetes and take metformin daily"
+
+    with caplog.at_level(logging.INFO):
+        memory._update_memory("memory-id", sensitive, {sensitive: [0.1, 0.2, 0.3]}, metadata={})
+
+    assert sensitive not in caplog.text
+    assert "memory-id" in caplog.text
+
+
+def test_create_memory_does_not_log_memory_content(mocker, caplog):
+    """Regression for #6915: _create_memory must not log the memory text."""
+    memory = _build_memory_instance(mocker, Memory)
+    sensitive = "my social security number is 078-05-1120"
+
+    with caplog.at_level(logging.DEBUG):
+        memory._create_memory(sensitive, {sensitive: [0.1, 0.2, 0.3]}, metadata={})
+
+    assert sensitive not in caplog.text
+
+
 @pytest.mark.asyncio
 async def test_async_create_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
