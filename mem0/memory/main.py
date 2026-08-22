@@ -22,7 +22,7 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import LLMError
+from mem0.exceptions import LLMError, VectorStoreError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
@@ -1047,19 +1047,31 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        # Only records confirmed to be stored make it into history, entity
+        # links, and the returned results — a record the store rejected must
+        # never be reported back as a successful ADD.
+        persisted_records = []
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
             # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            for rec in records:
                 try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    self.vector_store.insert(vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]])
+                    persisted_records.append(rec)
                 except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+                    logger.error(f"Failed to insert memory {rec[0]}: {e}")
+
+        if not persisted_records:
+            self.db.save_messages(messages, session_scope)
+            raise VectorStoreError(
+                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+            )
 
         # Batch history
         history_records = [
@@ -1071,7 +1083,7 @@ class Memory(MemoryBase):
                 "created_at": r[3].get("created_at"),
                 "is_deleted": 0,
             }
-            for r in records
+            for r in persisted_records
         ]
         try:
             self.db.batch_add_history(history_records)
@@ -1085,12 +1097,12 @@ class Memory(MemoryBase):
 
         # Phase 7: Batch entity linking
         try:
-            all_texts = [r[1] for r in records]
+            all_texts = [r[1] for r in persisted_records]
             all_entities = extract_entities_batch(all_texts)
 
             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload) in enumerate(persisted_records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = self._normalize_entity_text(entity_text)
@@ -1194,7 +1206,7 @@ class Memory(MemoryBase):
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
+            for r in persisted_records
         ]
 
         keys, encoded_ids = process_telemetry_filters(filters)
@@ -2705,6 +2717,10 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        # Only records confirmed to be stored make it into history, entity
+        # links, and the returned results — a record the store rejected must
+        # never be reported back as a successful ADD.
+        persisted_records = []
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2712,12 +2728,22 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            for rec in records:
                 try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    await asyncio.to_thread(
+                        self.vector_store.insert, vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]]
+                    )
+                    persisted_records.append(rec)
                 except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
+                    logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
+
+        if not persisted_records:
+            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            raise VectorStoreError(
+                f"Failed to insert any of the {len(records)} extracted memories into the vector store"
+            )
 
         # Batch history
         history_records = [
@@ -2729,7 +2755,7 @@ class AsyncMemory(MemoryBase):
                 "created_at": r[3].get("created_at"),
                 "is_deleted": 0,
             }
-            for r in records
+            for r in persisted_records
         ]
         try:
             await asyncio.to_thread(self.db.batch_add_history, history_records)
@@ -2745,12 +2771,12 @@ class AsyncMemory(MemoryBase):
 
         # Phase 7: Batch entity linking
         try:
-            all_texts = [r[1] for r in records]
+            all_texts = [r[1] for r in persisted_records]
             all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
 
             # 7a: Global dedup
             global_entities = {}
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload) in enumerate(persisted_records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = self._normalize_entity_text(entity_text)
@@ -2852,7 +2878,7 @@ class AsyncMemory(MemoryBase):
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
-            for r in records
+            for r in persisted_records
         ]
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
