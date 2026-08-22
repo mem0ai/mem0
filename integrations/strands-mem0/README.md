@@ -52,9 +52,9 @@ Set `MEM0_API_KEY` for the hosted platform (get one at [app.mem0.ai](https://app
 |---|---|---|
 | `search(query)` | `mem0.search(query, filters={...})` | Every turn, to recall and inject context |
 | `add(content)` | `mem0.add(content, infer=False)` | The `add_memory` tool / a client-side extractor — stores a fact verbatim |
-| `add_messages(messages)` | `mem0.add(messages, infer=True)` | Extraction — hands raw turns to Mem0's **server-side** extraction |
+| `add_messages(messages)` | `mem0.add(rendered_turns, infer=True)` | Extraction — renders conversation turns to text, then hands them to Mem0's **server-side** extraction |
 
-Because `add_messages` is implemented, enabling `extraction` routes raw messages straight to Mem0's own
+Because `add_messages` is implemented, enabling `extraction` routes conversation turns straight to Mem0's own
 extraction pipeline. A store that only implemented `add` would instead need a client-side `ModelExtractor`
 (an extra model call) to distill facts first.
 
