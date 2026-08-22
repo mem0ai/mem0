@@ -1518,3 +1518,26 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert len(failed) == 1
         assert failed[0]["error_class"] == EmbeddingErrorClass.INTERNAL
         assert "insert" in failed[0]["error"]
+
+    def test_add_labels_failed_entries_with_cross_sdk_wire_fields(self, mock_memory, mocker):
+        # add() attaches error_code + remediation to every failed entry, matching the
+        # TS SDK's machine-keyed fields (mem0ai#6794).
+        def fake_add(*args, failed=None, **kwargs):
+            failed.append({"text": "d", "error_class": EmbeddingErrorClass.VALIDATION, "error": "dimension 3 != expected 10"})
+            failed.append({"text": "n", "error_class": EmbeddingErrorClass.VALIDATION, "error": "non-finite component (NaN/Inf)"})
+            failed.append({"text": "p", "error_class": EmbeddingErrorClass.PROVIDER, "error": "429 rate limit"})
+            failed.append({"text": "i", "error_class": EmbeddingErrorClass.INTERNAL, "error": "boom"})
+            return []
+
+        mock_memory._add_to_vector_store = Mock(side_effect=fake_add)
+        mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata", return_value=None)
+        mocker.patch("mem0.memory.main.detect_scale_threshold_from_add_result", return_value=None)
+        mocker.patch("mem0.memory.main.display_first_run_notice")
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = mock_memory.add(messages=[{"role": "user", "content": "hi"}], user_id="u1")["failed"]
+        by_text = {f["text"]: f for f in failed}
+        assert (by_text["d"]["error_code"], by_text["d"]["remediation"]) == ("EMBED_002", "reconfigure")
+        assert (by_text["n"]["error_code"], by_text["n"]["remediation"]) == ("EMBED_002", "escalate")
+        assert (by_text["p"]["error_code"], by_text["p"]["remediation"]) == ("EMBED_001", "retry")
+        assert (by_text["i"]["error_code"], by_text["i"]["remediation"]) == ("EMBED_003", "escalate")

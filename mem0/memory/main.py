@@ -147,6 +147,28 @@ def _record_embedding(text, vector, embed_map, failed, expected_dim):
     return expected_dim
 
 
+def _label_failures(failed):
+    """Attach the cross-SDK wire fields (``error_code``, ``remediation``) to each
+    ``failed[]`` entry, keyed on ``error_class`` (plus the dimension sub-case),
+    mirroring the TypeScript SDK (mem0ai#6794). ``error_class`` and ``error_code``
+    are the machine-keyed fields kept identical across SDKs; ``remediation`` shares
+    field name and meaning but its wording is free to differ. Idempotent.
+    """
+    for f in failed:
+        ec = f.get("error_class")
+        if ec == EmbeddingErrorClass.VALIDATION:
+            f["error_code"] = "EMBED_002"
+            # A wrong-dimension vector is a config fix; a non-finite/empty one escalates.
+            f["remediation"] = "reconfigure" if "dimension" in (f.get("error") or "") else "escalate"
+        elif ec == EmbeddingErrorClass.PROVIDER:
+            f["error_code"] = "EMBED_001"
+            f["remediation"] = "retry"
+        else:
+            f["error_code"] = "EMBED_003"
+            f["remediation"] = "escalate"
+    return failed
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -865,7 +887,7 @@ class Memory(MemoryBase):
 
         Returns:
             dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
-                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error"}``
+                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error_code", "remediation", "error"}``
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking for callers reading only
                   "results". Example: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}], "failed": []}`.
@@ -919,6 +941,7 @@ class Memory(MemoryBase):
         # Remove memory_type and its helpers from Memory and AsyncMemory together.
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+            _label_failures(results.get("failed", []))
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -942,6 +965,7 @@ class Memory(MemoryBase):
             display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "add")
+        _label_failures(failed)
         if raise_on_partial_failure and failed:
             raise EmbeddingError(
                 message=f"{len(failed)} of {len(vector_store_result) + len(failed)} memories failed to embed",
@@ -2626,7 +2650,7 @@ class AsyncMemory(MemoryBase):
 
         Returns:
             dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
-                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error"}``
+                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error_code", "remediation", "error"}``
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking. Scope: the embedding phase
                   (infer=True extraction, infer=False raw, and procedural) plus vector-store insert
@@ -2668,6 +2692,7 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
+            _label_failures(results.get("failed", []))
             scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2691,6 +2716,7 @@ class AsyncMemory(MemoryBase):
             await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
         else:
             await display_first_run_notice_async(self, "async", "add")
+        _label_failures(failed)
         if raise_on_partial_failure and failed:
             raise EmbeddingError(
                 message=f"{len(failed)} of {len(vector_store_result) + len(failed)} memories failed to embed",
