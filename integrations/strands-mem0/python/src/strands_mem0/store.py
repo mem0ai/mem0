@@ -110,6 +110,15 @@ class Mem0MemoryStore(MemoryStore):
         self.scope = {key: value for key, value in scope.items() if value}
         if not self.scope:
             raise ValueError("Mem0MemoryStore requires at least one of user_id, agent_id, run_id, or app_id")
+        # app_id is platform-only. When a self-hosted OSS backend is requested via
+        # `config`, fail at construction rather than as a TypeError on the first
+        # write (OSS Memory.add has no app_id). The injected-client OSS case is
+        # caught in Mem0ServiceClient, which is the only place that knows the backend.
+        if "app_id" in self.scope and config is not None:
+            raise ValueError(
+                "app_id is a Mem0 platform-only scope and cannot be used with a self-hosted "
+                "config (OSS Memory has no app_id). Drop app_id or use the platform backend."
+            )
 
         # MemoryStore Protocol attributes.
         self.name = name

@@ -36,6 +36,12 @@ def test_requires_a_scope():
         Mem0MemoryStore()
 
 
+def test_app_id_with_oss_config_rejected_at_construction():
+    """app_id is platform-only; pairing it with an OSS config fails at construction."""
+    with pytest.raises(ValueError, match="platform-only"):
+        Mem0MemoryStore(app_id="app1", config={"vector_store": {"provider": "qdrant"}})
+
+
 def test_scope_collects_only_set_fields(mock_client):
     """Only the provided entity fields end up in the scope."""
     store = Mem0MemoryStore(client=mock_client, user_id="alex", agent_id="assistant")
