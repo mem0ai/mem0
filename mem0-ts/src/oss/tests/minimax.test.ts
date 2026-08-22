@@ -50,20 +50,35 @@ describe("MiniMaxLLM (unit)", () => {
     });
   });
 
-  it("config values take precedence over environment variables", () => {
+  it("config values take precedence over environment variables", async () => {
     process.env.MINIMAX_API_KEY = "env-key";
     process.env.MINIMAX_API_BASE = "https://env.minimax.test/v1";
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "Hello from MiniMax",
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
+    });
 
-    new MiniMaxLLM({
+    const llm = new MiniMaxLLM({
       apiKey: "config-key",
       baseURL: "https://config.minimax.test/v1",
-      model: "MiniMax-M1",
+      model: "MiniMax-M2.7",
     });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
 
     expect(capturedConstructorArgs).toMatchObject({
       apiKey: "config-key",
       baseURL: "https://config.minimax.test/v1",
     });
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "MiniMax-M2.7" }),
+    );
   });
 
   it("generateResponse() returns a text response", async () => {
@@ -85,7 +100,7 @@ describe("MiniMaxLLM (unit)", () => {
     ]);
 
     expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ model: "MiniMax-M2.7" }),
+      expect.objectContaining({ model: "MiniMax-M3" }),
     );
     expect(result).toBe("Hello from MiniMax");
   });
