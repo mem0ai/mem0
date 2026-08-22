@@ -8,7 +8,7 @@ import httpx
 import pytest
 import requests
 
-from mem0.client.main import AsyncMemoryClient
+from mem0.client.main import DEFAULT_HOST, AsyncMemoryClient, _resolve_host
 from mem0.client.types import GetAllMemoryOptions, SearchMemoryOptions
 
 
@@ -633,3 +633,76 @@ class TestAddAgentCustomInstructions:
 
         _, kwargs = mock_memory_client.client.post.call_args
         assert "agent_custom_instructions" not in kwargs["json"]
+
+
+class TestHostResolution:
+    """host comes from the explicit argument, then MEM0_HOST, then MEM0_API_URL, then the default."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_host_env(self, monkeypatch):
+        monkeypatch.delenv("MEM0_HOST", raising=False)
+        monkeypatch.delenv("MEM0_API_URL", raising=False)
+
+    def test_explicit_argument_wins_over_env(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://host-env.example.com")
+        monkeypatch.setenv("MEM0_API_URL", "https://url-env.example.com")
+
+        assert _resolve_host("https://explicit.example.com") == "https://explicit.example.com"
+
+    def test_mem0_host_wins_over_mem0_api_url(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://host-env.example.com")
+        monkeypatch.setenv("MEM0_API_URL", "https://url-env.example.com")
+
+        assert _resolve_host(None) == "https://host-env.example.com"
+
+    def test_mem0_api_url_is_used_when_mem0_host_is_unset(self, monkeypatch):
+        monkeypatch.setenv("MEM0_API_URL", "https://url-env.example.com")
+
+        assert _resolve_host(None) == "https://url-env.example.com"
+
+    def test_empty_env_value_falls_through(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "")
+        monkeypatch.setenv("MEM0_API_URL", "https://url-env.example.com")
+
+        assert _resolve_host(None) == "https://url-env.example.com"
+
+    def test_defaults_when_nothing_is_set(self):
+        assert _resolve_host(None) == DEFAULT_HOST == "https://api.mem0.ai"
+
+    def test_sync_client_uses_mem0_host(self, monkeypatch):
+        monkeypatch.setenv("MEM0_HOST", "https://host-env.example.com")
+
+        with patch("mem0.client.main.httpx.Client") as mock_httpx, patch("mem0.client.main.capture_client_event"):
+            mock_httpx.return_value = MagicMock(
+                get=MagicMock(
+                    return_value=MagicMock(
+                        json=lambda: {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"},
+                        raise_for_status=lambda: None,
+                    )
+                )
+            )
+            from mem0.client.main import MemoryClient
+
+            client = MemoryClient(api_key="test-api-key")
+
+        assert client.host == "https://host-env.example.com"
+        assert mock_httpx.call_args.kwargs["base_url"] == "https://host-env.example.com"
+
+    def test_async_client_uses_mem0_api_url(self, monkeypatch):
+        monkeypatch.setenv("MEM0_API_URL", "https://url-env.example.com")
+
+        with (
+            patch("mem0.client.main.httpx.AsyncClient"),
+            patch("mem0.client.main.capture_client_event"),
+            patch("mem0.client.main.requests.get") as mock_get,
+        ):
+            mock_get.return_value = MagicMock(
+                json=lambda: {"org_id": "org1", "project_id": "proj1", "user_email": "test@test.com"},
+                raise_for_status=lambda: None,
+            )
+            from mem0.client.main import AsyncMemoryClient
+
+            client = AsyncMemoryClient(api_key="test-api-key")
+
+        assert client.host == "https://url-env.example.com"
+        assert mock_get.call_args.args[0] == "https://url-env.example.com/v1/ping/"
