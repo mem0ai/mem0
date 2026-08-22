@@ -15,5 +15,5 @@
       name: "/absolute/path/to/mem0/integrations/dsh-mem0/dist/index.js"
       config:
         # apiKey is read from the MEM0_API_KEY env var when omitted here.
-        userId: "hims"
+        userId: "your-user-id"
         # host: "http://localhost:8000"   # optional: self-hosted / local sandbox

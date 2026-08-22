@@ -28,8 +28,8 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
 1. Build the plugin:
    ```sh
    cd integrations/dsh-mem0
-   npm install
-   npm run build
+   pnpm install
+   pnpm build
    ```
 2. Set your Mem0 key:
    ```sh

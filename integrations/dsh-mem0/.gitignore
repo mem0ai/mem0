@@ -5,4 +5,8 @@ dist/
 
 # local, uncommitted e2e
 *.local.mjs
+
+# pnpm is the only supported package manager here (see integrations/AGENTS.md);
+# pnpm-lock.yaml is committed. Keep foreign lockfiles out.
 package-lock.json
+yarn.lock

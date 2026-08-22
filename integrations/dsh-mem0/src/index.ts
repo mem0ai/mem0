@@ -13,6 +13,10 @@
 import type { Context } from "@deepseek-ai/cordis";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import { MemoryClient } from "mem0ai";
+import { formatMemoryList, formatAddResult } from "./formatting.ts";
+import { truncateOutput } from "./output.ts";
+import { resolveEntity } from "./scoping.ts";
+import { captureToolEvent } from "./telemetry.ts";
 
 export const name = "mem0";
 export const inject = ["tools"];
@@ -24,14 +28,44 @@ export const inject = ["tools"];
 // same pattern as the ZAPIER / STRANDS sources).
 const SOURCE = "DEEPSEEK_HARNESS";
 
+const DEFAULT_SEARCH_LIMIT = 10;
+
 export interface Config {
   /** Mem0 API key. Defaults to the MEM0_API_KEY env var. */
   apiKey?: string;
-  /** Entity that owns the memories (Mem0 user scope). */
+  /** Default entity that owns the memories (Mem0 user scope). */
   userId: string;
   /** Optional Mem0 host override, e.g. a self-hosted or local sandbox URL. */
   host?: string;
 }
+
+// Both tools return a single text string; the render is identical, so lift it
+// into one shared declaration instead of repeating the block per tool.
+const textOutput = {
+  schema: { type: "string" } as const,
+  render: (_args: unknown, value: string) => [
+    { type: "text" as const, text: value },
+  ],
+};
+
+// Optional per-call scoping params, shared by both tools. A single harness
+// install can serve more than one entity, so the model may override the
+// mount-time default per call (see scoping.ts).
+const scopeParams = {
+  userId: {
+    type: "string",
+    description:
+      "Entity that owns the memory. Defaults to the plugin's configured userId; set this only to read or write another user's memories.",
+  },
+  agentId: {
+    type: "string",
+    description: "Optional agent scope, to partition memories by agent.",
+  },
+  runId: {
+    type: "string",
+    description: "Optional run/session scope, to partition memories by session.",
+  },
+} as const;
 
 export function apply(ctx: Context, config: Config): void {
   const apiKey = config.apiKey ?? process.env.MEM0_API_KEY;
@@ -49,24 +83,49 @@ export function apply(ctx: Context, config: Config): void {
   });
 
   // Recall. The platform rejects top-level entity params on search, so scope
-  // goes inside `filters` (unlike add below, which takes user_id top-level).
+  // goes inside `filters` (unlike add below, which takes them top-level).
   ctx.tools.register(
     defineTool({
       name: "search_memory",
       description:
-        "Search the user's long-term Mem0 memory for facts relevant to a query.",
+        "Search the user's long-term Mem0 memory for facts relevant to a query. Use proactively before answering anything that may depend on what the user told you earlier.",
       parameters: {
         query: { type: "string", description: "What to recall.", required: true },
+        limit: {
+          type: "integer",
+          description: `Max results to return (default ${DEFAULT_SEARCH_LIMIT}).`,
+        },
+        ...scopeParams,
       },
-      output: {
-        schema: { type: "string" },
-        render: (_args, value) => [{ type: "text", text: value }],
-      },
-      async execute({ query }) {
-        const results = await client.search(query, {
-          filters: { user_id: userId },
-        });
-        return JSON.stringify(results, null, 2);
+      output: textOutput,
+      async execute({ query, limit, userId: u, agentId, runId }) {
+        const start = Date.now();
+        const entity = resolveEntity({ userId: u, agentId, runId }, userId);
+        try {
+          const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
+          const { results } = await client.search(query, {
+            filters: entity,
+            topK,
+          });
+          const memories = results ?? [];
+          captureToolEvent(
+            "search_memory",
+            { success: true, latency_ms: Date.now() - start, result_count: memories.length },
+            { apiKey },
+          );
+          return truncateOutput(formatMemoryList(memories));
+        } catch (err) {
+          captureToolEvent(
+            "search_memory",
+            {
+              success: false,
+              latency_ms: Date.now() - start,
+              error_type: err instanceof Error ? err.name : "unknown",
+            },
+            { apiKey },
+          );
+          return `search_memory failed: ${err instanceof Error ? err.message : String(err)}`;
+        }
       },
     }),
   );
@@ -79,17 +138,36 @@ export function apply(ctx: Context, config: Config): void {
         "Store a fact in the user's long-term Mem0 memory for later sessions.",
       parameters: {
         text: { type: "string", description: "The fact to remember.", required: true },
+        ...scopeParams,
       },
-      output: {
-        schema: { type: "string" },
-        render: (_args, value) => [{ type: "text", text: value }],
-      },
-      async execute({ text }) {
-        const result = await client.add([{ role: "user", content: text }], {
-          user_id: userId,
-          source: SOURCE,
-        });
-        return JSON.stringify(result);
+      output: textOutput,
+      async execute({ text, userId: u, agentId, runId }) {
+        const start = Date.now();
+        const entity = resolveEntity({ userId: u, agentId, runId }, userId);
+        try {
+          const result = await client.add([{ role: "user", content: text }], {
+            ...entity,
+            source: SOURCE,
+          });
+          const memories = Array.isArray(result) ? result : [];
+          captureToolEvent(
+            "add_memory",
+            { success: true, latency_ms: Date.now() - start, result_count: memories.length },
+            { apiKey },
+          );
+          return truncateOutput(formatAddResult(memories));
+        } catch (err) {
+          captureToolEvent(
+            "add_memory",
+            {
+              success: false,
+              latency_ms: Date.now() - start,
+              error_type: err instanceof Error ? err.name : "unknown",
+            },
+            { apiKey },
+          );
+          return `add_memory failed: ${err instanceof Error ? err.message : String(err)}`;
+        }
       },
     }),
   );
