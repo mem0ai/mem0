@@ -191,18 +191,21 @@ function createMockCfg() {
  * Register CLI commands using mocked deps, and return the captured
  * mem0 command tree plus all mock objects for assertions.
  */
-function setup() {
+function setup(currentSessionId?: string) {
   const provider = createMockProvider();
   const backend = createMockBackend();
   const cfg = createMockCfg();
   const effectiveUserId = vi.fn().mockReturnValue("testuser");
   const agentUserId = vi.fn((id: string) => `testuser:agent:${id}`);
-  const buildSearchOptions = vi.fn().mockReturnValue({
-    user_id: "testuser",
-    top_k: 5,
-    source: "OPENCLAW",
-  });
-  const getCurrentSessionId = vi.fn().mockReturnValue(undefined);
+  const buildSearchOptions = vi.fn(
+    (userId?: string, topK?: number, runId?: string) => ({
+      user_id: userId ?? "testuser",
+      top_k: topK ?? 5,
+      ...(runId ? { run_id: runId } : {}),
+      source: "OPENCLAW",
+    }),
+  );
+  const getCurrentSessionId = vi.fn().mockReturnValue(currentSessionId);
 
   let registeredCallback: any;
   const mockApi = {
@@ -775,6 +778,29 @@ describe("registerCliCommands", () => {
       // The output is JSON.stringify of results
       expect(consoleSpy.log).toHaveBeenCalledWith(
         expect.stringContaining("test memory"),
+      );
+    });
+
+    it("passes the current session run ID to session search", async () => {
+      const { mem0, provider, buildSearchOptions } = setup("session-abc");
+      const searchCmd = findCommand(mem0, "search")!;
+
+      await searchCmd._action!("session facts", {
+        topK: "5",
+        scope: "session",
+      });
+
+      expect(buildSearchOptions).toHaveBeenCalledWith(
+        "testuser",
+        5,
+        "session-abc",
+      );
+      expect(provider.search).toHaveBeenCalledWith(
+        "session facts",
+        expect.objectContaining({
+          user_id: "testuser",
+          run_id: "session-abc",
+        }),
       );
     });
 
