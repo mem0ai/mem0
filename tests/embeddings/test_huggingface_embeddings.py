@@ -202,3 +202,21 @@ def test_embed_batch_count_mismatch_raises_sentence_transformer(mock_sentence_tr
 
     with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
         embedder.embed_batch(["first text", "second text"])
+
+
+def test_embed_empty_text(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    result = embedder.embed("")
+    assert result == []
+    mock_sentence_transformer.encode.assert_not_called()
+
+
+def test_embed_dimension_exception_resilience(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    mock_sentence_transformer.get_sentence_embedding_dimension.side_effect = AttributeError("No attribute")
+
+    embedder = HuggingFaceEmbedding(config)
+    assert embedder.config.embedding_dims is None
+
