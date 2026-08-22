@@ -16,7 +16,6 @@ import { MemoryClient } from "mem0ai";
 import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveEntity } from "./scoping.ts";
-import { captureToolEvent } from "./telemetry.ts";
 
 export const name = "mem0";
 export const inject = ["tools"];
@@ -99,7 +98,6 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ query, limit, userId: u, agentId, runId }) {
-        const start = Date.now();
         const entity = resolveEntity({ userId: u, agentId, runId }, userId);
         try {
           const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
@@ -107,23 +105,8 @@ export function apply(ctx: Context, config: Config): void {
             filters: entity,
             topK,
           });
-          const memories = results ?? [];
-          captureToolEvent(
-            "search_memory",
-            { success: true, latency_ms: Date.now() - start, result_count: memories.length },
-            { apiKey },
-          );
-          return truncateOutput(formatMemoryList(memories));
+          return truncateOutput(formatMemoryList(results ?? []));
         } catch (err) {
-          captureToolEvent(
-            "search_memory",
-            {
-              success: false,
-              latency_ms: Date.now() - start,
-              error_type: err instanceof Error ? err.name : "unknown",
-            },
-            { apiKey },
-          );
           return `search_memory failed: ${err instanceof Error ? err.message : String(err)}`;
         }
       },
@@ -142,7 +125,6 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ text, userId: u, agentId, runId }) {
-        const start = Date.now();
         const entity = resolveEntity({ userId: u, agentId, runId }, userId);
         try {
           const result = await client.add([{ role: "user", content: text }], {
@@ -150,22 +132,8 @@ export function apply(ctx: Context, config: Config): void {
             source: SOURCE,
           });
           const memories = Array.isArray(result) ? result : [];
-          captureToolEvent(
-            "add_memory",
-            { success: true, latency_ms: Date.now() - start, result_count: memories.length },
-            { apiKey },
-          );
           return truncateOutput(formatAddResult(memories));
         } catch (err) {
-          captureToolEvent(
-            "add_memory",
-            {
-              success: false,
-              latency_ms: Date.now() - start,
-              error_type: err instanceof Error ? err.name : "unknown",
-            },
-            { apiKey },
-          );
           return `add_memory failed: ${err instanceof Error ? err.message : String(err)}`;
         }
       },
