@@ -12,6 +12,8 @@ on:
     paths:
       - 'integrations/mem0-plugin/**'
       - '!integrations/mem0-plugin/.opencode-plugin/**'
+      - '.claude-plugin/marketplace.json'
+      - '.cursor-plugin/marketplace.json'
       - '.github/workflows/mem0-plugin-checks.yml'
   workflow_call:
 

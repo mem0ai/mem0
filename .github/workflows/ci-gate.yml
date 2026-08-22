@@ -78,6 +78,10 @@ jobs:
             mem0_plugin:
               - 'integrations/mem0-plugin/**'
               - '!integrations/mem0-plugin/.opencode-plugin/**'
+              # Marketplace manifests duplicate the plugin version; a release PR
+              # that bumps only these must still run the version-parity test.
+              - '.claude-plugin/marketplace.json'
+              - '.cursor-plugin/marketplace.json'
               - '.github/workflows/mem0-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
