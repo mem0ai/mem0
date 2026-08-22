@@ -53,6 +53,7 @@ vector-stores = [
     "pymilvus>=2.4.0,<2.6.0",
     "langchain-aws>=0.2.23,<0.3.0",
     "oracledb>=2.2.0",
+    "lancedb>=0.17.0,<1.0.0",
 ]
 llms = [
     "groq>=0.3.0",
