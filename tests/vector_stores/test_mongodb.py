@@ -129,8 +129,13 @@ def test_search_with_filters(mongo_vector_fixture):
     pipeline = mock_collection.aggregate.call_args[0][0]
     
     # Check that the pipeline has the expected stages
-    assert len(pipeline) == 4  # vectorSearch, match, set, project
-    
+    assert len(pipeline) == 5  # vectorSearch, match, set, project, limit
+
+    # $vectorSearch must over-fetch (its limit runs before the payload filter),
+    # and a trailing $limit restores top_k after filtering.
+    assert pipeline[0]["$vectorSearch"]["limit"] > 2
+    assert pipeline[-1] == {"$limit": 2}
+
     # Check that the match stage is present with the correct filters
     match_stage = pipeline[1]
     assert "$match" in match_stage
@@ -139,7 +144,7 @@ def test_search_with_filters(mongo_vector_fixture):
         {"payload.agent_id": "agent1"},
         {"payload.run_id": "run1"}
     ]
-    
+
     assert len(results) == 1
     assert results[0].payload["user_id"] == "alice"
     assert results[0].payload["agent_id"] == "agent1"
@@ -427,3 +432,63 @@ def test_search_allows_scalar_filter_values(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     mongo_vector.search("q", [0.1] * 1536, top_k=2, filters={"user_id": "alice", "count": 5})
+
+
+def _fake_vector_search_aggregate(dataset):
+    """Interpret the mem0 search pipeline the way MongoDB would, so recall behaviour
+    can be exercised without a live Atlas cluster. Supports the stages mem0 emits:
+    $vectorSearch (source + limit, ranked by |embedding - queryVector| on 1-D vectors),
+    $match (payload equality), and $limit."""
+
+    def _get(doc, dotted):
+        cur = doc
+        for part in dotted.split("."):
+            cur = cur.get(part, {})
+        return cur
+
+    def _aggregate(pipeline):
+        vs = pipeline[0]["$vectorSearch"]
+        qv = vs["queryVector"][0]
+        docs = sorted(dataset, key=lambda d: abs(d["embedding"] - qv))[: vs["limit"]]
+        docs = [{"_id": d["_id"], "score": 1.0 / (1.0 + abs(d["embedding"] - qv)), "payload": d["payload"]} for d in docs]
+        for stage in pipeline[1:]:
+            if "$match" in stage:
+                conds = stage["$match"]["$and"]
+                docs = [d for d in docs if all(_get(d, k) == v for c in conds for k, v in c.items())]
+            elif "$limit" in stage:
+                docs = docs[: stage["$limit"]]
+        return docs
+
+    return _aggregate
+
+
+def test_filtered_search_recalls_matches_ranked_beyond_top_k(mongo_vector_fixture):
+    """A scoped search must not lose results whose vectors rank below other scopes'.
+    Here alice's memories are all farther from the query than bob's, so the old
+    pipeline ($vectorSearch limit=top_k, then $match) returned zero for alice."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    # 12 bob docs nearest the query (emb ~0), 5 alice docs far away (emb >= 10).
+    dataset = [{"_id": f"bob-{i}", "embedding": 0.01 * (i + 1), "payload": {"user_id": "bob"}} for i in range(12)]
+    dataset += [{"_id": f"alice-{i}", "embedding": 10.0 + i, "payload": {"user_id": "alice"}} for i in range(5)]
+    mock_collection.aggregate.side_effect = _fake_vector_search_aggregate(dataset)
+
+    results = mongo_vector.search("q", [0.0] * 1536, top_k=5, filters={"user_id": "alice"})
+
+    assert len(results) == 5, f"expected alice's 5 memories, got {len(results)}"
+    assert all(r.payload["user_id"] == "alice" for r in results)
+
+
+def test_filtered_search_still_respects_top_k(mongo_vector_fixture):
+    """Over-fetching must not return more than top_k after filtering."""
+    mongo_vector, mock_collection, _ = mongo_vector_fixture
+    mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
+
+    dataset = [{"_id": f"alice-{i}", "embedding": 0.1 * i, "payload": {"user_id": "alice"}} for i in range(10)]
+    mock_collection.aggregate.side_effect = _fake_vector_search_aggregate(dataset)
+
+    results = mongo_vector.search("q", [0.0] * 1536, top_k=3, filters={"user_id": "alice"})
+
+    assert len(results) == 3
+    assert all(r.payload["user_id"] == "alice" for r in results)

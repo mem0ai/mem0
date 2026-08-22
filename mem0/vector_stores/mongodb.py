@@ -189,12 +189,23 @@ class MongoDB(VectorStoreBase):
         results = []
         try:
             collection = self.client[self.db_name][self.collection_name]
+
+            # $vectorSearch applies its `limit` BEFORE the payload filter can run.
+            # mem0's dynamic metadata filters aren't indexed as `filter`-type fields,
+            # so they can't move into $vectorSearch itself and must be applied as a
+            # later $match. Fetching only `top_k` candidates first then filtering
+            # silently drops scoped results whose vectors rank below other scopes'
+            # (e.g. a user_id whose memories aren't the query's global nearest) --
+            # frequently returning fewer than top_k, or zero. Over-fetch a larger
+            # candidate pool when filtering, then re-limit to top_k. (10000 is the
+            # MongoDB numCandidates ceiling.)
+            fetch_k = min(max(top_k * 20, 1000), 10000) if filters else top_k
             pipeline = [
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
-                        "limit": top_k,
-                        "numCandidates": min(top_k * 20, 10000),
+                        "limit": fetch_k,
+                        "numCandidates": min(fetch_k * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -210,8 +221,9 @@ class MongoDB(VectorStoreBase):
                     filter_conditions.append({"payload." + key: value})
 
                 if filter_conditions:
-                    # Add a $match stage after vector search to apply filters
+                    # $match filters the over-fetched pool, then $limit restores top_k.
                     pipeline.insert(1, {"$match": {"$and": filter_conditions}})
+                    pipeline.append({"$limit": top_k})
 
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
