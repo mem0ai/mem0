@@ -12,10 +12,10 @@ vector-DB-style store:
 
 - :meth:`add` writes a single distilled fact verbatim (``infer=False``). This is
   the sink for the ``add_memory`` tool and for a client-side extractor.
-- :meth:`add_messages` hands raw conversation turns to Mem0 for **server-side
-  extraction** (``infer=True``). Because this sink exists, enabling ``extraction``
-  routes raw messages straight to Mem0's own extraction pipeline -- no extra
-  client-side model call, and Mem0's server-side de-duplication applies.
+- :meth:`add_messages` renders raw conversation turns to text and hands them to
+  Mem0 for **server-side extraction** (``infer=True``). Because this sink exists,
+  enabling ``extraction`` routes messages straight to Mem0's own extraction
+  pipeline -- no extra client-side model call, and Mem0's de-duplication applies.
 
 Example:
     ```python
@@ -30,6 +30,7 @@ Example:
 
 Configure the hosted platform via the ``api_key`` argument or the ``MEM0_API_KEY``
 environment variable, or pass a Mem0 OSS ``config`` dict for a self-hosted backend.
+``app_id`` scope is platform-only.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from strands.memory import AddMessagesContext, MemoryEntry, MemoryStore, MemoryStoreConfig, SearchOptions
+from strands.memory import AddMessagesContext, MemoryEntry, MemoryStore, SearchOptions
 from strands.types.content import Message
 
 from strands_mem0.client import Mem0ServiceClient
@@ -45,34 +46,6 @@ from strands_mem0.client import Mem0ServiceClient
 DEFAULT_MAX_SEARCH_RESULTS = 5
 # Entity fields that scope a memory in Mem0. At least one must be set.
 _SCOPE_FIELDS = ("user_id", "agent_id", "run_id", "app_id")
-
-
-class Mem0MemoryStoreConfig(MemoryStoreConfig, total=False):
-    """Configuration for a :class:`Mem0MemoryStore`.
-
-    Extends the base :class:`~strands.memory.MemoryStoreConfig` (``name``,
-    ``description``, ``max_search_results``, ``writable``, ``extraction``) with
-    Mem0-specific fields.
-
-    Attributes:
-        user_id: Mem0 user namespace that owns the memories.
-        agent_id: Mem0 agent namespace.
-        run_id: Mem0 run/session namespace.
-        app_id: Mem0 app namespace (platform only).
-        metadata: Default metadata merged into every write.
-        api_key: Mem0 platform API key. Defaults to ``$MEM0_API_KEY``.
-        host: Mem0 platform base URL.
-        config: Mem0 OSS config dict for a self-hosted backend.
-    """
-
-    user_id: str
-    agent_id: str
-    run_id: str
-    app_id: str
-    metadata: dict[str, Any]
-    api_key: str
-    host: str
-    config: dict[str, Any]
 
 
 class Mem0MemoryStore(MemoryStore):
@@ -101,7 +74,6 @@ class Mem0MemoryStore(MemoryStore):
         api_key: str | None = None,
         host: str | None = None,
         config: dict[str, Any] | None = None,
-        mem0_client: Any | None = None,
         client: Mem0ServiceClient | None = None,
     ) -> None:
         """Initialize the store.
@@ -120,12 +92,10 @@ class Mem0MemoryStore(MemoryStore):
             api_key: Mem0 platform API key (defaults to ``$MEM0_API_KEY``).
             host: Mem0 platform base URL.
             config: Mem0 OSS config dict for a self-hosted backend.
-            mem0_client: A pre-built raw Mem0 client (``mem0.MemoryClient`` or
-                ``mem0.Memory``) to wrap, instead of constructing one from
-                ``api_key`` / ``config``.
             client: A pre-built :class:`~strands_mem0.client.Mem0ServiceClient`
-                (mainly for testing); when omitted, one is constructed lazily on
-                first use.
+                (for testing, or to wrap your own raw Mem0 client via
+                ``Mem0ServiceClient(client=...)``); when omitted, one is
+                constructed lazily on first use from ``api_key`` / ``config``.
 
         Raises:
             ValueError: If no entity scope (``user_id`` / ``agent_id`` / ``run_id``
@@ -154,19 +124,19 @@ class Mem0MemoryStore(MemoryStore):
         self._api_key = api_key
         self._host = host
         self._config = config
-        self._mem0_client = mem0_client
         self._client = client
 
     @property
     def client(self) -> Mem0ServiceClient:
-        """The Mem0 service client, constructed lazily on first use."""
+        """The Mem0 service client, constructed lazily on first use.
+
+        Note: constructing the underlying SDK client can block (the platform client
+        validates the API key over HTTP; the OSS client builds embedders / vector
+        stores), so first use is deferred and always happens inside a worker thread
+        via :func:`asyncio.to_thread`, never on the event loop.
+        """
         if self._client is None:
-            self._client = Mem0ServiceClient(
-                api_key=self._api_key,
-                host=self._host,
-                config=self._config,
-                client=self._mem0_client,
-            )
+            self._client = Mem0ServiceClient(api_key=self._api_key, host=self._host, config=self._config)
         return self._client
 
     async def search(self, query: str, options: SearchOptions | None = None) -> list[MemoryEntry]:
@@ -177,7 +147,9 @@ class Mem0MemoryStore(MemoryStore):
         if top_k is None:
             top_k = DEFAULT_MAX_SEARCH_RESULTS
 
-        memories = await asyncio.to_thread(self.client.search_memories, query, self.scope, top_k)
+        # ``self.client`` is resolved inside the thread so lazy construction (a
+        # blocking call) does not run on the event loop.
+        memories = await asyncio.to_thread(lambda: self.client.search_memories(query, self.scope, top_k))
         return [self._to_entry(memory) for memory in memories]
 
     async def add(self, content: str, metadata: dict[str, Any] | None = None) -> Any:
@@ -186,21 +158,39 @@ class Mem0MemoryStore(MemoryStore):
         Extraction writes are at-least-once, so this tolerates duplicate content;
         Mem0 de-duplicates on the server.
         """
-        return await asyncio.to_thread(
-            self.client.store_memory,
-            content,
-            self.scope,
-            self._merge_metadata(metadata),
-        )
+        merged = self._merge_metadata(metadata)
+        return await asyncio.to_thread(lambda: self.client.store_memory(content, self.scope, merged))
 
     async def add_messages(self, messages: list[Message], context: AddMessagesContext | None = None) -> Any:
         """Ingest raw conversation turns for Mem0 server-side extraction (``infer=True``).
 
-        This is the sink the manager uses for extraction when no client-side
-        extractor is configured, so facts are distilled by Mem0 itself.
+        A Strands ``Message.content`` is a list of content blocks (a text block is
+        ``{"text": "..."}``); Mem0 keeps only ``{"type": "text"}`` parts, so the raw
+        blocks would be dropped. We render each turn's text blocks to a string and
+        skip turns that render empty (a pure tool-use / tool-result turn), so nothing
+        silently no-ops.
         """
-        payload = [dict(message) for message in messages]
-        return await asyncio.to_thread(self.client.store_messages, payload, self.scope)
+        payload: list[dict[str, str]] = []
+        for message in messages:
+            text = self._render_content(message.get("content"))
+            if text:
+                payload.append({"role": message["role"], "content": text})
+        if not payload:
+            return None
+        return await asyncio.to_thread(lambda: self.client.store_messages(payload, self.scope))
+
+    @staticmethod
+    def _render_content(content: Any) -> str:
+        """Flatten a Strands message ``content`` to plain text.
+
+        Accepts either a string or a list of content blocks; joins the text of
+        every ``{"text": ...}`` block and ignores tool-use / image / other blocks.
+        """
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "\n".join(part["text"] for part in content if isinstance(part, dict) and part.get("text"))
+        return ""
 
     def _merge_metadata(self, metadata: dict[str, Any] | None) -> dict[str, Any] | None:
         """Merge per-call metadata over the store's default metadata."""

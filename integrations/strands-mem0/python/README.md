@@ -32,5 +32,6 @@ hatch run prepare     # format + lint + typecheck + test
 
 ## Release
 
-Tag a GitHub release with a `python-v*` tag (e.g. `python-v0.1.0`); the
-`publish-python` workflow builds the wheel and publishes it to PyPI via trusted publishing.
+Publish a GitHub release tagged `strands-mem0-v*` (e.g. `strands-mem0-v0.1.0`). The
+release router (`.github/workflows/release.yml`) dispatches `strands-mem0-cd.yml`,
+which builds the wheel and publishes it to PyPI via trusted publishing (OIDC).

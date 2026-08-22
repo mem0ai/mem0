@@ -1,41 +1,48 @@
 """A thin wrapper around the Mem0 SDK used by :class:`~strands_mem0.store.Mem0MemoryStore`.
 
-The wrapper hides the one real asymmetry in the Mem0 API: writes take the entity
-scope (``user_id`` / ``agent_id`` / ``run_id`` / ``app_id``) as top-level keyword
-arguments, while the hosted platform's ``search`` rejects those top-level and
-requires them inside a ``filters`` dict. The store therefore always passes a plain
-``scope`` mapping and lets this client route it correctly for whichever backend is
-in use.
+Both Mem0 backends -- the hosted platform (:class:`mem0.MemoryClient`) and
+self-hosted OSS (:class:`mem0.Memory`) -- expose the same call shape to the store:
 
-Two backends are supported, matching the ``mem0_memory`` tool in
-``strands-agents-tools``:
+- **search** takes the entity scope inside a ``filters`` dict plus ``top_k``.
+- **add** takes the entity scope as top-level keyword arguments.
 
-- **Mem0 Platform** (default): the hosted ``api.mem0.ai`` service via
-  :class:`mem0.MemoryClient`, authenticated with ``MEM0_API_KEY``.
-- **Mem0 OSS** (self-hosted): a :class:`mem0.Memory` built from a config dict, for
-  users running their own vector/graph stores.
+The wrapper hides the two remaining differences:
+
+- ``app_id`` is a platform-only scope; OSS ``Memory.add`` has no ``app_id``
+  parameter, so it is rejected up front for the OSS backend rather than surfacing
+  as a ``TypeError`` mid-call.
+- the telemetry ``source`` tag is attached to platform writes only (OSS
+  ``Memory.add`` has a fixed signature and would reject an unknown kwarg).
 """
 
 from __future__ import annotations
 
+import inspect
 import os
 from typing import Any
 
-# Platform client classes route entity scope through `filters` on search; the OSS
-# `Memory` takes it as top-level kwargs. We detect the platform by class name so we
-# do not have to import (and thus hard-depend on) a specific mem0 submodule here.
-_PLATFORM_CLIENTS = {"MemoryClient", "AsyncMemoryClient"}
+# Only the synchronous platform client is supported. ``AsyncMemoryClient``'s
+# ``add`` / ``search`` are coroutine functions, so ``asyncio.to_thread`` would hand
+# back an un-awaited coroutine and every write would silently no-op; it is rejected
+# in ``__init__`` rather than listed here.
+_PLATFORM_CLIENTS = {"MemoryClient"}
 
 # Tags platform writes so Mem0's backend attributes the memory to this integration
-# in telemetry (the backend keeps recognized values via its KNOWN_EVENT_SOURCES
-# allowlist; unknown ones bucket into "OTHERS"). Platform only: the OSS
-# ``Memory.add`` has a fixed signature and rejects unknown kwargs.
+# in telemetry (recognized values live in the backend's KNOWN_EVENT_SOURCES
+# allowlist; unknown ones bucket into "OTHERS"). Platform only.
 _SOURCE = "STRANDS"
 
 
 def _is_platform_client(client: Any) -> bool:
     """Whether ``client`` is a hosted Mem0 platform client (vs an OSS ``Memory``)."""
     return type(client).__name__ in _PLATFORM_CLIENTS
+
+
+def _is_async_client(client: Any) -> bool:
+    """Whether ``client``'s ``add`` / ``search`` are coroutine functions."""
+    return inspect.iscoroutinefunction(getattr(client, "add", None)) or inspect.iscoroutinefunction(
+        getattr(client, "search", None)
+    )
 
 
 class Mem0ServiceClient:
@@ -66,8 +73,19 @@ class Mem0ServiceClient:
             config: A Mem0 OSS config dict; when given, a self-hosted
                 :class:`mem0.Memory` is built instead of the platform client.
             client: A pre-built Mem0 client to use directly (platform or OSS).
+
+        Raises:
+            ValueError: If ``client`` is an async Mem0 client (its coroutines
+                would never be awaited off the worker thread).
         """
         if client is not None:
+            if _is_async_client(client):
+                raise ValueError(
+                    "Async Mem0 clients are not supported. Pass a synchronous "
+                    "mem0.MemoryClient (or a mem0.Memory / config): the store runs the "
+                    "SDK in a worker thread, so an async client's coroutines would "
+                    "never be awaited and every write would silently no-op."
+                )
             self.mem0 = client
             self.is_platform = _is_platform_client(client)
             return
@@ -93,6 +111,23 @@ class Mem0ServiceClient:
         self.mem0 = MemoryClient(api_key=api_key, host=host) if host else MemoryClient(api_key=api_key)
         self.is_platform = True
 
+    def _check_scope(self, scope: dict[str, str]) -> None:
+        """Reject scope the selected backend cannot honor.
+
+        ``app_id`` exists only on the platform; the OSS ``Memory`` API has no
+        ``app_id`` parameter, so we fail loudly here rather than let it surface as
+        a ``TypeError`` on ``add`` or silently miss on ``search``.
+        """
+        if not self.is_platform and "app_id" in scope:
+            raise ValueError(
+                "app_id is a Mem0 platform-only scope. The OSS backend supports "
+                "user_id, agent_id, and run_id; drop app_id or use the platform client."
+            )
+
+    def _write_extras(self) -> dict[str, str]:
+        """Extra kwargs attached to platform writes: the telemetry ``source`` tag."""
+        return {"source": _SOURCE} if self.is_platform else {}
+
     def store_memory(
         self,
         content: str,
@@ -101,41 +136,30 @@ class Mem0ServiceClient:
     ) -> Any:
         """Store one discrete fact verbatim (``infer=False``).
 
-        Used by the store's ``add`` sink -- the content is already a distilled
-        fact (from the ``add_memory`` tool or a client-side extractor), so Mem0's
-        own extraction is skipped to preserve it exactly.
+        Used by the store's ``add`` sink -- the content is already a distilled fact
+        (from the ``add_memory`` tool or a client-side extractor), so Mem0's own
+        extraction is skipped to preserve it exactly.
         """
+        self._check_scope(scope)
         return self.mem0.add(content, metadata=metadata, infer=False, **self._write_extras(), **scope)
 
     def store_messages(self, messages: list[dict[str, Any]], scope: dict[str, str]) -> Any:
-        """Hand raw conversation turns to Mem0 for server-side extraction (``infer=True``).
+        """Hand rendered conversation turns to Mem0 for server-side extraction (``infer=True``).
 
         Used by the store's ``add_messages`` sink. Mem0 extracts and de-duplicates
-        facts on the server, so no client-side model call is needed; extraction
-        writes are at-least-once, which Mem0 tolerates.
+        facts on the server, so no client-side model call is needed.
         """
+        self._check_scope(scope)
         return self.mem0.add(messages, infer=True, **self._write_extras(), **scope)
 
-    def _write_extras(self) -> dict[str, str]:
-        """Extra kwargs attached to platform writes: the telemetry ``source`` tag.
-
-        Platform only -- the OSS ``Memory.add`` has a fixed signature and would
-        raise on an unknown ``source`` kwarg, and source attribution is a
-        platform/backend concept in the first place.
-        """
-        return {"source": _SOURCE} if self.is_platform else {}
-
     def search_memories(self, query: str, scope: dict[str, str], top_k: int) -> list[dict[str, Any]]:
-        """Semantic recall, scoped to the store's entity.
+        """Semantic recall scoped to the store's entity.
 
-        Routes ``scope`` through ``filters`` on the platform client and as
-        top-level kwargs on the OSS ``Memory``, then normalizes the two response
-        shapes to a plain list of memory dicts.
+        Both backends take the scope inside ``filters`` and honor ``top_k``; the
+        response is normalized to a plain list of memory dicts.
         """
-        if self.is_platform:
-            response = self.mem0.search(query, filters=dict(scope), top_k=top_k)
-        else:
-            response = self.mem0.search(query, limit=top_k, **scope)
+        self._check_scope(scope)
+        response = self.mem0.search(query, filters=dict(scope), top_k=top_k)
         return _extract_results(response)
 
 

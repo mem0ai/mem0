@@ -23,6 +23,7 @@ Package workflows keep their own push-to-main and manual triggers. Their `pull_r
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (`integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup on Node 20, 22 |
 | n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (`integrations/n8n-nodes-mem0/`), manual | ESLint + tsc build on Node 20 |
 | Zapier App | `zapier-mem0-checks.yml` | Push to main (`integrations/zapier-mem0/`), manual | tsc + `zapier validate` + offline unit tests on Node 22 |
+| strands-mem0 | `strands-mem0-checks.yml` | Push to main (`integrations/strands-mem0/`), manual | Ruff + mypy + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage |
 
 Adding a package CI workflow: give it `workflow_call` plus `push` / `workflow_dispatch` as needed but **no `pull_request` trigger**, then register it in `ci-gate.yml` with a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.

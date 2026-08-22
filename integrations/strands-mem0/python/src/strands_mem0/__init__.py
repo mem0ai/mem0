@@ -10,13 +10,17 @@ use the ``mem0_memory`` tool from ``strands-agents-tools``; a store and the tool
 share one Mem0 backend and namespace.
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from strands_mem0.client import Mem0ServiceClient
-from strands_mem0.store import Mem0MemoryStore, Mem0MemoryStoreConfig
+from strands_mem0.store import Mem0MemoryStore
 
 __all__ = [
     "Mem0MemoryStore",
-    "Mem0MemoryStoreConfig",
     "Mem0ServiceClient",
 ]
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("strands-mem0")
+except PackageNotFoundError:  # pragma: no cover - only when running from a source tree
+    __version__ = "0.0.0+unknown"

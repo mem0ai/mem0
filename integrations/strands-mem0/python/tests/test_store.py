@@ -191,17 +191,34 @@ async def test_add_without_metadata_uses_store_default(mock_client):
     mock_client.store_memory.assert_called_once_with("fact", {"user_id": "alex"}, {"team": "growth"})
 
 
-async def test_add_messages_routes_raw_turns(mock_client):
-    """add_messages() forwards the raw turns and scope for server-side extraction."""
+async def test_add_messages_renders_content_blocks(mock_client):
+    """add_messages renders Strands content blocks to text before sending.
+
+    Strands hands content as list[ContentBlock] (a text block is ``{"text": ...}``);
+    mem0 keeps only text parts, so the store must flatten each turn to a string.
+    """
     messages = [
-        {"role": "user", "content": "I love hiking"},
-        {"role": "assistant", "content": "Noted!"},
+        {"role": "user", "content": [{"text": "I love hiking"}]},
+        {"role": "assistant", "content": [{"text": "Noted!"}]},
     ]
     store = make_store(mock_client)
 
     await store.add_messages(messages)
 
-    mock_client.store_messages.assert_called_once_with(messages, {"user_id": "alex"})
+    mock_client.store_messages.assert_called_once_with(
+        [{"role": "user", "content": "I love hiking"}, {"role": "assistant", "content": "Noted!"}],
+        {"user_id": "alex"},
+    )
+
+
+async def test_add_messages_skips_empty_turns(mock_client):
+    """A turn with no text (a pure tool-use turn) renders to nothing and is not sent."""
+    store = make_store(mock_client)
+
+    result = await store.add_messages([{"role": "assistant", "content": [{"toolUse": {"name": "x"}}]}])
+
+    assert result is None
+    mock_client.store_messages.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

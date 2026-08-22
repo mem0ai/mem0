@@ -21,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
@@ -29,7 +28,7 @@ classifiers = [
 # (MemoryStore / MemoryManager) that Mem0MemoryStore implements.
 dependencies = [
     "strands-agents>=1.45.0",
-    "mem0ai>=0.1.0",
+    "mem0ai>=1.0.0",
 ]
 
 [project.urls]

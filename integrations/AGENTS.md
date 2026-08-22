@@ -11,8 +11,9 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
 | `n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` | tsc | ESLint (n8n-nodes-base) | none |
 | `zapier-mem0/` | `@mem0/zapier` | tsc | none | offline unit tests + `zapier validate` |
+| `strands-mem0/` | `strands-mem0` (PyPI) | hatch | Ruff + mypy | pytest |
 
-pnpm everywhere except `.opencode-plugin/`, which uses Bun. Never npm, never yarn.
+pnpm everywhere except `.opencode-plugin/` (Bun) and `strands-mem0/` (Python: pip / hatch). Never npm, never yarn.
 
 ## Commands
 
@@ -42,6 +43,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 - **`openclaw/`**, **`pi-agent-plugin/`** are editor and agent plugins with the same shape.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).
+- **`strands-mem0/`** is a native Strands `MemoryStore` (Python, published to PyPI as `strands-mem0`). It plugs into the Strands `MemoryManager` for automatic recall and server-side extraction, over the hosted Mem0 platform or self-hosted Mem0 OSS. The package lives under `strands-mem0/python/`.
 
 ## Adding an integration
 
