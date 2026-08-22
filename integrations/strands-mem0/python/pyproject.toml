@@ -28,7 +28,7 @@ classifiers = [
 # (MemoryStore / MemoryManager) that Mem0MemoryStore implements.
 dependencies = [
     "strands-agents>=1.45.0",
-    "mem0ai>=1.0.0",
+    "mem0ai>=2.0.11",
 ]
 
 [project.urls]
