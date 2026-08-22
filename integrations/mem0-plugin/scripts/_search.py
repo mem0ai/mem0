@@ -1,7 +1,8 @@
 """Shared mem0 search API helper.
 
-Wraps POST /v3/memories/search/ into a single function call.
-All pre-fetch hooks use this instead of duplicating urllib boilerplate.
+Wraps the search endpoint (hosted Platform or self-hosted server) into a
+single function call. All pre-fetch hooks use this instead of duplicating
+urllib boilerplate.
 """
 
 from __future__ import annotations
@@ -11,7 +12,8 @@ import os
 import sys
 import urllib.request
 
-SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
+from _api import auth_headers, project_field, search_url
+
 SEARCH_TIMEOUT = 5
 
 
@@ -35,12 +37,8 @@ def should_rerank() -> bool:
 
 def _do_search(api_key: str, payload: dict) -> list[dict]:
     body = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        SEARCH_URL,
-        data=body,
-        headers={"Authorization": f"Token {api_key}", "Content-Type": "application/json"},
-        method="POST",
-    )
+    headers = {**auth_headers(api_key), "Content-Type": "application/json"}
+    req = urllib.request.Request(search_url(), data=body, headers=headers, method="POST")
     with urllib.request.urlopen(req, timeout=SEARCH_TIMEOUT) as r:
         data = json.loads(r.read())
         return data if isinstance(data, list) else data.get("results", [])
@@ -65,7 +63,7 @@ def search_memories(
     if global_search:
         filters: dict = {"OR": [{"user_id": "*"}]}
     else:
-        base_clauses: list[dict] = [{"user_id": user_id}, {"app_id": project_id}]
+        base_clauses: list[dict] = [{"user_id": user_id}, {project_field(): project_id}]
         if metadata_type:
             base_clauses.append({"metadata": {"type": metadata_type}})
         if metadata_filters:
