@@ -44,3 +44,20 @@ def test_embed_removes_newlines(mock_fastembed_client):
     
     mock_fastembed_client.embed.assert_called_once_with("Hello world")
     assert list(embedding) == [0.7, 0.8, 0.9]
+
+
+def test_embed_returns_plain_list(mock_fastembed_client):
+    """embed() must return a JSON-serializable list, not a numpy.ndarray."""
+    import json
+
+    config = BaseEmbedderConfig(model="jinaai/jina-embeddings-v2-base-en", embedding_dims=768)
+    embedder = FastEmbedEmbedding(config)
+
+    mock_embedding = np.array([0.1, 0.2, 0.3])
+    mock_fastembed_client.embed.return_value = iter([mock_embedding])
+
+    embedding = embedder.embed("Sample text")
+
+    assert isinstance(embedding, list)
+    assert embedding == [0.1, 0.2, 0.3]
+    json.dumps(embedding)  # must not raise
