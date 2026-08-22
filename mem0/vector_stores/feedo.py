@@ -122,5 +122,8 @@ class Feedo(VectorStoreBase):
     def col_info(self):
         return {"name": self.namespace}
 
-    def list(self):
+    def list(self, filters=None, top_k=None):
         raise NotImplementedError("List not natively supported by Feedo yet.")
+    
+    def reset(self):
+        pass
