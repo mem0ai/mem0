@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.exceptions import EmbeddingError, EmbeddingErrorClass, LLMError, VectorStoreError
+from mem0.exceptions import EmbeddingErrorClass, LLMError, VectorStoreError
 from mem0.memory.main import AsyncMemory, Memory
 
 
@@ -1473,26 +1473,6 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert len(failed) == 1
         assert failed[0]["error_class"] == EmbeddingErrorClass.VALIDATION
 
-    def test_raise_on_partial_failure_raises_embedding_error(self, mock_memory, mocker):
-        # add() collects failures from _add_to_vector_store's out-param and, with the
-        # opt-in flag set, raises after the successful memories are persisted.
-        def fake_add(*args, failed=None, **kwargs):
-            failed.append({"text": "boom", "error_class": EmbeddingErrorClass.PROVIDER, "error": "x"})
-            return [{"id": "1", "memory": "ok", "event": "ADD"}]
-
-        mock_memory._add_to_vector_store = Mock(side_effect=fake_add)
-        mocker.patch("mem0.memory.main.detect_temporal_usage_from_metadata", return_value=None)
-        mocker.patch("mem0.memory.main.detect_scale_threshold_from_add_result", return_value=None)
-        mocker.patch("mem0.memory.main.display_first_run_notice")
-        mocker.patch("mem0.memory.main.capture_event")
-
-        with pytest.raises(EmbeddingError):
-            mock_memory.add(
-                messages=[{"role": "user", "content": "hi"}],
-                user_id="u1",
-                raise_on_partial_failure=True,
-            )
-
     def test_insert_failure_recorded_in_failed_and_dropped_from_results(self, mock_memory, mocker):
         mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "fact one"}]}'
         mock_memory.embedding_model = Mock()
@@ -1541,3 +1521,25 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert (by_text["n"]["error_code"], by_text["n"]["remediation"]) == ("EMBED_002", "escalate")
         assert (by_text["p"]["error_code"], by_text["p"]["remediation"]) == ("EMBED_001", "retry")
         assert (by_text["i"]["error_code"], by_text["i"]["remediation"]) == ("EMBED_003", "escalate")
+
+    def test_failed_entries_carry_source_index(self, mock_memory, mocker):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        # 1 vector for 2 texts: the second text is the short-batch drop, at index 1.
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1] * 10])
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        failed = []
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "two facts"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+            failed=failed,
+        )
+
+        assert failed[0]["index"] == 1

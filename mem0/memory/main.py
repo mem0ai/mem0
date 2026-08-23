@@ -24,7 +24,7 @@ from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
 )
-from mem0.exceptions import EmbeddingError, EmbeddingErrorClass, LLMError, VectorStoreError
+from mem0.exceptions import EmbeddingErrorClass, LLMError, VectorStoreError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
@@ -125,10 +125,11 @@ def _validate_embedding(vector, expected_dim):
     return None
 
 
-def _record_embedding(text, vector, embed_map, failed, expected_dim):
+def _record_embedding(text, vector, embed_map, failed, expected_dim, index):
     """Validate one returned embedding, then record it in ``embed_map`` or append
-    a classified failure to ``failed``. Returns the (possibly newly seeded)
-    ``expected_dim`` for the intra-batch consistency check.
+    a classified failure to ``failed`` (carrying its ``index`` — the position in
+    the source list). Returns the (possibly newly seeded) ``expected_dim`` for the
+    intra-batch consistency check.
 
     Each item is guarded on its own so a validation error on one vector never
     aborts the surrounding batch loop (the ``internal_error`` path) — and, kept
@@ -138,12 +139,12 @@ def _record_embedding(text, vector, embed_map, failed, expected_dim):
     try:
         reason = _validate_embedding(vector, expected_dim)
     except Exception as e:
-        failed.append({"text": text, "error_class": EmbeddingErrorClass.INTERNAL, "error": str(e)})
+        failed.append({"index": index, "text": text, "error_class": EmbeddingErrorClass.INTERNAL, "error": str(e)})
         return expected_dim
     if reason is None:
         embed_map[text] = vector
         return len(vector) if expected_dim is None else expected_dim
-    failed.append({"text": text, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+    failed.append({"index": index, "text": text, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
     return expected_dim
 
 
@@ -848,9 +849,7 @@ class Memory(MemoryBase):
         expiration_date: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
-        prompt: Optional[str] = None,
-        raise_on_partial_failure: bool = False,
-    ):
+        prompt: Optional[str] = None,    ):
         """
         Create a new memory.
 
@@ -875,19 +874,15 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
-            raise_on_partial_failure (bool, optional): When True, raise ``EmbeddingError`` if any
-                memory failed to embed (after persisting the ones that succeeded). When False
-                (default), the failures are returned under "failed" instead. Defaults to False.
 
         Note:
             `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
             they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
             the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
 
-
         Returns:
             dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
-                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error_code", "remediation", "error"}``
+                  "failed" holds per-item embedding failures, each ``{"index", "text", "error_class", "error_code", "remediation", "error"}`` (index = position in the source list)
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking for callers reading only
                   "results". Example: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}], "failed": []}`.
@@ -966,11 +961,6 @@ class Memory(MemoryBase):
         else:
             display_first_run_notice(self, "sync", "add")
         _label_failures(failed)
-        if raise_on_partial_failure and failed:
-            raise EmbeddingError(
-                message=f"{len(failed)} of {len(vector_store_result) + len(failed)} memories failed to embed",
-                details={"failed": failed, "persisted_count": len(vector_store_result)},
-            )
         return {"results": vector_store_result, "failed": failed}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, failed: Optional[List[dict]] = None):
@@ -981,7 +971,7 @@ class Memory(MemoryBase):
             failed = []
         if not infer:
             returned_memories = []
-            for message_dict in messages:
+            for msg_index, message_dict in enumerate(messages):
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -1005,11 +995,11 @@ class Memory(MemoryBase):
                     msg_embeddings = self.embedding_model.embed(msg_content, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed message: {e}")
-                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
                     continue
                 reason = _validate_embedding(msg_embeddings, None)
                 if reason is not None:
-                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
                     continue
                 mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
@@ -1119,25 +1109,26 @@ class Memory(MemoryBase):
                     # Provider returned fewer vectors than inputs: surface, don't drop.
                     failed.append(
                         {
+                            "index": i,
                             "text": text,
                             "error_class": EmbeddingErrorClass.PROVIDER,
                             "error": f"batch returned {len(mem_embeddings_list)} of {len(mem_texts)} vectors",
                         }
                     )
                     continue
-                batch_dim = _record_embedding(text, mem_embeddings_list[i], embed_map, failed, batch_dim)
+                batch_dim = _record_embedding(text, mem_embeddings_list[i], embed_map, failed, batch_dim, i)
         else:
             # Batch endpoint failed: fall back to per-item embedding.
-            for text in mem_texts:
+            for i, text in enumerate(mem_texts):
                 try:
                     vec = self.embedding_model.embed(text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
                     failed.append(
-                        {"text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)}
+                        {"index": i, "text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)}
                     )
                     continue
-                batch_dim = _record_embedding(text, vec, embed_map, failed, batch_dim)
+                batch_dim = _record_embedding(text, vec, embed_map, failed, batch_dim, i)
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -1201,7 +1192,7 @@ class Memory(MemoryBase):
             # dropped from the store, so surface it under `failed` rather than let an
             # empty `failed` certify success — the same swallow-and-continue shape as
             # the embed drop, one phase later.
-            for rec in records:
+            for idx, rec in enumerate(records):
                 try:
                     self.vector_store.insert(vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]])
                     persisted_records.append(rec)
@@ -1209,7 +1200,7 @@ class Memory(MemoryBase):
                     logger.error(f"Failed to insert memory {rec[0]}: {e}")
                     insert_failed_ids.add(rec[0])
                     failed.append(
-                        {"text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
+                        {"index": idx, "text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
                     )
 
         if not persisted_records:
@@ -2190,11 +2181,11 @@ class Memory(MemoryBase):
             embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
         except Exception as e:
             logger.warning(f"Failed to embed procedural memory: {e}")
-            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
             return {"results": [], "failed": failed}
         reason = _validate_embedding(embeddings, None)
         if reason is not None:
-            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
             return {"results": [], "failed": failed}
         memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
@@ -2620,7 +2611,6 @@ class AsyncMemory(MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
-        raise_on_partial_failure: bool = False,
     ):
         """
         Create a new memory asynchronously.
@@ -2639,9 +2629,6 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
-            raise_on_partial_failure (bool, optional): When True, raise ``EmbeddingError`` if any
-                memory failed to embed (after persisting the ones that succeeded). When False
-                (default), the failures are returned under "failed" instead. Defaults to False.
 
         Note:
             `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
@@ -2650,7 +2637,7 @@ class AsyncMemory(MemoryBase):
 
         Returns:
             dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
-                  "failed" holds per-item embedding failures, each ``{"text", "error_class", "error_code", "remediation", "error"}``
+                  "failed" holds per-item embedding failures, each ``{"index", "text", "error_class", "error_code", "remediation", "error"}`` (index = position in the source list)
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking. Scope: the embedding phase
                   (infer=True extraction, infer=False raw, and procedural) plus vector-store insert
@@ -2717,11 +2704,6 @@ class AsyncMemory(MemoryBase):
         else:
             await display_first_run_notice_async(self, "async", "add")
         _label_failures(failed)
-        if raise_on_partial_failure and failed:
-            raise EmbeddingError(
-                message=f"{len(failed)} of {len(vector_store_result) + len(failed)} memories failed to embed",
-                details={"failed": failed, "persisted_count": len(vector_store_result)},
-            )
         return {"results": vector_store_result, "failed": failed}
 
     async def _add_to_vector_store(
@@ -2740,7 +2722,7 @@ class AsyncMemory(MemoryBase):
             failed = []
         if not infer:
             returned_memories = []
-            for message_dict in messages:
+            for msg_index, message_dict in enumerate(messages):
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -2764,11 +2746,11 @@ class AsyncMemory(MemoryBase):
                     msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed message (async): {e}")
-                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
                     continue
                 reason = _validate_embedding(msg_embeddings, None)
                 if reason is not None:
-                    failed.append({"text": msg_content, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
                     continue
                 mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
@@ -2877,25 +2859,26 @@ class AsyncMemory(MemoryBase):
                     # Provider returned fewer vectors than inputs: surface, don't drop.
                     failed.append(
                         {
+                            "index": i,
                             "text": text,
                             "error_class": EmbeddingErrorClass.PROVIDER,
                             "error": f"batch returned {len(mem_embeddings_list)} of {len(mem_texts)} vectors",
                         }
                     )
                     continue
-                batch_dim = _record_embedding(text, mem_embeddings_list[i], embed_map, failed, batch_dim)
+                batch_dim = _record_embedding(text, mem_embeddings_list[i], embed_map, failed, batch_dim, i)
         else:
             # Batch endpoint failed: fall back to per-item embedding.
-            for text in mem_texts:
+            for i, text in enumerate(mem_texts):
                 try:
                     vec = await asyncio.to_thread(self.embedding_model.embed, text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
                     failed.append(
-                        {"text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)}
+                        {"index": i, "text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)}
                     )
                     continue
-                batch_dim = _record_embedding(text, vec, embed_map, failed, batch_dim)
+                batch_dim = _record_embedding(text, vec, embed_map, failed, batch_dim, i)
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
@@ -2958,7 +2941,7 @@ class AsyncMemory(MemoryBase):
             # Fallback: insert one by one. A memory that still fails to persist is
             # dropped from the store, so surface it under `failed` rather than let an
             # empty `failed` certify success.
-            for rec in records:
+            for idx, rec in enumerate(records):
                 try:
                     await asyncio.to_thread(
                         self.vector_store.insert, vectors=[rec[2]], ids=[rec[0]], payloads=[rec[3]]
@@ -2968,7 +2951,7 @@ class AsyncMemory(MemoryBase):
                     logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
                     insert_failed_ids.add(rec[0])
                     failed.append(
-                        {"text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
+                        {"index": idx, "text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
                     )
 
         if not persisted_records:
@@ -3986,11 +3969,11 @@ class AsyncMemory(MemoryBase):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
         except Exception as e:
             logger.warning(f"Failed to embed procedural memory (async): {e}")
-            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
             return {"results": [], "failed": failed}
         reason = _validate_embedding(embeddings, None)
         if reason is not None:
-            failed.append({"text": procedural_memory, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
+            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.VALIDATION, "error": reason})
             return {"results": [], "failed": failed}
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
