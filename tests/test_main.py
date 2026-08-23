@@ -310,6 +310,16 @@ def test_delete_all_paginates_beyond_vector_store_page_size(memory_instance):
     assert memory_instance.vector_store.list.call_count == 3
 
 
+def test_delete_all_stops_when_vector_store_returns_empty_response(memory_instance):
+    memory_instance.vector_store.list = Mock(return_value=[])
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert result["message"] == "Memories deleted successfully!"
+    memory_instance._delete_memory.assert_not_called()
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
