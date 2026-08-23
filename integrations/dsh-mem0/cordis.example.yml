@@ -10,7 +10,7 @@
 - name: "@deepseek-ai/dsh-tools"
 - insert:
     - id: mem0
-      # Absolute path to the built plugin (run `npm run build` first), or point
+      # Absolute path to the built plugin (run `pnpm build` first), or point
       # at src/index.ts when running through tsx during development.
       name: "/absolute/path/to/mem0/integrations/dsh-mem0/dist/index.js"
       config:

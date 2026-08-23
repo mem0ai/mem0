@@ -34,7 +34,7 @@ export interface Config {
   apiKey?: string;
   /** Default entity that owns the memories (Mem0 user scope). */
   userId: string;
-  /** Optional Mem0 host override, e.g. a self-hosted or local sandbox URL. */
+  /** Optional Mem0 Platform base-URL override (on-prem / dedicated); defaults to api.mem0.ai. Not a switch to self-hosted OSS. */
   host?: string;
 }
 
