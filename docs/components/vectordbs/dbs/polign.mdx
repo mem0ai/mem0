@@ -70,5 +70,5 @@ config = {
 ```
 
 <Note>
-Polign metadata is string-to-string. Mem0 stores each memory's full payload JSON-encoded and additionally promotes scalar fields (like `user_id`, `agent_id`, `run_id`) to plain metadata keys, so session filters are applied server-side. Numeric range filters compare string forms literally.
+Mem0 stores each memory's full payload JSON-encoded and additionally promotes scalar fields (like `user_id`, `agent_id`, `run_id`, and any numeric or boolean metadata) to typed Polign metadata keys, so session and range filters are applied server-side with the right comparison semantics (numbers compare numerically). Requires a Polign server 0.3.0 or newer.
 </Note>

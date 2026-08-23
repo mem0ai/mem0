@@ -16,9 +16,10 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
-# Polign metadata is string-to-string. The full mem0 payload is stored
-# JSON-encoded under this reserved key; scalar payload fields are also
-# promoted to plain string keys so filters run server-side.
+# Polign metadata holds typed scalars (strings, numbers, booleans). The full
+# mem0 payload is stored JSON-encoded under this reserved key; scalar payload
+# fields are also promoted to plain metadata keys so filters run server-side
+# with the right comparison semantics (numbers compare numerically).
 PAYLOAD_KEY = "_payload"
 
 
@@ -28,11 +29,17 @@ class OutputData(BaseModel):
     payload: Optional[Dict]
 
 
-def _scalar_str(value: Any) -> str:
-    """Canonical string form for a scalar, shared by storage and filters."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return value if isinstance(value, str) else str(value)
+def _is_scalar(value: Any) -> bool:
+    return isinstance(value, (str, int, float, bool))
+
+
+def _scalar(value: Any) -> Any:
+    """Metadata form of a scalar, shared by storage and filters.
+
+    Strings, ints, floats, and bools pass through typed so the server
+    compares them by type. Anything else falls back to its string form.
+    """
+    return value if _is_scalar(value) else str(value)
 
 
 class PolignDB(VectorStoreBase):
@@ -68,17 +75,13 @@ class PolignDB(VectorStoreBase):
 
     # ── payload <-> metadata ────────────────────────────────────────
 
-    def _encode_payload(self, payload: Optional[Dict]) -> Dict[str, str]:
+    def _encode_payload(self, payload: Optional[Dict]) -> Dict[str, Any]:
         payload = payload or {}
-        metadata = {
-            key: _scalar_str(value)
-            for key, value in payload.items()
-            if isinstance(value, (str, int, float, bool)) and not key.startswith("_")
-        }
+        metadata = {key: value for key, value in payload.items() if _is_scalar(value) and not key.startswith("_")}
         metadata[PAYLOAD_KEY] = json.dumps(payload)
         return metadata
 
-    def _decode_payload(self, metadata: Optional[Dict[str, str]]) -> Dict:
+    def _decode_payload(self, metadata: Optional[Dict[str, Any]]) -> Dict:
         metadata = metadata or {}
         raw = metadata.get(PAYLOAD_KEY)
         if raw is not None:
@@ -136,17 +139,17 @@ class PolignDB(VectorStoreBase):
             if value == "*":
                 return {key: {"$exists": True}}
             if isinstance(value, list):
-                return {key: {"$in": [_scalar_str(v) for v in value]}}
-            return {key: _scalar_str(value)}
+                return {key: {"$in": [_scalar(v) for v in value]}}
+            return {key: _scalar(value)}
 
         ops = {}
         for op, operand in value.items():
             if op in ("eq", "ne", "gt", "gte", "lt", "lte"):
-                ops[f"${op}"] = _scalar_str(operand)
+                ops[f"${op}"] = _scalar(operand)
             elif op == "in":
-                ops["$in"] = [_scalar_str(v) for v in operand]
+                ops["$in"] = [_scalar(v) for v in operand]
             elif op == "nin":
-                return {"$not": {key: {"$in": [_scalar_str(v) for v in operand]}}}
+                return {"$not": {key: {"$in": [_scalar(v) for v in operand]}}}
             else:
                 raise ValueError(f"Unsupported filter operator '{op}' for field '{key}' in Polign")
         return {key: ops} if ops else None

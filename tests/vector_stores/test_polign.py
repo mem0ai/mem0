@@ -12,11 +12,7 @@ from mem0.vector_stores.polign import PAYLOAD_KEY, OutputData, PolignDB
 
 def _encoded(payload):
     """Metadata dict as PolignDB stores it for the given payload."""
-    metadata = {
-        k: ("true" if v is True else "false" if v is False else v if isinstance(v, str) else str(v))
-        for k, v in payload.items()
-        if isinstance(v, (str, int, float, bool)) and not k.startswith("_")
-    }
+    metadata = {k: v for k, v in payload.items() if isinstance(v, (str, int, float, bool)) and not k.startswith("_")}
     metadata[PAYLOAD_KEY] = json.dumps(payload)
     return metadata
 
@@ -81,8 +77,8 @@ class TestPayloadCodec:
         metadata = db._encode_payload(payload)
         assert metadata["data"] == "hello"
         assert metadata["user_id"] == "alice"
-        assert metadata["count"] == "3"
-        assert metadata["flag"] == "true"
+        assert metadata["count"] == 3  # typed: numbers compare numerically server-side
+        assert metadata["flag"] is True
         assert "nested" not in metadata  # non-scalar: only inside the JSON blob
         assert json.loads(metadata[PAYLOAD_KEY]) == payload
 
@@ -107,8 +103,8 @@ class TestFilterTranslation:
 
     def test_equality_and_coercion(self, db):
         assert db._translate_filters({"user_id": "alice"}) == {"user_id": "alice"}
-        assert db._translate_filters({"count": 3}) == {"count": "3"}
-        assert db._translate_filters({"flag": True}) == {"flag": "true"}
+        assert db._translate_filters({"count": 3}) == {"count": 3}
+        assert db._translate_filters({"flag": True}) == {"flag": True}
 
     def test_multiple_keys_anded(self, db):
         result = db._translate_filters({"user_id": "alice", "agent_id": "a1"})
@@ -121,7 +117,7 @@ class TestFilterTranslation:
         assert db._translate_filters({"lang": ["en", "fr"]}) == {"lang": {"$in": ["en", "fr"]}}
 
     def test_comparison_operators(self, db):
-        assert db._translate_filters({"score": {"gte": 0.5}}) == {"score": {"$gte": "0.5"}}
+        assert db._translate_filters({"score": {"gte": 0.5}}) == {"score": {"$gte": 0.5}}
         assert db._translate_filters({"a": {"ne": "x"}}) == {"a": {"$ne": "x"}}
         assert db._translate_filters({"a": {"in": ["x", "y"]}}) == {"a": {"$in": ["x", "y"]}}
 
