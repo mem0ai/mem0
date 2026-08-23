@@ -189,12 +189,13 @@ class MongoDB(VectorStoreBase):
         results = []
         try:
             collection = self.client[self.db_name][self.collection_name]
+            candidate_limit = min(top_k * 20, 10000) if filters else top_k
             pipeline = [
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
-                        "limit": top_k,
-                        "numCandidates": min(top_k * 20, 10000),
+                        "limit": candidate_limit,
+                        "numCandidates": min(candidate_limit * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -210,8 +211,10 @@ class MongoDB(VectorStoreBase):
                     filter_conditions.append({"payload." + key: value})
 
                 if filter_conditions:
-                    # Add a $match stage after vector search to apply filters
+                    # Over-fetch before applying the post-search filter. MongoDB
+                    # applies $vectorSearch's limit before later pipeline stages.
                     pipeline.insert(1, {"$match": {"$and": filter_conditions}})
+                    pipeline.append({"$limit": top_k})
 
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
