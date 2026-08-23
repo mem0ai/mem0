@@ -20,16 +20,29 @@ export type ErrorClass =
 
 export type Remediation = "retry" | "reconfigure" | "escalate";
 
-// One dropped text. Plain data so it survives a JSON round-trip.
+/**
+ * One dropped text. Plain data so it survives a JSON round-trip.
+ *
+ * `index` locates the failure in the call that produced it, so two identical
+ * texts in one `add()` stay distinguishable. Every entry carries one, and every
+ * entry from a single call is in the same coordinate space:
+ *
+ * - `infer: false` — position in the `messages` array the caller passed, so
+ *   `messages[f.index]` is the message that failed. System messages keep their
+ *   slot.
+ * - `infer: true` — position in the extracted text list sent to `embedBatch`.
+ *   That list is built by mem0, not the caller, so the index separates
+ *   duplicate facts but does *not* lead back to the message that produced one:
+ *   extraction carries no per-fact provenance.
+ */
 export interface EmbeddingFailure {
   text: string;
+  index: number;
   errorClass: ErrorClass;
   remediation: Remediation;
   errorCode?: EmbedErrorCode;
   retryAfter?: number;
   error: string;
-  readonly _payload?: Record<string, any>;
-  readonly _memoryId?: string;
 }
 
 /**
@@ -62,22 +75,6 @@ export type ValidationReason =
 export interface VectorValidation {
   ok: boolean;
   reason?: ValidationReason;
-}
-
-export interface RetryContext {
-  validate(vec: number[] | undefined): VectorValidation;
-  persist(f: EmbeddingFailure, vec: number[]): Promise<MemoryItem>;
-  sleep(ms: number): Promise<void>;
-  embed(text: string): Promise<number[]>;
-}
-
-export type RetryOutcome =
-  | { kind: "persisted"; item: MemoryItem }
-  | { kind: "stillFailed"; failure: EmbeddingFailure };
-
-export interface RemediationStrategy {
-  readonly errorClass: ErrorClass;
-  apply(f: EmbeddingFailure, ctx: RetryContext): Promise<RetryOutcome>;
 }
 
 // First-good-vector-wins guardrail, one instance per add()/retry run.
@@ -206,7 +203,8 @@ function isEmbedCode(c: string): c is EmbedErrorCode {
   return (
     c === EMBED_ERROR_CODE.TRANSIENT ||
     c === EMBED_ERROR_CODE.VALIDATION ||
-    c === EMBED_ERROR_CODE.AUTH
+    c === EMBED_ERROR_CODE.AUTH ||
+    c === EMBED_ERROR_CODE.INTERNAL
   );
 }
 
@@ -255,7 +253,7 @@ export function projectError(err: MemoryError): Classification {
       return {
         errorClass: "internal_error",
         remediation: "escalate",
-        errorCode: EMBED_ERROR_CODE.TRANSIENT,
+        errorCode: EMBED_ERROR_CODE.INTERNAL,
       };
   }
 }
@@ -263,58 +261,3 @@ export function projectError(err: MemoryError): Classification {
 export function classifyEmbedError(err: unknown): Classification {
   return projectError(toEmbeddingError(err));
 }
-
-// provider/retry: wait any retryAfter, re-embed, re-validate, persist if good.
-export class ProviderRetryStrategy implements RemediationStrategy {
-  readonly errorClass = "provider_error" as const;
-  async apply(f: EmbeddingFailure, ctx: RetryContext): Promise<RetryOutcome> {
-    if (f.retryAfter && f.retryAfter > 0) await ctx.sleep(f.retryAfter * 1000);
-    let vec: number[];
-    try {
-      vec = await ctx.embed(f.text);
-    } catch (e) {
-      const c = classifyEmbedError(e);
-      return {
-        kind: "stillFailed",
-        failure: {
-          ...f,
-          ...c,
-          error: e instanceof Error ? e.message : String(e),
-        },
-      };
-    }
-    const v = ctx.validate(vec);
-    if (!v.ok) {
-      const c = classifyValidation(v.reason!);
-      return {
-        kind: "stillFailed",
-        failure: { ...f, ...c, error: `re-embed produced ${v.reason} vector` },
-      };
-    }
-    return { kind: "persisted", item: await ctx.persist(f, vec) };
-  }
-}
-
-// validation_error: a structurally-bad vector (wrong dim, NaN/Inf, empty).
-// A blind retry would reproduce it, so surface it unchanged for the caller to act on.
-export class ValidationSurfaceStrategy implements RemediationStrategy {
-  readonly errorClass = "validation_error" as const;
-  async apply(f: EmbeddingFailure): Promise<RetryOutcome> {
-    return { kind: "stillFailed", failure: f };
-  }
-}
-
-// internal_error: a mem0-side processing failure (store write, dedup, etc.).
-// Re-embedding won't help, so surface it unchanged.
-export class InternalSurfaceStrategy implements RemediationStrategy {
-  readonly errorClass = "internal_error" as const;
-  async apply(f: EmbeddingFailure): Promise<RetryOutcome> {
-    return { kind: "stillFailed", failure: f };
-  }
-}
-
-export const STRATEGIES: Record<ErrorClass, RemediationStrategy> = {
-  provider_error: new ProviderRetryStrategy(),
-  validation_error: new ValidationSurfaceStrategy(),
-  internal_error: new InternalSurfaceStrategy(),
-};

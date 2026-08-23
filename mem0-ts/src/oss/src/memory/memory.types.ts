@@ -14,12 +14,6 @@ export interface AddMemoryOptions extends Entity {
   timestamp?: number | string | Date | null;
   /** Date (YYYY-MM-DD) after which the memory is considered expired. */
   expirationDate?: string | null;
-  /**
-   * When true, `add()` throws an `EmbeddingError` after persisting the memories
-   * that embedded successfully. Default `false`: failures are returned on the
-   * result's `failed[]` instead.
-   */
-  raiseOnPartialFailure?: boolean;
 }
 
 export interface UpdateMemoryOptions {

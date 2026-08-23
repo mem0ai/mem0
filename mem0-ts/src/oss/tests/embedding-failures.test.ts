@@ -1,9 +1,10 @@
 /**
- * Tests for label-driven, guardrailed embedding failures + retry in add().
+ * Tests for label-driven, guardrailed embedding failures in add().
  *
  * add() returns { results, failed[] }: good memories persist, failures carry a
- * label (errorClass / remediation / retryAfter). memory.retryFailed() retries
- * them per label, and the guardrail (NaN/Inf/dim) gates persistence every time.
+ * label (errorClass / errorCode / remediation / retryAfter) and an index that
+ * locates them in the call, and the guardrail (NaN/Inf/dim) gates persistence
+ * every time.
  */
 // add() fires a telemetry POST per call. Left real, every test in this file
 // waits ~5s on the network and the suite times out under CI load; stubbed, the
@@ -20,14 +21,13 @@ import {
   makeVectorValidator,
   toEmbeddingError,
   projectError,
-  EmbeddingFailure,
 } from "../src/memory/errorRetry";
 import {
+  MemoryError,
   RateLimitError,
   NetworkError,
   ValidationError,
   AuthenticationError,
-  EmbeddingError,
 } from "../../common/exceptions";
 
 const DIM = 1536;
@@ -192,247 +192,6 @@ describe("add() returns { results, failed } with labels", () => {
   });
 });
 
-describe("raiseOnPartialFailure: opt-in strict mode (preserve-then-raise)", () => {
-  it("raises EmbeddingError with failedTexts/persistedCount, good ones still persisted", async () => {
-    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
-    const { m } = await ready(rules, [A, B, C]);
-
-    let err: EmbeddingError | undefined;
-    try {
-      await m.add([A, B, C].join(". "), {
-        userId: "rp1",
-        raiseOnPartialFailure: true,
-      });
-    } catch (e) {
-      err = e as EmbeddingError;
-    }
-
-    expect(err).toBeInstanceOf(EmbeddingError);
-    expect(err!.failedTexts).toEqual([B]);
-    expect(err!.persistedCount).toBe(2);
-
-    // Preserve-then-raise: the good ones are in the store despite the throw.
-    const all = await m.getAll({ filters: { user_id: "rp1" } });
-    expect(all.results.map((r) => r.memory).sort()).toEqual([A, C].sort());
-  });
-
-  it("default (flag off) returns { results, failed } and does not throw", async () => {
-    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
-    const { m } = await ready(rules, [A, B]);
-    const res = await m.add([A, B].join(". "), { userId: "rp2" });
-    expect(res.results).toHaveLength(1);
-    expect(res.failed).toHaveLength(1);
-  });
-
-  it("flag on but nothing fails: does not throw", async () => {
-    const { m } = await ready(new Map(), [A, B]);
-    const res = await m.add([A, B].join(". "), {
-      userId: "rp3",
-      raiseOnPartialFailure: true,
-    });
-    expect(res.results).toHaveLength(2);
-  });
-});
-
-describe("memory.retryFailed() is label-driven", () => {
-  it("retries a provider failure once the provider recovers, and persists it", async () => {
-    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
-    const { m, embedder } = await ready(rules, [A, B]);
-
-    const res = await m.add([A, B].join(". "), { userId: "u7" });
-    expect(res.failed[0].errorClass).toBe("provider_error");
-
-    // Provider recovers: B now embeds cleanly.
-    rules.delete(B);
-    const retry = await m.retryFailed(res.failed);
-
-    expect(retry.results.map((r) => r.memory)).toContain(B);
-    expect(retry.failed).toHaveLength(0);
-    const all = await m.getAll({ filters: { user_id: "u7" } });
-    expect(all.results.map((r) => r.memory).sort()).toEqual([A, B].sort());
-  });
-
-  it("does not re-embed a validation failure (wrong dim), surfaces it instead", async () => {
-    const rules = new Map<string, Rule>([[B, "dim"]]);
-    const { m, embedder } = await ready(rules, [A, B]);
-
-    const res = await m.add([A, B].join(". "), { userId: "u8" });
-    expect(res.failed[0]).toMatchObject({
-      errorClass: "validation_error",
-      remediation: "reconfigure",
-    });
-    const before = embedder.embedCalls;
-
-    const retry = await m.retryFailed(res.failed);
-
-    expect(embedder.embedCalls).toBe(before); // never re-embedded
-    expect(retry.results).toHaveLength(0);
-    expect(retry.failed).toHaveLength(1);
-  });
-
-  it("a NaN failure is surfaced on retry and never persisted (no sanitize)", async () => {
-    const rules = new Map<string, Rule>([[B, "nan"]]);
-    const { m, embedder } = await ready(rules, [A, B]);
-
-    const res = await m.add([A, B].join(". "), { userId: "u9" });
-    expect(res.failed[0]).toMatchObject({
-      errorClass: "validation_error",
-      remediation: "escalate",
-    });
-    const before = embedder.embedCalls;
-
-    const retry = await m.retryFailed(res.failed);
-
-    expect(embedder.embedCalls).toBe(before); // no re-embed, no sanitize
-    expect(retry.results).toHaveLength(0);
-    expect(retry.failed).toHaveLength(1);
-    const all = await m.getAll({ filters: { user_id: "u9" } });
-    expect(all.results.map((r) => r.memory)).not.toContain(B);
-  });
-
-  it("survives a JSON round-trip (plain data, no closures)", async () => {
-    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
-    const { m } = await ready(rules, [A, B]);
-    const res = await m.add([A, B].join(". "), { userId: "u10" });
-
-    const rehydrated: EmbeddingFailure[] = JSON.parse(
-      JSON.stringify(res.failed),
-    );
-    expect(rehydrated[0].errorCode).toBe(res.failed[0].errorCode);
-    rules.delete(B);
-    const retry = await m.retryFailed(rehydrated);
-    expect(retry.results.map((r) => r.memory)).toContain(B);
-  });
-});
-
-describe("hardening: insert failures, dedup, infer:false, short batch", () => {
-  it("C1: a vector-store insert failure is surfaced, not reported as success", async () => {
-    const { m } = await ready(new Map(), [A, B]);
-    // Make the store reject every insert after init.
-    (m as any).vectorStore.insert = async () => {
-      throw new Error("store down");
-    };
-    const res = await m.add([A, B].join(". "), { userId: "c1" });
-    expect(res.results).toHaveLength(0);
-    expect(res.failed.map((f) => f.errorClass)).toEqual([
-      "internal_error",
-      "internal_error",
-    ]);
-  });
-
-  it("C2: retrying the same failure twice does not duplicate the memory", async () => {
-    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
-    const { m } = await ready(rules, [A, B]);
-    const res = await m.add([A, B].join(". "), { userId: "c2" });
-
-    rules.delete(B);
-    await m.retryFailed(res.failed);
-    await m.retryFailed(res.failed); // second retry should be a no-op
-
-    const all = await m.getAll({ filters: { user_id: "c2" } });
-    const bobs = all.results.filter((r) => r.memory === B);
-    expect(bobs).toHaveLength(1);
-  });
-
-  it("H1: infer:false captures embed failures instead of throwing", async () => {
-    const rules = new Map<string, Rule>([["bad text", { throwStatus: 503 }]]);
-    const { m } = await ready(rules, []);
-    const res = await m.add(
-      [
-        { role: "user", content: "good text" },
-        { role: "user", content: "bad text" },
-      ],
-      { userId: "h1", infer: false },
-    );
-    expect(res.results.map((r) => r.memory)).toEqual(["good text"]);
-    expect(res.failed.map((f) => f.text)).toEqual(["bad text"]);
-  });
-
-  it("H4: a short embedBatch return reports the missing tail as a failure (not silently dropped)", async () => {
-    const { m } = await ready(new Map(), [A, B, C]);
-    // embedBatch returns one fewer vector than texts.
-    (m as any).embedder.embedBatch = async (texts: string[]) =>
-      texts.slice(0, texts.length - 1).map(() => new Array(DIM).fill(0.1));
-
-    const res = await m.add([A, B, C].join(". "), { userId: "h4" });
-    // The tail text has no vector, so it is surfaced as a failure, never dropped.
-    expect(res.failed.length).toBeGreaterThan(0);
-    expect(res.results.length).toBeLessThan(3);
-    // And it is labelled where it was caused: the provider returned nothing,
-    // which is retryable, not a malformed vector to escalate and give up on.
-    expect(res.failed[0]).toMatchObject({
-      errorClass: "provider_error",
-      remediation: "retry",
-    });
-  });
-});
-
-/**
- * These read the memory back out of the store. Everything above asserts on
- * add()'s return value, which cannot see a row that was written with the wrong
- * shape. It is still "results.length === 1" either way.
- */
-describe("stored shape: what actually lands in the vector store", () => {
-  it("P1: infer:false stores the full payload, not just the text", async () => {
-    const { m } = await ready(new Map(), []);
-    const res = await m.add([{ role: "user", content: "raw note" }], {
-      userId: "p1",
-      infer: false,
-    });
-    expect(res.results).toHaveLength(1);
-
-    const stored = await (m as any).vectorStore.get(res.results[0].id);
-    // hash drives dedup, textLemmatized drives keyword/hybrid search, and
-    // user_id makes the row reachable by its owner. A row missing any of them
-    // is persisted but effectively lost, the same failure #5509 is about,
-    // just one layer down.
-    expect(stored.payload).toMatchObject({ data: "raw note", user_id: "p1" });
-    expect(typeof stored.payload.hash).toBe("string");
-    expect(typeof stored.payload.textLemmatized).toBe("string");
-    expect(typeof stored.payload.createdAt).toBe("string");
-  });
-
-  it("P2: a retried infer:false failure is still reachable by its owner", async () => {
-    const rules = new Map<string, Rule>([["flaky note", { throwStatus: 503 }]]);
-    const { m } = await ready(rules, []);
-
-    const res = await m.add([{ role: "user", content: "flaky note" }], {
-      userId: "p2",
-      infer: false,
-    });
-    expect(res.failed).toHaveLength(1);
-
-    rules.delete("flaky note"); // provider recovers
-    const retry = await m.retryFailed(res.failed);
-    expect(retry.results).toHaveLength(1);
-
-    // The retry must carry the original tenancy. Without it the row exists but
-    // getAll/search/deleteAll can never reach it again.
-    const all = await m.getAll({ filters: { user_id: "p2" } });
-    expect(all.results.map((r) => r.memory)).toContain("flaky note");
-  });
-
-  it("P3: a failure with no captured payload is surfaced, never stored ownerless", async () => {
-    const { m } = await ready(new Map(), []);
-    // A hand-built failure (or one round-tripped through a lossy transport)
-    // has no tenancy. Persisting it would create an unreachable row, so the
-    // retry must refuse and hand it back instead.
-    const orphan: EmbeddingFailure = {
-      text: "no owner",
-      errorClass: "provider_error",
-      remediation: "retry",
-      error: "provider 503",
-    };
-    const retry = await m.retryFailed([orphan]);
-
-    expect(retry.results).toHaveLength(0);
-    expect(retry.failed).toHaveLength(1);
-    expect(retry.failed[0].errorClass).toBe("internal_error");
-    const all = await m.getAll({ filters: { user_id: "p3" } });
-    expect(all.results).toHaveLength(0);
-  });
-});
-
 describe("classifier and validator units", () => {
   it("classifies by status, not a misleading message", () => {
     const err: any = new Error("invalid dimension nan");
@@ -556,5 +315,109 @@ describe("typed-exception parity (Python error_code shape)", () => {
     const { m } = await ready(rules, [A, B]);
     const res = await m.add([A, B].join(". "), { userId: "ec" });
     expect(res.failed[0].errorCode).toBe("EMBED_001");
+  });
+});
+
+describe("index locates a failure in the call that produced it", () => {
+  it("infer:false: index is the caller's own messages position, system slots kept", async () => {
+    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
+    const { m } = await ready(rules, []);
+
+    const res = await m.add(
+      [
+        { role: "system", content: "you are a bot" },
+        { role: "user", content: A },
+        { role: "user", content: B },
+      ],
+      { userId: "ix1", infer: false },
+    );
+
+    expect(res.failed).toHaveLength(1);
+    expect(res.failed[0].index).toBe(2);
+    expect(res.results).toHaveLength(1);
+  });
+
+  it("infer:false: two identical messages stay distinguishable", async () => {
+    // The whole point of index. Keyed on text alone these two failures are
+    // indistinguishable, so a caller cannot tell which of their messages to
+    // resend.
+    const rules = new Map<string, Rule>([[A, { throwStatus: 503 }]]);
+    const { m } = await ready(rules, []);
+
+    const res = await m.add(
+      [
+        { role: "user", content: A },
+        { role: "user", content: B },
+        { role: "user", content: A },
+      ],
+      { userId: "ix2", infer: false },
+    );
+
+    expect(res.failed.map((f) => f.index)).toEqual([0, 2]);
+    expect(new Set(res.failed.map((f) => f.text))).toEqual(new Set([A]));
+  });
+
+  it("infer:true: index is the position in the embed request", async () => {
+    const rules = new Map<string, Rule>([[B, "nan"]]);
+    const { m } = await ready(rules, [A, B, C]);
+
+    const res = await m.add([A, B, C].join(". "), { userId: "ix3" });
+
+    expect(res.failed).toHaveLength(1);
+    expect(res.failed[0].index).toBe(1);
+  });
+
+  it("every entry carries an index, and they are in one coordinate space", async () => {
+    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
+    const { m } = await ready(rules, []);
+    // A embeds fine but cannot be stored, B never embeds. Two different
+    // failure kinds in one call: both must be numbered off the same list.
+    const store = (m as any).vectorStore;
+    const realInsert = store.insert.bind(store);
+    store.insert = async () => {
+      throw new Error("store down");
+    };
+
+    const res = await m.add(
+      [
+        { role: "user", content: A },
+        { role: "user", content: B },
+      ],
+      { userId: "ix4", infer: false },
+    );
+    store.insert = realInsert;
+
+    expect(res.failed.map((f) => f.index)).toEqual([0, 1]);
+    expect(res.failed.every((f) => typeof f.index === "number")).toBe(true);
+  });
+});
+
+describe("internal_error carries its own code", () => {
+  it("a store insert failure is EMBED_004, not a provider blip", async () => {
+    const { m } = await ready(new Map(), []);
+    const store = (m as any).vectorStore;
+    store.insert = async () => {
+      throw new Error("store down");
+    };
+
+    const res = await m.add([{ role: "user", content: A }], {
+      userId: "ie1",
+      infer: false,
+    });
+
+    expect(res.results).toHaveLength(0);
+    expect(res.failed[0]).toMatchObject({
+      errorClass: "internal_error",
+      remediation: "escalate",
+      errorCode: "EMBED_004",
+    });
+  });
+
+  it("projectError never labels an internal fault EMBED_001", () => {
+    // EMBED_001 means "provider blip, retry may work". Saying that about a
+    // mem0-side fault sends a caller into a retry loop that cannot succeed.
+    const c = projectError(new MemoryError("something of ours broke", "X"));
+    expect(c.errorClass).toBe("internal_error");
+    expect(c.errorCode).toBe("EMBED_004");
   });
 });

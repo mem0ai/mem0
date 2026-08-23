@@ -141,41 +141,28 @@ export class MemoryQuotaExceededError extends MemoryError {
 
 // Stable error codes for embedding failures (parallels the Python SDK).
 export const EMBED_ERROR_CODE = {
-  TRANSIENT: "EMBED_001", // provider blip (429, 5xx, network) — retry may work
-  VALIDATION: "EMBED_002", // bad input/vector (wrong dim, NaN) — retry won't help
-  AUTH: "EMBED_003", // auth/permission — needs operator action
+  TRANSIENT: "EMBED_001", // provider blip (429, 5xx, network): retry may work
+  VALIDATION: "EMBED_002", // bad input/vector (wrong dim, NaN): retry won't help
+  AUTH: "EMBED_003", // auth/permission: needs operator action
+  INTERNAL: "EMBED_004", // mem0-side fault (store insert): retry won't help
 } as const;
 
 export type EmbedErrorCode =
   (typeof EMBED_ERROR_CODE)[keyof typeof EMBED_ERROR_CODE];
 
 /**
- * Raised when one or more texts fail to embed during `add()`. The TypeScript
- * parallel of Python's `EmbeddingError`.
- *
- * Successfully-embedded memories are persisted before this is thrown, so a
- * caller catching it can retry only the dropped texts via `failedTexts` rather
- * than re-adding the whole batch.
+ * Raised when a text fails to embed during `add()`. The TypeScript parallel of
+ * Python's `EmbeddingError`. Carried on `failed[]` as a label rather than
+ * thrown, so a partial failure never costs the memories that did embed.
  */
 export class EmbeddingError extends MemoryError {
-  /** Texts that failed to embed and were not persisted. */
-  readonly failedTexts: string[];
-  /** Number of memories persisted by the call before this was thrown. */
-  readonly persistedCount: number;
-
   constructor(
     message: string,
     errorCode: string = EMBED_ERROR_CODE.TRANSIENT,
-    options: MemoryErrorOptions & {
-      failedTexts?: string[];
-      persistedCount?: number;
-    } = {},
+    options: MemoryErrorOptions = {},
   ) {
-    const { failedTexts = [], persistedCount = 0, ...rest } = options;
-    super(message, errorCode, rest);
+    super(message, errorCode, options);
     this.name = "EmbeddingError";
-    this.failedTexts = failedTexts;
-    this.persistedCount = persistedCount;
   }
 }
 

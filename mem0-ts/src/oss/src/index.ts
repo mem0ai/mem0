@@ -1,7 +1,7 @@
 export * from "./memory";
-// Only the shapes a caller of add()/retryFailed() handles. The classifier,
-// validator and strategy internals stay unexported so they remain free to
-// change without a major version.
+// Only the shapes a caller of add() handles. The classifier and validator
+// internals stay unexported so they remain free to change without a major
+// version.
 export type {
   AddResult,
   EmbeddingFailure,
