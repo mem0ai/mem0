@@ -193,7 +193,10 @@ class MongoDB(VectorStoreBase):
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
-                        "limit": top_k,
+                        # Fetch extra candidates before applying dynamic payload
+                        # filters; otherwise filtered results can be absent from
+                        # the top_k unfiltered vectors entirely.
+                        "limit": min(top_k * 20, 10000) if filters else top_k,
                         "numCandidates": min(top_k * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
@@ -212,6 +215,7 @@ class MongoDB(VectorStoreBase):
                 if filter_conditions:
                     # Add a $match stage after vector search to apply filters
                     pipeline.insert(1, {"$match": {"$and": filter_conditions}})
+                    pipeline.append({"$limit": top_k})
 
             results = list(collection.aggregate(pipeline))
             logger.info(f"Vector search completed. Found {len(results)} documents.")
