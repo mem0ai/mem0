@@ -1506,6 +1506,7 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
             failed.append({"text": "d", "error_class": EmbeddingErrorClass.VALIDATION, "error": "dimension 3 != expected 10"})
             failed.append({"text": "n", "error_class": EmbeddingErrorClass.VALIDATION, "error": "non-finite component (NaN/Inf)"})
             failed.append({"text": "p", "error_class": EmbeddingErrorClass.PROVIDER, "error": "429 rate limit"})
+            failed.append({"text": "a", "error_class": EmbeddingErrorClass.PROVIDER, "error": "401 unauthorized", "_status": 401})
             failed.append({"text": "i", "error_class": EmbeddingErrorClass.INTERNAL, "error": "boom"})
             return []
 
@@ -1520,7 +1521,8 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         assert (by_text["d"]["error_code"], by_text["d"]["remediation"]) == ("EMBED_002", "reconfigure")
         assert (by_text["n"]["error_code"], by_text["n"]["remediation"]) == ("EMBED_002", "escalate")
         assert (by_text["p"]["error_code"], by_text["p"]["remediation"]) == ("EMBED_001", "retry")
-        assert (by_text["i"]["error_code"], by_text["i"]["remediation"]) == ("EMBED_003", "escalate")
+        assert (by_text["a"]["error_code"], by_text["a"]["remediation"]) == ("EMBED_003", "escalate")
+        assert (by_text["i"]["error_code"], by_text["i"]["remediation"]) == ("EMBED_004", "escalate")
 
     def test_failed_entries_carry_source_index(self, mock_memory, mocker):
         mock_memory.llm.generate_response.return_value = (

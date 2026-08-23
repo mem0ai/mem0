@@ -148,12 +148,32 @@ def _record_embedding(text, vector, embed_map, failed, expected_dim, index):
     return expected_dim
 
 
+def _embed_error_status(exc):
+    """Best-effort HTTP status from a thrown embed error, for the transient-vs-auth
+    split (429/5xx are transient/retry; 401/403 and other 4xx are auth/escalate)."""
+    if exc is None:
+        return None
+    for attr in ("status", "status_code"):
+        val = getattr(exc, attr, None)
+        if isinstance(val, int):
+            return val
+    resp = getattr(exc, "response", None)
+    if resp is not None:
+        val = getattr(resp, "status_code", None)
+        if not isinstance(val, int):
+            val = getattr(resp, "status", None)
+        if isinstance(val, int):
+            return val
+    return None
+
+
 def _label_failures(failed):
     """Attach the cross-SDK wire fields (``error_code``, ``remediation``) to each
-    ``failed[]`` entry, keyed on ``error_class`` (plus the dimension sub-case),
-    mirroring the TypeScript SDK (mem0ai#6794). ``error_class`` and ``error_code``
-    are the machine-keyed fields kept identical across SDKs; ``remediation`` shares
-    field name and meaning but its wording is free to differ. Idempotent.
+    ``failed[]`` entry, mirroring the TypeScript SDK (mem0ai#6794). ``error_class``
+    answers whose fault it is; ``error_code`` answers which fault, so the two are
+    deliberately not 1:1 — ``provider_error`` spans ``EMBED_001`` (transient) and
+    ``EMBED_003`` (auth). ``error_class`` + ``error_code`` are kept identical across
+    SDKs; ``remediation`` shares field name and meaning, wording free. Idempotent.
     """
     for f in failed:
         ec = f.get("error_class")
@@ -162,10 +182,16 @@ def _label_failures(failed):
             # A wrong-dimension vector is a config fix; a non-finite/empty one escalates.
             f["remediation"] = "reconfigure" if "dimension" in (f.get("error") or "") else "escalate"
         elif ec == EmbeddingErrorClass.PROVIDER:
-            f["error_code"] = "EMBED_001"
-            f["remediation"] = "retry"
+            # A thrown 401/403 or other non-transient 4xx is the provider rejecting the
+            # call (auth), not a retryable blip: class stays provider, the code splits.
+            status = f.pop("_status", None)
+            if status is not None and (status in (401, 403) or 400 <= status < 500):
+                f["error_code"], f["remediation"] = "EMBED_003", "escalate"
+            else:
+                f["error_code"], f["remediation"] = "EMBED_001", "retry"
         else:
-            f["error_code"] = "EMBED_003"
+            # internal_error (mem0's own path, incl. vector-store insert) has its own code.
+            f["error_code"] = "EMBED_004"
             f["remediation"] = "escalate"
     return failed
 
@@ -995,7 +1021,7 @@ class Memory(MemoryBase):
                     msg_embeddings = self.embedding_model.embed(msg_content, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed message: {e}")
-                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e), "_status": _embed_error_status(e)})
                     continue
                 reason = _validate_embedding(msg_embeddings, None)
                 if reason is not None:
@@ -1125,7 +1151,7 @@ class Memory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
                     failed.append(
-                        {"index": i, "text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)}
+                        {"index": i, "text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e), "_status": _embed_error_status(e)}
                     )
                     continue
                 batch_dim = _record_embedding(text, vec, embed_map, failed, batch_dim, i)
@@ -1139,6 +1165,13 @@ class Memory(MemoryBase):
                 existing_hashes.add(h)
 
         records = []  # (memory_id, text, embedding, payload)
+        # Map each surviving record to its position in the source list (mem_texts), so an
+        # insert failure reports the same coordinate space as an embed failure (records are
+        # deduped, so each text resolves to one source position).
+        text_first_index = {}
+        for _si, _t in enumerate(mem_texts):
+            text_first_index.setdefault(_t, _si)
+        record_source_index = {}
         seen_hashes = set()  # dedup within the current batch
         for mem in extracted_memories:
             text = mem.get("text")
@@ -1165,6 +1198,7 @@ class Memory(MemoryBase):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
+            record_source_index[memory_id] = text_first_index.get(text, 0)
 
         if not records:
             self.db.save_messages(messages, session_scope)
@@ -1200,7 +1234,7 @@ class Memory(MemoryBase):
                     logger.error(f"Failed to insert memory {rec[0]}: {e}")
                     insert_failed_ids.add(rec[0])
                     failed.append(
-                        {"index": idx, "text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
+                        {"index": record_source_index.get(rec[0], idx), "text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
                     )
 
         if not persisted_records:
@@ -2181,7 +2215,7 @@ class Memory(MemoryBase):
             embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
         except Exception as e:
             logger.warning(f"Failed to embed procedural memory: {e}")
-            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e), "_status": _embed_error_status(e)})
             return {"results": [], "failed": failed}
         reason = _validate_embedding(embeddings, None)
         if reason is not None:
@@ -2746,7 +2780,7 @@ class AsyncMemory(MemoryBase):
                     msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed message (async): {e}")
-                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+                    failed.append({"index": msg_index, "text": msg_content, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e), "_status": _embed_error_status(e)})
                     continue
                 reason = _validate_embedding(msg_embeddings, None)
                 if reason is not None:
@@ -2875,7 +2909,7 @@ class AsyncMemory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
                     failed.append(
-                        {"index": i, "text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)}
+                        {"index": i, "text": text, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e), "_status": _embed_error_status(e)}
                     )
                     continue
                 batch_dim = _record_embedding(text, vec, embed_map, failed, batch_dim, i)
@@ -2888,6 +2922,10 @@ class AsyncMemory(MemoryBase):
                 existing_hashes.add(h)
 
         records = []
+        text_first_index = {}
+        for _si, _t in enumerate(mem_texts):
+            text_first_index.setdefault(_t, _si)
+        record_source_index = {}
         seen_hashes = set()
         for mem in extracted_memories:
             text = mem.get("text")
@@ -2914,6 +2952,7 @@ class AsyncMemory(MemoryBase):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
+            record_source_index[memory_id] = text_first_index.get(text, 0)
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
@@ -2951,7 +2990,7 @@ class AsyncMemory(MemoryBase):
                     logger.error(f"Failed to insert memory {rec[0]} (async): {e}")
                     insert_failed_ids.add(rec[0])
                     failed.append(
-                        {"index": idx, "text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
+                        {"index": record_source_index.get(rec[0], idx), "text": rec[3].get("data", ""), "error_class": EmbeddingErrorClass.INTERNAL, "error": f"vector store insert failed: {e}"}
                     )
 
         if not persisted_records:
@@ -3969,7 +4008,7 @@ class AsyncMemory(MemoryBase):
             embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
         except Exception as e:
             logger.warning(f"Failed to embed procedural memory (async): {e}")
-            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e)})
+            failed.append({"index": 0, "text": procedural_memory, "error_class": EmbeddingErrorClass.PROVIDER, "error": str(e), "_status": _embed_error_status(e)})
             return {"results": [], "failed": failed}
         reason = _validate_embedding(embeddings, None)
         if reason is not None:
