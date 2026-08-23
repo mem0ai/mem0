@@ -140,6 +140,7 @@ class Weaviate(VectorStoreBase):
             wvcc.Property(name="created_at", data_type=wvcc.DataType.TEXT),
             wvcc.Property(name="category", data_type=wvcc.DataType.TEXT),
             wvcc.Property(name="updated_at", data_type=wvcc.DataType.TEXT),
+            wvcc.Property(name="expiration_date", data_type=wvcc.DataType.TEXT),
             wvcc.Property(name="user_id", data_type=wvcc.DataType.TEXT),
             wvcc.Property(name="agent_id", data_type=wvcc.DataType.TEXT),
             wvcc.Property(name="run_id", data_type=wvcc.DataType.TEXT),
@@ -196,7 +197,7 @@ class Weaviate(VectorStoreBase):
             vector=vectors,
             limit=top_k,
             filters=combined_filter,
-            return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
+            return_properties=["hash", "created_at", "updated_at", "expiration_date", "user_id", "agent_id", "run_id", "data", "category"],
             return_metadata=MetadataQuery(score=True),
         )
         results = []
@@ -247,7 +248,7 @@ class Weaviate(VectorStoreBase):
             query_properties=["data"],
             limit=top_k,
             filters=combined_filter,
-            return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
+            return_properties=["hash", "created_at", "updated_at", "expiration_date", "user_id", "agent_id", "run_id", "data", "category"],
             return_metadata=MetadataQuery(score=True),
         )
         results = []
@@ -314,7 +315,7 @@ class Weaviate(VectorStoreBase):
 
         response = collection.query.fetch_object_by_id(
             uuid=vector_id,
-            return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
+            return_properties=["hash", "created_at", "updated_at", "expiration_date", "user_id", "agent_id", "run_id", "data", "category"],
         )
         if response is None:
             return None
@@ -368,7 +369,7 @@ class Weaviate(VectorStoreBase):
         response = collection.query.fetch_objects(
             limit=top_k,
             filters=combined_filter,
-            return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
+            return_properties=["hash", "created_at", "updated_at", "expiration_date", "user_id", "agent_id", "run_id", "data", "category"],
         )
         results = []
         for obj in response.objects:
