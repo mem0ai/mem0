@@ -396,7 +396,10 @@ class AWSBedrockLLM(LLMBase):
 
             # Provider-specific response parsing
             if self.provider == "anthropic":
-                return response_json.get("content", [{"text": ""}])[0].get("text", "")
+                return next(
+                    (item["text"] for item in response_json.get("content", []) if "text" in item),
+                    "",
+                )
             elif self.provider == "amazon":
                 # Handle both Nova and legacy Amazon models
                 if "nova" in self.config.model.lower():
@@ -581,9 +584,12 @@ class AWSBedrockLLM(LLMBase):
 
             # Parse Converse API response
             if hasattr(response, 'output') and hasattr(response.output, 'message'):
-                return response.output.message.content[0].text
+                return next((block.text for block in response.output.message.content if hasattr(block, 'text')), '')
             elif 'output' in response and 'message' in response['output']:
-                return response['output']['message']['content'][0]['text']
+                return next(
+                    (block['text'] for block in response['output']['message']['content'] if 'text' in block),
+                    '',
+                )
             else:
                 return str(response)
 

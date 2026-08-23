@@ -66,7 +66,7 @@ class GeminiLLM(LLMBase):
             if parts:
                 # Extract content from the first candidate
                 for part in parts:
-                    if hasattr(part, "text") and part.text:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
                         processed_response["content"] = part.text
                         break
 
@@ -85,7 +85,7 @@ class GeminiLLM(LLMBase):
         else:
             if parts:
                 for part in parts:
-                    if hasattr(part, "text") and part.text:
+                    if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
                         return part.text
             return ""
 
