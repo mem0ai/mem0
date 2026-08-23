@@ -1043,6 +1043,33 @@ def test_build_index_schema_indexes_memory_as_text(valkey_db):
     assert ["memory", "TAG"] != cmd[memory_idx : memory_idx + 2]
 
 
+def test_build_index_schema_prefix_has_trailing_colon(valkey_db):
+    """The FT.CREATE PREFIX token must carry a trailing colon.
+
+    Memory hashes are stored at "{prefix}:{id}" while the entity store's keys
+    live at "{prefix}_entities:{id}". Valkey matches PREFIX as a plain string
+    prefix, so a bare "mem0:col" also matches entity keys and their documents
+    leak into search results.
+
+    Regression test for #5680.
+    """
+    cmd = valkey_db._build_index_schema(
+        collection_name="test_collection",
+        embedding_dims=1536,
+        distance_metric="COSINE",
+        prefix="mem0:test_collection",
+    )
+
+    prefix_idx = cmd.index("PREFIX")
+    assert cmd[prefix_idx + 1] == "1", "PREFIX count must be 1"
+    indexed_prefix = cmd[prefix_idx + 2]
+    assert indexed_prefix == "mem0:test_collection:", (
+        f"FT.CREATE PREFIX must end with a colon, got {indexed_prefix!r}"
+    )
+    # Entity collection keys must not fall inside the indexed prefix.
+    assert not "mem0:test_collection_entities:123".startswith(indexed_prefix)
+
+
 def test_escape_tag_value_wildcards(valkey_db):
     """Wildcard characters in filter values must be escaped to prevent query injection."""
     assert "\\*" in valkey_db._escape_tag_value("*")
