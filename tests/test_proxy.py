@@ -143,6 +143,15 @@ def test_completions_create_messages_default_does_not_leak_between_calls(mock_me
     )
 
 
+def test_prepare_messages_does_not_mutate_caller_owned_dicts():
+    messages = [{"role": "user", "content": "original"}]
+
+    prepared = Completions(object())._prepare_messages(messages)
+    prepared[-1]["content"] = "injected"
+
+    assert messages[-1]["content"] == "original"
+
+
 def test_missing_litellm_raises_actionable_import_error(monkeypatch):
     monkeypatch.delitem(sys.modules, "mem0.proxy.main", raising=False)
     monkeypatch.delitem(sys.modules, "litellm", raising=False)

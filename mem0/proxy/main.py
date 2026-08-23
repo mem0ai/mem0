@@ -1,3 +1,4 @@
+import copy
 import logging
 import threading
 from typing import List, Optional, Union
@@ -140,8 +141,9 @@ class Completions:
         return response
 
     def _prepare_messages(self, messages: List[dict]) -> List[dict]:
+        messages = copy.deepcopy(messages)
         if not messages or messages[0]["role"] != "system":
-            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}] + messages
+            return [{"role": "system", "content": MEMORY_ANSWER_PROMPT}, *messages]
         return messages
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
