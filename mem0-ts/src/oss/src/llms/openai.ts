@@ -25,10 +25,7 @@ export class OpenAILLM implements LLM {
         const role = msg.role as "system" | "user" | "assistant";
         return {
           role,
-          content:
-            typeof msg.content === "string"
-              ? msg.content
-              : JSON.stringify(msg.content),
+          content: msg.content as any,
         };
       }),
       model: this.model,
@@ -58,10 +55,7 @@ export class OpenAILLM implements LLM {
         const role = msg.role as "system" | "user" | "assistant";
         return {
           role,
-          content:
-            typeof msg.content === "string"
-              ? msg.content
-              : JSON.stringify(msg.content),
+          content: msg.content as any,
         };
       }),
       model: this.model,

@@ -90,6 +90,26 @@ describe("MiniMaxLLM (unit)", () => {
     expect(result).toBe("Hello from MiniMax");
   });
 
+  it("preserves image and video content parts", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [{ message: { content: "I see both", role: "assistant" } }],
+    });
+
+    const llm = new MiniMaxLLM({ apiKey: "test-key" });
+    const content = [
+      { type: "image_url" as const, image_url: { url: "https://example.com/a.png" } },
+      { type: "video_url" as const, video_url: { url: "https://example.com/a.mp4" } },
+    ];
+    await llm.generateResponse([{ role: "user", content }]);
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: "user", content }],
+        model: "MiniMax-M2.7",
+      }),
+    );
+  });
+
   it("generateResponse() handles tool calls", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [
