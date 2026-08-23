@@ -1545,3 +1545,34 @@ class TestAddPipelineMemoryEmbeddingCountGuard:
         )
 
         assert failed[0]["index"] == 1
+
+    def test_infer_false_index_survives_dropped_tool_call_turn(self, mock_memory):
+        # The caller's array has a content-less assistant tool-call at position 1;
+        # parse_vision_messages drops it, so post-parse positions shift. failed[]
+        # must still report the CALLER's position (2), not the post-parse one (1).
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(side_effect=[[0.1] * 10, [float("nan")] * 10])
+
+        caller_messages = [
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "tool_calls": [{"function": {"name": "f"}}]},
+            {"role": "user", "content": "second"},
+        ]
+        from mem0.memory.utils import parse_vision_messages
+
+        parsed, source_indices = parse_vision_messages(caller_messages, return_source_indices=True)
+        assert len(parsed) == 2
+
+        failed = []
+        mock_memory._add_to_vector_store(
+            messages=parsed,
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=False,
+            failed=failed,
+            source_indices=source_indices,
+        )
+
+        assert len(failed) == 1
+        assert failed[0]["index"] == 2
+        assert failed[0]["text"] == "second"

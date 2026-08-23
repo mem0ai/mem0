@@ -62,7 +62,7 @@ def test_add(memory_instance):
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None, failed=[]
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None, failed=[], source_indices=[0]
     )
 
 
@@ -82,6 +82,7 @@ def test_add_stores_expiration_date(memory_instance):
         True,
         prompt=None,
         failed=[],
+        source_indices=[0],
     )
 
 

@@ -972,13 +972,18 @@ class Memory(MemoryBase):
                 display_first_run_notice(self, "sync", "add")
             return results
 
+        # Capture each surviving message's position in the caller's ORIGINAL array:
+        # the parse drops some turns (e.g. content-less tool calls), so a loop
+        # position downstream would mis-index failed[] entries for the caller.
         if self.config.llm.config.get("enable_vision"):
-            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+            messages, source_indices = parse_vision_messages(
+                messages, self.llm, self.config.llm.config.get("vision_details"), return_source_indices=True
+            )
         else:
-            messages = parse_vision_messages(messages)
+            messages, source_indices = parse_vision_messages(messages, return_source_indices=True)
 
         failed = []
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt, failed=failed)
+        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt, failed=failed, source_indices=source_indices)
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -989,7 +994,7 @@ class Memory(MemoryBase):
         _label_failures(failed)
         return {"results": vector_store_result, "failed": failed}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, failed: Optional[List[dict]] = None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, failed: Optional[List[dict]] = None, source_indices: Optional[List[int]] = None):
         # `failed` is an out-parameter: add() passes a list that per-item embedding
         # failures are appended to (provider_error / validation_error / internal_error),
         # so the caller can surface them without discarding the successful memories.
@@ -997,7 +1002,10 @@ class Memory(MemoryBase):
             failed = []
         if not infer:
             returned_memories = []
-            for msg_index, message_dict in enumerate(messages):
+            for _pos, message_dict in enumerate(messages):
+                # Report the caller's ORIGINAL array position: the vision parse in
+                # add() drops some turns, so the post-parse position would be off.
+                msg_index = source_indices[_pos] if source_indices and _pos < len(source_indices) else _pos
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
@@ -2723,13 +2731,18 @@ class AsyncMemory(MemoryBase):
                 await display_first_run_notice_async(self, "async", "add")
             return results
 
+        # Capture each surviving message's position in the caller's ORIGINAL array:
+        # the parse drops some turns (e.g. content-less tool calls), so a loop
+        # position downstream would mis-index failed[] entries for the caller.
         if self.config.llm.config.get("enable_vision"):
-            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+            messages, source_indices = parse_vision_messages(
+                messages, self.llm, self.config.llm.config.get("vision_details"), return_source_indices=True
+            )
         else:
-            messages = parse_vision_messages(messages)
+            messages, source_indices = parse_vision_messages(messages, return_source_indices=True)
 
         failed = []
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt, failed=failed)
+        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt, failed=failed, source_indices=source_indices)
         scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2748,6 +2761,7 @@ class AsyncMemory(MemoryBase):
         infer: bool,
         prompt: Optional[str] = None,
         failed: Optional[List[dict]] = None,
+        source_indices: Optional[List[int]] = None,
     ):
         # `failed` is an out-parameter: add() passes a list that per-item embedding
         # failures are appended to (provider_error / validation_error / internal_error),
@@ -2756,7 +2770,10 @@ class AsyncMemory(MemoryBase):
             failed = []
         if not infer:
             returned_memories = []
-            for msg_index, message_dict in enumerate(messages):
+            for _pos, message_dict in enumerate(messages):
+                # Report the caller's ORIGINAL array position: the vision parse in
+                # add() drops some turns, so the post-parse position would be off.
+                msg_index = source_indices[_pos] if source_indices and _pos < len(source_indices) else _pos
                 if (
                     not isinstance(message_dict, dict)
                     or message_dict.get("role") is None
