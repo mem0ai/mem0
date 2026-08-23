@@ -49,12 +49,23 @@ describe("formatMemoryList", () => {
 });
 
 describe("formatAddResult", () => {
-  it("reports the stored count", () => {
+  it("reports queued for the async PENDING response, with the event id", () => {
+    // SDK camel-cases response keys, so the real shape is `eventId`.
+    const out = formatAddResult({ eventId: "evt-9", status: "PENDING" });
+    expect(out).toContain("queued");
+    expect(out).toContain("evt-9");
+  });
+
+  it("reports the stored count when the backend returns memories", () => {
     expect(formatAddResult([{ id: "1", memory: "A" }])).toContain("Stored 1 memory");
     expect(formatAddResult([{ id: "1" }, { id: "2" }])).toContain("Stored 2 memories");
   });
 
-  it("explains when nothing new was extracted", () => {
-    expect(formatAddResult([])).toContain("No new distinct memory");
+  it("unwraps a { results: [...] } envelope", () => {
+    expect(formatAddResult({ results: [{ id: "1", memory: "A" }] })).toContain("Stored 1 memory");
+  });
+
+  it("handles an empty result", () => {
+    expect(formatAddResult([])).toBe("Memory stored.");
   });
 });

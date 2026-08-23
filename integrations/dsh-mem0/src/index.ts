@@ -15,7 +15,7 @@ import { defineTool } from "@deepseek-ai/dsh-tools";
 import { MemoryClient } from "mem0ai";
 import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
-import { resolveEntity } from "./scoping.ts";
+import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 
 export const name = "mem0";
 export const inject = ["tools"];
@@ -98,13 +98,10 @@ export function apply(ctx: Context, config: Config): void {
       },
       output: textOutput,
       async execute({ query, limit, userId: u, agentId, runId }) {
-        const entity = resolveEntity({ userId: u, agentId, runId }, userId);
+        const filters = resolveSearchFilters({ userId: u, agentId, runId }, userId);
         try {
           const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
-          const { results } = await client.search(query, {
-            filters: entity,
-            topK,
-          });
+          const { results } = await client.search(query, { filters, topK });
           return truncateOutput(formatMemoryList(results ?? []));
         } catch (err) {
           return `search_memory failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -118,21 +115,20 @@ export function apply(ctx: Context, config: Config): void {
     defineTool({
       name: "add_memory",
       description:
-        "Store a fact in the user's long-term Mem0 memory for later sessions.",
+        "Store a fact in the user's long-term Mem0 memory for later sessions. Extraction runs asynchronously server-side, so a stored fact may take a moment to become searchable; do not immediately search to confirm the write.",
       parameters: {
         text: { type: "string", description: "The fact to remember.", required: true },
         ...scopeParams,
       },
       output: textOutput,
       async execute({ text, userId: u, agentId, runId }) {
-        const entity = resolveEntity({ userId: u, agentId, runId }, userId);
+        const addParams = resolveAddParams({ userId: u, agentId, runId }, userId);
         try {
           const result = await client.add([{ role: "user", content: text }], {
-            ...entity,
+            ...addParams,
             source: SOURCE,
           });
-          const memories = Array.isArray(result) ? result : [];
-          return truncateOutput(formatAddResult(memories));
+          return truncateOutput(formatAddResult(result));
         } catch (err) {
           return `add_memory failed: ${err instanceof Error ? err.message : String(err)}`;
         }

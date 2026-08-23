@@ -12,7 +12,6 @@ export interface MemoryLike {
   memory?: string;
   categories?: string[];
   createdAt?: Date | string;
-  score?: number;
 }
 
 export function formatAge(date: Date | string): string {
@@ -40,17 +39,31 @@ export function formatMemoryList(memories: MemoryLike[]): string {
 }
 
 /**
- * One-line confirmation for a write. `client.add` returns the memories the
- * backend extracted from the turn (often zero when nothing new was learned),
- * so report the count rather than echoing the raw payload.
+ * One-line confirmation for a write.
+ *
+ * `client.add` hits the async `/v3/memories/add/` endpoint, which returns
+ * `{ event_id, status: "PENDING" }` — extraction runs server-side *after* the
+ * call returns, so the extracted memories are not in this response. Report the
+ * write as queued in that case; only render a list when the backend actually
+ * returns memories (older / OSS shapes).
  */
-export function formatAddResult(memories: MemoryLike[]): string {
-  if (memories.length === 0) {
-    return "Stored. No new distinct memory was extracted from that.";
+export function formatAddResult(result: unknown): string {
+  const items: MemoryLike[] = Array.isArray(result)
+    ? (result as MemoryLike[])
+    : ((result as { results?: MemoryLike[] } | null)?.results ??
+      (result ? [result as MemoryLike] : []));
+
+  const pending = items.find(
+    (r) => (r as { status?: string }).status === "PENDING",
+  ) as { eventId?: string; event_id?: string } | undefined;
+  if (pending) {
+    // The SDK camel-cases response keys (event_id -> eventId); accept either.
+    const id = pending.eventId ?? pending.event_id;
+    const evt = id ? ` (event ${id})` : "";
+    return `Memory queued for background extraction${evt}; it will be searchable shortly.`;
   }
-  const noun = memories.length === 1 ? "memory" : "memories";
-  const lines = memories
-    .map((m, i) => `${i + 1}. ${formatMemoryCompact(m)}`)
-    .join("\n");
-  return `Stored ${memories.length} ${noun}:\n${lines}`;
+
+  if (items.length === 0) return "Memory stored.";
+  const noun = items.length === 1 ? "memory" : "memories";
+  return `Stored ${items.length} ${noun}:\n${formatMemoryList(items)}`;
 }

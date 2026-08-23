@@ -41,7 +41,7 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
    ```
 4. Open http://127.0.0.1:3080 and ask the agent to remember something, then recall it in a later turn.
 
-To run against a self-hosted / local Mem0 instead of the hosted platform, set `config.host` (or leave it for `api.mem0.ai`).
+For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` is a Platform base-URL override — it is not a switch to self-hosted Mem0 OSS, whose server exposes a different API surface.
 
 ## Configuration
 
@@ -49,7 +49,7 @@ To run against a self-hosted / local Mem0 instead of the hosted platform, set `c
 |---|---|---|---|
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
 | `userId` | yes | | Entity that owns the memories |
-| `host` | no | `api.mem0.ai` | Self-hosted / sandbox URL |
+| `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
 
 ## Telemetry
 

@@ -69,10 +69,10 @@ The `cordis.yml` entry looks like this:
       config:
         # apiKey is read from MEM0_API_KEY when omitted here.
         userId: "your-user-id"
-        # host: "http://localhost:8000"   # optional: self-hosted / local sandbox
+        # host: "https://your-onprem.mem0.ai"   # optional: Platform on-prem / dedicated base URL
 ```
 
-To run against a self-hosted / local Mem0 instead of the hosted platform, set `config.host` (defaults to `api.mem0.ai`).
+For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` is a Platform base-URL override, not a switch to self-hosted Mem0 OSS.
 
 ## Configuration
 
@@ -80,7 +80,7 @@ To run against a self-hosted / local Mem0 instead of the hosted platform, set `c
 |---|---|---|---|
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
 | `userId` | yes | | Default entity that owns the memories |
-| `host` | no | `api.mem0.ai` | Self-hosted / sandbox URL |
+| `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
 
 Both tools also accept optional per-call `userId`, `agentId`, and `runId` params so a single install can partition memory by entity, agent, or session; when omitted they fall back to the configured `userId`.
 

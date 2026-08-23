@@ -104,17 +104,31 @@ describe("search_memory tool", () => {
 });
 
 describe("add_memory tool", () => {
-  it("tags the write with source and reports the stored count", async () => {
-    mockAdd.mockResolvedValue([{ id: "m1", memory: "Fact" }]);
+  it("reports the write as queued on the async PENDING response, with camelCase scope + source", async () => {
+    // The real /v3/memories/add/ response — not an array of memories. The SDK
+    // camel-cases response keys, so it surfaces as `eventId`, not `event_id`.
+    mockAdd.mockResolvedValue({ eventId: "evt-123", status: "PENDING" });
     const tools = applyAndCollect({ apiKey: "k", userId: "u" });
 
     const out = await tools.get("add_memory")!.execute({ text: "remember this" }, {});
 
-    expect(out).toContain("Stored 1 memory");
+    expect(out).toContain("queued");
+    expect(out).toContain("evt-123");
+    expect(out).not.toContain("No new distinct memory");
     expect(mockAdd).toHaveBeenCalledWith(
       [{ role: "user", content: "remember this" }],
-      { user_id: "u", source: "DEEPSEEK_HARNESS" },
+      { userId: "u", source: "DEEPSEEK_HARNESS" },
     );
+  });
+
+  it("renders a list when the backend returns memories", async () => {
+    mockAdd.mockResolvedValue([{ id: "m1", memory: "Fact" }]);
+    const tools = applyAndCollect({ apiKey: "k", userId: "u" });
+
+    const out = await tools.get("add_memory")!.execute({ text: "x" }, {});
+
+    expect(out).toContain("Stored 1 memory");
+    expect(out).toContain("[mem0:m1]");
   });
 
   it("returns a graceful failure line on error", async () => {
