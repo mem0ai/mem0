@@ -277,6 +277,8 @@ describe("Entity boost parallelism (#5214)", () => {
           user_id: "u1",
           topic: "keep",
           memory_type: "procedural_memory",
+          not: "keep",
+          rank: true,
         },
         "mem-wrong-scope": { data: "wrong", user_id: "u2", topic: "keep" },
         "mem-wrong-filter": { data: "wrong", user_id: "u1", topic: "drop" },
@@ -303,6 +305,11 @@ describe("Entity boost parallelism (#5214)", () => {
     expect(resultIds.filter((id: string) => id === "mem-primary")).toHaveLength(
       1,
     );
+    const rescued = result.results.find(
+      (item: { id: string; metadata?: Record<string, any> }) =>
+        item.id === "mem-rescued",
+    );
+    expect(rescued?.metadata?.memory_type).toBe("procedural_memory");
     expect(resultIds).not.toContain("mem-wrong-scope");
     expect(resultIds).not.toContain("mem-wrong-filter");
     expect(resultIds).not.toContain("mem-expired");
@@ -324,6 +331,60 @@ describe("Entity boost parallelism (#5214)", () => {
         advancedResult.results.map((item: { id: string }) => item.id),
       ).not.toContain("mem-rescued");
     }
+
+    const metadataKeyResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", not: "keep" },
+    });
+    expect(
+      metadataKeyResult.results.map((item: { id: string }) => item.id),
+    ).toContain("mem-rescued");
+    const typeMismatchResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", rank: 1 },
+    });
+    expect(
+      typeMismatchResult.results.map((item: { id: string }) => item.id),
+    ).not.toContain("mem-rescued");
+  });
+
+  it("bounds rescue point fetches independently of topK", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+    const linkedIds = Array.from(
+      { length: 75 },
+      (_, index) => `rescued-${index}`,
+    );
+    m._entityStore = {
+      search: jest
+        .fn()
+        .mockResolvedValue([makeMatch("e-alice", 0.9, linkedIds)]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+    m.vectorStore.search = jest
+      .fn()
+      .mockResolvedValue([
+        {
+          id: "mem-primary",
+          score: 0.8,
+          payload: { data: "primary", user_id: "u1" },
+        },
+      ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+    m.vectorStore.get = jest.fn().mockImplementation(async (id: string) => ({
+      id,
+      payload: { data: id, user_id: "u1" },
+    }));
+
+    await m.search("Alice Smith", { filters: { user_id: "u1" }, topK: 100 });
+
+    expect(m.vectorStore.get).toHaveBeenCalledTimes(60);
   });
 
   it("should call entity searches concurrently, not sequentially", async () => {

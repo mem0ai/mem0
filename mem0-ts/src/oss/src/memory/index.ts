@@ -100,10 +100,7 @@ function matchesSimpleRescueFilters(
       key === "$not" ||
       key === "OR" ||
       key === "AND" ||
-      key === "NOT" ||
-      key === "or" ||
-      key === "and" ||
-      key === "not"
+      key === "NOT"
     )
       return false;
     if (
@@ -112,7 +109,10 @@ function matchesSimpleRescueFilters(
       (expected !== null && typeof expected === "object")
     )
       return false;
-    return payload[key] === expected;
+    return (
+      Object.prototype.hasOwnProperty.call(payload, key) &&
+      payload[key] === expected
+    );
   });
 }
 

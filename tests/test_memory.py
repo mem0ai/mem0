@@ -292,6 +292,8 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
             "user_id": "u1",
             "topic": "keep",
             "memory_type": "procedural_memory",
+            "not": "keep",
+            "rank": True,
         },
     )
     wrong_scope = MockVectorMemory(
@@ -354,6 +356,8 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
 
     assert result_ids.count("rescued") == 1
     assert result_ids.count("primary") == 1
+    rescued_result = next(item for item in result["results"] if item["id"] == "rescued")
+    assert rescued_result["metadata"]["memory_type"] == "procedural_memory"
     assert "wrong-scope" not in result_ids
     assert "wrong-filter" not in result_ids
     assert "expired" not in result_ids
@@ -374,6 +378,48 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
             "Alice", filters={"user_id": "u1", "topic": advanced_filters}, top_k=10
         )
         assert "rescued" not in [item["id"] for item in advanced_result["results"]]
+
+    metadata_key_result = memory.search(
+        "Alice", filters={"user_id": "u1", "not": "keep"}, top_k=10
+    )
+    assert "rescued" in [item["id"] for item in metadata_key_result["results"]]
+    type_mismatch_result = memory.search(
+        "Alice", filters={"user_id": "u1", "rank": 1}, top_k=10
+    )
+    assert "rescued" not in [item["id"] for item in type_mismatch_result["results"]]
+
+
+@patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_entity_rescue_fetches_are_bounded_independently_of_top_k(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    memory, mock_vector_store = _configure_entity_rescue_memory(
+        mock_vector_factory, mock_llm_factory, mock_embedder_factory, mock_sqlite
+    )
+    linked_ids = [f"rescued-{index}" for index in range(75)]
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("primary", {"data": "primary", "user_id": "u1"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    memory._entity_store = MagicMock()
+    memory._entity_store.search.return_value = [
+        MockVectorMemory("alice", {"linked_memory_ids": linked_ids}, score=0.9)
+    ]
+    mock_vector_store.get.side_effect = lambda vector_id: MockVectorMemory(
+        vector_id, {"data": vector_id, "user_id": "u1"}
+    )
+
+    memory.search("Alice", filters={"user_id": "u1"}, top_k=100)
+
+    assert mock_vector_store.get.call_count == 60
 
 
 @pytest.mark.asyncio
@@ -415,6 +461,42 @@ async def test_async_search_rescues_entity_linked_candidate_and_survives_point_f
 
     assert result_ids.count("rescued") == 1
     assert result_ids.count("primary") == 1
+
+
+@pytest.mark.asyncio
+@patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_entity_rescue_fetches_are_bounded_independently_of_top_k(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    from mem0.memory.main import AsyncMemory
+
+    memory, mock_vector_store = _configure_entity_rescue_memory(
+        mock_vector_factory, mock_llm_factory, mock_embedder_factory, mock_sqlite, AsyncMemory
+    )
+    linked_ids = [f"rescued-{index}" for index in range(75)]
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("primary", {"data": "primary", "user_id": "u1"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    memory._entity_store = MagicMock()
+    memory._entity_store.search.return_value = [
+        MockVectorMemory("alice", {"linked_memory_ids": linked_ids}, score=0.9)
+    ]
+    mock_vector_store.get.side_effect = lambda vector_id: MockVectorMemory(
+        vector_id, {"data": vector_id, "user_id": "u1"}
+    )
+
+    await memory.search("Alice", filters={"user_id": "u1"}, top_k=100)
+
+    assert mock_vector_store.get.call_count == 60
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')

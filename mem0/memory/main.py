@@ -451,17 +451,27 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def _simple_filter_values_equal(actual: Any, expected: Any) -> bool:
+    if actual is None or expected is None:
+        return actual is None and expected is None
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return isinstance(actual, bool) and isinstance(expected, bool) and actual == expected
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        return actual == expected
+    return type(actual) is type(expected) and actual == expected
+
+
 def _matches_simple_rescue_filters(payload: Any, filters: Dict[str, Any]) -> bool:
     """Recheck scalar equality filters without reproducing backend semantics."""
     if not isinstance(payload, dict) or not isinstance(filters, dict):
         return False
 
     for key, expected in filters.items():
-        if key in {"$or", "$and", "$not", "OR", "AND", "NOT", "or", "and", "not"}:
+        if key in {"$or", "$and", "$not", "OR", "AND", "NOT"}:
             return False
         if expected == "*" or isinstance(expected, (dict, list)):
             return False
-        if payload.get(key) != expected:
+        if key not in payload or not _simple_filter_values_equal(payload[key], expected):
             return False
     return True
 
