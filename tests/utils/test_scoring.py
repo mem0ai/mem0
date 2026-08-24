@@ -97,7 +97,7 @@ class TestScoreAndRank:
         assert scored[0]["id"] == "b"
 
     def test_active_entity_signal_admits_absent_semantic_score(self):
-        results = [{"id": "a", "score": None, "payload": {"data": "entity memory"}}]
+        results = [{"id": "a", "score": None, "payload": {"data": "entity memory"}, "is_entity_rescue": True}]
         scored = score_and_rank(results, {}, {"a": 0.3}, threshold=0.1, top_k=10)
 
         assert len(scored) == 1

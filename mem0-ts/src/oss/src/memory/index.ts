@@ -80,55 +80,7 @@ import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
-function filterValueMatches(actual: any, expected: any): boolean {
-  if (expected === "*") return actual !== undefined && actual !== null;
-  if (!expected || typeof expected !== "object" || Array.isArray(expected)) {
-    return Array.isArray(expected)
-      ? expected.includes(actual)
-      : actual === expected;
-  }
-  if (actual === undefined || actual === null) return false;
-
-  try {
-    return Object.entries(expected as Record<string, any>).every(
-      ([operator, operand]) => {
-        switch (operator) {
-          case "eq":
-            return actual === operand;
-          case "ne":
-            return actual !== operand;
-          case "gt":
-            return actual > operand;
-          case "gte":
-            return actual >= operand;
-          case "lt":
-            return actual < operand;
-          case "lte":
-            return actual <= operand;
-          case "in":
-            return Array.isArray(operand) && operand.includes(actual);
-          case "nin":
-            return Array.isArray(operand) && !operand.includes(actual);
-          case "contains":
-            return (
-              typeof actual === "string" && actual.includes(String(operand))
-            );
-          case "icontains":
-            return (
-              typeof actual === "string" &&
-              actual.toLowerCase().includes(String(operand).toLowerCase())
-            );
-          default:
-            return false;
-        }
-      },
-    );
-  } catch {
-    return false;
-  }
-}
-
-function payloadMatchesFilters(
+function matchesSimpleRescueFilters(
   payload: Record<string, any>,
   filters: Record<string, any>,
 ): boolean {
@@ -142,25 +94,25 @@ function payloadMatchesFilters(
   }
 
   return Object.entries(filters).every(([key, expected]) => {
-    if (key === "$or" || key === "OR" || key === "or") {
-      return (
-        Array.isArray(expected) &&
-        expected.some((branch) => payloadMatchesFilters(payload, branch))
-      );
-    }
-    if (key === "$and" || key === "AND" || key === "and") {
-      return (
-        Array.isArray(expected) &&
-        expected.every((branch) => payloadMatchesFilters(payload, branch))
-      );
-    }
-    if (key === "$not" || key === "NOT" || key === "not") {
-      return (
-        Array.isArray(expected) &&
-        expected.every((branch) => !payloadMatchesFilters(payload, branch))
-      );
-    }
-    return filterValueMatches(payload[key], expected);
+    if (
+      key === "$or" ||
+      key === "$and" ||
+      key === "$not" ||
+      key === "OR" ||
+      key === "AND" ||
+      key === "NOT" ||
+      key === "or" ||
+      key === "and" ||
+      key === "not"
+    )
+      return false;
+    if (
+      expected === "*" ||
+      Array.isArray(expected) ||
+      (expected !== null && typeof expected === "object")
+    )
+      return false;
+    return payload[key] === expected;
   });
 }
 
@@ -1659,7 +1611,7 @@ export class Memory {
       .sort(([leftId, leftBoost], [rightId, rightBoost]) => {
         return rightBoost - leftBoost || leftId.localeCompare(rightId);
       })
-      .slice(0, internalLimit)
+      .slice(0, Math.min(internalLimit, 60))
       .map(([id]) => id);
 
     for (const memoryId of rescueIds) {
@@ -1680,13 +1632,18 @@ export class Memory {
         typeof payload !== "object" ||
         typeof payload.data !== "string" ||
         !payload.data ||
-        !payloadMatchesFilters(payload, effectiveFilters) ||
+        !matchesSimpleRescueFilters(payload, effectiveFilters) ||
         (!showExpired && payloadIsExpired(payload))
       ) {
         continue;
       }
 
-      candidates.push({ id: memoryId, score: undefined, payload });
+      candidates.push({
+        id: memoryId,
+        score: undefined,
+        payload,
+        isEntityRescue: true,
+      });
       candidateIds.add(memoryId);
     }
 

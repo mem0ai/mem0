@@ -451,77 +451,17 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
-def _filter_value_matches(actual: Any, expected: Any) -> bool:
-    if expected == "*":
-        return actual is not None
-    if not isinstance(expected, dict):
-        if isinstance(expected, list):
-            return actual in expected
-        return actual == expected
-    if actual is None:
-        return False
-
-    try:
-        for operator, operand in expected.items():
-            if operator == "eq" and actual != operand:
-                return False
-            if operator == "ne" and actual == operand:
-                return False
-            if operator == "gt" and not actual > operand:
-                return False
-            if operator == "gte" and not actual >= operand:
-                return False
-            if operator == "lt" and not actual < operand:
-                return False
-            if operator == "lte" and not actual <= operand:
-                return False
-            if operator == "in" and actual not in operand:
-                return False
-            if operator == "nin" and actual in operand:
-                return False
-            if operator == "contains" and (not isinstance(actual, str) or operand not in actual):
-                return False
-            if operator == "icontains" and (
-                not isinstance(actual, str) or str(operand).lower() not in actual.lower()
-            ):
-                return False
-            if operator not in {
-                "eq",
-                "ne",
-                "gt",
-                "gte",
-                "lt",
-                "lte",
-                "in",
-                "nin",
-                "contains",
-                "icontains",
-            }:
-                return False
-        return True
-    except (TypeError, ValueError):
-        return False
-
-
-def _payload_matches_filters(payload: Any, filters: Dict[str, Any]) -> bool:
+def _matches_simple_rescue_filters(payload: Any, filters: Dict[str, Any]) -> bool:
+    """Recheck scalar equality filters without reproducing backend semantics."""
     if not isinstance(payload, dict) or not isinstance(filters, dict):
         return False
 
     for key, expected in filters.items():
-        if key in ("$or", "OR", "or"):
-            if not isinstance(expected, list) or not any(
-                _payload_matches_filters(payload, branch) for branch in expected
-            ):
-                return False
-        elif key in ("$and", "AND", "and"):
-            if not isinstance(expected, list) or not all(
-                _payload_matches_filters(payload, branch) for branch in expected
-            ):
-                return False
-        elif key in ("$not", "NOT", "not"):
-            if not isinstance(expected, list) or any(_payload_matches_filters(payload, branch) for branch in expected):
-                return False
-        elif not _filter_value_matches(payload.get(key), expected):
+        if key in {"$or", "$and", "$not", "OR", "AND", "NOT", "or", "and", "not"}:
+            return False
+        if expected == "*" or isinstance(expected, (dict, list)):
+            return False
+        if payload.get(key) != expected:
             return False
     return True
 
@@ -536,6 +476,9 @@ def _entity_rescue_ids(
         )
         if boost > 0 and memory_id not in candidate_ids
     ][:limit]
+
+
+_MAX_ENTITY_RESCUE_FETCHES = 60
 
 
 setup_config()
@@ -1767,7 +1710,8 @@ class Memory(MemoryBase):
                 "payload": payload,
             })
 
-        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, internal_limit):
+        rescue_limit = min(internal_limit, _MAX_ENTITY_RESCUE_FETCHES)
+        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, rescue_limit):
             try:
                 fetched = self.vector_store.get(vector_id=memory_id)
             except Exception as e:
@@ -1784,12 +1728,14 @@ class Memory(MemoryBase):
                 not isinstance(payload, dict)
                 or not isinstance(payload.get("data"), str)
                 or not payload["data"]
-                or not _payload_matches_filters(payload, filters)
+                or not _matches_simple_rescue_filters(payload, filters)
                 or (not show_expired and _payload_is_expired(payload))
             ):
                 continue
 
-            candidates.append({"id": memory_id, "score": None, "payload": payload})
+            candidates.append(
+                {"id": memory_id, "score": None, "payload": payload, "is_entity_rescue": True}
+            )
             candidate_ids.add(memory_id)
 
         # Step 8: Score and rank
@@ -3460,7 +3406,8 @@ class AsyncMemory(MemoryBase):
                 "payload": payload,
             })
 
-        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, internal_limit):
+        rescue_limit = min(internal_limit, _MAX_ENTITY_RESCUE_FETCHES)
+        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, rescue_limit):
             try:
                 fetched = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
             except Exception as e:
@@ -3477,12 +3424,14 @@ class AsyncMemory(MemoryBase):
                 not isinstance(payload, dict)
                 or not isinstance(payload.get("data"), str)
                 or not payload["data"]
-                or not _payload_matches_filters(payload, filters)
+                or not _matches_simple_rescue_filters(payload, filters)
                 or (not show_expired and _payload_is_expired(payload))
             ):
                 continue
 
-            candidates.append({"id": memory_id, "score": None, "payload": payload})
+            candidates.append(
+                {"id": memory_id, "score": None, "payload": payload, "is_entity_rescue": True}
+            )
             candidate_ids.add(memory_id)
 
         # Step 8: Score and rank

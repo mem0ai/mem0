@@ -343,7 +343,7 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
 
     mock_vector_store.get.side_effect = get_memory
 
-    result = memory.search("Alice", filters={"user_id": "u1", "topic": {"eq": "keep"}}, top_k=10)
+    result = memory.search("Alice", filters={"user_id": "u1", "topic": "keep"}, top_k=10)
     result_ids = [item["id"] for item in result["results"]]
 
     assert result_ids.count("rescued") == 1
@@ -357,6 +357,9 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
     assert not any(
         call.kwargs.get("vector_id") == "primary" for call in mock_vector_store.get.call_args_list
     )
+
+    advanced_result = memory.search("Alice", filters={"user_id": "u1", "topic": {"eq": "keep"}}, top_k=10)
+    assert "rescued" not in [item["id"] for item in advanced_result["results"]]
 
 
 @pytest.mark.asyncio

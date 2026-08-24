@@ -49,7 +49,14 @@ describe("scoreAndRank", () => {
 
   it("admits an absent semantic score only with an active entity signal", () => {
     const scored = scoreAndRank(
-      [{ id: "entity", score: undefined, payload: { data: "entity memory" } }],
+      [
+        {
+          id: "entity",
+          score: undefined,
+          payload: { data: "entity memory" },
+          isEntityRescue: true,
+        },
+      ],
       {},
       { entity: 0.3 },
       0.1,

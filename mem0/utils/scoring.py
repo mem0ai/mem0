@@ -111,10 +111,11 @@ def score_and_rank(
         mem_id_str = str(mem_id)
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
+        is_entity_rescue = result.get("is_entity_rescue") is True
         if raw_semantic_score is None and entity_boost <= 0:
             continue
         semantic_score = raw_semantic_score or 0.0
-        if raw_semantic_score is not None and semantic_score < threshold:
+        if not is_entity_rescue and semantic_score < threshold:
             continue
 
         raw_combined = semantic_score + bm25_score + entity_boost

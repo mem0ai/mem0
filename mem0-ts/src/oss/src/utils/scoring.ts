@@ -101,6 +101,7 @@ export function scoreAndRank(
     id: string;
     score?: number;
     payload: Record<string, any>;
+    isEntityRescue?: boolean;
   }>,
   bm25Scores: Record<string, number>,
   entityBoosts: Record<string, number>,
@@ -132,10 +133,11 @@ export function scoreAndRank(
     const entityBoost = entityBoosts[memIdStr] ?? 0.0;
     const rawSemanticScore = result.score;
     const semanticScore = rawSemanticScore ?? 0.0;
+    const isEntityRescue = result.isEntityRescue === true;
     if (rawSemanticScore == null && entityBoost <= 0) {
       continue;
     }
-    if (rawSemanticScore != null && semanticScore < threshold) {
+    if (!isEntityRescue && semanticScore < threshold) {
       continue;
     }
 

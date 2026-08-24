@@ -288,7 +288,7 @@ describe("Entity boost parallelism (#5214)", () => {
     });
 
     const result = await m.search("Alice Smith", {
-      filters: { user_id: "u1", topic: { eq: "keep" } },
+      filters: { user_id: "u1", topic: "keep" },
     });
     const resultIds = result.results.map((item: { id: string }) => item.id);
 
@@ -298,17 +298,20 @@ describe("Entity boost parallelism (#5214)", () => {
     expect(resultIds.filter((id: string) => id === "mem-primary")).toHaveLength(
       1,
     );
-    expect(resultIds).not.toEqual(
-      expect.arrayContaining([
-        "mem-wrong-scope",
-        "mem-wrong-filter",
-        "mem-expired",
-        "mem-malformed",
-        "mem-missing",
-        "mem-throws",
-      ]),
-    );
+    expect(resultIds).not.toContain("mem-wrong-scope");
+    expect(resultIds).not.toContain("mem-wrong-filter");
+    expect(resultIds).not.toContain("mem-expired");
+    expect(resultIds).not.toContain("mem-malformed");
+    expect(resultIds).not.toContain("mem-missing");
+    expect(resultIds).not.toContain("mem-throws");
     expect(m.vectorStore.get).not.toHaveBeenCalledWith("mem-primary");
+
+    const advancedResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", topic: { eq: "keep" } },
+    });
+    expect(
+      advancedResult.results.map((item: { id: string }) => item.id),
+    ).not.toContain("mem-rescued");
   });
 
   it("should call entity searches concurrently, not sequentially", async () => {
