@@ -134,10 +134,14 @@ export function scoreAndRank(
     const rawSemanticScore = result.score;
     const semanticScore = rawSemanticScore ?? 0.0;
     const isEntityRescue = result.isEntityRescue === true;
-    if (rawSemanticScore == null && entityBoost <= 0) {
-      continue;
-    }
-    if (!isEntityRescue && semanticScore < threshold) {
+    if (isEntityRescue) {
+      if (
+        entityBoost <= 0 ||
+        (rawSemanticScore != null && semanticScore < threshold)
+      ) {
+        continue;
+      }
+    } else if (semanticScore < threshold) {
       continue;
     }
 

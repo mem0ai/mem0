@@ -1588,6 +1588,7 @@ export class Memory {
       id: string;
       score?: number;
       payload: Record<string, any>;
+      isEntityRescue?: boolean;
     }> = [];
     const candidateIds = new Set<string>();
     for (const mem of semanticResults) {

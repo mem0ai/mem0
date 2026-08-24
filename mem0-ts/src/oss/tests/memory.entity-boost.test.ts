@@ -272,7 +272,12 @@ describe("Entity boost parallelism (#5214)", () => {
     m.vectorStore.get = jest.fn().mockImplementation(async (id: string) => {
       if (id === "mem-throws") throw new Error("point fetch failed");
       const payloads: Record<string, Record<string, any> | null> = {
-        "mem-rescued": { data: "rescued", user_id: "u1", topic: "keep" },
+        "mem-rescued": {
+          data: "rescued",
+          user_id: "u1",
+          topic: "keep",
+          memory_type: "procedural_memory",
+        },
         "mem-wrong-scope": { data: "wrong", user_id: "u2", topic: "keep" },
         "mem-wrong-filter": { data: "wrong", user_id: "u1", topic: "drop" },
         "mem-expired": {
@@ -306,12 +311,19 @@ describe("Entity boost parallelism (#5214)", () => {
     expect(resultIds).not.toContain("mem-throws");
     expect(m.vectorStore.get).not.toHaveBeenCalledWith("mem-primary");
 
-    const advancedResult = await m.search("Alice Smith", {
-      filters: { user_id: "u1", topic: { eq: "keep" } },
-    });
-    expect(
-      advancedResult.results.map((item: { id: string }) => item.id),
-    ).not.toContain("mem-rescued");
+    for (const advancedValue of [
+      { eq: "keep" },
+      ["keep"],
+      { $or: [{ topic: "keep" }] },
+      "*",
+    ]) {
+      const advancedResult = await m.search("Alice Smith", {
+        filters: { user_id: "u1", topic: advancedValue },
+      });
+      expect(
+        advancedResult.results.map((item: { id: string }) => item.id),
+      ).not.toContain("mem-rescued");
+    }
   });
 
   it("should call entity searches concurrently, not sequentially", async () => {

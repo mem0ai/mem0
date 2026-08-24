@@ -80,9 +80,28 @@ describe("scoreAndRank", () => {
     expect(scored).toHaveLength(0);
   });
 
+  it("preserves an ordinary unscored candidate at zero threshold", () => {
+    const scored = scoreAndRank(
+      [{ id: "ordinary", score: undefined, payload: { data: "memory" } }],
+      {},
+      {},
+      0,
+      10,
+    );
+
+    expect(scored.map((item) => item.id)).toEqual(["ordinary"]);
+  });
+
   it("does not rescue a numeric below-threshold semantic score with entity boost", () => {
     const scored = scoreAndRank(
-      [{ id: "weak", score: 0.05, payload: { data: "weak semantic" } }],
+      [
+        {
+          id: "weak",
+          score: 0.05,
+          payload: { data: "weak semantic" },
+          isEntityRescue: true,
+        },
+      ],
       {},
       { weak: 0.5 },
       0.1,

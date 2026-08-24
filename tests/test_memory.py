@@ -286,7 +286,13 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
         "primary", {"data": "primary", "user_id": "u1", "topic": "keep"}, score=0.8
     )
     rescued = MockVectorMemory(
-        "rescued", {"data": "rescued", "user_id": "u1", "topic": "keep"}
+        "rescued",
+        {
+            "data": "rescued",
+            "user_id": "u1",
+            "topic": "keep",
+            "memory_type": "procedural_memory",
+        },
     )
     wrong_scope = MockVectorMemory(
         "wrong-scope", {"data": "wrong", "user_id": "u2", "topic": "keep"}
@@ -358,8 +364,16 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
         call.kwargs.get("vector_id") == "primary" for call in mock_vector_store.get.call_args_list
     )
 
-    advanced_result = memory.search("Alice", filters={"user_id": "u1", "topic": {"eq": "keep"}}, top_k=10)
-    assert "rescued" not in [item["id"] for item in advanced_result["results"]]
+    for advanced_filters in (
+        {"eq": "keep"},
+        ["keep"],
+        {"$or": [{"topic": "keep"}]},
+        "*",
+    ):
+        advanced_result = memory.search(
+            "Alice", filters={"user_id": "u1", "topic": advanced_filters}, top_k=10
+        )
+        assert "rescued" not in [item["id"] for item in advanced_result["results"]]
 
 
 @pytest.mark.asyncio
