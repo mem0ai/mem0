@@ -11,7 +11,7 @@ iconType: "solid"
 
 ## Overview
 
-The new Mem0 memory algorithm is a ground-up redesign of how memories are extracted, stored, and retrieved. It scores **91.6 on LoCoMo** and **93.4 on LongMemEval**: a +20 and +26 point improvement over the previous algorithm: while cutting extraction latency roughly in half.
+The new Mem0 memory algorithm is a ground-up redesign of how memories are extracted, stored, and retrieved. It scores **92.5 on LoCoMo** and **94.4 on LongMemEval**, a +21 and +27 point improvement over the previous algorithm, while cutting extraction latency roughly in half.
 
 | What Changed | Before | After |
 |---|---|---|
@@ -293,8 +293,8 @@ If your application previously read graph relations from the API response (`rela
 
 | Metric | Previous Algorithm | New Algorithm |
 |---|---|---|
-| **LoCoMo Overall** | 71.4 | **91.6** (+20.2) |
-| **LongMemEval Overall** | 67.8 | **93.4** (+25.6) |
+| **LoCoMo Overall** | 71.4 | **92.5** (+21.1) |
+| **LongMemEval Overall** | 67.8 | **94.4** (+26.6) |
 | **Extraction latency (p50)** | ~2.0s | **~1.0s** |
 | **Mean tokens per query** | N/A | 6.8-7.0K (top200) |
 

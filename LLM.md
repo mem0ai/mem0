@@ -1,4 +1,4 @@
-# Mem0 - The Memory Layer for Personalized AI
+# Mem0 - The Memory Layer for AI Agents
 
 ## Overview
 

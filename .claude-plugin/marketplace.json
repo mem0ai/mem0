@@ -11,7 +11,7 @@
     {
       "name": "mem0",
       "source": "./integrations/mem0-plugin",
-      "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Claude workflows.",
+      "description": "Mem0, the memory layer for AI agents. Add persistent memory, personalization, and semantic search to Claude workflows.",
       "version": "0.2.14"
     }
   ]

@@ -28,7 +28,7 @@ compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm i
 > - **[mem0-cli](../mem0-cli/SKILL.md)** ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-cli)) -- Command-line interface
 > - **[mem0-vercel-ai-sdk](../mem0-vercel-ai-sdk/SKILL.md)** ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)) -- Vercel AI SDK provider
 
-Mem0 is a managed memory layer for AI applications. It stores, retrieves, and manages user memories via API — no infrastructure to deploy. For self-hosted usage, see the OSS section in the client references below.
+Mem0 is the managed memory layer for AI agents. It stores, retrieves, and manages user memories via API, no infrastructure to deploy. For self-hosted usage, see the OSS section in the client references below.
 
 ## Step 1: Install and authenticate
 
