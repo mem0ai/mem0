@@ -1,4 +1,4 @@
-# dsh-mem0
+# deepseek-plugin
 
 [Mem0](https://mem0.ai) long-term memory as a native [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (Cordis) plugin.
 
@@ -18,7 +18,7 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
 ```
 [ mem0ai SDK ]  <-- managed memory, owned by Mem0
       |
-[ dsh-mem0: apply(ctx) -> ctx.tools.register(...) ]  <-- this package
+[ deepseek-plugin: apply(ctx) -> ctx.tools.register(...) ]  <-- this package
       |
 [ DeepSeek Harness ]  <-- the agent, loaded via cordis.yml
 ```
@@ -27,7 +27,7 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
 
 1. Build the plugin:
    ```sh
-   cd integrations/dsh-mem0
+   cd integrations/deepseek-plugin
    pnpm install
    pnpm build
    ```
@@ -37,7 +37,7 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
    ```
 3. Point Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then:
    ```sh
-   pnpm dsh web --patch ./integrations/dsh-mem0/cordis.example.yml
+   pnpm dsh web --patch ./integrations/deepseek-plugin/cordis.example.yml
    ```
 4. Open http://127.0.0.1:3080 and ask the agent to remember something, then recall it in a later turn.
 

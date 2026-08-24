@@ -383,7 +383,7 @@
                       "integrations/openclaw",
                       "integrations/hermes",
                       "integrations/pi-agent",
-                      "integrations/dsh-mem0"
+                      "integrations/deepseek-plugin"
                     ]
                   }
                 ]

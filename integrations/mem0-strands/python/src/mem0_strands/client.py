@@ -1,4 +1,4 @@
-"""A thin wrapper around the Mem0 SDK used by :class:`~strands_mem0.store.Mem0MemoryStore`.
+"""A thin wrapper around the Mem0 SDK used by :class:`~mem0_strands.store.Mem0MemoryStore`.
 
 Both Mem0 backends -- the hosted platform (:class:`mem0.MemoryClient`) and
 self-hosted OSS (:class:`mem0.Memory`) -- expose the same call shape to the store:
@@ -95,7 +95,7 @@ class Mem0ServiceClient:
                 from mem0 import Memory
             except ImportError as err:  # pragma: no cover - exercised via install docs
                 raise ImportError(
-                    "The mem0ai package is required. Install it with: pip install 'strands-mem0'"
+                    "The mem0ai package is required. Install it with: pip install 'mem0-strands'"
                 ) from err
             self.mem0 = Memory.from_config(config)
             self.is_platform = False
@@ -104,7 +104,7 @@ class Mem0ServiceClient:
         try:
             from mem0 import MemoryClient
         except ImportError as err:  # pragma: no cover - exercised via install docs
-            raise ImportError("The mem0ai package is required. Install it with: pip install 'strands-mem0'") from err
+            raise ImportError("The mem0ai package is required. Install it with: pip install 'mem0-strands'") from err
         api_key = api_key or os.environ.get("MEM0_API_KEY")
         # MemoryClient(host=None) would override the SDK default with None, so only
         # pass host when the caller actually set one.
