@@ -1,3 +1,4 @@
+import asyncio
 import os
 import secrets
 import uuid
@@ -46,6 +47,11 @@ def generate_api_key() -> tuple[str, str, str]:
 
 def verify_api_key_hash(plain_key: str, hashed: str) -> bool:
     return pwd_context.verify(plain_key, hashed)
+
+
+async def verify_api_key_hash_async(plain_key: str, hashed: str) -> bool:
+    """bcrypt costs ~100-300ms per call; run it off the event loop."""
+    return await asyncio.get_running_loop().run_in_executor(None, verify_api_key_hash, plain_key, hashed)
 
 
 def _get_secret() -> str:
@@ -123,14 +129,14 @@ def _resolve_user_from_jwt(token: str, db: Session) -> User:
     return user
 
 
-def _resolve_user_from_api_key(key: str, db: Session) -> User:
+async def _resolve_user_from_api_key(key: str, db: Session) -> User:
     prefix = key[:12] if len(key) >= 12 else key
     candidates = (
         db.execute(select(APIKey).where(APIKey.key_prefix == prefix, APIKey.revoked_at.is_(None))).scalars().all()
     )
 
     for candidate in candidates:
-        if verify_api_key_hash(key, candidate.key_hash):
+        if await verify_api_key_hash_async(key, candidate.key_hash):
             candidate.last_used_at = datetime.now(timezone.utc)
             db.commit()
             user = db.get(User, candidate.created_by)
@@ -157,7 +163,7 @@ async def verify_auth(
             _mark_auth_type(request, "admin_api_key")
             return None
         _mark_auth_type(request, "api_key")
-        return _resolve_user_from_api_key(x_api_key, db)
+        return await _resolve_user_from_api_key(x_api_key, db)
 
     if AUTH_DISABLED:
         _mark_auth_type(request, "disabled")

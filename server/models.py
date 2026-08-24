@@ -31,7 +31,7 @@ class APIKey(Base):
     __tablename__ = "api_keys"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=_new_uuid)
-    key_prefix: Mapped[str] = mapped_column(String(12))
+    key_prefix: Mapped[str] = mapped_column(String(12), index=True)
     key_hash: Mapped[str] = mapped_column(Text)
     label: Mapped[str] = mapped_column(String(255))
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
