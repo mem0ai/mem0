@@ -14,7 +14,7 @@ The **Mem0 Vercel integration** provisions managed Mem0 access directly from the
 When you install Mem0 from the Vercel Marketplace:
 
 - A Mem0 account and project are created for you (Vercel Native).
-- A scoped `MEM0_API_KEY` is added to your connected Vercel project's environment variables.
+- Mem0 environment variables (`MEM0_API_KEY`, `MEM0_ORG_ID`, `MEM0_PROJECT_ID`, `MEM0_BASE_URL`) are added to your connected Vercel project.
 - Billing is handled through your Vercel account, with no separate Mem0 subscription.
 
 You call Mem0 from your app with the injected key. There is nothing else to wire up.
@@ -29,10 +29,10 @@ You call Mem0 from your app with the injected key. There is nothing else to wire
     Select **Hobby** (free) or **Starter** ($20/month). You can change this anytime from the installation settings in your Vercel dashboard.
   </Step>
   <Step title="Connect a project">
-    Connect the Mem0 resource to a Vercel project. Mem0 injects `MEM0_API_KEY` into that project.
+    Connect the Mem0 resource to a Vercel project. Mem0 injects its environment variables into that project.
   </Step>
   <Step title="Redeploy">
-    Redeploy so the variable is available at runtime, or run `vercel env pull` to use it locally.
+    Redeploy so the variables are available at runtime, or run `vercel env pull` to use them locally.
   </Step>
 </Steps>
 
@@ -42,7 +42,12 @@ The integration sets the following on your connected project:
 
 | Variable | Description |
 | --- | --- |
-| `MEM0_API_KEY` | Your Mem0 API key, scoped to the org and project created for this installation. It is all you need to call Mem0. |
+| `MEM0_API_KEY` | Your Mem0 API key, scoped to the org and project created for this installation. This is what you authenticate with. |
+| `MEM0_ORG_ID` | The Mem0 organization id for this installation. |
+| `MEM0_PROJECT_ID` | The Mem0 project id for this installation. |
+| `MEM0_BASE_URL` | The Mem0 API base URL (`https://api.mem0.ai`). |
+
+The API key is scoped to your org and project, so the SDK needs only `MEM0_API_KEY` to get started.
 
 ## Quickstart
 
