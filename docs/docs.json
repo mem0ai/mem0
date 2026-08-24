@@ -325,6 +325,7 @@
                       "integrations/google-ai-adk",
                       "integrations/mastra",
                       "integrations/vercel-ai-sdk",
+                      "integrations/vercel",
                       "integrations/chatdev",
                       "integrations/strands"
                     ]
