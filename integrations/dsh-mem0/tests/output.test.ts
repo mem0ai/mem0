@@ -20,4 +20,11 @@ describe("truncateOutput", () => {
     expect(out.length).toBeLessThan(huge.length);
     expect(out).toContain("[Output truncated:");
   });
+
+  it("reports both reasons when the line cap and the byte cap fire together", () => {
+    const wide = Array.from({ length: MAX_OUTPUT_LINES + 50 }, () => "x".repeat(300)).join("\n");
+    const out = truncateOutput(wide);
+    expect(out).toContain(`of ${MAX_OUTPUT_LINES + 50} lines`);
+    expect(out).toContain("cut at 50KB");
+  });
 });

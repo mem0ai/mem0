@@ -22,18 +22,12 @@ export function truncateOutput(text: string): string {
     result = result.slice(0, MAX_OUTPUT_BYTES);
   }
 
-  // Distinguish the two reasons: dropping whole lines vs. cutting mid-line at
-  // the byte cap. Saying "showing N of N lines" while the text was cut mid-line
-  // is misleading.
   const dropped = lines.length - kept.length;
-  let reason: string | undefined;
-  if (dropped > 0) {
-    reason = `showing ${kept.length} of ${lines.length} lines`;
-  } else if (byteCapped) {
-    reason = `cut at ${Math.floor(MAX_OUTPUT_BYTES / 1000)}KB`;
-  }
-  if (reason) {
-    result += `\n\n[Output truncated: ${reason}]`;
+  const reasons: string[] = [];
+  if (dropped > 0) reasons.push(`showing ${kept.length} of ${lines.length} lines`);
+  if (byteCapped) reasons.push(`cut at ${Math.floor(MAX_OUTPUT_BYTES / 1000)}KB`);
+  if (reasons.length > 0) {
+    result += `\n\n[Output truncated: ${reasons.join(", ")}]`;
   }
   return result;
 }
