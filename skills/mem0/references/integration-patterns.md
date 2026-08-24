@@ -116,7 +116,7 @@ result = crew.kickoff()
 
 ## Vercel AI SDK
 
-> **Dedicated skill available.** For comprehensive Vercel AI SDK documentation, see the [mem0-vercel-ai-sdk skill](../mem0-vercel-ai-sdk/SKILL.md) ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)).
+> **Dedicated skill available.** For comprehensive Vercel AI SDK documentation, see the [mem0-vercel-ai-sdk skill](../../mem0-vercel-ai-sdk/SKILL.md) ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)).
 
 Install: `npm install @mem0/vercel-ai-provider`
 
