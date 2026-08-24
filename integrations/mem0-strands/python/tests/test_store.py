@@ -10,7 +10,7 @@ import pytest
 from strands.memory import MemoryEntry, MemoryStore
 from strands.memory.types import _has_method, _has_write_sink
 
-from strands_mem0 import Mem0MemoryStore
+from mem0_strands import Mem0MemoryStore
 
 
 @pytest.fixture
@@ -241,7 +241,7 @@ def test_client_constructed_lazily(monkeypatch):
             calls["n"] += 1
             self.api_key = api_key
 
-    monkeypatch.setattr("strands_mem0.store.Mem0ServiceClient", FakeClient)
+    monkeypatch.setattr("mem0_strands.store.Mem0ServiceClient", FakeClient)
 
     store = Mem0MemoryStore(user_id="alex", api_key="m0-x")
     assert calls["n"] == 0  # not built yet

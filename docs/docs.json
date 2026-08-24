@@ -383,7 +383,7 @@
                       "integrations/openclaw",
                       "integrations/hermes",
                       "integrations/pi-agent",
-                      "integrations/dsh-mem0"
+                      "integrations/deepseek-plugin"
                     ]
                   }
                 ]
@@ -613,6 +613,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/integrations/dsh-mem0",
+      "destination": "/integrations/deepseek-plugin"
+    },
     {
       "source": "/open-source/features/reranking",
       "destination": "/open-source/features/reranker-search"

@@ -3,7 +3,7 @@ title: DeepSeek Harness
 description: "Add persistent Mem0 memory to the DeepSeek Harness (Cordis) agent with two native tools: search and add."
 ---
 
-Add persistent memory to the [**DeepSeek Harness**](https://github.com/deepseek-ai/deepseek-harness) with `@mem0/dsh-mem0`. The Harness agent forgets everything between sessions. This plugin gives it two Mem0-backed tools so recall and writes persist across runs, sharing the same memory bank you already use from Claude Code, Codex, and other agents.
+Add persistent memory to the [**DeepSeek Harness**](https://github.com/deepseek-ai/deepseek-harness) with `@mem0/deepseek-plugin`. The Harness agent forgets everything between sessions. This plugin gives it two Mem0-backed tools so recall and writes persist across runs, sharing the same memory bank you already use from Claude Code, Codex, and other agents.
 
 ## Overview
 
@@ -23,8 +23,8 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
 ## Prerequisites
 
 1. A Mem0 Platform account and API key:
-   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-dsh-mem0" rel="nofollow">Sign up at app.mem0.ai</a>
-   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-dsh-mem0" rel="nofollow">Get your API key</a> (starts with `m0-`)
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-deepseek-plugin" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-deepseek-plugin" rel="nofollow">Get your API key</a> (starts with `m0-`)
 
 2. The DeepSeek Harness installed.
 
@@ -46,14 +46,14 @@ source ~/.bashrc
 
 1. Build the plugin:
    ```sh
-   cd integrations/dsh-mem0
+   cd integrations/deepseek-plugin
    pnpm install
    pnpm build
    ```
 
 2. Point the Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then load it:
    ```sh
-   pnpm dsh web --patch ./integrations/dsh-mem0/cordis.example.yml
+   pnpm dsh web --patch ./integrations/deepseek-plugin/cordis.example.yml
    ```
 
 3. Open the web UI and ask the agent to remember something, then recall it in a later turn.
@@ -65,7 +65,7 @@ The `cordis.yml` entry looks like this:
 - name: "@deepseek-ai/dsh-tools"
 - insert:
     - id: mem0
-      name: "/absolute/path/to/integrations/dsh-mem0/dist/index.js"
+      name: "/absolute/path/to/integrations/deepseek-plugin/dist/index.js"
       config:
         # apiKey is read from MEM0_API_KEY when omitted here.
         userId: "your-user-id"

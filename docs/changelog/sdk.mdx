@@ -2841,9 +2841,9 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Strands">
 
-<Update label="2026-08-24" description="strands-mem0 v0.1.0">
+<Update label="2026-08-24" description="mem0-strands v0.1.0">
 
-**Initial release** of [`strands-mem0`](https://pypi.org/project/strands-mem0/), a native `MemoryStore` that plugs Mem0 into the [Strands Agents](https://strandsagents.com/) `MemoryManager` ([#7021](https://github.com/mem0ai/mem0/pull/7021))
+**Initial release** of [`mem0-strands`](https://pypi.org/project/mem0-strands/), a native `MemoryStore` that plugs Mem0 into the [Strands Agents](https://strandsagents.com/) `MemoryManager` ([#7021](https://github.com/mem0ai/mem0/pull/7021))
 
 **New Features:**
 - **Automatic recall and injection:** `Mem0MemoryStore.search()` runs every turn through the `MemoryManager`, so relevant memories are searched and prepended to the prompt with no explicit tool call required.
@@ -2863,9 +2863,9 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="DeepSeek Harness">
 
-<Update label="2026-08-24" description="dsh-mem0 v0.1.0">
+<Update label="2026-08-24" description="deepseek-plugin v0.1.0">
 
-**Initial release** of [`dsh-mem0`](https://www.npmjs.com/package/@mem0/dsh-mem0), a native DeepSeek Harness (Cordis) plugin that registers Mem0 as two agent-callable tools ([#7027](https://github.com/mem0ai/mem0/pull/7027))
+**Initial release** of [`deepseek-plugin`](https://www.npmjs.com/package/@mem0/deepseek-plugin), a native DeepSeek Harness (Cordis) plugin that registers Mem0 as two agent-callable tools ([#7027](https://github.com/mem0ai/mem0/pull/7027))
 
 **New Features:**
 - **`search_memory`:** Recalls facts relevant to a query, with an optional `limit` (default 10) and per-call `userId` / `agentId` / `runId` scope overrides.
@@ -2874,7 +2874,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 - **Config:** `userId` is required; `apiKey` defaults to `$MEM0_API_KEY`; `host` optionally points at a dedicated Mem0 Platform base URL (not a switch to self-hosted Mem0 OSS).
 
 <Note>
-  Developer preview: auto-capture and auto-recall (memory injected into context automatically, without an explicit tool call) are planned but not yet built. The backend's `KNOWN_EVENT_SOURCES` allowlist also needs `"DEEPSEEK_HARNESS"` added before usage surfaces by name in telemetry rather than bucketing into "OTHERS". See [DeepSeek Harness](/integrations/dsh-mem0) for setup.
+  Developer preview: auto-capture and auto-recall (memory injected into context automatically, without an explicit tool call) are planned but not yet built. The backend's `KNOWN_EVENT_SOURCES` allowlist also needs `"DEEPSEEK_HARNESS"` added before usage surfaces by name in telemetry rather than bucketing into "OTHERS". See [DeepSeek Harness](/integrations/deepseek-plugin) for setup.
 </Note>
 
 </Update>

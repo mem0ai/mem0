@@ -8,14 +8,14 @@ mode: "wide"
 
 **DeepSeek Harness: Mem0 as a Native Cordis Plugin**
 
-The DeepSeek Harness agent forgets everything between sessions. [`@mem0/dsh-mem0`](https://www.npmjs.com/package/@mem0/dsh-mem0) gives it two Mem0-backed tools, so recall and writes persist across runs against the same memory bank you already use from Claude Code, Codex, and every other connected agent.
+The DeepSeek Harness agent forgets everything between sessions. [`@mem0/deepseek-plugin`](https://www.npmjs.com/package/@mem0/deepseek-plugin) gives it two Mem0-backed tools, so recall and writes persist across runs against the same memory bank you already use from Claude Code, Codex, and every other connected agent.
 
 - **Two agent-callable tools:** `search_memory` recalls facts relevant to a query, `add_memory` stores a fact for future sessions. Both accept per-call `userId` / `agentId` / `runId` scope overrides.
 - **Native Cordis lifecycle:** The plugin declares `inject = ['tools']` so it waits for the harness tool registry, then registers through `ctx.tools.register()`. Unmounting the plugin removes the tools automatically.
 - **Managed backend, not a memory file:** Server-side extraction, semantic dedup, and conflict resolution, rather than a Markdown file the agent has to maintain itself.
 - **Config:** `userId` is required, `apiKey` defaults to `$MEM0_API_KEY`, and `host` optionally targets a dedicated Mem0 Platform base URL.
 
-See [DeepSeek Harness](/integrations/dsh-mem0) for setup and [SDK & Tools](/changelog/sdk) for PR links.
+See [DeepSeek Harness](/integrations/deepseek-plugin) for setup and [SDK & Tools](/changelog/sdk) for PR links.
 
 <Note>
   Developer preview. Auto-capture and auto-recall, where memory reaches the context with no explicit tool call, are planned but not yet built.
@@ -27,7 +27,7 @@ See [DeepSeek Harness](/integrations/dsh-mem0) for setup and [SDK & Tools](/chan
 
 **Strands Agents: Mem0 as a Native MemoryStore**
 
-[`strands-mem0`](https://pypi.org/project/strands-mem0/) plugs Mem0 into AWS's [Strands Agents](https://strandsagents.com/) SDK as a native `MemoryStore`, so recall and writes happen inside the agent loop rather than as tool calls the model has to remember to make.
+[`mem0-strands`](https://pypi.org/project/mem0-strands/) plugs Mem0 into AWS's [Strands Agents](https://strandsagents.com/) SDK as a native `MemoryStore`, so recall and writes happen inside the agent loop rather than as tool calls the model has to remember to make.
 
 - **Automatic recall:** The `MemoryManager` drives the store on every turn, searching Mem0 and injecting the results into the prompt with no tool call required.
 - **Server-side extraction:** Because the store implements `add_messages`, enabling extraction routes raw conversation turns straight to Mem0's extraction pipeline, skipping the extra client-side model call needed to distill facts first.

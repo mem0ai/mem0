@@ -1,13 +1,13 @@
-name: Publish @mem0/dsh-mem0 📦 to npm
+name: Publish @mem0/deepseek-plugin 📦 to npm
 
 # Dispatched by release.yml (Release Router) when a release tagged
-# dsh-mem0-v* is published. Can also be dispatched manually to re-publish
+# deepseek-plugin-v* is published. Can also be dispatched manually to re-publish
 # a tag.
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to build and publish (e.g. dsh-mem0-v0.1.1)'
+        description: 'Release tag to build and publish (e.g. deepseek-plugin-v0.1.1)'
         required: true
         type: string
       prerelease:
@@ -18,14 +18,14 @@ on:
 
 jobs:
   build-n-publish:
-    name: Build and publish @mem0/dsh-mem0 📦 to npm
-    if: startsWith(inputs.tag, 'dsh-mem0-v')
+    name: Build and publish @mem0/deepseek-plugin 📦 to npm
+    if: startsWith(inputs.tag, 'deepseek-plugin-v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
     defaults:
       run:
-        working-directory: integrations/dsh-mem0
+        working-directory: integrations/deepseek-plugin
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,7 +42,7 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
-          cache-dependency-path: integrations/dsh-mem0/pnpm-lock.yaml
+          cache-dependency-path: integrations/deepseek-plugin/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -3,7 +3,7 @@ title: Strands Agents
 description: "Add persistent long-term memory to AWS Strands agents with Mem0, as a native MemoryStore that plugs into the agent loop."
 ---
 
-Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Strands Agents](https://github.com/strands-agents/sdk-python), AWS's open-source SDK for building AI agents. The [`strands-mem0`](https://github.com/mem0ai/mem0/tree/main/integrations/strands-mem0) package ships a native `MemoryStore`, so recall and writes happen automatically inside the agent loop, not as tool calls the model has to remember.
+Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Strands Agents](https://github.com/strands-agents/sdk-python), AWS's open-source SDK for building AI agents. The [`mem0-strands`](https://github.com/mem0ai/mem0/tree/main/integrations/mem0-strands) package ships a native `MemoryStore`, so recall and writes happen automatically inside the agent loop, not as tool calls the model has to remember.
 
 ## Overview
 
@@ -17,7 +17,7 @@ Before setting up Mem0 with Strands, ensure you have:
 
 1. Installed the required packages:
 ```bash
-pip install strands-mem0
+pip install mem0-strands
 ```
 
 2. A valid API key:
@@ -31,7 +31,7 @@ Hand a `Mem0MemoryStore` to a `MemoryManager`, and the agent gets automatic reca
 import os
 from strands import Agent
 from strands.memory import MemoryManager
-from strands_mem0 import Mem0MemoryStore
+from mem0_strands import Mem0MemoryStore
 
 os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
@@ -65,5 +65,5 @@ If you want the model to call memory explicitly instead of (or alongside) the au
 
 ## Learn more
 
-- [strands-mem0 on GitHub](https://github.com/mem0ai/mem0/tree/main/integrations/strands-mem0)
+- [mem0-strands on GitHub](https://github.com/mem0ai/mem0/tree/main/integrations/mem0-strands)
 - [Strands Agents documentation](https://strandsagents.com)

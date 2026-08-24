@@ -1,5 +1,5 @@
 /**
- * dsh-mem0: Mem0 long-term memory as a native DeepSeek Harness (Cordis) plugin.
+ * deepseek-plugin: Mem0 long-term memory as a native DeepSeek Harness (Cordis) plugin.
  *
  * Registers two agent-callable tools backed by the Mem0 SDK:
  *   - `search_memory` recalls facts relevant to a query
@@ -69,11 +69,11 @@ const scopeParams = {
 export function apply(ctx: Context, config: Config): void {
   const apiKey = config.apiKey ?? process.env.MEM0_API_KEY;
   if (!apiKey) {
-    throw new Error("dsh-mem0: set config.apiKey or the MEM0_API_KEY env var");
+    throw new Error("deepseek-plugin: set config.apiKey or the MEM0_API_KEY env var");
   }
   const userId = config.userId;
   if (!userId) {
-    throw new Error("dsh-mem0: config.userId is required");
+    throw new Error("deepseek-plugin: config.userId is required");
   }
 
   const client = new MemoryClient({
