@@ -2048,6 +2048,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Update label="2026-08-24" description="mem0-plugin v0.2.15">
 
 **Fixes:**
+- **Search:** A failed search request now prints `[mem0] search request failed: <error>` to stderr before returning no results. `search_memories()` swallowed every exception and returned `[]`, so an expired API key, a network failure, or a 500 from the backend was indistinguishable from a genuine "nothing stored yet" and the agent carried on with no context and no warning. Shared by Claude Code, Cursor, Codex, Antigravity, and Kimi ([#6898](https://github.com/mem0ai/mem0/pull/6898))
 - **Cursor:** `mcpServers` in `.cursor-plugin/plugin.json` now points at `./.cursor-mcp.json` instead of `.cursor-mcp.json`. The un-prefixed path resolved inconsistently depending on Cursor's working directory when it loaded the plugin ([#6948](https://github.com/mem0ai/mem0/pull/6948))
 - **Codex:** `install_codex_hooks.py` now prints all six registered events (`PreToolUse, SessionStart, UserPromptSubmit, PostToolUse, Stop, PreCompact`) after installing, instead of a stale four-event list left over from an earlier version of the installer. The README's hook table is corrected to match, documenting the three `PreToolUse` handlers and two `PostToolUse` handlers that were previously undocumented ([#6948](https://github.com/mem0ai/mem0/pull/6948))
 
