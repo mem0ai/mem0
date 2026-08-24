@@ -344,6 +344,12 @@ describe("Entity boost parallelism (#5214)", () => {
     expect(
       typeMismatchResult.results.map((item: { id: string }) => item.id),
     ).not.toContain("mem-rescued");
+    const missingFieldResult = await m.search("Alice Smith", {
+      filters: { user_id: "u1", missing: "value" },
+    });
+    expect(
+      missingFieldResult.results.map((item: { id: string }) => item.id),
+    ).not.toContain("mem-rescued");
   });
 
   it("bounds rescue point fetches independently of topK", async () => {
@@ -367,15 +373,13 @@ describe("Entity boost parallelism (#5214)", () => {
           Promise.resolve(texts.map(() => mockEmbedding)),
         ),
     };
-    m.vectorStore.search = jest
-      .fn()
-      .mockResolvedValue([
-        {
-          id: "mem-primary",
-          score: 0.8,
-          payload: { data: "primary", user_id: "u1" },
-        },
-      ]);
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-primary",
+        score: 0.8,
+        payload: { data: "primary", user_id: "u1" },
+      },
+    ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
     m.vectorStore.get = jest.fn().mockImplementation(async (id: string) => ({
       id,
@@ -384,6 +388,9 @@ describe("Entity boost parallelism (#5214)", () => {
 
     await m.search("Alice Smith", { filters: { user_id: "u1" }, topK: 100 });
 
+    expect(m.vectorStore.get).toHaveBeenCalledTimes(60);
+    m.vectorStore.get.mockClear();
+    await m.search("Alice Smith", { filters: { user_id: "u1" }, topK: 1 });
     expect(m.vectorStore.get).toHaveBeenCalledTimes(60);
   });
 

@@ -387,6 +387,10 @@ def test_search_rescues_entity_linked_candidates_with_fail_closed_filters(
         "Alice", filters={"user_id": "u1", "rank": 1}, top_k=10
     )
     assert "rescued" not in [item["id"] for item in type_mismatch_result["results"]]
+    missing_field_result = memory.search(
+        "Alice", filters={"user_id": "u1", "missing": "value"}, top_k=10
+    )
+    assert "rescued" not in [item["id"] for item in missing_field_result["results"]]
 
 
 @patch('mem0.memory.main.extract_entities', return_value=[("person", "Alice")])
@@ -419,6 +423,9 @@ def test_entity_rescue_fetches_are_bounded_independently_of_top_k(
 
     memory.search("Alice", filters={"user_id": "u1"}, top_k=100)
 
+    assert mock_vector_store.get.call_count == 60
+    mock_vector_store.get.reset_mock()
+    memory.search("Alice", filters={"user_id": "u1"}, top_k=1)
     assert mock_vector_store.get.call_count == 60
 
 
@@ -496,6 +503,9 @@ async def test_async_entity_rescue_fetches_are_bounded_independently_of_top_k(
 
     await memory.search("Alice", filters={"user_id": "u1"}, top_k=100)
 
+    assert mock_vector_store.get.call_count == 60
+    mock_vector_store.get.reset_mock()
+    await memory.search("Alice", filters={"user_id": "u1"}, top_k=1)
     assert mock_vector_store.get.call_count == 60
 
 
