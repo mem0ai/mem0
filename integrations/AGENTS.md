@@ -9,6 +9,7 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 | `mem0-plugin/` | Claude Code / Cursor / Codex plugin | none | none | pytest |
 | `mem0-plugin/.opencode-plugin/` | `@mem0/opencode-plugin` | Bun | none | tsc type-check |
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
+| `dsh-mem0/` | `@mem0/dsh-mem0` | tsup (ESM) | none | vitest |
 | `n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` | tsc | ESLint (n8n-nodes-base) | none |
 | `zapier-mem0/` | `@mem0/zapier` | tsc | none | offline unit tests + `zapier validate` |
 | `strands-mem0/` | `strands-mem0` (PyPI) | hatch | Ruff + mypy | pytest |
@@ -40,7 +41,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
 - **`mem0-plugin/`** connects Claude Code, Cursor, and Codex to the MCP server at `mcp.mem0.ai` and installs lifecycle hooks for automatic memory capture. Exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
-- **`openclaw/`**, **`pi-agent-plugin/`** are editor and agent plugins with the same shape.
+- **`openclaw/`**, **`pi-agent-plugin/`**, **`dsh-mem0/`** are editor and agent plugins with the same shape. `dsh-mem0/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).
 - **`strands-mem0/`** is a native Strands `MemoryStore` (Python, published to PyPI as `strands-mem0`). It plugs into the Strands `MemoryManager` for automatic recall and server-side extraction, over the hosted Mem0 platform or self-hosted Mem0 OSS. The package lives under `strands-mem0/python/`.

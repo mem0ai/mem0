@@ -382,7 +382,8 @@
                     "pages": [
                       "integrations/openclaw",
                       "integrations/hermes",
-                      "integrations/pi-agent"
+                      "integrations/pi-agent",
+                      "integrations/dsh-mem0"
                     ]
                   }
                 ]
