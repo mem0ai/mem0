@@ -1279,6 +1279,26 @@
     {
       "source": "/v0x/integrations/llama-index",
       "destination": "/integrations/llama-index"
+    },
+    {
+      "source": "/api-reference/event/get-event",
+      "destination": "/api-reference/events/get-event"
+    },
+    {
+      "source": "/api-reference/webhook/get-webhooks",
+      "destination": "/api-reference/webhook/get-webhook"
+    },
+    {
+      "source": "/api-reference/organization/update-organization-members",
+      "destination": "/api-reference/organization/update-org-member"
+    },
+    {
+      "source": "/api-reference/organization/delete-project",
+      "destination": "/api-reference/project/delete-project"
+    },
+    {
+      "source": "/api-reference/entities/get-entities",
+      "destination": "/api-reference/entities/get-users"
     }
   ]
 }
