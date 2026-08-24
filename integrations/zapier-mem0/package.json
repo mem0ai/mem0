@@ -1,6 +1,6 @@
 {
   "name": "@mem0/zapier",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Zapier integration for Mem0 — the memory layer for AI agents.",
   "keywords": [
     "zapier",

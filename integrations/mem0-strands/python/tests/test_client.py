@@ -8,7 +8,7 @@ what the earlier permissive fakes did not do.
 
 import pytest
 
-from strands_mem0.client import Mem0ServiceClient, _extract_results, _is_platform_client
+from mem0_strands.client import Mem0ServiceClient, _extract_results, _is_platform_client
 
 
 class FakeMemoryClient:

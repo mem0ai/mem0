@@ -21,7 +21,7 @@ Example:
     ```python
     from strands import Agent
     from strands.memory import MemoryManager
-    from strands_mem0 import Mem0MemoryStore
+    from mem0_strands import Mem0MemoryStore
 
     # Recall + write, with Mem0 extracting facts from the conversation server-side.
     store = Mem0MemoryStore(user_id="alex", writable=True, extraction=True)
@@ -41,7 +41,7 @@ from typing import Any
 from strands.memory import AddMessagesContext, MemoryEntry, MemoryStore, SearchOptions
 from strands.types.content import Message
 
-from strands_mem0.client import Mem0ServiceClient
+from mem0_strands.client import Mem0ServiceClient
 
 DEFAULT_MAX_SEARCH_RESULTS = 5
 # Entity fields that scope a memory in Mem0. At least one must be set.
@@ -92,7 +92,7 @@ class Mem0MemoryStore(MemoryStore):
             api_key: Mem0 platform API key (defaults to ``$MEM0_API_KEY``).
             host: Mem0 platform base URL.
             config: Mem0 OSS config dict for a self-hosted backend.
-            client: A pre-built :class:`~strands_mem0.client.Mem0ServiceClient`
+            client: A pre-built :class:`~mem0_strands.client.Mem0ServiceClient`
                 (for testing, or to wrap your own raw Mem0 client via
                 ``Mem0ServiceClient(client=...)``); when omitted, one is
                 constructed lazily on first use from ``api_key`` / ``config``.
