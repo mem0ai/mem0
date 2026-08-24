@@ -1,0 +1,42 @@
+name: Vouch - Manage by Issue
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: vouch-manage
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  manage:
+    if: contains(github.event.comment.body, '!vouch') || contains(github.event.comment.body, '!denounce') || contains(github.event.comment.body, '!unvouch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.VOUCH_APP_ID }}
+          private-key: ${{ secrets.VOUCH_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: mitchellh/vouch/action/manage-by-issue@d66fa29a64600490892131ad87597c30c91fcac4 # v1.5.0
+        with:
+          repo: ${{ github.repository }}
+          issue-id: ${{ github.event.issue.number }}
+          comment-id: ${{ github.event.comment.id }}
+          vouch-keyword: "!vouch"
+          denounce-keyword: "!denounce"
+          unvouch-keyword: "!unvouch"
+          pull-request: "true"
+          merge-immediately: "false"
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

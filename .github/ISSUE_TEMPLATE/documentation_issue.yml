@@ -21,3 +21,17 @@ body:
         How should the docs be improved?
     validations:
       required: true
+
+  - type: dropdown
+    id: ai_assistance
+    attributes:
+      label: AI Assistance
+      description: >-
+        This asks how the problem was found, not how the text was written.
+        Drafting the write-up with AI is fine.
+      options:
+        - No AI involved, I hit this reading the docs
+        - AI-assisted, but I checked the page myself
+        - AI found this, and I have not opened the page
+    validations:
+      required: true

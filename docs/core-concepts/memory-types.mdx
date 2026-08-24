@@ -1,68 +1,69 @@
 ---
 title: Memory Types
-description: "See how Mem0 layers conversation, session, and user memories to keep agents contextual."
+description: "What memory_type actually does in Mem0: procedural memory is implemented, semantic and episodic are not."
 icon: "tag"
 iconType: "solid"
 ---
 
-# How Mem0 Organizes Memory
+# Memory Types
 
-Mem0 separates memory into layers so agents remember the right detail at the right time. Think of it like a notebook: a sticky note for the current task, a daily journal for the session, and an archive for everything a user has shared.
+Mem0's Python SDK exposes a `memory_type` parameter on `add()`. The underlying `MemoryType` enum defines three values, but only one of them is wired up. This page states plainly which is which so you don't build against a type that doesn't exist yet.
 
-## Key terms
+## Status
 
-- **Conversation memory**: In-flight messages inside a single turn (what was just said).
-- **Session memory**: Short-lived facts that apply for the current task or channel.
-- **User memory**: Long-lived knowledge tied to a person, account, or workspace.
-- **Organizational memory**: Shared context available to multiple agents or teams.
+| Type | Enum value | Status | Notes |
+| --- | --- | --- | --- |
+| Procedural memory | `procedural_memory` | **Implemented** | Python OSS only (`Memory`/`AsyncMemory`). Pass `memory_type="procedural_memory"` and `agent_id` to `add()`. Not available on the Platform `MemoryClient`, and not available in the TypeScript SDK (OSS or Platform). |
+| Semantic memory | `semantic_memory` | **Not implemented** | Defined in the `MemoryType` enum but never read anywhere else in the codebase. Passing it to `add()` raises a validation error. There is no evidence in this repo of a roadmap date for this. |
+| Episodic memory | `episodic_memory` | **Not implemented** | Same as above: defined, never wired into the extraction pipeline, rejected by validation, no documented roadmap. |
 
-```mermaid
-graph LR
-  A[Conversation turn] --> B[Session memory]
-  B --> C[User memory]
-  C --> D[Org memory]
-  C --> E[Mem0 retrieval layer]
-```
+<Warning>
+  Only `procedural_memory` is a real, working value. Calling `memory.add(messages, memory_type="semantic_memory")` (or `episodic_memory`) is rejected and tells you to pass `procedural_memory` instead. Sync `Memory.add()` raises `Mem0ValidationError`; `AsyncMemory.add()` raises a plain `ValueError`.
+</Warning>
 
-## Short-term vs long-term memory
+## Procedural memory
 
-Short-term memory keeps the current conversation coherent. It includes:
-
-- **Conversation history**: recent turns in order so the agent remembers what was just said.
-- **Working memory**: temporary state such as tool outputs or intermediate calculations.
-- **Attention context**: the immediate focus of the assistant, similar to what a person holds in mind mid-sentence.
-
-Long-term memory preserves knowledge across sessions. It captures:
-
-- **Factual memory**: user preferences, account details, and domain facts.
-- **Episodic memory**: summaries of past interactions or completed tasks.
-- **Semantic memory**: relationships between concepts so agents can reason about them later.
-
-Mem0 maps these classic categories onto its layered storage so you can decide what should fade quickly versus what should last for months.
-
-## How does it work?
-
-Mem0 stores each layer separately and merges them when you query:
-
-1. **Capture**: Messages enter the conversation layer while the turn is active.
-2. **Promote**: Relevant details persist to session or user memory based on your `user_id`, `run_id`, and metadata.
-3. **Retrieve**: The search pipeline pulls from all layers, ranking user memories first, then session notes, then raw history.
+Procedural memory stores step-by-step task knowledge (how an agent performs a workflow) rather than facts about a user. It requires `agent_id`:
 
 ```python
-import os
-
 from mem0 import Memory
 
 memory = Memory()
 
-# Sticky note: conversation memory
 memory.add(
-    ["I'm Alex and I prefer boutique hotels."],
+    [
+        {"role": "user", "content": "Book a flight from SFO to NYC"},
+        {"role": "assistant", "content": "1. Search flights. 2. Filter by price. 3. Confirm booking."},
+    ],
+    agent_id="travel-agent",
+    memory_type="procedural_memory",
+)
+```
+
+Omit `memory_type` entirely and Mem0 stores the messages as an ordinary memory: there is no semantic/episodic pathway for it to fall into. Any other explicit value is rejected by validation rather than quietly falling back to an ordinary memory.
+
+## How every other memory is scoped
+
+Outside of the `procedural_memory` special case, Mem0 does not sort memories into named types. Every memory is scoped by the identifiers you pass in, and the same identifiers are used to retrieve it later:
+
+- **`user_id`**: ties a memory to a specific person or account.
+- **`agent_id`**: ties a memory to a specific agent or assistant persona.
+- **`run_id`**: ties a memory to a specific session, task, or conversation thread.
+- **`app_id`** (Platform only): ties a memory to a specific application or tenant, in addition to the three above. See <Link href="/platform/features/entity-scoped-memory">Entity-Scoped Memory</Link>.
+
+At least one identifier is required on `add()`. Passing more than one narrows the scope further (for example, `user_id` + `run_id` together).
+
+```python
+from mem0 import Memory
+
+memory = Memory()
+
+memory.add(
+    "I'm Alex and I prefer boutique hotels.",
     user_id="alex",
     run_id="trip-planning-2025",
 )
 
-# Later in the session, pull long-term + session context
 results = memory.search(
     "Any hotel preferences?",
     filters={"user_id": "alex", "run_id": "trip-planning-2025"},
@@ -70,52 +71,48 @@ results = memory.search(
 ```
 
 <Tip>
-  Use `run_id` when you want short-term context to expire automatically; rely on `user_id` for lasting personalization.
+  Use `run_id` when you want a set of memories to stay tied to one session or task; use `user_id` alone for anything that should persist across every session for that person.
 </Tip>
 
-## When should you use each layer?
+## How memories are extracted and updated
 
-- **Conversation memory**: Tool calls or chain-of-thought that only matter within the current turn.
-- **Session memory**: Multi-step tasks (onboarding flows, debugging sessions) that should reset once complete.
-- **User memory**: Personal preferences, account state, or compliance details that must persist across interactions.
-- **Organizational memory**: Shared FAQs, product catalogs, or policies that every agent should recall.
+When `infer=True` (the default) on `add()`, Mem0 runs a single pipeline rather than routing through separate type-specific paths:
 
-## How it compares
+1. **Context gathering**: pulls the most recent messages already stored for the same `user_id`/`agent_id`/`run_id` scope.
+2. **Existing memory retrieval**: embeds the new messages and runs a vector search against memories already in that same scope, to find candidates that might need to change.
+3. **Extraction**: a single LLM call compares the new messages against the retrieved candidates and decides, per fact, whether to `ADD`, `UPDATE`, `DELETE`, or leave a memory alone.
 
-| Layer | Lifetime | Short or long term | Best for | Trade-offs |
-| --- | --- | --- | --- | --- |
-| Conversation | Single response | Short-term | Tool execution detail | Lost after the turn finishes |
-| Session | Minutes to hours | Short-term | Multi-step flows | Clear it manually when done |
-| User | Weeks to forever | Long-term | Personalization | Requires consent/governance |
-| Org | Configured globally | Long-term | Shared knowledge | Needs owner to keep current |
+Alongside this, both OSS and Platform extract named entities (people, places, organizations) from memory text and use shared entities between memories to boost related results at search time. On Platform, that entity graph is also queryable directly; see <Link href="/platform/features/graph-memory">Graph Memory</Link>. In OSS, entities only affect ranking, there is no separate graph to query.
 
 <Warning>
-  Avoid storing secrets or unredacted PII in user or org memories: Mem0 is retrievable by design. Encrypt or hash sensitive values first.
+  Avoid storing secrets or unredacted PII in memories: they are retrievable by design. Encrypt or hash sensitive values before calling `add()`.
 </Warning>
 
 ## Put it into practice
 
-- Use the <Link href="/core-concepts/memory-operations/add">Add Memory</Link> guide to persist user preferences.
-- Follow <Link href="/platform/advanced-memory-operations">Advanced Memory Operations</Link> to tune metadata and retrieval.
-
-## See it live
-
-- <Link href="/cookbooks/companions/ai-tutor">AI Tutor with Mem0</Link> shows session vs user memories in action.
-- <Link href="/cookbooks/operations/support-inbox">Support Inbox with Mem0</Link> demonstrates shared org memory.
-
-{/* DEBUG: verify CTA targets */}
-
 <CardGroup cols={2}>
   <Card
     title="Explore Memory Operations"
-    description="Dive into the add/search/update/delete concepts next."
+    description="Dive into the add/search/update/delete operations next."
     icon="circle-check"
     href="/core-concepts/memory-operations/add"
   />
   <Card
-    title="See a Cookbook"
-    description="Apply layered memories inside a customer support agent."
+    title="Advanced Memory Operations"
+    description="Tune metadata, filters, and retrieval on Platform."
+    icon="sliders"
+    href="/platform/advanced-memory-operations"
+  />
+  <Card
+    title="AI Tutor Cookbook"
+    description="See user_id-scoped memory used in a real tutoring agent."
     icon="rocket"
+    href="/cookbooks/companions/ai-tutor"
+  />
+  <Card
+    title="Support Inbox Cookbook"
+    description="See user_id-scoped memory used in a support workflow."
+    icon="inbox"
     href="/cookbooks/operations/support-inbox"
   />
 </CardGroup>

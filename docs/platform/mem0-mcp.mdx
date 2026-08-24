@@ -28,10 +28,14 @@ npx mcp-add \
   --name mem0-mcp \
   --type http \
   --url "https://mcp.mem0.ai/mcp" \
-  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+  --clients "claude code,cursor,windsurf,vscode,opencode"
 ```
 
 `mcp-add` is a helper that writes the Mem0 server into each client's own MCP config file, so you do not have to edit them by hand. Name only the clients you actually use. If you would rather see the change yourself, every client's manual config is under [Client-specific setup](#client-specific-setup).
+
+<Note>
+  Claude Desktop is not in the list above: it rejects the `mcp-add` command. Add it through Settings instead, see [Claude Desktop](#client-specific-setup) below.
+</Note>
 
 Restart each client afterwards so it picks up the new server.
 
@@ -81,25 +85,14 @@ You can also configure individual clients:
 
 <AccordionGroup>
   <Accordion title="Claude Desktop">
-    ```bash
-    npx mcp-add \
-      --name mem0-mcp \
-      --type http \
-      --url "https://mcp.mem0.ai/mcp" \
-      --clients "claude"
-    ```
+    Claude Desktop does not support the `mcp-add` command, it rejects the server as "not a valid MCP server." Add the Mem0 server through the Settings UI instead:
 
-    Or manually add to your Claude Desktop configuration (`claude_desktop_config.json`):
-    ```json
-    {
-      "mcpServers": {
-        "mem0-mcp": {
-          "type": "http",
-          "url": "https://mcp.mem0.ai/mcp"
-        }
-      }
-    }
-    ```
+    1. Open Claude Desktop and go to **Settings > Connectors**.
+    2. Click **Add custom connector**.
+    3. Enter a name (for example `mem0-mcp`) and the URL `https://mcp.mem0.ai/mcp`.
+    4. Save, then restart Claude Desktop.
+
+    The first time you use a Mem0 tool, Claude Desktop opens a browser window to sign in, see [Signing in](#signing-in).
   </Accordion>
 
   <Accordion title="Claude Code">

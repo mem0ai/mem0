@@ -91,12 +91,23 @@ To update, run `codex plugin marketplace upgrade` to pull the latest from the Me
   After either option, start a new Codex task and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
 </Info>
 
+## Codex Cloud
+
+[Codex Cloud](https://developers.openai.com/codex/cloud/environments) tasks run setup scripts and the agent in separate phases with different variable scoping:
+
+- **Environment Variables** persist for the full duration of the task, through both the setup script and the agent phase.
+- **Secrets** are only available to the setup script; they are wiped before the agent phase starts, so the agent itself cannot read them.
+
+Because the `mem0` MCP server authenticates on every tool call the agent makes (not just during setup), set `MEM0_API_KEY` as an **Environment Variable** in your Codex Cloud environment configuration, not as a Secret. A Secret will let a setup script authenticate but the agent will lose access to `MEM0_API_KEY` once the task phase begins, breaking Mem0 MCP calls.
+
+Lifecycle hooks that shell out to local scripts (Option A) are not applicable in Codex Cloud's ephemeral containers; use Option B (Direct MCP) with `MEM0_API_KEY` set as above.
+
 ## What's Included
 
 | Component | Plugin Install | MCP Only |
 |-----------|:--------------:|:--------:|
 | MCP Server (9 memory tools) | Yes | Yes |
-| Lifecycle Hooks | Yes | No |
+| Lifecycle Hooks | Opt-in (see below) | No |
 | Mem0 SDK Skill | Yes | No |
 
 ## Available MCP Tools
@@ -117,7 +128,22 @@ Once installed, the following tools are available in every Codex session:
 
 ## Lifecycle Hooks
 
-When installed via the plugin marketplace, Mem0 hooks into Codex's lifecycle to automatically manage memory:
+Unlike Claude Code, Codex has no plugin-host mechanism for auto-wiring hooks from an installed plugin: it only reads hooks from `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`). Installing the plugin (Option A) does **not** turn hooks on by itself. To enable them, run the bundled installer once against your local clone:
+
+```bash
+python3 <path-to-your-clone>/integrations/mem0-plugin/scripts/install_codex_hooks.py
+```
+
+This merges Mem0's entries into `~/.codex/hooks.json` and is idempotent (safe to re-run after upgrading). It also requires the `codex_hooks` feature flag in `~/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+The installer prints a reminder if the flag isn't set. Restart Codex after installing hooks or editing the config. To remove: `python3 .../install_codex_hooks.py --uninstall`.
+
+Once enabled, Mem0 hooks into Codex's lifecycle to automatically manage memory:
 
 | Hook | Event | What it does |
 |------|-------|-------------|
@@ -155,7 +181,7 @@ You: Add WebSocket support for real-time notification delivery.
 - **"Connection failed"**: Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
 - **No tools appearing**: Restart your Codex session after installation
 - **Duplicate `mem0` MCP / "tool collision" errors**: You combined Option A with Option B. Remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`; the plugin registers it automatically
-- **Hooks not firing**: Ensure the plugin is installed via the marketplace (Option A). MCP-only installs do not include hooks
+- **Hooks not firing**: Hooks are opt-in and are not installed by the marketplace install itself. Run `scripts/install_codex_hooks.py` (see [Lifecycle Hooks](#lifecycle-hooks)), confirm `codex_hooks = true` is set under `[features]` in `~/.codex/config.toml`, and restart Codex. MCP-only installs (Option B) never include hooks
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

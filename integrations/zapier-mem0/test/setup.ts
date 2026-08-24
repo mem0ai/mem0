@@ -1,3 +1,4 @@
-// Disable telemetry during tests so runs never fire real PostHog events
-// (and so the fire-and-forget fetch cannot leave an open handle after tests).
-process.env.MEM0_TELEMETRY = 'false';
+// Jest setup file. Usage attribution is recorded server-side by the Mem0 API
+// from the `source: "ZAPIER"` tag on writes (see src/creates/add_memory.ts), so
+// there is nothing to disable here during tests.
+export {};

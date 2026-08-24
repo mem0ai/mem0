@@ -78,6 +78,38 @@ await memory.add(messages, { userId: 'alice', metadata: { category: 'movies' } }
   The TypeScript provider calls the Bedrock [Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html), a single uniform interface across the current Bedrock model families. Streaming and `InvokeModel`-only models are not supported yet.
 </Note>
 
+### Application inference profiles
+
+Bedrock resolves the model family from the model identifier. An application inference profile ARN ends in an opaque ID, so there is nothing to resolve from. Set `provider_override` (Python) / `providerOverride` (TypeScript) when your model is one:
+
+<CodeGroup>
+```python Python
+config = {
+    "llm": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz",
+            "provider_override": "anthropic",
+        }
+    }
+}
+```
+
+```typescript TypeScript
+const config = {
+  llm: {
+    provider: 'aws_bedrock',
+    config: {
+      model: 'arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123xyz',
+      providerOverride: 'anthropic',
+    },
+  },
+};
+```
+</CodeGroup>
+
+Without it, initialization raises `Unknown provider in model` (Python: `ValueError`; TypeScript: `Error`). Plain model IDs and cross-region inference profiles such as `us.anthropic.claude-sonnet-4-20250514-v1:0` still resolve automatically and need no override.
+
 ### Config
 
 All available parameters for the `aws_bedrock` config are present in [Master List of All Params in Config](../config).

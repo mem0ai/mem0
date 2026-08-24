@@ -26,6 +26,8 @@ export default {
 			helpText: 'Override only for self-hosted or non-default deployments.',
 		},
 	],
-	// Shown on the connection label in the Zap editor.
-	connectionLabel: 'Mem0',
+	// Shown on the connection label in the Zap editor. Uses the account email
+	// from the /v1/ping/ test response so users with multiple Mem0 connections
+	// can tell them apart.
+	connectionLabel: '{{user_email}}',
 };

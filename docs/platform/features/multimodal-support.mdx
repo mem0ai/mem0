@@ -76,18 +76,8 @@ await client.add(messages, { userId: "alice" })
 
 ```json Output
 {
-  "results": [
-    {
-      "memory": "Name is Alice",
-      "event": "ADD",
-      "id": "7ae113a3-3cb5-46e9-b6f7-486c36391847"
-    },
-    {
-      "memory": "Likes large pizza with toppings including cherry tomatoes, black olives, green spinach, yellow bell peppers, diced ham, and sliced mushrooms",
-      "event": "ADD",
-      "id": "56545065-7dee-4acf-8bf2-a5b2535aabb3"
-    }
-  ]
+  "event_id": "evt-uuid",
+  "status": "PENDING"
 }
 ```
 </CodeGroup>

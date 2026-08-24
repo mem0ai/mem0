@@ -13,5 +13,5 @@
   "keywords": ["mem0", "memory", "mcp", "personalization", "semantic-search"],
   "skills": "./skills/",
   "hooks": "./hooks/cursor-hooks.json",
-  "mcpServers": ".cursor-mcp.json"
+  "mcpServers": "./.cursor-mcp.json"
 }
