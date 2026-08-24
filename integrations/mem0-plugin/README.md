@@ -1,3 +1,11 @@
+> **Claude Code users:** version 0.3.0 of the Claude Code plugin now lives at
+> [`integrations/claude-code-plugin`](../claude-code-plugin/) and is what `mem0@mem0-plugins` installs.
+> Update with `claude plugin marketplace update mem0-plugins` then
+> `claude plugin update mem0@mem0-plugins --scope user` — your memories carry over
+> automatically. This directory continues to serve the Cursor, Codex, Kimi,
+> Antigravity, and OpenCode integrations until they are ported. Do not run the
+> 0.2.x Claude Code hooks and the 0.3.0 plugin at the same time.
+
 # Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode & Antigravity
 
 Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, and **Antigravity**.

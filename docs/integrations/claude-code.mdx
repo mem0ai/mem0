@@ -1,9 +1,9 @@
 ---
 title: Claude Code
-description: "Add persistent memory to Claude Code and Claude Cowork with the Mem0 plugin: MCP server, lifecycle hooks, and SDK skill."
+description: "Cross-session memory for Claude Code: automatic local-first capture, first-prompt recall, a read-only search tool, and a Sonnet sidekick agent in an isolated worktree."
 ---
 
-Add persistent memory to [**Claude Code**](https://docs.anthropic.com/en/docs/claude-code) (CLI) and **Claude Cowork** (desktop app) with the Mem0 plugin. Your agent forgets everything between sessions. This plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+Add persistent, cross-session memory to [**Claude Code**](https://docs.anthropic.com/en/docs/claude-code) with the Mem0 plugin. Claude Code forgets everything between sessions. This plugin fixes that: hooks capture small session details locally, a background worker turns them into Mem0 memories after the session, and Claude searches those memories automatically before its first response in a later session.
 
 ## Prerequisites
 
@@ -13,177 +13,98 @@ Before setting up Mem0 with Claude Code, ensure you have:
    - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-claude-code" rel="nofollow">Sign up at app.mem0.ai</a>
    - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-claude-code" rel="nofollow">Get your API key</a> (starts with `m0-`)
 
-2. Claude Code CLI or Claude Cowork desktop app installed
+2. A Claude Code version that supports plugin agents, worktree isolation for agents, and the `SubagentStart`, `SubagentStop`, and `PostToolUseFailure` hook events.
 
-3. Your API key added to your shell profile (persists across sessions):
-
-<CodeGroup>
-```bash zsh
-echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-```bash bash
-echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
-source ~/.bashrc
-```
-</CodeGroup>
-
-Confirm it's set:
-
-```bash
-echo $MEM0_API_KEY
-# Should print: m0-your-api-key
-```
+3. Python 3.10+ and Git available on your machine.
 
 ## Installation
 
-### Option A: Plugin Marketplace (Recommended)
-
-Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
-
-1. Add the Mem0 marketplace:
-
-   ```bash
-   claude plugin marketplace add mem0ai/mem0
-   ```
-
-2. Install the plugin:
-
-   ```bash
-   claude plugin install mem0@mem0-plugins
-   ```
-
-**Claude Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
-
-### Option B: MCP Only
-
-Add the Mem0 MCP server directly with a single command:
+Add the Mem0 marketplace and install the plugin:
 
 ```bash
-npx mcp-add \
-  --name mem0-mcp \
-  --type http \
-  --url "https://mcp.mem0.ai/mcp/" \
-  --clients "claude code"
+export MEM0_API_KEY='your-mem0-api-key'
+claude plugin marketplace add mem0ai/mem0
+claude plugin install mem0@mem0-plugins --scope user --config api_key="$MEM0_API_KEY"
+unset MEM0_API_KEY
 ```
 
-This gives you the MCP tools but not the lifecycle hooks or SDK skill.
+Restart Claude Code after installing — or run `/reload-plugins` in an existing session to refresh plugins without restarting — then open a Git repository and work normally.
 
-### Option C: Manual MCP Configuration
-
-Add to your Claude Code MCP config (`.mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "mem0": {
-      "type": "http",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token ${MEM0_API_KEY}"
-      }
-    }
-  }
-}
-```
-
-### Managing the Plugin
+### Managing the plugin
 
 ```bash
-claude plugin update mem0@mem0-plugins         # update the plugin to the latest version (restart to apply)
 claude plugin marketplace update mem0-plugins  # refresh the marketplace catalog
+claude plugin update mem0@mem0-plugins --scope user  # update the plugin (restart to apply)
 claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the marketplace)
-claude plugin marketplace remove mem0-plugins  # unregister the marketplace entirely
 ```
 
-<Info icon="check">
-  Start a new session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
-</Info>
+## How memory works
 
-## Post-Installation: Run `/mem0:onboard`
+1. During a session, hooks save small details on your computer — user messages, Claude's final answers, changed file paths, and short test/build results. No hook calls a model or blocks the session.
+2. After every five completed exchanges, a detached background worker sends that part of the session to Mem0. A large exchange is sent sooner, and compacting or ending the session sends anything that remains. The worker survives Claude Code exiting. Test and build command details stay on your computer unless Claude mentions a conclusion in its visible response.
+3. Mem0 turns the submitted conversation and changed paths into memories that may help with later work in the same repository.
+4. Before Claude's first response in a later session, the plugin automatically searches with your prompt and supplies up to five memories, without calling another model to write the query.
 
-After installing the plugin, start a new Claude Code session and run:
+After that first automatic search, Claude can call the `search_memories` tool with one specific question, and you can run the same search yourself with `/mem0:search`. Those explicit searches return at most three memories by default (configurable up to 20) and do not repeat a memory the automatic search already supplied in that session. All returned memory context is capped at 4,000 characters, and results are not reranked or filtered by another score cutoff.
 
-```
-/mem0:onboard
-```
+## Commands
 
-This runs the setup wizard which:
-1. Verifies your API key and MCP connection
-2. Detects and imports project files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`)
-3. Installs coding-optimized memory categories
-4. Shows your identity (user ID, project scope, branch)
+| Command | What it does |
+| --- | --- |
+| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>` and `--category <name>`. |
+| `/mem0:status` | Show whether Mem0 memory is working in this repository — configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
+| `/mem0:forget` | Delete the Mem0 memories stored for this repository and user, after confirming with you. |
+| `/mem0:pause` | Pause Mem0 memory capture on this machine. |
+| `/mem0:resume` | Resume Mem0 memory capture after it was paused with `/mem0:pause`. |
+| `/mem0:remember` | Acknowledge a "remember this" request and make sure it is captured well in Claude's reply. |
 
-The onboarding is idempotent and safe to re-run anytime. It auto-triggers on first session in a new project, but you can always invoke it manually.
+`/mem0:search` can filter to one memory category: `project_knowledge`, `decisions_and_constraints`, `workflows`, `problems_and_fixes`, or `results`. Without `--category`, it searches all of them.
 
-## What's Included
+## Sonnet sidekick agent
 
-| Component | Plugin Install | MCP Only |
-|-----------|:--------------:|:--------:|
-| MCP Server (9 memory tools) | Yes | Yes |
-| Lifecycle Hooks | Yes | No |
-| Mem0 SDK Skill | Yes | No |
-
-## Available MCP Tools
-
-Once installed, the following tools are available in every Claude Code session:
-
-| Tool | Description |
-|------|-------------|
-| `add_memory` | Save text or conversation history for a user/agent |
-| `search_memories` | Semantic search across memories with filters |
-| `get_memories` | List memories with filters and pagination |
-| `get_memory` | Retrieve a specific memory by ID |
-| `update_memory` | Overwrite a memory's text by ID |
-| `delete_memory` | Delete a single memory by ID |
-| `delete_all_memories` | Bulk delete all memories in scope |
-| `delete_entities` | Delete a user/agent/app/run entity and its memories |
-| `list_entities` | List users/agents/apps/runs stored in Mem0 |
-
-## Lifecycle Hooks
-
-When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecycle to automatically manage memory:
-
-| Hook | Event | What it does |
-|------|-------|-------------|
-| **Setup** | `Setup` | Installs the mem0 SDK and dependencies (runs on init and maintenance) |
-| **Session start** | `SessionStart` | Loads prior memories and displays status banner |
-| **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message; skips short prompts |
-| **Pre-tool (3 handlers)** | `PreToolUse` | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
-| **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Stop** | `Stop` | Stores a session summary at the end of every assistant turn (not just at session end) |
-| **Pre-compact** | `PreCompact` | Stores a summary before the context is compacted |
-
-What you type is stored as yours. What Claude produces (session summaries and compaction summaries) is stored as the assistant's, so its suggestions never become your stated preferences.
-
-## Example Workflow
+`mem0:sidekick` is a Sonnet coding agent with normal file, search, shell, editing, testing, and web tools. Claude Code runs it in a separate Git worktree with its own conversation, so it can investigate, implement, test, debug, or review something instead of the main session doing the same work — useful for reducing cost when the main agent doesn't need to repeat the work itself.
 
 ```text
-# Session 1: Working on a feature
-You: Let's refactor the auth module to use JWT tokens instead of sessions.
+Ask Mem0's sidekick to investigate and implement this in its separate worktree.
+Review its result and send any corrections back to the same sidekick.
+```
 
-# Claude searches memories, finds nothing relevant, proceeds with the work.
-# Mem0 stores what you said as yours:
-#   - Your preference: "Prefers TypeScript, uses ESLint"
-# ...and what Claude did as the assistant's, in the session summary:
-#   - Decision: "Migrated auth from sessions to JWT tokens"
-#   - Files modified: auth/middleware.ts, auth/token.ts
+The main agent reviews the sidekick's result, and corrections go back to the same agent so it keeps what it already learned. Changes stay in the sidekick's worktree until the main agent reviews and copies them into the main checkout. By default the worktree is created from the repository's default branch; set `worktree.baseRef` to `"head"` in the repository's Claude settings to create it from the main session's current commit instead. Uncommitted changes are not copied into the sidekick's worktree.
 
-# Session 2 (days later): Related work
-You: Add refresh token rotation to the auth system.
+## Settings
 
-# Claude searches memories, retrieves the JWT migration context.
-# Knows the file structure, decisions made, and your stated preferences.
-# Continues seamlessly without re-explaining the codebase.
+| Setting | Default | What it controls |
+| --- | --- | --- |
+| `api_key` | required | Mem0 Platform API key used to create and search memories. |
+| `user_id` | your local account name | Optional stable ID shared across machines, matching the earlier Mem0 Claude Code plugin's scoping. |
+| `top_k` | `3` | Maximum memories returned when Claude runs another search after the automatic first search (1–20). |
+| `max_context_chars` | `4000` | Maximum memory characters returned for one search (1,000–10,000). |
+
+## Upgrading from 0.2.x
+
+This is a breaking major update to the Claude Code plugin. It replaces the 0.2.x architecture and command set, but your existing memories and configuration are not lost:
+
+- **Memories carry over automatically.** The plugin keeps the same user and repository scoping the 0.2.x plugin used, including `~/.mem0/project_map.json`, so existing memories for a repository stay available after upgrading.
+- **Environment variables keep working.** `MEM0_API_KEY`, `MEM0_USER_ID`, and `MEM0_PROJECT_ID` are still honored.
+- **Commands are replaced.** The 0.2.x command set is replaced by `/mem0:search`, `/mem0:status`, `/mem0:forget`, `/mem0:pause`, `/mem0:resume`, and `/mem0:remember`.
+- **The hosted MCP server is replaced.** Its nine read/write tools (`add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`) are replaced by the single, read-only `search_memories` tool described above.
+- **Local config files are no longer read.** `~/.mem0/settings.json` and per-project `mem0.md` files are ignored.
+- **Old memories are still searchable, but not by category.** Normal search finds memories created before the upgrade, but the new category filters do not find them.
+
+Update with the same commands used for any other update:
+
+```bash
+claude plugin marketplace update mem0-plugins
+claude plugin update mem0@mem0-plugins --scope user
 ```
 
 ## Troubleshooting
 
-- **"Connection failed"**: Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
-- **No tools appearing**: Restart your Claude Code session after installation
-- **Memories not being captured**: Ensure you installed via the plugin marketplace (Option A) for lifecycle hooks. MCP-only installs require manual memory operations
-- **"Mem0 Inactive" banner every session**: Your API key isn't persisting. Add `export MEM0_API_KEY="m0-..."` to your `~/.zshrc` (or `~/.bashrc`) and run `source ~/.zshrc`
+- **Missing key**: reinstall with `--config api_key="$MEM0_API_KEY"` while `MEM0_API_KEY` is set to a non-empty value.
+- **`401 Unauthorized`**: the configured Mem0 key is invalid or expired. `/mem0:status` reports this clearly.
+- **No memory immediately after ending a session**: memory creation runs in the background after the session ends. Wait briefly, then search again.
+- **Sidekick agent does not start**: make sure the current folder is a Git repository and your Claude Code version supports plugin agents and worktrees.
+- **Remove the plugin**: `claude plugin uninstall mem0@mem0-plugins`.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
