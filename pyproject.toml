@@ -57,7 +57,8 @@ vector-stores = [
 llms = [
     "groq>=0.3.0",
     "together>=0.2.10",
-    "litellm>=1.83.7",
+    "litellm>=1.83.7; python_version >= '3.11'",
+    "litellm>=1.83.7,<1.98.0; python_version < '3.11'",
     "openai>=1.90.0",
     "ollama>=0.3.0",
     "vertexai>=0.1.0",

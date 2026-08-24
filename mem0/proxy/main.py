@@ -8,8 +8,10 @@ import mem0
 
 try:
     import litellm
-except ImportError:
-    raise ImportError("The 'litellm' library is required. Please install it using 'pip install litellm'.")
+except ImportError as e:
+    raise ImportError(
+        f"Failed to import the 'litellm' library ({e}). If it is not installed, run 'pip install litellm'."
+    ) from e
 
 from mem0 import Memory, MemoryClient
 from mem0.configs.prompts import MEMORY_ANSWER_PROMPT
