@@ -226,6 +226,91 @@ describe("Entity boost parallelism (#5214)", () => {
     warnSpy.mockRestore();
   });
 
+  it("should rescue linked points outside the semantic pool and fail closed", async () => {
+    const m = memory as any;
+    await m._ensureInitialized();
+
+    m._entityStore = {
+      search: jest
+        .fn()
+        .mockResolvedValue([
+          makeMatch("e-alice", 0.9, [
+            "mem-primary",
+            "mem-rescued",
+            "mem-rescued",
+            "mem-wrong-scope",
+            "mem-wrong-filter",
+            "mem-expired",
+            "mem-malformed",
+            "mem-missing",
+            "mem-throws",
+          ]),
+        ]),
+      initialize: jest.fn().mockResolvedValue(undefined),
+    };
+    m.embedder = {
+      embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
+    };
+    m.vectorStore.search = jest.fn().mockResolvedValue([
+      {
+        id: "mem-primary",
+        score: 0.8,
+        payload: { data: "primary", user_id: "u1", topic: "keep" },
+      },
+      {
+        id: "mem-primary",
+        score: 0.8,
+        payload: { data: "primary", user_id: "u1", topic: "keep" },
+      },
+    ]);
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+    m.vectorStore.get = jest.fn().mockImplementation(async (id: string) => {
+      if (id === "mem-throws") throw new Error("point fetch failed");
+      const payloads: Record<string, Record<string, any> | null> = {
+        "mem-rescued": { data: "rescued", user_id: "u1", topic: "keep" },
+        "mem-wrong-scope": { data: "wrong", user_id: "u2", topic: "keep" },
+        "mem-wrong-filter": { data: "wrong", user_id: "u1", topic: "drop" },
+        "mem-expired": {
+          data: "expired",
+          user_id: "u1",
+          topic: "keep",
+          expiration_date: "2000-01-01",
+        },
+        "mem-malformed": null,
+      };
+      const payload = payloads[id];
+      return payload === undefined ? null : { id, payload };
+    });
+
+    const result = await m.search("Alice Smith", {
+      filters: { user_id: "u1", topic: { eq: "keep" } },
+    });
+    const resultIds = result.results.map((item: { id: string }) => item.id);
+
+    expect(resultIds.filter((id: string) => id === "mem-rescued")).toHaveLength(
+      1,
+    );
+    expect(resultIds.filter((id: string) => id === "mem-primary")).toHaveLength(
+      1,
+    );
+    expect(resultIds).not.toEqual(
+      expect.arrayContaining([
+        "mem-wrong-scope",
+        "mem-wrong-filter",
+        "mem-expired",
+        "mem-malformed",
+        "mem-missing",
+        "mem-throws",
+      ]),
+    );
+    expect(m.vectorStore.get).not.toHaveBeenCalledWith("mem-primary");
+  });
+
   it("should call entity searches concurrently, not sequentially", async () => {
     const m = memory as any;
     await m._ensureInitialized();

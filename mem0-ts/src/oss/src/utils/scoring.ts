@@ -79,8 +79,8 @@ export interface ScoredResult {
  * For each candidate:
  *   combined = (semantic + bm25 + entity_boost) / max_possible
  *
- * Threshold gates the semantic score BEFORE combining -- candidates
- * below the threshold are excluded even if BM25/entity would boost them.
+ * Threshold gates numeric semantic scores before combining. Candidates with
+ * no semantic score require a positive entity boost to enter this scorer.
  *
  * The divisor adapts based on which signals are active:
  *   - Semantic only: max_possible = 1.0
@@ -99,7 +99,7 @@ export interface ScoredResult {
 export function scoreAndRank(
   semanticResults: Array<{
     id: string;
-    score: number;
+    score?: number;
     payload: Record<string, any>;
   }>,
   bm25Scores: Record<string, number>,
@@ -127,14 +127,17 @@ export function scoreAndRank(
       continue;
     }
 
-    const semanticScore = result.score ?? 0.0;
-    if (semanticScore < threshold) {
-      continue;
-    }
-
     const memIdStr = String(memId);
     const bm25Score = bm25Scores[memIdStr] ?? 0.0;
     const entityBoost = entityBoosts[memIdStr] ?? 0.0;
+    const rawSemanticScore = result.score;
+    const semanticScore = rawSemanticScore ?? 0.0;
+    if (rawSemanticScore == null && entityBoost <= 0) {
+      continue;
+    }
+    if (rawSemanticScore != null && semanticScore < threshold) {
+      continue;
+    }
 
     const rawCombined = semanticScore + bm25Score + entityBoost;
     const combined = Math.min(rawCombined / maxPossible, 1.0);

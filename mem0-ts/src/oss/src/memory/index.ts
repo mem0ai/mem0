@@ -80,6 +80,90 @@ import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
+function filterValueMatches(actual: any, expected: any): boolean {
+  if (expected === "*") return actual !== undefined && actual !== null;
+  if (!expected || typeof expected !== "object" || Array.isArray(expected)) {
+    return Array.isArray(expected)
+      ? expected.includes(actual)
+      : actual === expected;
+  }
+  if (actual === undefined || actual === null) return false;
+
+  try {
+    return Object.entries(expected as Record<string, any>).every(
+      ([operator, operand]) => {
+        switch (operator) {
+          case "eq":
+            return actual === operand;
+          case "ne":
+            return actual !== operand;
+          case "gt":
+            return actual > operand;
+          case "gte":
+            return actual >= operand;
+          case "lt":
+            return actual < operand;
+          case "lte":
+            return actual <= operand;
+          case "in":
+            return Array.isArray(operand) && operand.includes(actual);
+          case "nin":
+            return Array.isArray(operand) && !operand.includes(actual);
+          case "contains":
+            return (
+              typeof actual === "string" && actual.includes(String(operand))
+            );
+          case "icontains":
+            return (
+              typeof actual === "string" &&
+              actual.toLowerCase().includes(String(operand).toLowerCase())
+            );
+          default:
+            return false;
+        }
+      },
+    );
+  } catch {
+    return false;
+  }
+}
+
+function payloadMatchesFilters(
+  payload: Record<string, any>,
+  filters: Record<string, any>,
+): boolean {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !filters ||
+    typeof filters !== "object"
+  ) {
+    return false;
+  }
+
+  return Object.entries(filters).every(([key, expected]) => {
+    if (key === "$or" || key === "OR" || key === "or") {
+      return (
+        Array.isArray(expected) &&
+        expected.some((branch) => payloadMatchesFilters(payload, branch))
+      );
+    }
+    if (key === "$and" || key === "AND" || key === "and") {
+      return (
+        Array.isArray(expected) &&
+        expected.every((branch) => payloadMatchesFilters(payload, branch))
+      );
+    }
+    if (key === "$not" || key === "NOT" || key === "not") {
+      return (
+        Array.isArray(expected) &&
+        expected.every((branch) => !payloadMatchesFilters(payload, branch))
+      );
+    }
+    return filterValueMatches(payload[key], expected);
+  });
+}
+
 export class LLMError extends Error {
   readonly cause?: unknown;
 
@@ -1548,13 +1632,63 @@ export class Memory {
     }
 
     // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults
-      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
-      .map((mem) => ({
-        id: String(mem.id),
-        score: mem.score ?? 0,
+    const candidates: Array<{
+      id: string;
+      score?: number;
+      payload: Record<string, any>;
+    }> = [];
+    const candidateIds = new Set<string>();
+    for (const mem of semanticResults) {
+      const id = String(mem.id);
+      if (
+        candidateIds.has(id) ||
+        (!showExpired && payloadIsExpired(mem.payload))
+      ) {
+        continue;
+      }
+      candidateIds.add(id);
+      candidates.push({
+        id,
+        score: mem.score,
         payload: mem.payload || {},
-      }));
+      });
+    }
+
+    const rescueIds = Object.entries(entityBoosts)
+      .filter(([id, boost]) => boost > 0 && !candidateIds.has(id))
+      .sort(([leftId, leftBoost], [rightId, rightBoost]) => {
+        return rightBoost - leftBoost || leftId.localeCompare(rightId);
+      })
+      .slice(0, internalLimit)
+      .map(([id]) => id);
+
+    for (const memoryId of rescueIds) {
+      let fetched;
+      try {
+        fetched = await this.vectorStore.get(memoryId);
+      } catch (error) {
+        console.warn(
+          `Entity-linked point fetch failed for ${memoryId}:`,
+          error,
+        );
+        continue;
+      }
+
+      const payload = fetched?.payload;
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        typeof payload.data !== "string" ||
+        !payload.data ||
+        !payloadMatchesFilters(payload, effectiveFilters) ||
+        (!showExpired && payloadIsExpired(payload))
+      ) {
+        continue;
+      }
+
+      candidates.push({ id: memoryId, score: undefined, payload });
+      candidateIds.add(memoryId);
+    }
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(

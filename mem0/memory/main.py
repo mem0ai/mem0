@@ -451,6 +451,93 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def _filter_value_matches(actual: Any, expected: Any) -> bool:
+    if expected == "*":
+        return actual is not None
+    if not isinstance(expected, dict):
+        if isinstance(expected, list):
+            return actual in expected
+        return actual == expected
+    if actual is None:
+        return False
+
+    try:
+        for operator, operand in expected.items():
+            if operator == "eq" and actual != operand:
+                return False
+            if operator == "ne" and actual == operand:
+                return False
+            if operator == "gt" and not actual > operand:
+                return False
+            if operator == "gte" and not actual >= operand:
+                return False
+            if operator == "lt" and not actual < operand:
+                return False
+            if operator == "lte" and not actual <= operand:
+                return False
+            if operator == "in" and actual not in operand:
+                return False
+            if operator == "nin" and actual in operand:
+                return False
+            if operator == "contains" and (not isinstance(actual, str) or operand not in actual):
+                return False
+            if operator == "icontains" and (
+                not isinstance(actual, str) or str(operand).lower() not in actual.lower()
+            ):
+                return False
+            if operator not in {
+                "eq",
+                "ne",
+                "gt",
+                "gte",
+                "lt",
+                "lte",
+                "in",
+                "nin",
+                "contains",
+                "icontains",
+            }:
+                return False
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _payload_matches_filters(payload: Any, filters: Dict[str, Any]) -> bool:
+    if not isinstance(payload, dict) or not isinstance(filters, dict):
+        return False
+
+    for key, expected in filters.items():
+        if key in ("$or", "OR", "or"):
+            if not isinstance(expected, list) or not any(
+                _payload_matches_filters(payload, branch) for branch in expected
+            ):
+                return False
+        elif key in ("$and", "AND", "and"):
+            if not isinstance(expected, list) or not all(
+                _payload_matches_filters(payload, branch) for branch in expected
+            ):
+                return False
+        elif key in ("$not", "NOT", "not"):
+            if not isinstance(expected, list) or any(_payload_matches_filters(payload, branch) for branch in expected):
+                return False
+        elif not _filter_value_matches(payload.get(key), expected):
+            return False
+    return True
+
+
+def _entity_rescue_ids(
+    entity_boosts: Dict[str, float], candidate_ids: set, limit: int
+) -> list[str]:
+    return [
+        memory_id
+        for memory_id, boost in sorted(
+            entity_boosts.items(), key=lambda item: (-item[1], item[0])
+        )
+        if boost > 0 and memory_id not in candidate_ids
+    ][:limit]
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -1665,16 +1752,45 @@ class Memory(MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        candidate_ids = set()
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
+            if not mem_id or mem_id in candidate_ids:
+                continue
+            candidate_ids.add(mem_id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
                 "payload": payload,
             })
+
+        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, internal_limit):
+            try:
+                fetched = self.vector_store.get(vector_id=memory_id)
+            except Exception as e:
+                logger.warning("Entity-linked point fetch failed for %s: %s", memory_id, e)
+                continue
+
+            if hasattr(fetched, "payload"):
+                payload = fetched.payload
+            elif isinstance(fetched, dict):
+                payload = fetched.get("payload")
+            else:
+                payload = None
+            if (
+                not isinstance(payload, dict)
+                or not isinstance(payload.get("data"), str)
+                or not payload["data"]
+                or not _payload_matches_filters(payload, filters)
+                or (not show_expired and _payload_is_expired(payload))
+            ):
+                continue
+
+            candidates.append({"id": memory_id, "score": None, "payload": payload})
+            candidate_ids.add(memory_id)
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -3329,16 +3445,45 @@ class AsyncMemory(MemoryBase):
 
         # Step 7: Build candidate set from semantic results
         candidates = []
+        candidate_ids = set()
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
+            if not mem_id or mem_id in candidate_ids:
+                continue
+            candidate_ids.add(mem_id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
                 "payload": payload,
             })
+
+        for memory_id in _entity_rescue_ids(entity_boosts, candidate_ids, internal_limit):
+            try:
+                fetched = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+            except Exception as e:
+                logger.warning("Entity-linked point fetch failed for %s: %s", memory_id, e)
+                continue
+
+            if hasattr(fetched, "payload"):
+                payload = fetched.payload
+            elif isinstance(fetched, dict):
+                payload = fetched.get("payload")
+            else:
+                payload = None
+            if (
+                not isinstance(payload, dict)
+                or not isinstance(payload.get("data"), str)
+                or not payload["data"]
+                or not _payload_matches_filters(payload, filters)
+                or (not show_expired and _payload_is_expired(payload))
+            ):
+                continue
+
+            candidates.append({"id": memory_id, "score": None, "payload": payload})
+            candidate_ids.add(memory_id)
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
