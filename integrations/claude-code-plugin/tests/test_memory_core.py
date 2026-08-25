@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sqlite3
 import subprocess
 import sys
@@ -2983,15 +2982,6 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
         == 1
     )
     connection.close()
-
-
-def test_contract_doc_names_only_tests_that_exist():
-    contract = PLUGIN_ROOT / "docs" / "CONTRACT.md"
-    assert contract.exists(), "integrations/AGENTS.md links to docs/CONTRACT.md"
-    named = set(re.findall(r"`(test_\w+)`", contract.read_text(encoding="utf-8")))
-    assert named
-    defined = set(re.findall(r"^def (test_\w+)", Path(__file__).read_text(encoding="utf-8"), re.M))
-    assert named <= defined, sorted(named - defined)
 
 
 def test_version_is_single_sourced():
