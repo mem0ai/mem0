@@ -2335,6 +2335,103 @@ class TestPGVector(unittest.TestCase):
         pass
 
 
+class TestPGVectorDbSchema(unittest.TestCase):
+    """Tests for the optional db_schema parameter (custom PostgreSQL schema support)."""
+
+    def setUp(self):
+        self.mock_cursor = MagicMock()
+        self.mock_cursor.fetchall.return_value = []
+
+    def _make_pgvector(self, mock_get_cursor, mock_connection_pool, db_schema=None):
+        mock_connection_pool.return_value = MagicMock()
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+        return PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            db_schema=db_schema,
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_col_qualifies_table_with_db_schema(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema="my_schema")
+        self.assertEqual(pgvector._col().as_string(None), '"my_schema"."test_collection"')
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_col_unqualified_without_db_schema(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema=None)
+        self.assertEqual(pgvector._col().as_string(None), '"test_collection"')
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_create_col_creates_schema_when_db_schema_set(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema="my_schema")
+        pgvector.create_col()
+
+        schema_calls = [call for call in self.mock_cursor.execute.call_args_list
+                        if "CREATE SCHEMA IF NOT EXISTS" in str(call) and "my_schema" in str(call)]
+        self.assertEqual(len(schema_calls), 1)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_create_col_skips_schema_creation_by_default(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema=None)
+        pgvector.create_col()
+
+        schema_calls = [call for call in self.mock_cursor.execute.call_args_list
+                        if "CREATE SCHEMA IF NOT EXISTS" in str(call)]
+        self.assertEqual(len(schema_calls), 0)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_list_cols_filters_by_db_schema(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema="my_schema")
+        pgvector.list_cols()
+
+        args, _ = self.mock_cursor.execute.call_args
+        self.assertIn("table_schema = COALESCE(%s, current_schema())", args[0])
+        self.assertEqual(args[1], ("my_schema",))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_list_cols_falls_back_to_current_schema_by_default(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema=None)
+        pgvector.list_cols()
+
+        args, _ = self.mock_cursor.execute.call_args
+        self.assertEqual(args[1], (None,))
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_col_info_filters_by_db_schema(self, mock_get_cursor, mock_connection_pool):
+        pgvector = self._make_pgvector(mock_get_cursor, mock_connection_pool, db_schema="my_schema")
+        self.mock_cursor.fetchone.return_value = ("test_collection", 0, "0 bytes")
+
+        pgvector.col_info()
+
+        args, _ = self.mock_cursor.execute.call_args
+        self.assertIn("table_schema = COALESCE(%s, current_schema())", str(args[0]))
+        self.assertEqual(args[1], ("my_schema", "test_collection"))
+
+
 class TestBuildFilterConditions(unittest.TestCase):
     """Tests for the _build_filter_conditions helper that translates filter dicts to SQL."""
 

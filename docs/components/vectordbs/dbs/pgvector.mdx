@@ -86,6 +86,7 @@ Here are the parameters available for configuring pgvector:
 | `connection_string`  | Python only             | PostgreSQL connection string, overrides individual connection parameters.                                                                                      | `None`                                  |
 | `sslmode`            | Python only             | SSL mode for PostgreSQL connections, such as `require`, `prefer`, or `disable`.                                                                                | `None`                                  |
 | `connection_pool`    | Python only             | psycopg connection pool object, overrides connection string and individual connection parameters.                                                              | `None`                                  |
+| `db_schema`          | Python only             | PostgreSQL schema that holds the collection table. Created automatically (`CREATE SCHEMA IF NOT EXISTS`) if it does not already exist.                         | `None` (connection's `search_path`)     |
 
 **TypeScript OSS:** Use `connectionString` plus optional `ssl` for managed Postgres setups. If you omit `connectionString`, Mem0 falls back to split fields and uses `dbname`, `user`, `password`, `host`, `port`, and optional `ssl`.
 
@@ -96,3 +97,25 @@ Here are the parameters available for configuring pgvector:
 1. `connection_pool` (highest priority)
 2. `connection_string`
 3. Individual connection parameters (`user`, `password`, `host`, `port`, `sslmode`)
+
+**Custom schema (Python):** By default the collection table lives wherever the connection's
+`search_path` resolves (typically `public`). Set `db_schema` to isolate it in its own schema, e.g.
+for a multi-tenant database:
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "user": "test",
+            "password": "123",
+            "host": "127.0.0.1",
+            "port": "5432",
+            "db_schema": "mem0",
+        },
+    }
+}
+```
+
+Mem0 runs `CREATE SCHEMA IF NOT EXISTS` for you, but the `vector` extension itself still needs to be
+resolvable from the connection's `search_path` (it's usually installed in `public`).

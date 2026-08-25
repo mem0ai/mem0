@@ -160,6 +160,7 @@ class PGVector(VectorStoreBase):
         sslmode=None,
         connection_string=None,
         connection_pool=None,
+        db_schema=None,
     ):
         """
         Initialize the PGVector database.
@@ -179,8 +180,11 @@ class PGVector(VectorStoreBase):
             sslmode (str, optional): SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')
             connection_string (str, optional): PostgreSQL connection string (overrides individual connection parameters)
             connection_pool (Any, optional): psycopg2 connection pool object (overrides connection string and individual parameters)
+            db_schema (str, optional): PostgreSQL schema that holds the collection table. Defaults to the
+                connection's search_path (usually 'public'). Created automatically if it does not exist.
         """
         self.collection_name = collection_name
+        self.db_schema = db_schema
         self.use_diskann = diskann
         self.use_hnsw = hnsw
         self.embedding_model_dims = embedding_model_dims
@@ -257,6 +261,8 @@ class PGVector(VectorStoreBase):
 
     def _col(self) -> "sql.Identifier":
         """Return a safely-quoted SQL identifier for the collection table."""
+        if self.db_schema:
+            return sql.Identifier(self.db_schema, self.collection_name)
         return sql.Identifier(self.collection_name)
 
     def create_col(self) -> None:
@@ -266,6 +272,8 @@ class PGVector(VectorStoreBase):
         """
         with self._get_cursor(commit=True) as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            if self.db_schema:
+                cur.execute(sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(self.db_schema)))
             cur.execute(
                 sql.SQL("""
                 CREATE TABLE IF NOT EXISTS {} (
@@ -479,7 +487,10 @@ class PGVector(VectorStoreBase):
             List[str]: List of collection names.
         """
         with self._get_cursor() as cur:
-            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+            cur.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = COALESCE(%s, current_schema())",
+                (self.db_schema,),
+            )
             return [row[0] for row in cur.fetchall()]
 
     def delete_col(self) -> None:
@@ -501,11 +512,11 @@ class PGVector(VectorStoreBase):
                 SELECT
                     table_name,
                     (SELECT COUNT(*) FROM {}) as row_count,
-                    (SELECT pg_size_pretty(pg_total_relation_size({}::regclass))) as total_size
+                    pg_size_pretty(pg_total_relation_size(format('%%I.%%I', table_schema, table_name)::regclass)) as total_size
                 FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = %s
-            """).format(self._col(), sql.Literal(self.collection_name)),
-                (self.collection_name,),
+                WHERE table_schema = COALESCE(%s, current_schema()) AND table_name = %s
+            """).format(self._col()),
+                (self.db_schema, self.collection_name),
             )
             result = cur.fetchone()
         return {"name": result[0], "count": result[1], "size": result[2]}

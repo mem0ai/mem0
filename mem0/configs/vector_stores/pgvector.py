@@ -19,6 +19,10 @@ class PGVectorConfig(BaseModel):
     sslmode: Optional[str] = Field(None, description="SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')")
     connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (overrides individual connection parameters)")
     connection_pool: Optional[Any] = Field(None, description="psycopg connection pool object (overrides connection string and individual parameters)")
+    db_schema: Optional[str] = Field(
+        None,
+        description="PostgreSQL schema that holds the collection table. Defaults to the connection's search_path (usually 'public').",
+    )
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
