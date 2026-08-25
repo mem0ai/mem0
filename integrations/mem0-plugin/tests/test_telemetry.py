@@ -122,24 +122,12 @@ def test_hash_deterministic():
     assert h1 != telemetry._sha256("different-value")
 
 
-def test_platform_claude_code(monkeypatch):
-    import telemetry
-
-    monkeypatch.delenv("MEM0_PLATFORM", raising=False)
-    monkeypatch.delenv("ANTIGRAVITY_PLUGIN_ROOT", raising=False)
-    monkeypatch.delenv("PLUGIN_ROOT", raising=False)
-    monkeypatch.delenv("CURSOR_PLUGIN_ROOT", raising=False)
-    monkeypatch.setenv("CLAUDECODE", "1")
-    assert telemetry.detect_platform() == "claude-code"
-
-
 def test_platform_cursor(monkeypatch):
     import telemetry
 
     monkeypatch.delenv("MEM0_PLATFORM", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_PLUGIN_ROOT", raising=False)
     monkeypatch.delenv("PLUGIN_ROOT", raising=False)
-    monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
     monkeypatch.setenv("CURSOR_PLUGIN_ROOT", "/path")
     assert telemetry.detect_platform() == "cursor"
@@ -150,7 +138,6 @@ def test_platform_codex(monkeypatch):
 
     monkeypatch.delenv("MEM0_PLATFORM", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_PLUGIN_ROOT", raising=False)
-    monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
     monkeypatch.delenv("CURSOR_PLUGIN_ROOT", raising=False)
     monkeypatch.setenv("PLUGIN_ROOT", "/path")
@@ -165,7 +152,6 @@ def test_platform_kimi(monkeypatch):
 
     monkeypatch.delenv("MEM0_PLATFORM", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_PLUGIN_ROOT", raising=False)
-    monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
     monkeypatch.delenv("CURSOR_PLUGIN_ROOT", raising=False)
     monkeypatch.delenv("PLUGIN_ROOT", raising=False)
@@ -184,8 +170,8 @@ def test_platform_explicit_override(monkeypatch):
 
 
 def test_platform_antigravity(monkeypatch):
-    """Antigravity sets CLAUDE_PLUGIN_ROOT for compatibility but must be
-    attributed to its own platform, not claude-code."""
+    """Antigravity sets CLAUDE_PLUGIN_ROOT so the shared scripts resolve their
+    paths. That must not change how it is attributed."""
     import telemetry
 
     monkeypatch.delenv("MEM0_PLATFORM", raising=False)
@@ -196,14 +182,14 @@ def test_platform_antigravity(monkeypatch):
 
 def test_plugin_version_is_per_editor(monkeypatch):
     """Each editor reports the version from its OWN manifest. Antigravity is on
-    a 0.1.x line while Claude/Cursor/Codex are on 0.2.x, so they must not all
-    report the same shared version."""
+    a 0.1.x line while Cursor/Codex are on 0.2.x, so they must not all report
+    the same shared version. An unsupported surface reports "unknown" rather
+    than borrowing a version it does not ship."""
     import telemetry
 
     plugin_dir = os.path.join(os.path.dirname(__file__), "..")
     manifests = {
         "antigravity": "plugin.json",
-        "claude-code": os.path.join(".claude-plugin", "plugin.json"),
         "cursor": os.path.join(".cursor-plugin", "plugin.json"),
         "codex": os.path.join(".codex-plugin", "plugin.json"),
         "kimi": os.path.join(".kimi-plugin", "plugin.json"),
@@ -214,6 +200,10 @@ def test_plugin_version_is_per_editor(monkeypatch):
             expected = json.load(f)["version"]
         payload = telemetry.build_posthog_payload("plugin.test")
         assert payload["properties"]["plugin_version"] == expected, f"{plat} should report {expected} from {rel}"
+
+    monkeypatch.setenv("MEM0_PLATFORM", "claude-code")
+    payload = telemetry.build_posthog_payload("plugin.test")
+    assert payload["properties"]["plugin_version"] == "unknown"
 
 
 def test_send_fails_silently(monkeypatch):
