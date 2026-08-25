@@ -506,11 +506,13 @@ Memories already captured from recent messages in this session (up to 20). This 
 ## Existing Memories
 
 Memories currently in the system relevant to this conversation. Formatted as:
-[{"id": "uuid-string", "text": "..."}, ...]
+[{"id": "0", "text": "..."}, {"id": "1", "text": "..."}, ...]
+
+The "id" values are sequential index strings, matching your ADD output ID scheme — not the memories' real underlying IDs.
 
 Use these ONLY for deduplication and linking — do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
 
-When a new memory is related to an Existing Memory — same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative — include the Existing Memory's ID in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...) but linked_memory_ids uses the UUIDs from this list.
+When a new memory is related to an Existing Memory — same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative — include the Existing Memory's "id" (the index string, e.g. "0", "1") in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...) and linked_memory_ids uses those same index strings from the Existing Memories list — never invent a different ID format.
 
 
 IMPORTANT: An existing memory about an entity (e.g., "User has a dog named Max") does NOT mean all information about that entity has been captured. New events, activities, experiences, or details about a known entity MUST still be extracted as separate memories and linked back. Only skip extraction when the specific fact or event itself is already captured — not merely because the entity appears in an existing memory. "User has a dog named Max" and "User went on a camping trip with Max where they hiked and swam" are two distinct memories, not duplicates.
@@ -844,15 +846,15 @@ Every count (4 Mummies, 2 Construct Guardians, 6 Skeletal Warriors) and every sp
 
 Summary: ""
 Recently Extracted: []
-Existing Memories: [{"id": "a1b2c3d4-5678-9abc-def0-111111111111", "text": "User has a dog named Poppy, a golden retriever"}, {"id": "b2c3d4e5-6789-abcd-ef01-222222222222", "text": "User works as a Senior Engineer at Shopify"}]
+Existing Memories: [{"id": "0", "text": "User has a dog named Poppy, a golden retriever"}, {"id": "1", "text": "User works as a Senior Engineer at Shopify"}]
 New Messages:
 [{"role": "user", "content": "Poppy had her vet checkup yesterday — she's healthy but needs to lose a few pounds. Also, I'm switching teams at work next month to the payments platform."}]
 Observation Date: 2025-03-15
 
 Output:
 {"memory": [
-  {"id": "0", "text": "User's dog Poppy had a vet checkup around March 14, 2025, is healthy but needs to lose weight", "linked_memory_ids": ["a1b2c3d4-5678-9abc-def0-111111111111"]},
-  {"id": "1", "text": "User is switching teams at Shopify to the payments platform in April 2025", "linked_memory_ids": ["b2c3d4e5-6789-abcd-ef01-222222222222"]}
+  {"id": "0", "text": "User's dog Poppy had a vet checkup around March 14, 2025, is healthy but needs to lose weight", "linked_memory_ids": ["0"]},
+  {"id": "1", "text": "User is switching teams at Shopify to the payments platform in April 2025", "linked_memory_ids": ["1"]}
 ]}
 
 Both new memories link to related existing memories — the vet checkup links to the existing Poppy memory, and the team switch links to the existing Shopify memory. This enables the system to build a graph of related memories.
@@ -887,7 +889,7 @@ FIVE topics across 5 messages — each one extracted separately. Do not stop aft
 
 Summary: "John has a dog named Max."
 Recently Extracted: []
-Existing Memories: [{"id": "a1b2c3d4-0000-0000-0000-111111111111", "text": "John has a dog named Max"}]
+Existing Memories: [{"id": "0", "text": "John has a dog named Max"}]
 New Messages:
 [{"role": "user", "content": "John: Max and I had a blast on our camping trip last summer. We hiked, swam, and made great memories. It was a really peaceful experience."},
  {"role": "assistant", "content": "Maria: That sounds amazing! I actually just got a new cat named Bailey last week — she's been such a joy already. Camping with pets is so soul-nourishing."},
@@ -896,7 +898,7 @@ Observation Date: 2023-08-11
 
 Output:
 {"memory": [
-  {"id": "0", "text": "John and his dog Max went on a camping trip in the summer of 2023 where they hiked, swam, and found it a peaceful experience", "linked_memory_ids": ["a1b2c3d4-0000-0000-0000-111111111111"]},
+  {"id": "0", "text": "John and his dog Max went on a camping trip in the summer of 2023 where they hiked, swam, and found it a peaceful experience", "linked_memory_ids": ["0"]},
   {"id": "1", "text": "Maria got a new cat named Bailey around early August 2023 and describes her as a joy"},
   {"id": "2", "text": "John has a daughter named Sara and the family took a trip for her birthday in fall 2022"}
 ]}
@@ -923,7 +925,7 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 
 {
   "memory": [
-    {"id": "0", "text": "First extracted memory", "attributed_to": "user", "linked_memory_ids": ["uuid-of-related-existing-memory"]},
+    {"id": "0", "text": "First extracted memory", "attributed_to": "user", "linked_memory_ids": ["0"]},
     {"id": "1", "text": "Second extracted memory", "attributed_to": "assistant"}
   ]
 }
@@ -933,7 +935,7 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 - **id** (string, required): Sequential integers as strings starting at "0".
 - **text** (string, required): A contextually rich, self-contained factual statement (15-80 words).
 - **attributed_to** (string, required): Who this memory is about. Use "user" for facts stated by or about the user (preferences, plans, personal facts). Use "assistant" for information provided by the assistant (recommendations, confirmations, plans created, information researched).
-- **linked_memory_ids** (array of strings, optional): IDs of Existing Memories that this new memory relates to. Use the exact IDs from the Existing Memories list. Omit or pass [] if no existing memories are related.
+- **linked_memory_ids** (array of strings, optional): IDs of Existing Memories that this new memory relates to. Use the exact "id" index strings from the Existing Memories list (e.g. "0", "1") — not a different ID format. Omit or pass [] if no existing memories are related.
 
 ## Rules
 

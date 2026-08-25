@@ -484,6 +484,37 @@ class _AsyncOSSProject:
         raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
 
 
+def _resolve_linked_memory_ids(raw, uuid_mapping):
+    """Translate the LLM's ``linked_memory_ids`` into real vector-store IDs.
+
+    The Existing Memories shown to the LLM during extraction use sequential
+    anti-hallucination index strings ("0", "1", ...) rather than their real
+    IDs (see ``uuid_mapping`` in ``_add_to_vector_store``), so any entry the
+    LLM returns in ``linked_memory_ids`` is one of those indices, not a real
+    memory ID. This resolves each index through ``uuid_mapping`` back to the
+    real ID it refers to.
+
+    Entries that aren't strings, that don't match any index in
+    ``uuid_mapping`` (a hallucinated or malformed value), or that resolve to
+    a duplicate are dropped silently rather than persisted — a bad link must
+    not corrupt the payload. Returns a de-duplicated list preserving order;
+    ``[]`` if ``raw`` isn't a non-empty list.
+    """
+    if not isinstance(raw, list):
+        return []
+    resolved = []
+    seen = set()
+    for entry in raw:
+        if not isinstance(entry, str):
+            continue
+        real_id = uuid_mapping.get(entry)
+        if real_id is None or real_id in seen:
+            continue
+        resolved.append(real_id)
+        seen.add(real_id)
+    return resolved
+
+
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -1035,6 +1066,9 @@ class Memory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+            linked_ids = _resolve_linked_memory_ids(mem.get("linked_memory_ids"), uuid_mapping)
+            if linked_ids:
+                mem_metadata["linked_memory_ids"] = linked_ids
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
@@ -2693,6 +2727,9 @@ class AsyncMemory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+            linked_ids = _resolve_linked_memory_ids(mem.get("linked_memory_ids"), uuid_mapping)
+            if linked_ids:
+                mem_metadata["linked_memory_ids"] = linked_ids
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
