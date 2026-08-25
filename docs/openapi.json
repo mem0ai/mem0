@@ -7623,8 +7623,22 @@
 														"description": "The newer memory that replaced this one (null for a merge with no single replacement)."
 													},
 													"sources": {
-														"type": "null",
-														"description": "Always null on this feed (present for schema parity with runs)."
+														"type": "array",
+														"items": {
+															"type": "object",
+															"properties": {
+																"id": {
+																	"type": "string",
+																	"description": "Source memory ID."
+																},
+																"text": {
+																	"type": "string",
+																	"description": "Source memory text (truncated)."
+																}
+															}
+														},
+														"nullable": true,
+														"description": "Always null on this feed; synthesis provenance is shown on the runs feed."
 													}
 												}
 											}
