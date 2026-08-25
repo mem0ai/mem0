@@ -1,0 +1,69 @@
+---
+title: Strands Agents
+description: "Add persistent long-term memory to AWS Strands agents with Mem0, as a native MemoryStore that plugs into the agent loop."
+---
+
+Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Strands Agents](https://github.com/strands-agents/sdk-python), AWS's open-source SDK for building AI agents. The [`mem0-strands`](https://github.com/mem0ai/mem0/tree/main/integrations/mem0-strands) package ships a native `MemoryStore`, so recall and writes happen automatically inside the agent loop, not as tool calls the model has to remember.
+
+## Overview
+
+1. A `MemoryStore` the `MemoryManager` drives on every turn: it searches Mem0 and injects the results into the prompt, and writes memory back when extraction is enabled.
+2. Server-side extraction: because the store implements `add_messages`, enabling `extraction` routes raw conversation turns to Mem0's own extraction pipeline, with no extra client-side model call.
+3. Works with the hosted Mem0 Platform (an API key) or self-hosted Mem0 OSS (a config dict).
+
+## Prerequisites
+
+Before setting up Mem0 with Strands, ensure you have:
+
+1. Installed the required packages:
+```bash
+pip install mem0-strands
+```
+
+2. A valid API key:
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-strands" rel="nofollow">Mem0 API Key</a> (set as `MEM0_API_KEY`)
+
+## Basic Integration Example
+
+Hand a `Mem0MemoryStore` to a `MemoryManager`, and the agent gets automatic recall and memory writes:
+
+```python
+import os
+from strands import Agent
+from strands.memory import MemoryManager
+from mem0_strands import Mem0MemoryStore
+
+os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
+
+# extraction=True routes conversation turns to Mem0's server-side extraction.
+store = Mem0MemoryStore(user_id="alex", extraction=True)
+agent = Agent(memory_manager=MemoryManager(stores=[store]))
+
+agent("Remember I use Neovim and deploy on Fridays.")  # writes memory
+print(agent("What editor do I use?"))                   # recalls it, injected automatically
+```
+
+Scope memories with any of `user_id`, `agent_id`, `run_id`, or `app_id` (`app_id` is platform-only). Pass `max_search_results` to bound how many memories are injected per turn.
+
+## Self-hosted Mem0 (OSS)
+
+To run against self-hosted Mem0 instead of the platform, pass a `config` dict:
+
+```python
+store = Mem0MemoryStore(
+    user_id="alex",
+    extraction=True,
+    config={
+        "vector_store": {"provider": "qdrant", "config": {"host": "localhost", "port": 6333}},
+    },
+)
+```
+
+## Explicit memory tool
+
+If you want the model to call memory explicitly instead of (or alongside) the automatic store, use the `mem0_memory` tool from `strands-agents-tools`. A store and the tool can share the same Mem0 backend and namespace.
+
+## Learn more
+
+- [mem0-strands on GitHub](https://github.com/mem0ai/mem0/tree/main/integrations/mem0-strands)
+- [Strands Agents documentation](https://strandsagents.com)
