@@ -26,6 +26,8 @@ from datetime import timezone, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
+import telemetry
+
 
 DEFAULT_API_URL = "https://api.mem0.ai"
 PLUGIN_VERSION = "0.3.0"
@@ -303,6 +305,16 @@ def cache_plugin_api_key() -> bool:
         except FileNotFoundError:
             pass
     return True
+
+
+def detached_process_kwargs(platform: str | None = None) -> dict:
+    """Keep a spawned worker alive after Claude Code exits, on POSIX and Windows."""
+    if (platform or sys.platform) == "win32":
+        return {
+            "creationflags": subprocess.DETACHED_PROCESS
+            | subprocess.CREATE_NEW_PROCESS_GROUP
+        }
+    return {"start_new_session": True}
 
 
 def _plugin_option(name: str, fallback: str = "") -> str:
@@ -1311,6 +1323,15 @@ def record_session_start(store: EvidenceStore, hook_input: dict[str, Any]) -> No
             "head_sha": repo.head_sha,
         },
     )
+    telemetry.record(
+        "session_start",
+        repo=repo,
+        session_id=session_id,
+        trigger=bounded(str(hook_input.get("source", "startup")), 60),
+        model=bounded(hook_input.get("model", ""), 200),
+        api_key_configured=bool(api_key()),
+        is_git_repo=not repo.identity.startswith("local:"),
+    )
 
 
 def record_user_prompt(
@@ -1468,6 +1489,14 @@ def record_sidekick_start(
             "worktree_root": bounded(repo.root, 2000),
         },
     )
+    telemetry.record(
+        "sidekick",
+        repo=repo,
+        session_id=session_id,
+        phase="start",
+        first_start=first_start,
+        context_chars=len(context) if first_start else 0,
+    )
     return context if first_start else ""
 
 
@@ -1498,6 +1527,14 @@ def record_sidekick_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> No
             "transcript_path": transcript_path,
             "final_message": final_message,
         },
+    )
+    telemetry.record(
+        "sidekick",
+        repo=repo,
+        session_id=session_id,
+        phase="stop",
+        has_transcript=bool(transcript_path),
+        message_chars=len(final_message),
     )
 
 
@@ -1925,11 +1962,32 @@ def _wait_for_event(api_url: str, key: str, event_id: str) -> tuple[str, int, in
     return "TIMEOUT", response_chars, 0
 
 
+def _record_flush(
+    repo: RepoContext,
+    session_id: str,
+    reason: str,
+    status: str,
+    elapsed: float,
+    **extra: Any,
+) -> None:
+    telemetry.record(
+        "flush",
+        repo=repo,
+        session_id=session_id,
+        reason=reason,
+        status=status,
+        success=status in {"semantic-succeeded", "nothing-to-flush"},
+        duration_ms=round(elapsed, 2),
+        **extra,
+    )
+
+
 def flush_session(
     store: EvidenceStore, hook_input: dict[str, Any], reason: str
 ) -> dict[str, Any]:
     key = api_key()
     if not key:
+        telemetry.record("flush", reason=reason, status="local-only", success=False)
         return {"status": "local-only", "reason": "no-api-key"}
 
     session_id = _session_id(hook_input)
@@ -1991,6 +2049,15 @@ def flush_session(
                     item_count=existing_items,
                     response_chars=existing_resp,
                 )
+                _record_flush(
+                    repo,
+                    session_id,
+                    reason,
+                    "semantic-succeeded",
+                    elapsed,
+                    memory_count=existing_items,
+                    resumed=True,
+                )
                 effective_reason = str(
                     (store.flush_record(packet_id) or {}).get("reason") or reason
                 )
@@ -2026,6 +2093,15 @@ def flush_session(
                     False,
                     response_chars=existing_resp,
                     error=error,
+                )
+                _record_flush(
+                    repo,
+                    session_id,
+                    reason,
+                    "semantic-timeout",
+                    elapsed,
+                    resumed=True,
+                    error_kind="timeout",
                 )
                 return {
                     "status": "semantic-timeout",
@@ -2087,6 +2163,16 @@ def flush_session(
                 response_chars=semantic_resp + event_resp,
                 error=error,
             )
+            _record_flush(
+                repo,
+                session_id,
+                reason,
+                f"semantic-{semantic_status.lower()}",
+                elapsed,
+                memory_count=semantic_items,
+                batch_count=len(message_batches),
+                error_kind=telemetry.error_kind(error),
+            )
             return {
                 "status": f"semantic-{semantic_status.lower()}",
                 "packet_id": packet_id,
@@ -2111,6 +2197,16 @@ def flush_session(
             item_count=semantic_items,
             request_chars=semantic_req,
             response_chars=semantic_resp + event_resp,
+        )
+        _record_flush(
+            repo,
+            session_id,
+            reason,
+            "semantic-succeeded",
+            elapsed,
+            memory_count=semantic_items,
+            batch_count=len(message_batches),
+            request_chars=semantic_req,
         )
         effective_reason = str(
             (store.flush_record(packet_id) or {}).get("reason") or reason
@@ -2139,6 +2235,14 @@ def flush_session(
         error = bounded(str(exc), 1000)
         store.update_flush(packet_id, status="error", error=error)
         store.operation(repo, session_id, "flush", elapsed, False, error=error)
+        _record_flush(
+            repo,
+            session_id,
+            reason,
+            "error",
+            elapsed,
+            error_kind=telemetry.error_kind(exc),
+        )
         return {"status": "error", "packet_id": packet_id, "error": error}
 
 
@@ -2245,6 +2349,19 @@ def search_memories(
                 request_chars=request_chars,
                 response_chars=response_chars,
             )
+        telemetry.record(
+            "search",
+            repo=repo,
+            session_id=session_id,
+            trigger=operation,
+            success=True,
+            duration_ms=round(elapsed, 2),
+            matched_count=len(memories),
+            returned_count=len(returned_memories),
+            already_shown_count=already_shown_count,
+            top_k=result_limit,
+            has_category=bool(category),
+        )
         return MemorySearchResult(
             succeeded=True,
             matched_count=len(memories),
@@ -2255,6 +2372,17 @@ def search_memories(
         elapsed = (time.perf_counter() - started) * 1000
         if track_session:
             store.operation(repo, session_id, operation, elapsed, False, error=str(exc))
+        telemetry.record(
+            "search",
+            repo=repo,
+            session_id=session_id,
+            trigger=operation,
+            success=False,
+            duration_ms=round(elapsed, 2),
+            top_k=result_limit,
+            has_category=bool(category),
+            error_kind=telemetry.error_kind(exc),
+        )
         return MemorySearchResult(False, 0, 0, [])
 
 
@@ -2354,6 +2482,7 @@ def forget_remote_repo(repo: RepoContext) -> dict[str, Any]:
     """Delete only this installation user's memories for the current repository."""
     key = api_key()
     if not key:
+        telemetry.record("forget", repo=repo, success=False, error_kind="no-api-key")
         return {"status": "error", "error": "Mem0 API key is not configured"}
     query = urllib.parse.urlencode({"user_id": user_id(), "app_id": repo.app_id})
     url = (
@@ -2370,8 +2499,12 @@ def forget_remote_repo(repo: RepoContext) -> dict[str, Any]:
         with urllib.request.urlopen(request, timeout=15) as response:
             raw = response.read()
         parsed = json.loads(raw or b"{}")
+        telemetry.record("forget", repo=repo, success=True)
         return {"status": "requested", "response": parsed}
     except Exception as exc:
+        telemetry.record(
+            "forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc)
+        )
         return {"status": "error", "error": bounded(str(exc), 1000)}
 
 

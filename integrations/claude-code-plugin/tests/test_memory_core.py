@@ -2272,6 +2272,7 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
     assert search.call_args.kwargs == {
         "top_k": 5,
         "category": "project_knowledge",
+        "operation": "mcp-search",
     }
     assert rendered == (
         "1. The parser entrypoint is src/parser.py. "

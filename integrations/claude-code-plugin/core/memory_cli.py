@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 
+import telemetry
 from memory_core import (
     EvidenceStore,
     api_key,
@@ -80,6 +81,7 @@ def main() -> int:
     store = EvidenceStore()
     try:
         repo = resolve_repo(os.getcwd())
+        telemetry.record("control", repo=repo, action=args.command)
         if args.command == "status":
             result = {
                 **store.status(repo.identity),
@@ -129,6 +131,7 @@ def main() -> int:
                 return 1
     finally:
         store.close()
+        telemetry.spawn_flush()
     return 0
 
 

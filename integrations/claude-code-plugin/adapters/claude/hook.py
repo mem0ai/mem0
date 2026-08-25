@@ -15,12 +15,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core"))
 
+import telemetry
 from memory_core import (
     EvidenceStore,
     api_key,
     cache_plugin_api_key,
     checkpoint_session,
     data_dir,
+    detached_process_kwargs,
     format_context,
     record_session_start,
     record_sidekick_start,
@@ -71,22 +73,21 @@ def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
         result.memories,
         "Mem0 found these relevant memories from earlier work in this repository:",
     )
+    telemetry.record(
+        "context_injected",
+        repo=repo,
+        session_id=session_id,
+        trigger="first-prompt",
+        memory_count=len(result.memories),
+        context_chars=len(context),
+        prompt_chars=len(prompt),
+    )
     return {
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": context,
         },
     }
-
-
-def detached_process_kwargs(platform: str | None = None) -> dict:
-    """Keep the flush worker alive after Claude Code exits, on POSIX and Windows."""
-    if (platform or sys.platform) == "win32":
-        return {
-            "creationflags": subprocess.DETACHED_PROCESS
-            | subprocess.CREATE_NEW_PROCESS_GROUP
-        }
-    return {"start_new_session": True}
 
 
 def _launch_handoff(handoff_path: Path) -> bool:
@@ -227,10 +228,18 @@ def main() -> int:
     store = EvidenceStore()
     try:
         if store.is_paused():
+            if args.action == "session-start":
+                telemetry.record("session_start", paused=True)
+                telemetry.spawn_flush()
             return 0
         if args.action == "session-start":
-            recover_pending_handoffs()
+            if telemetry.is_first_run():
+                telemetry.record("install")
+            recovered = recover_pending_handoffs()
             record_session_start(store, hook_input)
+            if recovered:
+                telemetry.record("handoff_recovered", count=recovered)
+            telemetry.spawn_flush()
         elif args.action == "user-prompt":
             output = first_prompt_memory_output(store, hook_input)
             if output:

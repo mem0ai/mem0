@@ -13,6 +13,7 @@ import sys
 import time
 from pathlib import Path
 
+import telemetry
 from memory_core import EvidenceStore, checkpoint_session, record_stop
 
 
@@ -54,6 +55,7 @@ def main() -> int:
             store.close()
         return 0
     finally:
+        telemetry.flush()
         if completed:
             try:
                 handoff_path.unlink()

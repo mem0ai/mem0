@@ -8,6 +8,7 @@ import os
 import sys
 from typing import Any
 
+import telemetry
 from memory_core import (
     CODING_MEMORY_CATEGORY_NAMES,
     format_search_result,
@@ -90,6 +91,7 @@ def call_search_memories(arguments: Any) -> str:
         query,
         top_k=top_k,
         category=category,
+        operation="mcp-search",
     )
     return format_search_result(result)
 
@@ -182,6 +184,7 @@ def main() -> int:
         if response is not None:
             sys.stdout.write(json.dumps(response, separators=(",", ":")) + "\n")
             sys.stdout.flush()
+    telemetry.spawn_flush()
     return 0
 
 
