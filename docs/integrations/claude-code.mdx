@@ -28,7 +28,7 @@ claude plugin install mem0@mem0-plugins --scope user --config api_key="$MEM0_API
 unset MEM0_API_KEY
 ```
 
-Restart Claude Code after installing — or run `/reload-plugins` in an existing session to refresh plugins without restarting — then open a Git repository and work normally.
+Restart Claude Code after installing (or run `/reload-plugins` in an existing session to refresh plugins without restarting), then open a Git repository and work normally.
 
 ### Managing the plugin
 
@@ -40,19 +40,19 @@ claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the
 
 ## How memory works
 
-1. During a session, hooks save small details on your computer — user messages, Claude's final answers, changed file paths, and short test/build results. No hook calls a model or blocks the session.
+1. During a session, hooks save small details on your computer: user messages, Claude's final answers, changed file paths, and short test/build results. No hook calls a model or blocks the session.
 2. After every five completed exchanges, a detached background worker sends that part of the session to Mem0. A large exchange is sent sooner, and compacting or ending the session sends anything that remains. The worker survives Claude Code exiting. Test and build command details stay on your computer unless Claude mentions a conclusion in its visible response.
 3. Mem0 turns the submitted conversation and changed paths into memories that may help with later work in the same repository.
 4. Before Claude's first response in a later session, the plugin automatically searches with your prompt and supplies up to five memories, without calling another model to write the query.
 
-After that first automatic search, Claude can call the `search_memories` tool with one specific question, and you can run the same search yourself with `/mem0:search`. Those explicit searches return at most three memories by default (configurable up to 20) and do not repeat a memory the automatic search already supplied in that session. All returned memory context is capped at 4,000 characters, and results are not reranked or filtered by another score cutoff.
+After that first automatic search, Claude can call the `search_memories` tool with one specific question, and you can run the same search yourself with `/mem0:search`. Those explicit searches return at most three memories by default (configurable up to 20). Each one runs fresh, so asking the same question again can return the same memory; only the automatic first search avoids repeating a memory it already supplied in that session. All returned memory context is capped at 4,000 characters, and results are not reranked or filtered by another score cutoff.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>` and `--category <name>`. |
-| `/mem0:status` | Show whether Mem0 memory is working in this repository — configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
+| `/mem0:status` | Show whether Mem0 memory is working in this repository: configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
 | `/mem0:forget` | Delete the Mem0 memories stored for this repository and user, after confirming with you. |
 | `/mem0:pause` | Pause Mem0 memory capture on this machine. |
 | `/mem0:resume` | Resume Mem0 memory capture after it was paused with `/mem0:pause`. |
@@ -62,7 +62,7 @@ After that first automatic search, Claude can call the `search_memories` tool wi
 
 ## Sonnet sidekick agent
 
-`mem0:sidekick` is a Sonnet coding agent with normal file, search, shell, editing, testing, and web tools. Claude Code runs it in a separate Git worktree with its own conversation, so it can investigate, implement, test, debug, or review something instead of the main session doing the same work — useful for reducing cost when the main agent doesn't need to repeat the work itself.
+`mem0:sidekick` is a Sonnet coding agent with normal file, search, shell, editing, testing, and web tools. Claude Code runs it in a separate Git worktree with its own conversation, so it can investigate, implement, test, debug, or review something instead of the main session doing the same work, which reduces cost when the main agent doesn't need to repeat the work itself.
 
 ```text
 Ask Mem0's sidekick to investigate and implement this in its separate worktree.
@@ -77,12 +77,12 @@ The main agent reviews the sidekick's result, and corrections go back to the sam
 | --- | --- | --- |
 | `api_key` | required | Mem0 Platform API key used to create and search memories. |
 | `user_id` | your local account name | Optional stable ID shared across machines, matching the earlier Mem0 Claude Code plugin's scoping. |
-| `top_k` | `3` | Maximum memories returned when Claude runs another search after the automatic first search (1–20). |
-| `max_context_chars` | `4000` | Maximum memory characters returned for one search (1,000–10,000). |
+| `top_k` | `3` | Maximum memories returned when Claude runs another search after the automatic first search (1 to 20). |
+| `max_context_chars` | `4000` | Maximum memory characters returned for one search (1,000 to 10,000). |
 
 ## Upgrading from 0.2.x
 
-This is a breaking major update to the Claude Code plugin. It replaces the 0.2.x architecture and command set, but your existing memories and configuration are not lost:
+This is a breaking major update to the Claude Code plugin. It replaces the 0.2.x architecture and command set. Your memories carry over untouched; most local configuration does not:
 
 - **Memories carry over automatically.** The plugin keeps the same user and repository scoping the 0.2.x plugin used, including `~/.mem0/project_map.json`, so existing memories for a repository stay available after upgrading.
 - **Environment variables keep working.** `MEM0_API_KEY`, `MEM0_USER_ID`, and `MEM0_PROJECT_ID` are still honored.
