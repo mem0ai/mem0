@@ -72,6 +72,21 @@ class TestPGVector(unittest.TestCase):
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_db_schema_qualifies_collection(self, mock_psycopg_pool):
+        pool = MagicMock()
+        mock_psycopg_pool.return_value = pool
+
+        pgvector = PGVector(
+            dbname="test_db", collection_name="memories", embedding_model_dims=3,
+            user="user", password="pass", host="localhost", port=5432,
+            diskann=False, hnsw=False, db_schema="app_data",
+        )
+
+        self.assertEqual(pgvector.db_schema, "app_data")
+        self.assertEqual(pgvector._col().as_string(None), '"app_data"."memories"')
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
     def test_init_does_not_block_on_unreachable_host_psycopg3(self, mock_psycopg_pool):
         """Regression test for issue #3950.
 
