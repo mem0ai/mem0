@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0-strands"
-version = "0.1.0"
+version = "0.2.0"
 description = "Persistent long-term memory for Strands agents, backed by Mem0."
 readme = "README.md"
 requires-python = ">=3.10"

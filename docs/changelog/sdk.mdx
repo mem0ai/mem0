@@ -2841,6 +2841,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Strands">
 
+<Update label="2026-08-25" description="mem0-strands v0.2.0">
+
+**New Features:**
+- **Usage telemetry:** Anonymous usage events (`strands.store.init`, `strands.store.search`, `strands.store.add`, `strands.store.add_messages`) ride the Mem0 SDK's existing PostHog client, unsampled, with no new dependency. Events carry only counts, durations, booleans, and coarse failure kinds: never queries, memory text, message content, entity ids, metadata, or API keys. Opt out with `MEM0_TELEMETRY=false` ([#7110](https://github.com/mem0ai/mem0/pull/7110))
+
+</Update>
+
 <Update label="2026-08-24" description="mem0-strands v0.1.0">
 
 **Initial release** of [`mem0-strands`](https://pypi.org/project/mem0-strands/), a native `MemoryStore` that plugs Mem0 into the [Strands Agents](https://strandsagents.com/) `MemoryManager` ([#7021](https://github.com/mem0ai/mem0/pull/7021))
@@ -2862,6 +2869,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="DeepSeek Harness">
+
+<Update label="2026-08-25" description="deepseek-plugin v0.2.0">
+
+**New Features:**
+- **Usage telemetry:** Anonymous usage events (`deepseek.plugin.mounted`, `deepseek.tool.search_memory`, `deepseek.tool.add_memory`) are batched to PostHog over native fetch and flushed in the background. Events carry only tool names, durations, counts, and coarse failure kinds: never queries, memory text, filters, or API keys. Opt out with `MEM0_TELEMETRY=false` ([#7110](https://github.com/mem0ai/mem0/pull/7110))
+
+</Update>
 
 <Update label="2026-08-24" description="deepseek-plugin v0.1.0">
 
