@@ -16,6 +16,7 @@ import { MemoryClient } from "mem0ai";
 import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
+import { captureEvent, errorKind } from "./telemetry.ts";
 
 export const name = "mem0";
 export const inject = ["tools"];
@@ -81,6 +82,8 @@ export function apply(ctx: Context, config: Config): void {
     ...(config.host ? { host: config.host } : {}),
   });
 
+  captureEvent("deepseek.plugin.mounted", { has_host: Boolean(config.host) }, client);
+
   // Recall. The platform rejects top-level entity params on search, so scope
   // goes inside `filters` (unlike add below, which takes them top-level).
   ctx.tools.register(
@@ -99,11 +102,36 @@ export function apply(ctx: Context, config: Config): void {
       output: textOutput,
       async execute({ query, limit, userId: u, agentId, runId }) {
         const filters = resolveSearchFilters({ userId: u, agentId, runId }, userId);
+        const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
+        const started = Date.now();
         try {
-          const topK = limit && limit > 0 ? limit : DEFAULT_SEARCH_LIMIT;
           const { results } = await client.search(query, { filters, topK });
+          captureEvent(
+            "deepseek.tool.search_memory",
+            {
+              success: true,
+              duration_ms: Date.now() - started,
+              top_k: topK,
+              result_count: results?.length ?? 0,
+              query_chars: query.length,
+              scope_overridden: Boolean(u && u !== userId),
+              has_agent_id: Boolean(agentId),
+              has_run_id: Boolean(runId),
+            },
+            client,
+          );
           return truncateOutput(formatMemoryList(results ?? []));
         } catch (err) {
+          captureEvent(
+            "deepseek.tool.search_memory",
+            {
+              success: false,
+              duration_ms: Date.now() - started,
+              top_k: topK,
+              error_kind: errorKind(err),
+            },
+            client,
+          );
           return `search_memory failed: ${err instanceof Error ? err.message : String(err)}`;
         }
       },
@@ -123,13 +151,37 @@ export function apply(ctx: Context, config: Config): void {
       output: textOutput,
       async execute({ text, userId: u, agentId, runId }) {
         const addParams = resolveAddParams({ userId: u, agentId, runId }, userId);
+        const started = Date.now();
         try {
           const result = await client.add([{ role: "user", content: text }], {
             ...addParams,
             source: SOURCE,
           });
+          captureEvent(
+            "deepseek.tool.add_memory",
+            {
+              success: true,
+              duration_ms: Date.now() - started,
+              text_chars: text.length,
+              memory_count: Array.isArray(result) ? result.length : 0,
+              scope_overridden: Boolean(u && u !== userId),
+              has_agent_id: Boolean(agentId),
+              has_run_id: Boolean(runId),
+            },
+            client,
+          );
           return truncateOutput(formatAddResult(result));
         } catch (err) {
+          captureEvent(
+            "deepseek.tool.add_memory",
+            {
+              success: false,
+              duration_ms: Date.now() - started,
+              text_chars: text.length,
+              error_kind: errorKind(err),
+            },
+            client,
+          );
           return `add_memory failed: ${err instanceof Error ? err.message : String(err)}`;
         }
       },
