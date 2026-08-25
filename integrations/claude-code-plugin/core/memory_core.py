@@ -16,6 +16,7 @@ import os
 import re
 import sqlite3
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -2407,8 +2408,8 @@ def doctor(cwd: str | None = None) -> dict[str, Any]:
     directory.mkdir(parents=True, exist_ok=True)
     checks: dict[str, dict[str, Any]] = {
         "python": {
-            "ok": tuple(os.sys.version_info[:2]) >= (3, 10),
-            "detail": f"{os.sys.version_info.major}.{os.sys.version_info.minor}",
+            "ok": tuple(sys.version_info[:2]) >= (3, 10),
+            "detail": f"{sys.version_info.major}.{sys.version_info.minor}",
         },
         "data_directory": {
             "ok": os.access(directory, os.W_OK),

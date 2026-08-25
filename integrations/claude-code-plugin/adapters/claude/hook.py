@@ -32,6 +32,11 @@ from memory_core import (
 )
 
 
+STALE_RUNNING_SECONDS = 300
+PENDING_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+PENDING_LAUNCH_LIMIT = 5
+
+
 def read_hook_input() -> dict:
     try:
         value = json.load(sys.stdin)
@@ -74,6 +79,16 @@ def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
     }
 
 
+def detached_process_kwargs(platform: str | None = None) -> dict:
+    """Keep the flush worker alive after Claude Code exits, on POSIX and Windows."""
+    if (platform or sys.platform) == "win32":
+        return {
+            "creationflags": subprocess.DETACHED_PROCESS
+            | subprocess.CREATE_NEW_PROCESS_GROUP
+        }
+    return {"start_new_session": True}
+
+
 def _launch_handoff(handoff_path: Path) -> bool:
     running_path = handoff_path.with_suffix(".running")
     try:
@@ -89,8 +104,8 @@ def _launch_handoff(handoff_path: Path) -> bool:
             stdin=subprocess.DEVNULL,
             stdout=log_handle,
             stderr=log_handle,
-            start_new_session=True,
             close_fds=True,
+            **detached_process_kwargs(),
         )
     finally:
         log_handle.close()
@@ -103,12 +118,23 @@ def recover_pending_handoffs() -> int:
     now = time.time()
     for running in pending_dir.glob("*.running"):
         try:
-            if now - running.stat().st_mtime > 300:
+            if now - running.stat().st_mtime > STALE_RUNNING_SECONDS:
                 running.replace(running.with_suffix(".json"))
         except OSError:
             continue
-    launched = 0
+    recoverable = []
     for handoff in pending_dir.glob("*.json"):
+        try:
+            age = now - handoff.stat().st_mtime
+        except OSError:
+            continue
+        if age > PENDING_EXPIRY_SECONDS:
+            handoff.unlink(missing_ok=True)
+            continue
+        recoverable.append((age, handoff))
+    recoverable.sort(key=lambda item: item[0], reverse=True)
+    launched = 0
+    for _, handoff in recoverable[:PENDING_LAUNCH_LIMIT]:
         launched += int(_launch_handoff(handoff))
     return launched
 

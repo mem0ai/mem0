@@ -86,16 +86,16 @@ claude --plugin-dir .
 
 ## Upgrading from 0.2.x
 
-This is a breaking major update to the Claude Code plugin. It replaces the
-0.2.x architecture and command set, but nothing about your existing memories
-or configuration is lost:
+This is a breaking major update to the Claude Code plugin. Your memories carry
+over untouched; your local tuning does not.
 
 - **Memories carry over automatically.** Mem0 keeps the same user and
   repository scoping the 0.2.x plugin used, including
   `~/.mem0/project_map.json`, so existing memories for a repository stay
   available after upgrading.
-- **Environment variables keep working.** `MEM0_API_KEY`, `MEM0_USER_ID`, and
-  `MEM0_PROJECT_ID` are still honored.
+- **Old memories are still searchable, but not by category.** Normal search
+  finds memories created before the upgrade, but the new category filters do
+  not find them.
 - **Commands are replaced.** The 0.2.x command set is replaced by
   `/mem0:search`, `/mem0:status`, `/mem0:forget`, `/mem0:pause`,
   `/mem0:resume`, and `/mem0:remember`.
@@ -104,11 +104,27 @@ or configuration is lost:
   `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`,
   `list_entities`) are replaced by the single, read-only `search_memories`
   tool described below.
-- **Local config files are no longer read.** `~/.mem0/settings.json` and
-  per-project `mem0.md` files are ignored.
-- **Old memories are still searchable, but not by category.** Normal search
-  finds memories created before the upgrade, but the new category filters do
-  not find them.
+
+### What stops working
+
+The 0.2.x config surface is gone, and nothing warns you about it: the old
+settings are simply not read any more. What replaces them is much smaller.
+Four options are set at install time with `--config` (`api_key`, `user_id`,
+`top_k`, `max_context_chars`); the rest of the behavior is not tunable.
+
+- **`~/.mem0/settings.json` is ignored.** Every key it held stops applying:
+  `auto_save`, `auto_search`, `search_limit`, `confidence_threshold`,
+  `retention_session_days`, `global_search`, `debug`.
+- **Per-project `mem0.md` files are ignored,** including their `## Instructions`,
+  `## Agent Instructions`, and `## Retention` sections.
+- **Most `MEM0_*` environment variables are ignored.** Only `MEM0_API_KEY`,
+  `MEM0_USER_ID`, `MEM0_RESOLVED_USER_ID`, and `MEM0_PROJECT_ID` are still
+  read. The 0.2.x plugin read 28 others, including `MEM0_AUTO_SAVE`,
+  `MEM0_AUTO_SEARCH`, `MEM0_SEARCH_LIMIT`, `MEM0_CONFIDENCE_THRESHOLD`,
+  `MEM0_RETENTION_SESSION_DAYS`, `MEM0_GLOBAL_SEARCH`, `MEM0_DEBUG`,
+  `MEM0_TELEMETRY`, `MEM0_DREAM`, `MEM0_PREFETCH`, `MEM0_RERANK`,
+  `MEM0_PLATFORM`, and `MEM0_APP_ID`. This plugin reads its own
+  `MEM0_CODE_*` variables instead; run `/mem0:status` to see what is active.
 
 Update with the same commands used for any other update:
 

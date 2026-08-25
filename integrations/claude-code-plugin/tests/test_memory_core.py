@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -1118,6 +1120,84 @@ def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     worker_path = Path(launched_args[1])
     assert worker_path == CORE / "flush_worker.py"
     assert worker_path.is_file()
+
+
+def test_flush_worker_detaches_on_windows_as_well_as_posix(monkeypatch):
+    """start_new_session is a POSIX no-op on Windows, where Claude Code also ships.
+
+    Without a creationflags fallback the worker stays attached to Claude's
+    console on Windows and background extraction can die with the session.
+    """
+    import hook
+
+    assert hook.detached_process_kwargs("darwin") == {"start_new_session": True}
+    assert hook.detached_process_kwargs("linux") == {"start_new_session": True}
+
+    monkeypatch.setattr(subprocess, "DETACHED_PROCESS", 0x00000008, raising=False)
+    monkeypatch.setattr(
+        subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200, raising=False
+    )
+    windows_kwargs = hook.detached_process_kwargs("win32")
+    assert windows_kwargs == {"creationflags": 0x00000208}
+    assert "start_new_session" not in windows_kwargs
+
+
+def test_launch_handoff_always_requests_detachment(isolated_env):
+    import hook
+
+    pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    handoff_path = pending_dir / "detach-handoff.json"
+    handoff_path.write_text("{}", encoding="utf-8")
+
+    with patch.object(hook.subprocess, "Popen") as popen:
+        assert hook._launch_handoff(handoff_path) is True
+
+    assert popen.call_args.kwargs["start_new_session"] is True
+
+
+def test_pending_recovery_is_capped_and_leaves_the_rest_for_next_session(
+    isolated_env,
+):
+    """One worker per packet at once can pile up after a long API outage.
+
+    Each worker can block for MEM0_CODE_EXTRACTION_WAIT_SECONDS, so an
+    uncapped launch is a thundering herd at session start.
+    """
+    import hook
+
+    pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    for number in range(hook.PENDING_LAUNCH_LIMIT + 3):
+        (pending_dir / f"packet-{number}.json").write_text("{}", encoding="utf-8")
+
+    with patch.object(hook.subprocess, "Popen"):
+        launched = hook.recover_pending_handoffs()
+
+    assert launched == hook.PENDING_LAUNCH_LIMIT
+    assert len(list(pending_dir.glob("*.running"))) == hook.PENDING_LAUNCH_LIMIT
+    assert len(list(pending_dir.glob("*.json"))) == 3
+
+
+def test_pending_recovery_drops_packets_past_the_expiry_window(isolated_env):
+    import hook
+
+    pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    expired = pending_dir / "expired.json"
+    expired.write_text("{}", encoding="utf-8")
+    fresh = pending_dir / "fresh.json"
+    fresh.write_text("{}", encoding="utf-8")
+
+    stale_time = time.time() - hook.PENDING_EXPIRY_SECONDS - 60
+    os.utime(expired, (stale_time, stale_time))
+
+    with patch.object(hook.subprocess, "Popen"):
+        launched = hook.recover_pending_handoffs()
+
+    assert launched == 1
+    assert not expired.exists()
+    assert fresh.with_suffix(".running").exists()
 
 
 def test_session_end_promotes_an_inflight_periodic_checkpoint(isolated_env):
@@ -2903,6 +2983,15 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
         == 1
     )
     connection.close()
+
+
+def test_contract_doc_names_only_tests_that_exist():
+    contract = PLUGIN_ROOT / "docs" / "CONTRACT.md"
+    assert contract.exists(), "integrations/AGENTS.md links to docs/CONTRACT.md"
+    named = set(re.findall(r"`(test_\w+)`", contract.read_text(encoding="utf-8")))
+    assert named
+    defined = set(re.findall(r"^def (test_\w+)", Path(__file__).read_text(encoding="utf-8"), re.M))
+    assert named <= defined, sorted(named - defined)
 
 
 def test_version_is_single_sourced():

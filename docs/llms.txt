@@ -403,11 +403,17 @@ Source: https://github.com/mem0ai/mem0/tree/main/skills
 
 Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load only the one that matches the user's stack.
 
+### Claude Code Plugin
+
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
+
+The `integrations/claude-code-plugin/` directory is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+
 ### Editor Plugin (shared glue)
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
 
-The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
+The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Cursor, Codex, Kimi, Antigravity, and OpenCode. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`. Claude Code moved to `integrations/claude-code-plugin/` in v0.3.0; do not run both at the same time.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
