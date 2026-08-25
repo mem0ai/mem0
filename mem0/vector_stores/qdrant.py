@@ -262,7 +262,7 @@ class Qdrant(VectorStoreBase):
             for v in range_kwargs.values()
         )
 
-    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
+    def _build_field_condition(self, key: str, value) -> Optional[models.Condition]:
         """
         Build a single FieldCondition from a key-value filter pair.
 
@@ -274,14 +274,20 @@ class Qdrant(VectorStoreBase):
             value: A scalar for simple equality, or a dict with one operator key.
 
         Returns:
-            Optional[FieldCondition]: The Qdrant field condition, or None if the
+            Optional[models.Condition]: The Qdrant field condition, or None if the
             value is the wildcard '*' (match any / field exists — skip filter).
         """
         if not isinstance(value, dict):
             if value == "*":
                 # Wildcard: match any value. Qdrant has no direct "field exists"
-                # condition via FieldCondition, so we skip this filter (match all).
-                return None
+                # condition via FieldCondition, so we use a Filter to ensure 
+                # the field is neither empty nor null.
+                return Filter(
+                    must_not=[
+                        models.IsEmptyCondition(is_empty=models.PayloadField(key=key)),
+                        models.IsNullCondition(is_null=models.PayloadField(key=key))
+                    ]
+                )
             if isinstance(value, list):
                 # List shorthand: {"field": ["a", "b"]} treated as in-operator.
                 return FieldCondition(key=key, match=MatchAny(any=value))
@@ -604,3 +610,4 @@ class Qdrant(VectorStoreBase):
                 collection_name=self.collection_name,
                 points_selector=models.FilterSelector(filter=models.Filter(must=[])),
             )
+
