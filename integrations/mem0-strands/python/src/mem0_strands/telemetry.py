@@ -46,6 +46,12 @@ def error_kind(exc: BaseException) -> str:
     return type(exc).__name__
 
 
+def _distinct_id(client: Mem0ServiceClient) -> str | None:
+    """The account email to attribute events to, or None to fall back to the SDK's anonymous id."""
+    email = getattr(client.mem0, "user_email", None)
+    return email if isinstance(email, str) and email else None
+
+
 def record(event: str, client: Mem0ServiceClient, **properties: Any) -> None:
     """Send one strands.* usage event. Never raises."""
     try:
@@ -58,7 +64,7 @@ def record(event: str, client: Mem0ServiceClient, **properties: Any) -> None:
                 "backend": "platform" if client.is_platform else "oss",
                 **properties,
             },
-            getattr(client.mem0, "user_email", None),
+            _distinct_id(client),
         )
     except Exception:
         pass
