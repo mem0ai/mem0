@@ -540,6 +540,20 @@
                     ]
                   },
                   {
+                    "group": "Dream",
+                    "icon": "sparkles",
+                    "pages": [
+                      "api-reference/dream/get-dream-config",
+                      "api-reference/dream/update-dream-config",
+                      "api-reference/dream/get-dream-stats",
+                      "api-reference/dream/get-dream-activity",
+                      "api-reference/dream/get-dream-runs",
+                      "api-reference/dream/get-dream-run-memories",
+                      "api-reference/dream/get-dream-memory-sources",
+                      "api-reference/dream/dream-preview"
+                    ]
+                  },
+                  {
                     "group": "Webhooks",
                     "icon": "webhook",
                     "pages": [
