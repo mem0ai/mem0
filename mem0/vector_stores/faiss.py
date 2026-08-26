@@ -220,9 +220,30 @@ class FAISS(VectorStoreBase):
             logger.error(f"Security error loading FAISS docstore: {e}")
             raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
-            logger.warning(f"Failed to load FAISS index: {e}")
+            # Recover into a consistent state: quarantine whatever is on disk and
+            # start a fresh, empty collection. Keeping the loaded index while
+            # clearing the mapping desynchronizes index positions from ids (new
+            # inserts get numbered from 0 while FAISS appends at ntotal), and
+            # leaving self.index as None makes the store permanently unusable.
+            logger.error(
+                f"Failed to load FAISS index: {e}. "
+                f"Persisted data appears corrupted; backing it up and starting a fresh collection."
+            )
+            self._quarantine_corrupt_files(index_path)
             self.docstore = {}
             self.index_to_id = {}
+            self.create_col(self.collection_name)
+
+    def _quarantine_corrupt_files(self, index_path: str):
+        """Rename corrupted persistence files so they are kept for inspection
+        instead of being overwritten by the next _save()."""
+        json_path = f"{self.path}/{self.collection_name}.json"
+        for file_path in (index_path, json_path):
+            try:
+                if os.path.exists(file_path):
+                    os.replace(file_path, f"{file_path}.corrupt")
+            except OSError as e:
+                logger.warning(f"Could not back up corrupted file {file_path}: {e}")
 
     def _save(self):
         """Save FAISS index and docstore to disk using JSON format (secure)."""
@@ -234,7 +255,11 @@ class FAISS(VectorStoreBase):
             index_path = f"{self.path}/{self.collection_name}.faiss"
             json_docstore_path = f"{self.path}/{self.collection_name}.json"
 
-            faiss.write_index(self.index, index_path)
+            # Write to temp files and rename so a crash mid-write can never
+            # leave a truncated index or docstore behind (os.replace is atomic).
+            tmp_index_path = f"{index_path}.tmp"
+            faiss.write_index(self.index, tmp_index_path)
+            os.replace(tmp_index_path, index_path)
 
             # Save docstore as JSON (safe format, no code execution risk)
             # JSON keys must be strings, so convert int keys to str
@@ -242,8 +267,10 @@ class FAISS(VectorStoreBase):
                 "docstore": self.docstore,
                 "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
             }
-            with open(json_docstore_path, "w", encoding="utf-8") as f:
+            tmp_json_path = f"{json_docstore_path}.tmp"
+            with open(tmp_json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+            os.replace(tmp_json_path, json_docstore_path)
 
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
