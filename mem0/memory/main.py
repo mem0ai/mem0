@@ -272,26 +272,52 @@ def _propagate_embedding_dims(embedding_model, vector_store_config):
     """Propagate the embedder's resolved dimension to the vector store config.
 
     Only overwrites the vector-store dimension when the user did *not* set it
-    explicitly, so existing working configs are not silently changed.
+    explicitly, so existing working configs are not silently changed. The
+    "did the user set it" test uses pydantic's ``model_fields_set``: a field
+    that appears there was supplied by the user (constructor kwarg or later
+    assignment) and is never overwritten, even when it equals the class
+    default (e.g. a deliberate ``embedding_model_dims=1536``). Fields left at
+    their declared default are safe to align with the embedder's resolved
+    dimension.
 
     Handles stores that use ``embedding_model_dims`` (pgvector, qdrant, …) and
     the databricks variant that uses ``embedding_dimension``.
+
+    Providers that never resolve a dimension at construction time
+    (``azure_openai``, ``aws_bedrock``, ``langchain``) keep
+    ``embedding_dims=None`` and are intentionally skipped: the true output
+    size is only known after an API/model call, so propagating a guess would
+    risk the same mismatch this propagation exists to prevent. The propagation
+    still applies whenever the user supplies ``embedding_dims`` for those
+    providers.
     """
     embedder_dims = getattr(embedding_model.config, "embedding_dims", None)
     if embedder_dims is None:
         return
 
+    # Pydantic configs expose ``model_fields_set``: the authoritative answer
+    # to "did the user set this field". Non-pydantic configs (plain classes,
+    # mocks in tests) fall back to the value heuristic below.
+    explicit = getattr(vector_store_config, "model_fields_set", None)
+    pydantic = isinstance(explicit, (set, frozenset))
+
     for attr in _VS_DIMS_ATTRS:
-        if hasattr(vector_store_config, attr):
+        if not hasattr(vector_store_config, attr):
+            continue
+        if pydantic:
+            if attr in explicit:
+                # User supplied it (constructor kwarg or assignment) — never
+                # overwrite, even when it equals the class default (e.g. a
+                # deliberate ``embedding_model_dims=1536``).
+                continue
+        else:
+            # Non-pydantic fallback: only overwrite when the value is None or
+            # still the shared 1536 default, to avoid stomping a user-set dim.
             current = getattr(vector_store_config, attr)
-            # Skip when the user already set a non-default value.  The default
-            # for every store is 1536, so we treat that as "not user-set".
-            # This avoids overwriting a deliberate configuration with the
-            # embedder's own default, which could silently change a working
-            # setup (e.g. pgvector with 1536-dim vectors).
-            if current is None or current == 1536:
-                setattr(vector_store_config, attr, embedder_dims)
-            break
+            if current is not None and current != 1536:
+                continue
+        setattr(vector_store_config, attr, embedder_dims)
+        break
 
 
 def _safe_deepcopy_config(config):
