@@ -535,6 +535,97 @@ def test_update_allows_empty_vector(azure_ai_search_instance):
     mock_search_client.merge_or_upload_documents.assert_called_once_with(documents=[{"id": "doc1", "vector": []}])
 
 
+def test_insert_with_indexing_result_object(azure_ai_search_instance):
+    """Test insert with IndexingResult-like objects for success and failure."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    class MockIndexingResult:
+        def __init__(self, key, status_code, succeeded, error_message=None):
+            self.key = key
+            self.status_code = status_code
+            self.succeeded = succeeded
+            self.error_message = error_message
+
+    # Test failure with IndexingResult object
+    mock_search_client.upload_documents.return_value = [
+        MockIndexingResult(key="doc1", status_code=500, succeeded=False, error_message="Document upload failed")
+    ]
+
+    vectors = [[0.1, 0.2, 0.3]]
+    payloads = [{"user_id": "user1"}]
+    ids = ["doc1"]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.insert(vectors, payloads, ids)
+
+    assert "Insert failed for document doc1: Document upload failed" in str(exc_info.value)
+
+    # Test success with IndexingResult object
+    mock_search_client.upload_documents.return_value = [
+        MockIndexingResult(key="doc1", status_code=201, succeeded=True)
+    ]
+    res = instance.insert(vectors, payloads, ids)
+    assert len(res) == 1
+
+
+def test_delete_with_indexing_result_object(azure_ai_search_instance):
+    """Test delete with IndexingResult-like objects for success and failure."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    class MockIndexingResult:
+        def __init__(self, key, status_code, succeeded, error_message=None):
+            self.key = key
+            self.status_code = status_code
+            self.succeeded = succeeded
+            self.error_message = error_message
+
+    # Test failure
+    mock_search_client.delete_documents.return_value = [
+        MockIndexingResult(key="doc1", status_code=404, succeeded=False, error_message="Document not found")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.delete("doc1")
+
+    assert "Delete failed for document doc1: Document not found" in str(exc_info.value)
+
+    # Test success
+    mock_search_client.delete_documents.return_value = [
+        MockIndexingResult(key="doc1", status_code=200, succeeded=True)
+    ]
+    res = instance.delete("doc1")
+    assert len(res) == 1
+
+
+def test_update_with_indexing_result_object(azure_ai_search_instance):
+    """Test update with IndexingResult-like objects for success and failure."""
+    instance, mock_search_client, _ = azure_ai_search_instance
+
+    class MockIndexingResult:
+        def __init__(self, key, status_code, succeeded, error_message=None):
+            self.key = key
+            self.status_code = status_code
+            self.succeeded = succeeded
+            self.error_message = error_message
+
+    # Test failure
+    mock_search_client.merge_or_upload_documents.return_value = [
+        MockIndexingResult(key="doc1", status_code=400, succeeded=False, error_message="Update failed")
+    ]
+
+    with pytest.raises(Exception) as exc_info:
+        instance.update("doc1", payload={"key": "val"})
+
+    assert "Update failed for document doc1: Update failed" in str(exc_info.value)
+
+    # Test success
+    mock_search_client.merge_or_upload_documents.return_value = [
+        MockIndexingResult(key="doc1", status_code=200, succeeded=True)
+    ]
+    res = instance.update("doc1", payload={"key": "val"})
+    assert len(res) == 1
+
+
 # --- Tests for search method ---
 
 
