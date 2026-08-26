@@ -51,7 +51,30 @@ def test_embed_with_model_kwargs(mock_sentence_transformer):
 def test_embed_sets_embedding_dims(mock_sentence_transformer):
     config = BaseEmbedderConfig()
 
+    del mock_sentence_transformer.get_embedding_dimension
     mock_sentence_transformer.get_sentence_embedding_dimension.return_value = 384
+    embedder = HuggingFaceEmbedding(config)
+
+    assert embedder.config.embedding_dims == 384
+    mock_sentence_transformer.get_sentence_embedding_dimension.assert_called_once()
+
+
+def test_embed_sets_embedding_dims_with_new_sentence_transformers_api(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    mock_sentence_transformer.get_embedding_dimension.return_value = 384
+
+    embedder = HuggingFaceEmbedding(config)
+
+    assert embedder.config.embedding_dims == 384
+    mock_sentence_transformer.get_embedding_dimension.assert_called_once()
+    mock_sentence_transformer.get_sentence_embedding_dimension.assert_not_called()
+
+
+def test_embed_sets_embedding_dims_with_legacy_sentence_transformers_api(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    del mock_sentence_transformer.get_embedding_dimension
+    mock_sentence_transformer.get_sentence_embedding_dimension.return_value = 384
+
     embedder = HuggingFaceEmbedding(config)
 
     assert embedder.config.embedding_dims == 384

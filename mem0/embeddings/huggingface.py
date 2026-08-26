@@ -26,7 +26,10 @@ class HuggingFaceEmbedding(EmbeddingBase):
 
             self.model = SentenceTransformer(self.config.model, **self.config.model_kwargs)
 
-            self.config.embedding_dims = self.config.embedding_dims or self.model.get_sentence_embedding_dimension()
+            get_embedding_dimension = getattr(self.model, "get_embedding_dimension", None)
+            if get_embedding_dimension is None:
+                get_embedding_dimension = self.model.get_sentence_embedding_dimension
+            self.config.embedding_dims = self.config.embedding_dims or get_embedding_dimension()
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
