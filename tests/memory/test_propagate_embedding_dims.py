@@ -92,6 +92,41 @@ class TestPropagateEmbeddingDimsHelper:
         # Should not raise, should not set any attribute
         assert not hasattr(vs_config, "embedding_model_dims")
 
+    def test_does_not_overwrite_explicit_default_equal_dims(self):
+        """Should NOT overwrite when the user explicitly set 1536 (== class default)."""
+        embedder = Mock()
+        embedder.config.embedding_dims = 768
+        vs_config = Mock()
+        vs_config.embedding_model_dims = 1536
+        # Simulate a user-supplied value: the field is in model_fields_set.
+        vs_config.model_fields_set = {"embedding_model_dims"}
+
+        _propagate_embedding_dims(embedder, vs_config)
+
+        assert vs_config.embedding_model_dims == 1536
+
+    def test_non_pydantic_config_without_fields_set_still_propagates(self):
+        """Plain (non-pydantic) configs fall back to the value heuristic."""
+        embedder = Mock()
+        embedder.config.embedding_dims = 768
+        vs_config = Mock()  # no model_fields_set attribute
+        vs_config.embedding_model_dims = 1536
+
+        _propagate_embedding_dims(embedder, vs_config)
+
+        assert vs_config.embedding_model_dims == 768
+
+    def test_non_pydantic_config_with_user_set_value_not_overwritten(self):
+        """Plain configs: a non-default value is treated as user-set."""
+        embedder = Mock()
+        embedder.config.embedding_dims = 768
+        vs_config = Mock()  # no model_fields_set attribute
+        vs_config.embedding_model_dims = 1024
+
+        _propagate_embedding_dims(embedder, vs_config)
+
+        assert vs_config.embedding_model_dims == 1024
+
 
 class TestMemoryPropagateDims:
     """Integration tests through Memory.__init__ (sync path)."""
@@ -111,9 +146,8 @@ class TestMemoryPropagateDims:
             mock_llm.create.return_value = Mock()
 
             config = MemoryConfig(version="v1.1")
-            # Set the vector store config to default 1536
-            config.vector_store.config.embedding_model_dims = 1536
-
+            # The vector store config keeps its class default 1536 and was
+            # never assigned by the user — propagation should fill it in.
             Memory(config)
 
             # The vector store config should now have 768
@@ -141,6 +175,28 @@ class TestMemoryPropagateDims:
 
             assert config.vector_store.config.embedding_model_dims == 1024
 
+    def test_sync_does_not_overwrite_user_set_dims_equal_to_default(self):
+        """Memory.__init__ should NOT overwrite user-set 1536 (== class default)."""
+        with (
+            patch("mem0.memory.main.EmbedderFactory") as mock_embedder,
+            patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+            patch("mem0.memory.main.LlmFactory") as mock_llm,
+            patch("mem0.memory.telemetry.capture_event"),
+        ):
+            mock_embedder.create.return_value = Mock()
+            mock_embedder.create.return_value.config.embedding_dims = 768
+            mock_vector_store.create.return_value = Mock()
+            mock_vector_store.create.return_value.search.return_value = []
+            mock_llm.create.return_value = Mock()
+
+            config = MemoryConfig(version="v1.1")
+            # User explicitly set 1536 (== class default) — must NOT be overwritten
+            config.vector_store.config.embedding_model_dims = 1536
+
+            Memory(config)
+
+            assert config.vector_store.config.embedding_model_dims == 1536
+
 
 class TestAsyncMemoryPropagateDims:
     """Integration tests through AsyncMemory.__init__ (async path)."""
@@ -160,8 +216,7 @@ class TestAsyncMemoryPropagateDims:
             mock_llm.create.return_value = Mock()
 
             config = MemoryConfig(version="v1.1")
-            config.vector_store.config.embedding_model_dims = 1536
-
+            # Vector store keeps its class default — not user-set.
             AsyncMemory(config)
 
             assert config.vector_store.config.embedding_model_dims == 768
@@ -186,3 +241,24 @@ class TestAsyncMemoryPropagateDims:
             AsyncMemory(config)
 
             assert config.vector_store.config.embedding_model_dims == 1024
+
+    def test_async_does_not_overwrite_user_set_dims_equal_to_default(self):
+        """AsyncMemory.__init__ should NOT overwrite user-set 1536 (== class default)."""
+        with (
+            patch("mem0.memory.main.EmbedderFactory") as mock_embedder,
+            patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+            patch("mem0.memory.main.LlmFactory") as mock_llm,
+            patch("mem0.memory.telemetry.capture_event"),
+        ):
+            mock_embedder.create.return_value = Mock()
+            mock_embedder.create.return_value.config.embedding_dims = 768
+            mock_vector_store.create.return_value = Mock()
+            mock_vector_store.create.return_value.search.return_value = []
+            mock_llm.create.return_value = Mock()
+
+            config = MemoryConfig(version="v1.1")
+            config.vector_store.config.embedding_model_dims = 1536
+
+            AsyncMemory(config)
+
+            assert config.vector_store.config.embedding_model_dims == 1536
