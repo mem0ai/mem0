@@ -133,9 +133,6 @@ class AnthropicLLM(LLMBase):
             }
         )
 
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = {"type": tool_choice}
 
         response = self.client.messages.create(**params)
         return self._parse_response(response, tools)
