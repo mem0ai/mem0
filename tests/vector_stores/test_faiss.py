@@ -635,6 +635,21 @@ class TestFAISSSecurityIntegration:
                 pwned_file = os.path.join(temp_dir, "pwned")
                 assert not os.path.exists(pwned_file), "Malicious payload should NOT have been executed!"
 
+    def test_faiss_resets_index_when_load_fails(self):
+        """A failed load must not leave a stale index with empty mappings."""
+        faiss_store = FAISS.__new__(FAISS)
+        faiss_store.index = Mock()
+        faiss_store.docstore = {"stale": {"data": "stale"}}
+        faiss_store.index_to_id = {0: "stale"}
+
+        with patch("mem0.vector_stores.faiss.faiss.read_index", side_effect=RuntimeError("corrupt index")):
+            with pytest.raises(ValueError, match="Failed to load FAISS index"):
+                faiss_store._load("missing.faiss", "missing.pkl")
+
+        assert faiss_store.index is None
+        assert faiss_store.docstore == {}
+        assert faiss_store.index_to_id == {}
+
     def test_faiss_migrates_legacy_pickle_to_json(self):
         """FAISS should auto-migrate valid pickle files to JSON format."""
         with tempfile.TemporaryDirectory() as temp_dir:
