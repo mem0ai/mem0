@@ -13,6 +13,55 @@ With Mem0, you can create stateful LLM-based applications such as chatbots, virt
 
 Here are some examples of how Mem0 can be integrated into various applications:
 
+## Pick by compatibility
+
+Every cookbook opens with a **Works with** badge naming the SDK surface it uses. Pick your setup below to see only the cookbooks that run on it. Three cookbooks work on both and appear under either tab.
+
+<Tabs>
+  <Tab title="Self-hosted OSS">
+    Ten cookbooks run on the open-source `Memory` class, with no Mem0 Platform account.
+
+    | Cookbook | Category | Works with |
+    | --- | --- | --- |
+    | [Personalized AI Tutor](/cookbooks/companions/ai-tutor) | Companions | OSS only |
+    | [Build a Node.js Companion](/cookbooks/companions/nodejs-companion) | Companions | OSS only |
+    | [Self-Hosted AI Companion](/cookbooks/companions/local-companion-ollama) | Companions | OSS only |
+    | [Smart Travel Assistant](/cookbooks/companions/travel-assistant) | Companions | OSS only |
+    | [Build a Companion with Mem0](/cookbooks/essentials/building-ai-companion) | Essentials | OSS and Platform |
+    | [Bedrock with Persistent Memory](/cookbooks/integrations/aws-bedrock) | Integrations | OSS only |
+    | [Automated Email Intelligence](/cookbooks/operations/email-automation) | Operations | OSS and Platform |
+    | [Collaborative Task Assistant](/cookbooks/operations/team-task-agent) | Operations | OSS only |
+    | [Content Creation Workflow](/cookbooks/operations/content-writing) | Operations | OSS and Platform |
+    | [Memory-Powered Support Agent](/cookbooks/operations/support-inbox) | Operations | OSS only |
+  </Tab>
+  <Tab title="Hosted Platform">
+    Twenty cookbooks run on the hosted Platform, using `MemoryClient` or the Mem0 MCP server with a `MEM0_API_KEY`.
+
+    | Cookbook | Category | Works with |
+    | --- | --- | --- |
+    | [Interactive Memory Demo](/cookbooks/companions/quickstart-demo) | Companions | Platform only |
+    | [Research Assistant for YouTube](/cookbooks/companions/youtube-research) | Companions | Platform only |
+    | [Voice-First AI Companion](/cookbooks/companions/voice-companion-openai) | Companions | Platform only |
+    | [Build a Companion with Mem0](/cookbooks/essentials/building-ai-companion) | Essentials | OSS and Platform |
+    | [Export Stored Memories](/cookbooks/essentials/exporting-memories) | Essentials | Platform only |
+    | [Partition Memories by Entity](/cookbooks/essentials/entity-partitioning-playbook) | Essentials | Platform only |
+    | [Tag and Organize Memories](/cookbooks/essentials/tagging-and-organizing-memories) | Essentials | Platform only |
+    | [Gemini 3 with Mem0 MCP](/cookbooks/frameworks/gemini-3-with-mem0-mcp) | Frameworks | Platform only |
+    | [Multi-Agent Collaboration](/cookbooks/frameworks/llamaindex-multiagent) | Frameworks | Platform only |
+    | [Persistent Eliza Characters](/cookbooks/frameworks/eliza-os-character) | Frameworks | Platform only |
+    | [ReAct Agents with Memory](/cookbooks/frameworks/llamaindex-react) | Frameworks | Platform only |
+    | [Visual Memory Retrieval](/cookbooks/frameworks/multimodal-retrieval) | Frameworks | Platform only |
+    | [Healthcare Coach with ADK](/cookbooks/integrations/healthcare-google-adk) | Integrations | Platform only |
+    | [Memory as OpenAI Tool](/cookbooks/integrations/openai-tool-calls) | Integrations | Platform only |
+    | [Memory-Powered Agent SDK](/cookbooks/integrations/agents-sdk-tool) | Integrations | Platform only |
+    | [Persistent Mastra Agents](/cookbooks/integrations/mastra-agent) | Integrations | Platform only |
+    | [Search with Personal Context](/cookbooks/integrations/tavily-search) | Integrations | Platform only |
+    | [Automated Email Intelligence](/cookbooks/operations/email-automation) | Operations | OSS and Platform |
+    | [Content Creation Workflow](/cookbooks/operations/content-writing) | Operations | OSS and Platform |
+    | [Multi-Session Research Agent](/cookbooks/operations/deep-research) | Operations | Platform only |
+  </Tab>
+</Tabs>
+
 ## Start here
 
 The most popular cookbooks to get going fast:
@@ -47,11 +96,18 @@ The most popular cookbooks to get going fast:
     Balance personalization with consistent behavior across users, agents, and apps.
   </Card>
   <Card
-    title="Control Memory Ingestion"
-    icon="filter"
-    href="/cookbooks/essentials/controlling-memory-ingestion"
+    title="Tag and Organize Memories"
+    icon="tags"
+    href="/cookbooks/essentials/tagging-and-organizing-memories"
   >
-    Filter speculation and low-confidence data.
+    Use categories to keep retrieval fast and audits simple.
+  </Card>
+  <Card
+    title="Export Memories"
+    icon="download"
+    href="/cookbooks/essentials/exporting-memories"
+  >
+    Back up, migrate, and audit stored memory data.
   </Card>
 </CardGroup>
 

@@ -1,6 +1,6 @@
 {
   "name": "mem0",
-  "version": "0.2.13",
+  "version": "0.2.15",
   "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search using the Mem0 Platform MCP server.",
   "author": {
     "name": "Mem0",
@@ -13,5 +13,5 @@
   "keywords": ["mem0", "memory", "mcp", "personalization", "semantic-search"],
   "skills": "./skills/",
   "hooks": "./hooks/cursor-hooks.json",
-  "mcpServers": ".cursor-mcp.json"
+  "mcpServers": "./.cursor-mcp.json"
 }

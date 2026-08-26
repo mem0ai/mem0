@@ -1,0 +1,89 @@
+---
+title: DeepSeek Harness
+description: "Add persistent Mem0 memory to the DeepSeek Harness (Cordis) agent with two native tools: search and add."
+---
+
+Add persistent memory to the [**DeepSeek Harness**](https://github.com/deepseek-ai/deepseek-harness) with `@mem0/deepseek-plugin`. The Harness agent forgets everything between sessions. This plugin gives it two Mem0-backed tools so recall and writes persist across runs, sharing the same memory bank you already use from Claude Code, Codex, and other agents.
+
+## Overview
+
+The plugin registers two agent-callable tools:
+
+| Tool | Does |
+|---|---|
+| `search_memory` | Recall facts from Mem0 relevant to a query |
+| `add_memory` | Store a fact in Mem0 for future sessions |
+
+Unlike file-based memory plugins, Mem0 is a managed backend: server-side extraction, semantic dedup, and conflict resolution, with the same memory reusable across every agent you connect.
+
+## How it works
+
+A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `inject = ['tools']` so it waits for the harness tool registry, then registers the two tools via `ctx.tools.register(...)`. When the plugin unmounts, the tools are removed automatically (Cordis revertible effects).
+
+## Prerequisites
+
+1. A Mem0 Platform account and API key:
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-deepseek-plugin" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-deepseek-plugin" rel="nofollow">Get your API key</a> (starts with `m0-`)
+
+2. The DeepSeek Harness installed.
+
+3. Your API key exported in your shell:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+</CodeGroup>
+
+## Try it locally
+
+1. Build the plugin:
+   ```sh
+   cd integrations/deepseek-plugin
+   pnpm install
+   pnpm build
+   ```
+
+2. Point the Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then load it:
+   ```sh
+   pnpm dsh web --patch ./integrations/deepseek-plugin/cordis.example.yml
+   ```
+
+3. Open the web UI and ask the agent to remember something, then recall it in a later turn.
+
+The `cordis.yml` entry looks like this:
+
+```yaml
+- name: "@deepseek-ai/dsh-system-prompt"
+- name: "@deepseek-ai/dsh-tools"
+- insert:
+    - id: mem0
+      name: "/absolute/path/to/integrations/deepseek-plugin/dist/index.js"
+      config:
+        # apiKey is read from MEM0_API_KEY when omitted here.
+        userId: "your-user-id"
+        # host: "https://your-onprem.mem0.ai"   # optional: Platform on-prem / dedicated base URL
+```
+
+For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` is a Platform base-URL override, not a switch to self-hosted Mem0 OSS.
+
+## Configuration
+
+| Field | Required | Default | Notes |
+|---|---|---|---|
+| `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
+| `userId` | yes | | Default entity that owns the memories |
+| `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
+
+Both tools also accept optional per-call `userId`, `agentId`, and `runId` params so a single install can partition memory by entity, agent, or session; when omitted they fall back to the configured `userId`.
+
+## Telemetry
+
+Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0's backend can attribute usage to this integration.
