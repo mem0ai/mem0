@@ -21,6 +21,7 @@ from memory_core import (
     api_key,
     cache_plugin_api_key,
     checkpoint_session,
+    clear_stale_api_key_cache,
     data_dir,
     detached_process_kwargs,
     format_context,
@@ -140,6 +141,19 @@ def recover_pending_handoffs() -> int:
     return launched
 
 
+def refresh_pending_handoffs() -> None:
+    """Hold unsent packets while paused instead of letting them expire."""
+    pending_dir = data_dir() / "pending"
+    if not pending_dir.is_dir():
+        return
+    for pattern in ("*.json", "*.running"):
+        for handoff in pending_dir.glob(pattern):
+            try:
+                os.utime(handoff)
+            except OSError:
+                continue
+
+
 def hand_off_flush(
     hook_input: dict, reason: str, *, wait_for_inflight: bool = False
 ) -> None:
@@ -224,11 +238,14 @@ def main() -> int:
     if args.plugin_data_dir:
         os.environ["MEM0_CODE_DATA_DIR"] = args.plugin_data_dir
     cache_plugin_api_key()
+    if args.action == "session-start":
+        clear_stale_api_key_cache()
     hook_input = read_hook_input()
     store = EvidenceStore()
     try:
         if store.is_paused():
             if args.action == "session-start":
+                refresh_pending_handoffs()
                 telemetry.record("session_start", paused=True)
                 telemetry.spawn_flush()
             return 0

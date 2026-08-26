@@ -131,7 +131,7 @@ Uncommitted changes are not copied into the sidekick's worktree.
 | --- | --- |
 | `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>` and `--category <name>`. |
 | `/mem0:status` | Show whether Mem0 memory is working in this repository: configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
-| `/mem0:forget` | Delete the Mem0 memories stored for this repository (and this user), after confirming with you. |
+| `/mem0:forget` | Delete the Mem0 memories stored for this repository (and this user), after confirming with you. Deletion covers the whole user-and-repository scope at once, including memories created from other checkouts of the same repository. |
 | `/mem0:pause` | Pause Mem0 memory capture on this machine. |
 | `/mem0:resume` | Resume Mem0 memory capture after it was paused with `/mem0:pause`. |
 | `/mem0:remember` | Acknowledge a "remember this" request and make sure it is captured well. |
@@ -150,7 +150,7 @@ behavior is not tunable.
 | Setting | Default | What it controls |
 | --- | ---: | --- |
 | `api_key` | required | Mem0 Platform API key |
-| `user_id` | local account name | The user ID memories are stored under. Set it explicitly to share memories across machines. |
+| `user_id` | local account name | The user ID memories are stored under. Resolved in order from the `user_id` setting, `MEM0_CODE_USER_ID`, `MEM0_USER_ID`, `MEM0_RESOLVED_USER_ID`, `$USER`, `%USERNAME%` (Windows), then `default`. Set it explicitly to share memories across machines. |
 | `top_k` | `3` | Maximum memories returned by `search_memories` or `/mem0:search`; the automatic first search returns up to five |
 | `max_context_chars` | `4000` | Maximum memory characters returned by one search |
 

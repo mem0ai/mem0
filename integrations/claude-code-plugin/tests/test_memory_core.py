@@ -38,6 +38,7 @@ def isolated_env(tmp_path, monkeypatch):
     monkeypatch.delenv("MEM0_RESOLVED_USER_ID", raising=False)
     monkeypatch.delenv("MEM0_API_URL", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_USER_ID", raising=False)
+    memory_core._resolve_repo_cached.cache_clear()
     return tmp_path
 
 
@@ -233,7 +234,7 @@ def test_transcript_extraction_keeps_meaningful_messages_and_excludes_raw_tools(
         ],
     )
 
-    messages, leaf = memory_core.transcript_extraction_messages(
+    messages, leaf, _ = memory_core.transcript_extraction_messages(
         str(transcript), "s1"
     )
     serialized = json.dumps(messages)
@@ -333,7 +334,7 @@ def test_transcript_extraction_pairs_background_agent_notification(tmp_path):
         ],
     )
 
-    messages, _ = memory_core.transcript_extraction_messages(
+    messages, _, _ = memory_core.transcript_extraction_messages(
         str(transcript), "s1", previous_leaf_uuid="launch-result"
     )
     serialized = json.dumps(messages)
@@ -386,7 +387,7 @@ def test_transcript_extraction_omits_claude_ui_messages_but_keeps_attachments(
         ],
     )
 
-    messages, _ = memory_core.transcript_extraction_messages(
+    messages, _, _ = memory_core.transcript_extraction_messages(
         str(transcript), "s1", prompt_hint="The attached issue says repository scope is wrong."
     )
     serialized = json.dumps(messages)
@@ -485,7 +486,7 @@ def test_transcript_extraction_uses_active_branch_and_omits_rejected_plan(tmp_pa
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
 
-    messages, leaf = memory_core.transcript_extraction_messages(
+    messages, leaf, _ = memory_core.transcript_extraction_messages(
         str(transcript), "s1"
     )
     serialized = json.dumps(messages)
@@ -2994,3 +2995,411 @@ def test_version_is_single_sourced():
         entry = next(p for p in json.loads(mp.read_text())["plugins"] if p["name"] == "mem0")
         assert entry["version"] == memory_core.PLUGIN_VERSION
         assert entry["source"] == "./integrations/claude-code-plugin"
+
+
+def test_user_id_falls_back_to_the_windows_account_name(monkeypatch):
+    for name in (
+        "CLAUDE_PLUGIN_OPTION_USER_ID",
+        "MEM0_CODE_USER_ID",
+        "MEM0_USER_ID",
+        "MEM0_RESOLVED_USER_ID",
+        "USER",
+        "USERNAME",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    assert memory_core.user_id() == "default"
+    monkeypatch.setenv("USERNAME", "windows-account")
+    assert memory_core.user_id() == "windows-account"
+    monkeypatch.setenv("USER", "posix-account")
+    assert memory_core.user_id() == "posix-account"
+
+
+def test_transcript_rows_resume_from_a_byte_offset(tmp_path):
+    transcript = tmp_path / "session.jsonl"
+    _write_transcript(
+        transcript,
+        "s1",
+        [
+            {
+                "type": "user",
+                "origin": {"kind": "human"},
+                "message": {"role": "user", "content": "Inspect the parser."},
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "The parser reads JSONL."}],
+                },
+            },
+        ],
+    )
+
+    rows, end, resumed = memory_core._transcript_rows(str(transcript))
+    assert [row["uuid"] for row in rows] == ["entry-1", "entry-2"]
+    assert end == transcript.stat().st_size
+    assert resumed is False
+
+    first_size = end
+    third_row = {
+        "uuid": "entry-3",
+        "parentUuid": "entry-2",
+        "sessionId": "s1",
+        "isSidechain": False,
+        "type": "user",
+        "message": {"role": "user", "content": "Where is that implemented?"},
+    }
+    with transcript.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(third_row) + "\n")
+        handle.write('{"uuid": "partial-row"')
+
+    rows, end, resumed = memory_core._transcript_rows(str(transcript), first_size)
+    assert [row["uuid"] for row in rows] == ["entry-3"]
+    assert resumed is True
+    assert end < transcript.stat().st_size
+
+    rows, _, resumed = memory_core._transcript_rows(
+        str(transcript), transcript.stat().st_size + 100
+    )
+    assert [row["uuid"] for row in rows] == ["entry-1", "entry-2", "entry-3"]
+    assert resumed is False
+
+
+def test_record_stop_reads_the_transcript_from_the_stored_offset(
+    isolated_env, tmp_path
+):
+    transcript = tmp_path / "session.jsonl"
+    first_entries = [
+        {
+            "type": "user",
+            "origin": {"kind": "human"},
+            "message": {"role": "user", "content": "Inspect the parser."},
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "The parser reads JSONL."}],
+            },
+        },
+    ]
+    _write_transcript(transcript, "s1", first_entries)
+    store = memory_core.EvidenceStore()
+
+    with patch.object(memory_core, "resolve_repo", return_value=repo()):
+        memory_core.record_stop(
+            store,
+            {
+                "session_id": "s1",
+                "cwd": "/tmp/repo",
+                "transcript_path": str(transcript),
+                "last_assistant_message": "The parser reads JSONL.",
+            },
+        )
+
+    first_size = transcript.stat().st_size
+    payload = json.loads(
+        store.conn.execute(
+            "SELECT payload_json FROM events WHERE kind = 'assistant_stop' "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()["payload_json"]
+    )
+    assert payload["transcript_path"] == str(transcript)
+    assert payload["transcript_offset"] == first_size
+
+    second_entries = first_entries + [
+        {
+            "type": "user",
+            "origin": {"kind": "human"},
+            "message": {"role": "user", "content": "Where is that implemented?"},
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "In memory_core.py."}],
+            },
+        },
+    ]
+    _write_transcript(transcript, "s1", second_entries)
+    original_rows = memory_core._transcript_rows
+    offsets = []
+
+    def spying_rows(path, offset=0):
+        offsets.append(offset)
+        return original_rows(path, offset)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "_transcript_rows", side_effect=spying_rows),
+    ):
+        memory_core.record_stop(
+            store,
+            {
+                "session_id": "s1",
+                "cwd": "/tmp/repo",
+                "transcript_path": str(transcript),
+                "last_assistant_message": "In memory_core.py.",
+            },
+        )
+    store.close()
+
+    assert offsets == [first_size]
+
+
+def test_flush_gives_up_after_repeated_failures_and_later_events_still_flush(
+    isolated_env, monkeypatch
+):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "_request_json", side_effect=OSError("api down")),
+    ):
+        for _ in range(memory_core.MAX_FLUSH_ATTEMPTS):
+            failed = memory_core.flush_session(store, hook_input, "session-end")
+            assert failed["status"] == "error"
+        given_up = memory_core.flush_session(store, hook_input, "session-end")
+
+    record = store.conn.execute("SELECT status, attempts FROM flushes").fetchone()
+    assert given_up["status"] == "nothing-to-flush"
+    assert record["status"] == "gave-up"
+    assert record["attempts"] == memory_core.MAX_FLUSH_ATTEMPTS
+
+    _record_exchange(store, 99)
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core,
+            "_request_json",
+            return_value=({"event_id": "later-event"}, 200, 20),
+        ),
+        patch.object(memory_core, "_wait_for_event", return_value=("SUCCEEDED", 20, 1)),
+    ):
+        later = memory_core.flush_session(store, hook_input, "session-end")
+
+    assert later["status"] == "semantic-succeeded"
+    assert store.conn.execute("SELECT COUNT(*) FROM flushes").fetchone()[0] == 2
+    store.close()
+
+
+def test_event_poll_touches_the_worker_heartbeat(isolated_env, monkeypatch, tmp_path):
+    handoff = tmp_path / "packet.running"
+    handoff.write_text("{}", encoding="utf-8")
+    os.utime(handoff, (1000, 1000))
+    monkeypatch.setenv("MEM0_CODE_HANDOFF_PATH", str(handoff))
+
+    with patch.object(
+        memory_core, "_get_json", return_value=({"status": "SUCCEEDED"}, 10)
+    ):
+        status, _, _ = memory_core._wait_for_event(
+            "https://api.mem0.ai", "key", "event-1"
+        )
+
+    assert status == "SUCCEEDED"
+    assert handoff.stat().st_mtime > 1000
+
+    monkeypatch.delenv("MEM0_CODE_HANDOFF_PATH")
+    memory_core.touch_handoff_heartbeat()
+
+
+def test_paused_session_start_keeps_pending_packets_fresh(isolated_env):
+    import hook
+
+    pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    held = pending_dir / "held.json"
+    held.write_text("{}", encoding="utf-8")
+    claimed = pending_dir / "claimed.running"
+    claimed.write_text("{}", encoding="utf-8")
+    stale_time = time.time() - hook.PENDING_EXPIRY_SECONDS - 60
+    for path in (held, claimed):
+        os.utime(path, (stale_time, stale_time))
+
+    hook.refresh_pending_handoffs()
+
+    assert held.stat().st_mtime > time.time() - 60
+    assert claimed.stat().st_mtime > time.time() - 60
+
+
+def test_corrupt_database_is_quarantined_and_capture_restarts(isolated_env):
+    database = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "evidence.sqlite3"
+    database.parent.mkdir(parents=True, exist_ok=True)
+    database.write_text("this is not a sqlite database", encoding="utf-8")
+
+    store = memory_core.EvidenceStore()
+    store.record_event(repo(), "s1", "user_prompt", {"text": "Still capturing."})
+    count = store.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    store.close()
+
+    quarantined = list(database.parent.glob("evidence.sqlite3.corrupt-*"))
+    assert count == 1
+    assert len(quarantined) == 1
+    assert quarantined[0].read_text(encoding="utf-8") == "this is not a sqlite database"
+
+
+def test_stale_cached_api_key_is_cleared_when_config_is_removed(
+    isolated_env, monkeypatch
+):
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_API_KEY", "m0-cached-key")
+    assert memory_core.cache_plugin_api_key() is True
+    assert memory_core.clear_stale_api_key_cache() is False
+    assert memory_core.api_key() == "m0-cached-key"
+
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY")
+    assert memory_core.clear_stale_api_key_cache() is True
+    assert memory_core.api_key() == ""
+    assert memory_core.clear_stale_api_key_cache() is False
+
+
+def _big_batch_messages() -> list[dict[str, str]]:
+    return [
+        {"role": "user", "content": "A" * 20000},
+        {"role": "assistant", "content": "B" * 20000},
+        {"role": "user", "content": "C" * 20000},
+        {"role": "assistant", "content": "D" * 20000},
+    ]
+
+
+def test_failed_batch_is_cleared_and_only_that_batch_is_resent(
+    isolated_env, monkeypatch
+):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    posted = []
+
+    def request(url, key, body, timeout):
+        posted.append(body)
+        return {"event_id": f"event-{len(posted)}"}, 100, 20
+
+    def first_wait(api_url, key, event_id):
+        if event_id == "event-1":
+            return "FAILED", 30, 0
+        return "SUCCEEDED", 30, 1
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core, "build_extraction_messages", return_value=_big_batch_messages()
+        ),
+        patch.object(memory_core, "_request_json", side_effect=request),
+        patch.object(memory_core, "_wait_for_event", side_effect=first_wait),
+    ):
+        first = memory_core.flush_session(store, hook_input, "session-end")
+
+    record = store.conn.execute(
+        "SELECT semantic_event_id, attempts FROM flushes"
+    ).fetchone()
+    assert first["status"] == "semantic-failed"
+    assert json.loads(record["semantic_event_id"]) == ["", "event-2"]
+    assert record["attempts"] == 1
+    assert len(posted) == 2
+
+    waited = []
+
+    def retry_wait(api_url, key, event_id):
+        waited.append(event_id)
+        return "SUCCEEDED", 30, 1
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core, "build_extraction_messages", return_value=_big_batch_messages()
+        ),
+        patch.object(memory_core, "_request_json", side_effect=request),
+        patch.object(memory_core, "_wait_for_event", side_effect=retry_wait),
+    ):
+        second = memory_core.flush_session(store, hook_input, "session-end")
+
+    assert second["status"] == "semantic-succeeded"
+    assert len(posted) == 3
+    assert waited == ["event-3", "event-2"]
+    stored = store.conn.execute("SELECT semantic_event_id FROM flushes").fetchone()
+    assert json.loads(stored["semantic_event_id"]) == ["event-3", "event-2"]
+    operation = store.conn.execute(
+        "SELECT operation FROM operations WHERE operation LIKE 'flush%' "
+        "ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    assert operation["operation"] == "flush-retry"
+    store.close()
+
+
+def test_timed_out_batch_event_is_kept_for_the_next_retry(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    posted = []
+
+    def request(url, key, body, timeout):
+        posted.append(body)
+        return {"event_id": f"event-{len(posted)}"}, 100, 20
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core, "build_extraction_messages", return_value=_big_batch_messages()
+        ),
+        patch.object(memory_core, "_request_json", side_effect=request),
+        patch.object(memory_core, "_wait_for_event", return_value=("TIMEOUT", 30, 0)),
+    ):
+        first = memory_core.flush_session(store, hook_input, "session-end")
+
+    record = store.conn.execute("SELECT semantic_event_id FROM flushes").fetchone()
+    assert first["status"] == "semantic-timeout"
+    assert json.loads(record["semantic_event_id"]) == ["event-1", "event-2"]
+
+    waited = []
+
+    def retry_wait(api_url, key, event_id):
+        waited.append(event_id)
+        return "SUCCEEDED", 30, 1
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core, "build_extraction_messages", return_value=_big_batch_messages()
+        ),
+        patch.object(memory_core, "_request_json") as retry_request,
+        patch.object(memory_core, "_wait_for_event", side_effect=retry_wait),
+    ):
+        second = memory_core.flush_session(store, hook_input, "session-end")
+
+    assert second["status"] == "semantic-succeeded"
+    retry_request.assert_not_called()
+    assert waited == ["event-1", "event-2"]
+    store.close()
+
+
+def test_resolve_repo_caches_git_lookups_in_process(isolated_env, monkeypatch):
+    calls = []
+
+    def fake_git(cwd, *args):
+        calls.append(args)
+        return {
+            ("rev-parse", "--show-toplevel"): "/tmp/repo",
+            ("config", "--get", "remote.origin.url"): "https://github.com/example/repo.git",
+            ("branch", "--show-current"): "main",
+            ("rev-parse", "HEAD"): "abc123",
+        }.get(args, "")
+
+    monkeypatch.setattr(memory_core, "_git", fake_git)
+    memory_core._resolve_repo_cached.cache_clear()
+
+    first = memory_core.resolve_repo("/tmp/repo")
+    calls_after_first = len(calls)
+    second = memory_core.resolve_repo("/tmp/repo")
+
+    assert first == second
+    assert calls_after_first > 0
+    assert len(calls) == calls_after_first
+
+    memory_core._resolve_repo_cached.cache_clear()
+    memory_core.resolve_repo("/tmp/repo")
+    assert len(calls) > calls_after_first

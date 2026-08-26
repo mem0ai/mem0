@@ -8,6 +8,7 @@ memories. Claude can search those memories during later work in the repository.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import html
 import json
@@ -41,6 +42,7 @@ CHECKPOINT_MESSAGES = 10
 CHECKPOINT_SOURCE_CHARS = 40000
 DEFAULT_MAX_CONTEXT_CHARS = 4000
 MAX_EXTRACTION_INPUT_TOKENS = 24000
+MAX_FLUSH_ATTEMPTS = 5
 
 CODING_EXTRACTION_INSTRUCTIONS = """Save concise repository facts that will help with future coding work.
 
@@ -153,7 +155,7 @@ def _git(cwd: str, *args: str) -> str:
             check=False,
             capture_output=True,
             text=True,
-            timeout=2,
+            timeout=0.5,
         )
     except (OSError, subprocess.TimeoutExpired):
         return ""
@@ -243,8 +245,8 @@ class MemorySearchResult:
     memories: list[dict[str, Any]]
 
 
-def resolve_repo(cwd: str | None) -> RepoContext:
-    cwd = os.path.abspath(cwd or os.getcwd())
+@functools.lru_cache(maxsize=64)
+def _resolve_repo_cached(cwd: str) -> RepoContext:
     root = _git(cwd, "rev-parse", "--show-toplevel") or cwd
     raw_remote = _git(root, "config", "--get", "remote.origin.url")
     remote = _normalize_remote(raw_remote)
@@ -257,6 +259,10 @@ def resolve_repo(cwd: str | None) -> RepoContext:
         branch=_git(root, "branch", "--show-current") or "detached",
         head_sha=_git(root, "rev-parse", "HEAD"),
     )
+
+
+def resolve_repo(cwd: str | None) -> RepoContext:
+    return _resolve_repo_cached(os.path.abspath(cwd or os.getcwd()))
 
 
 def api_key() -> str:
@@ -307,6 +313,26 @@ def cache_plugin_api_key() -> bool:
     return True
 
 
+def clear_stale_api_key_cache() -> bool:
+    """Drop the cached key file once every configured key source is gone."""
+    configured = (
+        os.environ.get("MEM0_API_KEY")
+        or os.environ.get("CLAUDE_PLUGIN_OPTION_API_KEY")
+        or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY")
+        or ""
+    ).strip()
+    if configured:
+        return False
+    path = data_dir() / "api-key"
+    if not path.exists():
+        return False
+    try:
+        path.unlink()
+    except OSError:
+        return False
+    return True
+
+
 def detached_process_kwargs(platform: str | None = None) -> dict:
     """Keep a spawned worker alive after Claude Code exits, on POSIX and Windows."""
     if (platform or sys.platform) == "win32":
@@ -331,6 +357,7 @@ def user_id() -> str:
         or os.environ.get("MEM0_USER_ID", "").strip()
         or os.environ.get("MEM0_RESOLVED_USER_ID", "").strip()
         or os.environ.get("USER", "").strip()
+        or os.environ.get("USERNAME", "").strip()
         or "default"
     )
 
@@ -375,22 +402,33 @@ def _message_content_text(content: Any) -> str:
     return "\n\n".join(parts)
 
 
-def _transcript_rows(path: str) -> list[dict[str, Any]]:
+def _transcript_rows(
+    path: str, offset: int = 0
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Parse transcript rows from a byte offset, returning rows, end offset, and whether the offset was honored."""
     if not path:
-        return []
+        return [], 0, False
     rows = []
     try:
-        with Path(path).expanduser().open(encoding="utf-8") as handle:
+        resolved = Path(path).expanduser()
+        if not 0 <= offset <= resolved.stat().st_size:
+            offset = 0
+        end = offset
+        with resolved.open("rb") as handle:
+            handle.seek(offset)
             for line in handle:
+                if not line.endswith(b"\n"):
+                    break
+                end += len(line)
                 try:
-                    row = json.loads(line)
+                    row = json.loads(line.decode("utf-8", errors="replace"))
                 except json.JSONDecodeError:
                     continue
                 if isinstance(row, dict) and row.get("uuid"):
                     rows.append(row)
     except OSError:
-        return []
-    return rows
+        return [], offset, False
+    return rows, end, offset > 0
 
 
 def _active_transcript_chain(
@@ -489,7 +527,8 @@ def transcript_extraction_messages(
     prompt_hint: str = "",
     fallback_assistant_message: str = "",
     label_final_response: bool = False,
-) -> tuple[list[dict[str, str]], str]:
+    start_offset: int = 0,
+) -> tuple[list[dict[str, str]], str, int]:
     """Read the meaningful part of the current Claude exchange.
 
     The returned messages contain human prompts, visible Claude text, accepted
@@ -497,20 +536,23 @@ def transcript_extraction_messages(
     subagent assignments and responses. Raw tool output and hidden reasoning
     are deliberately excluded.
     """
-    rows = _transcript_rows(transcript_path)
+    rows, end_offset, resumed = _transcript_rows(transcript_path, start_offset)
     chain = _active_transcript_chain(rows, session_id)
     if not chain:
+        if resumed:
+            return [], previous_leaf_uuid, end_offset
         fallback = redact(fallback_assistant_message).strip()
         return (
             ([{"role": "assistant", "content": f"Main Claude response:\n{fallback}"}]
              if fallback
              else []),
             "",
+            end_offset,
         )
 
     leaf_uuid = str(chain[-1].get("uuid") or "")
     if previous_leaf_uuid and leaf_uuid == previous_leaf_uuid:
-        return [], leaf_uuid
+        return [], leaf_uuid, end_offset
     start = 0
     if previous_leaf_uuid:
         for index, row in enumerate(chain):
@@ -519,7 +561,7 @@ def transcript_extraction_messages(
                 break
         else:
             previous_leaf_uuid = ""
-    if not previous_leaf_uuid:
+    if not previous_leaf_uuid and not resumed:
         prompt_hint = redact(prompt_hint).strip()
         candidates = [
             index
@@ -646,7 +688,7 @@ def transcript_extraction_messages(
                     f"Main Claude response:\n{candidate[0]['content']}"
                 )
                 break
-    return output, leaf_uuid
+    return output, leaf_uuid, end_offset
 
 
 def _checkpoint_message(event: dict[str, Any]) -> str:
@@ -700,11 +742,38 @@ class EvidenceStore:
         directory = data_dir() if path is None else path.parent
         directory.mkdir(parents=True, exist_ok=True)
         self.path = path or directory / "evidence.sqlite3"
+        try:
+            self._open()
+        except sqlite3.DatabaseError:
+            self._quarantine()
+            self._open()
+
+    def _open(self) -> None:
         self.conn = sqlite3.connect(self.path, timeout=10)
         self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA busy_timeout=10000")
-        self._migrate()
+        try:
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            self.conn.execute("PRAGMA busy_timeout=10000")
+            self._migrate()
+        except sqlite3.DatabaseError:
+            self.conn.close()
+            raise
+
+    def _quarantine(self) -> None:
+        """Move an unreadable database aside so capture restarts cleanly."""
+        stamp = int(time.time())
+        for suffix in ("", "-wal", "-shm"):
+            source = Path(f"{self.path}{suffix}")
+            try:
+                source.replace(f"{self.path}.corrupt-{stamp}{suffix}")
+            except FileNotFoundError:
+                continue
+            except OSError:
+                try:
+                    source.unlink()
+                except OSError:
+                    pass
+        telemetry.record("db_quarantined")
 
     def close(self) -> None:
         self.conn.close()
@@ -747,6 +816,7 @@ class EvidenceStore:
                 episode_event_id TEXT,
                 semantic_event_id TEXT,
                 error TEXT,
+                attempts INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -814,6 +884,7 @@ class EvidenceStore:
         self._ensure_column("retrievals", "score", "REAL")
         self._ensure_column("retrievals", "memory_text", "TEXT")
         self._ensure_column("retrievals", "context_chars", "INTEGER NOT NULL DEFAULT 0")
+        self._ensure_column("flushes", "attempts", "INTEGER NOT NULL DEFAULT 0")
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, declaration: str) -> None:
@@ -889,10 +960,26 @@ class EvidenceStore:
         existing = self.conn.execute(
             """SELECT * FROM flushes
                WHERE repo_id = ? AND session_id = ?
-                 AND status NOT IN ('semantic-succeeded', 'explicitly-stored')
+                 AND status NOT IN ('semantic-succeeded', 'explicitly-stored', 'gave-up')
                ORDER BY created_at LIMIT 1""",
             (repo.identity, session_id),
         ).fetchone()
+        if existing and int(existing["attempts"] or 0) >= MAX_FLUSH_ATTEMPTS:
+            with self.conn:
+                self.conn.execute(
+                    "UPDATE flushes SET status = 'gave-up', updated_at = ? WHERE packet_id = ?",
+                    (utc_now(), existing["packet_id"]),
+                )
+            telemetry.record(
+                "flush",
+                repo=repo,
+                session_id=session_id,
+                reason=reason,
+                status="gave-up",
+                success=False,
+                attempts=int(existing["attempts"] or 0),
+            )
+            existing = None
         if existing:
             if reason != "periodic" and existing["reason"] == "periodic":
                 with self.conn:
@@ -1033,6 +1120,14 @@ class EvidenceStore:
         updates = {key: value for key, value in fields.items() if key in allowed}
         updates["updated_at"] = utc_now()
         clause = ", ".join(f"{key} = ?" for key in updates)
+        failed = str(fields.get("status", "")) in {
+            "error",
+            "semantic-failed",
+            "semantic-timeout",
+            "semantic-missing",
+        }
+        if failed:
+            clause += ", attempts = attempts + 1"
         with self.conn:
             self.conn.execute(
                 f"UPDATE flushes SET {clause} WHERE packet_id = ?",
@@ -1443,13 +1538,22 @@ def record_stop(
         repo.identity, session_id, "assistant_stop"
     )
     latest_prompt = store.latest_event_payload(repo.identity, session_id, "user_prompt")
-    transcript_messages, leaf_uuid = transcript_extraction_messages(
-        str(hook_input.get("transcript_path") or ""),
+    transcript_path = str(hook_input.get("transcript_path") or "")
+    previous_offset = previous_stop.get("transcript_offset")
+    start_offset = (
+        previous_offset
+        if isinstance(previous_offset, int)
+        and str(previous_stop.get("transcript_path") or "") == transcript_path
+        else 0
+    )
+    transcript_messages, leaf_uuid, end_offset = transcript_extraction_messages(
+        transcript_path,
         session_id,
         previous_leaf_uuid=str(previous_stop.get("transcript_leaf_uuid") or ""),
         prompt_hint=str(latest_prompt.get("text") or ""),
         fallback_assistant_message=message,
         label_final_response=True,
+        start_offset=start_offset,
     )
     if transcript_messages:
         payload: dict[str, Any] = {
@@ -1458,6 +1562,9 @@ def record_stop(
         }
         if leaf_uuid:
             payload["transcript_leaf_uuid"] = leaf_uuid
+        if transcript_path:
+            payload["transcript_path"] = transcript_path
+            payload["transcript_offset"] = end_offset
         store.record_event(
             repo, session_id, "assistant_stop", payload
         )
@@ -1923,11 +2030,33 @@ def _event_id(response: dict[str, Any] | list[Any]) -> str:
     return str(response.get("event_id", "")) if isinstance(response, dict) else ""
 
 
+def _stored_event_ids(value: Any) -> list[str]:
+    raw = str(value or "")
+    if not raw.startswith("["):
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    return [str(item or "") for item in parsed] if isinstance(parsed, list) else []
+
+
 def _result_count(response: dict[str, Any] | list[Any]) -> int:
     if isinstance(response, dict):
         results = response.get("results")
         return len(results) if isinstance(results, list) else 0
     return len(response) if isinstance(response, list) else 0
+
+
+def touch_handoff_heartbeat() -> None:
+    """Mark the worker's handoff file alive so recovery does not relaunch it."""
+    path = os.environ.get("MEM0_CODE_HANDOFF_PATH", "")
+    if not path:
+        return
+    try:
+        os.utime(path)
+    except OSError:
+        pass
 
 
 def _wait_for_event(api_url: str, key: str, event_id: str) -> tuple[str, int, int]:
@@ -1939,6 +2068,7 @@ def _wait_for_event(api_url: str, key: str, event_id: str) -> tuple[str, int, in
     deadline = time.monotonic() + wait_seconds
     response_chars = 0
     while time.monotonic() < deadline:
+        touch_handoff_heartbeat()
         try:
             response, size = _get_json(
                 f"{api_url}/v1/event/{event_id}/",
@@ -2027,7 +2157,10 @@ def flush_session(
 
     started = time.perf_counter()
     try:
-        existing_event = str(existing_flush.get("semantic_event_id") or "")
+        stored_events = _stored_event_ids(existing_flush.get("semantic_event_id"))
+        existing_event = (
+            "" if stored_events else str(existing_flush.get("semantic_event_id") or "")
+        )
         if existing_event:
             existing_status, existing_resp, existing_items = _wait_for_event(
                 api_url, key, existing_event
@@ -2114,29 +2247,35 @@ def flush_session(
         message_batches = extraction_message_batches(
             build_extraction_messages(structured)
         )
-        semantic_events: list[str] = []
+        operation_name = "flush-retry" if stored_events else "flush"
+        semantic_events = stored_events[: len(message_batches)]
+        semantic_events += [""] * (len(message_batches) - len(semantic_events))
         semantic_req = 0
         semantic_resp = 0
-        for messages in message_batches:
+        for index, messages in enumerate(message_batches):
+            if semantic_events[index]:
+                continue
             semantic_response, request_chars, response_chars = _request_json(
                 add_url,
                 key,
                 {**semantic_body, "messages": messages},
                 15,
             )
-            semantic_events.append(_event_id(semantic_response))
+            semantic_events[index] = _event_id(semantic_response)
             semantic_req += request_chars
             semantic_resp += response_chars
+            store.update_flush(
+                packet_id,
+                status="semantic-queued",
+                semantic_event_id=json.dumps(semantic_events),
+            )
 
         semantic_event = semantic_events[-1]
-        store.update_flush(
-            packet_id, status="semantic-queued", semantic_event_id=semantic_event
-        )
         semantic_status = "SUCCEEDED"
         event_resp = 0
         semantic_items = 0
         failed_event = semantic_event
-        for queued_event in semantic_events:
+        for index, queued_event in enumerate(semantic_events):
             status, response_chars, item_count = _wait_for_event(
                 api_url, key, queued_event
             )
@@ -2145,6 +2284,11 @@ def flush_session(
             if status != "SUCCEEDED":
                 semantic_status = status
                 failed_event = queued_event
+                if status in {"FAILED", "MISSING"}:
+                    semantic_events[index] = ""
+                    store.update_flush(
+                        packet_id, semantic_event_id=json.dumps(semantic_events)
+                    )
                 break
         if semantic_status != "SUCCEEDED":
             elapsed = (time.perf_counter() - started) * 1000
@@ -2155,7 +2299,7 @@ def flush_session(
             store.operation(
                 repo,
                 session_id,
-                "flush",
+                operation_name,
                 elapsed,
                 False,
                 item_count=semantic_items,
@@ -2185,13 +2329,13 @@ def flush_session(
         store.update_flush(
             packet_id,
             status="semantic-succeeded",
-            semantic_event_id=semantic_event,
+            semantic_event_id=json.dumps(semantic_events),
             error="",
         )
         store.operation(
             repo,
             session_id,
-            "flush",
+            operation_name,
             elapsed,
             True,
             item_count=semantic_items,

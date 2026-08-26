@@ -14,13 +14,19 @@ import time
 from pathlib import Path
 
 import telemetry
-from memory_core import EvidenceStore, checkpoint_session, record_stop
+from memory_core import (
+    EvidenceStore,
+    checkpoint_session,
+    record_stop,
+    touch_handoff_heartbeat,
+)
 
 
 def main() -> int:
     if len(sys.argv) != 2:
         return 2
     handoff_path = Path(sys.argv[1])
+    os.environ["MEM0_CODE_HANDOFF_PATH"] = str(handoff_path)
     completed = False
     try:
         payload = json.loads(handoff_path.read_text(encoding="utf-8"))
@@ -41,6 +47,7 @@ def main() -> int:
                     store.has_inflight_flush(repo.identity, session_id)
                     and time.monotonic() < deadline
                 ):
+                    touch_handoff_heartbeat()
                     time.sleep(0.25)
                 if reason == "session-end":
                     record_stop(store, hook_input)

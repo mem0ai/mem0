@@ -6,12 +6,15 @@ disable-model-invocation: true
 
 # Pause memory capture
 
-To pause (all hooks become no-ops; nothing is captured or sent):
+To pause (hooks stop capturing and sending session content; a minimal
+anonymous telemetry ping still fires at session start unless
+`MEM0_TELEMETRY=false`):
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/core/memory_cli.py" pause
 ```
 
 Confirm the new state back to the user, and remind them that already-created
-memories still exist and remain searchable. To turn capture back on, use
-`/mem0:resume`.
+memories still exist and remain searchable. Pending unsent packets are held
+while paused, not expired, and are delivered after resuming. To turn capture
+back on, use `/mem0:resume`.
