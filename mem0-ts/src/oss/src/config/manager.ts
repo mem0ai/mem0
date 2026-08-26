@@ -183,6 +183,8 @@ export class ConfigManager {
         userConfig.historyStore?.config?.historyDbPath ||
         DEFAULT_MEMORY_CONFIG.historyStore?.config?.historyDbPath,
       customInstructions: userConfig.customInstructions,
+      dedupSearchLimit: userConfig.dedupSearchLimit,
+      dedupSearchThreshold: userConfig.dedupSearchThreshold,
       historyStore: (() => {
         const defaultHistoryStore = DEFAULT_MEMORY_CONFIG.historyStore!;
         const historyProvider =

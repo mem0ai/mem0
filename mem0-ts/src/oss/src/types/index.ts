@@ -152,6 +152,17 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customInstructions?: string;
+  /**
+   * How many existing memories add() retrieves as deduplication context
+   * (default: 10). Larger corpora may need a wider window (#7123).
+   */
+  dedupSearchLimit?: number;
+  /**
+   * Optional minimum similarity score for add()'s deduplication search.
+   * Results scoring below the threshold are excluded from the extraction
+   * context (#7123).
+   */
+  dedupSearchThreshold?: number;
 }
 
 export interface MemoryItem {
@@ -247,6 +258,8 @@ export const MemoryConfigSchema = z.object({
   }),
   historyDbPath: z.string().optional(),
   customInstructions: z.string().optional(),
+  dedupSearchLimit: z.number().int().positive().optional(),
+  dedupSearchThreshold: z.number().min(-1).max(1).optional(),
   historyStore: z
     .object({
       provider: z.string(),

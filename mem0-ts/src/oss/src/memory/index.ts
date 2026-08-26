@@ -887,11 +887,18 @@ export class Memory {
 
     // Phase 1: Existing memory retrieval
     const queryEmbedding = await this.embedder.embed(parsedMessages, "search");
-    const existingResults = await this.vectorStore.search(
+    const dedupLimit = this.config.dedupSearchLimit ?? 10;
+    let existingResults = await this.vectorStore.search(
       queryEmbedding,
-      10,
+      dedupLimit,
       filters,
     );
+    if (typeof this.config.dedupSearchThreshold === "number") {
+      const threshold = this.config.dedupSearchThreshold;
+      existingResults = existingResults.filter(
+        (result) => typeof result.score === "number" && result.score >= threshold,
+      );
+    }
 
     // Map UUIDs to integers (anti-hallucination)
     const existingMemories: Array<{ id: string; text: string }> = [];
