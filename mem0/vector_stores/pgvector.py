@@ -219,7 +219,47 @@ class PGVector(VectorStoreBase):
         collections = self.list_cols()
         if self.collection_name not in collections:
             self.create_col()
+        else:
+            self._warn_on_dim_mismatch()
         self._collection_ensured = True
+
+    def _warn_on_dim_mismatch(self) -> None:
+        """Warn loudly when the live table's vector dimension differs from the
+        configured ``embedding_model_dims``.
+
+        ``create_col`` uses ``CREATE TABLE IF NOT EXISTS``, so a table that
+        already exists keeps its original column dimension no matter what the
+        config says — a switched embedder then produces vectors the column
+        rejects at insert time. This is best-effort introspection; if the
+        dimension cannot be read (permissions, non-vector column), it stays
+        silent rather than failing.
+        """
+        try:
+            with self._get_cursor() as cur:
+                cur.execute(
+                    "SELECT atttypmod FROM pg_attribute "
+                    "WHERE attrelid = to_regclass(%s) AND attname = 'vector'",
+                    (self.collection_name,),
+                )
+                row = cur.fetchone()
+        except Exception as e:  # noqa: BLE001 — best-effort introspection
+            logger.debug("Could not introspect pgvector table dims: %s", e)
+            return
+        if not row or row[0] is None:
+            return
+        table_dims = row[0] - 4  # pgvector encodes dimension + 4 in atttypmod
+        if table_dims == self.embedding_model_dims:
+            return
+        logger.warning(
+            "Existing pgvector table '%s' has vector(%d) but embedding_model_dims=%d. "
+            "CREATE TABLE IF NOT EXISTS will not alter the column; inserts with the "
+            "configured dimension will fail. Set embedding_model_dims=%d (or recreate "
+            "the table) to match the existing schema.",
+            self.collection_name,
+            table_dims,
+            self.embedding_model_dims,
+            table_dims,
+        )
 
     @contextmanager
     def _get_cursor(self, commit: bool = False):
