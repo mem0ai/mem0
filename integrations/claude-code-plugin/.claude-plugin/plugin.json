@@ -40,6 +40,14 @@
       "min": 1000,
       "max": 10000,
       "required": false
+    },
+    "search_scope": {
+      "type": "string",
+      "title": "Default search scope",
+      "description": "How wide every search runs by default. 'repo' is your memories in this repository, 'team' is everyone's memories in this repository, 'mine' is your memories in every repository, and 'all' is both.",
+      "default": "repo",
+      "enum": ["repo", "team", "mine", "all"],
+      "required": false
     }
   }
 }

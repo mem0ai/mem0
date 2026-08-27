@@ -104,12 +104,14 @@ or ends the session. On the first prompt of a later session, Mem0 searches
 with that prompt before Claude begins working, and Claude can search again
 when earlier work may save repeated file reads, searches, or experiments.
 
-You can search directly, optionally choosing the result count or one memory
-category:
+You can search directly, optionally choosing the result count, one memory
+category, or how wide to search:
 
 ```text
 /mem0:search Why does the ODS serializer keep dates timezone-naive?
 /mem0:search What parser failures were fixed? --top-k 5 --category problems_and_fixes
+/mem0:search Is there a team rule about migrations? --scope team
+/mem0:search Do I prefer pnpm or npm? --scope mine
 ```
 
 Claude decides whether to use the sidekick. You can ask for it directly when
@@ -129,7 +131,7 @@ Uncommitted changes are not copied into the sidekick's worktree.
 
 | Command | What it does |
 | --- | --- |
-| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>` and `--category <name>`. |
+| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>`, `--category <name>`, and `--scope <repo\|team\|mine\|all>`. |
 | `/mem0:status` | Show whether Mem0 memory is working in this repository: configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
 | `/mem0:forget` | Delete the Mem0 memories stored for this repository (and this user), after confirming with you. Deletion covers the whole user-and-repository scope at once, including memories created from other checkouts of the same repository. |
 | `/mem0:pause` | Pause Mem0 memory capture on this machine. |
@@ -137,14 +139,44 @@ Uncommitted changes are not copied into the sidekick's worktree.
 | `/mem0:remember` | Acknowledge a "remember this" request and make sure it is captured well. |
 
 `/mem0:search` and the `search_memories` tool take the same inputs: a
-question, an optional result count from 1 to 20, and an optional category.
-The categories are `project_knowledge`, `decisions_and_constraints`,
-`workflows`, `problems_and_fixes`, and `results`; without one, the search
-spans all of them.
+question, an optional result count from 1 to 20, an optional category, and an
+optional scope. The categories are `project_knowledge`,
+`decisions_and_constraints`, `workflows`, `problems_and_fixes`, and `results`;
+without one, the search spans all of them.
+
+## Search scope
+
+Every memory is written with two labels: who wrote it (`user_id`) and which
+repository it came from (`app_id`). A search combines those two labels with
+`AND`, so by default you get back only the memories you wrote in the
+repository you are working in. The scope setting changes which of the two
+labels is relaxed to a `*` wildcard, meaning "any value".
+
+| Scope | What you get back | Filter sent to Mem0 |
+| --- | --- | --- |
+| `repo` (default) | Your memories in this repository | `AND [user_id, app_id]` |
+| `team` | Everyone's memories in this repository | `AND [app_id, user_id: *]` |
+| `mine` | Your memories in every repository | `AND [user_id, app_id: *]` |
+| `all` | Both of the above, combined | `OR [team, mine]` |
+
+`team` is the global team search: your colleagues' decisions, fixes, and
+conventions for the repository you share, not just your own. `mine` is for
+your own preferences, which follow you between repositories.
+
+Every scope keeps at least one label pinned to something you already have:
+your user ID or the repository you are in. A search never relaxes both labels
+at once, so no scope returns memories from a repository you are not in that
+were also written by somebody else. A wildcard is only ever a filter value,
+never an identity: if `user_id` or `app_id` resolves to `*`, the search is
+refused rather than widened.
+
+Set a different default for every search with the `search_scope` option or the
+`MEM0_CODE_SEARCH_SCOPE` environment variable. An unrecognised value falls
+back to `repo`. The `--scope` argument on a single search overrides it.
 
 ## Settings
 
-Four options are set at install time with `--config`; the rest of the
+Five options are set at install time with `--config`; the rest of the
 behavior is not tunable.
 
 | Setting | Default | What it controls |
@@ -153,6 +185,7 @@ behavior is not tunable.
 | `user_id` | local account name | The user ID memories are stored under. Resolved in order from the `user_id` setting, `MEM0_CODE_USER_ID`, `MEM0_USER_ID`, `MEM0_RESOLVED_USER_ID`, `$USER`, `%USERNAME%` (Windows), then `default`. Set it explicitly to share memories across machines. |
 | `top_k` | `3` | Maximum memories returned by `search_memories` or `/mem0:search`; the automatic first search returns up to five |
 | `max_context_chars` | `4000` | Maximum memory characters returned by one search |
+| `search_scope` | `repo` | Default breadth for every search: `repo`, `team`, `mine`, or `all`. See [Search scope](#search-scope). Also read from `MEM0_CODE_SEARCH_SCOPE`. |
 
 ## What is stored and sent
 

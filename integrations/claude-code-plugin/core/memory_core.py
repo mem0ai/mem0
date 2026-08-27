@@ -191,6 +191,31 @@ def _scope_value(raw: str | None) -> str:
     return "" if _WILDCARD_SCOPE.match(value) else value
 
 
+SEARCH_SCOPES = ("repo", "team", "mine", "all")
+DEFAULT_SEARCH_SCOPE = "repo"
+
+
+def _search_filters(user: str, app: str, scope: str) -> dict[str, Any]:
+    """Build the scope filter. Every branch pins an identity the searcher owns."""
+    mine_here = {"AND": [{"user_id": user}, {"app_id": app}]}
+    if scope == "repo":
+        return mine_here
+    team_here = {"AND": [{"app_id": app}, {"user_id": "*"}]}
+    if scope == "team":
+        return team_here
+    mine_anywhere = {"AND": [{"user_id": user}, {"app_id": "*"}]}
+    if scope == "mine":
+        return mine_anywhere
+    return {"OR": [team_here, mine_anywhere]}
+
+
+def search_scope() -> str:
+    configured = (
+        _plugin_option("search_scope", "MEM0_CODE_SEARCH_SCOPE") or ""
+    ).strip().lower()
+    return configured if configured in SEARCH_SCOPES else DEFAULT_SEARCH_SCOPE
+
+
 def _legacy_project_map(cwd: str, root: str, raw_remote: str) -> str:
     """Return the project name used by the previous Claude Code plugin."""
     try:
@@ -2428,6 +2453,7 @@ def search_memories(
     *,
     top_k: int | None = None,
     category: str | None = None,
+    scope: str | None = None,
     operation: str = "search",
     timeout: float = 5,
 ) -> MemorySearchResult:
@@ -2464,15 +2490,15 @@ def search_memories(
     user, app = _scope_value(user_id()), _scope_value(repo.app_id)
     if not user or not app:
         return MemorySearchResult(False, 0, 0, [])
-    filters: list[dict[str, Any]] = [
-        {"user_id": user},
-        {"app_id": app},
-    ]
+    effective_scope = (scope or search_scope()).strip().lower()
+    if effective_scope not in SEARCH_SCOPES:
+        raise ValueError(f"Unknown search scope: {effective_scope}")
+    filters = _search_filters(user, app, effective_scope)
     if category:
-        filters.append({"categories": {"contains": category}})
+        filters = {"AND": [filters, {"categories": {"contains": category}}]}
     payload = {
         "query": query,
-        "filters": {"AND": filters},
+        "filters": filters,
         "top_k": result_limit,
         # The API defaults to a 0.1 threshold when this field is omitted.
         # Mem0 uses only the top-k bound, so explicitly disable score filtering.

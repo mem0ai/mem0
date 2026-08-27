@@ -13,6 +13,7 @@ from memory_core import (
     CODING_MEMORY_CATEGORY_NAMES,
     format_search_result,
     resolve_repo,
+    SEARCH_SCOPES,
     search_memories,
 )
 
@@ -22,7 +23,9 @@ TOOL_NAME = "search_memories"
 TOOL_DESCRIPTION = (
     "Search memories from earlier work in this repository. Use it before "
     "repeating investigation or when earlier decisions, fixes, commands, or "
-    "results may help."
+    "results may help. Widen past your own memories with the scope argument: "
+    "'team' searches everyone's memories for this repository, 'mine' searches "
+    "your memories across every repository, and 'all' searches both."
 )
 TOOL_SCHEMA = {
     "type": "object",
@@ -44,6 +47,15 @@ TOOL_SCHEMA = {
             "enum": list(CODING_MEMORY_CATEGORY_NAMES),
             "description": "Optional memory category. Omit to search every category.",
         },
+        "scope": {
+            "type": "string",
+            "enum": list(SEARCH_SCOPES),
+            "description": (
+                "Which memories to search. 'repo' (default) is yours in this "
+                "repository, 'team' is everyone's in this repository, 'mine' is "
+                "yours across every repository, 'all' is both."
+            ),
+        },
     },
     "required": ["query"],
     "additionalProperties": False,
@@ -54,11 +66,13 @@ class ToolInputError(ValueError):
     pass
 
 
-def _validate_arguments(arguments: Any) -> tuple[str, int | None, str | None]:
+def _validate_arguments(
+    arguments: Any,
+) -> tuple[str, int | None, str | None, str | None]:
     if not isinstance(arguments, dict):
         raise ToolInputError("Search arguments must be an object.")
 
-    unknown = set(arguments) - {"query", "top_k", "category"}
+    unknown = set(arguments) - {"query", "top_k", "category", "scope"}
     if unknown:
         raise ToolInputError(f"Unknown search argument: {sorted(unknown)[0]}")
 
@@ -78,11 +92,15 @@ def _validate_arguments(arguments: Any) -> tuple[str, int | None, str | None]:
     category = arguments.get("category")
     if category is not None and category not in CODING_MEMORY_CATEGORY_NAMES:
         raise ToolInputError("category must be one of Mem0's supported categories.")
-    return query, top_k, category
+
+    scope = arguments.get("scope")
+    if scope is not None and scope not in SEARCH_SCOPES:
+        raise ToolInputError(f"scope must be one of {list(SEARCH_SCOPES)}.")
+    return query, top_k, category, scope
 
 
 def call_search_memories(arguments: Any) -> str:
-    query, top_k, category = _validate_arguments(arguments)
+    query, top_k, category, scope = _validate_arguments(arguments)
     repo = resolve_repo(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
     result = search_memories(
         None,
@@ -91,6 +109,7 @@ def call_search_memories(arguments: Any) -> str:
         query,
         top_k=top_k,
         category=category,
+        scope=scope,
         operation="mcp-search",
     )
     return format_search_result(result)

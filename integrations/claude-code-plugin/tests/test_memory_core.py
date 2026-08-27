@@ -1866,8 +1866,7 @@ def test_search_can_filter_one_memory_category(isolated_env, monkeypatch):
 
     assert request.call_args.args[2]["filters"] == {
         "AND": [
-            {"user_id": "test-user"},
-            {"app_id": "code-example"},
+            {"AND": [{"user_id": "test-user"}, {"app_id": "code-example"}]},
             {"categories": {"contains": "problems_and_fixes"}},
         ]
     }
@@ -2182,7 +2181,12 @@ def test_mcp_tool_contract_is_small_and_read_only():
     tool = response["result"]["tools"][0]
 
     assert tool["name"] == "search_memories"
-    assert set(tool["inputSchema"]["properties"]) == {"query", "top_k", "category"}
+    assert set(tool["inputSchema"]["properties"]) == {
+        "query",
+        "top_k",
+        "category",
+        "scope",
+    }
     assert tool["inputSchema"]["required"] == ["query"]
     assert tool["inputSchema"]["properties"]["top_k"]["minimum"] == 1
     assert tool["inputSchema"]["properties"]["top_k"]["maximum"] == 20
@@ -2273,6 +2277,7 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
     assert search.call_args.kwargs == {
         "top_k": 5,
         "category": "project_knowledge",
+        "scope": None,
         "operation": "mcp-search",
     }
     assert rendered == (
@@ -3536,3 +3541,122 @@ def test_flush_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
     request.assert_not_called()
     assert result == {"status": "error", "reason": "wildcard-scope"}
     store.close()
+
+
+def test_search_filters_repo_scope_pins_user_and_app():
+    assert memory_core._search_filters("priya", "payments-api", "repo") == {
+        "AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]
+    }
+
+
+def test_search_filters_team_scope_drops_user_but_keeps_app():
+    assert memory_core._search_filters("priya", "payments-api", "team") == {
+        "AND": [{"app_id": "payments-api"}, {"user_id": "*"}]
+    }
+
+
+def test_search_filters_mine_scope_drops_app_but_keeps_user():
+    assert memory_core._search_filters("priya", "payments-api", "mine") == {
+        "AND": [{"user_id": "priya"}, {"app_id": "*"}]
+    }
+
+
+def test_search_filters_all_scope_unions_team_and_mine():
+    assert memory_core._search_filters("priya", "payments-api", "all") == {
+        "OR": [
+            {"AND": [{"app_id": "payments-api"}, {"user_id": "*"}]},
+            {"AND": [{"user_id": "priya"}, {"app_id": "*"}]},
+        ]
+    }
+
+
+def test_every_search_scope_pins_an_owned_identity():
+    for scope in memory_core.SEARCH_SCOPES:
+        branches = memory_core._search_filters("priya", "payments-api", scope)
+        branches = branches.get("OR", [branches])
+        for branch in branches:
+            values = {k: v for c in branch["AND"] for k, v in c.items()}
+            assert values.get("user_id") == "priya" or values.get("app_id") == (
+                "payments-api"
+            ), f"{scope} has an unpinned branch: {branch}"
+
+
+def test_search_scope_env_override_and_fallback(monkeypatch):
+    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "team")
+    assert memory_core.search_scope() == "team"
+    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "nonsense")
+    assert memory_core.search_scope() == "repo"
+    monkeypatch.delenv("MEM0_CODE_SEARCH_SCOPE")
+    assert memory_core.search_scope() == "repo"
+
+
+def test_search_memories_rejects_unknown_scope(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "priya")
+    repo = memory_core.RepoContext(
+        cwd="/x", root="/x", identity="i", app_id="app", branch="main", head_sha="s"
+    )
+    with pytest.raises(ValueError, match="Unknown search scope"):
+        memory_core.search_memories(None, repo, None, "q", scope="everything")
+
+
+def test_search_memories_sends_team_filters(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "priya")
+    sent = {}
+
+    def fake_request(url, key, payload, timeout):
+        sent.update(payload)
+        return {"results": []}, 0, 0
+
+    monkeypatch.setattr(
+        memory_core, "_request_json_with_network_retry", fake_request
+    )
+    repo = memory_core.RepoContext(
+        cwd="/x",
+        root="/x",
+        identity="i",
+        app_id="payments-api",
+        branch="main",
+        head_sha="s",
+    )
+    memory_core.search_memories(None, repo, None, "q", scope="team")
+    assert sent["filters"] == {
+        "AND": [{"app_id": "payments-api"}, {"user_id": "*"}]
+    }
+
+
+def test_category_nests_under_the_scope_filter(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "priya")
+    sent = {}
+
+    def fake_request(url, key, payload, timeout):
+        sent.update(payload)
+        return {"results": []}, 0, 0
+
+    monkeypatch.setattr(
+        memory_core, "_request_json_with_network_retry", fake_request
+    )
+    repo = memory_core.RepoContext(
+        cwd="/x",
+        root="/x",
+        identity="i",
+        app_id="payments-api",
+        branch="main",
+        head_sha="s",
+    )
+    memory_core.search_memories(
+        None, repo, None, "q", scope="all", category="workflows"
+    )
+    assert sent["filters"] == {
+        "AND": [
+            {
+                "OR": [
+                    {"AND": [{"app_id": "payments-api"}, {"user_id": "*"}]},
+                    {"AND": [{"user_id": "priya"}, {"app_id": "*"}]},
+                ]
+            },
+            {"categories": {"contains": "workflows"}},
+        ]
+    }
