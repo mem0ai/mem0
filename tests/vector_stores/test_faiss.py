@@ -57,6 +57,26 @@ def test_create_col(faiss_instance, mock_faiss_index):
             mock_index_flat_ip.assert_called_once_with(faiss_instance.embedding_model_dims)
 
 
+def test_load_failure_clears_index_and_docstore(mock_faiss_index):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        index_path = os.path.join(temp_dir, "test_collection.faiss")
+        json_path = os.path.join(temp_dir, "test_collection.json")
+        open(index_path, "a").close()
+        with open(json_path, "w", encoding="utf-8") as file:
+            file.write("{invalid")
+
+        with patch("faiss.read_index", return_value=mock_faiss_index):
+            store = FAISS(
+                collection_name="test_collection",
+                path=temp_dir,
+                distance_strategy="euclidean",
+            )
+
+        assert store.index is None
+        assert store.docstore == {}
+        assert store.index_to_id == {}
+
+
 def test_insert(faiss_instance, mock_faiss_index):
     # Prepare test data
     vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
