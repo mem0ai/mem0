@@ -8,7 +8,8 @@ disable-model-invocation: true
 
 This permanently deletes remote memories. Before running anything, tell the
 user exactly what will be deleted (this repository's memory scope for their
-user ID) and ask them to confirm.
+user ID, plus this repository's operating notes, which belong to the
+repository rather than to one user) and ask them to confirm.
 
 After the user confirms, run:
 

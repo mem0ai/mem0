@@ -23,6 +23,13 @@
       "description": "Optional stable ID shared across machines. When omitted, Mem0 uses your local account name, matching the earlier Mem0 Claude Code plugin.",
       "required": false
     },
+    "agent_memory": {
+      "type": "boolean",
+      "title": "Remember operating lessons",
+      "description": "Also save what it took to run, test, and build here: a command that failed and the one that worked after it. Stored separately from repository knowledge and shown as [operating note].",
+      "default": true,
+      "required": false
+    },
     "top_k": {
       "type": "number",
       "title": "Manual search results",

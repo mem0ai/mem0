@@ -23,7 +23,9 @@ TOOL_NAME = "search_memories"
 TOOL_DESCRIPTION = (
     "Search memories from earlier work in this repository. Use it before "
     "repeating investigation or when earlier decisions, fixes, commands, or "
-    "results may help. Widen past your own memories with the scope argument: "
+    "results may help. Results marked [operating note] record what it took to "
+    "run, test, or build here, so search before assuming an invocation works. "
+    "Widen past your own memories with the scope argument: "
     "'team' searches everyone's memories for this repository, 'mine' searches "
     "your memories across every repository, and 'all' searches both."
 )

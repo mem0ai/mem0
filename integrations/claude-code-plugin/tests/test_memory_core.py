@@ -1331,6 +1331,7 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
         "source": "claude_code_plugin",
         "branch": "main",
         "git_sha": "abc123",
+        "lane": "repo",
     }
     assert "immutable" not in first_body
     assert "Save concise repository facts" in first_body[
@@ -1471,7 +1472,8 @@ def test_non_git_memory_metadata_omits_branch_and_commit(isolated_env, monkeypat
         )
 
     assert request.call_args.args[2]["metadata"] == {
-        "source": "claude_code_plugin"
+        "source": "claude_code_plugin",
+        "lane": "repo",
     }
     store.close()
 
@@ -1826,11 +1828,11 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
     assert second_result.already_shown_count == 3
     assert captured_payloads[0]["filters"] == {
         "AND": [
-            {"user_id": "test-user"},
             {"app_id": "code-example"},
+            {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
         ]
     }
-    assert captured_payloads[0]["top_k"] == 3
+    assert captured_payloads[0]["top_k"] == 6
     assert captured_payloads[0]["threshold"] == 0.0
     assert captured_payloads[0]["rerank"] is False
     retrieval = store.conn.execute(
@@ -1866,7 +1868,12 @@ def test_search_can_filter_one_memory_category(isolated_env, monkeypatch):
 
     assert request.call_args.args[2]["filters"] == {
         "AND": [
-            {"AND": [{"user_id": "test-user"}, {"app_id": "code-example"}]},
+            {
+                "AND": [
+                    {"app_id": "code-example"},
+                    {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
+                ]
+            },
             {"categories": {"contains": "problems_and_fixes"}},
         ]
     }
@@ -2023,7 +2030,7 @@ def test_plugin_top_k_option_does_not_enable_threshold_or_reranking(
         )
 
     payload = request.call_args.args[2]
-    assert payload["top_k"] == 3
+    assert payload["top_k"] == 6
     assert payload["threshold"] == 0.0
     assert payload["rerank"] is False
     store.close()
@@ -2649,7 +2656,7 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
 
     payload = request.call_args.args[2]
     assert payload["query"] == prompt
-    assert payload["top_k"] == 5
+    assert payload["top_k"] == 10
     assert payload["threshold"] == 0.0
     assert payload["rerank"] is False
     assert payload["latest_only"] is True
@@ -2753,8 +2760,8 @@ def test_manual_search_remains_available_after_automatic_search(
 
     assert [memory["id"] for memory in result.memories] == ["manual-memory"]
     assert request.call_count == 2
-    assert request.call_args_list[0].args[2]["top_k"] == 5
-    assert request.call_args_list[1].args[2]["top_k"] == 3
+    assert request.call_args_list[0].args[2]["top_k"] == 10
+    assert request.call_args_list[1].args[2]["top_k"] == 6
     store.close()
 
 
@@ -3470,7 +3477,10 @@ def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
     url, _, payload, _ = request.call_args[0]
     assert "/v2/memories/" in url
     assert payload["filters"] == {
-        "AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]
+        "AND": [
+            {"app_id": "repo-a"},
+            {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
+        ]
     }
     assert deleted == ["m1", "m2"]
     assert result == {"status": "deleted", "deleted": 2}
@@ -3544,15 +3554,11 @@ def test_flush_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
 
 
 def test_search_filters_repo_scope_pins_user_and_app():
-    assert memory_core._search_filters("priya", "payments-api", "repo") == {
-        "AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]
-    }
+    assert memory_core._search_filters("priya", "payments-api", "repo") == {"AND": [{"app_id": "payments-api"}, {"OR": [{"user_id": "priya"}, {"agent_id": "claude-code"}]}]}
 
 
 def test_search_filters_team_scope_drops_user_but_keeps_app():
-    assert memory_core._search_filters("priya", "payments-api", "team") == {
-        "AND": [{"app_id": "payments-api"}, {"user_id": "*"}]
-    }
+    assert memory_core._search_filters("priya", "payments-api", "team") == {"AND": [{"app_id": "payments-api"}, {"OR": [{"user_id": "*"}, {"agent_id": "claude-code"}]}]}
 
 
 def test_search_filters_mine_scope_drops_app_but_keeps_user():
@@ -3564,7 +3570,7 @@ def test_search_filters_mine_scope_drops_app_but_keeps_user():
 def test_search_filters_all_scope_unions_team_and_mine():
     assert memory_core._search_filters("priya", "payments-api", "all") == {
         "OR": [
-            {"AND": [{"app_id": "payments-api"}, {"user_id": "*"}]},
+            {"AND": [{"app_id": "payments-api"}, {"OR": [{"user_id": "*"}, {"agent_id": "claude-code"}]}]},
             {"AND": [{"user_id": "priya"}, {"app_id": "*"}]},
         ]
     }
@@ -3621,9 +3627,7 @@ def test_search_memories_sends_team_filters(monkeypatch):
         head_sha="s",
     )
     memory_core.search_memories(None, repo, None, "q", scope="team")
-    assert sent["filters"] == {
-        "AND": [{"app_id": "payments-api"}, {"user_id": "*"}]
-    }
+    assert sent["filters"] == {"AND": [{"app_id": "payments-api"}, {"OR": [{"user_id": "*"}, {"agent_id": "claude-code"}]}]}
 
 
 def test_category_nests_under_the_scope_filter(monkeypatch):
@@ -3653,10 +3657,230 @@ def test_category_nests_under_the_scope_filter(monkeypatch):
         "AND": [
             {
                 "OR": [
-                    {"AND": [{"app_id": "payments-api"}, {"user_id": "*"}]},
+                    {"AND": [{"app_id": "payments-api"}, {"OR": [{"user_id": "*"}, {"agent_id": "claude-code"}]}]},
                     {"AND": [{"user_id": "priya"}, {"app_id": "*"}]},
                 ]
             },
             {"categories": {"contains": "workflows"}},
         ]
     }
+
+
+def _record_failed_then_recovered_command(store, session_id="s1"):
+    r = repo()
+    store.record_event(
+        r,
+        session_id,
+        "tool_failure",
+        {
+            "tool": "Bash",
+            "command": "pytest tests/",
+            "command_kind": "test",
+            "failed": True,
+            "result_preview": "error: MEM0_API_KEY is not set",
+        },
+    )
+    store.record_event(
+        r,
+        session_id,
+        "tool_result",
+        {
+            "tool": "Bash",
+            "command": "MEM0_API_KEY=x pytest tests/",
+            "command_kind": "test",
+            "failed": False,
+            "result_preview": "136 passed",
+        },
+    )
+
+
+def test_agent_evidence_is_empty_when_no_command_failed():
+    structured = {
+        "app_id": "code-example",
+        "commands": [
+            {
+                "command": "pytest tests/",
+                "kind": "test",
+                "status": "succeeded",
+                "result": "ok",
+            }
+        ],
+    }
+    assert memory_core.build_agent_evidence(structured) == []
+
+
+def test_agent_evidence_pairs_the_failure_with_the_recovery():
+    structured = {
+        "app_id": "code-example",
+        "commands": [
+            {
+                "command": "pytest tests/",
+                "kind": "test",
+                "status": "failed",
+                "result": "MEM0_API_KEY is not set",
+            },
+            {
+                "command": "MEM0_API_KEY=x pytest tests/",
+                "kind": "test",
+                "status": "succeeded",
+                "result": "136 passed",
+            },
+        ],
+    }
+    messages = memory_core.build_agent_evidence(structured)
+
+    assert [message["role"] for message in messages] == ["user", "assistant"]
+    assert "code-example" in messages[0]["content"]
+    digest = messages[1]["content"]
+    assert "[failed/test] pytest tests/" in digest
+    assert "[succeeded/test] MEM0_API_KEY=[REDACTED] pytest tests/" in digest
+    assert "MEM0_API_KEY is not set" in digest
+    assert "MEM0_API_KEY=x" not in digest
+
+
+def test_agent_lane_is_skipped_when_no_command_failed(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core,
+            "_request_json",
+            return_value=({"event_id": "e"}, 200, 20),
+        ) as request,
+        patch.object(memory_core, "_wait_for_event", return_value=("SUCCEEDED", 30, 2)),
+    ):
+        memory_core.flush_session(
+            store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end"
+        )
+
+    assert request.call_count == 1
+    assert "agent_id" not in request.call_args_list[0].args[2]
+    store.close()
+
+
+def test_agent_lane_adds_one_agent_scoped_call_when_a_command_failed(
+    isolated_env, monkeypatch
+):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+    _record_failed_then_recovered_command(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core,
+            "_request_json",
+            return_value=({"event_id": "e"}, 200, 20),
+        ) as request,
+        patch.object(memory_core, "_wait_for_event", return_value=("SUCCEEDED", 30, 2)),
+    ):
+        result = memory_core.flush_session(
+            store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end"
+        )
+
+    assert result["status"] == "semantic-succeeded"
+    assert request.call_count == 2
+    repo_body, agent_body = (call.args[2] for call in request.call_args_list)
+
+    assert repo_body["user_id"] == "test-user"
+    assert "agent_id" not in repo_body
+    assert repo_body["metadata"]["lane"] == "repo"
+    assert "Save concise repository facts" in repo_body["custom_instructions"]
+
+    assert agent_body["agent_id"] == "claude-code"
+    assert "user_id" not in agent_body
+    assert agent_body["app_id"] == "code-example"
+    assert agent_body["run_id"] == "s1"
+    assert agent_body["metadata"]["lane"] == "agent"
+    assert "custom_instructions" not in agent_body
+    assert "Save concise operating lessons" in agent_body[
+        "agent_custom_instructions"
+    ]
+    assert agent_body["custom_categories"] == memory_core.CODING_MEMORY_CATEGORIES
+    store.close()
+
+
+def test_agent_lane_can_be_switched_off(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    monkeypatch.setenv("MEM0_CODE_AGENT_MEMORY", "false")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+    _record_failed_then_recovered_command(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(
+            memory_core,
+            "_request_json",
+            return_value=({"event_id": "e"}, 200, 20),
+        ) as request,
+        patch.object(memory_core, "_wait_for_event", return_value=("SUCCEEDED", 30, 2)),
+    ):
+        memory_core.flush_session(
+            store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end"
+        )
+
+    assert request.call_count == 1
+    store.close()
+
+
+def test_reserved_slots_keep_operating_notes_from_crowding_out_repo_knowledge():
+    memories = [
+        {"id": "a", "metadata": {"lane": "agent"}},
+        {"id": "b", "metadata": {"lane": "agent"}},
+        {"id": "c", "metadata": {"lane": "agent"}},
+        {"id": "d", "metadata": {"lane": "agent"}},
+        {"id": "e", "metadata": {"lane": "repo"}},
+        {"id": "f", "metadata": {"lane": "repo"}},
+        {"id": "g", "metadata": {"lane": "repo"}},
+    ]
+    chosen = memory_core._reserve_agent_slots(memories, 5)
+
+    assert [memory["id"] for memory in chosen] == ["a", "b", "e", "f", "g"]
+
+
+def test_reserved_slots_backfill_when_one_lane_is_short():
+    memories = [
+        {"id": "a", "metadata": {"lane": "repo"}},
+        {"id": "b", "metadata": {"lane": "repo"}},
+        {"id": "c", "metadata": {"lane": "repo"}},
+        {"id": "d", "metadata": {"lane": "repo"}},
+    ]
+    chosen = memory_core._reserve_agent_slots(memories, 3)
+
+    assert [memory["id"] for memory in chosen] == ["a", "b", "c"]
+
+
+def test_memories_written_before_the_agent_lane_count_as_repo_knowledge():
+    memories = [
+        {"id": "old-1", "metadata": {"source": "claude_code_plugin"}},
+        {"id": "old-2", "metadata": {}},
+        {"id": "old-3"},
+        {"id": "note", "metadata": {"lane": "agent"}},
+    ]
+    chosen = memory_core._reserve_agent_slots(memories, 3)
+
+    assert [memory["id"] for memory in chosen] == ["old-1", "old-2", "note"]
+
+
+def test_operating_notes_are_labelled_in_injected_context():
+    context = memory_core.format_context(
+        [
+            {"memory": "The parser lives in src/ods.py.", "metadata": {"lane": "repo"}},
+            {
+                "memory": "pytest needs MEM0_API_KEY set.",
+                "metadata": {"lane": "agent", "branch": "feature/x"},
+            },
+        ]
+    )
+
+    assert "1. The parser lives in src/ods.py." in context
+    assert "[operating note]" not in context.split("\n")[1]
+    assert (
+        "2. pytest needs MEM0_API_KEY set. [operating note] [learnt on branch feature/x]"
+        in context
+    )

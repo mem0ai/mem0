@@ -47,18 +47,43 @@ claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the
 
 After that first automatic search, Claude can call the `search_memories` tool with one specific question, and you can run the same search yourself with `/mem0:search`. Those explicit searches return at most three memories by default (configurable up to 20). Each one runs fresh, so asking the same question again can return the same memory; only the automatic first search avoids repeating a memory it already supplied in that session. All returned memory context is capped at 4,000 characters, and results are not reranked or filtered by another score cutoff.
 
+### Operating notes
+
+Alongside what the repository *is*, Mem0 records what it takes to *work* in it. When a command fails during a session, the background worker sends that session's commands to Mem0 under the repository's `claude-code` agent, and Mem0 writes short operating notes: the invocation that failed, the error it returned, and the invocation that worked afterwards.
+
+A session in which nothing failed sends no operating evidence at all, because a session that met no friction teaches an agent nothing about working there. Operating notes come back from the same searches as everything else, marked `[operating note]`, and hold a minority of the slots in any result: at most one of three for an explicit search, two of five for the automatic one, so they never crowd out repository knowledge. Set `agent_memory` to `false` to switch them off.
+
+<Note>
+  Operating notes are the only path by which command details leave your computer without Claude repeating them in its visible response. Values that look like credentials are redacted first, as they are from everything else the plugin sends.
+</Note>
+
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>` and `--category <name>`. |
+| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>`, `--category <name>`, and `--scope <repo\|team\|mine\|all>`. |
 | `/mem0:status` | Show whether Mem0 memory is working in this repository: configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
-| `/mem0:forget` | Delete the Mem0 memories stored for this repository and user, after confirming with you. |
+| `/mem0:forget` | Delete the Mem0 memories stored for this repository and user, plus the repository's operating notes, after confirming with you. |
 | `/mem0:pause` | Pause Mem0 memory capture on this machine. |
 | `/mem0:resume` | Resume Mem0 memory capture after it was paused with `/mem0:pause`. |
 | `/mem0:remember` | Acknowledge a "remember this" request and make sure it is captured well in Claude's reply. |
 
 `/mem0:search` can filter to one memory category: `project_knowledge`, `decisions_and_constraints`, `workflows`, `problems_and_fixes`, or `results`. Without `--category`, it searches all of them.
+
+## Search scope
+
+Every memory is written with the repository it came from (`app_id`) and one owner label: the person who wrote it (`user_id`), or, for an operating note, the agent that learned it (`agent_id`, always `claude-code`). A search combines the repository with the owner using `AND`, so by default you get back what you recorded in the repository you are working in, plus that repository's operating notes. The scope chooses which label is relaxed to a `*` wildcard.
+
+| Scope | What you get back |
+| --- | --- |
+| `repo` (default) | Your memories in this repository, and its operating notes |
+| `team` | Everyone's memories in this repository, and its operating notes |
+| `mine` | Your memories in every repository |
+| `all` | Both `team` and `mine`, combined |
+
+`team` is the team search: your colleagues' decisions, fixes, and conventions for the repository you share. `mine` is for your own preferences, which follow you between repositories. Operating notes belong to a repository rather than to a person, so they appear in the two repository-scoped searches and not in `mine`.
+
+Every scope keeps at least one label pinned to something you already have, so no scope returns memories from a repository you are not in that were also written by somebody else. Set the default for every search with the `search_scope` setting or the `MEM0_CODE_SEARCH_SCOPE` environment variable; `--scope` on a single search overrides it.
 
 ## Sonnet sidekick agent
 
@@ -79,6 +104,8 @@ The main agent reviews the sidekick's result, and corrections go back to the sam
 | `user_id` | your local account name | Optional stable ID shared across machines, matching the earlier Mem0 Claude Code plugin's scoping. |
 | `top_k` | `3` | Maximum memories returned when Claude runs another search after the automatic first search (1 to 20). |
 | `max_context_chars` | `4000` | Maximum memory characters returned for one search (1,000 to 10,000). |
+| `search_scope` | `repo` | Default breadth for every search: `repo`, `team`, `mine`, or `all`. Also read from `MEM0_CODE_SEARCH_SCOPE`. |
+| `agent_memory` | `true` | Whether to record operating notes: what it took to run, test, and build in this repository. Also read from `MEM0_CODE_AGENT_MEMORY`. |
 
 ## Upgrading from 0.2.x
 
