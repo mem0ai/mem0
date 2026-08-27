@@ -144,9 +144,16 @@ class Supabase(VectorStoreBase):
             data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
 
+        def distance_to_score(value: float) -> float:
+            value = float(value)
+            if self.index_measure == IndexMeasure.MAX_INNER_PRODUCT:
+                return -value
+            if self.index_measure in (IndexMeasure.L1, IndexMeasure.L2):
+                return 1.0 / (1.0 + value)
+            return max(0.0, 1.0 - value)
+
         return [
-            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
-            for result in results
+            OutputData(id=str(result[0]), score=distance_to_score(result[1]), payload=result[2]) for result in results
         ]
 
     def delete(self, vector_id: str):

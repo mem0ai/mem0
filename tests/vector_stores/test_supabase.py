@@ -79,6 +79,26 @@ def test_search_vectors(supabase_instance, mock_collection):
     assert results[0].payload == {"name": "vector1"}
 
 
+@pytest.mark.parametrize(
+    ("index_measure", "raw_value", "expected_score"),
+    [
+        (IndexMeasure.COSINE, 0.3, 0.7),
+        (IndexMeasure.L1, 1.5, 1 / 2.5),
+        (IndexMeasure.L2, 1.5, 1 / 2.5),
+        (IndexMeasure.MAX_INNER_PRODUCT, -0.8, 0.8),
+    ],
+)
+def test_search_converts_scores_for_each_index_measure(
+    supabase_instance, mock_collection, index_measure, raw_value, expected_score
+):
+    supabase_instance.index_measure = index_measure
+    mock_collection.query.return_value = [("id1", raw_value, {})]
+
+    results = supabase_instance.search(query="", vectors=[[0.1, 0.2, 0.3]])
+
+    assert results[0].score == pytest.approx(expected_score)
+
+
 def test_delete_vector(supabase_instance, mock_collection):
     vector_id = "id1"
     supabase_instance.delete(vector_id=vector_id)
