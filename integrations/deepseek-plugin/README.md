@@ -55,6 +55,8 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 
 Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0's backend can attribute usage to this integration. For it to surface by name (rather than bucketing into `OTHERS`), `DEEPSEEK_HARNESS` must be present in the backend's `KNOWN_EVENT_SOURCES` allowlist, a one-line platform change matching the existing `ZAPIER` / `STRANDS` sources.
 
+The plugin also sends anonymous usage events (which tool ran, duration, result counts, coarse failure kind) so Mem0 can tell how the plugin is used and where it breaks. Queries, memory text, and entity ids are never sent. Turn it off with `MEM0_TELEMETRY=false`.
+
 ## Status
 
 Developer preview. Tracks the DeepSeek Harness v0.1 plugin API (`@deepseek-ai/cordis`, `@deepseek-ai/dsh-tools`), which is young and moving; pin versions once it stabilizes. Auto-capture (store turns without an explicit tool call) and auto-recall (inject memory into the prompt at assembly) are planned once the harness session/assembly event API is confirmed.

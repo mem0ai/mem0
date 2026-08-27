@@ -1,6 +1,6 @@
 {
   "name": "@mem0/deepseek-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mem0 long-term memory as a native DeepSeek Harness (Cordis) plugin.",
   "type": "module",
   "license": "Apache-2.0",

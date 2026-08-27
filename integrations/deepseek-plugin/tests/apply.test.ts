@@ -35,9 +35,12 @@ function applyAndCollect(config: Config): Map<string, RegisteredTool> {
 }
 
 let savedKey: string | undefined;
+let savedTelemetry: string | undefined;
 
 beforeEach(() => {
   savedKey = process.env.MEM0_API_KEY;
+  savedTelemetry = process.env.MEM0_TELEMETRY;
+  process.env.MEM0_TELEMETRY = "false";
   mockSearch.mockReset();
   mockAdd.mockReset();
 });
@@ -45,6 +48,8 @@ beforeEach(() => {
 afterEach(() => {
   if (savedKey === undefined) delete process.env.MEM0_API_KEY;
   else process.env.MEM0_API_KEY = savedKey;
+  if (savedTelemetry === undefined) delete process.env.MEM0_TELEMETRY;
+  else process.env.MEM0_TELEMETRY = savedTelemetry;
 });
 
 describe("apply() config validation", () => {
