@@ -3403,3 +3403,136 @@ def test_resolve_repo_caches_git_lookups_in_process(isolated_env, monkeypatch):
     memory_core._resolve_repo_cached.cache_clear()
     memory_core.resolve_repo("/tmp/repo")
     assert len(calls) > calls_after_first
+
+
+SCOPE_ENV_VARS = (
+    "CLAUDE_PLUGIN_OPTION_USER_ID",
+    "MEM0_CODE_USER_ID",
+    "MEM0_USER_ID",
+    "MEM0_RESOLVED_USER_ID",
+    "USER",
+    "USERNAME",
+)
+
+
+@pytest.mark.parametrize("wildcard", ["*", "**", " * "])
+def test_a_wildcard_user_id_never_becomes_the_scope(monkeypatch, wildcard):
+    for name in SCOPE_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+    monkeypatch.setenv("MEM0_CODE_USER_ID", wildcard)
+    assert memory_core.user_id() == "default"
+
+    monkeypatch.setenv("USER", "real-account")
+    assert memory_core.user_id() == "real-account"
+
+
+def test_a_wildcard_project_id_falls_through_to_the_git_remote(monkeypatch, tmp_path):
+    monkeypatch.setenv("MEM0_PROJECT_ID", "*")
+    resolved = memory_core._legacy_project_id(
+        str(tmp_path), str(tmp_path), "https://github.com/mem0ai/mem0.git", "mem0ai/mem0"
+    )
+    assert resolved == "mem0ai-mem0"
+
+
+def test_forget_refuses_an_unscoped_delete(monkeypatch, isolated_env):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "*")
+    repo = memory_core.RepoContext(
+        cwd="/x", root="/x", identity="x", app_id="*", branch="main", head_sha="abc"
+    )
+    with patch.object(memory_core, "_request_json") as request:
+        result = memory_core.forget_remote_repo(repo)
+    request.assert_not_called()
+    assert result["status"] == "error"
+    assert "wildcard" in result["error"]
+
+
+def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    repo = memory_core.RepoContext(
+        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc"
+    )
+    listed = {"results": [{"id": "m1"}, {"id": "m2"}]}
+    deleted = []
+
+    with patch.object(memory_core, "_request_json", return_value=(listed, 0, 0)) as request:
+        with patch.object(
+            memory_core, "_delete_memory", side_effect=lambda *args: deleted.append(args[2]) is None
+        ):
+            result = memory_core.forget_remote_repo(repo)
+
+    url, _, payload, _ = request.call_args[0]
+    assert "/v2/memories/" in url
+    assert payload["filters"] == {
+        "AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]
+    }
+    assert deleted == ["m1", "m2"]
+    assert result == {"status": "deleted", "deleted": 2}
+
+
+def test_forget_reports_partial_failures(monkeypatch, isolated_env):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    repo = memory_core.RepoContext(
+        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc"
+    )
+    listed = {"results": [{"id": "m1"}, {"id": "m2"}]}
+
+    with patch.object(memory_core, "_request_json", return_value=(listed, 0, 0)):
+        with patch.object(memory_core, "_delete_memory", side_effect=[True, False]):
+            result = memory_core.forget_remote_repo(repo)
+
+    assert result["status"] == "partial"
+    assert result["deleted"] == 1
+    assert result["failed"] == 1
+
+
+def test_an_empty_session_is_never_posted_to_the_api(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "build_extraction_messages", return_value=[]),
+        patch.object(memory_core, "_request_json") as request,
+    ):
+        result = memory_core.flush_session(
+            store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end"
+        )
+
+    request.assert_not_called()
+    assert result["status"] == "nothing-to-flush"
+    store.close()
+
+
+def test_search_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    repo = memory_core.RepoContext(
+        cwd="/x", root="/x", identity="x", app_id="*", branch="main", head_sha="abc"
+    )
+
+    with patch.object(memory_core, "_request_json") as request:
+        result = memory_core.search_memories(None, repo, None, "anything")
+
+    request.assert_not_called()
+    assert result.succeeded is False
+
+
+def test_flush_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "user_id", return_value="*"),
+        patch.object(memory_core, "_request_json") as request,
+    ):
+        result = memory_core.flush_session(
+            store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end"
+        )
+
+    request.assert_not_called()
+    assert result == {"status": "error", "reason": "wildcard-scope"}
+    store.close()

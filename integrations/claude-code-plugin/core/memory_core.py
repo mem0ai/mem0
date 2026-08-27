@@ -43,6 +43,8 @@ CHECKPOINT_SOURCE_CHARS = 40000
 DEFAULT_MAX_CONTEXT_CHARS = 4000
 MAX_EXTRACTION_INPUT_TOKENS = 24000
 MAX_FLUSH_ATTEMPTS = 5
+FORGET_PAGE_SIZE = 100
+FORGET_MAX_PAGES = 50
 
 CODING_EXTRACTION_INSTRUCTIONS = """Save concise repository facts that will help with future coding work.
 
@@ -180,6 +182,15 @@ def _normalize_remote(remote: str) -> str:
     return remote.rstrip("/")
 
 
+_WILDCARD_SCOPE = re.compile(r"^\*+$")
+
+
+def _scope_value(raw: str | None) -> str:
+    """Reject wildcards as identities: they are filter syntax and would widen the scope."""
+    value = (raw or "").strip()
+    return "" if _WILDCARD_SCOPE.match(value) else value
+
+
 def _legacy_project_map(cwd: str, root: str, raw_remote: str) -> str:
     """Return the project name used by the previous Claude Code plugin."""
     try:
@@ -203,11 +214,11 @@ def _legacy_project_map(cwd: str, root: str, raw_remote: str) -> str:
 
 def _legacy_project_id(cwd: str, root: str, raw_remote: str, identity: str) -> str:
     """Use the repository namespace created by the previous Mem0 plugin."""
-    configured = os.environ.get("MEM0_PROJECT_ID", "").strip()
+    configured = _scope_value(os.environ.get("MEM0_PROJECT_ID"))
     if configured:
         return configured
 
-    mapped = _legacy_project_map(cwd, root, raw_remote)
+    mapped = _scope_value(_legacy_project_map(cwd, root, raw_remote))
     if mapped:
         return mapped
 
@@ -353,11 +364,11 @@ def _plugin_option(name: str, fallback: str = "") -> str:
 
 def user_id() -> str:
     return (
-        _plugin_option("user_id", "MEM0_CODE_USER_ID")
-        or os.environ.get("MEM0_USER_ID", "").strip()
-        or os.environ.get("MEM0_RESOLVED_USER_ID", "").strip()
-        or os.environ.get("USER", "").strip()
-        or os.environ.get("USERNAME", "").strip()
+        _scope_value(_plugin_option("user_id", "MEM0_CODE_USER_ID"))
+        or _scope_value(os.environ.get("MEM0_USER_ID"))
+        or _scope_value(os.environ.get("MEM0_RESOLVED_USER_ID"))
+        or _scope_value(os.environ.get("USER"))
+        or _scope_value(os.environ.get("USERNAME"))
         or "default"
     )
 
@@ -2145,9 +2156,14 @@ def flush_session(
     api_url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
     add_url = f"{api_url}/v3/memories/add/"
 
+    write_user, write_app = _scope_value(user_id()), _scope_value(repo.app_id)
+    if not write_user or not write_app:
+        telemetry.record("flush", reason=reason, status="unscoped", success=False)
+        return {"status": "error", "reason": "wildcard-scope"}
+
     semantic_body = {
-        "user_id": user_id(),
-        "app_id": repo.app_id,
+        "user_id": write_user,
+        "app_id": write_app,
         "run_id": session_id,
         "metadata": metadata,
         "custom_instructions": CODING_EXTRACTION_INSTRUCTIONS,
@@ -2244,9 +2260,16 @@ def flush_session(
                     "resumed": True,
                 }
 
-        message_batches = extraction_message_batches(
-            build_extraction_messages(structured)
-        )
+        message_batches = [
+            batch
+            for batch in extraction_message_batches(
+                build_extraction_messages(structured)
+            )
+            if batch
+        ]
+        if not message_batches:
+            store.update_flush(packet_id, status="semantic-succeeded", error="")
+            return {"status": "nothing-to-flush", "packet_id": packet_id}
         operation_name = "flush-retry" if stored_events else "flush"
         semantic_events = stored_events[: len(message_batches)]
         semantic_events += [""] * (len(message_batches) - len(semantic_events))
@@ -2438,9 +2461,12 @@ def search_memories(
     )
     if category is not None and category not in CODING_MEMORY_CATEGORY_NAMES:
         raise ValueError(f"Unknown memory category: {category}")
+    user, app = _scope_value(user_id()), _scope_value(repo.app_id)
+    if not user or not app:
+        return MemorySearchResult(False, 0, 0, [])
     filters: list[dict[str, Any]] = [
-        {"user_id": user_id()},
-        {"app_id": repo.app_id},
+        {"user_id": user},
+        {"app_id": app},
     ]
     if category:
         filters.append({"categories": {"contains": category}})
@@ -2622,34 +2648,77 @@ def combine_context(*contexts: str) -> str:
     return bounded("\n".join(lines), limit) if lines else ""
 
 
+def _scoped_memory_ids(api_url: str, key: str, user: str, app: str) -> list[str]:
+    """List memory ids belonging to exactly this user and repository."""
+    payload = {"filters": {"AND": [{"user_id": user}, {"app_id": app}]}}
+    ids: list[str] = []
+    seen: set[str] = set()
+    for page in range(1, FORGET_MAX_PAGES + 1):
+        parsed, _, _ = _request_json(
+            f"{api_url}/v2/memories/?page={page}&page_size={FORGET_PAGE_SIZE}",
+            key,
+            payload,
+            15,
+        )
+        items = parsed.get("results") if isinstance(parsed, dict) else parsed
+        if not isinstance(items, list) or not items:
+            break
+        for item in items:
+            memory_id = str(item.get("id", "")) if isinstance(item, dict) else ""
+            if memory_id and memory_id not in seen:
+                seen.add(memory_id)
+                ids.append(memory_id)
+        if len(items) < FORGET_PAGE_SIZE:
+            break
+    return ids
+
+
+def _delete_memory(api_url: str, key: str, memory_id: str) -> bool:
+    request = urllib.request.Request(
+        f"{api_url}/v1/memories/{urllib.parse.quote(memory_id)}/",
+        headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
+        method="DELETE",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=15):
+            return True
+    except Exception:
+        return False
+
+
 def forget_remote_repo(repo: RepoContext) -> dict[str, Any]:
     """Delete only this installation user's memories for the current repository."""
     key = api_key()
     if not key:
         telemetry.record("forget", repo=repo, success=False, error_kind="no-api-key")
         return {"status": "error", "error": "Mem0 API key is not configured"}
-    query = urllib.parse.urlencode({"user_id": user_id(), "app_id": repo.app_id})
-    url = (
-        os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
-        + "/v1/memories/?"
-        + query
-    )
-    request = urllib.request.Request(
-        url,
-        headers={"Authorization": f"Token {key}", "Content-Type": "application/json"},
-        method="DELETE",
-    )
+    user = _scope_value(user_id())
+    app = _scope_value(repo.app_id)
+    if not user or not app:
+        telemetry.record("forget", repo=repo, success=False, error_kind="unscoped")
+        return {
+            "status": "error",
+            "error": "Refusing to forget: the user or repository scope is a wildcard",
+        }
+    api_url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            raw = response.read()
-        parsed = json.loads(raw or b"{}")
-        telemetry.record("forget", repo=repo, success=True)
-        return {"status": "requested", "response": parsed}
+        memory_ids = _scoped_memory_ids(api_url, key, user, app)
     except Exception as exc:
         telemetry.record(
             "forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc)
         )
         return {"status": "error", "error": bounded(str(exc), 1000)}
+    deleted = sum(_delete_memory(api_url, key, memory_id) for memory_id in memory_ids)
+    failed = len(memory_ids) - deleted
+    telemetry.record("forget", repo=repo, success=not failed, item_count=deleted)
+    if failed:
+        return {
+            "status": "partial",
+            "deleted": deleted,
+            "failed": failed,
+            "error": f"{failed} of {len(memory_ids)} memories could not be deleted",
+        }
+    return {"status": "deleted", "deleted": deleted}
 
 
 def _doctor_mem0_authentication(repo: RepoContext) -> dict[str, Any]:
