@@ -257,11 +257,13 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Platform]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
 - [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
+- [DeepSeek Harness](https://docs.mem0.ai/integrations/deepseek-plugin) [Platform]: Use when adding persistent memory to the DeepSeek Harness (Cordis) agent via the Mem0 plugin.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Platform]: Use when the user is on the OpenAI Agents SDK.
 - [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Platform]: Use when the user is on Google's Agent Development Kit.
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Platform]: Use when the user is on Mastra (TypeScript).
 - [OpenClaw](https://docs.mem0.ai/integrations/openclaw) [Both]: Use when wiring Mem0 into Claude Code or editors via OpenClaw.
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
+- [Vercel](https://docs.mem0.ai/integrations/vercel) [Platform]: Use when deploying on Vercel and installing Mem0 from the Vercel Marketplace.
 - [Strands Agents](https://docs.mem0.ai/integrations/strands) [Both]: Use when the user is on AWS Strands and wants a native MemoryStore.
 
 ### AI Coding Tools

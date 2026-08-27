@@ -12,8 +12,8 @@ share one Mem0 backend and namespace.
 
 from importlib.metadata import PackageNotFoundError, version
 
-from strands_mem0.client import Mem0ServiceClient
-from strands_mem0.store import Mem0MemoryStore
+from mem0_strands.client import Mem0ServiceClient
+from mem0_strands.store import Mem0MemoryStore
 
 __all__ = [
     "Mem0MemoryStore",
@@ -21,6 +21,6 @@ __all__ = [
 ]
 
 try:
-    __version__ = version("strands-mem0")
+    __version__ = version("mem0-strands")
 except PackageNotFoundError:  # pragma: no cover - only when running from a source tree
     __version__ = "0.0.0+unknown"
