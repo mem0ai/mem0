@@ -3,7 +3,7 @@ title: Give Agents Shared Working Memory
 description: Keep a claims adjuster's personal preferences separate from a claim's shared decisions using user_id, agent_id, and two sets of custom instructions.
 ---
 
-Priya is a claims adjuster. Every claim she opens should remember how she likes things drafted. Every claim itself should remember its own decisions, no matter which adjuster opens it next. A single `user_id` and one project-wide instruction set cannot hold both without one leaking into the other.
+Sarah is a claims adjuster. Every claim she opens should remember how she likes things drafted. Every claim itself should remember its own decisions, no matter which adjuster opens it next. A single `user_id` and one project-wide instruction set cannot hold both without one leaking into the other.
 
 <Info icon="cloud">
 **Works with:** Mem0 Platform (`MemoryClient`)
@@ -35,11 +35,11 @@ Grab an API key from the <a href="https://app.mem0.ai/?utm_source=oss&utm_medium
 
 ## Make It Work Once
 
-Claim CLM-48211 is a warehouse fire loss for Meridian Logistics, and Priya is the adjuster who opened it. Set two rule sets on the project once: `custom_instructions` for what belongs to the adjuster, `agent_custom_instructions` for what belongs to the claim.
+Claim CLM-48211 is a warehouse fire loss for Meridian Logistics, and Sarah is the adjuster who opened it. Set two rule sets on the project once: `custom_instructions` for what belongs to the adjuster, `agent_custom_instructions` for what belongs to the claim.
 
 <CodeGroup>
 ```python Python
-ADJUSTER = "adjuster_priya_cookbook_demo"
+ADJUSTER = "adjuster_sarah_cookbook_demo"
 CLAIM = "claims_agent_clm48211_cookbook_demo"
 
 user_instructions = """Your Task: Track what a claims adjuster needs remembered about themselves, not about any single claim.
@@ -73,7 +73,7 @@ client.project.update(
 )
 ```
 ```typescript TypeScript
-const ADJUSTER = "adjuster_priya_cookbook_demo";
+const ADJUSTER = "adjuster_sarah_cookbook_demo";
 const CLAIM = "claims_agent_clm48211_cookbook_demo";
 
 const userInstructions = `Your Task: Track what a claims adjuster needs remembered about themselves, not about any single claim.
@@ -133,12 +133,12 @@ await client.add(
 </CodeGroup>
 
 <Info icon="check">
-Expected output: one memory, attributed to `CLAIM`: `"Reserve on claim CLM-48211 was raised to $1.8 million because the structural engineer's report indicated the warehouse requires a full rebuild rather than a repair"`. Nothing lands on Priya's personal shelf, the instructions exclude claim decisions from it.
+Expected output: two memories, both attributed to `CLAIM`: `"Reserve for claim CLM-48211 was increased to $1.8 million to cover a full rebuild, as indicated by the structural engineer's report"`, plus the engineer's rebuild finding stored as its own durable fact. Nothing lands on Sarah's personal shelf, the instructions exclude claim decisions from it.
 </Info>
 
 ## The Problem
 
-Suppose Marcus, a second adjuster, needs to pick up CLM-48211 while Priya is out. If claim decisions only ever went on the acting adjuster's `user_id`, with no `agent_id` and no `agent_custom_instructions`, Marcus's own memory would be empty no matter what Priya decided:
+Suppose Marcus, a second adjuster, needs to pick up CLM-48211 while Sarah is out. If claim decisions only ever went on the acting adjuster's `user_id`, with no `agent_id` and no `agent_custom_instructions`, Marcus's own memory would be empty no matter what Sarah decided:
 
 ```python
 marcus_personal = client.get_all(filters={"user_id": "adjuster_marcus_cookbook_demo"})
@@ -150,7 +150,7 @@ print(marcus_personal["count"])
 0
 ```
 
-Marcus has never talked to Mem0 before, so an empty personal shelf is expected. The real gap is structural: if the reserve decision above had gone on Priya's `user_id` alone, it would live there permanently, and Marcus would have no identifier that reaches it. The claim's history would be trapped on one person's shelf.
+Marcus has never talked to Mem0 before, so an empty personal shelf is expected. The real gap is structural: if the reserve decision above had gone on Sarah's `user_id` alone, it would live there permanently, and Marcus would have no identifier that reaches it. The claim's history would be trapped on one person's shelf.
 
 ## Fix It: Give the Claim Its Own Shelf
 
@@ -176,19 +176,19 @@ for (const r of marcusView.results) {
 ```
 </CodeGroup>
 
-**Output** (after the full scenario below has run, four claim facts on file):
+**Output** (from the full notebook run, four claim facts on file):
 ```
-- [claims_agent_clm48211_cookbook_demo] Assistant noted that the cause of loss for claim CLM-48211 is faulty wiring identified by the fire marshal's report
-- [claims_agent_clm48211_cookbook_demo] Reserve on claim CLM-48211 was raised to $1.8 million because the structural engineer's report indicated the warehouse requires a full rebuild rather than a repair
-- [claims_agent_clm48211_cookbook_demo] The building coverage limit on the Meridian Logistics policy for claim CLM-48211 is $2,400,000 with a $25,000 deductible
-- [claims_agent_clm48211_cookbook_demo] Assistant recorded that subrogation is being pursued against Voss Electrical for claim CLM-48211 based on the fire marshal's finding of faulty wiring as the ignition source
+- [claims_agent_clm48211_cookbook_demo] Reserve for claim CLM-48211 was increased to $1.8 million to cover a full rebuild, as indicated by the structural engineer's report
+- [claims_agent_clm48211_cookbook_demo] The structural engineer's report for claim CLM-48211 states that the warehouse requires a full rebuild rather than a repair
+- [claims_agent_clm48211_cookbook_demo] The building coverage limit for claim CLM-48211 under the Meridian Logistics policy is $2,400,000 with a $25,000 deductible
+- [claims_agent_clm48211_cookbook_demo] Assistant noted that subrogation will be pursued against Voss Electrical, with the fire marshal's report identifying faulty wiring as the ignition source
 ```
 
-Marcus sees the full claim history and none of Priya's personal preferences, because those never carried `agent_id` attribution in the first place.
+Marcus sees the full claim history and none of Sarah's personal preferences, because those never carried `agent_id` attribution in the first place.
 
 ## Build On It: One Message, Two Shelves
 
-A single message can touch both shelves in one `add()` call. Priya makes a claim decision and states a personal preference in the same breath:
+A single message can touch both shelves in one `add()` call. Sarah makes a claim decision and states a personal preference in the same breath:
 
 <CodeGroup>
 ```python Python
@@ -212,10 +212,10 @@ await client.add(
 ```
 </CodeGroup>
 
-**Output:** three memories from one call. Two land on the claim shelf (the subrogation decision, and a cause-of-loss fact pulled out of the same sentence even though it was never stated on its own), one lands on Priya's personal shelf (the bullet-point formatting rule).
+**Output:** two memories from one call, one per shelf. The subrogation decision lands on the claim shelf with the fire marshal's faulty-wiring finding folded into its reasoning, and the bullet-point formatting rule lands on Sarah's personal shelf.
 
 <Warning>
-Extraction makes judgment calls, it does not mirror your instructions line by line. Earlier in this scenario, a one-off policy-limit lookup (excluded by name in the instructions above) still landed on the claim shelf, because it was judged a durable fact worth keeping for the life of the claim. Read what actually got stored with `get_all()` rather than assuming the instructions were applied literally.
+Extraction makes judgment calls, it does not mirror your instructions line by line. In the full notebook run, a one-off policy-limit lookup (excluded by name in the instructions above) still landed on the claim shelf, because it was judged a durable fact worth keeping for the life of the claim. Read what actually got stored with `get_all()` rather than assuming the instructions were applied literally.
 </Warning>
 
 ## Production Patterns
@@ -223,13 +223,13 @@ Extraction makes judgment calls, it does not mirror your instructions line by li
 - **Reviewing and correcting a personal shelf**: `get_all()` with the adjuster's `user_id`, then act on what is actually stored.
   <CodeGroup>
   ```python Python
-  priya_shelf = client.get_all(filters={"user_id": ADJUSTER})
-  for r in priya_shelf["results"]:
+  sarah_shelf = client.get_all(filters={"user_id": ADJUSTER})
+  for r in sarah_shelf["results"]:
       print(r["id"], "-", r["memory"])
   ```
   ```typescript TypeScript
-  const priyaShelf = await client.getAll({ filters: { userId: ADJUSTER } });
-  for (const r of priyaShelf.results) {
+  const sarahShelf = await client.getAll({ filters: { userId: ADJUSTER } });
+  for (const r of sarahShelf.results) {
     console.log(r.id, "-", r.memory);
   }
   ```
