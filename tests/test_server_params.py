@@ -777,3 +777,44 @@ class TestWriteHandlerErrorMapping:
             "messages": [{"role": "user", "content": "hi"}], "user_id": "u1",
         })
         assert resp.status_code == 502
+
+
+class TestMemoryIdErrorMapping:
+    """Invalid / unknown memory ids on id-addressed handlers map to 4xx, never 502.
+
+    Regression: GET/DELETE /memories/{non-uuid} returned 502 because Postgres
+    raised psycopg InvalidTextRepresentation for a non-UUID id and the handlers
+    treated it as an upstream outage.
+    """
+
+    @staticmethod
+    def _invalid_id_error():
+        psycopg = pytest.importorskip("psycopg")
+        return psycopg.errors.InvalidTextRepresentation(
+            'invalid input syntax for type uuid: "GPK0F14H"'
+        )
+
+    def test_get_invalid_id_returns_400_not_502(self, client, mock_memory):
+        mock_memory.get.side_effect = self._invalid_id_error()
+        resp = client.get("/memories/GPK0F14H")
+        assert resp.status_code == 400
+
+    def test_delete_invalid_id_returns_400_not_502(self, client, mock_memory):
+        mock_memory.delete.side_effect = self._invalid_id_error()
+        resp = client.delete("/memories/GPK0F14H")
+        assert resp.status_code == 400
+
+    def test_history_invalid_id_returns_400_not_502(self, client, mock_memory):
+        mock_memory.history.side_effect = self._invalid_id_error()
+        resp = client.get("/memories/GPK0F14H/history")
+        assert resp.status_code == 400
+
+    def test_get_not_found_returns_404(self, client, mock_memory):
+        mock_memory.get.side_effect = ValueError("Memory with id mem-1 not found")
+        resp = client.get("/memories/mem-1")
+        assert resp.status_code == 404
+
+    def test_get_real_outage_still_returns_502(self, client, mock_memory):
+        mock_memory.get.side_effect = RuntimeError("vector store unreachable")
+        resp = client.get("/memories/mem-1")
+        assert resp.status_code == 502

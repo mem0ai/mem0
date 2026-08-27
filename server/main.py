@@ -211,9 +211,31 @@ class GenerateInstructionsRequest(BaseModel):
     use_case: str = Field(..., description="Description of what the user will use Mem0 for.")
 
 
+# Postgres / pgvector raises InvalidTextRepresentation when a syntactically
+# invalid id (e.g. a non-UUID) is compared against a UUID column. That is a
+# client error (bad id), not an upstream outage, so it must map to 4xx not 502.
+_INVALID_ID_DB_ERRORS: tuple[type[Exception], ...] = ()
+for _driver_errors_module in ("psycopg.errors", "psycopg2.errors"):
+    try:
+        _mod = __import__(_driver_errors_module, fromlist=["InvalidTextRepresentation"])
+        _INVALID_ID_DB_ERRORS += (_mod.InvalidTextRepresentation,)
+    except Exception:
+        pass
+
+# Client-error types for the id-addressed handlers (get / update / history /
+# delete). These map to 4xx; anything else is treated as an upstream outage.
+_MEMORY_ID_CLIENT_ERRORS: tuple[type[Exception], ...] = (
+    ValueError,
+    Mem0ValidationError,
+) + _INVALID_ID_DB_ERRORS
+
+
 def _client_error(exc: Exception) -> HTTPException:
-    """Map core validation / not-found errors to 4xx so clients can tell a bad
-    request from an upstream outage. 'not found' is a 404, everything else a 400."""
+    """Map core validation / not-found / invalid-id errors to 4xx so clients can
+    tell a bad request from an upstream outage. A syntactically invalid id is a
+    400, 'not found' is a 404, everything else a 400."""
+    if _INVALID_ID_DB_ERRORS and isinstance(exc, _INVALID_ID_DB_ERRORS):
+        return HTTPException(status_code=400, detail="Invalid memory id")
     detail = str(exc)
     status_code = 404 if isinstance(exc, ValueError) and "not found" in detail.lower() else 400
     return HTTPException(status_code=status_code, detail=detail)
@@ -445,6 +467,8 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
         return get_memory_instance().get(memory_id)
+    except _MEMORY_ID_CLIENT_ERRORS as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -497,7 +521,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         if "expiration_date" in fields_set:
             params["expiration_date"] = updated_memory.expiration_date
         return get_memory_instance().update(**params)
-    except (ValueError, Mem0ValidationError) as e:
+    except _MEMORY_ID_CLIENT_ERRORS as e:
         raise _client_error(e)
     except Exception:
         raise upstream_error()
@@ -508,6 +532,8 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
     try:
         return get_memory_instance().history(memory_id=memory_id)
+    except _MEMORY_ID_CLIENT_ERRORS as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -518,7 +544,7 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
-    except (ValueError, Mem0ValidationError) as e:
+    except _MEMORY_ID_CLIENT_ERRORS as e:
         raise _client_error(e)
     except Exception:
         raise upstream_error()
