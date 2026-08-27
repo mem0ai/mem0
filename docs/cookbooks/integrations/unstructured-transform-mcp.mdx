@@ -7,7 +7,7 @@ Real-world documents (PDFs with columns, tables, scans) are hard to hand to a mo
 [Unstructured](https://unstructured.io) solves this with **Unstructured Transform**, a hosted MCP server that turns
 60+ file types into clean content. Since it is a remote
 [MCP](https://modelcontextprotocol.io) server, you can plug it into the OpenAI **Responses API**
-as a tool. Your agent gets document processing as a tool it can call on demand. For more information, check out the [docs](https://docs.unstructured.io/transform/overview). 15,000 free pages a month, 3 cents a page after.
+as a tool. Your agent gets document processing as a tool it can call on demand. For more information, check out the [docs](https://docs.unstructured.io/transform/overview). 10,000 free pages to start, then $0.015 a page.
 
 This cookbook then lets an agent work over the document the same way a coding agent works over a repository. Instead of chopping the document into pieces and embedding them into a vector database, we parse the PDF to markdown and save it to a local file, then give the agent two simple tools, `search_document` and `read_lines`, to find and read only the parts it needs. Mem0 remembers only **hints** about where common questions are answered, so repeat questions route faster and improve with feedback. The document stays on disk; only the small slices the agent reads enter its context; Mem0 never stores the document.
 
