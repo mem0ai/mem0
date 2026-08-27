@@ -300,6 +300,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Partition Memories by Entity](https://docs.mem0.ai/cookbooks/essentials/entity-partitioning-playbook) [Both]: Use when isolating multi-tenant memories.
 - [Tagging and Organizing Memories](https://docs.mem0.ai/cookbooks/essentials/tagging-and-organizing-memories) [Both]: Use when memory taxonomy matters.
 - [Exporting Memories](https://docs.mem0.ai/cookbooks/essentials/exporting-memories) [Both]: Use when backing up or migrating memory data.
+- [Give Agents Shared Working Memory](https://docs.mem0.ai/cookbooks/essentials/agent-memory-insurance-claims) [Platform]: Use when a shared record must outlive the individual using it, such as a claim, ticket, or account that multiple people work over time.
 
 ### AI Companions
 - [Quickstart Demo](https://docs.mem0.ai/cookbooks/companions/quickstart-demo) [Both]: Use when showing the smallest end-to-end companion.

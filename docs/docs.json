@@ -406,7 +406,8 @@
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/tagging-and-organizing-memories",
-                      "cookbooks/essentials/exporting-memories"
+                      "cookbooks/essentials/exporting-memories",
+                      "cookbooks/essentials/agent-memory-insurance-claims"
                     ]
                   },
                   {

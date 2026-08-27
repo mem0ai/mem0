@@ -1,0 +1,279 @@
+---
+title: Give Agents Shared Working Memory
+description: Keep a claims adjuster's personal preferences separate from a claim's shared decisions using user_id, agent_id, and two sets of custom instructions.
+icon: "shield-halved"
+---
+
+Priya is a claims adjuster. Every claim she opens should remember how she likes things drafted. Every claim itself should remember its own decisions, no matter which adjuster opens it next. A single `user_id` and one project-wide instruction set cannot hold both without one leaking into the other.
+
+<Info icon="cloud">
+**Works with:** Mem0 Platform (`MemoryClient`)
+</Info>
+
+<Info icon="clock">
+**Time to complete:** ~15 minutes · **Languages:** Python, TypeScript
+</Info>
+
+## Setup
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key=os.environ["MEM0_API_KEY"])
+```
+```javascript JavaScript
+import { MemoryClient } from "mem0ai";
+
+const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
+```
+</CodeGroup>
+
+<Note>
+Grab an API key from the <a href="https://app.mem0.ai/?utm_source=oss&utm_medium=cookbook-agent-memory" rel="nofollow">Mem0 dashboard</a>. `agent_custom_instructions` needs Python SDK `v2.0.17` or TypeScript SDK `v3.1.5` or later.
+</Note>
+
+## Make It Work Once
+
+Claim CLM-48211 is a warehouse fire loss for Meridian Logistics, and Priya is the adjuster who opened it. Set two rule sets on the project once: `custom_instructions` for what belongs to the adjuster, `agent_custom_instructions` for what belongs to the claim.
+
+<CodeGroup>
+```python Python
+ADJUSTER = "adjuster_priya_cookbook_demo"
+CLAIM = "claims_agent_clm48211_cookbook_demo"
+
+user_instructions = """Your Task: Track what a claims adjuster needs remembered about themselves, not about any single claim.
+
+Information to Extract:
+1. Drafting and communication style
+2. Working preferences, such as coverage lines they focus on
+
+Guidelines:
+- Store preferences that should carry over to every claim this adjuster works.
+
+Exclude:
+- Decisions made on a specific claim (settle vs litigate, reserve changes, subrogation)
+- Policy numbers, coverage limits, or other one-off lookups"""
+
+agent_instructions = """Your Task: Track what matters about this specific claim, regardless of which adjuster is working it.
+
+Information to Extract:
+1. Claim decisions and reasoning: settle vs litigate calls, reserve changes, subrogation
+2. Durable claim facts, such as cause of loss
+
+Guidelines:
+- Store facts that the next adjuster to open this claim needs to see.
+
+Exclude:
+- Personal style or communication preferences of whichever adjuster is talking"""
+
+client.project.update(
+    custom_instructions=user_instructions,
+    agent_custom_instructions=agent_instructions,
+)
+```
+```javascript JavaScript
+const ADJUSTER = "adjuster_priya_cookbook_demo";
+const CLAIM = "claims_agent_clm48211_cookbook_demo";
+
+const userInstructions = `Your Task: Track what a claims adjuster needs remembered about themselves, not about any single claim.
+
+Information to Extract:
+1. Drafting and communication style
+2. Working preferences, such as coverage lines they focus on
+
+Guidelines:
+- Store preferences that should carry over to every claim this adjuster works.
+
+Exclude:
+- Decisions made on a specific claim (settle vs litigate, reserve changes, subrogation)
+- Policy numbers, coverage limits, or other one-off lookups`;
+
+const agentInstructions = `Your Task: Track what matters about this specific claim, regardless of which adjuster is working it.
+
+Information to Extract:
+1. Claim decisions and reasoning: settle vs litigate calls, reserve changes, subrogation
+2. Durable claim facts, such as cause of loss
+
+Guidelines:
+- Store facts that the next adjuster to open this claim needs to see.
+
+Exclude:
+- Personal style or communication preferences of whichever adjuster is talking`;
+
+await client.updateProject({
+  customInstructions: userInstructions,
+  agentCustomInstructions: agentInstructions,
+});
+```
+</CodeGroup>
+
+Now a normal exchange with the claim, passing both ids on the same `add()` call:
+
+<CodeGroup>
+```python Python
+client.add(
+    [
+        {"role": "user", "content": "I'm raising the reserve on CLM-48211 to $1.8 million. The structural engineer's report says the warehouse needs a full rebuild, not a repair."},
+        {"role": "assistant", "content": "Got it. Reserve raised to $1.8 million on CLM-48211 for a full rebuild, per the structural engineer's report."},
+    ],
+    user_id=ADJUSTER,
+    agent_id=CLAIM,
+)
+```
+```javascript JavaScript
+await client.add(
+  [
+    { role: "user", content: "I'm raising the reserve on CLM-48211 to $1.8 million. The structural engineer's report says the warehouse needs a full rebuild, not a repair." },
+    { role: "assistant", content: "Got it. Reserve raised to $1.8 million on CLM-48211 for a full rebuild, per the structural engineer's report." },
+  ],
+  { userId: ADJUSTER, agentId: CLAIM },
+);
+```
+</CodeGroup>
+
+<Info icon="check">
+Expected output: one memory, attributed to `CLAIM`: `"Reserve on claim CLM-48211 was raised to $1.8 million because the structural engineer's report indicated the warehouse requires a full rebuild rather than a repair"`. Nothing lands on Priya's personal shelf, the instructions exclude claim decisions from it.
+</Info>
+
+## The Problem
+
+Suppose Marcus, a second adjuster, needs to pick up CLM-48211 while Priya is out. If claim decisions only ever went on the acting adjuster's `user_id`, with no `agent_id` and no `agent_custom_instructions`, Marcus's own memory would be empty no matter what Priya decided:
+
+```python
+marcus_personal = client.get_all(filters={"user_id": "adjuster_marcus_cookbook_demo"})
+print(marcus_personal["count"])
+```
+
+**Output:**
+```
+0
+```
+
+Marcus has never talked to Mem0 before, so an empty personal shelf is expected. The real gap is structural: if the reserve decision above had gone on Priya's `user_id` alone, it would live there permanently, and Marcus would have no identifier that reaches it. The claim's history would be trapped on one person's shelf.
+
+## Fix It: Give the Claim Its Own Shelf
+
+`agent_id` fixes this because it names the claim, not the person handling it. Anyone who searches with that `agent_id` sees the same claim history, regardless of whose `user_id` they search alongside:
+
+<CodeGroup>
+```python Python
+marcus_view = client.search(
+    "What's going on with CLM-48211?",
+    filters={"OR": [{"user_id": "adjuster_marcus_cookbook_demo"}, {"agent_id": CLAIM}]},
+)
+for r in marcus_view["results"]:
+    print(f"- [{r.get('user_id') or r.get('agent_id')}] {r['memory']}")
+```
+```javascript JavaScript
+const marcusView = await client.search(
+  "What's going on with CLM-48211?",
+  { filters: { OR: [{ userId: "adjuster_marcus_cookbook_demo" }, { agentId: CLAIM }] } },
+);
+for (const r of marcusView.results) {
+  console.log(`- [${r.userId ?? r.agentId}] ${r.memory}`);
+}
+```
+</CodeGroup>
+
+**Output** (after the full scenario below has run, four claim facts on file):
+```
+- [claims_agent_clm48211_cookbook_demo] Assistant noted that the cause of loss for claim CLM-48211 is faulty wiring identified by the fire marshal's report
+- [claims_agent_clm48211_cookbook_demo] Reserve on claim CLM-48211 was raised to $1.8 million because the structural engineer's report indicated the warehouse requires a full rebuild rather than a repair
+- [claims_agent_clm48211_cookbook_demo] The building coverage limit on the Meridian Logistics policy for claim CLM-48211 is $2,400,000 with a $25,000 deductible
+- [claims_agent_clm48211_cookbook_demo] Assistant recorded that subrogation is being pursued against Voss Electrical for claim CLM-48211 based on the fire marshal's finding of faulty wiring as the ignition source
+```
+
+Marcus sees the full claim history and none of Priya's personal preferences, because those never carried `agent_id` attribution in the first place.
+
+## Build On It: One Message, Two Shelves
+
+A single message can touch both shelves in one `add()` call. Priya makes a claim decision and states a personal preference in the same breath:
+
+<CodeGroup>
+```python Python
+client.add(
+    [
+        {"role": "user", "content": "I've decided to pursue subrogation against Voss Electrical, the contractor who rewired the warehouse six months ago. The fire marshal's report points to faulty wiring as the ignition source. Also, from now on keep my claim summaries to bullet points, not paragraphs."},
+        {"role": "assistant", "content": "Noted both. Pursuing subrogation against Voss Electrical based on the fire marshal's faulty-wiring finding, and I'll keep your summaries in bullet points going forward."},
+    ],
+    user_id=ADJUSTER,
+    agent_id=CLAIM,
+)
+```
+```javascript JavaScript
+await client.add(
+  [
+    { role: "user", content: "I've decided to pursue subrogation against Voss Electrical, the contractor who rewired the warehouse six months ago. The fire marshal's report points to faulty wiring as the ignition source. Also, from now on keep my claim summaries to bullet points, not paragraphs." },
+    { role: "assistant", content: "Noted both. Pursuing subrogation against Voss Electrical based on the fire marshal's faulty-wiring finding, and I'll keep your summaries in bullet points going forward." },
+  ],
+  { userId: ADJUSTER, agentId: CLAIM },
+);
+```
+</CodeGroup>
+
+**Output:** three memories from one call. Two land on the claim shelf (the subrogation decision, and a cause-of-loss fact pulled out of the same sentence even though it was never stated on its own), one lands on Priya's personal shelf (the bullet-point formatting rule).
+
+<Warning>
+Extraction makes judgment calls, it does not mirror your instructions line by line. Earlier in this scenario, a one-off policy-limit lookup (excluded by name in the instructions above) still landed on the claim shelf, because it was judged a durable fact worth keeping for the life of the claim. Read what actually got stored with `get_all()` rather than assuming the instructions were applied literally.
+</Warning>
+
+## Production Patterns
+
+- **Reviewing and correcting a personal shelf**: `get_all()` with the adjuster's `user_id`, then act on what is actually stored.
+  <CodeGroup>
+  ```python Python
+  priya_shelf = client.get_all(filters={"user_id": ADJUSTER})
+  for r in priya_shelf["results"]:
+      print(r["id"], "-", r["memory"])
+  ```
+  ```javascript JavaScript
+  const priyaShelf = await client.getAll({ filters: { userId: ADJUSTER } });
+  for (const r of priyaShelf.results) {
+    console.log(r.id, "-", r.memory);
+  }
+  ```
+  </CodeGroup>
+
+- **Editing without losing a neighbor**: `delete()` removes a whole memory, not a substring of one. If two preferences were extracted into a single combined memory, deleting it to revise one loses both. Use `update()` to rewrite the text in place instead:
+  <CodeGroup>
+  ```python Python
+  client.update(memory_id, text="User prefers drafts to contain no em dashes")
+  ```
+  ```javascript JavaScript
+  await client.update(memoryId, { text: "User prefers drafts to contain no em dashes" });
+  ```
+  </CodeGroup>
+
+## What You Built
+
+- **A personal shelf per adjuster**: `user_id` plus `custom_instructions` for preferences that follow one person across every claim they touch.
+- **A shared shelf per claim**: `agent_id` plus `agent_custom_instructions` for decisions and facts that outlive any single adjuster's session.
+- **One query across both**: an `OR` filter on `user_id` and `agent_id` for status updates that need the person's context and the claim's history together.
+
+## Production Checklist
+
+- Set `agent_custom_instructions` alongside `custom_instructions` in the same `project.update()` call, an unset agent instruction set silently falls back to the user one.
+- Pass both `user_id` and `agent_id` on every `add()` call for a claim conversation, not just one or the other.
+- Use `update()` to correct a single fact; reach for `delete()` only when you mean to remove the whole memory record.
+- Delete demo or test data with `delete_all(user_id=...)` and `delete_all(agent_id=...)`, and restore any project instructions you changed for a test run.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Custom Instructions"
+    description="The full reference for custom_instructions and agent_custom_instructions, including per-call overrides."
+    icon="shield-check"
+    href="/platform/features/custom-instructions"
+  />
+  <Card
+    title="Run the Full Notebook"
+    description="The same scenario end to end, executed live against the Mem0 Platform API with real outputs."
+    icon="rocket"
+    href="https://github.com/mem0ai/mem0/blob/main/examples/notebooks/agent-memory-insurance.ipynb"
+  />
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />
