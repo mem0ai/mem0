@@ -75,22 +75,6 @@ def resolve_user_id() -> str:
     return os.environ.get("USER") or "default"
 
 
-def resolve_config() -> dict:
-    """Resolve settings from ~/.mem0/settings.json (primary) with env var overrides."""
-    try:
-        from load_settings import load_settings
-        return load_settings()
-    except ImportError:
-        return {
-            "auto_save": True,
-            "auto_search": True,
-            "search_limit": 10,
-            "retention_session_days": 90,
-            "confidence_threshold": 0.3,
-            "debug": False,
-        }
-
-
 try:
     from _project import resolve_branch, resolve_project_id, save_project_mapping
 except ImportError:

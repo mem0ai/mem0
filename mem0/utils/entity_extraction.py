@@ -372,11 +372,6 @@ def _strip_generic_ending(toks: list) -> list:
     return toks[:-1] if last in _GENERIC_ENDINGS and len(toks) > 2 else toks
 
 
-def _lemmatize_compound(toks: list) -> str:
-    """Join compound tokens, lemmatizing nouns."""
-    return " ".join(t.lemma_ if t.pos_ == "NOUN" else t.text for t in toks)
-
-
 def _has_artifacts(txt: str) -> bool:
     """Check for formatting artifacts that indicate non-entity text."""
     return any(
