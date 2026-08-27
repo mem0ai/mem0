@@ -117,6 +117,15 @@ class Supabase(VectorStoreBase):
 
         self.collection.upsert(records)
 
+    def _to_similarity_score(self, value: float) -> float:
+        """Convert vecs' raw measure value to a similarity score (higher = more similar)."""
+        value = float(value)
+        if self.index_measure == IndexMeasure.COSINE:
+            return max(0.0, 1.0 - value)
+        if self.index_measure == IndexMeasure.MAX_INNER_PRODUCT:
+            return -value
+        return 1.0 / (1.0 + value)
+
     def search(
         self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[dict] = None
     ) -> List[OutputData]:
@@ -145,7 +154,7 @@ class Supabase(VectorStoreBase):
         )
 
         return [
-            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            OutputData(id=str(result[0]), score=self._to_similarity_score(result[1]), payload=result[2])
             for result in results
         ]
 
