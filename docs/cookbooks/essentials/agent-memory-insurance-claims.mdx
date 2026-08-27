@@ -22,7 +22,7 @@ from mem0 import MemoryClient
 
 client = MemoryClient(api_key=os.environ["MEM0_API_KEY"])
 ```
-```javascript JavaScript
+```typescript TypeScript
 import { MemoryClient } from "mem0ai";
 
 const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
@@ -72,7 +72,7 @@ client.project.update(
     agent_custom_instructions=agent_instructions,
 )
 ```
-```javascript JavaScript
+```typescript TypeScript
 const ADJUSTER = "adjuster_priya_cookbook_demo";
 const CLAIM = "claims_agent_clm48211_cookbook_demo";
 
@@ -121,7 +121,7 @@ client.add(
     agent_id=CLAIM,
 )
 ```
-```javascript JavaScript
+```typescript TypeScript
 await client.add(
   [
     { role: "user", content: "I'm raising the reserve on CLM-48211 to $1.8 million. The structural engineer's report says the warehouse needs a full rebuild, not a repair." },
@@ -165,7 +165,7 @@ marcus_view = client.search(
 for r in marcus_view["results"]:
     print(f"- [{r.get('user_id') or r.get('agent_id')}] {r['memory']}")
 ```
-```javascript JavaScript
+```typescript TypeScript
 const marcusView = await client.search(
   "What's going on with CLM-48211?",
   { filters: { OR: [{ userId: "adjuster_marcus_cookbook_demo" }, { agentId: CLAIM }] } },
@@ -201,7 +201,7 @@ client.add(
     agent_id=CLAIM,
 )
 ```
-```javascript JavaScript
+```typescript TypeScript
 await client.add(
   [
     { role: "user", content: "I've decided to pursue subrogation against Voss Electrical, the contractor who rewired the warehouse six months ago. The fire marshal's report points to faulty wiring as the ignition source. Also, from now on keep my claim summaries to bullet points, not paragraphs." },
@@ -227,7 +227,7 @@ Extraction makes judgment calls, it does not mirror your instructions line by li
   for r in priya_shelf["results"]:
       print(r["id"], "-", r["memory"])
   ```
-  ```javascript JavaScript
+  ```typescript TypeScript
   const priyaShelf = await client.getAll({ filters: { userId: ADJUSTER } });
   for (const r of priyaShelf.results) {
     console.log(r.id, "-", r.memory);
@@ -240,7 +240,7 @@ Extraction makes judgment calls, it does not mirror your instructions line by li
   ```python Python
   client.update(memory_id, text="User prefers drafts to contain no em dashes")
   ```
-  ```javascript JavaScript
+  ```typescript TypeScript
   await client.update(memoryId, { text: "User prefers drafts to contain no em dashes" });
   ```
   </CodeGroup>
