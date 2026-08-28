@@ -74,6 +74,7 @@ def main() -> int:
     forget = subparsers.add_parser("forget")
     forget.add_argument("--remote", action="store_true")
     forget.add_argument("--yes", action="store_true")
+    forget.add_argument("--include-operating-notes", action="store_true")
 
     args = parser.parse_args()
     if args.plugin_data_dir:
@@ -118,7 +119,13 @@ def main() -> int:
                     "delete this user/repository scope from Mem0."
                 )
                 return 2
-            remote_result = forget_remote_repo(repo) if args.remote else None
+            remote_result = (
+                forget_remote_repo(
+                    repo, include_operating_notes=args.include_operating_notes
+                )
+                if args.remote
+                else None
+            )
             local_result = store.forget_local_repo(repo.identity)
             print(
                 json.dumps(

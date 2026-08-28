@@ -1829,11 +1829,11 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
     assert captured_payloads[0]["filters"] == {
         "AND": [
             {"app_id": "code-example"},
-            {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
+            {"OR": [{"user_id": "*"}, {"agent_id": "claude-code"}]},
         ]
     }
     assert captured_payloads[0]["top_k"] == 6
-    assert captured_payloads[0]["threshold"] == 0.0
+    assert captured_payloads[0]["threshold"] == 0.15
     assert captured_payloads[0]["rerank"] is False
     retrieval = store.conn.execute(
         "SELECT rank, score, memory_text, context_chars FROM retrievals "
@@ -1871,7 +1871,7 @@ def test_search_can_filter_one_memory_category(isolated_env, monkeypatch):
             {
                 "AND": [
                     {"app_id": "code-example"},
-                    {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
+                    {"OR": [{"user_id": "*"}, {"agent_id": "claude-code"}]},
                 ]
             },
             {"categories": {"contains": "problems_and_fixes"}},
@@ -2031,7 +2031,7 @@ def test_plugin_top_k_option_does_not_enable_threshold_or_reranking(
 
     payload = request.call_args.args[2]
     assert payload["top_k"] == 6
-    assert payload["threshold"] == 0.0
+    assert payload["threshold"] == 0.15
     assert payload["rerank"] is False
     store.close()
 
@@ -2192,7 +2192,7 @@ def test_mcp_tool_contract_is_small_and_read_only():
         "query",
         "top_k",
         "category",
-        "scope",
+        "scope",        "run_id",
     }
     assert tool["inputSchema"]["required"] == ["query"]
     assert tool["inputSchema"]["properties"]["top_k"]["minimum"] == 1
@@ -2285,6 +2285,7 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
         "top_k": 5,
         "category": "project_knowledge",
         "scope": None,
+        "run_id": None,
         "operation": "mcp-search",
     }
     assert rendered == (
@@ -2304,6 +2305,7 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
         ({"query": "parser", "top_k": True}, "1 to 20"),
         ({"query": "parser", "category": "other"}, "supported categories"),
         ({"query": "parser", "threshold": 0.5}, "Unknown search argument"),
+        ({"query": "parser", "run_id": ""}, "run_id must be"),
     ],
 )
 def test_mcp_tool_rejects_invalid_arguments(arguments, message):
@@ -2657,7 +2659,7 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
     payload = request.call_args.args[2]
     assert payload["query"] == prompt
     assert payload["top_k"] == 10
-    assert payload["threshold"] == 0.0
+    assert payload["threshold"] == 0.15
     assert payload["rerank"] is False
     assert payload["latest_only"] is True
     assert "systemMessage" not in output
@@ -3476,14 +3478,25 @@ def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
 
     url, _, payload, _ = request.call_args[0]
     assert "/v2/memories/" in url
-    assert payload["filters"] == {
+    assert payload["filters"] == {"AND": [{"app_id": "repo-a"}, {"user_id": "test-user"}]}
+    assert deleted == ["m1", "m2"]
+    assert result == {"status": "deleted", "deleted": 2}
+
+
+def test_forget_only_touches_shared_operating_notes_when_asked(monkeypatch, isolated_env):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    repo = memory_core.RepoContext(
+        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc"
+    )
+    with patch.object(memory_core, "_request_json", return_value=({"results": []}, 0, 0)) as request:
+        memory_core.forget_remote_repo(repo, include_operating_notes=True)
+
+    assert request.call_args[0][2]["filters"] == {
         "AND": [
             {"app_id": "repo-a"},
             {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
         ]
     }
-    assert deleted == ["m1", "m2"]
-    assert result == {"status": "deleted", "deleted": 2}
 
 
 def test_forget_reports_partial_failures(monkeypatch, isolated_env):
@@ -3588,12 +3601,12 @@ def test_every_search_scope_pins_an_owned_identity():
 
 
 def test_search_scope_env_override_and_fallback(monkeypatch):
-    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "team")
-    assert memory_core.search_scope() == "team"
+    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "mine")
+    assert memory_core.search_scope() == "mine"
     monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "nonsense")
-    assert memory_core.search_scope() == "repo"
+    assert memory_core.search_scope() == "team"
     monkeypatch.delenv("MEM0_CODE_SEARCH_SCOPE")
-    assert memory_core.search_scope() == "repo"
+    assert memory_core.search_scope() == "team"
 
 
 def test_search_memories_rejects_unknown_scope(monkeypatch):
@@ -3884,3 +3897,131 @@ def test_operating_notes_are_labelled_in_injected_context():
         "2. pytest needs MEM0_API_KEY set. [operating note] [learnt on branch feature/x]"
         in context
     )
+
+
+def _search_payload(monkeypatch, repo, **kwargs):
+    sent = {}
+
+    def fake_request(url, key, payload, timeout):
+        sent.update(payload)
+        return {"results": []}, 0, 0
+
+    monkeypatch.setattr(memory_core, "_request_json_with_network_retry", fake_request)
+    memory_core.search_memories(None, repo, None, "q", **kwargs)
+    return sent
+
+
+def _local_folder():
+    return memory_core.RepoContext(
+        cwd="/home/maya/marketing",
+        root="/home/maya/marketing",
+        identity="local:/home/maya/marketing",
+        app_id="marketing",
+        branch="",
+        head_sha="",
+    )
+
+
+def test_a_folder_without_a_remote_never_searches_other_people(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "maya")
+    folder = _local_folder()
+
+    assert memory_core.effective_search_scope(folder, "team") == "repo"
+    assert memory_core.effective_search_scope(folder, "all") == "mine"
+    assert memory_core.effective_search_scope(folder, None) == "repo"
+    assert memory_core.effective_search_scope(repo(), None) == "team"
+
+    for scope in ("team", "all"):
+        sent = _search_payload(monkeypatch, folder, scope=scope)
+        assert '"user_id": "*"' not in json.dumps(sent["filters"]), scope
+
+
+def test_run_id_narrows_the_search_to_one_session(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "priya")
+
+    sent = _search_payload(monkeypatch, repo(), scope="repo", run_id="session-42")
+
+    assert sent["filters"] == {
+        "AND": [
+            {
+                "AND": [
+                    {"app_id": "code-example"},
+                    {"OR": [{"user_id": "priya"}, {"agent_id": "claude-code"}]},
+                ]
+            },
+            {"run_id": "session-42"},
+        ]
+    }
+
+
+def test_min_score_is_configurable(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    monkeypatch.setenv("MEM0_CODE_MIN_SCORE", "0.3")
+
+    assert _search_payload(monkeypatch, repo())["threshold"] == 0.3
+
+
+def test_weak_matches_are_dropped_locally_because_the_api_ignores_threshold(monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "test-key")
+    results = [
+        {"id": "strong", "memory": "a", "score": 0.4},
+        {"id": "noise", "memory": "b", "score": 0.08},
+        {"id": "unscored", "memory": "c"},
+    ]
+    monkeypatch.setattr(
+        memory_core,
+        "_request_json_with_network_retry",
+        lambda *args: ({"results": results}, 0, 0),
+    )
+
+    found = memory_core.search_memories(None, repo(), None, "q")
+    assert [m["id"] for m in found.memories] == ["strong", "unscored"]
+
+    by_session = memory_core.search_memories(None, repo(), None, "q", run_id="s1")
+    assert [m["id"] for m in by_session.memories] == ["strong", "noise", "unscored"]
+
+
+def test_reserved_slots_keep_one_operating_note_in_a_small_result():
+    memories = [
+        {"id": "repo-1", "metadata": {"lane": "repo"}},
+        {"id": "repo-2", "metadata": {"lane": "repo"}},
+        {"id": "note", "metadata": {"lane": "agent"}},
+    ]
+    assert [m["id"] for m in memory_core._reserve_agent_slots(memories, 2)] == ["repo-1", "note"]
+    assert [m["id"] for m in memory_core._reserve_agent_slots(memories[::-1], 1)] == ["note"]
+
+
+def test_doctor_flags_a_wildcard_user_id(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    monkeypatch.setenv("MEM0_CODE_USER_ID", "*")
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "_request_json", return_value=({"results": []}, 100, 20)),
+    ):
+        result = memory_core.doctor("/tmp/repo")
+
+    assert result["ok"] is False
+    assert result["checks"]["user_id"]["ok"] is False
+    assert "wildcard" in result["checks"]["user_id"]["detail"]
+
+
+def test_every_write_carries_the_session_run_id(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+    _record_failed_then_recovered_command(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "_request_json", return_value=({"event_id": "e"}, 200, 20)) as request,
+        patch.object(memory_core, "_wait_for_event", return_value=("SUCCEEDED", 30, 2)),
+    ):
+        memory_core.flush_session(store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end")
+
+    bodies = [call.args[2] for call in request.call_args_list if "memories/add" in call.args[0]]
+    assert len(bodies) == 2
+    assert {body["run_id"] for body in bodies} == {"s1"}
+    store.close()

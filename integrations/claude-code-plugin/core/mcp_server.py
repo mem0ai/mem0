@@ -27,7 +27,8 @@ TOOL_DESCRIPTION = (
     "run, test, or build here, so search before assuming an invocation works. "
     "Widen past your own memories with the scope argument: "
     "'team' searches everyone's memories for this repository, 'mine' searches "
-    "your memories across every repository, and 'all' searches both."
+    "your memories across every repository, and 'all' searches both. Pass "
+    "run_id to look at one earlier Claude Code session only."
 )
 TOOL_SCHEMA = {
     "type": "object",
@@ -53,10 +54,17 @@ TOOL_SCHEMA = {
             "type": "string",
             "enum": list(SEARCH_SCOPES),
             "description": (
-                "Which memories to search. 'repo' (default) is yours in this "
-                "repository, 'team' is everyone's in this repository, 'mine' is "
-                "yours across every repository, 'all' is both."
+                "Which memories to search. 'team' (default) is everyone's in this "
+                "repository, 'repo' is yours in this repository, 'mine' is yours "
+                "across every repository, 'all' is both. A folder without a git "
+                "remote narrows 'team' to 'repo' and 'all' to 'mine'."
             ),
+        },
+        "run_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Optional Claude Code session ID. Restricts the search to memories written from that session.",
         },
     },
     "required": ["query"],
@@ -70,11 +78,11 @@ class ToolInputError(ValueError):
 
 def _validate_arguments(
     arguments: Any,
-) -> tuple[str, int | None, str | None, str | None]:
+) -> tuple[str, int | None, str | None, str | None, str | None]:
     if not isinstance(arguments, dict):
         raise ToolInputError("Search arguments must be an object.")
 
-    unknown = set(arguments) - {"query", "top_k", "category", "scope"}
+    unknown = set(arguments) - {"query", "top_k", "category", "scope", "run_id"}
     if unknown:
         raise ToolInputError(f"Unknown search argument: {sorted(unknown)[0]}")
 
@@ -98,11 +106,17 @@ def _validate_arguments(
     scope = arguments.get("scope")
     if scope is not None and scope not in SEARCH_SCOPES:
         raise ToolInputError(f"scope must be one of {list(SEARCH_SCOPES)}.")
-    return query, top_k, category, scope
+
+    run_id = arguments.get("run_id")
+    if run_id is not None and (
+        not isinstance(run_id, str) or not run_id.strip() or len(run_id) > 200
+    ):
+        raise ToolInputError("run_id must be a non-empty string of at most 200 characters.")
+    return query, top_k, category, scope, run_id
 
 
 def call_search_memories(arguments: Any) -> str:
-    query, top_k, category, scope = _validate_arguments(arguments)
+    query, top_k, category, scope, run_id = _validate_arguments(arguments)
     repo = resolve_repo(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
     result = search_memories(
         None,
@@ -112,6 +126,7 @@ def call_search_memories(arguments: Any) -> str:
         top_k=top_k,
         category=category,
         scope=scope,
+        run_id=run_id,
         operation="mcp-search",
     )
     return format_search_result(result)

@@ -202,7 +202,9 @@ def _scope_value(raw: str | None) -> str:
 
 
 SEARCH_SCOPES = ("repo", "team", "mine", "all")
-DEFAULT_SEARCH_SCOPE = "repo"
+DEFAULT_SEARCH_SCOPE = "team"
+LOCAL_FOLDER_SCOPE = {"team": "repo", "all": "mine"}
+DEFAULT_MIN_SCORE = 0.15
 
 
 def _search_filters(user: str, app: str, scope: str) -> dict[str, Any]:
@@ -225,6 +227,16 @@ def search_scope() -> str:
         _plugin_option("search_scope", "MEM0_CODE_SEARCH_SCOPE") or ""
     ).strip().lower()
     return configured if configured in SEARCH_SCOPES else DEFAULT_SEARCH_SCOPE
+
+
+def effective_search_scope(repo: RepoContext, scope: str | None) -> str:
+    """Resolve the scope; a folder without a git remote shares nothing, so team and all narrow."""
+    value = (scope or search_scope()).strip().lower()
+    if value not in SEARCH_SCOPES:
+        raise ValueError(f"Unknown search scope: {value}")
+    if repo.identity.startswith("local:"):
+        return LOCAL_FOLDER_SCOPE.get(value, value)
+    return value
 
 
 def _legacy_project_map(cwd: str, root: str, raw_remote: str) -> str:
@@ -429,6 +441,14 @@ def _int_option(name: str, fallback: str, default: int) -> int:
     value = _plugin_option(name, fallback)
     try:
         return int(value) if value else default
+    except ValueError:
+        return default
+
+
+def _float_option(name: str, fallback: str, default: float) -> float:
+    value = _plugin_option(name, fallback)
+    try:
+        return float(value) if value else default
     except ValueError:
         return default
 
@@ -2515,6 +2535,14 @@ def _is_agent_memory(memory: dict[str, Any]) -> bool:
     return (memory.get("metadata") or {}).get("lane") == "agent"
 
 
+def _score_at_least(memory: dict[str, Any], min_score: float) -> bool:
+    """Mem0's search ignores the threshold field, so weak matches are dropped here."""
+    try:
+        return float(memory.get("score")) >= min_score
+    except (TypeError, ValueError):
+        return True
+
+
 def _reserve_agent_slots(
     memories: list[dict[str, Any]], result_limit: int
 ) -> list[dict[str, Any]]:
@@ -2523,7 +2551,9 @@ def _reserve_agent_slots(
     Memories written before the agent lane carry no lane and count as repository
     knowledge, so the partition needs no migration.
     """
-    agent_quota = result_limit * 2 // 5
+    if result_limit == 1:
+        return memories[:1]
+    agent_quota = max(1, result_limit * 2 // 5)
     repo_lane = [i for i, m in enumerate(memories) if not _is_agent_memory(m)]
     agent_lane = [i for i, m in enumerate(memories) if _is_agent_memory(m)]
     chosen = set(repo_lane[: result_limit - agent_quota]) | set(agent_lane[:agent_quota])
@@ -2543,6 +2573,7 @@ def search_memories(
     top_k: int | None = None,
     category: str | None = None,
     scope: str | None = None,
+    run_id: str | None = None,
     operation: str = "search",
     timeout: float = 5,
 ) -> MemorySearchResult:
@@ -2579,20 +2610,21 @@ def search_memories(
     user, app = _scope_value(user_id()), _scope_value(repo.app_id)
     if not user or not app:
         return MemorySearchResult(False, 0, 0, [])
-    effective_scope = (scope or search_scope()).strip().lower()
-    if effective_scope not in SEARCH_SCOPES:
-        raise ValueError(f"Unknown search scope: {effective_scope}")
+    effective_scope = effective_search_scope(repo, scope)
     filters = _search_filters(user, app, effective_scope)
     if category:
         filters = {"AND": [filters, {"categories": {"contains": category}}]}
+    if run_id:
+        filters = {"AND": [filters, {"run_id": run_id}]}
+    min_score = (
+        0.0 if run_id else _float_option("min_score", "MEM0_CODE_MIN_SCORE", DEFAULT_MIN_SCORE)
+    )
     payload = {
         "query": query,
         "filters": filters,
         # Over-fetch so both lanes can be represented within result_limit.
         "top_k": min(result_limit * 2, 20),
-        # The API defaults to a 0.1 threshold when this field is omitted.
-        # Mem0 uses only the top-k bound, so explicitly disable score filtering.
-        "threshold": 0.0,
+        "threshold": min_score,
         "rerank": False,
         # Corrections are stored as new memories linked to the older version.
         # Return the newest linked version instead of both claims.
@@ -2615,6 +2647,7 @@ def search_memories(
             for memory in memories
             if isinstance(memory, dict)
             and (memory.get("metadata") or {}).get("record_kind") != "task_episode"
+            and _score_at_least(memory, min_score)
         ]
         memories = _reserve_agent_slots(memories, result_limit)
         if track_session:
@@ -2766,16 +2799,14 @@ def combine_context(*contexts: str) -> str:
     return bounded("\n".join(lines), limit) if lines else ""
 
 
-def _scoped_memory_ids(api_url: str, key: str, user: str, app: str) -> list[str]:
-    """List memory ids for this repository: this user's, plus the agent lane's."""
-    payload = {
-        "filters": {
-            "AND": [
-                {"app_id": app},
-                {"OR": [{"user_id": user}, {"agent_id": AGENT_ID}]},
-            ]
-        }
-    }
+def _scoped_memory_ids(
+    api_url: str, key: str, user: str, app: str, include_agent: bool
+) -> list[str]:
+    """List this user's memory ids for this repository, plus the agent lane's when asked."""
+    owner: dict[str, Any] = {"user_id": user}
+    if include_agent:
+        owner = {"OR": [owner, {"agent_id": AGENT_ID}]}
+    payload = {"filters": {"AND": [{"app_id": app}, owner]}}
     ids: list[str] = []
     seen: set[str] = set()
     for page in range(1, FORGET_MAX_PAGES + 1):
@@ -2811,12 +2842,10 @@ def _delete_memory(api_url: str, key: str, memory_id: str) -> bool:
         return False
 
 
-def forget_remote_repo(repo: RepoContext) -> dict[str, Any]:
-    """Delete this repository's memories: this installation user's, plus the agent lane's.
-
-    The agent lane is not user scoped, so a forget clears the repository's
-    operating notes whichever local account wrote them.
-    """
+def forget_remote_repo(
+    repo: RepoContext, *, include_operating_notes: bool = False
+) -> dict[str, Any]:
+    """Delete this user's memories for this repository; operating notes are shared, so only on request."""
     key = api_key()
     if not key:
         telemetry.record("forget", repo=repo, success=False, error_kind="no-api-key")
@@ -2831,7 +2860,9 @@ def forget_remote_repo(repo: RepoContext) -> dict[str, Any]:
         }
     api_url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
     try:
-        memory_ids = _scoped_memory_ids(api_url, key, user, app)
+        memory_ids = _scoped_memory_ids(
+            api_url, key, user, app, include_operating_notes
+        )
     except Exception as exc:
         telemetry.record(
             "forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc)
@@ -2877,6 +2908,19 @@ def _doctor_mem0_authentication(repo: RepoContext) -> dict[str, Any]:
     return {"ok": True, "detail": f"connected ({elapsed:.0f} ms)"}
 
 
+def _doctor_user_id() -> dict[str, Any]:
+    """Flag a configured user ID the plugin refuses, since the silent fallback surprises people."""
+    configured = _plugin_option("user_id", "MEM0_CODE_USER_ID") or os.environ.get(
+        "MEM0_USER_ID", ""
+    )
+    if configured and not _scope_value(configured):
+        return {
+            "ok": False,
+            "detail": f"configured user_id {configured!r} is a wildcard; using {user_id()!r}",
+        }
+    return {"ok": True, "detail": user_id()}
+
+
 def doctor(cwd: str | None = None) -> dict[str, Any]:
     repo = resolve_repo(cwd)
     directory = data_dir()
@@ -2898,6 +2942,7 @@ def doctor(cwd: str | None = None) -> dict[str, Any]:
             "ok": bool(repo.identity),
             "detail": repo.identity,
         },
+        "user_id": _doctor_user_id(),
         "mem0_authentication": _doctor_mem0_authentication(repo),
     }
     return {

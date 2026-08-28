@@ -51,8 +51,17 @@
     "search_scope": {
       "type": "string",
       "title": "Default search scope",
-      "description": "How wide every search runs by default. 'repo' is your memories in this repository, 'team' is everyone's memories in this repository, 'mine' is your memories in every repository, and 'all' is both.",
-      "default": "repo",
+      "description": "How wide every search runs by default. 'team' is everyone's memories in this repository, 'repo' is only yours in this repository, 'mine' is your memories in every repository, and 'all' is both. A folder without a git remote narrows 'team' to 'repo' and 'all' to 'mine'.",
+      "default": "team",
+      "required": false
+    },
+    "min_score": {
+      "type": "number",
+      "title": "Minimum match score",
+      "description": "Memories scoring below this relevance (0 to 1) are not returned. Lower it if searches miss, raise it if unrelated memories appear.",
+      "default": 0.15,
+      "min": 0,
+      "max": 1,
       "required": false
     }
   }

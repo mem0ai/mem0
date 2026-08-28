@@ -1,19 +1,24 @@
 ---
 name: search
 description: Search memories from earlier Claude Code sessions in this repository. Use it when earlier work may already explain the code, error, decision, or command you need, so you can avoid repeating file reads, searches, or experiments.
-argument-hint: "[question] [--top-k number] [--category category-name] [--scope repo|team|mine|all]"
+argument-hint: "[question] [--top-k number] [--category category-name] [--scope repo|team|mine|all] [--run-id session-id]"
 disable-model-invocation: true
 ---
 
 # Search memories
 
 Call `search_memories` with the user's question. Treat `--top-k`, `--category`,
-and `--scope` as tool arguments instead of including them in the query.
+`--scope`, and `--run-id` as tool arguments instead of including them in the
+query.
 
 Omit `top_k` to use Mem0's configured default. Omit `category` to search every
-category. Omit `scope` to search your own memories for this repository, along
-with its operating notes, which are marked `[operating note]` in the result.
+category; a category is a best-effort label Mem0 assigned when it saved the
+memory, so if a category search misses, repeat it without the category. Omit
+`scope` to use the configured default, normally `team`: everyone's memories in
+this repository, along with its operating notes, which are marked
+`[operating note]` in the result.
 
-Pass `scope` when the question reaches past that: `team` for everyone's
+Pass `scope` when the question needs something else: `repo` for only your own
 memories in this repository, `mine` for your memories in every repository,
-`all` for both. Return the tool's result directly.
+`all` for both. Pass `run_id` with a Claude Code session ID to look at what
+one earlier session recorded. Return the tool's result directly.
