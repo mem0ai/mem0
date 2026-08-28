@@ -54,9 +54,25 @@ class HuggingFaceReranker(BaseReranker):
         else:
             self.device = self.config.device
 
-        # Load model and tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model)
-        self.model = AutoModelForSequenceClassification.from_pretrained(self.config.model)
+        # Load model and tokenizer - forward documented config options
+        tok_kwargs: Dict[str, Any] = {}
+        model_kwargs: Dict[str, Any] = {}
+        if getattr(self.config, "trust_remote_code", False):
+            tok_kwargs["trust_remote_code"] = True
+            model_kwargs["trust_remote_code"] = True
+        if getattr(self.config, "use_auth_token", None):
+            tok_kwargs["use_auth_token"] = self.config.use_auth_token
+            model_kwargs["use_auth_token"] = self.config.use_auth_token
+        if getattr(self.config, "local_files_only", False):
+            tok_kwargs["local_files_only"] = True
+            model_kwargs["local_files_only"] = True
+        # model_kwargs from config (e.g. torch_dtype) - spread into model kwargs
+        cfg_model_kwargs = getattr(self.config, "model_kwargs", None)
+        if cfg_model_kwargs:
+            model_kwargs.update(cfg_model_kwargs)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config.model, **tok_kwargs)
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.config.model, **model_kwargs)
         self.model.to(self.device)
         self.model.eval()
 
