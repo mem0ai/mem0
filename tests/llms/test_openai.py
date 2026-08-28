@@ -62,52 +62,6 @@ def test_generate_response_without_tools(mock_openai_client):
     assert response == "I'm doing well, thank you for asking!"
 
 
-def test_generate_response_with_tools(mock_openai_client):
-    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
-    llm = OpenAILLM(config)
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Add a new memory: Today is a sunny day."},
-    ]
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "add_memory",
-                "description": "Add a memory",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"data": {"type": "string", "description": "Data to add to memory"}},
-                    "required": ["data"],
-                },
-            },
-        }
-    ]
-
-    mock_response = Mock()
-    mock_message = Mock()
-    mock_message.content = "I've added the memory for you."
-
-    mock_tool_call = Mock()
-    mock_tool_call.function.name = "add_memory"
-    mock_tool_call.function.arguments = '{"data": "Today is a sunny day."}'
-
-    mock_message.tool_calls = [mock_tool_call]
-    mock_response.choices = [Mock(message=mock_message)]
-    mock_openai_client.chat.completions.create.return_value = mock_response
-
-    response = llm.generate_response(messages, tools=tools)
-
-    mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
-    )
-
-    assert response["content"] == "I've added the memory for you."
-    assert len(response["tool_calls"]) == 1
-    assert response["tool_calls"][0]["name"] == "add_memory"
-    assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
-
-
 def test_response_callback_invocation(mock_openai_client):
     # Setup mock callback
     mock_callback = Mock()
@@ -414,45 +368,6 @@ def test_gpt4_uses_max_tokens(mock_openai_client):
     call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
     assert call_kwargs.get("max_tokens") == 100
     assert "max_completion_tokens" not in call_kwargs
-
-
-def test_callback_with_tools(mock_openai_client):
-    mock_callback = Mock()
-    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)
-    llm = OpenAILLM(config)
-    messages = [{"role": "user", "content": "Test tools"}]
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "test_tool",
-                "description": "A test tool",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"param1": {"type": "string"}},
-                    "required": ["param1"],
-                },
-            }
-        }
-    ]
-    
-    # Mock tool response
-    mock_response = Mock()
-    mock_message = Mock()
-    mock_message.content = "Tool response"
-    mock_tool_call = Mock()
-    mock_tool_call.function.name = "test_tool"
-    mock_tool_call.function.arguments = '{"param1": "value1"}'
-    mock_message.tool_calls = [mock_tool_call]
-    mock_response.choices = [Mock(message=mock_message)]
-    mock_openai_client.chat.completions.create.return_value = mock_response
-    
-    llm.generate_response(messages, tools=tools)
-    
-    # Verify callback called with tool response
-    mock_callback.assert_called_once()
-    # Check that tool_calls exists in the message
-    assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
 
 
 def test_openai_llm_preserves_proxies_from_base_config(mock_openai_client):

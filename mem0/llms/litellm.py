@@ -84,9 +84,6 @@ class LiteLLM(LLMBase):
             params["max_tokens"] = self.config.max_tokens
         if response_format:
             params["response_format"] = response_format
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
 
         response = litellm.completion(**params)
         return self._parse_response(response, tools)

@@ -84,9 +84,6 @@ class TogetherLLM(LLMBase):
         params.update(kwargs)
         if response_format:
             params["response_format"] = response_format
-        if tools:  # TODO: Remove tools if no issues found with new memory addition logic
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)
