@@ -12,6 +12,8 @@ from qdrant_client.models import (
     MatchExcept,
     MatchText,
     MatchValue,
+    IsEmptyCondition,
+    PayloadField,
     PointIdsList,
     PointStruct,
     PointVectors,
@@ -262,7 +264,7 @@ class Qdrant(VectorStoreBase):
             for v in range_kwargs.values()
         )
 
-    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
+    def _build_field_condition(self, key: str, value) -> Optional[models.Condition]:
         """
         Build a single FieldCondition from a key-value filter pair.
 
@@ -274,14 +276,15 @@ class Qdrant(VectorStoreBase):
             value: A scalar for simple equality, or a dict with one operator key.
 
         Returns:
-            Optional[FieldCondition]: The Qdrant field condition, or None if the
-            value is the wildcard '*' (match any / field exists — skip filter).
+            Optional[models.Condition]: The Qdrant condition, or None when no
+            condition can be built.
         """
         if not isinstance(value, dict):
             if value == "*":
-                # Wildcard: match any value. Qdrant has no direct "field exists"
-                # condition via FieldCondition, so we skip this filter (match all).
-                return None
+                # A wildcard means that the payload field must be present.  An
+                # IsEmptyCondition matches both missing and empty payload fields,
+                # so negating it gives the desired field-exists semantics.
+                return IsEmptyCondition(is_empty=PayloadField(key=key))
             if isinstance(value, list):
                 # List shorthand: {"field": ["a", "b"]} treated as in-operator.
                 return FieldCondition(key=key, match=MatchAny(any=value))
@@ -401,7 +404,10 @@ class Qdrant(VectorStoreBase):
             else:
                 condition = self._build_field_condition(key, value)
                 if condition is not None:
-                    must.append(condition)
+                    if value == "*":
+                        must_not.append(condition)
+                    else:
+                        must.append(condition)
 
         if not any([must, should, must_not]):
             return None

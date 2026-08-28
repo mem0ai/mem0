@@ -14,6 +14,7 @@ from qdrant_client.models import (
     MatchExcept,
     MatchText,
     MatchValue,
+    IsEmptyCondition,
     PointIdsList,
     PointStruct,
     PointVectors,
@@ -240,7 +241,7 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(call_args["collection_name"], "test_collection")
         self.assertEqual(call_args["query"], vectors)
         self.assertEqual(call_args["limit"], 1)
-        
+
         # Verify that a Filter object was created
         query_filter = call_args["query_filter"]
         self.assertIsInstance(query_filter, Filter)
@@ -290,10 +291,10 @@ class TestQdrant(unittest.TestCase):
         """Test _create_filter with multiple filters."""
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
         result = self.qdrant._create_filter(filters)
-        
+
         self.assertIsInstance(result, Filter)
         self.assertEqual(len(result.must), 3)
-        
+
         # Check that all conditions are present
         conditions = [cond.key for cond in result.must]
         self.assertIn("user_id", conditions)
@@ -304,7 +305,7 @@ class TestQdrant(unittest.TestCase):
         """Test _create_filter with single filter."""
         filters = {"user_id": "alice"}
         result = self.qdrant._create_filter(filters)
-        
+
         self.assertIsInstance(result, Filter)
         self.assertEqual(len(result.must), 1)
         self.assertEqual(result.must[0].key, "user_id")
@@ -314,7 +315,7 @@ class TestQdrant(unittest.TestCase):
         """Test _create_filter with no filters."""
         result = self.qdrant._create_filter(None)
         self.assertIsNone(result)
-        
+
         result = self.qdrant._create_filter({})
         self.assertIsNone(result)
 
@@ -322,15 +323,15 @@ class TestQdrant(unittest.TestCase):
         """Test _create_filter with range values."""
         filters = {"user_id": "alice", "count": {"gte": 5, "lte": 10}}
         result = self.qdrant._create_filter(filters)
-        
+
         self.assertIsInstance(result, Filter)
         self.assertEqual(len(result.must), 2)
-        
+
         # Check that range condition is created
         range_conditions = [cond for cond in result.must if hasattr(cond, 'range') and cond.range is not None]
         self.assertEqual(len(range_conditions), 1)
         self.assertEqual(range_conditions[0].key, "count")
-        
+
         # Check that string condition is created
         string_conditions = [cond for cond in result.must if hasattr(cond, 'match') and cond.match is not None]
         self.assertEqual(len(string_conditions), 1)
@@ -431,7 +432,7 @@ class TestQdrant(unittest.TestCase):
         call_args = self.client_mock.scroll.call_args[1]
         self.assertEqual(call_args["collection_name"], "test_collection")
         self.assertEqual(call_args["limit"], 10)
-        
+
         # Verify that a Filter object was created
         scroll_filter = call_args["scroll_filter"]
         self.assertIsInstance(scroll_filter, Filter)
@@ -735,22 +736,54 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.qdrant._build_field_condition("score", {"gt": 0.5, "eq": 1.0})
 
-    def test_wildcard_returns_none(self):
-        """Wildcard '*' should return None (skip filter — match any)."""
+    def test_wildcard_returns_field_presence_condition(self):
+        """Wildcard '*' should require the payload field to be present."""
         result = self.qdrant._build_field_condition("category", "*")
-        self.assertIsNone(result)
+        self.assertIsInstance(result, IsEmptyCondition)
+        self.assertEqual(result.is_empty.key, "category")
 
-    def test_create_filter_with_wildcard_skips_it(self):
-        """Wildcard fields should be skipped in the final filter."""
+    def test_create_filter_with_wildcard_requires_field_presence(self):
+        """Wildcard fields should become a must_not is_empty condition."""
         result = self.qdrant._create_filter({"category": "*", "user_id": "alice"})
         self.assertIsInstance(result, Filter)
         self.assertEqual(len(result.must), 1)
         self.assertEqual(result.must[0].key, "user_id")
+        self.assertEqual(len(result.must_not), 1)
+        self.assertIsInstance(result.must_not[0], IsEmptyCondition)
+        self.assertEqual(result.must_not[0].is_empty.key, "category")
 
-    def test_create_filter_only_wildcard_returns_none(self):
-        """Filter with only wildcard should return None."""
+    def test_create_filter_only_wildcard_requires_field_presence(self):
+        """A wildcard-only filter should still enforce field presence."""
         result = self.qdrant._create_filter({"category": "*"})
-        self.assertIsNone(result)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must_not), 1)
+        self.assertEqual(result.must_not[0].is_empty.key, "category")
+
+    def test_search_wildcard_matches_only_points_with_field(self):
+        """Wildcard filters must exclude points missing the requested field."""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Qdrant(collection_name="wildcard", embedding_model_dims=2, path=tmp)
+            try:
+                store.insert(
+                    vectors=[[1.0, 0.0], [0.0, 1.0]],
+                    payloads=[
+                        {"user_id": "alice", "category": "sports"},
+                        {"user_id": "alice"},
+                    ],
+                    ids=[str(uuid.uuid4()), str(uuid.uuid4())],
+                )
+
+                results = store.search(
+                    query="",
+                    vectors=[1.0, 0.0],
+                    top_k=10,
+                    filters={"user_id": "alice", "category": "*"},
+                )
+
+                self.assertEqual(len(results), 1)
+                self.assertEqual(results[0].payload["category"], "sports")
+            finally:
+                store.client.close()
 
     def test_and_with_non_list_raises_error(self):
         """AND with non-list value should raise ValueError."""
@@ -829,14 +862,15 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertEqual(cond.match.any, [1, 2, 3])
 
     def test_wildcard_inside_and(self):
-        """Wildcard inside AND should be skipped, other conditions preserved."""
-        result = self.qdrant._create_filter({
-            "AND": [{"category": "*"}, {"user_id": "alice"}]
-        })
+        """Wildcard inside AND should preserve field-presence semantics."""
+        result = self.qdrant._create_filter({"AND": [{"category": "*"}, {"user_id": "alice"}]})
         self.assertIsInstance(result, Filter)
-        # AND produces nested Filters; the wildcard sub-filter returns None and is skipped
-        # Only the user_id sub-filter remains
-        self.assertEqual(len(result.must), 1)
+        # AND produces nested Filters for the wildcard and equality conditions.
+        self.assertEqual(len(result.must), 2)
+        wildcard_filter = next(item for item in result.must if item.must_not)
+        equality_filter = next(item for item in result.must if item.must)
+        self.assertEqual(wildcard_filter.must_not[0].is_empty.key, "category")
+        self.assertEqual(equality_filter.must[0].key, "user_id")
 
     def test_list_value_treated_as_match_any(self):
         """List value shorthand should be treated as in-operator (MatchAny)."""
