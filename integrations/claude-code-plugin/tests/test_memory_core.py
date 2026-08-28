@@ -3547,6 +3547,22 @@ def test_search_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
     assert result.succeeded is False
 
 
+def test_flush_refuses_to_write_without_a_session_id(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+    _record_complete_session(store)
+
+    with (
+        patch.object(memory_core, "resolve_repo", return_value=repo()),
+        patch.object(memory_core, "_request_json") as request,
+    ):
+        result = memory_core.flush_session(store, {"cwd": "/tmp/repo"}, "session-end")
+
+    request.assert_not_called()
+    assert result == {"status": "error", "reason": "no-session-id"}
+    store.close()
+
+
 def test_flush_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()

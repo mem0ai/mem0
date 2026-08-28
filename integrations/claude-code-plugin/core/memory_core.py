@@ -2228,6 +2228,9 @@ def flush_session(
         return {"status": "local-only", "reason": "no-api-key"}
 
     session_id = _session_id(hook_input)
+    if session_id == "unknown-session":
+        telemetry.record("flush", reason=reason, status="no-session-id", success=False)
+        return {"status": "error", "reason": "no-session-id"}
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
     prepared = store.prepare_flush(repo, session_id, reason)
     if prepared is None:
