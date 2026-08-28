@@ -46,25 +46,25 @@ MAX_FLUSH_ATTEMPTS = 5
 FORGET_PAGE_SIZE = 100
 FORGET_MAX_PAGES = 50
 
-CODING_EXTRACTION_INSTRUCTIONS = """Save concise repository facts that will help with future coding work.
+PROJECT_MEMORY_INSTRUCTIONS = """Save concise repository facts that will help anyone with future coding work in this repository.
 
 A completed change should produce one memory explaining the resulting behavior, where it is implemented when useful, and any important constraints or reasoning. Exploration or accepted decisions may produce separate memories only when they are independently useful.
 
+A command that failed and was then made to work should produce one memory naming the failing invocation, the error it returned, and the invocation that succeeded. Do not save one-off errors caused by an edit still in progress, transient network failures, or anything a rerun would fix on its own.
+
 Use Claude's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or Claude completed them. Treat subagent responses as supporting repository evidence, not as decisions.
 
-Write about the repository, not the user, assistant, session, or task. Do not include test results, documentation updates, release notes, or temporary state.
+Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not include test results, documentation updates, release notes, or temporary state.
 
 If nothing useful was established, return no memories."""
 
+PERSONAL_MEMORY_INSTRUCTIONS = """Save concise facts about the user that will help in any repository: preferred tools, package managers, languages, coding style, review and communication preferences, and anything the user explicitly asked to be remembered about themselves.
+
+Write in the third person about the user, not about the repository, the assistant, the session, or the task. Do not save repository facts, project decisions, commands, or what was built.
+
+If nothing was learned about the user, return no memories."""
+
 AGENT_ID = "claude-code"
-
-AGENT_OPERATING_INSTRUCTIONS = """Save concise operating lessons that will help a coding agent work in this repository without repeating the same mistake.
-
-A command that failed and was then made to work should produce one memory naming the failing invocation, the error it returned, and the invocation that succeeded.
-
-Write about working in the repository, not about the repository's behavior, the user, or what was built this session. Do not save one-off errors caused by an edit still in progress, transient network failures, or anything a rerun would fix on its own.
-
-If nothing was learned about how to operate here, return no memories."""
 
 CODING_MEMORY_CATEGORIES = [
     {
@@ -201,25 +201,20 @@ def _scope_value(raw: str | None) -> str:
     return "" if _WILDCARD_SCOPE.match(value) else value
 
 
-SEARCH_SCOPES = ("repo", "team", "mine", "all")
-DEFAULT_SEARCH_SCOPE = "team"
-LOCAL_FOLDER_SCOPE = {"team": "repo", "all": "mine"}
+SEARCH_SCOPES = ("repo", "mine", "all")
+DEFAULT_SEARCH_SCOPE = "repo"
 DEFAULT_MIN_SCORE = 0.15
 
 
 def _search_filters(user: str, app: str, scope: str) -> dict[str, Any]:
     """Build the scope filter. Every branch pins an identity the searcher owns."""
-    agent_here = {"agent_id": AGENT_ID}
-    mine_here = {"AND": [{"app_id": app}, {"OR": [{"user_id": user}, agent_here]}]}
+    project_here = {"AND": [{"app_id": app}, {"OR": [{"agent_id": AGENT_ID}, {"user_id": user}]}]}
     if scope == "repo":
-        return mine_here
-    team_here = {"AND": [{"app_id": app}, {"OR": [{"user_id": "*"}, agent_here]}]}
-    if scope == "team":
-        return team_here
+        return project_here
     mine_anywhere = {"AND": [{"user_id": user}, {"app_id": "*"}]}
     if scope == "mine":
         return mine_anywhere
-    return {"OR": [team_here, mine_anywhere]}
+    return {"OR": [project_here, mine_anywhere]}
 
 
 def search_scope() -> str:
@@ -229,13 +224,10 @@ def search_scope() -> str:
     return configured if configured in SEARCH_SCOPES else DEFAULT_SEARCH_SCOPE
 
 
-def effective_search_scope(repo: RepoContext, scope: str | None) -> str:
-    """Resolve the scope; a folder without a git remote shares nothing, so team and all narrow."""
+def resolve_search_scope(scope: str | None) -> str:
     value = (scope or search_scope()).strip().lower()
     if value not in SEARCH_SCOPES:
         raise ValueError(f"Unknown search scope: {value}")
-    if repo.identity.startswith("local:"):
-        return LOCAL_FOLDER_SCOPE.get(value, value)
     return value
 
 
@@ -1964,16 +1956,8 @@ def build_semantic_evidence(structured: dict[str, Any]) -> str:
     return bounded("\n".join(lines), 8000)
 
 
-def agent_memory_enabled() -> bool:
-    return _bool_option("agent_memory", "MEM0_CODE_AGENT_MEMORY", True)
-
-
 def build_agent_evidence(structured: dict[str, Any]) -> list[dict[str, str]]:
-    """Format failed and recovered commands for agent-scoped extraction.
-
-    Returns nothing unless a command failed. A session that met no friction
-    teaches an agent nothing about operating here and must not be sent.
-    """
+    """Format failed and recovered commands for the project lane; empty unless a command failed."""
     commands = structured.get("commands") or []
     if not any(command.get("status") == "failed" for command in commands):
         return []
@@ -2219,6 +2203,22 @@ def _record_flush(
     )
 
 
+def _project_body(
+    repo: RepoContext, user: str, app: str, session_id: str, metadata: dict[str, Any]
+) -> dict[str, Any]:
+    """Project memory is shared under the agent unless the folder has no git remote to share by."""
+    body: dict[str, Any] = {
+        "app_id": app,
+        "run_id": session_id,
+        "metadata": {**metadata, "lane": "project"},
+        "custom_categories": CODING_MEMORY_CATEGORIES,
+        "infer": True,
+    }
+    if repo.identity.startswith("local:"):
+        return {"user_id": user, "custom_instructions": PROJECT_MEMORY_INSTRUCTIONS, **body}
+    return {"agent_id": AGENT_ID, "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS, **body}
+
+
 def flush_session(
     store: EvidenceStore, hook_input: dict[str, Any], reason: str
 ) -> dict[str, Any]:
@@ -2260,21 +2260,13 @@ def flush_session(
         telemetry.record("flush", reason=reason, status="unscoped", success=False)
         return {"status": "error", "reason": "wildcard-scope"}
 
-    semantic_body = {
+    project_body = _project_body(repo, write_user, write_app, session_id, metadata)
+    personal_body = {
         "user_id": write_user,
         "app_id": write_app,
         "run_id": session_id,
-        "metadata": {**metadata, "lane": "repo"},
-        "custom_instructions": CODING_EXTRACTION_INSTRUCTIONS,
-        "custom_categories": CODING_MEMORY_CATEGORIES,
-        "infer": True,
-    }
-    agent_body = {
-        "agent_id": AGENT_ID,
-        "app_id": write_app,
-        "run_id": session_id,
-        "metadata": {**metadata, "lane": "agent"},
-        "agent_custom_instructions": AGENT_OPERATING_INSTRUCTIONS,
+        "metadata": {**metadata, "lane": "personal"},
+        "custom_instructions": PERSONAL_MEMORY_INSTRUCTIONS,
         "custom_categories": CODING_MEMORY_CATEGORIES,
         "infer": True,
     }
@@ -2375,12 +2367,11 @@ def flush_session(
             )
             if batch
         ]
-        batches = [(semantic_body, messages) for messages in message_batches]
-        agent_messages = (
-            build_agent_evidence(structured) if agent_memory_enabled() else []
-        )
+        batches = [(project_body, messages) for messages in message_batches]
+        agent_messages = build_agent_evidence(structured)
         if agent_messages:
-            batches.append((agent_body, agent_messages))
+            batches.append((project_body, agent_messages))
+        batches += [(personal_body, messages) for messages in message_batches]
         if not batches:
             store.update_flush(packet_id, status="semantic-succeeded", error="")
             return {"status": "nothing-to-flush", "packet_id": packet_id}
@@ -2534,37 +2525,12 @@ def checkpoint_session(
     return flush_session(store, hook_input, reason)
 
 
-def _is_agent_memory(memory: dict[str, Any]) -> bool:
-    return (memory.get("metadata") or {}).get("lane") == "agent"
-
-
 def _score_at_least(memory: dict[str, Any], min_score: float) -> bool:
     """Mem0's search ignores the threshold field, so weak matches are dropped here."""
     try:
         return float(memory.get("score")) >= min_score
     except (TypeError, ValueError):
         return True
-
-
-def _reserve_agent_slots(
-    memories: list[dict[str, Any]], result_limit: int
-) -> list[dict[str, Any]]:
-    """Stop numerous short operating notes from crowding out repository knowledge.
-
-    Memories written before the agent lane carry no lane and count as repository
-    knowledge, so the partition needs no migration.
-    """
-    if result_limit == 1:
-        return memories[:1]
-    agent_quota = max(1, result_limit * 2 // 5)
-    repo_lane = [i for i, m in enumerate(memories) if not _is_agent_memory(m)]
-    agent_lane = [i for i, m in enumerate(memories) if _is_agent_memory(m)]
-    chosen = set(repo_lane[: result_limit - agent_quota]) | set(agent_lane[:agent_quota])
-    for index in range(len(memories)):
-        if len(chosen) >= result_limit:
-            break
-        chosen.add(index)
-    return [memory for i, memory in enumerate(memories) if i in chosen]
 
 
 def search_memories(
@@ -2613,8 +2579,7 @@ def search_memories(
     user, app = _scope_value(user_id()), _scope_value(repo.app_id)
     if not user or not app:
         return MemorySearchResult(False, 0, 0, [])
-    effective_scope = effective_search_scope(repo, scope)
-    filters = _search_filters(user, app, effective_scope)
+    filters = _search_filters(user, app, resolve_search_scope(scope))
     if category:
         filters = {"AND": [filters, {"categories": {"contains": category}}]}
     if run_id:
@@ -2625,7 +2590,7 @@ def search_memories(
     payload = {
         "query": query,
         "filters": filters,
-        # Over-fetch so both lanes can be represented within result_limit.
+        # Over-fetch because weak matches are dropped locally.
         "top_k": min(result_limit * 2, 20),
         "threshold": min_score,
         "rerank": False,
@@ -2652,7 +2617,7 @@ def search_memories(
             and (memory.get("metadata") or {}).get("record_kind") != "task_episode"
             and _score_at_least(memory, min_score)
         ]
-        memories = _reserve_agent_slots(memories, result_limit)
+        memories = memories[:result_limit]
         if track_session:
             returned_memories = store.unseen(session_id, repo.identity, memories)
             store.mark_injected(session_id, repo.identity, returned_memories)
@@ -2742,16 +2707,15 @@ def format_context(
             if branch.casefold() not in {"", "main", "master", "unknown", "detached"}
             else ""
         )
-        lane_label = " [operating note]" if _is_agent_memory(memory) else ""
         number = len(lines) if heading else len(lines) + 1
-        entry = f"{number}. {text}{lane_label}{branch_label}"
+        entry = f"{number}. {text}{branch_label}"
         candidate = "\n".join([*lines, entry])
         if len(candidate) <= limit:
             lines.append(entry)
             continue
         if not lines or (heading and len(lines) == 1):
             prefix = f"{number}. "
-            suffix = f"…{lane_label}{branch_label}"
+            suffix = f"…{branch_label}"
             available = (
                 limit
                 - len("\n".join(lines))
@@ -2803,11 +2767,11 @@ def combine_context(*contexts: str) -> str:
 
 
 def _scoped_memory_ids(
-    api_url: str, key: str, user: str, app: str, include_agent: bool
+    api_url: str, key: str, user: str, app: str, include_project: bool
 ) -> list[str]:
-    """List this user's memory ids for this repository, plus the agent lane's when asked."""
+    """List this user's memory ids for this repository, plus the shared project lane's when asked."""
     owner: dict[str, Any] = {"user_id": user}
-    if include_agent:
+    if include_project:
         owner = {"OR": [owner, {"agent_id": AGENT_ID}]}
     payload = {"filters": {"AND": [{"app_id": app}, owner]}}
     ids: list[str] = []
@@ -2846,9 +2810,9 @@ def _delete_memory(api_url: str, key: str, memory_id: str) -> bool:
 
 
 def forget_remote_repo(
-    repo: RepoContext, *, include_operating_notes: bool = False
+    repo: RepoContext, *, include_project_memory: bool = False
 ) -> dict[str, Any]:
-    """Delete this user's memories for this repository; operating notes are shared, so only on request."""
+    """Delete this user's memories for this repository; project memory is shared, so only on request."""
     key = api_key()
     if not key:
         telemetry.record("forget", repo=repo, success=False, error_kind="no-api-key")
@@ -2863,9 +2827,7 @@ def forget_remote_repo(
         }
     api_url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
     try:
-        memory_ids = _scoped_memory_ids(
-            api_url, key, user, app, include_operating_notes
-        )
+        memory_ids = _scoped_memory_ids(api_url, key, user, app, include_project_memory)
     except Exception as exc:
         telemetry.record(
             "forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc)

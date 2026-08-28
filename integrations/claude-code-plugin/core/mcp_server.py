@@ -23,12 +23,12 @@ TOOL_NAME = "search_memories"
 TOOL_DESCRIPTION = (
     "Search memories from earlier work in this repository. Use it before "
     "repeating investigation or when earlier decisions, fixes, commands, or "
-    "results may help. Results marked [operating note] record what it took to "
-    "run, test, or build here, so search before assuming an invocation works. "
-    "Widen past your own memories with the scope argument: "
-    "'team' searches everyone's memories for this repository, 'mine' searches "
-    "your memories across every repository, and 'all' searches both. Pass "
-    "run_id to look at one earlier Claude Code session only."
+    "results may help. The repository's memory is shared by everyone who works "
+    "in it and includes what it took to run, test, or build here, so search "
+    "before assuming an invocation works. The scope argument changes what is "
+    "searched: 'repo' (default) is this repository's shared memory plus your "
+    "own preferences, 'mine' is your preferences across every repository, and "
+    "'all' is both. Pass run_id to look at one earlier Claude Code session only."
 )
 TOOL_SCHEMA = {
     "type": "object",
@@ -54,10 +54,9 @@ TOOL_SCHEMA = {
             "type": "string",
             "enum": list(SEARCH_SCOPES),
             "description": (
-                "Which memories to search. 'team' (default) is everyone's in this "
-                "repository, 'repo' is yours in this repository, 'mine' is yours "
-                "across every repository, 'all' is both. A folder without a git "
-                "remote narrows 'team' to 'repo' and 'all' to 'mine'."
+                "Which memories to search. 'repo' (default) is this repository's "
+                "shared memory plus your own preferences, 'mine' is your "
+                "preferences across every repository, 'all' is both."
             ),
         },
         "run_id": {

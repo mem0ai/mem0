@@ -74,7 +74,7 @@ def main() -> int:
     forget = subparsers.add_parser("forget")
     forget.add_argument("--remote", action="store_true")
     forget.add_argument("--yes", action="store_true")
-    forget.add_argument("--include-operating-notes", action="store_true")
+    forget.add_argument("--include-project-memory", action="store_true")
 
     args = parser.parse_args()
     if args.plugin_data_dir:
@@ -121,7 +121,7 @@ def main() -> int:
                 return 2
             remote_result = (
                 forget_remote_repo(
-                    repo, include_operating_notes=args.include_operating_notes
+                    repo, include_project_memory=args.include_project_memory
                 )
                 if args.remote
                 else None

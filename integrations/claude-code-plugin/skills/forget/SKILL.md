@@ -7,10 +7,9 @@ disable-model-invocation: true
 # Forget this repository's memories
 
 This permanently deletes remote memories. Before running anything, tell the
-user exactly what will be deleted: this repository's memory scope for their
-user ID only. Teammates' memories are never touched. The repository's
-operating notes are shared by everyone who works in it, so they stay unless
-the user explicitly asks to delete those too.
+user exactly what will be deleted: their own memories for this repository
+only. The repository's project memory is shared by everyone who works in it,
+so it stays unless the user explicitly asks to delete that too.
 
 After the user confirms, run:
 
@@ -18,8 +17,8 @@ After the user confirms, run:
 python3 "${CLAUDE_PLUGIN_ROOT}/core/memory_cli.py" forget --remote --yes
 ```
 
-If the user also asked to delete the repository's operating notes, add
-`--include-operating-notes` and say that this removes them for every teammate.
+If the user also asked to delete the repository's shared project memory, add
+`--include-project-memory` and say that this removes it for every teammate.
 
 Report what the command output says was deleted. If the user only wants local
 data cleared (evidence log, pending queue), run the same command without
