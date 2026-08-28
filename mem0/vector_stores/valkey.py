@@ -521,7 +521,7 @@ class ValkeyDB(VectorStoreBase):
                 hash_data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
             # Add updated_at if available
-            if "updated_at" in payload:
+            if payload.get("updated_at") is not None:
                 hash_data["updated_at"] = int(datetime.fromisoformat(payload["updated_at"]).timestamp())
 
             # Add optional fields
