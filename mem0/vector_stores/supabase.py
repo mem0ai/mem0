@@ -144,8 +144,16 @@ class Supabase(VectorStoreBase):
             data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
 
+        def _to_score(value: float) -> float:
+            measure = self.index_measure.value if hasattr(self.index_measure, "value") else str(self.index_measure)
+            if measure == IndexMeasure.MAX_INNER_PRODUCT.value:
+                return -float(value)
+            if measure in (IndexMeasure.L2.value, IndexMeasure.L1.value):
+                return 1.0 / (1.0 + float(value))
+            return max(0.0, 1.0 - float(value))
+
         return [
-            OutputData(id=str(result[0]), score=max(0.0, 1.0 - float(result[1])), payload=result[2])
+            OutputData(id=str(result[0]), score=_to_score(result[1]), payload=result[2])
             for result in results
         ]
 
