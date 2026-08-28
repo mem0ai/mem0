@@ -11,6 +11,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from psycopg.errors import InvalidTextRepresentation
 
 from mem0.exceptions import ValidationError as Mem0ValidationError
 
@@ -756,6 +757,18 @@ class TestWriteHandlerErrorMapping:
         mock_memory.delete.side_effect = ValueError("Memory with id mem-1 not found")
         resp = client.delete("/memories/mem-1")
         assert resp.status_code == 404
+
+    def test_get_invalid_postgres_memory_id_returns_400(self, client, mock_memory):
+        mock_memory.get.side_effect = InvalidTextRepresentation("invalid input syntax for type uuid")
+        resp = client.get("/memories/GPK0F14H")
+        assert resp.status_code == 400
+        assert "invalid input syntax for type uuid" in resp.json()["detail"]
+
+    def test_delete_invalid_postgres_memory_id_returns_400(self, client, mock_memory):
+        mock_memory.delete.side_effect = InvalidTextRepresentation("invalid input syntax for type uuid")
+        resp = client.delete("/memories/GPK0F14H")
+        assert resp.status_code == 400
+        assert "invalid input syntax for type uuid" in resp.json()["detail"]
 
     def test_update_other_value_error_returns_400(self, client, mock_memory):
         mock_memory.update.side_effect = ValueError("data must be a non-empty string")

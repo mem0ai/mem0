@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from models import RequestLog, User
 from pydantic import BaseModel, Field
+from psycopg.errors import InvalidTextRepresentation
 from rate_limit import limiter
 from routers import api_keys as api_keys_router
 from routers import auth as auth_router
@@ -445,6 +446,8 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
         return get_memory_instance().get(memory_id)
+    except (ValueError, Mem0ValidationError, InvalidTextRepresentation) as e:
+        raise _client_error(e)
     except Exception:
         raise upstream_error()
 
@@ -518,7 +521,7 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
-    except (ValueError, Mem0ValidationError) as e:
+    except (ValueError, Mem0ValidationError, InvalidTextRepresentation) as e:
         raise _client_error(e)
     except Exception:
         raise upstream_error()
