@@ -74,6 +74,19 @@ class ElasticsearchDB(VectorStoreBase):
         index_settings = {
             "settings": {"index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s"}},
             "mappings": {
+                # Map every dynamic metadata.* string field to `keyword` so exact-match
+                # `term` filters on custom metadata keys actually match (#7157). The
+                # explicit `data`/`text_lemmatized` properties below are pinned to
+                # `text` so keyword_search()'s BM25 `match` queries are unaffected.
+                "dynamic_templates": [
+                    {
+                        "metadata_strings_as_keyword": {
+                            "path_match": "metadata.*",
+                            "match_mapping_type": "string",
+                            "mapping": {"type": "keyword"},
+                        }
+                    }
+                ],
                 "properties": {
                     "text": {"type": "text"},
                     "vector": {
@@ -88,9 +101,11 @@ class ElasticsearchDB(VectorStoreBase):
                             "user_id": {"type": "keyword"},
                             "agent_id": {"type": "keyword"},
                             "run_id": {"type": "keyword"},
+                            "data": {"type": "text"},
+                            "text_lemmatized": {"type": "text"},
                         },
                     },
-                }
+                },
             },
         }
 

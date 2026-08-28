@@ -111,6 +111,39 @@ class TestElasticsearchDB(unittest.TestCase):
         # Verify create was not called when index exists
         self.client_mock.indices.create.assert_not_called()
 
+    def test_create_index_dynamic_templates_string_keyword(self):
+        """Regression for #7157: custom metadata string fields must be mapped as
+        `keyword` so exact-match `term` filters on them actually match."""
+        self.client_mock.indices.exists.return_value = False
+        self.es_db.create_index()
+
+        create_args = self.client_mock.indices.create.call_args[1]
+        mappings = create_args["body"]["mappings"]
+        templates = mappings.get("dynamic_templates", [])
+        self.assertTrue(templates, "expected dynamic_templates mapping rule for metadata string fields")
+
+        # The dynamic template must map any metadata.* string field to keyword
+        keyword_rule = None
+        for template in templates:
+            for name, rule in template.items():
+                if rule.get("path_match") == "metadata.*" and rule.get("match_mapping_type") == "string":
+                    keyword_rule = rule
+        self.assertIsNotNone(keyword_rule, "expected a metadata.* string -> keyword dynamic template")
+        self.assertEqual(keyword_rule["mapping"]["type"], "keyword")
+
+    def test_create_index_keeps_keyword_search_text_fields(self):
+        """Regression for #7157: `data`/`text_lemmatized` must stay `text` so
+        keyword_search()'s BM25 match queries keep working (keyword fields can't be
+        `match`-queried)."""
+        self.client_mock.indices.exists.return_value = False
+        self.es_db.create_index()
+
+        create_args = self.client_mock.indices.create.call_args[1]
+        mappings = create_args["body"]["mappings"]
+        metadata_props = mappings["properties"]["metadata"]["properties"]
+        self.assertEqual(metadata_props["data"]["type"], "text")
+        self.assertEqual(metadata_props["text_lemmatized"]["type"], "text")
+
     def test_auto_create_index(self):
         # Reset mock
         self.client_mock.reset_mock()
