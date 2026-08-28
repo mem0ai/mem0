@@ -88,6 +88,8 @@ def main() -> int:
                 **store.status(repo.identity),
                 "repo_id": repo.identity,
                 "app_id": repo.app_id,
+                "project_id": repo.project_id,
+                "directory": repo.directory,
                 "user_id": user_id(),
                 "data_dir": str(data_dir()),
                 "api_key_configured": bool(api_key()),

@@ -1,7 +1,7 @@
 ---
 name: search
 description: Search memories from earlier Claude Code sessions in this repository. Use it when earlier work may already explain the code, error, decision, or command you need, so you can avoid repeating file reads, searches, or experiments.
-argument-hint: "[question] [--top-k number] [--category category-name] [--scope repo|mine|all] [--run-id session-id]"
+argument-hint: "[question] [--top-k number] [--category category-name] [--scope repo|dir|mine] [--run-id session-id]"
 disable-model-invocation: true
 ---
 
@@ -18,6 +18,9 @@ memory, so if a category search misses, repeat it without the category. Omit
 shared memory, which everyone who works in it contributes to, plus your own
 preferences.
 
-Pass `scope` when the question needs something else: `mine` for your
-preferences in every repository, `all` for both. Pass `run_id` with a Claude Code session ID to look at what
-one earlier session recorded. Return the tool's result directly.
+Pass `scope` when the question needs something else: `dir` to narrow the
+shared memory to the directory you are working in (a package inside a
+monorepo), `mine` for your own preferences alone. Pass `run_id` with a Claude
+Code session ID to look at what one earlier session recorded, for example to
+pick up where a compacted or closed session left off. Return the tool's result
+directly.

@@ -50,6 +50,7 @@ def repo() -> memory_core.RepoContext:
         app_id="code-example",
         branch="main",
         head_sha="abc123",
+        project_id="code-example",
     )
 
 
@@ -1326,7 +1327,7 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
     first_body, personal_body = (call.args[2] for call in request.call_args_list)
 
     assert first_body["infer"] is True
-    assert first_body["agent_id"] == "claude-code"
+    assert first_body["agent_id"] == "code-example"
     assert "user_id" not in first_body
     assert first_body["app_id"] == "code-example"
     assert first_body["run_id"] == "s1"
@@ -1335,6 +1336,7 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
         "branch": "main",
         "git_sha": "abc123",
         "lane": "project",
+        "author": "test-user",
     }
     assert "immutable" not in first_body
     assert "Save concise repository facts" in first_body[
@@ -1450,6 +1452,7 @@ def test_non_git_memory_metadata_omits_branch_and_commit(isolated_env, monkeypat
         app_id="workspace",
         branch="detached",
         head_sha="",
+        project_id="local-workspace-0123456789",
     )
     store.record_event(
         non_git_repo,
@@ -1479,6 +1482,11 @@ def test_non_git_memory_metadata_omits_branch_and_commit(isolated_env, monkeypat
             store, {"session_id": "s1", "cwd": "/tmp/workspace"}, "session-end"
         )
 
+    assert request.call_args_list[0].args[2]["metadata"] == {
+        "source": "claude_code_plugin",
+        "lane": "project",
+        "author": "test-user",
+    }
     assert request.call_args.args[2]["metadata"] == {
         "source": "claude_code_plugin",
         "lane": "personal",
@@ -1566,7 +1574,7 @@ def test_large_extraction_submits_every_batch_before_polling(
     assert {
         (body.get("agent_id"), body.get("user_id"), body["app_id"], body["run_id"])
         for body in posted
-    } == {("claude-code", None, "code-example", "s1"), (None, "test-user", "code-example", "s1")}
+    } == {("code-example", None, "code-example", "s1"), (None, "test-user", "code-example", "s1")}
     assert result["status"] == "semantic-succeeded"
     assert result["semantic_event_id"] == "event-4"
     assert result["memory_count"] == 4
@@ -1831,12 +1839,7 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
     assert "1. The ODS serializer is in src/ods.py." in rendered
     assert second_result.memories == []
     assert second_result.already_shown_count == 3
-    assert captured_payloads[0]["filters"] == {
-        "AND": [
-            {"app_id": "code-example"},
-            {"OR": [{"agent_id": "claude-code"}, {"user_id": "test-user"}]},
-        ]
-    }
+    assert captured_payloads[0]["filters"] == {"OR": [{"agent_id": "code-example"}, {"user_id": "test-user"}]}
     assert captured_payloads[0]["top_k"] == 6
     assert captured_payloads[0]["threshold"] == 0.15
     assert captured_payloads[0]["rerank"] is False
@@ -1873,12 +1876,7 @@ def test_search_can_filter_one_memory_category(isolated_env, monkeypatch):
 
     assert request.call_args.args[2]["filters"] == {
         "AND": [
-            {
-                "AND": [
-                    {"app_id": "code-example"},
-                    {"OR": [{"agent_id": "claude-code"}, {"user_id": "test-user"}]},
-                ]
-            },
+            {"OR": [{"agent_id": "code-example"}, {"user_id": "test-user"}]},
             {"categories": {"contains": "problems_and_fixes"}},
         ]
     }
@@ -3458,7 +3456,7 @@ def test_forget_refuses_an_unscoped_delete(monkeypatch, isolated_env):
     monkeypatch.setenv("MEM0_API_KEY", "test-key")
     monkeypatch.setenv("MEM0_CODE_USER_ID", "*")
     repo = memory_core.RepoContext(
-        cwd="/x", root="/x", identity="x", app_id="*", branch="main", head_sha="abc"
+        cwd="/x", root="/x", identity="x", app_id="*", branch="main", head_sha="abc", project_id="*"
     )
     with patch.object(memory_core, "_request_json") as request:
         result = memory_core.forget_remote_repo(repo)
@@ -3470,7 +3468,7 @@ def test_forget_refuses_an_unscoped_delete(monkeypatch, isolated_env):
 def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
     monkeypatch.setenv("MEM0_API_KEY", "test-key")
     repo = memory_core.RepoContext(
-        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc"
+        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc", project_id="repo-a"
     )
     listed = {"results": [{"id": "m1"}, {"id": "m2"}]}
     deleted = []
@@ -3483,7 +3481,7 @@ def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
 
     url, _, payload, _ = request.call_args[0]
     assert "/v2/memories/" in url
-    assert payload["filters"] == {"AND": [{"app_id": "repo-a"}, {"user_id": "test-user"}]}
+    assert payload["filters"] == {"AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]}
     assert deleted == ["m1", "m2"]
     assert result == {"status": "deleted", "deleted": 2}
 
@@ -3491,15 +3489,15 @@ def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
 def test_forget_only_touches_shared_project_memory_when_asked(monkeypatch, isolated_env):
     monkeypatch.setenv("MEM0_API_KEY", "test-key")
     repo = memory_core.RepoContext(
-        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc"
+        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc", project_id="repo-a"
     )
     with patch.object(memory_core, "_request_json", return_value=({"results": []}, 0, 0)) as request:
         memory_core.forget_remote_repo(repo, include_project_memory=True)
 
     assert request.call_args[0][2]["filters"] == {
-        "AND": [
-            {"app_id": "repo-a"},
-            {"OR": [{"user_id": "test-user"}, {"agent_id": "claude-code"}]},
+        "OR": [
+            {"AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]},
+            {"agent_id": "repo-a"},
         ]
     }
 
@@ -3507,7 +3505,7 @@ def test_forget_only_touches_shared_project_memory_when_asked(monkeypatch, isola
 def test_forget_reports_partial_failures(monkeypatch, isolated_env):
     monkeypatch.setenv("MEM0_API_KEY", "test-key")
     repo = memory_core.RepoContext(
-        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc"
+        cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc", project_id="repo-a"
     )
     listed = {"results": [{"id": "m1"}, {"id": "m2"}]}
 
@@ -3587,52 +3585,73 @@ def test_flush_refuses_a_wildcard_repository_scope(isolated_env, monkeypatch):
     store.close()
 
 
-def test_search_filters_repo_scope_pins_app_and_pairs_project_with_user():
-    assert memory_core._search_filters("priya", "payments-api", "repo") == {
-        "AND": [
-            {"app_id": "payments-api"},
-            {"OR": [{"agent_id": "claude-code"}, {"user_id": "priya"}]},
-        ]
+def _payments(directory=""):
+    return memory_core.RepoContext(
+        cwd="/x/" + directory if directory else "/x",
+        root="/x",
+        identity="https://github.com/acme/payments-api",
+        app_id="payments-api",
+        branch="main",
+        head_sha="s",
+        project_id="payments-api",
+        directory=directory,
+    )
+
+
+def test_search_filters_repo_scope_unions_shared_project_memory_with_the_user():
+    assert memory_core._search_filters("priya", _payments("services/billing"), "repo") == {
+        "OR": [{"agent_id": "payments-api"}, {"user_id": "priya"}]
     }
 
 
-def test_search_filters_mine_scope_drops_app_but_keeps_user():
-    assert memory_core._search_filters("priya", "payments-api", "mine") == {
-        "AND": [{"user_id": "priya"}, {"app_id": "*"}]
-    }
+def test_search_filters_mine_scope_is_the_user_alone():
+    assert memory_core._search_filters("priya", _payments(), "mine") == {"user_id": "priya"}
 
 
-def test_search_filters_all_scope_unions_repo_and_mine():
-    assert memory_core._search_filters("priya", "payments-api", "all") == {
+def test_search_filters_dir_scope_narrows_shared_memory_to_the_directory():
+    assert memory_core._search_filters("priya", _payments("services/billing"), "dir") == {
         "OR": [
-            {"AND": [{"app_id": "payments-api"}, {"OR": [{"agent_id": "claude-code"}, {"user_id": "priya"}]}]},
-            {"AND": [{"user_id": "priya"}, {"app_id": "*"}]},
+            {"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api/services/billing"}]},
+            {"user_id": "priya"},
         ]
     }
+
+
+def test_search_filters_dir_scope_at_the_root_is_the_whole_repository():
+    assert memory_core._search_filters("priya", _payments(), "dir") == memory_core._search_filters(
+        "priya", _payments(), "repo"
+    )
+
+
+def test_directory_app_id_is_the_repository_at_the_root_and_nested_below():
+    assert memory_core.directory_app_id(_payments()) == "payments-api"
+    assert memory_core.directory_app_id(_payments("services/billing")) == "payments-api/services/billing"
 
 
 def test_no_search_scope_wildcards_the_user():
     for scope in memory_core.SEARCH_SCOPES:
         assert '"user_id": "*"' not in json.dumps(
-            memory_core._search_filters("priya", "payments-api", scope)
+            memory_core._search_filters("priya", _payments("apps/web"), scope)
         ), scope
 
 
 def test_every_search_scope_pins_an_owned_identity():
     for scope in memory_core.SEARCH_SCOPES:
-        branches = memory_core._search_filters("priya", "payments-api", scope)
-        branches = branches.get("OR", [branches])
-        for branch in branches:
-            values = {k: v for c in branch["AND"] for k, v in c.items()}
-            assert values.get("user_id") == "priya" or values.get("app_id") == (
-                "payments-api"
-            ), f"{scope} has an unpinned branch: {branch}"
+        for directory in ("", "apps/web"):
+            filters = memory_core._search_filters("priya", _payments(directory), scope)
+            for branch in filters.get("OR", [filters]):
+                values = {k: v for c in branch.get("AND", [branch]) for k, v in c.items()}
+                assert values.get("user_id") == "priya" or values.get("agent_id") == "payments-api", (
+                    f"{scope} has an unpinned branch: {branch}"
+                )
 
 
 def test_search_scope_env_override_and_fallback(monkeypatch):
     monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "mine")
     assert memory_core.search_scope() == "mine"
     monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "team")
+    assert memory_core.search_scope() == "repo"
+    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "all")
     assert memory_core.search_scope() == "repo"
     monkeypatch.delenv("MEM0_CODE_SEARCH_SCOPE")
     assert memory_core.search_scope() == "repo"
@@ -3641,9 +3660,7 @@ def test_search_scope_env_override_and_fallback(monkeypatch):
 def test_search_memories_rejects_unknown_scope(monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "test-key")
     monkeypatch.setenv("MEM0_CODE_USER_ID", "priya")
-    repo = memory_core.RepoContext(
-        cwd="/x", root="/x", identity="i", app_id="app", branch="main", head_sha="s"
-    )
+    repo = _payments()
     with pytest.raises(ValueError, match="Unknown search scope"):
         memory_core.search_memories(None, repo, None, "q", scope="everything")
 
@@ -3660,21 +3677,8 @@ def test_search_memories_sends_repo_filters_by_default(monkeypatch):
     monkeypatch.setattr(
         memory_core, "_request_json_with_network_retry", fake_request
     )
-    repo = memory_core.RepoContext(
-        cwd="/x",
-        root="/x",
-        identity="i",
-        app_id="payments-api",
-        branch="main",
-        head_sha="s",
-    )
-    memory_core.search_memories(None, repo, None, "q")
-    assert sent["filters"] == {
-        "AND": [
-            {"app_id": "payments-api"},
-            {"OR": [{"agent_id": "claude-code"}, {"user_id": "priya"}]},
-        ]
-    }
+    memory_core.search_memories(None, _payments(), None, "q")
+    assert sent["filters"] == {"OR": [{"agent_id": "payments-api"}, {"user_id": "priya"}]}
 
 
 def test_category_nests_under_the_scope_filter(monkeypatch):
@@ -3689,23 +3693,15 @@ def test_category_nests_under_the_scope_filter(monkeypatch):
     monkeypatch.setattr(
         memory_core, "_request_json_with_network_retry", fake_request
     )
-    repo = memory_core.RepoContext(
-        cwd="/x",
-        root="/x",
-        identity="i",
-        app_id="payments-api",
-        branch="main",
-        head_sha="s",
-    )
     memory_core.search_memories(
-        None, repo, None, "q", scope="all", category="workflows"
+        None, _payments("apps/web"), None, "q", scope="dir", category="workflows"
     )
     assert sent["filters"] == {
         "AND": [
             {
                 "OR": [
-                    {"AND": [{"app_id": "payments-api"}, {"OR": [{"agent_id": "claude-code"}, {"user_id": "priya"}]}]},
-                    {"AND": [{"user_id": "priya"}, {"app_id": "*"}]},
+                    {"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api/apps/web"}]},
+                    {"user_id": "priya"},
                 ]
             },
             {"categories": {"contains": "workflows"}},
@@ -3805,7 +3801,7 @@ def test_every_flush_writes_project_memory_and_personal_memory(isolated_env, mon
 
     assert request.call_count == 2
     project_body, personal_body = (call.args[2] for call in request.call_args_list)
-    assert project_body["agent_id"] == "claude-code"
+    assert project_body["agent_id"] == "code-example"
     assert "user_id" not in project_body
     assert project_body["app_id"] == "code-example"
     assert project_body["run_id"] == "s1"
@@ -3852,7 +3848,7 @@ def test_a_failed_command_adds_one_more_project_lane_call(isolated_env, monkeypa
     store.close()
 
 
-def test_a_folder_without_a_remote_keeps_project_memory_under_the_user(isolated_env, monkeypatch):
+def test_a_folder_without_a_remote_shares_project_memory_under_a_path_hashed_namespace(isolated_env, monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     monkeypatch.setenv("MEM0_CODE_USER_ID", "maya")
     store = memory_core.EvidenceStore()
@@ -3874,10 +3870,27 @@ def test_a_folder_without_a_remote_keeps_project_memory_under_the_user(isolated_
 
     bodies = [call.args[2] for call in request.call_args_list]
     assert [body["metadata"]["lane"] for body in bodies] == ["project", "personal"]
-    assert all(body["user_id"] == "maya" for body in bodies)
-    assert not any("agent_id" in body for body in bodies)
-    assert "Save concise repository facts" in bodies[0]["custom_instructions"]
+    assert bodies[0]["agent_id"] == folder.project_id
+    assert bodies[0]["agent_id"].startswith("local-marketing-")
+    assert "user_id" not in bodies[0]
+    assert bodies[0]["metadata"]["author"] == "maya"
+    assert bodies[1]["user_id"] == "maya"
+    assert "agent_id" not in bodies[1]
     store.close()
+
+
+def test_same_named_folders_at_different_paths_get_different_namespaces():
+    a = memory_core._project_id("/home/maya/marketing", "local:/home/maya/marketing", "marketing")
+    b = memory_core._project_id("/home/raj/marketing", "local:/home/raj/marketing", "marketing")
+    assert a != b
+    assert a.startswith("local-marketing-") and b.startswith("local-marketing-")
+    assert memory_core._project_id("/x", "https://github.com/acme/api", "acme-api") == "acme-api"
+
+
+def test_relative_directory_is_empty_at_the_root_and_posix_below():
+    assert memory_core._relative_directory("/x", "/x") == ""
+    assert memory_core._relative_directory("/x/apps/web", "/x") == "apps/web"
+    assert memory_core._relative_directory("/elsewhere", "/x") == ""
 
 
 def test_results_are_ranked_by_score_alone():
@@ -3931,6 +3944,7 @@ def _local_folder():
         app_id="marketing",
         branch="",
         head_sha="",
+        project_id="local-marketing-abcdef0123",
     )
 
 
@@ -3940,8 +3954,8 @@ def test_search_scope_resolves_to_the_configured_default(monkeypatch):
 
     assert memory_core.resolve_search_scope(None) == "repo"
     assert memory_core.resolve_search_scope(" MINE ") == "mine"
-    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "all")
-    assert memory_core.resolve_search_scope(None) == "all"
+    monkeypatch.setenv("MEM0_CODE_SEARCH_SCOPE", "dir")
+    assert memory_core.resolve_search_scope(None) == "dir"
 
     for scope in memory_core.SEARCH_SCOPES:
         sent = _search_payload(monkeypatch, _local_folder(), scope=scope)
@@ -3956,12 +3970,7 @@ def test_run_id_narrows_the_search_to_one_session(monkeypatch):
 
     assert sent["filters"] == {
         "AND": [
-            {
-                "AND": [
-                    {"app_id": "code-example"},
-                    {"OR": [{"agent_id": "claude-code"}, {"user_id": "priya"}]},
-                ]
-            },
+            {"OR": [{"agent_id": "code-example"}, {"user_id": "priya"}]},
             {"run_id": "session-42"},
         ]
     }

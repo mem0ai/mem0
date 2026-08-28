@@ -44,7 +44,7 @@
     "search_scope": {
       "type": "string",
       "title": "Default search scope",
-      "description": "How wide every search runs by default. 'repo' is this repository's shared memory plus your own preferences, 'mine' is your preferences in every repository, and 'all' is both.",
+      "description": "How wide every search runs by default. 'repo' is the whole repository's shared memory plus your own preferences, 'dir' narrows the shared memory to the directory you are working in, and 'mine' is your preferences alone.",
       "default": "repo",
       "required": false
     },

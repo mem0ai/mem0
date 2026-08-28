@@ -26,9 +26,10 @@ TOOL_DESCRIPTION = (
     "results may help. The repository's memory is shared by everyone who works "
     "in it and includes what it took to run, test, or build here, so search "
     "before assuming an invocation works. The scope argument changes what is "
-    "searched: 'repo' (default) is this repository's shared memory plus your "
-    "own preferences, 'mine' is your preferences across every repository, and "
-    "'all' is both. Pass run_id to look at one earlier Claude Code session only."
+    "searched: 'repo' (default) is the whole repository's shared memory plus "
+    "your own preferences, 'dir' narrows the shared part to the directory you "
+    "are working in, and 'mine' is your preferences alone. Pass run_id to look "
+    "at one earlier Claude Code session only."
 )
 TOOL_SCHEMA = {
     "type": "object",
@@ -54,9 +55,9 @@ TOOL_SCHEMA = {
             "type": "string",
             "enum": list(SEARCH_SCOPES),
             "description": (
-                "Which memories to search. 'repo' (default) is this repository's "
-                "shared memory plus your own preferences, 'mine' is your "
-                "preferences across every repository, 'all' is both."
+                "Which memories to search. 'repo' (default) is the whole repository's "
+                "shared memory plus your own preferences, 'dir' narrows the shared "
+                "part to the current directory, 'mine' is your preferences alone."
             ),
         },
         "run_id": {

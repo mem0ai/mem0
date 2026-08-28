@@ -64,8 +64,6 @@ Write in the third person about the user, not about the repository, the assistan
 
 If nothing was learned about the user, return no memories."""
 
-AGENT_ID = "claude-code"
-
 CODING_MEMORY_CATEGORIES = [
     {
         "project_knowledge": (
@@ -201,20 +199,25 @@ def _scope_value(raw: str | None) -> str:
     return "" if _WILDCARD_SCOPE.match(value) else value
 
 
-SEARCH_SCOPES = ("repo", "mine", "all")
+SEARCH_SCOPES = ("repo", "dir", "mine")
 DEFAULT_SEARCH_SCOPE = "repo"
 DEFAULT_MIN_SCORE = 0.15
 
 
-def _search_filters(user: str, app: str, scope: str) -> dict[str, Any]:
-    """Build the scope filter. Every branch pins an identity the searcher owns."""
-    project_here = {"AND": [{"app_id": app}, {"OR": [{"agent_id": AGENT_ID}, {"user_id": user}]}]}
-    if scope == "repo":
-        return project_here
-    mine_anywhere = {"AND": [{"user_id": user}, {"app_id": "*"}]}
+def directory_app_id(repo: RepoContext) -> str:
+    """The app_id of the directory this session runs in: the repository at the root, repository/path below it."""
+    return f"{repo.app_id}/{repo.directory}" if repo.directory else repo.app_id
+
+
+def _search_filters(user: str, repo: RepoContext, scope: str) -> dict[str, Any]:
+    """Build the scope filter: the searcher's own preferences plus the shared memory they are allowed to see."""
+    mine = {"user_id": user}
     if scope == "mine":
-        return mine_anywhere
-    return {"OR": [project_here, mine_anywhere]}
+        return mine
+    shared: dict[str, Any] = {"agent_id": repo.project_id}
+    if scope == "dir" and repo.directory:
+        shared = {"AND": [shared, {"app_id": directory_app_id(repo)}]}
+    return {"OR": [shared, mine]}
 
 
 def search_scope() -> str:
@@ -286,6 +289,20 @@ class RepoContext:
     app_id: str
     branch: str
     head_sha: str
+    project_id: str = ""
+    directory: str = ""
+
+
+def _project_id(root: str, identity: str, app_id: str) -> str:
+    """The shared namespace: the repository, or a folder path hashed so same-named folders stay apart."""
+    if not identity.startswith("local:"):
+        return app_id
+    return f"local-{app_id}-{hashlib.sha256(root.encode()).hexdigest()[:10]}"
+
+
+def _relative_directory(cwd: str, root: str) -> str:
+    relative = os.path.relpath(cwd, root)
+    return "" if relative == "." or relative.startswith("..") else relative.replace(os.sep, "/")
 
 
 @dataclass(frozen=True)
@@ -302,13 +319,16 @@ def _resolve_repo_cached(cwd: str) -> RepoContext:
     raw_remote = _git(root, "config", "--get", "remote.origin.url")
     remote = _normalize_remote(raw_remote)
     identity = remote or f"local:{root}"
+    app_id = _legacy_project_id(cwd, root, raw_remote, identity)
     return RepoContext(
         cwd=cwd,
         root=root,
         identity=identity,
-        app_id=_legacy_project_id(cwd, root, raw_remote, identity),
+        app_id=app_id,
         branch=_git(root, "branch", "--show-current") or "detached",
         head_sha=_git(root, "rev-parse", "HEAD"),
+        project_id=_project_id(root, identity, app_id),
+        directory=_relative_directory(cwd, root),
     )
 
 
@@ -860,7 +880,8 @@ class EvidenceStore:
                 root TEXT NOT NULL,
                 branch TEXT NOT NULL,
                 head_sha TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                directory TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS flushes (
@@ -944,6 +965,7 @@ class EvidenceStore:
         self._ensure_column("retrievals", "memory_text", "TEXT")
         self._ensure_column("retrievals", "context_chars", "INTEGER NOT NULL DEFAULT 0")
         self._ensure_column("flushes", "attempts", "INTEGER NOT NULL DEFAULT 0")
+        self._ensure_column("session_scopes", "directory", "TEXT NOT NULL DEFAULT ''")
         self.conn.commit()
 
     def _ensure_column(self, table: str, column: str, declaration: str) -> None:
@@ -986,8 +1008,8 @@ class EvidenceStore:
         with self.conn:
             self.conn.execute(
                 """INSERT OR IGNORE INTO session_scopes
-                   (session_id, repo_id, app_id, root, branch, head_sha, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (session_id, repo_id, app_id, root, branch, head_sha, created_at, directory)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     session_id,
                     current.identity,
@@ -996,6 +1018,7 @@ class EvidenceStore:
                     current.branch,
                     current.head_sha,
                     utc_now(),
+                    current.directory,
                 ),
             )
         scope = self.conn.execute(
@@ -1004,13 +1027,16 @@ class EvidenceStore:
         same_git_repo = (
             current.identity == scope["repo_id"] and bool(current.head_sha)
         )
+        pinned = current if same_git_repo else resolve_repo(str(scope["root"]))
         return RepoContext(
             cwd=current.cwd,
-            root=current.root if same_git_repo else str(scope["root"]),
+            root=pinned.root,
             identity=str(scope["repo_id"]),
             app_id=str(scope["app_id"]),
-            branch=current.branch if same_git_repo else str(scope["branch"]),
-            head_sha=current.head_sha if same_git_repo else str(scope["head_sha"]),
+            branch=pinned.branch,
+            head_sha=pinned.head_sha,
+            project_id=pinned.project_id,
+            directory=str(scope["directory"] or ""),
         )
 
     def prepare_flush(
@@ -2203,22 +2229,6 @@ def _record_flush(
     )
 
 
-def _project_body(
-    repo: RepoContext, user: str, app: str, session_id: str, metadata: dict[str, Any]
-) -> dict[str, Any]:
-    """Project memory is shared under the agent unless the folder has no git remote to share by."""
-    body: dict[str, Any] = {
-        "app_id": app,
-        "run_id": session_id,
-        "metadata": {**metadata, "lane": "project"},
-        "custom_categories": CODING_MEMORY_CATEGORIES,
-        "infer": True,
-    }
-    if repo.identity.startswith("local:"):
-        return {"user_id": user, "custom_instructions": PROJECT_MEMORY_INSTRUCTIONS, **body}
-    return {"agent_id": AGENT_ID, "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS, **body}
-
-
 def flush_session(
     store: EvidenceStore, hook_input: dict[str, Any], reason: str
 ) -> dict[str, Any]:
@@ -2256,11 +2266,20 @@ def flush_session(
     add_url = f"{api_url}/v3/memories/add/"
 
     write_user, write_app = _scope_value(user_id()), _scope_value(repo.app_id)
-    if not write_user or not write_app:
+    write_project = _scope_value(repo.project_id)
+    if not write_user or not write_app or not write_project:
         telemetry.record("flush", reason=reason, status="unscoped", success=False)
         return {"status": "error", "reason": "wildcard-scope"}
 
-    project_body = _project_body(repo, write_user, write_app, session_id, metadata)
+    project_body = {
+        "agent_id": write_project,
+        "app_id": directory_app_id(repo),
+        "run_id": session_id,
+        "metadata": {**metadata, "lane": "project", "author": write_user},
+        "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS,
+        "custom_categories": CODING_MEMORY_CATEGORIES,
+        "infer": True,
+    }
     personal_body = {
         "user_id": write_user,
         "app_id": write_app,
@@ -2576,10 +2595,10 @@ def search_memories(
     )
     if category is not None and category not in CODING_MEMORY_CATEGORY_NAMES:
         raise ValueError(f"Unknown memory category: {category}")
-    user, app = _scope_value(user_id()), _scope_value(repo.app_id)
-    if not user or not app:
+    user, project = _scope_value(user_id()), _scope_value(repo.project_id)
+    if not user or not project or not _scope_value(repo.app_id):
         return MemorySearchResult(False, 0, 0, [])
-    filters = _search_filters(user, app, resolve_search_scope(scope))
+    filters = _search_filters(user, repo, resolve_search_scope(scope))
     if category:
         filters = {"AND": [filters, {"categories": {"contains": category}}]}
     if run_id:
@@ -2767,13 +2786,13 @@ def combine_context(*contexts: str) -> str:
 
 
 def _scoped_memory_ids(
-    api_url: str, key: str, user: str, app: str, include_project: bool
+    api_url: str, key: str, user: str, repo: RepoContext, include_project: bool
 ) -> list[str]:
-    """List this user's memory ids for this repository, plus the shared project lane's when asked."""
-    owner: dict[str, Any] = {"user_id": user}
+    """List this user's memory ids for this repository, plus the shared project memory when asked."""
+    filters: dict[str, Any] = {"AND": [{"user_id": user}, {"app_id": repo.app_id}]}
     if include_project:
-        owner = {"OR": [owner, {"agent_id": AGENT_ID}]}
-    payload = {"filters": {"AND": [{"app_id": app}, owner]}}
+        filters = {"OR": [filters, {"agent_id": repo.project_id}]}
+    payload = {"filters": filters}
     ids: list[str] = []
     seen: set[str] = set()
     for page in range(1, FORGET_MAX_PAGES + 1):
@@ -2818,8 +2837,7 @@ def forget_remote_repo(
         telemetry.record("forget", repo=repo, success=False, error_kind="no-api-key")
         return {"status": "error", "error": "Mem0 API key is not configured"}
     user = _scope_value(user_id())
-    app = _scope_value(repo.app_id)
-    if not user or not app:
+    if not user or not _scope_value(repo.app_id) or not _scope_value(repo.project_id):
         telemetry.record("forget", repo=repo, success=False, error_kind="unscoped")
         return {
             "status": "error",
@@ -2827,7 +2845,7 @@ def forget_remote_repo(
         }
     api_url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
     try:
-        memory_ids = _scoped_memory_ids(api_url, key, user, app, include_project_memory)
+        memory_ids = _scoped_memory_ids(api_url, key, user, repo, include_project_memory)
     except Exception as exc:
         telemetry.record(
             "forget", repo=repo, success=False, error_kind=telemetry.error_kind(exc)

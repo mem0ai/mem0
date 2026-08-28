@@ -24,13 +24,14 @@ relevant ones back at the start of later sessions in the same repository.
   visible response. Mem0 turns each submission into memories that may help
   with later work in the same repository.
 - Each submission is written twice, with different instructions. The
-  repository's *project memory* (`agent_id: claude-code`, one per repository)
-  gets what the repository is and what it takes to operate in it: behavior,
-  decisions, constraints, and the command that failed together with the one
-  that worked afterwards. Everyone who works in the repository reads and
-  extends the same project memory. Your *personal memory* (`user_id`) gets
-  only what was learned about you: preferred tools, style, and anything you
-  asked to be remembered, and it follows you between repositories.
+  repository's *shared project memory* (one namespace per repository, tagged
+  with the directory it was learned in) gets what the repository is and what
+  it takes to operate in it: behavior, decisions, constraints, and the command
+  that failed together with the one that worked afterwards. Everyone who works
+  in the repository reads and extends the same project memory. Your *personal
+  memory* (`user_id`) gets only what was learned about you: preferred tools,
+  style, and anything you asked to be remembered, and it follows you between
+  repositories.
 - Before Claude's first response in a later session, the plugin searches with
   your prompt and supplies up to five memories. Claude can call the
   `search_memories` tool afterward with another specific question, and you can
@@ -139,7 +140,7 @@ Uncommitted changes are not copied into the sidekick's worktree.
 
 | Command | What it does |
 | --- | --- |
-| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>`, `--category <name>`, and `--scope <repo\|mine\|all>`. |
+| `/mem0:search` | Search memories from earlier Claude Code sessions in this repository. Accepts `--top-k <n>`, `--category <name>`, and `--scope <repo\|dir\|mine>`. |
 | `/mem0:status` | Show whether Mem0 memory is working in this repository: configuration, capture state, pending flushes, and whether the Mem0 API key is valid. |
 | `/mem0:forget` | Delete the Mem0 memories stored for this repository and this user, after confirming with you. Deletion covers the whole user-and-repository scope at once, including memories created from other checkouts of the same repository. The repository's shared project memory stays unless you ask for `--include-project-memory`. |
 | `/mem0:pause` | Pause Mem0 memory capture on this machine. |
@@ -154,30 +155,36 @@ without one, the search spans all of them.
 
 ## Search scope
 
-Every memory is written with the repository it came from (`app_id`) and one
-owner label: the repository's project memory belongs to the `claude-code`
-agent (`agent_id`), and your personal memory belongs to you (`user_id`). A
-search combines the repository with the owner using `AND`, so by default you
-get back the project memory of the repository you are working in, which
-everyone using the same Mem0 project contributes to, plus your own
-preferences.
+Every memory carries the Mem0 identifiers of where it came from:
+
+| Identifier | Meaning | Value |
+| --- | --- | --- |
+| `user_id` | You. Only on personal memory. | Your Mem0 user ID |
+| `agent_id` | The repository. Only on shared project memory. | The repository slug, for example `acme-payments-api` |
+| `app_id` | The directory inside the repository the session ran in | `acme-payments-api` at the root, `acme-payments-api/services/billing` below it |
+| `run_id` | The Claude Code session | The session ID |
+
+Shared project memory never carries a `user_id`, so a teammate's search never
+mixes in your preferences and yours never mixes in theirs. A search is the
+union (`OR`) of the shared memory you are allowed to see and your own
+preferences, and `dir` or `run_id` narrow the shared part with `AND`:
 
 | Scope | What you get back | Filter sent to Mem0 |
 | --- | --- | --- |
-| `repo` (default) | This repository's project memory, and your preferences | `AND [app_id, OR [agent_id, user_id]]` |
-| `mine` | Your preferences in every repository | `AND [user_id, app_id: *]` |
-| `all` | Both of the above, combined | `OR [repo, mine]` |
+| `repo` (default) | The whole repository's project memory, every subdirectory, plus your preferences | `OR [agent_id, user_id]` |
+| `dir` | Project memory learned in the directory you are in, plus your preferences | `OR [AND [agent_id, app_id], user_id]` (same as `repo` at the repository root) |
+| `mine` | Your preferences alone | `user_id` |
 
 Every scope keeps at least one label pinned to something you already have:
 the repository you are in or your user ID. No scope uses a wildcard on
 `user_id`, so a search never returns another person's personal memory. A
-wildcard is only ever a filter value, never an identity: if `user_id` or
-`app_id` resolves to `*`, the search is refused rather than widened.
+wildcard is only ever a filter value, never an identity: if `user_id` or the
+repository resolves to `*`, the search is refused rather than widened.
 
-A folder that is not a git repository, or has no remote, is identified only by
-its folder name, and two unrelated people can have a folder with the same
-name. Such a folder has nothing to share by, so its project memory is written
-under your own `user_id` instead of the agent and stays private to you.
+A folder that is not a git repository, or has no remote, is identified by its
+folder name and a hash of its absolute path (`local-<folder>-<hash>`), so two
+unrelated people who both have a `marketing` folder never share memory, while
+everyone opening the same folder on a shared machine does.
 
 Set a different default for every search with the `search_scope` option or the
 `MEM0_CODE_SEARCH_SCOPE` environment variable. An unrecognised value falls
@@ -206,7 +213,7 @@ behavior is not tunable.
 | `user_id` | local account name | The user ID memories are stored under. Resolved in order from the `user_id` setting, `MEM0_CODE_USER_ID`, `MEM0_USER_ID`, `MEM0_RESOLVED_USER_ID`, `$USER`, `%USERNAME%` (Windows), then `default`. Set it explicitly to share memories across machines. A value of `*` is refused and the next source is used; `/mem0:status` reports when that happens. |
 | `top_k` | `3` | Maximum memories returned by `search_memories` or `/mem0:search`; the automatic first search returns up to five |
 | `max_context_chars` | `4000` | Maximum memory characters returned by one search |
-| `search_scope` | `repo` | Default breadth for every search: `repo`, `mine`, or `all`. See [Search scope](#search-scope). Also read from `MEM0_CODE_SEARCH_SCOPE`. |
+| `search_scope` | `repo` | Default breadth for every search: `repo`, `dir`, or `mine`. See [Search scope](#search-scope). Also read from `MEM0_CODE_SEARCH_SCOPE`. |
 | `min_score` | `0.15` | Lowest relevance score, from 0 to 1, a memory needs to be returned. Lower it if searches miss, raise it if unrelated memories show up. Also read from `MEM0_CODE_MIN_SCORE`. |
 
 ## What is stored and sent
