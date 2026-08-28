@@ -1337,6 +1337,7 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
         "git_sha": "abc123",
         "lane": "project",
         "author": "test-user",
+        "dirs": [],
     }
     assert "immutable" not in first_body
     assert "Save concise repository facts" in first_body[
@@ -1486,6 +1487,7 @@ def test_non_git_memory_metadata_omits_branch_and_commit(isolated_env, monkeypat
         "source": "claude_code_plugin",
         "lane": "project",
         "author": "test-user",
+        "dirs": [],
     }
     assert request.call_args.args[2]["metadata"] == {
         "source": "claude_code_plugin",
@@ -3422,6 +3424,20 @@ def test_resolve_repo_caches_git_lookups_in_process(isolated_env, monkeypatch):
     assert len(calls) > calls_after_first
 
 
+def test_resolve_repo_keeps_the_directory_when_cwd_is_reached_through_a_symlink(isolated_env, tmp_path):
+    real_root = tmp_path / "real"
+    (real_root / "services" / "billing").mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(real_root)], check=True)
+    link = tmp_path / "link"
+    link.symlink_to(real_root)
+    memory_core._resolve_repo_cached.cache_clear()
+
+    repo = memory_core.resolve_repo(str(link / "services" / "billing"))
+
+    assert repo.directory == "services/billing"
+    assert repo.root == str(real_root.resolve())
+
+
 SCOPE_ENV_VARS = (
     "CLAUDE_PLUGIN_OPTION_USER_ID",
     "MEM0_CODE_USER_ID",
@@ -3491,15 +3507,16 @@ def test_forget_only_touches_shared_project_memory_when_asked(monkeypatch, isola
     repo = memory_core.RepoContext(
         cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc", project_id="repo-a"
     )
-    with patch.object(memory_core, "_request_json", return_value=({"results": []}, 0, 0)) as request:
-        memory_core.forget_remote_repo(repo, include_project_memory=True)
+    listed = [({"results": []}, 0, 0), ({"results": [{"id": "shared-1"}]}, 0, 0)]
+    with patch.object(memory_core, "_request_json", side_effect=listed) as request:
+        with patch.object(memory_core, "_delete_memory", return_value=True):
+            result = memory_core.forget_remote_repo(repo, include_project_memory=True)
 
-    assert request.call_args[0][2]["filters"] == {
-        "OR": [
-            {"AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]},
-            {"agent_id": "repo-a"},
-        ]
-    }
+    assert [call.args[2]["filters"] for call in request.call_args_list] == [
+        {"AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]},
+        {"agent_id": "repo-a"},
+    ]
+    assert result == {"status": "deleted", "deleted": 1}
 
 
 def test_forget_reports_partial_failures(monkeypatch, isolated_env):
@@ -3611,10 +3628,19 @@ def test_search_filters_mine_scope_is_the_user_alone():
 def test_search_filters_dir_scope_narrows_shared_memory_to_the_directory():
     assert memory_core._search_filters("priya", _payments("services/billing"), "dir") == {
         "OR": [
-            {"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api/services/billing"}]},
+            {"AND": [{"agent_id": "payments-api"}, {"metadata": {"dirs": {"contains": "services/billing"}}}]},
             {"user_id": "priya"},
         ]
     }
+
+
+def test_directory_chain_lists_the_folder_and_every_parent():
+    assert memory_core.directory_chain(_payments()) == []
+    assert memory_core.directory_chain(_payments("services/billing/src")) == [
+        "services",
+        "services/billing",
+        "services/billing/src",
+    ]
 
 
 def test_search_filters_dir_scope_at_the_root_is_the_whole_repository():
@@ -3700,7 +3726,7 @@ def test_category_nests_under_the_scope_filter(monkeypatch):
         "AND": [
             {
                 "OR": [
-                    {"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api/apps/web"}]},
+                    {"AND": [{"agent_id": "payments-api"}, {"metadata": {"dirs": {"contains": "apps/web"}}}]},
                     {"user_id": "priya"},
                 ]
             },
@@ -3735,50 +3761,6 @@ def _record_failed_then_recovered_command(store, session_id="s1"):
             "result_preview": "136 passed",
         },
     )
-
-
-def test_agent_evidence_is_empty_when_no_command_failed():
-    structured = {
-        "app_id": "code-example",
-        "commands": [
-            {
-                "command": "pytest tests/",
-                "kind": "test",
-                "status": "succeeded",
-                "result": "ok",
-            }
-        ],
-    }
-    assert memory_core.build_agent_evidence(structured) == []
-
-
-def test_agent_evidence_pairs_the_failure_with_the_recovery():
-    structured = {
-        "app_id": "code-example",
-        "commands": [
-            {
-                "command": "pytest tests/",
-                "kind": "test",
-                "status": "failed",
-                "result": "MEM0_API_KEY is not set",
-            },
-            {
-                "command": "MEM0_API_KEY=x pytest tests/",
-                "kind": "test",
-                "status": "succeeded",
-                "result": "136 passed",
-            },
-        ],
-    }
-    messages = memory_core.build_agent_evidence(structured)
-
-    assert [message["role"] for message in messages] == ["user", "assistant"]
-    assert "code-example" in messages[0]["content"]
-    digest = messages[1]["content"]
-    assert "[failed/test] pytest tests/" in digest
-    assert "[succeeded/test] MEM0_API_KEY=[REDACTED] pytest tests/" in digest
-    assert "MEM0_API_KEY is not set" in digest
-    assert "MEM0_API_KEY=x" not in digest
 
 
 def test_every_flush_writes_project_memory_and_personal_memory(isolated_env, monkeypatch):
@@ -3821,7 +3803,7 @@ def test_every_flush_writes_project_memory_and_personal_memory(isolated_env, mon
     store.close()
 
 
-def test_a_failed_command_adds_one_more_project_lane_call(isolated_env, monkeypatch):
+def test_a_failed_command_does_not_add_a_second_project_lane_call(isolated_env, monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
     _record_complete_session(store)
@@ -3841,10 +3823,11 @@ def test_a_failed_command_adds_one_more_project_lane_call(isolated_env, monkeypa
         )
 
     assert result["status"] == "semantic-succeeded"
-    assert request.call_count == 3
+    assert request.call_count == 2
     bodies = [call.args[2] for call in request.call_args_list]
-    assert [body["metadata"]["lane"] for body in bodies] == ["project", "project", "personal"]
-    assert "Operating evidence from this session" in bodies[1]["messages"][0]["content"]
+    assert [body["metadata"]["lane"] for body in bodies] == ["project", "personal"]
+    assert "Commands run in this session:" in bodies[0]["messages"][-1]["content"]
+    assert "[failed/test]" in bodies[0]["messages"][-1]["content"]
     store.close()
 
 
@@ -4032,6 +4015,6 @@ def test_every_write_carries_the_session_run_id(isolated_env, monkeypatch):
         memory_core.flush_session(store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end")
 
     bodies = [call.args[2] for call in request.call_args_list if "memories/add" in call.args[0]]
-    assert len(bodies) == 3
+    assert len(bodies) == 2
     assert {body["run_id"] for body in bodies} == {"s1"}
     store.close()
