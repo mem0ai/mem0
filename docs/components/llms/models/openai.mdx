@@ -95,6 +95,8 @@ config = {
 `openai_base_url` in the LLM configuration applies only to the LLM client. `OPENAI_BASE_URL` is a process-wide fallback that the OpenAI embedder also reads. Do not set `OPENAI_BASE_URL` to a chat-completions path or to an API base that does not support embeddings: the OpenAI embedder derives its `/embeddings` request from that value. Configure an embedder that supports embeddings separately, and use `llm.config.openai_base_url` for a chat-only LLM endpoint.
 </Note>
 
+### Structured outputs
+
 We also support the new [OpenAI structured-outputs](https://platform.openai.com/docs/guides/structured-outputs/introduction) model.
 
 ```python
