@@ -54,7 +54,7 @@ A command that failed and was then made to work should produce one memory naming
 
 Use Claude's final response for conclusions about current repository behavior. Do not save proposed or recommended changes unless the user accepted them or Claude completed them. Treat subagent responses as supporting repository evidence, not as decisions.
 
-Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not include test results, documentation updates, release notes, or temporary state.
+Write about the repository, not the user, assistant, session, or task. Do not save personal preferences. Do not save a memory that only states which repository, branch, or directory the session worked in. Do not include test results, documentation updates, release notes, or temporary state.
 
 If nothing useful was established, return no memories."""
 
@@ -62,7 +62,7 @@ PERSONAL_MEMORY_INSTRUCTIONS = """Save concise facts about the user that will he
 
 Write in the third person about the user, not about the repository, the assistant, the session, or the task. Do not save repository facts, project decisions, commands, or what was built.
 
-If nothing was learned about the user, return no memories."""
+Never save that the user has no preferences or that nothing was learned. If nothing was learned about the user, return no memories."""
 
 CODING_MEMORY_CATEGORIES = [
     {
@@ -209,6 +209,12 @@ def directory_app_id(repo: RepoContext) -> str:
     return f"{repo.app_id}/{repo.directory}" if repo.directory else repo.app_id
 
 
+def directory_chain(repo: RepoContext) -> list[str]:
+    """Every directory a memory belongs to, from the top-level folder down to the one it was written in."""
+    parts = repo.directory.split("/") if repo.directory else []
+    return ["/".join(parts[: index + 1]) for index in range(len(parts))]
+
+
 def _search_filters(user: str, repo: RepoContext, scope: str) -> dict[str, Any]:
     """Build the scope filter: the searcher's own preferences plus the shared memory they are allowed to see."""
     mine = {"user_id": user}
@@ -216,7 +222,7 @@ def _search_filters(user: str, repo: RepoContext, scope: str) -> dict[str, Any]:
         return mine
     shared: dict[str, Any] = {"agent_id": repo.project_id}
     if scope == "dir" and repo.directory:
-        shared = {"AND": [shared, {"app_id": directory_app_id(repo)}]}
+        shared = {"AND": [shared, {"metadata": {"dirs": {"contains": repo.directory}}}]}
     return {"OR": [shared, mine]}
 
 
@@ -243,9 +249,7 @@ def _legacy_project_map(cwd: str, root: str, raw_remote: str) -> str:
     if not isinstance(data, dict):
         return ""
 
-    keys = [cwd]
-    if root != cwd:
-        keys.append(root)
+    keys = list(dict.fromkeys([cwd, root, os.path.realpath(cwd), os.path.realpath(root)]))
     if raw_remote:
         keys.append(f"remote:{hashlib.sha256(raw_remote.encode()).hexdigest()[:16]}")
     for key in keys:
@@ -315,11 +319,14 @@ class MemorySearchResult:
 
 @functools.lru_cache(maxsize=64)
 def _resolve_repo_cached(cwd: str) -> RepoContext:
-    root = _git(cwd, "rev-parse", "--show-toplevel") or cwd
+    given_cwd = cwd
+    cwd = os.path.realpath(cwd)
+    given_root = _git(cwd, "rev-parse", "--show-toplevel") or given_cwd
+    root = os.path.realpath(given_root)
     raw_remote = _git(root, "config", "--get", "remote.origin.url")
     remote = _normalize_remote(raw_remote)
     identity = remote or f"local:{root}"
-    app_id = _legacy_project_id(cwd, root, raw_remote, identity)
+    app_id = _legacy_project_id(given_cwd, given_root, raw_remote, identity)
     return RepoContext(
         cwd=cwd,
         root=root,
@@ -1966,8 +1973,11 @@ def build_semantic_evidence(structured: dict[str, Any]) -> str:
     modified_paths = [
         bounded(path, 500) for path in structured.get("files_modified", [])[:20]
     ]
+    commands = structured.get("commands") or []
+    if not any(command.get("status") == "failed" for command in commands):
+        commands = []
 
-    if not modified_paths:
+    if not modified_paths and not commands:
         return ""
 
     lines = ["Additional repository details from this session"]
@@ -1979,33 +1989,9 @@ def build_semantic_evidence(structured: dict[str, Any]) -> str:
                 *[f"- {path}" for path in modified_paths],
             ]
         )
+    if commands:
+        lines.extend(["", "Commands run in this session:", *_render_command_lines(commands)])
     return bounded("\n".join(lines), 8000)
-
-
-def build_agent_evidence(structured: dict[str, Any]) -> list[dict[str, str]]:
-    """Format failed and recovered commands for the project lane; empty unless a command failed."""
-    commands = structured.get("commands") or []
-    if not any(command.get("status") == "failed" for command in commands):
-        return []
-
-    lines = ["Commands run in this session:", *_render_command_lines(commands)]
-    searches = structured.get("searches") or []
-    if searches:
-        lines.extend(
-            [
-                "",
-                "Searches run in this session:",
-                *[
-                    f"- {json.dumps(item, ensure_ascii=False, sort_keys=True)}"
-                    for item in searches[-20:]
-                ],
-            ]
-        )
-    scope = str(structured.get("app_id") or structured.get("repo") or "this repository")
-    return [
-        {"role": "user", "content": f"Operating evidence from this session in {scope}."},
-        {"role": "assistant", "content": bounded("\n".join(lines), 8000)},
-    ]
 
 
 def build_extraction_messages(structured: dict[str, Any]) -> list[dict[str, str]]:
@@ -2275,7 +2261,7 @@ def flush_session(
         "agent_id": write_project,
         "app_id": directory_app_id(repo),
         "run_id": session_id,
-        "metadata": {**metadata, "lane": "project", "author": write_user},
+        "metadata": {**metadata, "lane": "project", "author": write_user, "dirs": directory_chain(repo)},
         "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS,
         "custom_categories": CODING_MEMORY_CATEGORIES,
         "infer": True,
@@ -2387,9 +2373,6 @@ def flush_session(
             if batch
         ]
         batches = [(project_body, messages) for messages in message_batches]
-        agent_messages = build_agent_evidence(structured)
-        if agent_messages:
-            batches.append((project_body, agent_messages))
         batches += [(personal_body, messages) for messages in message_batches]
         if not batches:
             store.update_flush(packet_id, status="semantic-succeeded", error="")
@@ -2789,12 +2772,21 @@ def _scoped_memory_ids(
     api_url: str, key: str, user: str, repo: RepoContext, include_project: bool
 ) -> list[str]:
     """List this user's memory ids for this repository, plus the shared project memory when asked."""
-    filters: dict[str, Any] = {"AND": [{"user_id": user}, {"app_id": repo.app_id}]}
+    branches: list[dict[str, Any]] = [{"AND": [{"user_id": user}, {"app_id": repo.app_id}]}]
     if include_project:
-        filters = {"OR": [filters, {"agent_id": repo.project_id}]}
-    payload = {"filters": filters}
+        branches.append({"agent_id": repo.project_id})
     ids: list[str] = []
     seen: set[str] = set()
+    for filters in branches:
+        _collect_memory_ids(api_url, key, filters, ids, seen)
+    return ids
+
+
+def _collect_memory_ids(
+    api_url: str, key: str, filters: dict[str, Any], ids: list[str], seen: set[str]
+) -> None:
+    """Page through one list filter; the list endpoint returns nothing for an OR whose user branch has no memories."""
+    payload = {"filters": filters}
     for page in range(1, FORGET_MAX_PAGES + 1):
         parsed, _, _ = _request_json(
             f"{api_url}/v2/memories/?page={page}&page_size={FORGET_PAGE_SIZE}",
@@ -2812,7 +2804,6 @@ def _scoped_memory_ids(
                 ids.append(memory_id)
         if len(items) < FORGET_PAGE_SIZE:
             break
-    return ids
 
 
 def _delete_memory(api_url: str, key: str, memory_id: str) -> bool:

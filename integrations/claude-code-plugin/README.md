@@ -119,7 +119,7 @@ category, or how wide to search:
 ```text
 /mem0:search Why does the ODS serializer keep dates timezone-naive?
 /mem0:search What parser failures were fixed? --top-k 5 --category problems_and_fixes
-/mem0:search Is there a team rule about migrations?
+/mem0:search Is there a rule about migrations in this repo?
 /mem0:search Do I prefer pnpm or npm? --scope mine
 ```
 

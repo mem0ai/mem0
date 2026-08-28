@@ -39,7 +39,9 @@ def main() -> int:
         cleanup = None
         summary = None
         try:
-            repo = resolve_repo(os.getcwd())
+            repo_dir = Path(tmp) / f"preflight-{preflight_id[:8]}"
+            repo_dir.mkdir()
+            repo = resolve_repo(str(repo_dir))
             session_id = f"preflight-source-{preflight_id}"
             store.record_event(
                 repo,
@@ -109,7 +111,7 @@ def main() -> int:
                 store,
                 {
                     "session_id": session_id,
-                    "cwd": os.getcwd(),
+                    "cwd": str(repo_dir),
                     "task": (
                         "Fix the configuration loader so an explicit False value "
                         "is preserved rather than replaced by the default."
@@ -173,7 +175,7 @@ def main() -> int:
             # throwaway user, whether the checks above passed or raised.
             if repo is not None:
                 try:
-                    cleanup = forget_remote_repo(repo)
+                    cleanup = forget_remote_repo(repo, include_project_memory=True)
                 except Exception as exc:  # noqa: BLE001 - best-effort cleanup
                     print(
                         f"warning: preflight cleanup failed: {exc}",
