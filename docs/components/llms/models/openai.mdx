@@ -74,6 +74,27 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 ```
 </CodeGroup>
 
+### OpenAI-compatible LLM endpoints
+
+For an OpenAI-compatible LLM endpoint, set `openai_base_url` in the LLM configuration to the API root (for example, `https://api.example.com/v1`), rather than to a specific endpoint such as `/v1/chat/completions`.
+
+```python
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "your-model",
+            "api_key": "your-api-key",
+            "openai_base_url": "https://api.example.com/v1",
+        },
+    },
+}
+```
+
+<Note>
+`openai_base_url` in the LLM configuration applies only to the LLM client. `OPENAI_BASE_URL` is a process-wide fallback that the OpenAI embedder also reads. Do not set `OPENAI_BASE_URL` to a chat-completions path or to an API base that does not support embeddings: the OpenAI embedder derives its `/embeddings` request from that value. Configure an embedder that supports embeddings separately, and use `llm.config.openai_base_url` for a chat-only LLM endpoint.
+</Note>
+
 We also support the new [OpenAI structured-outputs](https://platform.openai.com/docs/guides/structured-outputs/introduction) model.
 
 ```python
