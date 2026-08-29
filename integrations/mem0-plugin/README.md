@@ -48,6 +48,29 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
    # Should print: m0-your-api-key
    ```
 
+## Self-hosted Mem0 server (optional)
+
+By default the plugin talks to the hosted Mem0 Platform (`https://api.mem0.ai`). To point the REST-backed hooks at your own [self-hosted Mem0 server](https://docs.mem0.ai/open-source/features/rest-api) instead, set `MEM0_BASE_URL` before starting your session:
+
+```bash
+export MEM0_BASE_URL="http://localhost:8000"   # your server/ deployment
+export MEM0_API_KEY="<your self-hosted API key>"
+```
+
+Or persist it in `~/.mem0/settings.json`:
+
+```json
+{ "base_url": "http://localhost:8000" }
+```
+
+`MEM0_BASE_URL` (env var) takes precedence over the settings file; leaving both unset keeps the hosted Platform behavior unchanged.
+
+**What works self-hosted:** every lifecycle hook that reads or writes memories over REST — the session-start banner and recent-activity timeline, auto-import of `CLAUDE.md`/`AGENTS.md`, auto-capture, pre-compact and session summaries, and `/mem0:` skill searches. The plugin automatically switches the auth header (`X-API-Key` instead of `Authorization: Token`) and the project-scoping field (`agent_id` instead of `app_id`, since the self-hosted server has no `app_id` concept) — no other config needed.
+
+**What doesn't work self-hosted (skips cleanly, no crash):**
+- **MCP tools** (`add_memory`, `search_memories`, etc., and the `/mem0:` skills that call them through MCP) — the self-hosted `server/` package doesn't implement MCP, so the MCP server connection always talks to the hosted Platform regardless of `MEM0_BASE_URL`. Use the REST-backed hooks above for self-hosted memory capture and the `/mem0:` search skills instead.
+- **Automatic coding-category setup** (`auto_setup_categories.py`, `setup_coding_categories.py`) — `project.update(custom_categories=...)` is a Platform-only SDK call with no self-hosted equivalent. Both scripts detect a self-hosted `MEM0_BASE_URL` and skip with a log message rather than failing.
+
 ## Step 2: Install the plugin
 
 Choose one of the options below. All require `MEM0_API_KEY` to be set first (see above).

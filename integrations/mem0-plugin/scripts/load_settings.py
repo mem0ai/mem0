@@ -18,6 +18,7 @@ DEFAULTS = {
     "confidence_threshold": 0.3,
     "global_search": False,
     "debug": False,
+    "base_url": "",
 }
 
 

@@ -157,6 +157,27 @@ When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecyc
 
 What you type is stored as yours. What Claude produces (session summaries and compaction summaries) is stored as the assistant's, so its suggestions never become your stated preferences.
 
+## Self-Hosted Mem0 Server (Optional)
+
+By default the plugin talks to the hosted Mem0 Platform (`https://api.mem0.ai`). To point the REST-backed hooks at your own [self-hosted Mem0 server](/open-source/features/rest-api) instead, set `MEM0_BASE_URL` before starting your session:
+
+```bash
+export MEM0_BASE_URL="http://localhost:8000"   # your server/ deployment
+export MEM0_API_KEY="<your self-hosted API key>"
+```
+
+Or persist it in `~/.mem0/settings.json`:
+
+```json
+{ "base_url": "http://localhost:8000" }
+```
+
+`MEM0_BASE_URL` takes precedence over the settings file; leaving both unset keeps the hosted Platform behavior unchanged. The plugin automatically switches the auth header (`X-API-Key` instead of `Authorization: Token`) and the project-scoping field (`agent_id` instead of `app_id`) to match the self-hosted server's REST API.
+
+<Warning>
+  The self-hosted `server/` package doesn't implement MCP, so **MCP tools always connect to the hosted Platform** regardless of `MEM0_BASE_URL`. Only the REST-backed lifecycle hooks (session-start banner, auto-import, auto-capture, summaries, and `/mem0:` skill searches) route to your self-hosted server. Automatic coding-category setup also requires the hosted Platform and skips cleanly when `MEM0_BASE_URL` points elsewhere.
+</Warning>
+
 ## Example Workflow
 
 ```text

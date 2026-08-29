@@ -25,6 +25,7 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _api import add_url, auth_headers, project_field
 from _chunking import (
     filter_and_truncate,
     split_by_headers,
@@ -33,7 +34,6 @@ from _chunking import (
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
-API_URL = "https://api.mem0.ai"
 HASH_STORE = os.path.expanduser("~/.mem0/import_hashes.json")
 
 
@@ -77,20 +77,13 @@ def post_memory(api_key: str, content: str, user_id: str, project_id: str, branc
     body = {
         "messages": [{"role": "user", "content": content}],
         "user_id": user_id,
-        "app_id": project_id,
+        project_field(): project_id,
         "metadata": metadata,
         "infer": False,
     }
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        f"{API_URL}/v3/memories/add/",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Token {api_key}",
-        },
-        method="POST",
-    )
+    headers = {**auth_headers(api_key), "Content-Type": "application/json"}
+    req = urllib.request.Request(add_url(), data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
             return resp.status in (200, 201)

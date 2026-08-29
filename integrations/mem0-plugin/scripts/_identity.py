@@ -14,6 +14,11 @@ User ID resolution:
 
 Settings resolution:
   ~/.mem0/settings.json (user-editable, falls back to defaults)
+
+Base URL resolution (first non-empty wins):
+  1. MEM0_BASE_URL env var (explicit override, for self-hosted servers)
+  2. "base_url" in ~/.mem0/settings.json
+  3. DEFAULT_BASE_URL (the hosted Mem0 Platform)
 """
 
 from __future__ import annotations
@@ -75,6 +80,9 @@ def resolve_user_id() -> str:
     return os.environ.get("USER") or "default"
 
 
+DEFAULT_BASE_URL = "https://api.mem0.ai"
+
+
 def resolve_config() -> dict:
     """Resolve settings from ~/.mem0/settings.json (primary) with env var overrides."""
     try:
@@ -88,7 +96,19 @@ def resolve_config() -> dict:
             "retention_session_days": 90,
             "confidence_threshold": 0.3,
             "debug": False,
+            "base_url": "",
         }
+
+
+def resolve_base_url() -> str:
+    """Resolve the Mem0 API base URL: MEM0_BASE_URL env var, then settings.json, then the hosted platform."""
+    explicit = os.environ.get("MEM0_BASE_URL", "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+    configured = str(resolve_config().get("base_url", "")).strip()
+    if configured:
+        return configured.rstrip("/")
+    return DEFAULT_BASE_URL
 
 
 try:
