@@ -540,6 +540,20 @@
                     ]
                   },
                   {
+                    "group": "Dream",
+                    "icon": "sparkles",
+                    "pages": [
+                      "api-reference/dream/get-dream-config",
+                      "api-reference/dream/update-dream-config",
+                      "api-reference/dream/get-dream-stats",
+                      "api-reference/dream/get-dream-activity",
+                      "api-reference/dream/get-dream-runs",
+                      "api-reference/dream/get-dream-run-memories",
+                      "api-reference/dream/get-dream-memory-sources",
+                      "api-reference/dream/dream-preview"
+                    ]
+                  },
+                  {
                     "group": "Webhooks",
                     "icon": "webhook",
                     "pages": [
@@ -1301,6 +1315,202 @@
     {
       "source": "/api-reference/entities/get-entities",
       "destination": "/api-reference/entities/get-users"
+    },
+    {
+      "source": "/api-reference/event/get-events",
+      "destination": "/api-reference/events/get-events"
+    },
+    {
+      "source": "/api-reference/entities/delete-users",
+      "destination": "/api-reference/entities/delete-user"
+    },
+    {
+      "source": "/api-reference/organization/update-organization-member",
+      "destination": "/api-reference/organization/update-org-member"
+    },
+    {
+      "source": "/api-reference/organization/get-organizations",
+      "destination": "/api-reference/organization/get-orgs"
+    },
+    {
+      "source": "/api-reference/entities/get-user",
+      "destination": "/api-reference/entities/get-users"
+    },
+    {
+      "source": "/api-reference/export/create-memory-export",
+      "destination": "/api-reference/memory/create-memory-export"
+    },
+    {
+      "source": "/integrations/mcp",
+      "destination": "/platform/mem0-mcp"
+    },
+    {
+      "source": "/platform/api-reference",
+      "destination": "/api-reference"
+    },
+    {
+      "source": "/api-reference/memory/add-memory",
+      "destination": "/api-reference/memory/add-memories"
+    },
+    {
+      "source": "/api-reference/overview",
+      "destination": "/api-reference"
+    },
+    {
+      "source": "/platform/reference/python-sdk",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/platform/python",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/platform/features/memory",
+      "destination": "/platform/features/memory-decay"
+    },
+    {
+      "source": "/platform/api-reference/python",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/api-reference/webhooks",
+      "destination": "/api-reference/webhook/create-webhook"
+    },
+    {
+      "source": "/platform/python-quickstart",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/api-reference/organization/delete-org-project",
+      "destination": "/api-reference/organization/delete-org"
+    },
+    {
+      "source": "/platform/features/scoping",
+      "destination": "/platform/features/entity-scoped-memory"
+    },
+    {
+      "source": "/platform/quickstart/python",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/api-reference/memory/history",
+      "destination": "/api-reference/memory/history-memory"
+    },
+    {
+      "source": "/api-reference/entities/get-user-memories",
+      "destination": "/api-reference/entities/get-users"
+    },
+    {
+      "source": "/platform/api-reference/webhooks/create",
+      "destination": "/api-reference/webhook/create-webhook"
+    },
+    {
+      "source": "/platform/python/quickstart",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/api-reference/memory/batch-update-memory",
+      "destination": "/api-reference/memory/batch-update"
+    },
+    {
+      "source": "/api-reference/memories/add",
+      "destination": "/api-reference/memory/add-memories"
+    },
+    {
+      "source": "/python-quickstart",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/api-reference/webhook/list-webhooks",
+      "destination": "/api-reference/webhook/get-webhook"
+    },
+    {
+      "source": "/platform/reference/memory/delete-memory",
+      "destination": "/api-reference/memory/delete-memory"
+    },
+    {
+      "source": "/platform/webhooks",
+      "destination": "/platform/features/webhooks"
+    },
+    {
+      "source": "/platform/api-reference/memories/add",
+      "destination": "/api-reference/memory/add-memories"
+    },
+    {
+      "source": "/api-reference/organization/organizations",
+      "destination": "/api-reference/organization/create-org"
+    },
+    {
+      "source": "/sdk/python/quickstart",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/platform/export",
+      "destination": "/platform/features/memory-export"
+    },
+    {
+      "source": "/open-source/python-memory",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/platform/reference",
+      "destination": "/api-reference"
+    },
+    {
+      "source": "/api-reference/memory/get-all-memories",
+      "destination": "/api-reference/memory/get-memories"
+    },
+    {
+      "source": "/api-reference/user/delete-users",
+      "destination": "/api-reference/entities/delete-user"
+    },
+    {
+      "source": "/api-reference/memories/search-memories",
+      "destination": "/api-reference/memory/search-memories"
+    },
+    {
+      "source": "/api-reference/organization/update-members",
+      "destination": "/api-reference/project/update-project-member"
+    },
+    {
+      "source": "/platform/api-reference/memory/batch-update",
+      "destination": "/api-reference/memory/batch-update"
+    },
+    {
+      "source": "/api-reference/memory/search",
+      "destination": "/api-reference/memory/search-memories"
+    },
+    {
+      "source": "/api-reference/batch/update-memories",
+      "destination": "/api-reference/memory/batch-update"
+    },
+    {
+      "source": "/api-reference/organization/update-organization-member-role",
+      "destination": "/api-reference/project/update-project-member"
+    },
+    {
+      "source": "/api-reference/webhooks/delete",
+      "destination": "/api-reference/webhook/delete-webhook"
+    },
+    {
+      "source": "/api-reference/memory/delete-all-memories",
+      "destination": "/api-reference/memory/delete-memories"
+    },
+    {
+      "source": "/platform/reference/overview",
+      "destination": "/api-reference"
+    },
+    {
+      "source": "/api-reference/mem0/add-memories",
+      "destination": "/api-reference/memory/add-memories"
+    },
+    {
+      "source": "/platform/mcp/overview",
+      "destination": "/platform/mem0-mcp"
+    },
+    {
+      "source": "/openmemory/mcp/introduction",
+      "destination": "https://mem0.ai/blog/introducing-openmemory-mcp"
     }
   ]
 }
