@@ -2,6 +2,8 @@ import axios, { AxiosError, AxiosInstance } from "axios";
 
 let cachedToken: string | null = null;
 const LOGIN_PATH = "/login";
+/** Same-origin proxy — browser must never call host.docker.internal. */
+const BROWSER_API_BASE = "/mem0-api";
 
 export const setAccessToken = (token: string | null) => {
   cachedToken = token;
@@ -40,7 +42,7 @@ const createApi = (): AxiosInstance & {
   postStream: (url: string, data: unknown) => Promise<Response>;
 } => {
   const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    baseURL: BROWSER_API_BASE,
   });
 
   api.interceptors.request.use(
@@ -84,7 +86,7 @@ const createApi = (): AxiosInstance & {
   );
 
   const postStream = async (url: string, data: unknown): Promise<Response> => {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
+    const response = await fetch(`${BROWSER_API_BASE}${url}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
