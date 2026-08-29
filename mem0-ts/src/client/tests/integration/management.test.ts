@@ -75,22 +75,24 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
     test("updates project custom_instructions via updateProject()", async () => {
       const testInstruction = `integration-test-${randomUUID().slice(0, 8)}`;
 
-      const result = await client.updateProject({
-        customInstructions: testInstruction,
-      });
+      try {
+        const result = await client.updateProject({
+          customInstructions: testInstruction,
+        });
 
-      expect(result).toBeDefined();
+        expect(result).toBeDefined();
 
-      // Verify the update took effect
-      const project = await client.getProject({
-        fields: ["custom_instructions"],
-      });
-      expect(project.customInstructions).toBe(testInstruction);
-
-      // Restore original
-      await client.updateProject({
-        customInstructions: originalInstructions || "",
-      });
+        // Verify the update took effect
+        const project = await client.getProject({
+          fields: ["custom_instructions"],
+        });
+        expect(project.customInstructions).toBe(testInstruction);
+      } finally {
+        // Restore original, even if the update or an assertion above threw
+        await client.updateProject({
+          customInstructions: originalInstructions || "",
+        });
+      }
     });
   });
 
