@@ -24,7 +24,17 @@ def lemmatize_for_bm25(text: str) -> str:
 
     Returns space-joined lemmas for full-text search. Falls back to
     the original text if spaCy is unavailable.
+
+    CJK text (Chinese/Japanese/Korean) is routed to the pure-Python
+    unigram+bigram tokenizer instead — spaCy's English lemmatizer cannot
+    segment space-less CJK runs, and ``to_tsvector('simple')`` treats a
+    whole Chinese sentence as one token.
     """
+    from mem0.utils.cjk_tokenizer import _has_cjk, tokenize_for_bm25
+
+    if _has_cjk(text):
+        return tokenize_for_bm25(text)
+
     from mem0.utils.spacy_models import get_nlp_lemma
 
     nlp = get_nlp_lemma()
