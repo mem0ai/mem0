@@ -152,6 +152,12 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customInstructions?: string;
+  /**
+   * Age in days at which a memory's recency contribution to the search score
+   * halves. Raise it for slow-moving domains, lower it where memories go stale
+   * fast. Set to 0 to rank without regard to age. Defaults to 180.
+   */
+  recencyHalfLifeDays?: number;
 }
 
 export interface MemoryItem {
@@ -247,6 +253,7 @@ export const MemoryConfigSchema = z.object({
   }),
   historyDbPath: z.string().optional(),
   customInstructions: z.string().optional(),
+  recencyHalfLifeDays: z.number().min(0).optional(),
   historyStore: z
     .object({
       provider: z.string(),

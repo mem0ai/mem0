@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.llms.configs import LlmConfig
+from mem0.utils.scoring import RECENCY_HALF_LIFE_DAYS
 from mem0.vector_stores.configs import VectorStoreConfig
 
 # Set up the directory path
@@ -54,6 +55,15 @@ class MemoryConfig(BaseModel):
     custom_instructions: Optional[str] = Field(
         description="Custom instructions for fact extraction",
         default=None,
+    )
+    recency_half_life_days: float = Field(
+        description=(
+            "Age in days at which a memory's recency contribution to the search score "
+            "halves. Raise it for slow-moving domains, lower it where memories go stale "
+            "fast. Set to 0 to rank without regard to age."
+        ),
+        default=RECENCY_HALF_LIFE_DAYS,
+        ge=0,
     )
 
 

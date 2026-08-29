@@ -73,6 +73,7 @@ import {
   getBm25Params,
   normalizeBm25,
   ENTITY_BOOST_WEIGHT,
+  RECENCY_HALF_LIFE_DAYS,
   RERANK_CANDIDATE_MULTIPLIER,
   ScoredResult,
 } from "../utils/scoring";
@@ -1581,6 +1582,7 @@ export class Memory {
       threshold ?? 0.1,
       useReranker ? topK * RERANK_CANDIDATE_MULTIPLIER : topK,
       explain,
+      this.config.recencyHalfLifeDays ?? RECENCY_HALF_LIFE_DAYS,
     );
 
     // Step 9: Format results

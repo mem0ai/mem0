@@ -8,6 +8,7 @@ import pytest
 
 from mem0.exceptions import LLMError
 from mem0.memory.main import AsyncMemory, Memory
+from mem0.utils.scoring import RECENCY_HALF_LIFE_DAYS
 
 
 def _setup_mocks(mocker):
@@ -322,6 +323,7 @@ def _build_memory_instance(mocker, memory_cls):
     memory.config = mocker.MagicMock()
     memory.config.custom_instructions = None
     memory.config.custom_update_memory_prompt = None
+    memory.config.recency_half_life_days = RECENCY_HALF_LIFE_DAYS
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()
     memory.db = mocker.MagicMock()

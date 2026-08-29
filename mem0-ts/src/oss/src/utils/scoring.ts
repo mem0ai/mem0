@@ -64,9 +64,42 @@ export function normalizeBm25(
  * memories matched, which is invisible in ranking and wrong for any caller
  * thresholding on the number.
  */
-export const W_SEMANTIC = 0.6;
-export const W_BM25 = 0.3;
-export const W_ENTITY = 0.1;
+export const W_SEMANTIC = 0.55;
+export const W_BM25 = 0.28;
+export const W_ENTITY = 0.09;
+export const W_RECENCY = 0.08;
+
+/**
+ * Age at which a memory's recency signal has decayed to half. Deliberately
+ * long: recency is here to break ties and to stop a stale preference beating
+ * this week's correction, not to bury anything. Override per deployment with
+ * MemoryConfig.recencyHalfLifeDays.
+ */
+export const RECENCY_HALF_LIFE_DAYS = 180.0;
+
+/**
+ * Exponential freshness in [0, 1] from a payload's last-touched timestamp.
+ *
+ * Falls back to 0.0 when there is no usable timestamp: an undated memory is
+ * almost always a legacy row, and treating unknown age as brand new would float
+ * every one of them above memories whose age we can actually see.
+ */
+export function recencyScore(
+  payload: Record<string, any> | undefined,
+  halfLifeDays: number,
+): number {
+  if (!payload || halfLifeDays <= 0) return 0.0;
+
+  const stamp = payload.updated_at || payload.created_at;
+  if (!stamp) return 0.0;
+
+  const written = new Date(String(stamp)).getTime();
+  if (Number.isNaN(written)) return 0.0;
+
+  const ageDays = (Date.now() - written) / 86_400_000;
+  if (ageDays <= 0) return 1.0;
+  return 0.5 ** (ageDays / halfLifeDays);
+}
 
 /**
  * NOTE: a reranker handed exactly topK rows can only reorder them. Over-fetch
@@ -78,7 +111,13 @@ export interface ScoreDetails {
   semanticScore: number;
   bm25Score: number;
   entityBoost: number;
-  weights: { semantic: number; bm25: number; entity: number };
+  recencyScore: number;
+  weights: {
+    semantic: number;
+    bm25: number;
+    entity: number;
+    recency: number;
+  };
   finalScore: number;
   threshold: number;
 }
@@ -94,7 +133,8 @@ export interface ScoredResult {
  * Score candidates by a fixed weighted blend and return top-k results.
  *
  * For each candidate:
- *   combined = W_SEMANTIC * semantic + W_BM25 * bm25 + W_ENTITY * entity
+ *   combined = W_SEMANTIC * semantic + W_BM25 * bm25
+ *            + W_ENTITY * entity + W_RECENCY * recency
  *
  * The weights are constant and sum to 1.0, so a combined score is always in
  * [0, 1] and comparable across queries. A signal the candidate does not have
@@ -126,6 +166,7 @@ export function scoreAndRank(
   threshold: number,
   topK: number,
   explain: boolean = false,
+  recencyHalfLifeDays: number = RECENCY_HALF_LIFE_DAYS,
 ): ScoredResult[] {
   const scored: ScoredResult[] = [];
 
@@ -153,16 +194,21 @@ export function scoreAndRank(
     // Entity boosts arrive pre-scaled to [0, ENTITY_BOOST_WEIGHT]; rescale so
     // W_ENTITY is the only thing deciding how much entities count.
     const entitySignal = entityBoost / ENTITY_BOOST_WEIGHT;
+    const recency = recencyScore(result.payload, recencyHalfLifeDays);
 
     let weighted =
-      W_SEMANTIC * semanticScore + W_BM25 * bm25Score + W_ENTITY * entitySignal;
+      W_SEMANTIC * semanticScore +
+      W_BM25 * bm25Score +
+      W_ENTITY * entitySignal +
+      W_RECENCY * recency;
     if (result.keywordOnly) {
-      // Renormalize over the signals this candidate could actually earn.
+      // Renormalize over the signals this candidate could actually earn:
+      // everything but semantic, which was never measured for it.
       // NOTE: the divisor comes from the candidate's own missing data, not from
       // what the rest of the batch produced, so scores stay comparable.
       // Charging it the semantic weight instead would cap a perfect term match
       // at W_BM25 and bury it under any mediocre semantic hit.
-      weighted /= W_BM25 + W_ENTITY;
+      weighted /= W_BM25 + W_ENTITY + W_RECENCY;
     }
 
     const combined = Math.min(weighted, 1.0);
@@ -177,7 +223,13 @@ export function scoreAndRank(
         semanticScore,
         bm25Score,
         entityBoost,
-        weights: { semantic: W_SEMANTIC, bm25: W_BM25, entity: W_ENTITY },
+        recencyScore: recency,
+        weights: {
+          semantic: W_SEMANTIC,
+          bm25: W_BM25,
+          entity: W_ENTITY,
+          recency: W_RECENCY,
+        },
         finalScore: combined,
         threshold,
       };

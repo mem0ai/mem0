@@ -1718,6 +1718,7 @@ class Memory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            recency_half_life_days=self.config.recency_half_life_days,
         )
 
         # Step 9: Format results
@@ -3389,6 +3390,7 @@ class AsyncMemory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            recency_half_life_days=self.config.recency_half_life_days,
         )
 
         # Step 9: Format results
