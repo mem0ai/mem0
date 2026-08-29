@@ -6,6 +6,7 @@ import pytest
 
 from mem0.configs.base import MemoryConfig
 from mem0.memory.main import Memory, _validate_and_trim_entity_id
+from mem0.utils.scoring import W_SEMANTIC
 
 
 @pytest.fixture(autouse=True)
@@ -127,8 +128,8 @@ def test_search(memory_instance):
     assert result["results"][0]["id"] == "1"
     assert result["results"][0]["memory"] == "Memory 1"
     assert result["results"][0]["user_id"] == "test_user"
-    # Score is now combined score (semantic only since no BM25/entity), still 0.9
-    assert result["results"][0]["score"] == pytest.approx(0.9)
+    # Combined score: semantic only here, so the semantic weight is all that applies
+    assert result["results"][0]["score"] == pytest.approx(W_SEMANTIC * 0.9)
 
     # Hybrid pipeline over-fetches: max(20*4, 60) = 80 (top_k default is now 20)
     memory_instance.vector_store.search.assert_called_once_with(

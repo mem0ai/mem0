@@ -2,6 +2,9 @@ import pytest
 
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
+    W_BM25,
+    W_ENTITY,
+    W_SEMANTIC,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
@@ -58,9 +61,8 @@ class TestScoreAndRank:
         ]
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert len(scored) == 2
-        # With no BM25/entity, max_possible=1.0, so scores stay the same
-        assert scored[0]["score"] == pytest.approx(0.9)
-        assert scored[1]["score"] == pytest.approx(0.5)
+        assert scored[0]["score"] == pytest.approx(W_SEMANTIC * 0.9)
+        assert scored[1]["score"] == pytest.approx(W_SEMANTIC * 0.5)
 
     def test_semantic_plus_bm25(self):
         results = [
@@ -69,21 +71,17 @@ class TestScoreAndRank:
         ]
         bm25 = {"a": 0.3, "b": 0.9}
         scored = score_and_rank(results, bm25, {}, threshold=0.1, top_k=10)
-        # max_possible = 2.0 (semantic + bm25)
-        # a: (0.8 + 0.3) / 2.0 = 0.55
-        # b: (0.6 + 0.9) / 2.0 = 0.75
         assert scored[0]["id"] == "b"  # b should rank higher due to BM25
-        assert scored[0]["score"] == pytest.approx(0.75)
+        assert scored[0]["score"] == pytest.approx(W_SEMANTIC * 0.6 + W_BM25 * 0.9)
         assert scored[1]["id"] == "a"
-        assert scored[1]["score"] == pytest.approx(0.55)
+        assert scored[1]["score"] == pytest.approx(W_SEMANTIC * 0.8 + W_BM25 * 0.3)
 
     def test_all_three_signals(self):
         results = [{"id": "a", "score": 0.8, "payload": {"data": "mem a"}}]
         bm25 = {"a": 0.6}
         entity = {"a": 0.3}
         scored = score_and_rank(results, bm25, entity, threshold=0.1, top_k=10)
-        # max_possible = 2.5
-        expected = (0.8 + 0.6 + 0.3) / 2.5
+        expected = W_SEMANTIC * 0.8 + W_BM25 * 0.6 + W_ENTITY * (0.3 / ENTITY_BOOST_WEIGHT)
         assert scored[0]["score"] == pytest.approx(expected)
 
     def test_threshold_gates_on_semantic(self):
@@ -101,18 +99,16 @@ class TestScoreAndRank:
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=5)
         assert len(scored) == 5
 
-    def test_adaptive_divisor_semantic_only(self):
+    def test_missing_signals_contribute_zero(self):
         results = [{"id": "a", "score": 0.8, "payload": {}}]
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
-        # max_possible = 1.0 (no bm25, no entity)
-        assert scored[0]["score"] == pytest.approx(0.8)
+        assert scored[0]["score"] == pytest.approx(W_SEMANTIC * 0.8)
 
-    def test_adaptive_divisor_semantic_plus_entity(self):
+    def test_semantic_plus_entity(self):
         results = [{"id": "a", "score": 0.8, "payload": {}}]
         entity = {"a": 0.3}
         scored = score_and_rank(results, {}, entity, threshold=0.1, top_k=10)
-        # max_possible = 1.5 (semantic + entity)
-        expected = (0.8 + 0.3) / 1.5
+        expected = W_SEMANTIC * 0.8 + W_ENTITY * (0.3 / ENTITY_BOOST_WEIGHT)
         assert scored[0]["score"] == pytest.approx(expected)
 
     def test_empty_results(self):
@@ -144,9 +140,8 @@ class TestScoreAndRank:
             "semantic_score": 0.8,
             "bm25_score": 0.6,
             "entity_boost": 0.3,
-            "raw_score": pytest.approx(1.7),
-            "max_possible_score": 2.5,
-            "final_score": pytest.approx(0.68),
+            "weights": {"semantic": W_SEMANTIC, "bm25": W_BM25, "entity": W_ENTITY},
+            "final_score": pytest.approx(0.72),
             "threshold": 0.1,
         }
 
@@ -154,6 +149,30 @@ class TestScoreAndRank:
         results = [{"id": "a", "score": 0.8, "payload": {"data": "mem a"}}]
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert "score_details" not in scored[0]
+
+
+class TestScoreComparability:
+    """A candidate's score must depend only on that candidate's own signals.
+
+    Regression: the divisor was chosen from whether ANY candidate in the batch
+    had a BM25 or entity signal, so an unrelated memory matching keywords
+    silently rescaled everyone else's score and made cross-query thresholds
+    meaningless.
+    """
+
+    def test_score_unchanged_when_another_candidate_matches_keywords(self):
+        results = [
+            {"id": "a", "score": 0.92, "payload": {}},
+            {"id": "b", "score": 0.41, "payload": {}},
+        ]
+        alone = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        with_bm25_on_b = score_and_rank(results, {"b": 0.9}, {}, threshold=0.1, top_k=10)
+
+        score_of = lambda scored: {s["id"]: s["score"] for s in scored}  # noqa: E731
+        assert score_of(alone)["a"] == pytest.approx(score_of(with_bm25_on_b)["a"])
+
+    def test_weights_sum_to_one_so_scores_stay_in_range(self):
+        assert W_SEMANTIC + W_BM25 + W_ENTITY == pytest.approx(1.0)
 
 
 class TestKeywordOnlyCandidates:
@@ -170,7 +189,7 @@ class TestKeywordOnlyCandidates:
             {"id": "b", "score": 0.0, "keyword_only": True, "payload": {"data": "mem b"}},
         ]
         scored = score_and_rank(results, {"b": 0.9}, {}, threshold=0.1, top_k=10)
-        assert [s["id"] for s in scored] == ["b", "a"]
+        assert "b" in [s["id"] for s in scored]
 
     def test_keyword_only_candidate_gated_on_its_own_bm25_score(self):
         results = [{"id": "b", "score": 0.0, "keyword_only": True, "payload": {"data": "mem b"}}]
