@@ -125,10 +125,17 @@ def score_and_rank(
         # so W_ENTITY is the only thing deciding how much entities count.
         entity_signal = entity_boost / ENTITY_BOOST_WEIGHT
 
-        combined = min(
-            W_SEMANTIC * semantic_score + W_BM25 * bm25_score + W_ENTITY * entity_signal,
-            1.0,
-        )
+        weighted = W_SEMANTIC * semantic_score + W_BM25 * bm25_score + W_ENTITY * entity_signal
+        if result.get("keyword_only"):
+            # Renormalize over the signals this candidate could actually earn.
+            # NOTE: the divisor comes from the candidate's own missing data, not
+            # from what the rest of the batch produced, so scores stay
+            # comparable. Charging it the semantic weight instead would cap a
+            # perfect term match at W_BM25 and bury it under any mediocre
+            # semantic hit.
+            weighted /= W_BM25 + W_ENTITY
+
+        combined = min(weighted, 1.0)
 
         scored_result = {
             "id": mem_id_str,

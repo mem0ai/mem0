@@ -178,6 +178,8 @@ Each result includes `score_details` with the semantic score, normalized BM25 sc
 
 The final score is a fixed weighted blend, `0.6 * semantic + 0.3 * bm25 + 0.1 * entity`. The weights are constant and sum to 1, so a score is always in `[0, 1]` and means the same thing from one query to the next. A signal a memory does not have contributes 0 rather than rescaling the others.
 
+A memory found by keyword search but ranked outside the semantic candidate pool has no measured semantic score at all. Those are renormalized over the signals they can actually earn, so a strong term match is not penalized for a similarity nobody computed.
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:

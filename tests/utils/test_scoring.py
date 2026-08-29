@@ -191,6 +191,22 @@ class TestKeywordOnlyCandidates:
         scored = score_and_rank(results, {"b": 0.9}, {}, threshold=0.1, top_k=10)
         assert "b" in [s["id"] for s in scored]
 
+    def test_keyword_only_candidate_is_not_penalized_for_its_missing_signal(self):
+        """A strong keyword match must not lose on weight it could never earn.
+
+        Regression: a keyword-only row scored 0.3 * bm25 against the full
+        1.0 scale, so a near-perfect term match capped at 0.30 and lost to any
+        mediocre semantic hit, re-burying the recall it was added to surface.
+        """
+        results = [
+            {"id": "a", "score": 0.5, "payload": {}},
+            {"id": "b", "score": 0.0, "keyword_only": True, "payload": {}},
+        ]
+        scored = score_and_rank(results, {"b": 0.99}, {}, threshold=0.1, top_k=10)
+
+        assert [s["id"] for s in scored] == ["b", "a"]
+        assert scored[0]["score"] == pytest.approx(W_BM25 * 0.99 / (W_BM25 + W_ENTITY))
+
     def test_keyword_only_candidate_gated_on_its_own_bm25_score(self):
         results = [{"id": "b", "score": 0.0, "keyword_only": True, "payload": {"data": "mem b"}}]
         scored = score_and_rank(results, {"b": 0.05}, {}, threshold=0.1, top_k=10)

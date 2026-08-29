@@ -274,7 +274,9 @@ def test_search_returns_keyword_hit_missing_from_semantic_results(
 
     result = memory.search("RAIDZ2", filters={"user_id": "test"})
 
-    assert "keyword_hit" in [r["id"] for r in result["results"]]
+    ids = [r["id"] for r in result["results"]]
+    assert "keyword_hit" in ids
+    assert ids[0] == "keyword_hit"
 
 
 def _memory_with_reranker(rerank_impl):
