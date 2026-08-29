@@ -1,10 +1,10 @@
 import pytest
 
 from mem0.utils.scoring import (
+    ENTITY_BOOST_WEIGHT,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
-    ENTITY_BOOST_WEIGHT,
 )
 
 
@@ -154,6 +154,28 @@ class TestScoreAndRank:
         results = [{"id": "a", "score": 0.8, "payload": {"data": "mem a"}}]
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
         assert "score_details" not in scored[0]
+
+
+class TestKeywordOnlyCandidates:
+    """A BM25 hit outside the semantic top-N must still be rankable.
+
+    The semantic threshold describes a score we actually measured. A
+    keyword-only candidate never got one, so gating it on a placeholder 0.0
+    silently discarded every exact-term match that embedded poorly.
+    """
+
+    def test_keyword_only_candidate_survives_semantic_threshold(self):
+        results = [
+            {"id": "a", "score": 0.5, "payload": {"data": "mem a"}},
+            {"id": "b", "score": 0.0, "keyword_only": True, "payload": {"data": "mem b"}},
+        ]
+        scored = score_and_rank(results, {"b": 0.9}, {}, threshold=0.1, top_k=10)
+        assert [s["id"] for s in scored] == ["b", "a"]
+
+    def test_keyword_only_candidate_gated_on_its_own_bm25_score(self):
+        results = [{"id": "b", "score": 0.0, "keyword_only": True, "payload": {"data": "mem b"}}]
+        scored = score_and_rank(results, {"b": 0.05}, {}, threshold=0.1, top_k=10)
+        assert scored == []
 
 
 class TestEntityBoostWeight:

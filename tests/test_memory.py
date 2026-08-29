@@ -7,7 +7,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import _entity_collection_name
+from mem0.memory.main import RERANK_CANDIDATE_MULTIPLIER, _entity_collection_name
 from mem0.memory.utils import normalize_facts
 
 
@@ -238,6 +238,88 @@ def test_search_explain_includes_score_details(
     assert details["entity_boost"] == 0.0
     assert details["final_score"] == result["results"][0]["score"]
     assert details["threshold"] == 0.1
+
+
+@patch('mem0.memory.main.extract_entities', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_returns_keyword_hit_missing_from_semantic_results(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    """A BM25 hit outside the semantic pool must still be returned.
+
+    Regression: the candidate set was built from semantic results alone, so
+    keyword matches that ranked below the semantic over-fetch were scored and
+    then silently discarded.
+    """
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("semantic_hit", {"data": "unrelated prose", "user_id": "test"}, score=0.6)
+    ]
+    mock_vector_store.keyword_search.return_value = [
+        MockVectorMemory("keyword_hit", {"data": "RAIDZ2 pool layout", "user_id": "test"}, score=12.0)
+    ]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    result = memory.search("RAIDZ2", filters={"user_id": "test"})
+
+    ids = [r["id"] for r in result["results"]]
+    assert "keyword_hit" in ids
+    assert ids[0] == "keyword_hit"
+
+
+def _memory_with_reranker(rerank_impl):
+    """Build a Memory whose reranker is `rerank_impl`, with everything else mocked."""
+    with patch('mem0.utils.factory.EmbedderFactory.create', return_value=MagicMock()), \
+         patch('mem0.utils.factory.VectorStoreFactory.create', return_value=MagicMock()), \
+         patch('mem0.utils.factory.LlmFactory.create', return_value=MagicMock()), \
+         patch('mem0.memory.storage.SQLiteManager', return_value=MagicMock()):
+        from mem0.memory.main import Memory as MemoryClass
+        memory = MemoryClass(MemoryConfig())
+    reranker = MagicMock()
+    reranker.rerank.side_effect = rerank_impl
+    memory.reranker = reranker
+    return memory
+
+
+def test_rerank_receives_a_wider_pool_than_top_k():
+    """The reranker must see candidates beyond top_k or it can only reorder.
+
+    Regression: search() fetched exactly top_k rows and then handed those same
+    rows to the reranker, so nothing outside the hybrid top_k was recoverable.
+    """
+    memory = _memory_with_reranker(lambda query, results, limit: results[:limit])
+    rows = [{"id": str(i), "memory": f"m{i}", "score": 1.0 - i * 0.01} for i in range(60)]
+
+    with patch.object(memory, '_search_vector_store', return_value=rows) as mock_search:
+        result = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)
+
+    retrieval_limit = mock_search.call_args.args[2]
+    assert retrieval_limit > 5, "reranker was handed exactly top_k rows"
+    assert retrieval_limit == 5 * RERANK_CANDIDATE_MULTIPLIER
+    assert len(result["results"]) == 5
+
+
+def test_failed_rerank_still_truncates_to_top_k():
+    """The widened pool must not leak to the caller when reranking raises."""
+    memory = _memory_with_reranker(RuntimeError("reranker down"))
+    rows = [{"id": str(i), "memory": f"m{i}", "score": 1.0} for i in range(15)]
+
+    with patch.object(memory, '_search_vector_store', return_value=rows):
+        result = memory.search("q", filters={"user_id": "u"}, top_k=5, rerank=True)
+
+    assert len(result["results"]) == 5
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')

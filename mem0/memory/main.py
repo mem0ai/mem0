@@ -451,11 +451,37 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def _keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired):
+    """Candidates that BM25 found but semantic search ranked outside its pool.
+
+    NOTE: without these the hybrid ranking is semantic-recall-only, and an
+    exact term match that embeds poorly is unreachable at any top_k.
+    """
+    if not keyword_results:
+        return []
+
+    extra = []
+    for mem in keyword_results:
+        mem_id = str(mem.id) if hasattr(mem, "id") else str(mem.get("id", ""))
+        if not mem_id or mem_id in seen_ids or mem_id not in bm25_scores:
+            continue
+        payload = mem.payload if hasattr(mem, "payload") else mem.get("payload") or {}
+        if not show_expired and _payload_is_expired(payload):
+            continue
+        seen_ids.add(mem_id)
+        extra.append({"id": mem_id, "score": 0.0, "keyword_only": True, "payload": payload})
+    return extra
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
 _UNSET = object()
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
+
+# NOTE: a reranker handed exactly top_k rows can only reorder them. Over-fetch
+# so it has something to promote; set too high it just costs reranker latency.
+RERANK_CANDIDATE_MULTIPLIER = 3
 
 
 class _OSSProject:
@@ -787,8 +813,9 @@ class Memory(MemoryBase):
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
-            infer (bool, optional): If True (default), an LLM is used to extract key facts from
-                'messages' and decide whether to add, update, or delete related memories.
+            infer (bool, optional): If True (default), an LLM extracts key facts from 'messages'
+                and adds them, skipping any that duplicate an existing memory. Extraction is
+                additive: existing memories are never updated or deleted by this call.
                 If False, 'messages' are added as raw memories directly.
             memory_type (str, optional): Specifies the type of memory. Currently, only
                 `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
@@ -930,12 +957,11 @@ class Memory(MemoryBase):
             filters=search_filters,
         )
 
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
+        # Index by position rather than UUID (anti-hallucination)
+        existing_memories = [
+            {"id": str(idx), "text": mem.payload.get("data", "")}
+            for idx, mem in enumerate(existing_results)
+        ]
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
@@ -1490,19 +1516,23 @@ class Memory(MemoryBase):
             },
         )
 
+        use_reranker = bool(rerank and self.reranker)
+        retrieval_limit = limit * RERANK_CANDIDATE_MULTIPLIER if use_reranker else limit
+
         search_start = time.perf_counter()
         original_memories = self._search_vector_store(
-            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
-        if rerank and self.reranker and original_memories:
+        if use_reranker and original_memories:
             try:
                 reranked_memories = self.reranker.rerank(query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+                original_memories = original_memories[:limit]
 
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
@@ -1663,18 +1693,22 @@ class Memory(MemoryBase):
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
+        # Step 7: Build candidate set from semantic and keyword results
         candidates = []
+        seen_ids = set()
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
+            seen_ids.add(mem_id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
                 "payload": payload,
             })
+
+        candidates.extend(_keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired))
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -2592,12 +2626,11 @@ class AsyncMemory(MemoryBase):
             filters=search_filters,
         )
 
-        # Map UUIDs to integers (anti-hallucination)
-        existing_memories = []
-        uuid_mapping = {}
-        for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
-            existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
+        # Index by position rather than UUID (anti-hallucination)
+        existing_memories = [
+            {"id": str(idx), "text": mem.payload.get("data", "")}
+            for idx, mem in enumerate(existing_results)
+        ]
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
@@ -3152,14 +3185,17 @@ class AsyncMemory(MemoryBase):
             },
         )
 
+        use_reranker = bool(rerank and self.reranker)
+        retrieval_limit = limit * RERANK_CANDIDATE_MULTIPLIER if use_reranker else limit
+
         search_start = time.perf_counter()
         original_memories = await self._search_vector_store(
-            query, effective_filters, limit, threshold, explain=explain, show_expired=show_expired
+            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
-        if rerank and self.reranker and original_memories:
+        if use_reranker and original_memories:
             try:
                 # Run reranking in thread pool to avoid blocking async loop
                 reranked_memories = await asyncio.to_thread(
@@ -3168,6 +3204,7 @@ class AsyncMemory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+                original_memories = original_memories[:limit]
 
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
@@ -3327,18 +3364,22 @@ class AsyncMemory(MemoryBase):
         if query_entities:
             entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
+        # Step 7: Build candidate set from semantic and keyword results
         candidates = []
+        seen_ids = set()
         for mem in semantic_results:
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
             mem_id = str(mem.id)
+            seen_ids.add(mem_id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
                 "payload": payload,
             })
+
+        candidates.extend(_keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired))
 
         # Step 8: Score and rank
         scored_results = score_and_rank(

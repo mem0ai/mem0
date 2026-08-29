@@ -73,6 +73,8 @@ def score_and_rank(
 
     Threshold gates the semantic score BEFORE combining -- candidates
     below the threshold are excluded even if BM25/entity would boost them.
+    Candidates flagged ``keyword_only`` have no measured semantic score and
+    are gated on their BM25 score instead.
 
     The divisor adapts based on which signals are active:
         - Semantic only: max_possible = 1.0
@@ -107,13 +109,19 @@ def score_and_rank(
         if mem_id is None:
             continue
 
-        semantic_score = result.get("score") or 0.0
-        if semantic_score < threshold:
-            continue
-
         mem_id_str = str(mem_id)
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
+
+        semantic_score = result.get("score") or 0.0
+        if result.get("keyword_only"):
+            # No semantic score was ever measured for this candidate, so the
+            # semantic threshold cannot speak to it. Gate on the one signal
+            # we do have.
+            if bm25_score < threshold:
+                continue
+        elif semantic_score < threshold:
+            continue
 
         raw_combined = semantic_score + bm25_score + entity_boost
         combined = min(raw_combined / max_possible, 1.0)
