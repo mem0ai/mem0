@@ -219,6 +219,12 @@ def _client_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=status_code, detail=detail)
 
 
+def _is_client_id_error(exc: Exception) -> bool:
+    """Check if exception was caused by a malformed/invalid identifier (e.g. non-UUID in Postgres)."""
+    err_str = str(exc).lower()
+    return "invalid input syntax for type uuid" in err_str or ("invalid" in err_str and "uuid" in err_str)
+
+
 def _redact_config(value: Any, key: str | None = None) -> Any:
     if isinstance(value, dict):
         return {item_key: _redact_config(item_value, item_key) for item_key, item_value in value.items()}
@@ -445,7 +451,11 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
         return get_memory_instance().get(memory_id)
-    except Exception:
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
+    except Exception as e:
+        if _is_client_id_error(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise upstream_error()
 
 
@@ -499,7 +509,9 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         return get_memory_instance().update(**params)
     except (ValueError, Mem0ValidationError) as e:
         raise _client_error(e)
-    except Exception:
+    except Exception as e:
+        if _is_client_id_error(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise upstream_error()
 
 
@@ -508,7 +520,11 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
     try:
         return get_memory_instance().history(memory_id=memory_id)
-    except Exception:
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
+    except Exception as e:
+        if _is_client_id_error(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise upstream_error()
 
 
@@ -520,7 +536,9 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
         return MessageResponse(message="Memory deleted successfully")
     except (ValueError, Mem0ValidationError) as e:
         raise _client_error(e)
-    except Exception:
+    except Exception as e:
+        if _is_client_id_error(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise upstream_error()
 
 
