@@ -46,14 +46,31 @@ jest.mock("../src/llms/openai", () => ({
   })),
 }));
 
-const mockEmbedding = new Array(1536).fill(0.1);
+// A tiny hashed bag-of-words embedder. Related text must land near each other
+// and unrelated text far apart: the previous constant vector made every pair
+// cosine 1.0, which no real embedder does, and which quietly turned search into
+// "return everything" and hid anything else keyed on similarity.
+const mockEmbeddingFor = (text: string) => {
+  const vec = new Array(1536).fill(0);
+  for (const token of String(text)
+    .toLowerCase()
+    .match(/[a-z0-9]+/g) ?? []) {
+    let h = 0;
+    for (const ch of token) h = (h * 31 + ch.charCodeAt(0)) % 1536;
+    vec[h] += 1;
+  }
+  const norm = Math.sqrt(vec.reduce((a, v) => a + v * v, 0)) || 1;
+  return vec.map((v) => v / norm);
+};
 jest.mock("../src/embeddings/openai", () => ({
   OpenAIEmbedder: jest.fn().mockImplementation(() => ({
-    embed: jest.fn().mockResolvedValue(mockEmbedding),
+    embed: jest
+      .fn()
+      .mockImplementation((t: string) => Promise.resolve(mockEmbeddingFor(t))),
     embedBatch: jest
       .fn()
       .mockImplementation((texts: string[]) =>
-        Promise.resolve(texts.map(() => mockEmbedding)),
+        Promise.resolve(texts.map(mockEmbeddingFor)),
       ),
     embeddingDims: 1536,
   })),

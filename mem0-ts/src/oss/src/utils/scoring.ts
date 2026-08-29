@@ -107,6 +107,13 @@ export function recencyScore(
  */
 export const RERANK_CANDIDATE_MULTIPLIER = 3;
 
+/**
+ * Cosine similarity above which a freshly extracted memory is treated as a
+ * restatement of one already stored. Matches the entity store's semantic-match
+ * bar so the codebase has one notion of "same thing, said differently".
+ */
+export const DEDUP_SIMILARITY_THRESHOLD = 0.95;
+
 export interface ScoreDetails {
   semanticScore: number;
   bm25Score: number;

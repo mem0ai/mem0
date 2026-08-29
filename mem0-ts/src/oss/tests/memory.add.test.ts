@@ -15,17 +15,32 @@ jest.mock("../src/utils/factory", () => {
   const { MemoryHistoryManager } = jest.requireActual(
     "../src/storage/MemoryHistoryManager",
   );
-  const testEmbedding = new Array(1536).fill(0.1);
+  // A tiny hashed bag-of-words embedder. Related text must land near each other
+  // and unrelated text far apart: the previous constant vector made every pair
+  // cosine 1.0, which no real embedder does, and which quietly turned search
+  // into "return everything" and hid anything else keyed on similarity.
+  const testEmbedding = (text: string) => {
+    const vec = new Array(1536).fill(0);
+    for (const token of String(text)
+      .toLowerCase()
+      .match(/[a-z0-9]+/g) ?? []) {
+      let h = 0;
+      for (const ch of token) h = (h * 31 + ch.charCodeAt(0)) % 1536;
+      vec[h] += 1;
+    }
+    const norm = Math.sqrt(vec.reduce((a, v) => a + v * v, 0)) || 1;
+    return vec.map((v) => v / norm);
+  };
 
   class MockEmbedder {
     embeddingDims = 1536;
 
-    async embed(): Promise<number[]> {
-      return testEmbedding;
+    async embed(text: string): Promise<number[]> {
+      return testEmbedding(text);
     }
 
     async embedBatch(texts: string[]): Promise<number[][]> {
-      return texts.map(() => testEmbedding);
+      return texts.map(testEmbedding);
     }
   }
 
@@ -339,5 +354,35 @@ describe("Memory - add()", () => {
     expect(result.results[0].metadata).toEqual(
       expect.objectContaining({ event: "ADD" }),
     );
+  });
+
+  // Regression: dedup was md5 of the exact text, so a restatement that differed
+  // by punctuation or casing alone was stored a second time and both copies came
+  // back in the same search.
+  test("does not store a restatement of an existing memory", async () => {
+    const scope = { userId: `${userId}-dedup` };
+    const first: SearchResult = await memory.add("User likes cold brew", scope);
+    expect(first.results.length).toBe(1);
+
+    const restated: SearchResult = await memory.add(
+      "user likes cold brew!",
+      scope,
+    );
+    expect(restated.results).toEqual([]);
+
+    const all: SearchResult = await memory.getAll({
+      filters: { user_id: scope.userId },
+    });
+    expect(all.results.length).toBe(1);
+  });
+
+  test("still stores a distinct fact about a familiar topic", async () => {
+    const scope = { userId: `${userId}-distinct` };
+    await memory.add("User likes cold brew", scope);
+    const second: SearchResult = await memory.add(
+      "User roasts their own beans every Sunday",
+      scope,
+    );
+    expect(second.results.length).toBe(1);
   });
 });

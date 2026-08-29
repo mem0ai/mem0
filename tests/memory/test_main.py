@@ -1051,6 +1051,111 @@ class TestEntityBoostParallelism:
         assert len(boosts) == 4
 
 
+class TestAddPipelineSemanticDedup:
+    """A restatement of an existing memory must not be stored again.
+
+    Regression: dedup was md5 of the exact text against the top-10 existing
+    memories, so "User likes coffee" and "User enjoys coffee" both persisted
+    and both came back in the same search.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda ts, *a, **kw: [[0.1] * 10 for _ in ts])
+        memory._entity_store = Mock()
+        memory._entity_store.search_batch = Mock(return_value=[[]])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    def _add_one(self, memory, nearest_score):
+        memory.llm.generate_response.return_value = '{"memory": [{"text": "User enjoys coffee"}]}'
+        memory.vector_store.search = Mock(return_value=[])
+        memory.vector_store.search_batch = Mock(
+            return_value=[[Mock(id="existing", score=nearest_score, payload={"data": "User likes coffee"})]]
+        )
+        memory.vector_store.insert = Mock()
+        return memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I enjoy coffee"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+    def test_restatement_of_an_existing_memory_is_not_stored(self, mock_memory):
+        result = self._add_one(mock_memory, nearest_score=0.96)
+        assert result == []
+        mock_memory.vector_store.insert.assert_not_called()
+
+    def test_related_but_distinct_memory_is_still_stored(self, mock_memory):
+        result = self._add_one(mock_memory, nearest_score=0.88)
+        assert len(result) == 1
+        mock_memory.vector_store.insert.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_restatement_is_not_stored(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda ts, *a, **kw: [[0.1] * 10 for _ in ts])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        memory.llm.generate_response.return_value = '{"memory": [{"text": "User enjoys coffee"}]}'
+        memory.vector_store.search = Mock(return_value=[])
+        memory.vector_store.search_batch = Mock(
+            return_value=[[Mock(id="existing", score=0.96, payload={"data": "User likes coffee"})]]
+        )
+        memory.vector_store.insert = Mock()
+
+        result = await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I enjoy coffee"}],
+            metadata={},
+            effective_filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert result == []
+        memory.vector_store.insert.assert_not_called()
+
+    def test_a_failed_similarity_check_keeps_the_memory(self, mock_memory, caplog):
+        """Losing a memory is worse than storing a duplicate, so fail open."""
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"text": "User enjoys coffee"}]}'
+        mock_memory.vector_store.search = Mock(return_value=[])
+        mock_memory.vector_store.search_batch = Mock(side_effect=RuntimeError("store down"))
+        mock_memory.vector_store.insert = Mock()
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I enjoy coffee"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert len(result) == 1
+        mock_memory.vector_store.insert.assert_called_once()
+
+
 class TestAddPipelineEntityEmbeddingCountGuard:
     """A misbehaving embedder returning fewer (or more) vectors than entity
     texts must not silently drop ALL entity links via a swallowed IndexError.

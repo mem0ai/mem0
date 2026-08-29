@@ -72,6 +72,7 @@ import {
   scoreAndRank,
   getBm25Params,
   normalizeBm25,
+  DEDUP_SIMILARITY_THRESHOLD,
   ENTITY_BOOST_WEIGHT,
   RECENCY_HALF_LIFE_DAYS,
   RERANK_CANDIDATE_MULTIPLIER,
@@ -342,6 +343,38 @@ export class Memory {
       await this._entityStore.initialize();
     }
     return this._entityStore;
+  }
+
+  /**
+   * Of `texts`, those a stored memory already says in different words.
+   *
+   * The extraction prompt asks the model to skip these, but it only sees the
+   * ten memories the Phase 1 search surfaced, and paraphrase slips through.
+   * Fails open: losing a memory is worse than storing a duplicate.
+   */
+  private async restatementsOfExisting(
+    texts: string[],
+    embedMap: Record<string, number[]>,
+    filters: SearchFilters,
+  ): Promise<Set<string>> {
+    const pairs = texts
+      .filter((t) => Object.prototype.hasOwnProperty.call(embedMap, t))
+      .map((t) => [t, embedMap[t]] as const);
+    if (pairs.length === 0) return new Set();
+
+    const restatements = new Set<string>();
+    const checks = pairs.map(async ([text, vector]) => {
+      try {
+        const matches = await this.vectorStore.search(vector, 1, filters);
+        if ((matches[0]?.score ?? 0) >= DEDUP_SIMILARITY_THRESHOLD) {
+          restatements.add(text);
+        }
+      } catch (e) {
+        console.warn(`Near-duplicate check failed, keeping "${text}": ${e}`);
+      }
+    });
+    await Promise.all(checks);
+    return restatements;
   }
 
   /**
@@ -997,12 +1030,18 @@ export class Memory {
       }
     }
 
-    // Phase 4-5: CPU processing + hash dedup
+    // Phase 4-5: CPU processing + dedup
     const existingHashes = new Set<string>();
     for (const mem of existingResults) {
       const h = mem.payload?.hash;
       if (h) existingHashes.add(h);
     }
+
+    const restatements = await this.restatementsOfExisting(
+      memTexts,
+      embedMap,
+      filters,
+    );
 
     const records: Array<{
       memoryId: string;
@@ -1019,6 +1058,9 @@ export class Memory {
 
       const memHash = createHash("md5").update(text).digest("hex");
       if (existingHashes.has(memHash) || seenHashes.has(memHash)) {
+        continue;
+      }
+      if (restatements.has(text)) {
         continue;
       }
       seenHashes.add(memHash);

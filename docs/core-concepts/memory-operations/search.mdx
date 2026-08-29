@@ -202,6 +202,10 @@ const memory = new Memory({
 
 Lower it where memories go stale quickly, raise it for slow-moving domains, set it to `0` to rank without regard to age.
 
+### Deduplication on write
+
+`add()` drops an extracted memory when it is at least `0.95` cosine similar to one already stored in the same scope, on top of the exact-text hash check. This catches the restatements the extraction prompt misses: "User likes coffee" and "User enjoys coffee" no longer both persist and both come back in the same search. A memory about the same topic that carries genuinely new detail stays well under that bar and is stored normally. If the similarity check fails for any reason the memory is kept, since losing one is worse than storing a duplicate.
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:

@@ -483,6 +483,11 @@ _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OS
 # so it has something to promote; set too high it just costs reranker latency.
 RERANK_CANDIDATE_MULTIPLIER = 3
 
+# Cosine similarity above which a freshly extracted memory is treated as a
+# restatement of one already stored. Matches the entity store's semantic-match
+# bar so the codebase has one notion of "same thing, said differently".
+DEDUP_SIMILARITY_THRESHOLD = 0.95
+
 
 class _OSSProject:
     def update(
@@ -752,6 +757,38 @@ class Memory(MemoryBase):
                     logger.debug(f"Entity link failed for '{entity_text}': {e}")
         except Exception as e:
             logger.warning(f"Entity linking failed for memory_id={memory_id}: {e}")
+
+    def _restatements_of_existing(self, texts, embed_map, filters):
+        """Of `texts`, those a stored memory already says in different words.
+
+        The extraction prompt asks the model to skip these, but it only sees the
+        ten memories the Phase 1 search surfaced, and paraphrase slips through.
+        Fails open: losing a memory is worse than storing a duplicate.
+        """
+        pairs = [(t, embed_map[t]) for t in texts if t in embed_map]
+        if not pairs:
+            return set()
+
+        try:
+            batches = self.vector_store.search_batch(
+                queries=[t for t, _ in pairs],
+                vectors_list=[v for _, v in pairs],
+                top_k=1,
+                filters=filters,
+            )
+        except Exception as e:
+            logger.warning(f"Near-duplicate check failed, keeping all extractions: {e}")
+            return set()
+
+        restatements = set()
+        for (text, _), matches in zip(pairs, batches):
+            if not matches:
+                continue
+            score = getattr(matches[0], "score", None) or 0.0
+            if score >= DEDUP_SIMILARITY_THRESHOLD:
+                logger.debug(f"Skipping restatement of an existing memory: {text[:50]}")
+                restatements.add(text)
+        return restatements
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -1028,13 +1065,15 @@ class Memory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
+        # Phase 4: Per-memory CPU processing + Phase 5: Dedup
         # Build set of existing hashes for dedup
         existing_hashes = set()
         for mem in existing_results:
             h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
             if h:
                 existing_hashes.add(h)
+
+        restatements = self._restatements_of_existing(mem_texts, embed_map, search_filters)
 
         records = []  # (memory_id, text, embedding, payload)
         seen_hashes = set()  # dedup within the current batch
@@ -1046,6 +1085,8 @@ class Memory(MemoryBase):
             mem_hash = hashlib.md5(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
+                continue
+            if text in restatements:
                 continue
             seen_hashes.add(mem_hash)
 
@@ -2436,6 +2477,39 @@ class AsyncMemory(MemoryBase):
         except Exception as e:
             logger.warning(f"Entity linking failed for memory_id={memory_id} (async): {e}")
 
+    async def _restatements_of_existing(self, texts, embed_map, filters):
+        """Of `texts`, those a stored memory already says in different words.
+
+        The extraction prompt asks the model to skip these, but it only sees the
+        ten memories the Phase 1 search surfaced, and paraphrase slips through.
+        Fails open: losing a memory is worse than storing a duplicate.
+        """
+        pairs = [(t, embed_map[t]) for t in texts if t in embed_map]
+        if not pairs:
+            return set()
+
+        try:
+            batches = await asyncio.to_thread(
+                self.vector_store.search_batch,
+                queries=[t for t, _ in pairs],
+                vectors_list=[v for _, v in pairs],
+                top_k=1,
+                filters=filters,
+            )
+        except Exception as e:
+            logger.warning(f"Near-duplicate check failed, keeping all extractions: {e}")
+            return set()
+
+        restatements = set()
+        for (text, _), matches in zip(pairs, batches):
+            if not matches:
+                continue
+            score = getattr(matches[0], "score", None) or 0.0
+            if score >= DEDUP_SIMILARITY_THRESHOLD:
+                logger.debug(f"Skipping restatement of an existing memory (async): {text[:50]}")
+                restatements.add(text)
+        return restatements
+
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
@@ -2695,12 +2769,14 @@ class AsyncMemory(MemoryBase):
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
 
-        # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
+        # Phase 4: Per-memory CPU processing + Phase 5: Dedup
         existing_hashes = set()
         for mem in existing_results:
             h = mem.payload.get("hash") if hasattr(mem, "payload") and mem.payload else None
             if h:
                 existing_hashes.add(h)
+
+        restatements = await self._restatements_of_existing(mem_texts, embed_map, search_filters)
 
         records = []
         seen_hashes = set()
@@ -2712,6 +2788,8 @@ class AsyncMemory(MemoryBase):
             mem_hash = hashlib.md5(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
+                continue
+            if text in restatements:
                 continue
             seen_hashes.add(mem_hash)
 
