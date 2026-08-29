@@ -12,7 +12,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -52,8 +52,8 @@ jobs:
     outputs:
       mem0_changed: ${{ steps.filter.outputs.mem0 }}
     steps:
-    - uses: actions/checkout@v4
-    - uses: dorny/paths-filter@v2
+    - uses: actions/checkout@v7
+    - uses: dorny/paths-filter@v3
       id: filter
       with:
         filters: |
@@ -73,11 +73,11 @@ jobs:
       - name: Skip — no relevant changes
         if: needs.check_changes.outputs.mem0_changed != 'true'
         run: echo "No changes in mem0/, tests/, pyproject.toml, or ci.yml — skipping"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: needs.check_changes.outputs.mem0_changed == 'true'
       - name: Set up Python ${{ matrix.python-version }}
         if: needs.check_changes.outputs.mem0_changed == 'true'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Clean up disk space
@@ -94,7 +94,7 @@ jobs:
       - name: Load cached venv
         if: needs.check_changes.outputs.mem0_changed == 'true'
         id: cached-hatch-dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
