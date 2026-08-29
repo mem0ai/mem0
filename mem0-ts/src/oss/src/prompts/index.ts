@@ -306,16 +306,6 @@ Do NOT extract:
 - Assistant meta-commentary about its own capabilities
 
 
-## Summary
-
-A narrative summary of the user's profile from prior conversations. May be empty for new users. Use it to enrich extractions — it holds established context like names, locations, and relationships.
-
-
-## Recently Extracted Memories
-
-Memories already captured from recent messages in this session (up to 20). This is your primary deduplication reference — do not re-extract information already captured here.
-
-
 ## Existing Memories
 
 Memories currently in the system relevant to this conversation. Formatted as:
@@ -497,7 +487,7 @@ Misinterpreting the user's words is worse than not extracting at all.
   - RIGHT: "The Bajimaya v Reward Homes case involved construction starting in 2014, contract signed in 2015, with completion due by October 2015" / "The tribunal found Reward Homes breached its contract through poor workmanship, waterproofing defects, and non-compliance with the Building Code of Australia"
   - WRONG: "Assistant created a D&D adventure with enemies"
   - RIGHT: "The Lost Temple of the Djinn adventure includes 4 Mummies (AC 11, 45 HP), 2 Construct Guardians (AC 17, 110 HP), and 6 Skeletal Warriors (AC 12, 22 HP)"
-- **No Detail Contamination from Context**: When extracting from New Messages, do NOT import or merge details from Existing Memories or Recent Memories into the new extraction UNLESS the new message explicitly references those details. If the New Message says "I had a great meal" and an Existing Memory says "User's favorite restaurant is Olive Garden," do NOT produce "User had a great meal at Olive Garden" — the new message never mentioned the restaurant. Each extraction must be faithful to its source message only.
+- **No Detail Contamination from Context**: When extracting from New Messages, do NOT import or merge details from Existing Memories into the new extraction UNLESS the new message explicitly references those details. If the New Message says "I had a great meal" and an Existing Memory says "User's favorite restaurant is Olive Garden," do NOT produce "User had a great meal at Olive Garden" — the new message never mentioned the restaurant. Each extraction must be faithful to its source message only.
 
 
 
@@ -507,8 +497,6 @@ Misinterpreting the user's words is worse than not extracting at all.
 
 ## Example 1: Multi-Topic Extraction
 
-Summary: ""
-Recently Extracted: []
 Existing Memories: []
 New Messages:
 [{"role": "user", "content": "Hey! I'm Marcus. I just got promoted to Senior Engineer at Shopify last week - been grinding for two years for this. My wife Elena and I celebrated with dinner at Osteria Francescana, it's our go-to spot for special occasions. We're also expecting our first baby in March!"},
@@ -527,8 +515,6 @@ Three distinct topics — career, relationship/dining, family milestone — each
 
 ## Example 2: Extracting from Assistant Recommendations
 
-Summary: "User is an aspiring stand-up comedian interested in improving their craft."
-Recently Extracted: []
 Existing Memories: []
 New Messages:
 [{"role": "user", "content": "Can you recommend some sports documentaries on Netflix with strong storytelling? I love \\"The Last Dance\\" by Michael Jordan."},
@@ -546,7 +532,6 @@ The user's viewing preference (Netflix stand-up comedy) is extracted alongside t
 
 ## Example 3: Nothing to Extract
 
-Summary: "User is a product manager named David."
 Existing Memories: [{"id": "0", "text": "David is a product manager at a fintech startup"}]
 New Messages:
 [{"role": "user", "content": "Hey, good morning!"},
@@ -557,7 +542,6 @@ Output: {"memory": []}
 
 ## Example 5: Deduplication — Skip Already Captured
 
-Recently Extracted: ["Marcus was promoted to Senior Engineer at Shopify around August 12, 2025"]
 Existing Memories: [{"id": "0", "text": "Marcus was promoted to Senior Engineer at Shopify around August 12, 2025"}]
 New Messages:
 [{"role": "user", "content": "Still can't believe I got the senior engineer promotion at Shopify!"}]
@@ -568,8 +552,6 @@ Output: {"memory": []}
 
 ## Example 6: Extract ALL Dimensions — Don't Miss Secondary Info
 
-Summary: "User is an aspiring actor."
-Recently Extracted: []
 Existing Memories: []
 New Messages:
 [{"role": "user", "content": "As an aspiring actor, I'm looking for advice on improving my craft. Can you recommend some films on Netflix with strong acting performances like Daniel Day-Lewis in 'There Will Be Blood'? I also want to find online resources for acting techniques."},
@@ -588,7 +570,6 @@ Three dimensions: (1) career aspiration, (2) entertainment viewing preference, (
 
 ## Example 7: Vague Temporal References with Historical Observation Date
 
-Recently Extracted: ["User started reading 'The Hitchhiker's Guide to the Galaxy' on January 16, 2022"]
 Existing Memories: [{"id": "0", "text": "User started reading 'The Hitchhiker's Guide to the Galaxy' on January 16, 2022"}]
 New Messages:
 [{"role": "user", "content": "I've actually listened to Ready Player One as an audiobook recently and enjoyed the pop culture references."}]
@@ -603,8 +584,6 @@ Output:
 
 ## Example 8: Document / Reference Material — Extract Content, Not Actions
 
-Summary: ""
-Recently Extracted: []
 Existing Memories: []
 New Messages:
 [{"role": "user", "content": "I want you to remember this case. If you understand, just say acknowledged. Bajimaya v Reward Homes Pty Ltd [2021] NSWCATAP 297 — The construction began in 2014, contract signed in 2015 with completion due by October 2015. The plaintiff received keys in December 2016 and found defects including incomplete works, poor workmanship, and non-compliance with the building code. The tribunal found the builder breached contract."},
@@ -623,8 +602,6 @@ The user shared reference material to be remembered. Extract the actual factual 
 
 ## Example 9: Structured Data with Counts and Specifics
 
-Summary: ""
-Recently Extracted: []
 Existing Memories: []
 New Messages:
 [{"role": "user", "content": "Here are the enemy stat blocks for our D&D campaign: Mummies (4): AC 11, HP 45, Speed 20 ft, with Curse of the Pharaohs (DC 15 Wisdom) and Mummy Rot (DC 15 Constitution). Construct Guardians (2): AC 17, HP 110, Speed 30 ft, with Immutable Form, Magic Resistance, and Siege Monster. Skeletal Warriors (6): AC 12, HP 22, Speed 30 ft, with Undead Fortitude."},
@@ -643,8 +620,6 @@ Every count (4 Mummies, 2 Construct Guardians, 6 Skeletal Warriors) and every sp
 
 ## Example 10: New Facts About an Already-Known Entity
 
-Summary: ""
-Recently Extracted: []
 Existing Memories: [{"id": "0", "text": "User has a dog named Poppy, a golden retriever"}, {"id": "1", "text": "User works as a Senior Engineer at Shopify"}]
 New Messages:
 [{"role": "user", "content": "Poppy had her vet checkup yesterday — she's healthy but needs to lose a few pounds. Also, I'm switching teams at work next month to the payments platform."}]
@@ -661,8 +636,6 @@ Poppy and Shopify both already appear in Existing Memories, but neither new fact
 
 ## Example 11: Long Multi-Topic Conversation — Don't Stop After First Topic
 
-Summary: ""
-Recently Extracted: []
 Existing Memories: []
 New Messages:
 [{"role": "user", "content": "I adopted a puppy named Max last weekend! He's a beagle mix."},
@@ -686,8 +659,6 @@ FIVE topics across 5 messages — each one extracted separately. Do not stop aft
 
 ## Example 12: Multi-Speaker Conversation — Extract From ALL Speakers
 
-Summary: "John has a dog named Max."
-Recently Extracted: []
 Existing Memories: [{"id": "0", "text": "John has a dog named Max"}]
 New Messages:
 [{"role": "user", "content": "John: Max and I had a blast on our camping trip last summer. We hiked, swam, and made great memories. It was a really peaceful experience."},
@@ -819,15 +790,9 @@ export function generateAdditiveExtractionPrompt(options: {
 
   const sections: string[] = [];
 
-  // Summary — empty for now; callers can extend later
-  sections.push("## Summary\n");
-
   sections.push(
     `## Last k Messages\n${formatConversationHistory(options.lastKMessages)}`,
   );
-
-  // Recently Extracted Memories — empty for now
-  sections.push("## Recently Extracted Memories\n[]");
 
   sections.push(
     `## Existing Memories\n${serializeMemories(options.existingMemories)}`,
