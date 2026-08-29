@@ -4,7 +4,7 @@ Scoring utilities for hybrid retrieval.
 Provides:
 - **BM25 normalization**: Sigmoid normalization of raw BM25 scores to [0, 1].
 - **BM25 parameter selection**: Query-length-adaptive sigmoid parameters.
-- **Additive scoring**: Combined scoring with semantic + BM25 + entity boost.
+- **Blended scoring**: Fixed-weight combination of semantic, BM25, and entity.
 """
 
 from __future__ import annotations

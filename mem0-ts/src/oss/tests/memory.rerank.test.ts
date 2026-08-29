@@ -9,6 +9,7 @@
 import { Memory } from "../src/memory";
 import { CohereReranker } from "../src/rerankers/cohere";
 import type { RerankResult } from "../src/rerankers/base";
+import { W_SEMANTIC } from "../src/utils/scoring";
 
 jest.setTimeout(15000);
 
@@ -104,9 +105,10 @@ describe("Memory.search reranking", () => {
     ]);
     expect(result.results[0].rerankScore).toBe(0.99);
     expect(result.results[1].rerankScore).toBe(0.4);
-    // The original vector similarity `score` must survive reranking.
-    expect(result.results[0].score).toBe(0.8); // bravo's original vector score
-    expect(result.results[1].score).toBe(0.9); // alpha's original vector score
+    // The original hybrid `score` must survive reranking. Semantic is the only
+    // signal here, so each is its vector similarity times the semantic weight.
+    expect(result.results[0].score).toBeCloseTo(W_SEMANTIC * 0.8); // bravo
+    expect(result.results[1].score).toBeCloseTo(W_SEMANTIC * 0.9); // alpha
 
     await memory.reset();
   });

@@ -73,6 +73,7 @@ import {
   getBm25Params,
   normalizeBm25,
   ENTITY_BOOST_WEIGHT,
+  RERANK_CANDIDATE_MULTIPLIER,
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
@@ -1547,22 +1548,38 @@ export class Memory {
       }
     }
 
-    // Step 7: Build candidate set from semantic results
+    // Step 7: Build candidate set from semantic and keyword results
     const candidates = semanticResults
       .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
       .map((mem) => ({
         id: String(mem.id),
         score: mem.score ?? 0,
         payload: mem.payload || {},
+        keywordOnly: false,
       }));
 
+    // NOTE: without these the hybrid ranking is semantic-recall-only, and an
+    // exact term match that embeds poorly is unreachable at any topK.
+    const seenIds = new Set(candidates.map((c) => c.id));
+    for (const mem of keywordResults ?? []) {
+      const memId = String(mem.id);
+      if (seenIds.has(memId) || !(memId in bm25Scores)) continue;
+      const payload = mem.payload || {};
+      if (!showExpired && payloadIsExpired(payload)) continue;
+      seenIds.add(memId);
+      candidates.push({ id: memId, score: 0, payload, keywordOnly: true });
+    }
+
     // Step 8: Score and rank
+    // A reranker handed exactly topK rows can only reorder them, so over-fetch
+    // and let it promote something from below the cut.
+    const useReranker = Boolean(config.rerank && this.reranker);
     const scoredResults = scoreAndRank(
       candidates,
       bm25Scores,
       entityBoosts,
       threshold ?? 0.1,
-      topK,
+      useReranker ? topK * RERANK_CANDIDATE_MULTIPLIER : topK,
       explain,
     );
 
@@ -1591,10 +1608,8 @@ export class Memory {
 
     // Step 10: Optionally re-rank with the configured reranker. Opt-in per
     // search via `rerank: true`; a no-op when no reranker is configured.
-    const invokeReranker = Boolean(
-      config.rerank && this.reranker && results.length > 0,
-    );
-    let finalResults = results;
+    const invokeReranker = Boolean(useReranker && results.length > 0);
+    let finalResults = useReranker ? results.slice(0, topK) : results;
     if (invokeReranker) {
       try {
         const ranked = await this.reranker!.rerank(

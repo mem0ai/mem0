@@ -4,7 +4,7 @@
  * Provides:
  * - BM25 normalization: Sigmoid normalization of raw BM25 scores to [0, 1].
  * - BM25 parameter selection: Query-length-adaptive sigmoid parameters.
- * - Additive scoring: Combined scoring with semantic + BM25 + entity boost.
+ * - Blended scoring: Fixed-weight combination of semantic, BM25, and entity.
  */
 
 export const ENTITY_BOOST_WEIGHT = 0.5;
@@ -56,12 +56,29 @@ export function normalizeBm25(
   return 1.0 / (1.0 + Math.exp(-steepness * (rawScore - midpoint)));
 }
 
+/**
+ * Fixed blend weights, summing to 1.0 so a combined score is always in [0, 1].
+ *
+ * NOTE: these must not vary with which signals a batch happened to produce. A
+ * divisor chosen from the batch makes a memory's score depend on what other
+ * memories matched, which is invisible in ranking and wrong for any caller
+ * thresholding on the number.
+ */
+export const W_SEMANTIC = 0.6;
+export const W_BM25 = 0.3;
+export const W_ENTITY = 0.1;
+
+/**
+ * NOTE: a reranker handed exactly topK rows can only reorder them. Over-fetch
+ * so it has something to promote; set too high it just costs reranker latency.
+ */
+export const RERANK_CANDIDATE_MULTIPLIER = 3;
+
 export interface ScoreDetails {
   semanticScore: number;
   bm25Score: number;
   entityBoost: number;
-  rawScore: number;
-  maxPossibleScore: number;
+  weights: { semantic: number; bm25: number; entity: number };
   finalScore: number;
   threshold: number;
 }
@@ -74,19 +91,20 @@ export interface ScoredResult {
 }
 
 /**
- * Score candidates additively and return top-k results.
+ * Score candidates by a fixed weighted blend and return top-k results.
  *
  * For each candidate:
- *   combined = (semantic + bm25 + entity_boost) / max_possible
+ *   combined = W_SEMANTIC * semantic + W_BM25 * bm25 + W_ENTITY * entity
+ *
+ * The weights are constant and sum to 1.0, so a combined score is always in
+ * [0, 1] and comparable across queries. A signal the candidate does not have
+ * simply contributes 0.
  *
  * Threshold gates the semantic score BEFORE combining -- candidates
  * below the threshold are excluded even if BM25/entity would boost them.
- *
- * The divisor adapts based on which signals are active:
- *   - Semantic only: max_possible = 1.0
- *   - Semantic + BM25: max_possible = 2.0
- *   - Semantic + BM25 + entity: max_possible = 2.5
- *   - Semantic + entity (no BM25): max_possible = 1.5
+ * Candidates flagged `keywordOnly` have no measured semantic score and are
+ * gated on their BM25 score instead, then renormalized over the signals they
+ * could actually earn.
  *
  * @param semanticResults - Candidate results with id, score, and payload.
  * @param bm25Scores - Map of memory ID to normalized BM25 score.
@@ -101,6 +119,7 @@ export function scoreAndRank(
     id: string;
     score: number;
     payload: Record<string, any>;
+    keywordOnly?: boolean;
   }>,
   bm25Scores: Record<string, number>,
   entityBoosts: Record<string, number>,
@@ -108,17 +127,6 @@ export function scoreAndRank(
   topK: number,
   explain: boolean = false,
 ): ScoredResult[] {
-  const hasBm25 = Object.keys(bm25Scores).length > 0;
-  const hasEntity = Object.keys(entityBoosts).length > 0;
-
-  let maxPossible = 1.0;
-  if (hasBm25) {
-    maxPossible += 1.0;
-  }
-  if (hasEntity) {
-    maxPossible += ENTITY_BOOST_WEIGHT;
-  }
-
   const scored: ScoredResult[] = [];
 
   for (const result of semanticResults) {
@@ -127,17 +135,37 @@ export function scoreAndRank(
       continue;
     }
 
-    const semanticScore = result.score ?? 0.0;
-    if (semanticScore < threshold) {
-      continue;
-    }
-
     const memIdStr = String(memId);
     const bm25Score = bm25Scores[memIdStr] ?? 0.0;
     const entityBoost = entityBoosts[memIdStr] ?? 0.0;
 
-    const rawCombined = semanticScore + bm25Score + entityBoost;
-    const combined = Math.min(rawCombined / maxPossible, 1.0);
+    const semanticScore = result.score ?? 0.0;
+    if (result.keywordOnly) {
+      // No semantic score was ever measured for this candidate, so the
+      // semantic threshold cannot speak to it. Gate on the one signal we have.
+      if (bm25Score < threshold) {
+        continue;
+      }
+    } else if (semanticScore < threshold) {
+      continue;
+    }
+
+    // Entity boosts arrive pre-scaled to [0, ENTITY_BOOST_WEIGHT]; rescale so
+    // W_ENTITY is the only thing deciding how much entities count.
+    const entitySignal = entityBoost / ENTITY_BOOST_WEIGHT;
+
+    let weighted =
+      W_SEMANTIC * semanticScore + W_BM25 * bm25Score + W_ENTITY * entitySignal;
+    if (result.keywordOnly) {
+      // Renormalize over the signals this candidate could actually earn.
+      // NOTE: the divisor comes from the candidate's own missing data, not from
+      // what the rest of the batch produced, so scores stay comparable.
+      // Charging it the semantic weight instead would cap a perfect term match
+      // at W_BM25 and bury it under any mediocre semantic hit.
+      weighted /= W_BM25 + W_ENTITY;
+    }
+
+    const combined = Math.min(weighted, 1.0);
 
     const entry: ScoredResult = {
       id: memIdStr,
@@ -149,8 +177,7 @@ export function scoreAndRank(
         semanticScore,
         bm25Score,
         entityBoost,
-        rawScore: rawCombined,
-        maxPossibleScore: maxPossible,
+        weights: { semantic: W_SEMANTIC, bm25: W_BM25, entity: W_ENTITY },
         finalScore: combined,
         threshold,
       };
