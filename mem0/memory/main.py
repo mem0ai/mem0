@@ -4,7 +4,6 @@ import gc
 import hashlib
 import json
 import logging
-import os
 import time
 import uuid
 import warnings
@@ -48,9 +47,9 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
-from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.setup import setup_config
 from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
+from mem0.memory.telemetry import capture_event
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -88,6 +87,27 @@ def _vector_store_list_rows(listed):
     if isinstance(listed, (list, tuple)):
         return listed
     return []
+
+
+def _resolve_linked_memory_ids(linked_memory_ids, uuid_mapping):
+    """Resolve LLM-facing reference IDs to retrieved memory UUIDs.
+
+    Only IDs from the retrieved-memory allow-list are retained. This prevents
+    an LLM from attaching a new memory to an unrelated or hallucinated UUID.
+    """
+    if not isinstance(linked_memory_ids, list):
+        return []
+
+    retrieved_ids = set(uuid_mapping.values())
+    resolved_ids = []
+    for linked_id in linked_memory_ids:
+        reference_id = str(linked_id)
+        memory_id = uuid_mapping.get(reference_id)
+        if memory_id is None and reference_id in retrieved_ids:
+            memory_id = reference_id
+        if memory_id is not None and memory_id not in resolved_ids:
+            resolved_ids.append(memory_id)
+    return resolved_ids
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -513,33 +533,6 @@ class Memory(MemoryBase):
         # Entity store is initialized lazily on first use
         self._entity_store = None
 
-        if MEM0_TELEMETRY:
-            # Create telemetry config manually to avoid deepcopy issues with thread locks
-            telemetry_config_dict = {}
-            if hasattr(self.config.vector_store.config, 'model_dump'):
-                # For pydantic models
-                telemetry_config_dict = self.config.vector_store.config.model_dump()
-            else:
-                # For other objects, manually copy common attributes
-                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
-                    if hasattr(self.config.vector_store.config, attr):
-                        telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
-
-            # Override collection name for telemetry
-            telemetry_config_dict['collection_name'] = "mem0migrations"
-
-            # Set path for file-based vector stores
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-            if self.config.vector_store.provider in ["faiss", "qdrant"]:
-                provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
-
-            # Create the config object using the same class as the original
-            telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
-            self._telemetry_vector_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, telemetry_config
-            )
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
                 "The '%s' vector store does not support keyword search. "
@@ -736,27 +729,6 @@ class Memory(MemoryBase):
             raise
         return cls(config)
 
-    def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
-
     def add(
         self,
         messages,
@@ -934,7 +906,7 @@ class Memory(MemoryBase):
         existing_memories = []
         uuid_mapping = {}
         for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
+            uuid_mapping[str(idx)] = str(mem.id)
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
 
         # Phase 2: LLM extraction (single call)
@@ -1035,6 +1007,9 @@ class Memory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+            linked_memory_ids = _resolve_linked_memory_ids(mem.get("linked_memory_ids"), uuid_mapping)
+            if linked_memory_ids:
+                mem_metadata["linked_memory_ids"] = linked_memory_ids
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
@@ -2196,15 +2171,6 @@ class AsyncMemory(MemoryBase):
                 config.reranker.config
             )
 
-        if MEM0_TELEMETRY:
-            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-            telemetry_config.collection_name = "mem0migrations"
-            if self.config.vector_store.provider in ["faiss", "qdrant"]:
-                provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config.path = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config.path, exist_ok=True)
-            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
-
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
                 "The '%s' vector store does not support keyword search. "
@@ -2410,27 +2376,6 @@ class AsyncMemory(MemoryBase):
             raise
         return cls(config)
 
-    def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
-
     async def add(
         self,
         messages,
@@ -2596,7 +2541,7 @@ class AsyncMemory(MemoryBase):
         existing_memories = []
         uuid_mapping = {}
         for idx, mem in enumerate(existing_results):
-            uuid_mapping[str(idx)] = mem.id
+            uuid_mapping[str(idx)] = str(mem.id)
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
 
         # Phase 2: LLM extraction (single call)
@@ -2693,6 +2638,9 @@ class AsyncMemory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+            linked_memory_ids = _resolve_linked_memory_ids(mem.get("linked_memory_ids"), uuid_mapping)
+            if linked_memory_ids:
+                mem_metadata["linked_memory_ids"] = linked_memory_ids
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 

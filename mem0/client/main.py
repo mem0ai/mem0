@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import os
@@ -6,7 +7,6 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import httpx
-import requests
 
 from mem0.client.project import AsyncProject, Project
 from mem0.client.types import (
@@ -821,7 +821,7 @@ class MemoryClient:
             ValueError: If project_id is not set.
         """
 
-        response = self.client.get(f"api/v1/webhooks/projects/{project_id}/")
+        response = self.client.get(f"/api/v1/webhooks/projects/{project_id}/")
         response.raise_for_status()
         capture_client_event("client.get_webhook", self, {"sync_type": "sync"})
         return response.json()
@@ -849,7 +849,7 @@ class MemoryClient:
         """
 
         payload = {"url": url, "name": name, "event_types": event_types}
-        response = self.client.post(f"api/v1/webhooks/projects/{project_id}/", json=payload)
+        response = self.client.post(f"/api/v1/webhooks/projects/{project_id}/", json=payload)
         response.raise_for_status()
         capture_client_event("client.create_webhook", self, {"sync_type": "sync"})
         return response.json()
@@ -883,7 +883,7 @@ class MemoryClient:
         """
 
         payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
-        response = self.client.put(f"api/v1/webhooks/{webhook_id}/", json=payload)
+        response = self.client.put(f"/api/v1/webhooks/{webhook_id}/", json=payload)
         response.raise_for_status()
         capture_client_event("client.update_webhook", self, {"webhook_id": webhook_id, "sync_type": "sync"})
         return response.json()
@@ -907,7 +907,7 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
 
-        response = self.client.delete(f"api/v1/webhooks/{webhook_id}/")
+        response = self.client.delete(f"/api/v1/webhooks/{webhook_id}/")
         response.raise_for_status()
         capture_client_event(
             "client.delete_webhook",
@@ -1034,31 +1034,26 @@ class AsyncMemoryClient:
                 timeout=300,
             )
 
-        self.user_email = self._validate_api_key()
+        self.user_email = None
+        self._api_key_validated = False
+        self._api_key_validation_lock = asyncio.Lock()
 
-        # Initialize project manager
+        # Project metadata is populated by the first awaited API operation.
         self.project = AsyncProject(
             client=self.async_client,
             org_id=self.org_id,
             project_id=self.project_id,
             user_email=self.user_email,
+            initializer=self._ensure_api_key_validated,
         )
 
-        _maybe_alias_anon_to_email(self.user_email)
         capture_client_event("client.init", self, {"sync_type": "async"})
 
-    def _validate_api_key(self):
+    async def _validate_api_key(self):
         """Validate the API key by making a test request."""
         try:
             params = self._prepare_params()
-            response = requests.get(
-                f"{self.host}/v1/ping/",
-                headers={
-                    "Authorization": f"Token {self.api_key}",
-                    "Mem0-User-ID": self.user_id,
-                },
-                params=params,
-            )
+            response = await self.async_client.get("/v1/ping/", params=params)
             response.raise_for_status()
 
             data = response.json()
@@ -1069,13 +1064,30 @@ class AsyncMemoryClient:
 
             return data.get("user_email")
 
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             try:
                 error_data = e.response.json()
                 error_message = error_data.get("detail", str(e))
             except Exception:
                 error_message = str(e)
             raise ValueError(f"Error: {error_message}")
+
+    async def _ensure_api_key_validated(self):
+        """Validate once through the async transport before the first API operation."""
+        if getattr(self, "_api_key_validated", True):
+            return
+
+        async with self._api_key_validation_lock:
+            if self._api_key_validated:
+                return
+
+            self.user_email = await self._validate_api_key()
+            self.project.config.org_id = self.org_id
+            self.project.config.project_id = self.project_id
+            self.project.config.user_email = self.user_email
+            self.project._validate_org_project()
+            self._api_key_validated = True
+            _maybe_alias_anon_to_email(self.user_email)
 
     def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare the payload for API requests.
@@ -1111,6 +1123,7 @@ class AsyncMemoryClient:
         return {k: v for k, v in kwargs.items() if v is not None}
 
     async def __aenter__(self):
+        await self._ensure_api_key_validated()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -1723,7 +1736,7 @@ class AsyncMemoryClient:
             ValueError: If project_id is not set.
         """
 
-        response = await self.async_client.get(f"api/v1/webhooks/projects/{project_id}/")
+        response = await self.async_client.get(f"/api/v1/webhooks/projects/{project_id}/")
         response.raise_for_status()
         capture_client_event("client.get_webhook", self, {"sync_type": "async"})
         return response.json()
@@ -1751,7 +1764,7 @@ class AsyncMemoryClient:
         """
 
         payload = {"url": url, "name": name, "event_types": event_types}
-        response = await self.async_client.post(f"api/v1/webhooks/projects/{project_id}/", json=payload)
+        response = await self.async_client.post(f"/api/v1/webhooks/projects/{project_id}/", json=payload)
         response.raise_for_status()
         capture_client_event("client.create_webhook", self, {"sync_type": "async"})
         return response.json()
@@ -1785,7 +1798,7 @@ class AsyncMemoryClient:
         """
 
         payload = {k: v for k, v in {"name": name, "url": url, "event_types": event_types}.items() if v is not None}
-        response = await self.async_client.put(f"api/v1/webhooks/{webhook_id}/", json=payload)
+        response = await self.async_client.put(f"/api/v1/webhooks/{webhook_id}/", json=payload)
         response.raise_for_status()
         capture_client_event("client.update_webhook", self, {"webhook_id": webhook_id, "sync_type": "async"})
         return response.json()
@@ -1809,7 +1822,7 @@ class AsyncMemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
 
-        response = await self.async_client.delete(f"api/v1/webhooks/{webhook_id}/")
+        response = await self.async_client.delete(f"/api/v1/webhooks/{webhook_id}/")
         response.raise_for_status()
         capture_client_event("client.delete_webhook", self, {"webhook_id": webhook_id, "sync_type": "async"})
         return response.json()

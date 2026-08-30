@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -632,6 +632,7 @@ class AsyncProject(BaseProject):
         org_id: Optional[str] = None,
         project_id: Optional[str] = None,
         user_email: Optional[str] = None,
+        initializer: Optional[Callable[[], Awaitable[None]]] = None,
     ):
         """
         Initialize the asynchronous project manager.
@@ -644,7 +645,13 @@ class AsyncProject(BaseProject):
             user_email: User email
         """
         super().__init__(client, config, org_id, project_id, user_email)
-        self._validate_org_project()
+        self._initializer = initializer
+        if initializer is None:
+            self._validate_org_project()
+
+    async def _ensure_api_key_validated(self):
+        if self._initializer is not None:
+            await self._initializer()
 
     @api_error_handler
     async def get(self, fields: Optional[List[str]] = None) -> Dict[str, Any]:

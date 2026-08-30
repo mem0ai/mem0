@@ -103,6 +103,9 @@ def api_error_handler(func):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             try:
+                initializer = getattr(args[0], "_ensure_api_key_validated", None) if args else None
+                if initializer is not None:
+                    await initializer()
                 return await func(*args, **kwargs)
             except httpx.HTTPStatusError as e:
                 _handle_http_error(e)

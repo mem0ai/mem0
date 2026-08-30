@@ -506,11 +506,11 @@ Memories already captured from recent messages in this session (up to 20). This 
 ## Existing Memories
 
 Memories currently in the system relevant to this conversation. Formatted as:
-[{"id": "uuid-string", "text": "..."}, ...]
+[{"id": "reference-id", "text": "..."}, ...]
 
 Use these ONLY for deduplication and linking — do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
 
-When a new memory is related to an Existing Memory — same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative — include the Existing Memory's ID in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...) but linked_memory_ids uses the UUIDs from this list.
+When a new memory is related to an Existing Memory — same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative — include the Existing Memory's reference ID in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...); linked_memory_ids must use only reference IDs from the Existing Memories list.
 
 
 IMPORTANT: An existing memory about an entity (e.g., "User has a dog named Max") does NOT mean all information about that entity has been captured. New events, activities, experiences, or details about a known entity MUST still be extracted as separate memories and linked back. Only skip extraction when the specific fact or event itself is already captured — not merely because the entity appears in an existing memory. "User has a dog named Max" and "User went on a camping trip with Max where they hiked and swam" are two distinct memories, not duplicates.

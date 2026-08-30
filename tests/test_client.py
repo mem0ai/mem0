@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-import requests
 
 from mem0.client.main import AsyncMemoryClient
 from mem0.client.types import GetAllMemoryOptions, SearchMemoryOptions
@@ -568,23 +567,132 @@ class TestValidateApiKeyHttpError:
         assert not isinstance(exc_info.value, json.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
 
-    def test_async_client_non_json_5xx_raises_clear_error(self):
+    @pytest.mark.asyncio
+    async def test_async_client_non_json_5xx_raises_clear_error(self):
         request = httpx.Request("GET", "https://api.mem0.ai/v1/ping/")
         error_response = httpx.Response(503, text="<html>503 Service Unavailable</html>", request=request)
         response = MagicMock()
-        response.json.side_effect = requests.exceptions.JSONDecodeError("Expecting value", "<html>", 0)
-        http_error = requests.exceptions.HTTPError("Server error", response=error_response)
+        response.json.side_effect = json.JSONDecodeError("Expecting value", "<html>", 0)
+        http_error = httpx.HTTPStatusError("Server error", request=request, response=error_response)
         response.raise_for_status.side_effect = http_error
 
-        with patch("mem0.client.main.requests.get", return_value=response):
-            with patch("mem0.client.main.capture_client_event"):
-                from mem0.client.main import AsyncMemoryClient
+        async_http_client = MagicMock()
+        async_http_client.base_url = httpx.URL("https://api.mem0.ai")
+        async_http_client.headers = httpx.Headers()
+        async_http_client.get = AsyncMock(return_value=response)
 
-                with pytest.raises(ValueError) as exc_info:
-                    AsyncMemoryClient(api_key="test-api-key")
+        with patch("mem0.client.main.capture_client_event"):
+            from mem0.client.main import AsyncMemoryClient
 
-        assert not isinstance(exc_info.value, requests.exceptions.JSONDecodeError)
+            client = AsyncMemoryClient(api_key="test-api-key", client=async_http_client)
+            with pytest.raises(ValueError) as exc_info:
+                await client.get("memory-id")
+
+        assert not isinstance(exc_info.value, json.JSONDecodeError)
         assert "Error:" in str(exc_info.value)
+
+
+class TestAsyncClientInitialization:
+    @pytest.mark.asyncio
+    async def test_constructor_defers_api_key_validation_to_async_io(self):
+        ping_response = MagicMock()
+        ping_response.raise_for_status.return_value = None
+        ping_response.json.return_value = {
+            "org_id": "org1",
+            "project_id": "proj1",
+            "user_email": "test@test.com",
+        }
+        memory_response = MagicMock()
+        memory_response.raise_for_status.return_value = None
+        memory_response.json.return_value = {"id": "memory-id"}
+
+        async_http_client = MagicMock()
+        async_http_client.base_url = httpx.URL("https://api.mem0.ai")
+        async_http_client.headers = httpx.Headers()
+        async_http_client.get = AsyncMock(side_effect=[ping_response, memory_response])
+
+        with patch("mem0.client.main.capture_client_event"):
+            client = AsyncMemoryClient(api_key="test-api-key", client=async_http_client)
+            async_http_client.get.assert_not_awaited()
+
+            result = await client.get("memory-id")
+
+        assert result == {"id": "memory-id"}
+        assert async_http_client.get.await_args_list[0].args[0] == "/v1/ping/"
+        assert async_http_client.get.await_args_list[1].args[0] == "/v1/memories/memory-id/"
+
+    @pytest.mark.asyncio
+    async def test_project_operations_wait_for_async_validation(self):
+        ping_response = MagicMock()
+        ping_response.raise_for_status.return_value = None
+        ping_response.json.return_value = {
+            "org_id": "org1",
+            "project_id": "proj1",
+            "user_email": "test@test.com",
+        }
+        project_response = MagicMock()
+        project_response.raise_for_status.return_value = None
+        project_response.json.return_value = {"name": "project"}
+
+        async_http_client = MagicMock()
+        async_http_client.base_url = httpx.URL("https://api.mem0.ai")
+        async_http_client.headers = httpx.Headers()
+        async_http_client.get = AsyncMock(side_effect=[ping_response, project_response])
+
+        with patch("mem0.client.main.capture_client_event"), patch("mem0.client.project.capture_client_event"):
+            client = AsyncMemoryClient(api_key="test-api-key", client=async_http_client)
+            result = await client.project.get()
+
+        assert result == {"name": "project"}
+        assert async_http_client.get.await_args_list[0].args[0] == "/v1/ping/"
+        assert async_http_client.get.await_args_list[1].args[0] == (
+            "/api/v1/orgs/organizations/org1/projects/proj1/"
+        )
+
+
+class TestWebhookPaths:
+    def test_sync_webhook_paths_are_absolute(self):
+        from mem0.client.main import MemoryClient
+
+        client = MemoryClient.__new__(MemoryClient)
+        client.client = MagicMock()
+        response = MagicMock(json=lambda: {}, raise_for_status=lambda: None)
+        client.client.get.return_value = response
+        client.client.post.return_value = response
+        client.client.put.return_value = response
+        client.client.delete.return_value = response
+
+        with patch("mem0.client.main.capture_client_event"):
+            client.get_webhooks("project-id")
+            client.create_webhook("https://example.com/hook", "hook", "project-id", ["memory.created"])
+            client.update_webhook(42, name="renamed")
+            client.delete_webhook(42)
+
+        assert client.client.get.call_args.args[0] == "/api/v1/webhooks/projects/project-id/"
+        assert client.client.post.call_args.args[0] == "/api/v1/webhooks/projects/project-id/"
+        assert client.client.put.call_args.args[0] == "/api/v1/webhooks/42/"
+        assert client.client.delete.call_args.args[0] == "/api/v1/webhooks/42/"
+
+    @pytest.mark.asyncio
+    async def test_async_webhook_paths_are_absolute(self):
+        client = AsyncMemoryClient.__new__(AsyncMemoryClient)
+        client.async_client = MagicMock()
+        response = MagicMock(json=lambda: {}, raise_for_status=lambda: None)
+        client.async_client.get = AsyncMock(return_value=response)
+        client.async_client.post = AsyncMock(return_value=response)
+        client.async_client.put = AsyncMock(return_value=response)
+        client.async_client.delete = AsyncMock(return_value=response)
+
+        with patch("mem0.client.main.capture_client_event"):
+            await client.get_webhooks("project-id")
+            await client.create_webhook("https://example.com/hook", "hook", "project-id", ["memory.created"])
+            await client.update_webhook(42, name="renamed")
+            await client.delete_webhook(42)
+
+        assert client.async_client.get.call_args.args[0] == "/api/v1/webhooks/projects/project-id/"
+        assert client.async_client.post.call_args.args[0] == "/api/v1/webhooks/projects/project-id/"
+        assert client.async_client.put.call_args.args[0] == "/api/v1/webhooks/42/"
+        assert client.async_client.delete.call_args.args[0] == "/api/v1/webhooks/42/"
 
 
 class TestAddAgentCustomInstructions:

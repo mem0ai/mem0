@@ -126,6 +126,26 @@ function stripIdentityKeys(
   );
 }
 
+function resolveLinkedMemoryIds(
+  linkedMemoryIds: string[] | undefined,
+  uuidMapping: Record<string, string>,
+): string[] {
+  if (!Array.isArray(linkedMemoryIds)) return [];
+
+  const retrievedIds = new Set(Object.values(uuidMapping));
+  const resolvedIds: string[] = [];
+  for (const linkedId of linkedMemoryIds) {
+    const referenceId = String(linkedId);
+    const memoryId =
+      uuidMapping[referenceId] ??
+      (retrievedIds.has(referenceId) ? referenceId : undefined);
+    if (memoryId && !resolvedIds.includes(memoryId)) {
+      resolvedIds.push(memoryId);
+    }
+  }
+  return resolvedIds;
+}
+
 // Batch size for deleteAll pagination. Larger than most vector store default
 // page limits (~100) to minimize roundtrips while bounded to avoid memory pressure.
 const DELETE_ALL_BATCH_SIZE = 1000;
@@ -1036,6 +1056,13 @@ export class Memory {
       if (mem.attributed_to) {
         memPayload.attributedTo = mem.attributed_to;
       }
+      const linkedMemoryIds = resolveLinkedMemoryIds(
+        mem.linked_memory_ids,
+        uuidMapping,
+      );
+      if (linkedMemoryIds.length > 0) {
+        memPayload.linkedMemoryIds = linkedMemoryIds;
+      }
       if (filters.user_id) memPayload.user_id = filters.user_id;
       if (filters.agent_id) memPayload.agent_id = filters.agent_id;
       if (filters.run_id) memPayload.run_id = filters.run_id;
@@ -1928,12 +1955,14 @@ export class Memory {
       ? existingEmbeddings[data]
       : await this.embedder.embed(data, "add");
 
+    const now = new Date().toISOString();
     const memoryMetadata = {
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
       textLemmatized: lemmatizeForBm25(data),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
 
     await this.vectorStore.insert([embedding], [memoryId], [memoryMetadata]);

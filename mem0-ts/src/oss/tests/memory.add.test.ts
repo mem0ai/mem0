@@ -340,4 +340,43 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("with infer=false sets updatedAt when the memory is created", async () => {
+    const result = await memory.add("Direct timestamped fact", {
+      userId,
+      infer: false,
+    });
+
+    const stored = await memory.get(result.results[0].id);
+
+    expect(stored!.updatedAt).toBeDefined();
+    expect(stored!.updatedAt).toBe(stored!.createdAt);
+  });
+
+  test("resolves LLM link references to existing memory UUIDs", async () => {
+    const linkUserId = `link_test_${Date.now()}`;
+    const existing = await memory.add("User has a dog named Poppy", {
+      userId: linkUserId,
+      infer: false,
+    });
+    (memory as any).llm.generateResponse = jest.fn().mockResolvedValue(
+      JSON.stringify({
+        memory: [
+          {
+            id: "0",
+            text: "Poppy had a vet checkup",
+            attributed_to: "user",
+            linked_memory_ids: ["0", "not-in-existing-memories"],
+          },
+        ],
+      }),
+    );
+
+    const added = await memory.add("Poppy went to the vet", {
+      userId: linkUserId,
+    });
+    const stored = await memory.get(added.results[0].id);
+
+    expect(stored!.metadata!.linkedMemoryIds).toEqual([existing.results[0].id]);
+  });
 });

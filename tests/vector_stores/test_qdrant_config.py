@@ -15,6 +15,14 @@ def test_qdrant_config_accepts_explicit_https_false():
     assert config.https is False
 
 
+def test_qdrant_config_accepts_existing_client_without_connection_options():
+    client = MagicMock(spec=QdrantConfig.QdrantClient)
+
+    config = QdrantConfig(collection_name="mem0", client=client)
+
+    assert config.client is client
+
+
 def test_qdrant_passes_explicit_https_to_client(monkeypatch):
     client_cls = MagicMock()
     monkeypatch.setattr(qdrant_module, "QdrantClient", client_cls)

@@ -8,7 +8,6 @@ import pytest
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
 from mem0.memory.main import _entity_collection_name
-from mem0.memory.utils import normalize_facts
 
 
 class MockVectorMemory:
@@ -479,31 +478,6 @@ def test_add_infer_with_malformed_llm_facts(mock_sqlite, mock_llm_factory, mock_
     )
 
 
-def test_normalize_facts_plain_strings():
-    assert normalize_facts(["fact one", "fact two"]) == ["fact one", "fact two"]
-
-
-def test_normalize_facts_dict_with_fact_key():
-    assert normalize_facts([{"fact": "User likes Python"}]) == ["User likes Python"]
-
-
-def test_normalize_facts_dict_with_text_key():
-    assert normalize_facts([{"text": "User is a developer"}]) == ["User is a developer"]
-
-
-def test_normalize_facts_mixed():
-    raw = [
-        "plain string",
-        {"fact": "from fact key"},
-        {"text": "from text key"},
-    ]
-    assert normalize_facts(raw) == ["plain string", "from fact key", "from text key"]
-
-
-def test_normalize_facts_filters_empty_strings():
-    assert normalize_facts(["", "valid", ""]) == ["valid"]
-
-
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -695,8 +669,7 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
     mock_vector_store.search.return_value = []
     mock_vector_store.insert.return_value = None
     mock_vector_store.get.return_value = None
-    telemetry_vector_store = MagicMock()
-    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+    mock_vector_factory.return_value = mock_vector_store
 
     mock_llm_factory.return_value = MagicMock()
     mock_sqlite.return_value = MagicMock()
@@ -728,8 +701,7 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     mock_vector_store.search.return_value = []
     mock_vector_store.insert.return_value = None
     mock_vector_store.get.return_value = None
-    telemetry_vector_store = MagicMock()
-    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+    mock_vector_factory.return_value = mock_vector_store
 
     # V3 single-call extraction: LLM returns extracted memories directly
     mock_llm = MagicMock()
@@ -753,6 +725,103 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     assert embedder.embed.call_count == 1
     assert embedder.embed_batch.call_count == 1
     mock_vector_store.insert.assert_called_once()
+
+
+@patch('mem0.memory.main.extract_entities_batch', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_resolves_and_persists_llm_linked_memory_ids(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.embed_batch.return_value = [[0.4, 0.5, 0.6]]
+    mock_embedder_factory.return_value = embedder
+
+    existing_memory = MockVectorMemory(
+        memory_id="existing-memory-uuid",
+        payload={"data": "User has a dog named Poppy", "hash": "existing-hash"},
+    )
+    vector_store = MagicMock()
+    vector_store.search.return_value = [existing_memory]
+    mock_vector_factory.return_value = vector_store
+
+    llm = MagicMock()
+    llm.generate_response.return_value = json.dumps(
+        {
+            "memory": [
+                {
+                    "id": "0",
+                    "text": "Poppy had a vet checkup",
+                    "linked_memory_ids": ["0", "not-in-existing-memories"],
+                }
+            ]
+        }
+    )
+    mock_llm_factory.return_value = llm
+    mock_sqlite.return_value = MagicMock()
+
+    memory = Memory(MemoryConfig())
+    memory.add("Poppy went to the vet", user_id="test-user")
+
+    payload = vector_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["linked_memory_ids"] == ["existing-memory-uuid"]
+
+
+@pytest.mark.asyncio
+@patch('mem0.memory.main.extract_entities_batch', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_add_resolves_and_persists_llm_linked_memory_ids(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+):
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    embedder.embed_batch.return_value = [[0.4, 0.5, 0.6]]
+    mock_embedder_factory.return_value = embedder
+
+    existing_memory = MockVectorMemory(
+        memory_id="existing-memory-uuid",
+        payload={"data": "User has a dog named Poppy", "hash": "existing-hash"},
+    )
+    vector_store = MagicMock()
+    vector_store.search.return_value = [existing_memory]
+    mock_vector_factory.return_value = vector_store
+
+    llm = MagicMock()
+    llm.generate_response.return_value = json.dumps(
+        {
+            "memory": [
+                {
+                    "id": "0",
+                    "text": "Poppy had a vet checkup",
+                    "linked_memory_ids": ["0", "not-in-existing-memories"],
+                }
+            ]
+        }
+    )
+    mock_llm_factory.return_value = llm
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0 import AsyncMemory
+
+    memory = AsyncMemory(MemoryConfig())
+    await memory.add("Poppy went to the vet", user_id="test-user")
+
+    payload = vector_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["linked_memory_ids"] == ["existing-memory-uuid"]
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -785,8 +854,7 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     mock_vector_store.insert.return_value = None
     mock_vector_store.update.return_value = None
     mock_vector_store.keyword_search.return_value = None
-    telemetry_vector_store = MagicMock()
-    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+    mock_vector_factory.return_value = mock_vector_store
 
     # V3 single-call extraction: LLM returns extracted memories directly
     mock_llm = MagicMock()
@@ -1157,8 +1225,7 @@ def test_sync_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory
 
     mock_vector_store = MagicMock()
     mock_vector_store.insert.return_value = None
-    telemetry_vector_store = MagicMock()
-    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+    mock_vector_factory.return_value = mock_vector_store
 
     mock_llm_factory.return_value = MagicMock()
     mock_sqlite.return_value = MagicMock()
