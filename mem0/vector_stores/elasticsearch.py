@@ -74,6 +74,15 @@ class ElasticsearchDB(VectorStoreBase):
         index_settings = {
             "settings": {"index": {"number_of_replicas": 1, "number_of_shards": 5, "refresh_interval": "1s"}},
             "mappings": {
+                "dynamic_templates": [
+                    {
+                        "metadata_strings": {
+                            "path_match": "metadata.*",
+                            "match_mapping_type": "string",
+                            "mapping": {"type": "keyword"},
+                        }
+                    }
+                ],
                 "properties": {
                     "text": {"type": "text"},
                     "vector": {
@@ -85,6 +94,8 @@ class ElasticsearchDB(VectorStoreBase):
                     "metadata": {
                         "type": "object",
                         "properties": {
+                            "data": {"type": "text"},
+                            "text_lemmatized": {"type": "text"},
                             "user_id": {"type": "keyword"},
                             "agent_id": {"type": "keyword"},
                             "run_id": {"type": "keyword"},

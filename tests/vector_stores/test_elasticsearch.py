@@ -88,6 +88,13 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(create_args["index"], "test_collection")
         self.assertIn("mappings", create_args["body"])
 
+        # Verify dynamic templates
+        dynamic_templates = create_args["body"]["mappings"]["dynamic_templates"]
+        self.assertEqual(len(dynamic_templates), 1)
+        self.assertEqual(dynamic_templates[0]["metadata_strings"]["path_match"], "metadata.*")
+        self.assertEqual(dynamic_templates[0]["metadata_strings"]["match_mapping_type"], "string")
+        self.assertEqual(dynamic_templates[0]["metadata_strings"]["mapping"]["type"], "keyword")
+
         # Verify field mappings
         mappings = create_args["body"]["mappings"]["properties"]
         self.assertEqual(mappings["text"]["type"], "text")
@@ -97,6 +104,8 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(mappings["vector"]["similarity"], "cosine")
         self.assertEqual(mappings["metadata"]["type"], "object")
         metadata_props = mappings["metadata"]["properties"]
+        self.assertEqual(metadata_props["data"]["type"], "text")
+        self.assertEqual(metadata_props["text_lemmatized"]["type"], "text")
         self.assertEqual(metadata_props["user_id"]["type"], "keyword")
         self.assertEqual(metadata_props["agent_id"]["type"], "keyword")
         self.assertEqual(metadata_props["run_id"]["type"], "keyword")
