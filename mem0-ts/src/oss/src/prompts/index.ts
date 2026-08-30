@@ -311,7 +311,22 @@ Do NOT extract:
 Memories currently in the system relevant to this conversation. Formatted as:
 [{"id": "0", "text": "..."}, ...]
 
-Use these ONLY for deduplication — do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
+Use these for deduplication and for spotting contradictions — do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
+
+When a new memory makes an Existing Memory no longer true, list that memory's id in the new memory's "contradicts" array. Use the ids exactly as given above.
+
+Contradiction means the old statement and the new one cannot both be true of the user now:
+- **Reversal**: "User is vegetarian" then "User eats meat again"
+- **Replacement**: "User works at Shopify" then "User started at Stripe last month"
+- **Correction**: "User's daughter is named Sara" then "actually her name is Sarah"
+
+These are NOT contradictions, and must not be listed:
+- A new event involving something already known ("User has a dog named Max" and "Max went camping")
+- More detail about the same fact ("User likes coffee" and "User likes it black")
+- Two things that can both be true at once ("User likes hiking" and "User likes swimming")
+- A past fact that was true when stated ("User lived in Berlin in 2019" is not contradicted by "User lives in Lisbon")
+
+When in doubt, do not list it. A missed contradiction leaves a stale memory in place; a wrong one hides a memory that was still true.
 
 
 IMPORTANT: An existing memory about an entity (e.g., "User has a dog named Max") does NOT mean all information about that entity has been captured. New events, activities, experiences, or details about a known entity MUST still be extracted as separate memories. Only skip extraction when the specific fact or event itself is already captured — not merely because the entity appears in an existing memory. "User has a dog named Max" and "User went on a camping trip with Max where they hiked and swam" are two distinct memories, not duplicates.
@@ -550,6 +565,21 @@ Observation Date: 2025-08-19
 Output: {"memory": []}
 
 
+## Example 5b: Contradiction — Retire What Is No Longer True
+
+Existing Memories: [{"id": "0", "text": "User is vegetarian and avoids all meat"}, {"id": "1", "text": "User's favourite restaurant is Osteria Francescana"}]
+New Messages:
+[{"role": "user", "content": "I started eating meat again a couple of months ago. Still love Osteria Francescana though."}]
+Observation Date: 2026-03-10
+
+Output:
+{"memory": [
+  {"id": "0", "text": "User started eating meat again around January 2026, having previously been vegetarian", "attributed_to": "user", "contradicts": ["0"]}
+]}
+
+The diet memory is contradicted and listed. The restaurant memory is merely mentioned again, not contradicted, so it is neither re-extracted nor listed.
+
+
 ## Example 6: Extract ALL Dimensions — Don't Miss Secondary Info
 
 Existing Memories: []
@@ -705,6 +735,7 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 - **id** (string, required): Sequential integers as strings starting at "0".
 - **text** (string, required): A contextually rich, self-contained factual statement (15-80 words).
 - **attributed_to** (string, required): Who this memory is about. Use "user" for facts stated by or about the user (preferences, plans, personal facts). Use "assistant" for information provided by the assistant (recommendations, confirmations, plans created, information researched).
+- **contradicts** (array of strings, optional): ids of Existing Memories this new memory makes untrue. Use the exact ids from the Existing Memories list. Omit or pass [] when nothing is contradicted.
 
 ## Rules
 
@@ -736,6 +767,7 @@ export const AdditiveExtractionSchema = z.object({
       id: z.string(),
       text: z.string(),
       attributed_to: z.enum(["user", "assistant"]).optional(),
+      contradicts: z.array(z.string()).optional(),
     }),
   ),
 });

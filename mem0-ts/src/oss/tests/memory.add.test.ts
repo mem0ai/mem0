@@ -56,12 +56,14 @@ jest.mock("../src/utils/factory", () => {
         ? newMsgMatch[1].trim()
         : "extracted fact from input";
 
+      const contradicts = (globalThis as any).__contradictNextAdd;
       return JSON.stringify({
         memory: [
           {
             id: "0",
             text: extracted,
             attributed_to: "user",
+            ...(contradicts ? { contradicts } : {}),
           },
         ],
       });
@@ -408,6 +410,40 @@ describe("Memory - add()", () => {
     await expect(
       memory.add("anything", { userId, timestamp: "last tuesday" }),
     ).rejects.toThrow("ISO-8601");
+  });
+
+  // Regression: the pipeline was ADD-only, so a fact and its later reversal both
+  // sat in the store and both came back in the same search.
+  test("hides a memory a later one contradicts", async () => {
+    const scope = { userId: `${userId}-contradiction` };
+    const first: SearchResult = await memory.add("User is vegetarian", scope);
+    const oldId = first.results[0].id;
+
+    (globalThis as any).__contradictNextAdd = ["0"];
+    await memory.add("User eats meat again", scope);
+    delete (globalThis as any).__contradictNextAdd;
+
+    const visible: SearchResult = await memory.getAll({
+      filters: { user_id: scope.userId },
+    });
+    expect(visible.results.map((r) => r.id)).not.toContain(oldId);
+
+    const all: SearchResult = await memory.getAll({
+      filters: { user_id: scope.userId },
+      showSuperseded: true,
+    });
+    expect(all.results.map((r) => r.id)).toContain(oldId);
+  });
+
+  test("leaves an uncontradicted memory visible", async () => {
+    const scope = { userId: `${userId}-nocontradiction` };
+    const first: SearchResult = await memory.add("User is vegetarian", scope);
+    await memory.add("User also enjoys long walks", scope);
+
+    const visible: SearchResult = await memory.getAll({
+      filters: { user_id: scope.userId },
+    });
+    expect(visible.results.map((r) => r.id)).toContain(first.results[0].id);
   });
 
   test("still stores a distinct fact about a familiar topic", async () => {

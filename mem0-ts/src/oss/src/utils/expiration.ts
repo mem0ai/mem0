@@ -79,6 +79,11 @@ export function normalizeObservationTimestamp(
   return parsed.toISOString();
 }
 
+/** True when a later memory contradicted this one. */
+export function payloadIsSuperseded(payload?: Record<string, any>): boolean {
+  return Boolean(payload?.superseded_by);
+}
+
 /** True when the payload carries an expiration date strictly before today (UTC). */
 export function payloadIsExpired(
   payload: Record<string, any> | null | undefined,

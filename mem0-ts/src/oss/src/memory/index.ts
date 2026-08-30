@@ -84,6 +84,7 @@ import {
   normalizeExpirationDate,
   normalizeObservationTimestamp,
   payloadIsExpired,
+  payloadIsSuperseded,
 } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
@@ -347,6 +348,56 @@ export class Memory {
       await this._entityStore.initialize();
     }
     return this._entityStore;
+  }
+
+  /**
+   * Mark each memory the new extractions contradict as superseded.
+   *
+   * The old memory is kept and stamped rather than updated or deleted: a
+   * contradiction is the user changing their mind, and "what did they used to
+   * think" stays answerable. Non-fatal, one memory at a time, because losing a
+   * new memory over bookkeeping on an old one is the worse trade.
+   */
+  private async supersedeContradicted(
+    records: Array<{ memoryId: string; contradicts: string[] }>,
+    existingByIndex: Record<
+      string,
+      { id: string; payload?: Record<string, any> }
+    >,
+  ): Promise<void> {
+    const superseded = new Map<string, { mem: any; successorId: string }>();
+    for (const record of records) {
+      for (const index of record.contradicts) {
+        const mem = existingByIndex[String(index)];
+        if (mem && !superseded.has(mem.id)) {
+          superseded.set(mem.id, { mem, successorId: record.memoryId });
+        }
+      }
+    }
+
+    for (const [oldId, { mem, successorId }] of superseded) {
+      const payload = { ...(mem.payload ?? {}) };
+      if (payload.superseded_by) continue;
+      payload.superseded_by = successorId;
+      payload.superseded_at = new Date().toISOString();
+      try {
+        // This store's update() has no payload-only form, and search results do
+        // not carry vectors. Re-embedding the unchanged text reproduces the
+        // vector already stored.
+        const vector = await this.embedder.embed(payload.data ?? "", "add");
+        await this.vectorStore.update(oldId, vector, payload);
+        await this.db.addHistory(
+          oldId,
+          payload.data,
+          payload.data,
+          "SUPERSEDE",
+          payload.createdAt,
+          payload.superseded_at,
+        );
+      } catch (e) {
+        console.warn(`Failed to supersede memory ${oldId}: ${e}`);
+      }
+    }
   }
 
   /**
@@ -932,10 +983,12 @@ export class Memory {
 
     // Map UUIDs to integers (anti-hallucination)
     const existingMemories: Array<{ id: string; text: string }> = [];
-    const uuidMapping: Record<string, string> = {};
+    // The model reports contradictions by index; mapped back after extraction.
+    const existingByIndex: Record<string, (typeof existingResults)[number]> =
+      {};
     for (let idx = 0; idx < existingResults.length; idx++) {
       const mem = existingResults[idx];
-      uuidMapping[String(idx)] = mem.id;
+      existingByIndex[String(idx)] = mem;
       existingMemories.push({
         id: String(idx),
         text: mem.payload?.data ?? "",
@@ -976,7 +1029,7 @@ export class Memory {
       id?: string;
       text?: string;
       attributed_to?: string;
-      linked_memory_ids?: string[];
+      contradicts?: string[];
     }> = [];
     try {
       const cleanResponse = extractJson(response);
@@ -1051,6 +1104,7 @@ export class Memory {
       text: string;
       embedding: number[];
       payload: Record<string, any>;
+      contradicts: string[];
     }> = [];
     const seenHashes = new Set<string>();
 
@@ -1095,6 +1149,7 @@ export class Memory {
         text,
         embedding: embedMap[text],
         payload: memPayload,
+        contradicts: Array.isArray(mem.contradicts) ? mem.contradicts : [],
       });
     }
 
@@ -1180,6 +1235,9 @@ export class Memory {
         }
       }
     }
+
+    // Phase 6b: Retire memories the new extractions contradict
+    await this.supersedeContradicted(records, existingByIndex);
 
     // Phase 7: Batch entity linking
     try {
@@ -1427,6 +1485,7 @@ export class Memory {
       threshold = 0.1,
       explain = false,
       showExpired = false,
+      showSuperseded = false,
     } = config;
 
     await this._captureEvent("search", {
@@ -1599,7 +1658,11 @@ export class Memory {
 
     // Step 7: Build candidate set from semantic and keyword results
     const candidates = semanticResults
-      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
+      .filter(
+        (mem) =>
+          (showExpired || !payloadIsExpired(mem.payload)) &&
+          (showSuperseded || !payloadIsSuperseded(mem.payload)),
+      )
       .map((mem) => ({
         id: String(mem.id),
         score: mem.score ?? 0,
@@ -1615,6 +1678,7 @@ export class Memory {
       if (seenIds.has(memId) || !(memId in bm25Scores)) continue;
       const payload = mem.payload || {};
       if (!showExpired && payloadIsExpired(payload)) continue;
+      if (!showSuperseded && payloadIsSuperseded(payload)) continue;
       seenIds.add(memId);
       candidates.push({ id: memId, score: 0, payload, keywordOnly: true });
     }
@@ -1914,7 +1978,7 @@ export class Memory {
 
     await this._ensureInitialized();
 
-    const { topK = 20, showExpired = false } = config;
+    const { topK = 20, showExpired = false, showSuperseded = false } = config;
 
     // Validate and trim entity IDs in filters. Drop keys that resolve to
     // undefined so downstream vector stores don't receive
@@ -1943,13 +2007,16 @@ export class Memory {
       );
     }
 
-    // Over-fetch so expired memories dropped below still leave topK survivors.
-    const fetchLimit = showExpired ? topK : Math.max(topK * 4, 60);
+    // Over-fetch so hidden memories dropped below still leave topK survivors.
+    const fetchLimit =
+      showExpired && showSuperseded ? topK : Math.max(topK * 4, 60);
     const [memories] = await this.vectorStore.list(filters, fetchLimit);
 
-    const visibleMemories = showExpired
-      ? memories
-      : memories.filter((mem) => !payloadIsExpired(mem.payload));
+    const visibleMemories = memories.filter(
+      (mem) =>
+        (showExpired || !payloadIsExpired(mem.payload)) &&
+        (showSuperseded || !payloadIsSuperseded(mem.payload)),
+    );
 
     const results = visibleMemories.slice(0, topK).map((mem) => ({
       id: mem.id,

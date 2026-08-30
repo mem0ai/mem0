@@ -202,6 +202,27 @@ const memory = new Memory({
 
 Lower it where memories go stale quickly, raise it for slow-moving domains, set it to `0` to rank without regard to age.
 
+### Contradictions
+
+When an extraction makes an existing memory untrue — "User is vegetarian" followed months later by "User eats meat again" — the old memory is stamped `superseded_by` with the new memory's id, plus a `superseded_at` timestamp. Superseded memories are hidden from `search()` and `get_all()` by default and are never deleted, so the change of mind stays on the record.
+
+<CodeGroup>
+```python Python
+memory.search("diet", filters={"user_id": "alice"})                        # current only
+memory.search("diet", filters={"user_id": "alice"}, show_superseded=True)  # plus retired
+```
+
+```javascript JavaScript
+await memory.search("diet", { filters: { user_id: "alice" } });
+await memory.search("diet", {
+  filters: { user_id: "alice" },
+  showSuperseded: true,
+});
+```
+</CodeGroup>
+
+Only a genuine reversal, replacement, or correction counts. A new fact about something already known, extra detail about the same fact, and two things that can both be true are all left alone, as is a past fact that was true when stated. A `SUPERSEDE` entry is written to the memory's history either way, so `history()` shows when and by what.
+
 ### Importing older conversations
 
 Pass `timestamp` to `add()` when the conversation did not happen just now. It becomes the observation date the extraction grounds relative references against, so "last week" in a 2023 transcript resolves to 2023, and it becomes the memory's `created_at`, so recency measures the event rather than the import.

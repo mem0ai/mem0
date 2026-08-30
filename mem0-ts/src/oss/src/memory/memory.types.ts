@@ -43,6 +43,8 @@ export interface SearchMemoryOptions {
   rerank?: boolean;
   /** Include expired memories in the results. Defaults to false. */
   showExpired?: boolean;
+  /** Include memories a later one contradicted. Defaults to false. */
+  showSuperseded?: boolean;
 }
 
 export interface GetAllMemoryOptions {
@@ -50,6 +52,8 @@ export interface GetAllMemoryOptions {
   filters?: SearchFilters;
   /** Include expired memories in the results. Defaults to false. */
   showExpired?: boolean;
+  /** Include memories a later one contradicted. Defaults to false. */
+  showSuperseded?: boolean;
 }
 
 export interface DeleteAllMemoryOptions extends Entity {}

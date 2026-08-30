@@ -465,6 +465,45 @@ def _normalize_observation_timestamp(value: Any) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+def _payload_is_superseded(payload: Optional[Dict[str, Any]]) -> bool:
+    return bool(payload and payload.get("superseded_by"))
+
+
+def _supersede_contradicted(vector_store, db, records, existing_by_index):
+    """Mark each memory the new extractions contradict as superseded.
+
+    The old memory is kept and stamped rather than updated or deleted: a
+    contradiction is the user changing their mind, and "what did they used to
+    think" stays answerable. Non-fatal, one memory at a time, because losing a
+    new memory over a bookkeeping failure on an old one is the worse trade.
+    """
+    superseded = {}
+    for memory_id, _text, _embedding, _payload, contradicted in records:
+        for index in contradicted:
+            mem = existing_by_index.get(str(index))
+            if mem is not None and mem.id not in superseded:
+                superseded[mem.id] = (mem, memory_id)
+
+    for old_id, (mem, successor_id) in superseded.items():
+        payload = dict(mem.payload or {})
+        if payload.get("superseded_by"):
+            continue
+        payload["superseded_by"] = successor_id
+        payload["superseded_at"] = datetime.now(timezone.utc).isoformat()
+        try:
+            vector_store.update(vector_id=old_id, vector=None, payload=payload)
+            db.add_history(
+                old_id,
+                payload.get("data"),
+                payload.get("data"),
+                "SUPERSEDE",
+                created_at=payload.get("created_at"),
+                updated_at=payload["superseded_at"],
+            )
+        except Exception as e:
+            logger.warning(f"Failed to supersede memory {old_id}: {e}")
+
+
 def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
     if not payload:
         return False
@@ -477,7 +516,7 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
-def _keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired):
+def _keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired, show_superseded=False):
     """Candidates that BM25 found but semantic search ranked outside its pool.
 
     NOTE: without these the hybrid ranking is semantic-recall-only, and an
@@ -493,6 +532,8 @@ def _keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expire
             continue
         payload = mem.payload if hasattr(mem, "payload") else mem.get("payload") or {}
         if not show_expired and _payload_is_expired(payload):
+            continue
+        if not show_superseded and _payload_is_superseded(payload):
             continue
         seen_ids.add(mem_id)
         extra.append({"id": mem_id, "score": 0.0, "keyword_only": True, "payload": payload})
@@ -1026,11 +1067,13 @@ class Memory(MemoryBase):
             filters=search_filters,
         )
 
-        # Index by position rather than UUID (anti-hallucination)
+        # Index by position rather than UUID (anti-hallucination). The model
+        # reports contradictions by index, which is mapped back here.
         existing_memories = [
             {"id": str(idx), "text": mem.payload.get("data", "")}
             for idx, mem in enumerate(existing_results)
         ]
+        existing_by_index = {str(idx): mem for idx, mem in enumerate(existing_results)}
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
@@ -1108,7 +1151,7 @@ class Memory(MemoryBase):
 
         restatements = self._restatements_of_existing(mem_texts, embed_map, search_filters)
 
-        records = []  # (memory_id, text, embedding, payload)
+        records = []  # (memory_id, text, embedding, payload, contradicted_indices)
         seen_hashes = set()  # dedup within the current batch
         for mem in extracted_memories:
             text = mem.get("text")
@@ -1136,7 +1179,10 @@ class Memory(MemoryBase):
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
-            records.append((memory_id, text, embed_map[text], mem_metadata))
+            contradicts = mem.get("contradicts")
+            records.append(
+                (memory_id, text, embed_map[text], mem_metadata, contradicts if isinstance(contradicts, list) else [])
+            )
 
         if not records:
             self.db.save_messages(messages, session_scope)
@@ -1183,6 +1229,9 @@ class Memory(MemoryBase):
                 except Exception as e:
                     logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
 
+        # Phase 6b: Retire memories the new extractions contradict
+        _supersede_contradicted(self.vector_store, self.db, records, existing_by_index)
+
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
@@ -1190,7 +1239,7 @@ class Memory(MemoryBase):
 
             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload, _contradicted) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = self._normalize_entity_text(entity_text)
@@ -1358,6 +1407,7 @@ class Memory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
         show_expired: bool = False,
+        show_superseded: bool = False,
         **kwargs,
     ):
         """
@@ -1369,6 +1419,8 @@ class Memory(MemoryBase):
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
             show_expired (bool, optional): Include expired memories. Defaults to False.
+            show_superseded (bool, optional): Include memories a later one contradicted.
+                Defaults to False.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
@@ -1407,7 +1459,7 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
-        fetch_limit = limit if show_expired else max(limit * 4, 60)
+        fetch_limit = limit if (show_expired and show_superseded) else max(limit * 4, 60)
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
@@ -1415,7 +1467,9 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
-        all_memories_result = self._get_all_from_vector_store(effective_filters, fetch_limit, show_expired, limit)
+        all_memories_result = self._get_all_from_vector_store(
+            effective_filters, fetch_limit, show_expired, limit, show_superseded
+        )
 
         if scale_threshold_notice:
             display_scale_threshold_notice(self, "sync", "get_all", *scale_threshold_notice)
@@ -1423,7 +1477,7 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "get_all")
         return {"results": all_memories_result}
 
-    def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
+    def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None, show_superseded=False):
         memories_result = self.vector_store.list(filters=filters, top_k=limit)
 
         # Handle different vector store return formats by inspecting first element
@@ -1453,6 +1507,8 @@ class Memory(MemoryBase):
         formatted_memories = []
         for mem in actual_memories:
             if not show_expired and _payload_is_expired(mem.payload):
+                continue
+            if not show_superseded and _payload_is_superseded(mem.payload):
                 continue
             memory_item_dict = MemoryItem(
                 id=mem.id,
@@ -1487,6 +1543,7 @@ class Memory(MemoryBase):
         explain: bool = False,
         reference_date: Optional[Any] = None,
         show_expired: bool = False,
+        show_superseded: bool = False,
         **kwargs,
     ):
         """
@@ -1520,6 +1577,8 @@ class Memory(MemoryBase):
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             show_expired (bool, optional): Include expired memories. Defaults to False.
+            show_superseded (bool, optional): Include memories a later one contradicted.
+                Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1595,7 +1654,13 @@ class Memory(MemoryBase):
 
         search_start = time.perf_counter()
         original_memories = self._search_vector_store(
-            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
+            query,
+            effective_filters,
+            retrieval_limit,
+            threshold,
+            explain=explain,
+            show_expired=show_expired,
+            show_superseded=show_superseded,
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
@@ -1729,7 +1794,9 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
+    def _search_vector_store(
+        self, query, filters, limit, threshold=0.1, explain=False, show_expired=False, show_superseded=False
+    ):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1774,6 +1841,8 @@ class Memory(MemoryBase):
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
+            if not show_superseded and _payload_is_superseded(payload):
+                continue
             mem_id = str(mem.id)
             seen_ids.add(mem_id)
             candidates.append({
@@ -1782,7 +1851,9 @@ class Memory(MemoryBase):
                 "payload": payload,
             })
 
-        candidates.extend(_keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired))
+        candidates.extend(
+            _keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired, show_superseded)
+        )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
@@ -2741,11 +2812,13 @@ class AsyncMemory(MemoryBase):
             filters=search_filters,
         )
 
-        # Index by position rather than UUID (anti-hallucination)
+        # Index by position rather than UUID (anti-hallucination). The model
+        # reports contradictions by index, which is mapped back here.
         existing_memories = [
             {"id": str(idx), "text": mem.payload.get("data", "")}
             for idx, mem in enumerate(existing_results)
         ]
+        existing_by_index = {str(idx): mem for idx, mem in enumerate(existing_results)}
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(effective_filters.get("agent_id")) and not effective_filters.get("user_id")
@@ -2819,7 +2892,7 @@ class AsyncMemory(MemoryBase):
 
         restatements = await self._restatements_of_existing(mem_texts, embed_map, search_filters)
 
-        records = []
+        records = []  # (memory_id, text, embedding, payload, contradicted_indices)
         seen_hashes = set()
         for mem in extracted_memories:
             text = mem.get("text")
@@ -2847,7 +2920,10 @@ class AsyncMemory(MemoryBase):
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
-            records.append((memory_id, text, embed_map[text], mem_metadata))
+            contradicts = mem.get("contradicts")
+            records.append(
+                (memory_id, text, embed_map[text], mem_metadata, contradicts if isinstance(contradicts, list) else [])
+            )
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
@@ -2896,6 +2972,9 @@ class AsyncMemory(MemoryBase):
                 except Exception as e:
                     logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
 
+        # Phase 6b: Retire memories the new extractions contradict
+        _supersede_contradicted(self.vector_store, self.db, records, existing_by_index)
+
         # Phase 7: Batch entity linking
         try:
             all_texts = [r[1] for r in records]
@@ -2903,7 +2982,7 @@ class AsyncMemory(MemoryBase):
 
             # 7a: Global dedup
             global_entities = {}
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload, _contradicted) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = self._normalize_entity_text(entity_text)
@@ -3069,6 +3148,7 @@ class AsyncMemory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
         show_expired: bool = False,
+        show_superseded: bool = False,
         **kwargs,
     ):
         """
@@ -3080,6 +3160,8 @@ class AsyncMemory(MemoryBase):
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
             show_expired (bool, optional): Include expired memories. Defaults to False.
+            show_superseded (bool, optional): Include memories a later one contradicted.
+                Defaults to False.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
@@ -3118,7 +3200,7 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
-        fetch_limit = limit if show_expired else max(limit * 4, 60)
+        fetch_limit = limit if (show_expired and show_superseded) else max(limit * 4, 60)
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
@@ -3126,7 +3208,9 @@ class AsyncMemory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        all_memories_result = await self._get_all_from_vector_store(effective_filters, fetch_limit, show_expired, limit)
+        all_memories_result = await self._get_all_from_vector_store(
+            effective_filters, fetch_limit, show_expired, limit, show_superseded
+        )
 
         if scale_threshold_notice:
             await display_scale_threshold_notice_async(self, "async", "get_all", *scale_threshold_notice)
@@ -3134,7 +3218,9 @@ class AsyncMemory(MemoryBase):
             await display_first_run_notice_async(self, "async", "get_all")
         return {"results": all_memories_result}
 
-    async def _get_all_from_vector_store(self, filters, limit, show_expired=False, output_limit=None):
+    async def _get_all_from_vector_store(
+        self, filters, limit, show_expired=False, output_limit=None, show_superseded=False
+    ):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
 
         # Handle different vector store return formats by inspecting first element
@@ -3164,6 +3250,8 @@ class AsyncMemory(MemoryBase):
         formatted_memories = []
         for mem in actual_memories:
             if not show_expired and _payload_is_expired(mem.payload):
+                continue
+            if not show_superseded and _payload_is_superseded(mem.payload):
                 continue
             memory_item_dict = MemoryItem(
                 id=mem.id,
@@ -3198,6 +3286,7 @@ class AsyncMemory(MemoryBase):
         explain: bool = False,
         reference_date: Optional[Any] = None,
         show_expired: bool = False,
+        show_superseded: bool = False,
         **kwargs,
     ):
         """
@@ -3231,6 +3320,8 @@ class AsyncMemory(MemoryBase):
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
             reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             show_expired (bool, optional): Include expired memories. Defaults to False.
+            show_superseded (bool, optional): Include memories a later one contradicted.
+                Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -3310,7 +3401,13 @@ class AsyncMemory(MemoryBase):
 
         search_start = time.perf_counter()
         original_memories = await self._search_vector_store(
-            query, effective_filters, retrieval_limit, threshold, explain=explain, show_expired=show_expired
+            query,
+            effective_filters,
+            retrieval_limit,
+            threshold,
+            explain=explain,
+            show_expired=show_expired,
+            show_superseded=show_superseded,
         )
         search_elapsed_seconds = time.perf_counter() - search_start
 
@@ -3447,7 +3544,9 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False, show_expired=False):
+    async def _search_vector_store(
+        self, query, filters, limit, threshold=0.1, explain=False, show_expired=False, show_superseded=False
+    ):
         if threshold is None:
             threshold = 0.1
 
@@ -3491,6 +3590,8 @@ class AsyncMemory(MemoryBase):
             payload = mem.payload if hasattr(mem, 'payload') else {}
             if not show_expired and _payload_is_expired(payload):
                 continue
+            if not show_superseded and _payload_is_superseded(payload):
+                continue
             mem_id = str(mem.id)
             seen_ids.add(mem_id)
             candidates.append({
@@ -3499,7 +3600,9 @@ class AsyncMemory(MemoryBase):
                 "payload": payload,
             })
 
-        candidates.extend(_keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired))
+        candidates.extend(
+            _keyword_only_candidates(keyword_results, seen_ids, bm25_scores, show_expired, show_superseded)
+        )
 
         # Step 8: Score and rank
         scored_results = score_and_rank(
