@@ -439,6 +439,32 @@ def _normalize_expiration_date(value: Any) -> Optional[str]:
     raise ValueError("expiration_date must be a date string in YYYY-MM-DD format.")
 
 
+def _normalize_observation_timestamp(value: Any) -> Optional[str]:
+    """Normalize `add(timestamp=...)` to an ISO-8601 UTC string.
+
+    A bare date means midnight UTC on that day. This is when the conversation
+    happened, which is what relative references in it resolve against and what
+    the memory's age is measured from.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, date):
+        parsed = datetime.combine(value, datetime.min.time())
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("timestamp must be an ISO-8601 date or datetime, e.g. '2023-05-24'.") from exc
+    else:
+        raise ValueError("timestamp must be an ISO-8601 date or datetime, e.g. '2023-05-24'.")
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
 def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
     if not payload:
         return False
@@ -847,7 +873,11 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            timestamp (Any, optional): When the conversation actually happened, as an
+                ISO-8601 date or datetime (e.g. "2023-05-24"). Relative references in the
+                messages are grounded against it, and the resulting memories carry it as
+                their created_at, so recency reflects the event rather than the import.
+                Defaults to now.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
             infer (bool, optional): If True (default), an LLM extracts key facts from 'messages'
@@ -878,9 +908,7 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
-        if timestamp is not None:
-            raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
-
+        observed_at = _normalize_observation_timestamp(timestamp)
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
@@ -891,6 +919,8 @@ class Memory(MemoryBase):
         )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
+        if observed_at is not None:
+            processed_metadata["created_at"] = observed_at
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise Mem0ValidationError(
@@ -930,7 +960,9 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = self._add_to_vector_store(
+            messages, processed_metadata, effective_filters, infer, prompt=prompt, observed_at=observed_at
+        )
         scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
@@ -940,7 +972,7 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, observed_at=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -1013,6 +1045,7 @@ class Memory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=observed_at,
         )
 
         try:
@@ -2564,7 +2597,11 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            timestamp (Any, optional): When the conversation actually happened, as an
+                ISO-8601 date or datetime (e.g. "2023-05-24"). Relative references in the
+                messages are grounded against it, and the resulting memories carry it as
+                their created_at, so recency reflects the event rather than the import.
+                Defaults to now.
             expiration_date (Any, optional): Date in YYYY-MM-DD format. Expired memories are hidden
                 from search and get_all unless show_expired is True.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
@@ -2581,9 +2618,7 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
-        if timestamp is not None:
-            raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
-
+        observed_at = _normalize_observation_timestamp(timestamp)
         normalized_expiration_date = _normalize_expiration_date(expiration_date)
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
@@ -2591,6 +2626,8 @@ class AsyncMemory(MemoryBase):
         )
         if normalized_expiration_date is not None:
             processed_metadata["expiration_date"] = normalized_expiration_date
+        if observed_at is not None:
+            processed_metadata["created_at"] = observed_at
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -2629,7 +2666,9 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = await self._add_to_vector_store(
+            messages, processed_metadata, effective_filters, infer, prompt=prompt, observed_at=observed_at
+        )
         scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
@@ -2646,6 +2685,7 @@ class AsyncMemory(MemoryBase):
         effective_filters: dict,
         infer: bool,
         prompt: Optional[str] = None,
+        observed_at: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
@@ -2720,6 +2760,7 @@ class AsyncMemory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=observed_at,
         )
 
         try:

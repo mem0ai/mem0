@@ -87,16 +87,24 @@ export const RECENCY_HALF_LIFE_DAYS = 180.0;
 export function recencyScore(
   payload: Record<string, any> | undefined,
   halfLifeDays: number,
+  nowMs: number = Date.now(),
 ): number {
   if (!payload || halfLifeDays <= 0) return 0.0;
 
-  const stamp = payload.updated_at || payload.created_at;
+  // NOTE: OSS payloads are camelCase, the REST/Python side is snake_case, and
+  // both reach this function. Reading only one spelling silently scores every
+  // memory as maximally stale.
+  const stamp =
+    payload.updatedAt ??
+    payload.updated_at ??
+    payload.createdAt ??
+    payload.created_at;
   if (!stamp) return 0.0;
 
   const written = new Date(String(stamp)).getTime();
   if (Number.isNaN(written)) return 0.0;
 
-  const ageDays = (Date.now() - written) / 86_400_000;
+  const ageDays = (nowMs - written) / 86_400_000;
   if (ageDays <= 0) return 1.0;
   return 0.5 ** (ageDays / halfLifeDays);
 }
@@ -159,6 +167,10 @@ export interface ScoredResult {
  * @param threshold - Minimum semantic score to include a candidate.
  * @param topK - Maximum number of results to return.
  * @param explain - Include scoreDetails in each result when true.
+ * @param recencyHalfLifeDays - Age at which the recency signal halves.
+ * @param nowMs - Instant to age memories against. Callers that already read
+ *   the clock should pass it: every candidate must be aged against the same
+ *   instant, and an extra read inside a timed span skews the measurement.
  * @returns Sorted list of scored results, highest score first.
  */
 export function scoreAndRank(
@@ -174,6 +186,7 @@ export function scoreAndRank(
   topK: number,
   explain: boolean = false,
   recencyHalfLifeDays: number = RECENCY_HALF_LIFE_DAYS,
+  nowMs: number = Date.now(),
 ): ScoredResult[] {
   const scored: ScoredResult[] = [];
 
@@ -201,7 +214,7 @@ export function scoreAndRank(
     // Entity boosts arrive pre-scaled to [0, ENTITY_BOOST_WEIGHT]; rescale so
     // W_ENTITY is the only thing deciding how much entities count.
     const entitySignal = entityBoost / ENTITY_BOOST_WEIGHT;
-    const recency = recencyScore(result.payload, recencyHalfLifeDays);
+    const recency = recencyScore(result.payload, recencyHalfLifeDays, nowMs);
 
     let weighted =
       W_SEMANTIC * semanticScore +

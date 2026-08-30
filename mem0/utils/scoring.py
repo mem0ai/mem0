@@ -55,7 +55,11 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
     return 1.0 / (1.0 + math.exp(-steepness * (raw_score - midpoint)))
 
 
-def recency_score(payload: Optional[Dict[str, Any]], half_life_days: float) -> float:
+def recency_score(
+    payload: Optional[Dict[str, Any]],
+    half_life_days: float,
+    now: Optional[datetime] = None,
+) -> float:
     """Exponential freshness in [0, 1] from a payload's last-touched timestamp.
 
     Falls back to 0.0 when there is no usable timestamp: an undated memory is
@@ -77,7 +81,7 @@ def recency_score(payload: Optional[Dict[str, Any]], half_life_days: float) -> f
     if written.tzinfo is None:
         written = written.replace(tzinfo=timezone.utc)
 
-    age_days = (datetime.now(timezone.utc) - written).total_seconds() / 86400.0
+    age_days = ((now or datetime.now(timezone.utc)) - written).total_seconds() / 86400.0
     if age_days <= 0:
         return 1.0
     return 0.5 ** (age_days / half_life_days)
@@ -138,6 +142,10 @@ def score_and_rank(
     Returns:
         List of scored result dicts sorted by combined score descending.
     """
+    # One clock read for the batch: every candidate in a result set must be aged
+    # against the same instant.
+    now = datetime.now(timezone.utc)
+
     scored: List[Dict[str, Any]] = []
 
     for result in semantic_results:
@@ -162,7 +170,7 @@ def score_and_rank(
         # Entity boosts arrive pre-scaled to [0, ENTITY_BOOST_WEIGHT]; rescale
         # so W_ENTITY is the only thing deciding how much entities count.
         entity_signal = entity_boost / ENTITY_BOOST_WEIGHT
-        recency = recency_score(result.get("payload"), recency_half_life_days)
+        recency = recency_score(result.get("payload"), recency_half_life_days, now)
 
         weighted = (
             W_SEMANTIC * semantic_score

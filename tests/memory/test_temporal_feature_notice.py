@@ -4,7 +4,8 @@ from mem0.memory import main as memory_main
 from mem0.memory.main import AsyncMemory, Memory
 
 
-def test_sync_add_timestamp_raises_before_validation(monkeypatch):
+def test_sync_add_timestamp_is_not_gated_as_platform_only(monkeypatch):
+    """add(timestamp=...) is supported in OSS; only unparseable values are rejected."""
     calls = []
 
     def get_error(sync_type, trigger_function, trigger_parameter):
@@ -13,10 +14,10 @@ def test_sync_add_timestamp_raises_before_validation(monkeypatch):
 
     monkeypatch.setattr(memory_main, "get_temporal_feature_error_message", get_error)
 
-    with pytest.raises(ValueError, match="blocked timestamp"):
+    with pytest.raises(ValueError, match="ISO-8601"):
         Memory.add(Memory.__new__(Memory), "hello", timestamp=123)
 
-    assert calls == [("sync", "add", "timestamp")]
+    assert calls == []
 
 
 def test_sync_search_reference_date_raises_before_validation(monkeypatch):
@@ -35,7 +36,8 @@ def test_sync_search_reference_date_raises_before_validation(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_async_add_timestamp_raises_before_validation(monkeypatch):
+async def test_async_add_timestamp_is_not_gated_as_platform_only(monkeypatch):
+    """add(timestamp=...) is supported in OSS; only unparseable values are rejected."""
     calls = []
 
     async def get_error(sync_type, trigger_function, trigger_parameter):
@@ -44,10 +46,10 @@ async def test_async_add_timestamp_raises_before_validation(monkeypatch):
 
     monkeypatch.setattr(memory_main, "get_temporal_feature_error_message_async", get_error)
 
-    with pytest.raises(ValueError, match="blocked async timestamp"):
+    with pytest.raises(ValueError, match="ISO-8601"):
         await AsyncMemory.add(AsyncMemory.__new__(AsyncMemory), "hello", timestamp=123)
 
-    assert calls == [("async", "add", "timestamp")]
+    assert calls == []
 
 
 @pytest.mark.asyncio

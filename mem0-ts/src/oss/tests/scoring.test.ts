@@ -155,6 +155,29 @@ describe("recency", () => {
     expect(garbage[0].score).toBeCloseTo(W_SEMANTIC * 0.8);
   });
 
+  // Regression: OSS payloads store camelCase createdAt/updatedAt while the
+  // REST and Python sides use snake_case, and both reach scoreAndRank. Reading
+  // one spelling scored every memory from the other as maximally stale.
+  it("reads camelCase and snake_case timestamps alike", () => {
+    const fresh = new Date(Date.now() - 86_400_000).toISOString();
+    const camel = scoreAndRank(
+      [{ id: "a", score: 0.8, payload: { createdAt: fresh } }],
+      {},
+      {},
+      0.1,
+      1,
+    );
+    const snake = scoreAndRank(
+      [{ id: "a", score: 0.8, payload: { created_at: fresh } }],
+      {},
+      {},
+      0.1,
+      1,
+    );
+    expect(camel[0].score).toBeCloseTo(snake[0].score);
+    expect(camel[0].score).toBeGreaterThan(W_SEMANTIC * 0.8);
+  });
+
   it("prefers updated_at over created_at", () => {
     const old = new Date(Date.now() - 730 * 86_400_000).toISOString();
     const recent = new Date(Date.now() - 86_400_000).toISOString();

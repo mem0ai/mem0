@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
@@ -1049,6 +1049,96 @@ class TestEntityBoostParallelism:
         assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4
+
+
+class TestAddTimestamp:
+    """A memory imported from an old transcript must carry the date it describes.
+
+    Regression: add(timestamp=...) raised in OSS, so Observation Date was always
+    today and every "last week" in a year-old transcript resolved to last week,
+    despite the prompt spending fifteen lines on grounding relative references.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.recency_half_life_days = RECENCY_HALF_LIFE_DAYS
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda ts, *a, **kw: [[0.1] * 10 for _ in ts])
+        memory.llm.generate_response.return_value = '{"memory": [{"text": "User went to Paris"}]}'
+        memory.vector_store.search = Mock(return_value=[])
+        memory.vector_store.search_batch = Mock(return_value=[[]])
+        memory.vector_store.insert = Mock()
+        memory._entity_store = Mock()
+        memory._entity_store.search_batch = Mock(return_value=[[]])
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+        return memory
+
+    def test_timestamp_sets_the_observation_date_in_the_prompt(self, mock_memory):
+        mock_memory.add("I went to Paris last week", user_id="u1", timestamp="2023-05-24")
+
+        user_prompt = mock_memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24" in user_prompt
+
+    def test_timestamp_backdates_created_at(self, mock_memory):
+        mock_memory.add("I went to Paris last week", user_id="u1", timestamp="2023-05-24")
+
+        payload = mock_memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["created_at"].startswith("2023-05-24")
+        assert payload["updated_at"] == payload["created_at"]
+
+    def test_without_timestamp_the_observation_date_is_today(self, mock_memory):
+        mock_memory.add("I went to Paris last week", user_id="u1")
+
+        today = datetime.now(timezone.utc).date().isoformat()
+        user_prompt = mock_memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        assert f"## Observation Date\n{today}" in user_prompt
+
+    def test_an_unparseable_timestamp_is_rejected(self, mock_memory):
+        with pytest.raises(ValueError, match="timestamp"):
+            mock_memory.add("anything", user_id="u1", timestamp="last tuesday")
+
+    def test_a_date_object_is_accepted(self, mock_memory):
+        mock_memory.add("I went to Paris last week", user_id="u1", timestamp=date(2023, 5, 24))
+
+        payload = mock_memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["created_at"].startswith("2023-05-24")
+
+    @pytest.mark.asyncio
+    async def test_async_timestamp_backdates_created_at(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model = Mock()
+        memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        memory.embedding_model.embed_batch = Mock(side_effect=lambda ts, *a, **kw: [[0.1] * 10 for _ in ts])
+        memory.llm.generate_response.return_value = '{"memory": [{"text": "User went to Paris"}]}'
+        memory.vector_store.search = Mock(return_value=[])
+        memory.vector_store.search_batch = Mock(return_value=[[]])
+        memory.vector_store.insert = Mock()
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        await memory.add("I went to Paris last week", user_id="u1", timestamp="2023-05-24")
+
+        payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["created_at"].startswith("2023-05-24")
 
 
 class TestAddPipelineSemanticDedup:

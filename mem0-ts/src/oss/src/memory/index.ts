@@ -80,7 +80,11 @@ import {
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { logger } from "../utils/logger";
-import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
+import {
+  normalizeExpirationDate,
+  normalizeObservationTimestamp,
+  payloadIsExpired,
+} from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
 export class LLMError extends Error {
@@ -756,15 +760,7 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
-    if (config?.timestamp !== undefined) {
-      await this._getNoticeTelemetryId();
-      throw new Error(
-        await getTemporalFeatureErrorMessage(this, {
-          triggerFunction: "add",
-          triggerParameter: "timestamp",
-        }),
-      );
-    }
+    const observedAt = normalizeObservationTimestamp(config?.timestamp);
 
     // Validate messages input
     if (messages === undefined || messages === null) {
@@ -822,6 +818,12 @@ export class Memory {
     // Normalize expiration date into the stored metadata (round-trips via get()).
     if (config.expirationDate != null) {
       metadata.expiration_date = normalizeExpirationDate(config.expirationDate);
+    }
+
+    // Backdated memories carry the date they describe, so recency measures the
+    // event rather than the import.
+    if (observedAt !== undefined) {
+      metadata.createdAt = observedAt;
     }
 
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
@@ -952,6 +954,7 @@ export class Memory {
       newMessages: parsedMessages,
       lastKMessages: lastMessages,
       customInstructions: this.customInstructions,
+      observationDate: (metadata.createdAt as string | undefined)?.slice(0, 10),
     });
 
     let response: string;
@@ -1067,15 +1070,18 @@ export class Memory {
 
       const textLemmatized = lemmatizeForBm25(text);
       const memoryId = uuidv4();
-      const now = new Date().toISOString();
+      // A backdated add() puts createdAt on the metadata; honour it so the
+      // memory carries the date it describes rather than the import time.
+      const createdAt =
+        (metadata.createdAt as string | undefined) ?? new Date().toISOString();
 
       const memPayload: Record<string, any> = {
         ...metadata,
         data: text,
         textLemmatized,
         hash: memHash,
-        createdAt: now,
-        updatedAt: now,
+        createdAt,
+        updatedAt: createdAt,
       };
       if (mem.attributed_to) {
         memPayload.attributedTo = mem.attributed_to;
@@ -1625,6 +1631,7 @@ export class Memory {
       useReranker ? topK * RERANK_CANDIDATE_MULTIPLIER : topK,
       explain,
       this.config.recencyHalfLifeDays ?? RECENCY_HALF_LIFE_DAYS,
+      searchStartMs,
     );
 
     // Step 9: Format results

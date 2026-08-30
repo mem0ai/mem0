@@ -36,6 +36,49 @@ export function normalizeExpirationDate(value: string): string {
   throw new Error("expirationDate must be a valid date in YYYY-MM-DD format.");
 }
 
+/**
+ * Normalize `add({ timestamp })` to an ISO-8601 UTC string.
+ *
+ * A bare date means midnight UTC on that day. This is when the conversation
+ * happened, which is what relative references in it resolve against and what
+ * the memory's age is measured from. Same strictness as expiration dates: a
+ * value `new Date()` would silently reinterpret is rejected instead.
+ */
+export function normalizeObservationTimestamp(
+  value?: number | string | Date | null,
+): string | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  // The option type allows a number, but the Python SDK rejects epochs and the
+  // two must agree on what a valid timestamp is.
+  if (typeof value === "number") {
+    throw new Error(
+      "timestamp must be an ISO-8601 date or datetime, e.g. '2023-05-24'.",
+    );
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new Error(
+        "timestamp must be an ISO-8601 date or datetime, e.g. '2023-05-24'.",
+      );
+    }
+    return value.toISOString();
+  }
+
+  if (EXPIRATION_DATE_PATTERN.test(value)) {
+    return normalizeExpirationDate(value) + "T00:00:00.000Z";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(
+      "timestamp must be an ISO-8601 date or datetime, e.g. '2023-05-24'.",
+    );
+  }
+  return parsed.toISOString();
+}
+
 /** True when the payload carries an expiration date strictly before today (UTC). */
 export function payloadIsExpired(
   payload: Record<string, any> | null | undefined,

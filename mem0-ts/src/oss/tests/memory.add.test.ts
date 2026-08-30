@@ -48,6 +48,7 @@ jest.mock("../src/utils/factory", () => {
     async generateResponse(messages: Array<{ role: string; content: string }>) {
       const userMsg = messages.find((m) => m.role === "user");
       const content = userMsg?.content ?? "";
+      (globalThis as any).__lastExtractionPrompt = content;
       const newMsgMatch = content.match(
         /## New Messages\n([\s\S]*?)(?=\n##|$)/,
       );
@@ -374,6 +375,39 @@ describe("Memory - add()", () => {
       filters: { user_id: scope.userId },
     });
     expect(all.results.length).toBe(1);
+  });
+
+  // Regression: add({ timestamp }) threw "not supported by the OSS Memory SDK",
+  // so an imported year-old transcript dated every "last week" to last week.
+  test("backdates createdAt to the supplied timestamp", async () => {
+    const result: SearchResult = await memory.add(
+      "I went to Lisbon last week",
+      {
+        userId: `${userId}-backdated`,
+        timestamp: "2023-05-24",
+      },
+    );
+    const stored: MemoryItem | null = await memory.get(result.results[0].id);
+    expect(stored!.createdAt).toContain("2023-05-24");
+    expect(stored!.updatedAt).toBe(stored!.createdAt);
+  });
+
+  test("grounds the extraction prompt on the supplied timestamp", async () => {
+    await memory.add("I went to Lisbon last week", {
+      userId: `${userId}-observed`,
+      timestamp: "2023-05-24",
+    });
+    // The LLM mock echoes back the "## New Messages" section, so read the prompt
+    // it was handed rather than the stored text.
+    expect((globalThis as any).__lastExtractionPrompt).toContain(
+      "## Observation Date\n2023-05-24",
+    );
+  });
+
+  test("rejects a timestamp it cannot parse", async () => {
+    await expect(
+      memory.add("anything", { userId, timestamp: "last tuesday" }),
+    ).rejects.toThrow("ISO-8601");
   });
 
   test("still stores a distinct fact about a familiar topic", async () => {

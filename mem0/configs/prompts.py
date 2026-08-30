@@ -955,11 +955,22 @@ def _format_new_messages(new_messages):
 
 
 def _resolve_dates(current_date=None, observation_date=None):
-    """Resolve current and observation dates, defaulting to today."""
-    if current_date is None:
-        current_date = datetime.now(timezone.utc).date().isoformat()
-    if observation_date is None:
-        observation_date = current_date
+    """Resolve current and observation dates, defaulting to today.
+
+    Both render as bare YYYY-MM-DD; the prompt grounds relative references
+    against the day, so a full timestamp is trimmed rather than rejected.
+    """
+
+    def _as_date(value):
+        if value is None:
+            return None
+        try:
+            return datetime.fromisoformat(str(value)).date().isoformat()
+        except ValueError:
+            return str(value)
+
+    current_date = _as_date(current_date) or datetime.now(timezone.utc).date().isoformat()
+    observation_date = _as_date(observation_date) or current_date
     return current_date, observation_date
 
 
