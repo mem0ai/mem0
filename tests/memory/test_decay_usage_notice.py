@@ -11,6 +11,7 @@ def make_sync_memory():
     memory = Memory.__new__(Memory)
     memory.vector_store = MagicMock()
     memory._delete_memory = MagicMock()
+    memory._entity_store = None
     return memory
 
 
