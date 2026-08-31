@@ -240,8 +240,8 @@ def schedule_idle_flush(
     material = f"idle\0{hook_input.get('cwd', '')}\0{hook_input.get('session_id', '')}"
     digest = hashlib.sha256(material.encode()).hexdigest()[:24]
     handoff_path = pending_dir / f"idle-{digest}.json"
-    if handoff_path.with_suffix(".running").exists():
-        return False
+    handoff_path.with_suffix(".running").unlink(missing_ok=True)
+    handoff_path.unlink(missing_ok=True)
     temporary_path = handoff_path.with_suffix(".tmp")
     temporary_path.write_text(
         json.dumps({

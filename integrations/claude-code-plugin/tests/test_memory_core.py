@@ -1533,7 +1533,6 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
         "assistant",
         "user",
         "assistant",
-        "assistant",
     ]
     serialized = json.dumps(sent_body)
     assert "Canonical issue: preserve ODS datetime formatting." not in serialized
@@ -1541,8 +1540,8 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
     assert "Remember that ODS dates must remain timezone-naive." in serialized
     assert "Fixed serialization in src/ods.py" in serialized
     assert "The serializer now preserves timezone-naive ODS dates." in serialized
-    assert "Sidekick outcome" in serialized
-    assert "Confirmed that src/ods.py is the only writer." in serialized
+    assert "Sidekick outcome" not in serialized
+    assert "Confirmed that src/ods.py is the only writer." not in serialized
     assert "pytest tests/test_ods.py" not in serialized
     assert "Submission PASSED" not in serialized
     assert "Files read" not in serialized
@@ -3604,7 +3603,7 @@ def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
     repo = memory_core.RepoContext(
         cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc", project_id="repo-a"
     )
-    listed = {"results": [{"id": "m1"}, {"id": "m2"}]}
+    listed = {"results": [{"id": "m1", "app_id": "repo-a"}, {"id": "m2", "app_id": "repo-a/sub"}]}
     deleted = []
 
     with patch.object(memory_core, "_request_json", return_value=(listed, 0, 0)) as request:
@@ -3615,7 +3614,7 @@ def test_forget_deletes_each_memory_by_id(monkeypatch, isolated_env):
 
     url, _, payload, _ = request.call_args[0]
     assert "/v2/memories/" in url
-    assert payload["filters"] == {"AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]}
+    assert payload["filters"] == {"user_id": "test-user"}
     assert deleted == ["m1", "m2"]
     assert result == {"status": "deleted", "deleted": 2}
 
@@ -3631,7 +3630,7 @@ def test_forget_only_touches_shared_project_memory_when_asked(monkeypatch, isola
             result = memory_core.forget_remote_repo(repo, include_project_memory=True)
 
     assert [call.args[2]["filters"] for call in request.call_args_list] == [
-        {"AND": [{"user_id": "test-user"}, {"app_id": "repo-a"}]},
+        {"user_id": "test-user"},
         {"agent_id": "repo-a"},
     ]
     assert result == {"status": "deleted", "deleted": 1}
@@ -3642,7 +3641,7 @@ def test_forget_reports_partial_failures(monkeypatch, isolated_env):
     repo = memory_core.RepoContext(
         cwd="/x", root="/x", identity="x", app_id="repo-a", branch="main", head_sha="abc", project_id="repo-a"
     )
-    listed = {"results": [{"id": "m1"}, {"id": "m2"}]}
+    listed = {"results": [{"id": "m1", "app_id": "repo-a"}, {"id": "m2", "app_id": "repo-a"}]}
 
     with patch.object(memory_core, "_request_json", return_value=(listed, 0, 0)):
         with patch.object(memory_core, "_delete_memory", side_effect=[True, False]):

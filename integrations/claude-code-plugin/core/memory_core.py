@@ -1799,6 +1799,7 @@ def build_episode(
     ]
     tools = [
         e["payload"] for e in events if e["kind"] in {"tool_result", "tool_failure"}
+        and e["payload"].get("agent_role", "main") == "main"
     ]
     read_paths = _ordered_unique(
         _repo_relative_path(repo, str(t.get("repo_path") or t.get("path", "")))
@@ -1883,27 +1884,8 @@ def build_episode(
                         }
                     )
             pending_user_messages = []
-        elif event["kind"] == "sidekick_stop" and event["payload"].get(
-            "final_message"
-        ):
-            final_message = bounded(
-                event["payload"].get("final_message", ""),
-                MAX_ASSISTANT_CHARS,
-            )
-            if any(
-                final_message
-                and final_message in message.get("content", "")
-                for message in extraction_messages
-                if message.get("role") == "assistant"
-            ):
-                continue
-            extraction_messages.append(
-                {
-                    "role": "assistant",
-                    "content": "Sidekick outcome:\n"
-                    + final_message,
-                }
-            )
+        elif event["kind"] == "sidekick_stop":
+            pass
     extraction_messages.extend(pending_user_messages)
 
     structured = {
@@ -2764,18 +2746,26 @@ def _scoped_memory_ids(
     api_url: str, key: str, user: str, repo: RepoContext, include_project: bool
 ) -> list[str]:
     """List this user's memory ids for this repository, plus the shared project memory when asked."""
-    branches: list[dict[str, Any]] = [{"AND": [{"user_id": user}, {"app_id": repo.app_id}]}]
-    if include_project:
-        branches.append({"agent_id": repo.project_id})
     ids: list[str] = []
     seen: set[str] = set()
-    for filters in branches:
-        _collect_memory_ids(api_url, key, filters, ids, seen)
+    prefix = repo.app_id
+    _collect_memory_ids(
+        api_url, key, {"user_id": user}, ids, seen,
+        app_id_prefix=prefix,
+    )
+    if include_project:
+        _collect_memory_ids(api_url, key, {"agent_id": repo.project_id}, ids, seen)
     return ids
 
 
 def _collect_memory_ids(
-    api_url: str, key: str, filters: dict[str, Any], ids: list[str], seen: set[str]
+    api_url: str,
+    key: str,
+    filters: dict[str, Any],
+    ids: list[str],
+    seen: set[str],
+    *,
+    app_id_prefix: str = "",
 ) -> None:
     """Page through one list filter; the list endpoint returns nothing for an OR whose user branch has no memories."""
     payload = {"filters": filters}
@@ -2790,10 +2780,17 @@ def _collect_memory_ids(
         if not isinstance(items, list) or not items:
             break
         for item in items:
-            memory_id = str(item.get("id", "")) if isinstance(item, dict) else ""
-            if memory_id and memory_id not in seen:
-                seen.add(memory_id)
-                ids.append(memory_id)
+            if not isinstance(item, dict):
+                continue
+            memory_id = str(item.get("id", ""))
+            if not memory_id or memory_id in seen:
+                continue
+            if app_id_prefix:
+                item_app_id = str(item.get("app_id") or "")
+                if item_app_id != app_id_prefix and not item_app_id.startswith(app_id_prefix + "/"):
+                    continue
+            seen.add(memory_id)
+            ids.append(memory_id)
         if len(items) < FORGET_PAGE_SIZE:
             break
 

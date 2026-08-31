@@ -40,8 +40,8 @@ claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the
 
 ## How memory works
 
-1. During a session, hooks save small details on your computer: user messages, Claude's final answers, changed file paths, and short test/build results. No hook calls a model or blocks the session.
-2. After every five completed exchanges, a detached background worker sends that part of the session to Mem0. A large exchange is sent sooner, and compacting or ending the session sends anything that remains. If the session is left idle without ending, the plugin auto-flushes after five minutes of inactivity (configurable via `MEM0_CODE_IDLE_FLUSH_SECONDS`). The worker survives Claude Code exiting.
+1. During a session, hooks save the main agent's activity on your computer: user messages, Claude's final answers, changed file paths, and short test/build results. Sidekick (subagent) output is not sent for extraction. No hook calls a model or blocks the session.
+2. After every five completed exchanges, a detached background worker sends that part of the session to Mem0. A large exchange is sent sooner, and compacting or ending the session sends anything that remains. If the session is left idle without ending, the plugin auto-flushes after five minutes of inactivity (configurable via `MEM0_CODE_IDLE_FLUSH_SECONDS`). The idle timer resets on each new completed exchange, so the flush always runs relative to the latest activity. The worker survives Claude Code exiting.
 3. Each flush sends a single add call carrying both `agent_id` (the repository) and `user_id` (you), with separate extraction instructions for each lane. Mem0 classifies each extracted memory as shared project knowledge or personal preference internally.
 4. Before Claude's first response in a later session, the plugin automatically searches with your prompt and supplies up to five memories, without calling another model to write the query.
 
@@ -58,6 +58,12 @@ Values that look like credentials are redacted before anything leaves your compu
 
 <Frame>
   <img src="/images/memory-scoping-venn.svg" alt="Venn diagram: one add call produces shared project memory (agent_id, visible to team) and personal memory (user_id, private to you). Search returns the OR union of both." />
+</Frame>
+
+### Plugin sequence
+
+<Frame>
+  <img src="/images/plugin-sequence.svg" alt="Sequence diagram showing the full plugin lifecycle: session-start, first-prompt search, capture events (user-prompt, post-tool, sidekick-start, stop), background extraction via detached flush_worker, and on-demand skills and search tool." />
 </Frame>
 
 ## Commands
