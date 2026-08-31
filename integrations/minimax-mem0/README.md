@@ -8,12 +8,13 @@ It gives a MiniMax agent persistent long-term memory: it remembers the user's pr
 
 This is a declarative MiniMax plugin (no build step). It follows the MiniMax plugin spec:
 
+Built to the [Agent Plugins 1.0](https://agent-plugins.org/specification) standard, which the MiniMax runtime imports and validates against.
+
 ```
 minimax-mem0/
-  .minimax-plugin/
-    plugin.json          # manifest (schemaVersion 1)
-  icon.png               # 180x180 square Mem0 icon
-  mem0.mcp.json          # remote MCP: https://mcp.mem0.ai/mcp/ (streamable-http)
+  plugin.json            # manifest (Agent Plugins 1.0, at plugin root)
+  mcp.json               # remote MCP: https://mcp.mem0.ai/mcp/ (auto-discovered at root)
+  icon.png               # square Mem0 icon
   skills/
     memory/
       SKILL.md           # when to recall / save / update memory
@@ -21,7 +22,7 @@ minimax-mem0/
 
 Two capabilities:
 
-- **MCP** (`mem0.mcp.json`) points at Mem0's hosted MCP server (`https://mcp.mem0.ai/mcp/`), which exposes the memory tools (`add_memory`, `search_memories`, `update_memory`, `delete_memory`, and more). No secrets are stored in the package.
+- **MCP** (`mcp.json`) points at Mem0's hosted MCP server (`https://mcp.mem0.ai/mcp/`), which exposes the memory tools (`add_memory`, `search_memories`, `update_memory`, `delete_memory`, and more). No secrets are stored in the package.
 - **Skill** (`skills/memory/SKILL.md`) tells the agent when to search, save, update, and delete memory so recall happens automatically.
 
 ## Authentication
