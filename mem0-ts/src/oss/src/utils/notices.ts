@@ -299,10 +299,12 @@ export async function evaluateNoticeFlag(
 
   try {
     const config = await fetchNoticeConfig(fetchImpl);
-    const split = typeof config.variant_split === "number" ? config.variant_split : 0.5;
+    const split =
+      typeof config.variant_split === "number" ? config.variant_split : 0.5;
     const hash = crypto.createHash("sha256").update(distinctId).digest("hex");
     const bucket = parseInt(hash.substring(0, 8), 16) % 10000;
-    const variant = bucket < split * 10000 ? DISPLAYED_VARIANT : HOLDOUT_VARIANT;
+    const variant =
+      bucket < split * 10000 ? DISPLAYED_VARIANT : HOLDOUT_VARIANT;
 
     return {
       variant,
