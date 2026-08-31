@@ -1883,6 +1883,27 @@ def build_episode(
                         }
                     )
             pending_user_messages = []
+        elif event["kind"] == "sidekick_stop" and event["payload"].get(
+            "final_message"
+        ):
+            final_message = bounded(
+                event["payload"].get("final_message", ""),
+                MAX_ASSISTANT_CHARS,
+            )
+            if any(
+                final_message
+                and final_message in message.get("content", "")
+                for message in extraction_messages
+                if message.get("role") == "assistant"
+            ):
+                continue
+            extraction_messages.append(
+                {
+                    "role": "assistant",
+                    "content": "Sidekick outcome:\n"
+                    + final_message,
+                }
+            )
     extraction_messages.extend(pending_user_messages)
 
     structured = {

@@ -1534,6 +1534,7 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
         "assistant",
         "user",
         "assistant",
+        "assistant",
     ]
     serialized = json.dumps(sent_body)
     assert "Canonical issue: preserve ODS datetime formatting." not in serialized
@@ -1541,7 +1542,8 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
     assert "Remember that ODS dates must remain timezone-naive." in serialized
     assert "Fixed serialization in src/ods.py" in serialized
     assert "The serializer now preserves timezone-naive ODS dates." in serialized
-    assert "Sidekick outcome" not in serialized
+    assert "Sidekick outcome" in serialized
+    assert "Confirmed that src/ods.py is the only writer." in serialized
     assert "pytest tests/test_ods.py" not in serialized
     assert "Submission PASSED" not in serialized
     assert "Files read" not in serialized
