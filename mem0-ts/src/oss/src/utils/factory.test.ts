@@ -9,6 +9,7 @@ import { CohereReranker } from "../rerankers/cohere";
 import { LLMReranker } from "../rerankers/llm";
 import { ZeroEntropyReranker } from "../rerankers/zeroentropy";
 import { CrossEncoderReranker } from "../rerankers/cross_encoder";
+import { AWSBedrockReranker } from "../rerankers/aws_bedrock";
 
 describe("RerankerFactory", () => {
   const originalOpenAiKey = process.env.OPENAI_API_KEY;
@@ -76,6 +77,11 @@ describe("RerankerFactory", () => {
     delete process.env.OPENAI_API_KEY;
 
     expect(() => RerankerFactory.create("llm_reranker", {})).toThrow();
+  });
+
+  it("creates an AWSBedrockReranker for provider 'aws_bedrock'", () => {
+    const reranker = RerankerFactory.create("aws_bedrock", {});
+    expect(reranker).toBeInstanceOf(AWSBedrockReranker);
   });
 
   it("throws for an unsupported provider", () => {

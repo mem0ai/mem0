@@ -2,6 +2,7 @@
 Reranker implementations for mem0 search functionality.
 """
 
+from .aws_bedrock_reranker import AWSBedrockReranker
 from .base import BaseReranker
 from .cohere_reranker import CohereReranker
 from .huggingface_reranker import HuggingFaceReranker
@@ -10,6 +11,7 @@ from .sentence_transformer_reranker import SentenceTransformerReranker
 from .zero_entropy_reranker import ZeroEntropyReranker
 
 __all__ = [
+    "AWSBedrockReranker",
     "BaseReranker",
     "CohereReranker",
     "HuggingFaceReranker",

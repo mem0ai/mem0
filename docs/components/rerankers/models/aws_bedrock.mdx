@@ -1,0 +1,152 @@
+---
+title: AWS Bedrock
+description: "Configure AWS Bedrock as a reranker in Mem0 using the Bedrock Rerank API, with IAM-based authentication via boto3."
+---
+
+AWS Bedrock exposes managed reranking through the Bedrock Agent Runtime **Rerank API**, giving you Cohere Rerank and Amazon's own rerank model behind a single interface, authenticated with your existing AWS credentials instead of a separate provider API key.
+
+<Note>
+The Rerank API is a different Bedrock service (`bedrock-agent-runtime`) from the `bedrock-runtime` service used by the [AWS Bedrock LLM](/components/llms/models/aws_bedrock) and [AWS Bedrock embedder](/components/embedders/models/aws_bedrock). Model access, quotas, and IAM permissions for it are managed separately in the [Bedrock model catalog](https://console.aws.amazon.com/bedrock/).
+</Note>
+
+## Models
+
+- **`cohere.rerank-v3-5:0`** (default): Cohere's latest reranker, multilingual
+- **`amazon.rerank-v1:0`**: Amazon's own rerank model
+
+You can also pass a full foundation-model ARN directly as `model` (e.g. if you need to pin a specific region other than the client's).
+
+## Installation
+
+```bash
+pip install boto3
+```
+
+## Configuration
+
+```python Python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "my_memories",
+            "path": "./chroma_db"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-5-mini"
+        }
+    },
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "aws_region": "us-east-1",
+            "top_k": 5
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## TypeScript (self-hosted)
+
+The [TypeScript OSS SDK](/open-source/features/reranker-search#typescript-sdk) (`mem0ai/oss`) ships the AWS Bedrock reranker too. Config keys are camelCase, it defaults to the `cohere.rerank-v3-5:0` model, and you opt in per search with `rerank: true`.
+
+```bash
+pnpm add @aws-sdk/client-bedrock-agent-runtime
+```
+
+```typescript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({
+  reranker: {
+    provider: "aws_bedrock",
+    config: {
+      // model: "cohere.rerank-v3-5:0",  // default; or "amazon.rerank-v1:0"
+      awsRegion: "us-east-1",
+      topK: 5,
+    },
+  },
+});
+
+const results = await memory.search("What is the user's profession?", {
+  filters: { userId: "bob" },
+  rerank: true,
+});
+```
+
+Omit the three credential fields to use the AWS default credential chain. `@aws-sdk/client-bedrock-agent-runtime` is loaded on first use via dynamic `import()`, so it stays an optional peer dependency for consumers who don't use this reranker.
+
+## Environment Variables
+
+Bedrock authenticates with standard AWS credentials — no separate reranker API key is needed. Omit the credential fields in config to use the default AWS credential chain (environment variables, shared config, SSO, or an instance role):
+
+```bash
+export AWS_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=your-access-key
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+```
+
+## Usage Example
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["AWS_REGION"] = "us-east-1"
+os.environ["AWS_ACCESS_KEY_ID"] = "your-access-key"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "your-secret-key"
+
+config = {
+    "vector_store": {"provider": "chroma"},
+    "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
+    "reranker": {
+        "provider": "aws_bedrock",
+        "config": {
+            "model": "cohere.rerank-v3-5:0",
+            "top_k": 3
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+
+messages = [
+    {"role": "user", "content": "I work as a data scientist at Microsoft"},
+    {"role": "user", "content": "I specialize in machine learning and NLP"},
+    {"role": "user", "content": "I enjoy playing tennis on weekends"}
+]
+memory.add(messages, user_id="bob")
+
+results = memory.search("What is the user's profession?", user_id="bob", rerank=True)
+
+for result in results["results"]:
+    print(f"Memory: {result['memory']}")
+    print(f"Vector Score: {result['score']:.3f}")
+    print(f"Rerank Score: {result['rerank_score']:.3f}")
+    print()
+```
+
+## Configuration Parameters
+
+| Parameter | Description | Type | Default |
+|-----------|-------------|------|---------|
+| `model` | Bedrock rerank model ID, or a full model ARN | `str` | `"cohere.rerank-v3-5:0"` |
+| `aws_region` | AWS region for the Bedrock reranking service | `str` | `AWS_REGION` env var, else `"us-west-2"` |
+| `aws_access_key_id` | AWS access key ID | `str` | `None` |
+| `aws_secret_access_key` | AWS secret access key | `str` | `None` |
+| `aws_session_token` | AWS session token for temporary credentials (STS / assume-role) | `str` | `None` |
+| `top_k` | Maximum documents to return after reranking | `int` | `None` |
+
+TypeScript config keys are the same, camelCased: `model`, `awsRegion`, `awsAccessKeyId`, `awsSecretAccessKey`, `awsSessionToken`, `topK`.
+
+## Notes
+
+- **IAM permissions.** The calling identity needs `bedrock:Rerank` on the target model, distinct from the `bedrock:InvokeModel`/`bedrock:Converse` permissions used by the LLM and embedder providers.
