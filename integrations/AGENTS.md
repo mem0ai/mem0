@@ -13,6 +13,7 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 | `n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` | tsc | ESLint (n8n-nodes-base) | none |
 | `zapier-mem0/` | `@mem0/zapier` | tsc | none | offline unit tests + `zapier validate` |
 | `mem0-strands/` | `mem0-strands` (PyPI) | hatch | Ruff + mypy | pytest |
+| `minimax-mem0/` | MiniMax Marketplace plugin | none (declarative) | none | JSON/manifest validation |
 
 pnpm everywhere except `.opencode-plugin/` (Bun) and `mem0-strands/` (Python: pip / hatch). Never npm, never yarn.
 
@@ -44,6 +45,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 - **`openclaw/`**, **`pi-agent-plugin/`**, **`deepseek-plugin/`** are editor and agent plugins with the same shape. `deepseek-plugin/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).
+- **`minimax-mem0/`** is a declarative MiniMax Marketplace plugin (no build step): a `.minimax-plugin/plugin.json` manifest plus an MCP capability pointing at the hosted Mem0 MCP server (`https://mcp.mem0.ai/mcp/`) and a memory Skill. It is distributed by submitting the subdirectory to the MiniMax Marketplace (their Feishu form), not through the release router or npm/PyPI.
 - **`mem0-strands/`** is a native Strands `MemoryStore` (Python, published to PyPI as `mem0-strands`). It plugs into the Strands `MemoryManager` for automatic recall and server-side extraction, over the hosted Mem0 platform or self-hosted Mem0 OSS. The package lives under `mem0-strands/python/`.
 
 ## Adding an integration

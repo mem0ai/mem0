@@ -26,7 +26,7 @@ Two capabilities:
 
 ## Authentication
 
-Mem0's MCP server is authenticated. It supports OAuth browser sign-in (the client authorizes the user's Mem0 account on first use) or an API-key bearer token for headless clients. No key is committed in this package.
+Mem0's MCP server is authenticated. It supports OAuth browser sign-in (the client authorizes the user's Mem0 account on first use) or an API-key bearer token for headless clients. No key is committed in this package. Get a key from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-minimax).
 
 > **Open item for MiniMax review:** because the MCP endpoint requires user authentication, confirm with the MiniMax team whether this is accepted as a remote MCP (the runtime handles the OAuth handshake) or should go through the App/Connector integration path per the plugin guide. See [Prerequisites for App integration].
 
