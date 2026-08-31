@@ -6,15 +6,14 @@
   "plugins": [
     {
       "name": "mem0",
-      "source": {
-        "source": "local",
-        "path": "./integrations/mem0-plugin"
-      },
+      "source": "./integrations/claude-code-plugin",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
       },
-      "category": "Productivity"
+      "category": "Productivity",
+      "description": "Cross-session memory and token savings for coding agents.",
+      "version": "0.3.0"
     }
   ]
 }

@@ -39,6 +39,7 @@ jobs:
       cli_node: ${{ steps.filter.outputs.cli_node }}
       openclaw: ${{ steps.filter.outputs.openclaw }}
       mem0_plugin: ${{ steps.filter.outputs.mem0_plugin }}
+      claude_code_plugin: ${{ steps.filter.outputs.claude_code_plugin }}
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
       deepseek_plugin: ${{ steps.filter.outputs.deepseek_plugin }}
@@ -81,6 +82,10 @@ jobs:
               - 'integrations/mem0-plugin/**'
               - '!integrations/mem0-plugin/.opencode-plugin/**'
               - '.github/workflows/mem0-plugin-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            claude_code_plugin:
+              - 'integrations/claude-code-plugin/**'
+              - '.github/workflows/claude-code-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
               - 'integrations/mem0-plugin/.opencode-plugin/**'
@@ -162,6 +167,13 @@ jobs:
     uses: ./.github/workflows/mem0-plugin-checks.yml
     secrets: inherit
 
+  claude-code-plugin:
+    name: Claude Code Plugin
+    needs: changes
+    if: needs.changes.outputs.claude_code_plugin == 'true'
+    uses: ./.github/workflows/claude-code-plugin-checks.yml
+    secrets: inherit
+
   opencode-plugin:
     name: OpenCode Plugin
     needs: changes
@@ -237,6 +249,7 @@ jobs:
       - cli-node
       - openclaw
       - mem0-plugin
+      - claude-code-plugin
       - opencode-plugin
       - pi-agent-plugin
       - deepseek-plugin

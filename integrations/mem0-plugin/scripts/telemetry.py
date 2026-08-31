@@ -27,20 +27,20 @@ import urllib.error
 import urllib.request
 
 # Each editor surface ships its own manifest with its own version line
-# (Antigravity is on 0.1.x while Claude/Cursor/Codex are on 0.2.x), so we read
-# the manifest matching the detected platform rather than a single shared one.
+# (Antigravity is on 0.1.x while Cursor/Codex are on 0.2.x), so we read the
+# manifest matching the detected platform rather than a single shared one.
 _PLATFORM_MANIFESTS = {
     "antigravity": ("..", "plugin.json"),
-    "claude-code": ("..", ".claude-plugin", "plugin.json"),
     "cursor": ("..", ".cursor-plugin", "plugin.json"),
     "codex": ("..", ".codex-plugin", "plugin.json"),
     "kimi": ("..", ".kimi-plugin", "plugin.json"),
 }
-_DEFAULT_MANIFEST = ("..", ".claude-plugin", "plugin.json")
 
 
 def _load_plugin_version(platform_name: str = "") -> str:
-    parts = _PLATFORM_MANIFESTS.get(platform_name, _DEFAULT_MANIFEST)
+    parts = _PLATFORM_MANIFESTS.get(platform_name)
+    if parts is None:
+        return "unknown"
     try:
         plugin_json = os.path.join(os.path.dirname(__file__), *parts)
         with open(plugin_json) as f:
@@ -79,8 +79,6 @@ def detect_platform() -> str:
         return "kimi"
     if os.environ.get("PLUGIN_ROOT"):
         return "codex"
-    if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_PLUGIN_ROOT"):
-        return "claude-code"
     if os.environ.get("CURSOR_PLUGIN_ROOT"):
         return "cursor"
     if os.environ.get("WINDSURF_PLUGIN_ROOT"):
