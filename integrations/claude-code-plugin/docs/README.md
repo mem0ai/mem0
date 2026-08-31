@@ -4,25 +4,6 @@ The plugin remembers two kinds of things: facts about a **repo** (shared with ev
 
 ## Memory scopes
 
-```
-+-------------------------------------------------------+
-|                    Mem0 Platform                       |
-|                                                        |
-|   +--------------------------+   +-----------------+  |
-|   |    Repo (agent_id)       |   |  Personal       |  |
-|   |                          |   |  (user_id)      |  |
-|   |  +---------+             |   |                 |  |
-|   |  | Folder  |  Shared     |   |  Private to     |  |
-|   |  | app_id  |  with the   |   |  you, follows   |  |
-|   |  |         |  whole team |   |  you into       |  |
-|   |  +---------+             |   |  every repo     |  |
-|   |                          |   |                 |  |
-|   +--------------------------+   +-----------------+  |
-|                                                        |
-|   Every memory also carries run_id (session)           |
-+-------------------------------------------------------+
-```
-
 - **Personal (user_id):** only you can read it. It has no repo attached, so it follows you everywhere.
 - **Repo (agent_id):** anyone with access to that repo reads it. It has no user attached, so nobody's private facts leak into it.
 - **Folder (app_id):** a repo memory also remembers the folder it was written in. Searching from a parent folder sees everything under it. Searching from a subfolder does **not** see the parent.
