@@ -1959,7 +1959,12 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
     assert second_result.memories == []
     assert second_result.already_shown_count == 3
     assert captured_payloads[0]["app_id"] == "code-example"
-    assert captured_payloads[0]["filters"] == {"OR": [{"agent_id": "code-example"}, {"user_id": "test-user"}]}
+    assert captured_payloads[0]["filters"] == {
+        "OR": [
+            {"AND": [{"agent_id": "code-example"}, {"app_id": "code-example"}]},
+            {"AND": [{"user_id": "test-user"}, {"app_id": "code-example"}]},
+        ]
+    }
     assert captured_payloads[0]["top_k"] == 6
     assert captured_payloads[0]["threshold"] == 0.15
     assert captured_payloads[0]["rerank"] is False
@@ -1996,7 +2001,12 @@ def test_search_can_filter_one_memory_category(isolated_env, monkeypatch):
 
     assert request.call_args.args[2]["filters"] == {
         "AND": [
-            {"OR": [{"agent_id": "code-example"}, {"user_id": "test-user"}]},
+            {
+                "OR": [
+                    {"AND": [{"agent_id": "code-example"}, {"app_id": "code-example"}]},
+                    {"AND": [{"user_id": "test-user"}, {"app_id": "code-example"}]},
+                ]
+            },
             {"categories": {"contains": "problems_and_fixes"}},
         ]
     }
@@ -2054,8 +2064,8 @@ def test_sidekick_instructions_reject_unrequested_related_changes():
     prompt = (Path(__file__).parents[1] / "agents" / "sidekick.md").read_text()
     normalized = " ".join(prompt.split())
     assert "Skill" in prompt.split("---", 2)[1]
-    assert "call `search_memories` with a focused question" in normalized
-    assert "before searching the repository again" in normalized
+    assert "ALWAYS call `search_memories` before answering anything" in normalized
+    assert "Do not rely on the chat window" in normalized
     assert "Complete only the work the main agent assigned" in normalized
     assert "Do not make related improvements" in normalized
     assert "report them separately" in normalized
@@ -3735,19 +3745,24 @@ def _payments(directory=""):
 
 def test_search_filters_repo_scope_unions_shared_project_memory_with_the_user():
     assert memory_core._search_filters("priya", _payments("services/billing"), "repo") == {
-        "OR": [{"agent_id": "payments-api"}, {"user_id": "priya"}]
+        "OR": [
+            {"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api"}]},
+            {"AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]},
+        ]
     }
 
 
 def test_search_filters_mine_scope_is_the_user_alone():
-    assert memory_core._search_filters("priya", _payments(), "mine") == {"user_id": "priya"}
+    assert memory_core._search_filters("priya", _payments(), "mine") == {
+        "AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]
+    }
 
 
 def test_search_filters_dir_scope_narrows_shared_memory_to_the_directory():
     assert memory_core._search_filters("priya", _payments("services/billing"), "dir") == {
         "OR": [
-            {"AND": [{"agent_id": "payments-api"}, {"metadata": {"dirs": {"contains": "services/billing"}}}]},
-            {"user_id": "priya"},
+            {"AND": [{"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api"}]}, {"metadata": {"dirs": {"contains": "services/billing"}}}]},
+            {"AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]},
         ]
     }
 
@@ -3772,7 +3787,7 @@ def test_directory_app_id_is_the_repository_at_the_root_and_nested_below():
     assert memory_core.directory_app_id(_payments("services/billing")) == "payments-api/services/billing"
 
 
-def test_search_payload_includes_directory_app_id(isolated_env, monkeypatch):
+def test_search_payload_uses_root_app_id_not_directory(isolated_env, monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
 
@@ -3782,7 +3797,7 @@ def test_search_payload_includes_directory_app_id(isolated_env, monkeypatch):
         memory_core.search_memories(store, _payments("services/billing"), "s1", "Stripe config")
 
     payload = request.call_args.args[2]
-    assert payload["app_id"] == "payments-api/services/billing"
+    assert payload["app_id"] == "payments-api"
     store.close()
 
 
@@ -3793,14 +3808,29 @@ def test_no_search_scope_wildcards_the_user():
         ), scope
 
 
+def _flatten_filter_values(node: dict) -> dict:
+    result = {}
+    for key, value in node.items():
+        if key in ("AND", "OR") and isinstance(value, list):
+            for child in value:
+                if isinstance(child, dict):
+                    result.update(_flatten_filter_values(child))
+        else:
+            result[key] = value
+    return result
+
+
 def test_every_search_scope_pins_an_owned_identity():
     for scope in memory_core.SEARCH_SCOPES:
         for directory in ("", "apps/web"):
             filters = memory_core._search_filters("priya", _payments(directory), scope)
             for branch in filters.get("OR", [filters]):
-                values = {k: v for c in branch.get("AND", [branch]) for k, v in c.items()}
+                values = _flatten_filter_values(branch)
                 assert values.get("user_id") == "priya" or values.get("agent_id") == "payments-api", (
                     f"{scope} has an unpinned branch: {branch}"
+                )
+                assert values.get("app_id") == "payments-api", (
+                    f"{scope} missing app_id scope: {branch}"
                 )
 
 
@@ -3836,7 +3866,12 @@ def test_search_memories_sends_repo_filters_by_default(monkeypatch):
         memory_core, "_request_json_with_network_retry", fake_request
     )
     memory_core.search_memories(None, _payments(), None, "q")
-    assert sent["filters"] == {"OR": [{"agent_id": "payments-api"}, {"user_id": "priya"}]}
+    assert sent["filters"] == {
+        "OR": [
+            {"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api"}]},
+            {"AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]},
+        ]
+    }
 
 
 def test_category_nests_under_the_scope_filter(monkeypatch):
@@ -3858,8 +3893,8 @@ def test_category_nests_under_the_scope_filter(monkeypatch):
         "AND": [
             {
                 "OR": [
-                    {"AND": [{"agent_id": "payments-api"}, {"metadata": {"dirs": {"contains": "apps/web"}}}]},
-                    {"user_id": "priya"},
+                    {"AND": [{"AND": [{"agent_id": "payments-api"}, {"app_id": "payments-api"}]}, {"metadata": {"dirs": {"contains": "apps/web"}}}]},
+                    {"AND": [{"user_id": "priya"}, {"app_id": "payments-api"}]},
                 ]
             },
             {"categories": {"contains": "workflows"}},
@@ -4076,7 +4111,12 @@ def test_run_id_narrows_the_search_to_one_session(monkeypatch):
 
     assert sent["filters"] == {
         "AND": [
-            {"OR": [{"agent_id": "code-example"}, {"user_id": "priya"}]},
+            {
+                "OR": [
+                    {"AND": [{"agent_id": "code-example"}, {"app_id": "code-example"}]},
+                    {"AND": [{"user_id": "priya"}, {"app_id": "code-example"}]},
+                ]
+            },
             {"run_id": "session-42"},
         ]
     }

@@ -239,9 +239,9 @@ def schedule_idle_flush(
     pending_dir.mkdir(parents=True, exist_ok=True)
     material = f"idle\0{hook_input.get('cwd', '')}\0{hook_input.get('session_id', '')}"
     digest = hashlib.sha256(material.encode()).hexdigest()[:24]
-    handoff_path = pending_dir / f"idle-{digest}.json"
-    handoff_path.with_suffix(".running").unlink(missing_ok=True)
-    handoff_path.unlink(missing_ok=True)
+    for old in pending_dir.glob(f"idle-{digest}*"):
+        old.unlink(missing_ok=True)
+    handoff_path = pending_dir / f"idle-{digest}-{uuid.uuid4().hex[:8]}.json"
     temporary_path = handoff_path.with_suffix(".tmp")
     temporary_path.write_text(
         json.dumps({

@@ -216,11 +216,12 @@ def directory_chain(repo: RepoContext) -> list[str]:
 
 
 def _search_filters(user: str, repo: RepoContext, scope: str) -> dict[str, Any]:
-    """Build the scope filter: the searcher's own preferences plus the shared memory they are allowed to see."""
-    mine = {"user_id": user}
+    """Build the scope filter: app_id scopes to the repo, then union shared and personal lanes."""
+    app_scope = {"app_id": repo.app_id}
+    mine = {"AND": [{"user_id": user}, app_scope]}
     if scope == "mine":
         return mine
-    shared: dict[str, Any] = {"agent_id": repo.project_id}
+    shared: dict[str, Any] = {"AND": [{"agent_id": repo.project_id}, app_scope]}
     if scope == "dir" and repo.directory:
         shared = {"AND": [shared, {"metadata": {"dirs": {"contains": repo.directory}}}]}
     return {"OR": [shared, mine]}
@@ -2242,7 +2243,7 @@ def flush_session(
     body = {
         "agent_id": write_project,
         "user_id": write_user,
-        "app_id": directory_app_id(repo),
+        "app_id": repo.app_id,
         "run_id": session_id,
         "metadata": {**metadata, "author": write_user, "dirs": directory_chain(repo)},
         "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS,
@@ -2565,7 +2566,7 @@ def search_memories(
     )
     payload = {
         "query": query,
-        "app_id": directory_app_id(repo),
+        "app_id": repo.app_id,
         "filters": filters,
         "top_k": min(result_limit * 2, 20),
         "threshold": min_score,
