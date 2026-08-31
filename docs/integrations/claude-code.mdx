@@ -47,14 +47,18 @@ claude plugin uninstall mem0@mem0-plugins      # uninstall the plugin (keeps the
 
 After that first automatic search, Claude can call the `search_memories` tool with one specific question, and you can run the same search yourself with `/mem0:search`. Those explicit searches return at most three memories by default (configurable up to 20). Each one runs fresh, so asking the same question again can return the same memory; only the automatic first search avoids repeating a memory it already supplied in that session. All returned memory context is capped at 4,000 characters, and results are not reranked or filtered by another score cutoff.
 
-### Two memory lanes
+### What the Platform does with that call
 
-Each submission is written with different instructions for two lanes:
+The single add call carries separate extraction instructions for project facts and personal facts. The Platform reads both and classifies each extracted memory into one of two buckets:
 
-- **Shared project memory** (`agent_id`): one namespace per repository, tagged with the directory it was learned in. Stores what the repository is and what it takes to operate in it: conventions, decisions, constraints, commands that work, and the command that failed together with the one that worked afterwards. Everyone who works in the repository reads and extends the same project memory. Project memory never carries a `user_id`, so a teammate's search never mixes in your preferences and yours never mixes in theirs.
-- **Personal memory** (`user_id`): stores what was learned about you: preferred tools, style, habits, and anything you asked to be remembered. Personal memory follows you between repositories.
+- **Shared project memory** (`agent_id`): one namespace per repository, tagged with the directory it was learned in. Stores what the repository is and what it takes to operate in it: conventions, decisions, constraints, commands that work, and the command that failed together with the one that worked afterwards. Everyone who works in the repository reads and extends the same project memory. Project memory never carries a `user_id`, so a teammate's search never mixes in your preferences.
+- **Personal memory** (`user_id`): stores what was learned about you: preferred tools, style, habits, and anything you asked to be remembered. Personal memory follows you between repositories and is private to you.
 
 Values that look like credentials are redacted before anything leaves your computer.
+
+<Frame>
+  <img src="/images/memory-scoping-venn.svg" alt="Venn diagram: one add call produces shared project memory (agent_id, visible to team) and personal memory (user_id, private to you). Search returns the OR union of both." />
+</Frame>
 
 ## Commands
 
