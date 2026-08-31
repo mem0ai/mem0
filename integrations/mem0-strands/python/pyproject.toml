@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "strands-mem0"
-version = "0.1.0"
+name = "mem0-strands"
+version = "0.1.1"
 description = "Persistent long-term memory for Strands agents, backed by Mem0."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://mem0.ai"
-Documentation = "https://github.com/mem0ai/mem0/tree/main/integrations/strands-mem0#readme"
+Documentation = "https://github.com/mem0ai/mem0/tree/main/integrations/mem0-strands#readme"
 Repository = "https://github.com/mem0ai/mem0"
 Issues = "https://github.com/mem0ai/mem0/issues"
 
@@ -47,7 +47,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/strands_mem0"]
+packages = ["src/mem0_strands"]
 
 [tool.hatch.envs.default]
 dependencies = [

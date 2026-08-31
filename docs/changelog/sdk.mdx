@@ -7,6 +7,19 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-08-24" description="v2.0.19">
+
+**Bug Fixes:**
+- **Embeddings:** `HuggingFaceEmbedding` now falls back to the `HUGGINGFACE_API_KEY` env var, then a placeholder key, when `huggingface_base_url` is set and no `api_key` is configured. The OpenAI-compatible client used to talk to TEI endpoints raises at construction when no key resolves at all, so a TEI deployment that doesn't require a real key previously failed to initialize ([#6947](https://github.com/mem0ai/mem0/pull/6947))
+- **Core:** `remove_code_blocks()` now accepts list-shaped content (a sequence of `{"text": ...}` blocks, as some agent frameworks pass) by joining each block's text before stripping code fences, instead of raising `AttributeError` from calling `.strip()` on a list ([#6947](https://github.com/mem0ai/mem0/pull/6947))
+- **Core:** `create_procedural_memory()` (`Memory` and `AsyncMemory`) now raises a clear `ValueError` when the LLM returns no content for the summary, instead of continuing with empty content that surfaced as a confusing error further down the call ([#6947](https://github.com/mem0ai/mem0/pull/6947))
+- **Proxy:** `mem0.proxy` no longer auto-installs `litellm` via a `pip install` subprocess when the import fails; it now raises `ImportError` with instructions to install it yourself. The auto-install could hang or fail silently in restricted environments and ran an unreviewed install on the caller's behalf ([#6947](https://github.com/mem0ai/mem0/pull/6947))
+- **Client:** `get_all()` (sync and async) now sends `page` and `page_size` as independent query params instead of requiring both to be set before either was sent. Passing only `page_size` without `page` previously had it silently dropped, so results came back at the server's default page size ([#6900](https://github.com/mem0ai/mem0/pull/6900))
+- **LLMs:** Add `provider_override` to `AWSBedrockConfig`, an explicit provider name (for example `"anthropic"`) for when `model` is an application inference profile ARN whose opaque ID has no provider substring for `extract_provider()` to detect. Without it, those ARNs raised `ValueError: Unable to determine provider` ([#6899](https://github.com/mem0ai/mem0/pull/6899))
+- **LLMs:** `VllmConfig` now falls back to the `VLLM_BASE_URL` env var when `vllm_base_url` isn't passed explicitly. The default was filled in before the env var was ever checked, so `VLLM_BASE_URL` was silently ignored ([#6897](https://github.com/mem0ai/mem0/pull/6897))
+
+</Update>
+
 <Update label="2026-08-11" description="v2.0.18">
 
 **Bug Fixes:**
@@ -1206,6 +1219,19 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-08-24" description="v3.1.7">
+
+**Bug Fixes:**
+- **Vector Stores:** Redis and Valkey `search()` / `get()` / `list()` now preserve `agent_id`, `run_id`, and `user_id` as snake_case in the returned payload. The shared payload formatter camelCased every key including those three identity fields, so entity ids came back as `agentId` / `runId` / `userId`, inconsistent with every other vector store ([#6902](https://github.com/mem0ai/mem0/pull/6902))
+- **Memory (OSS):** Embedding-cache lookups now use `Object.prototype.hasOwnProperty.call()` instead of the `in` operator or a falsy `||` check. Memory text matching an inherited `Object.prototype` property name (`constructor`, `toString`, and similar) previously short-circuited the lookup and resolved to that inherited value instead of computing a real embedding, silently corrupting the stored vector ([#6903](https://github.com/mem0ai/mem0/pull/6903))
+- **Client:** `getAll()` now sends `page` and `pageSize` as independent query params instead of requiring both to be set before either was sent. Passing only `pageSize` without `page` previously had it silently dropped, so results came back at the server's default page size ([#6900](https://github.com/mem0ai/mem0/pull/6900))
+- **LLMs:** Add `providerOverride` to the Bedrock `LLMConfig`, an explicit provider name for when `model` is an application inference profile ARN whose opaque ID has no provider substring for `extractProvider()` to detect. Without it, those ARNs threw before the provider-specific settings could be initialized ([#6899](https://github.com/mem0ai/mem0/pull/6899))
+
+**Security:**
+- **Dependencies:** Resolved 17 additional high and critical severity dependency vulnerabilities across 5 pnpm workspaces (`mem0-ts`, `vercel-ai-sdk`, `n8n-nodes-mem0`, `zapier-mem0`, `server/dashboard`) via `pnpm.overrides` and a `tar` patch ([#7032](https://github.com/mem0ai/mem0/pull/7032))
+
+</Update>
+
 <Update label="2026-08-11" description="v3.1.6">
 
 **New Features:**
@@ -1823,6 +1849,17 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-08-24" description="Python v0.2.12 / Node v0.2.13">
+
+**New Features:**
+- **`version`:** New `mem0 version` subcommand, alongside the existing `--version` flag, so scripts and agent harnesses can read the CLI version as a regular subcommand instead of a root-level flag (Python and Node [#6907](https://github.com/mem0ai/mem0/pull/6907))
+- **`add`:** New `--agent-custom-instructions` flag, threaded through to `agent_custom_instructions` on the `/v3/memories/add/` payload: a second extraction instruction set that applies only to agent-scoped memories, matching the SDKs' `agentCustomInstructions` / `agent_custom_instructions` support (Python and Node [#6910](https://github.com/mem0ai/mem0/pull/6910))
+
+**Documentation:**
+- **`search --filter`:** The `--filter` help text and `docs/platform/cli.mdx` now spell out the JSON shape (`{"AND": [...]}` / `{"OR": [...]}`) with a concrete example instead of just calling it "an advanced filter expression," and a matching example command was added to both the CLI help text and the docs page (Python and Node [#6907](https://github.com/mem0ai/mem0/pull/6907))
+
+</Update>
+
 <Update label="2026-08-04" description="Python v0.2.11 / Node v0.2.12">
 
 **New Features:**
@@ -2007,6 +2044,22 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 <Tabs>
 <Tab title="Mem0 Plugin">
+
+<Update label="2026-08-24" description="mem0-plugin v0.2.15">
+
+**Fixes:**
+- **Search:** A failed search request now prints `[mem0] search request failed: <error>` to stderr before returning no results. `search_memories()` swallowed every exception and returned `[]`, so an expired API key, a network failure, or a 500 from the backend was indistinguishable from a genuine "nothing stored yet" and the agent carried on with no context and no warning. Shared by Claude Code, Cursor, Codex, Antigravity, and Kimi ([#6898](https://github.com/mem0ai/mem0/pull/6898))
+- **Cursor:** `mcpServers` in `.cursor-plugin/plugin.json` now points at `./.cursor-mcp.json` instead of `.cursor-mcp.json`. The un-prefixed path resolved inconsistently depending on Cursor's working directory when it loaded the plugin ([#6948](https://github.com/mem0ai/mem0/pull/6948))
+- **Codex:** `install_codex_hooks.py` now prints all six registered events (`PreToolUse, SessionStart, UserPromptSubmit, PostToolUse, Stop, PreCompact`) after installing, instead of a stale four-event list left over from an earlier version of the installer. The README's hook table is corrected to match, documenting the three `PreToolUse` handlers and two `PostToolUse` handlers that were previously undocumented ([#6948](https://github.com/mem0ai/mem0/pull/6948))
+
+**Documentation:**
+- New [Claude.ai](/integrations/claude-ai) integration page ([#6948](https://github.com/mem0ai/mem0/pull/6948))
+
+<Note>
+  The Claude Code, Cursor, and Codex per-editor manifests (`.claude-plugin/plugin.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`) had drifted to `0.2.13` while the `.claude-plugin/marketplace.json` and `.cursor-plugin/marketplace.json` listings had already moved to `0.2.14`, so installs were pinned one release behind what the marketplace advertised. This release realigns every manifest and marketplace listing to `0.2.15`.
+</Note>
+
+</Update>
 
 <Update label="2026-08-04" description="mem0-plugin v0.2.14">
 
@@ -2360,6 +2413,13 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-08-24" description="Antigravity plugin v0.1.7">
+
+**Fixes:**
+- **Hooks:** The `mem0-ensure-deps` and `mem0-session-start` hook commands in `hooks.json` no longer redirect stderr to `/dev/null`. Both commands still end in `|| true` so a failure can't block startup, but a broken dependency install or session bootstrap now shows up in the Antigravity hook log instead of failing invisibly ([#6948](https://github.com/mem0ai/mem0/pull/6948))
+
+</Update>
+
 <Update label="2026-08-04" description="Antigravity plugin v0.1.6">
 
 **Fixes:**
@@ -2427,7 +2487,30 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 </Tab>
 
+<Tab title="Kimi">
+
+<Update label="2026-08-24" description="kimi-plugin v0.1.0">
+
+**Initial release** of the Mem0 plugin for Kimi Code, sharing its scripts, skills, and marketplace listing with the Claude Code / Cursor / Codex / Antigravity plugin family ([#6919](https://github.com/mem0ai/mem0/pull/6919))
+
+**New Features:**
+- **MCP server:** Registers the hosted Mem0 MCP server at `https://mcp.mem0.ai/mcp/`, authenticated via the `MEM0_API_KEY` env var as a bearer token.
+- **Lifecycle hooks:** Wires SessionStart (loads context through the `context-loader` skill), UserPromptSubmit, three PreToolUse hooks (blocks direct `Write`/`Edit`/`MultiEdit` to memory files, enforces metadata defaults on Mem0 MCP tool calls, and injects context on file reads), two PostToolUse hooks (post-tool tracking and Bash-output scanning), Stop, and PreCompact.
+- **Hook adapter:** `kimi_hook_shim.sh` normalizes Kimi Code's hook contract to what the shared hook scripts expect: it resolves the real project directory from the payload's `cwd` (Kimi forces the plugin root as the working directory), converts the array-shaped `prompt` field and the `tool_output` / `tool_input.path` field names to the Claude-style shapes the scripts already handle, and translates the plugin-scoped MCP tool name prefix.
+- **Shared policy skill:** Bundles the `/mem0:policy` skill for managing the `## Instructions` and `## Agent Instructions` sections of `mem0.md`.
+
+</Update>
+
+</Tab>
+
 <Tab title="OpenClaw">
+
+<Update label="2026-08-24" description="openclaw-mem0 v1.0.16">
+
+**Security:**
+- **Dependencies:** Tightened the `undici` pnpm override from `<6.27.0 → >=6.27.0 <8.0.0` to `<7.29.0 → >=7.29.0 <8.0.0`, closing a newer CVE range the previous floor didn't cover, as part of a wider dependency patch sweep across the pnpm workspaces ([#6847](https://github.com/mem0ai/mem0/pull/6847))
+
+</Update>
 
 <Update label="2026-08-01" description="openclaw-mem0 v1.0.15">
 
@@ -2692,6 +2775,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
+<Update label="2026-08-24" description="Pi Agent plugin v0.1.5">
+
+**Security:**
+- **Dependencies:** Tightened the `undici` pnpm override from `<6.27.0 → >=6.27.0 <8.0.0` / `>=8.0.0 <8.5.0 → >=8.5.0` to `<7.29.0 → >=7.29.0 <8.0.0` / `>=8.0.0 <8.9.0 → >=8.9.0 <9.0.0`, closing a newer CVE range the previous floors didn't cover, as part of a wider dependency patch sweep across the pnpm workspaces ([#6847](https://github.com/mem0ai/mem0/pull/6847))
+
+</Update>
+
 <Update label="2026-08-01" description="Pi Agent plugin v0.1.4">
 
 **Security:**
@@ -2749,7 +2839,70 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 </Tab>
 
+<Tab title="Strands">
+
+<Update label="2026-08-25" description="mem0-strands v0.1.1">
+
+**New Features:**
+- **Usage telemetry:** Anonymous usage events (`strands.store.init`, `strands.store.search`, `strands.store.add`, `strands.store.add_messages`) ride the Mem0 SDK's existing PostHog client, unsampled, with no new dependency. Events carry only counts, durations, booleans, and coarse failure kinds: never queries, memory text, message content, entity ids, metadata, or API keys. Opt out with `MEM0_TELEMETRY=false` ([#7110](https://github.com/mem0ai/mem0/pull/7110))
+
+</Update>
+
+<Update label="2026-08-24" description="mem0-strands v0.1.0">
+
+**Initial release** of [`mem0-strands`](https://pypi.org/project/mem0-strands/), a native `MemoryStore` that plugs Mem0 into the [Strands Agents](https://strandsagents.com/) `MemoryManager` ([#7021](https://github.com/mem0ai/mem0/pull/7021))
+
+**New Features:**
+- **Automatic recall and injection:** `Mem0MemoryStore.search()` runs every turn through the `MemoryManager`, so relevant memories are searched and prepended to the prompt with no explicit tool call required.
+- **Server-side extraction:** `add_messages()` renders raw conversation turns to text and hands them to Mem0's own extraction pipeline (`infer=True`), so enabling extraction skips an extra client-side model call to distill facts first.
+- **Verbatim writes:** `add()` stores a single fact exactly as given (`infer=False`), the sink used by the `add_memory` tool or a client-side extractor.
+- **Entity scoping:** Accepts `user_id`, `agent_id`, `run_id`, and `app_id`; at least one is required, and mixing the platform-only `app_id` with a self-hosted `config` raises at construction instead of failing on the first write.
+- **Hosted or self-hosted:** Defaults to the hosted Mem0 Platform via `api_key` (or `$MEM0_API_KEY`), or pass a `config` dict for a self-hosted Mem0 OSS backend.
+- **Non-blocking construction:** The underlying Mem0 client is built lazily on first use inside `asyncio.to_thread`, so API-key validation and OSS embedder/vector-store setup never block the event loop.
+
+<Note>
+  `Mem0MemoryStore` is the automatic-recall store for the `MemoryManager`. For a model-called tool instead, use the [`mem0_memory`](https://github.com/strands-agents/tools) tool from `strands-agents-tools`; both share the same Mem0 backend and namespace. See [Strands Agents](/integrations/strands) for setup.
+</Note>
+
+</Update>
+
+</Tab>
+
+<Tab title="DeepSeek Harness">
+
+<Update label="2026-08-25" description="deepseek-plugin v0.1.1">
+
+**New Features:**
+- **Usage telemetry:** Anonymous usage events (`deepseek.plugin.mounted`, `deepseek.tool.search_memory`, `deepseek.tool.add_memory`) are batched to PostHog over native fetch and flushed in the background. Events carry only tool names, durations, counts, and coarse failure kinds: never queries, memory text, filters, or API keys. Opt out with `MEM0_TELEMETRY=false` ([#7110](https://github.com/mem0ai/mem0/pull/7110))
+
+</Update>
+
+<Update label="2026-08-24" description="deepseek-plugin v0.1.0">
+
+**Initial release** of [`deepseek-plugin`](https://www.npmjs.com/package/@mem0/deepseek-plugin), a native DeepSeek Harness (Cordis) plugin that registers Mem0 as two agent-callable tools ([#7027](https://github.com/mem0ai/mem0/pull/7027))
+
+**New Features:**
+- **`search_memory`:** Recalls facts relevant to a query, with an optional `limit` (default 10) and per-call `userId` / `agentId` / `runId` scope overrides.
+- **`add_memory`:** Stores a fact for future sessions, tagged `source: "DEEPSEEK_HARNESS"` for backend attribution; extraction runs asynchronously server-side, so a stored fact may take a moment to become searchable.
+- **Cordis lifecycle:** `apply(ctx, config)` declares `inject = ['tools']`, so the plugin waits for the harness tool registry to exist, and both tools are registered via `ctx.tools.register()` so they auto-unregister when the plugin unmounts.
+- **Config:** `userId` is required; `apiKey` defaults to `$MEM0_API_KEY`; `host` optionally points at a dedicated Mem0 Platform base URL (not a switch to self-hosted Mem0 OSS).
+
+<Note>
+  Developer preview: auto-capture and auto-recall (memory injected into context automatically, without an explicit tool call) are planned but not yet built. The backend's `KNOWN_EVENT_SOURCES` allowlist also needs `"DEEPSEEK_HARNESS"` added before usage surfaces by name in telemetry rather than bucketing into "OTHERS". See [DeepSeek Harness](/integrations/deepseek-plugin) for setup.
+</Note>
+
+</Update>
+
+</Tab>
+
 <Tab title="Vercel AI SDK">
+
+<Update label="2026-08-24" description="Vercel AI SDK v3.0.2">
+
+**Security:**
+- **Dependencies:** Tightened the `js-yaml` pnpm overrides from `<3.15.0 → >=3.15.0 <4.0.0` / `>=4.0.0 <4.3.0 → >=4.3.0 <5.0.0` to `<3.15.1 → >=3.15.1 <4.0.0` / `>=4.0.0 <4.3.1 → >=4.3.1 <5.0.0`, closing a newer CVE range the previous floors didn't cover, as part of a wider dependency patch sweep across the pnpm workspaces ([#7032](https://github.com/mem0ai/mem0/pull/7032))
+
+</Update>
 
 <Update label="2026-08-01" description="Vercel AI SDK v3.0.1">
 
@@ -2843,6 +2996,13 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="n8n">
 
+<Update label="2026-08-24" description="n8n-nodes-mem0 v0.1.4">
+
+**Security:**
+- **Dependencies:** Add `js-yaml` pnpm overrides (`<3.15.1 → >=3.15.1 <4.0.0`, `>=4.0.0 <4.3.1 → >=4.3.1 <5.0.0`) to close a HIGH/CRITICAL severity advisory, as part of a wider dependency patch sweep across the pnpm workspaces ([#7032](https://github.com/mem0ai/mem0/pull/7032))
+
+</Update>
+
 <Update label="2026-08-05" description="n8n-nodes-mem0 v0.1.3">
 
 **Changes:**
@@ -2886,6 +3046,21 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Zapier">
+
+<Update label="2026-08-24" description="Zapier app v0.1.2">
+
+**Changes:**
+- **Connection label:** The saved connection now shows the account's email (`{{user_email}}`, read from the `/v1/ping/` test response) in the Zap editor instead of a static "Mem0" label, so a user with more than one Mem0 connection can tell them apart ([#6985](https://github.com/mem0ai/mem0/pull/6985))
+- **Action and search copy:** Reworded labels and descriptions to address Zapier's publishing review: **Get Memories** is now **Find Memories by User**, **Search Memories** is now **Find Memories**, and every description now reads as a third-person statement of what the step does ([#6985](https://github.com/mem0ai/mem0/pull/6985))
+- **Attribution:** Add Memory now tags writes with `source: "ZAPIER"` in the request body, so usage is attributed to this integration server-side ([#6985](https://github.com/mem0ai/mem0/pull/6985))
+
+**Removed:**
+- **Client-side telemetry:** Deleted the embedded PostHog telemetry client (`telemetry.ts`) and its call sites in Add Memory, Get Memories, and Search Memories. Usage attribution now happens server-side via the `source: "ZAPIER"` tag above instead of a separate fire-and-forget analytics call from inside the published app ([#6985](https://github.com/mem0ai/mem0/pull/6985))
+
+**Security:**
+- **Dependencies:** Tightened the `undici` pnpm override to `<7.29.0 → >=7.29.0 <8.0.0` / `>=8.0.0 <8.9.0 → >=8.9.0 <9.0.0` and added a `brace-expansion` override ([#6847](https://github.com/mem0ai/mem0/pull/6847)), then added a `js-yaml` override (`<3.15.1 → >=3.15.1 <4.0.0`, `>=4.0.0 <4.3.1 → >=4.3.1 <5.0.0`) closing a further HIGH/CRITICAL severity advisory ([#7032](https://github.com/mem0ai/mem0/pull/7032))
+
+</Update>
 
 <Update label="2026-08-04" description="Zapier app v0.1.1">
 

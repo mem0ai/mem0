@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>strands-mem0</h1>
+  <h1>mem0-strands</h1>
   <h3>Persistent long-term memory for Strands Agents, backed by Mem0</h3>
   <p>
     A community <a href="https://strandsagents.com/">Strands Agents</a> integration that plugs
@@ -9,7 +9,7 @@
 
 ---
 
-`strands-mem0` gives [Strands](https://github.com/strands-agents/sdk-python) agents durable memory
+`mem0-strands` gives [Strands](https://github.com/strands-agents/sdk-python) agents durable memory
 that survives across sessions, backed by [Mem0](https://mem0.ai). Where the
 `mem0_memory` tool is called explicitly by the model, `Mem0MemoryStore` plugs into the **agent loop**
 directly: the manager recalls context and injects it automatically, and writes new memories, either
@@ -22,7 +22,7 @@ verbatim or by extracting facts from the conversation.
 ## Install
 
 ```bash
-pip install strands-mem0
+pip install mem0-strands
 ```
 
 ## Usage
@@ -30,7 +30,7 @@ pip install strands-mem0
 ```python
 from strands import Agent
 from strands.memory import MemoryManager
-from strands_mem0 import Mem0MemoryStore
+from mem0_strands import Mem0MemoryStore
 
 # Recall + write, distilling facts from the conversation via Mem0's server-side extraction.
 store = Mem0MemoryStore(user_id="alex", writable=True, extraction=True)
@@ -76,6 +76,13 @@ extraction pipeline. A store that only implemented `add` would instead need a cl
 For the model-called tool (`store` / `retrieve` / `get` / `delete`), use the
 [`mem0_memory`](https://github.com/strands-agents/tools) tool from `strands-agents-tools`. The store and
 the tool share one Mem0 backend and namespace.
+
+## Telemetry
+
+The store sends anonymous usage events (store configuration, operation, duration,
+result counts, coarse failure kind) over the Mem0 SDK's existing telemetry client,
+tagged `source="STRANDS"`. Queries, memory text, message content, entity ids, and
+metadata are never sent. Turn it off with `MEM0_TELEMETRY=false`.
 
 ## Development
 

@@ -21,7 +21,7 @@ Example:
     ```python
     from strands import Agent
     from strands.memory import MemoryManager
-    from strands_mem0 import Mem0MemoryStore
+    from mem0_strands import Mem0MemoryStore
 
     # Recall + write, with Mem0 extracting facts from the conversation server-side.
     store = Mem0MemoryStore(user_id="alex", writable=True, extraction=True)
@@ -36,12 +36,14 @@ environment variable, or pass a Mem0 OSS ``config`` dict for a self-hosted backe
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from strands.memory import AddMessagesContext, MemoryEntry, MemoryStore, SearchOptions
 from strands.types.content import Message
 
-from strands_mem0.client import Mem0ServiceClient
+from mem0_strands import telemetry
+from mem0_strands.client import Mem0ServiceClient
 
 DEFAULT_MAX_SEARCH_RESULTS = 5
 # Entity fields that scope a memory in Mem0. At least one must be set.
@@ -92,7 +94,7 @@ class Mem0MemoryStore(MemoryStore):
             api_key: Mem0 platform API key (defaults to ``$MEM0_API_KEY``).
             host: Mem0 platform base URL.
             config: Mem0 OSS config dict for a self-hosted backend.
-            client: A pre-built :class:`~strands_mem0.client.Mem0ServiceClient`
+            client: A pre-built :class:`~mem0_strands.client.Mem0ServiceClient`
                 (for testing, or to wrap your own raw Mem0 client via
                 ``Mem0ServiceClient(client=...)``); when omitted, one is
                 constructed lazily on first use from ``api_key`` / ``config``.
@@ -134,6 +136,7 @@ class Mem0MemoryStore(MemoryStore):
         self._host = host
         self._config = config
         self._client = client
+        self._recorded_init = False
 
     @property
     def client(self) -> Mem0ServiceClient:
@@ -144,8 +147,22 @@ class Mem0MemoryStore(MemoryStore):
         stores), so first use is deferred and always happens inside a worker thread
         via :func:`asyncio.to_thread`, never on the event loop.
         """
+        client_injected = self._client is not None
         if self._client is None:
             self._client = Mem0ServiceClient(api_key=self._api_key, host=self._host, config=self._config)
+        if not self._recorded_init:
+            self._recorded_init = True
+            telemetry.record(
+                "store.init",
+                self._client,
+                scopes=sorted(self.scope),
+                writable=self.writable,
+                extraction_enabled=bool(self.extraction),
+                has_default_metadata=bool(self.metadata),
+                max_search_results=self.max_search_results,
+                host_overridden=bool(self._host),
+                client_injected=client_injected,
+            )
         return self._client
 
     async def search(self, query: str, options: SearchOptions | None = None) -> list[MemoryEntry]:
@@ -158,7 +175,13 @@ class Mem0MemoryStore(MemoryStore):
 
         # ``self.client`` is resolved inside the thread so lazy construction (a
         # blocking call) does not run on the event loop.
-        memories = await asyncio.to_thread(lambda: self.client.search_memories(query, self.scope, top_k))
+        started = time.perf_counter()
+        try:
+            memories = await asyncio.to_thread(lambda: self.client.search_memories(query, self.scope, top_k))
+        except Exception as exc:
+            self._record("store.search", started, False, top_k=top_k, error_kind=telemetry.error_kind(exc))
+            raise
+        self._record("store.search", started, True, top_k=top_k, result_count=len(memories))
         return [self._to_entry(memory) for memory in memories]
 
     async def add(self, content: str, metadata: dict[str, Any] | None = None) -> Any:
@@ -168,7 +191,14 @@ class Mem0MemoryStore(MemoryStore):
         Mem0 de-duplicates on the server.
         """
         merged = self._merge_metadata(metadata)
-        return await asyncio.to_thread(lambda: self.client.store_memory(content, self.scope, merged))
+        started = time.perf_counter()
+        try:
+            result = await asyncio.to_thread(lambda: self.client.store_memory(content, self.scope, merged))
+        except Exception as exc:
+            self._record("store.add", started, False, error_kind=telemetry.error_kind(exc))
+            raise
+        self._record("store.add", started, True, content_chars=len(content), has_metadata=bool(merged))
+        return result
 
     async def add_messages(self, messages: list[Message], context: AddMessagesContext | None = None) -> Any:
         """Ingest raw conversation turns for Mem0 server-side extraction (``infer=True``).
@@ -186,7 +216,33 @@ class Mem0MemoryStore(MemoryStore):
                 payload.append({"role": message["role"], "content": text})
         if not payload:
             return None
-        return await asyncio.to_thread(lambda: self.client.store_messages(payload, self.scope))
+        started = time.perf_counter()
+        try:
+            result = await asyncio.to_thread(lambda: self.client.store_messages(payload, self.scope))
+        except Exception as exc:
+            self._record("store.add_messages", started, False, error_kind=telemetry.error_kind(exc))
+            raise
+        self._record(
+            "store.add_messages",
+            started,
+            True,
+            message_count=len(messages),
+            rendered_count=len(payload),
+            total_chars=sum(len(turn["content"]) for turn in payload),
+        )
+        return result
+
+    def _record(self, event: str, started: float, success: bool, **properties: Any) -> None:
+        """Send one store telemetry event, timed from ``started``."""
+        if self._client is None:
+            return
+        telemetry.record(
+            event,
+            self._client,
+            success=success,
+            duration_ms=round((time.perf_counter() - started) * 1000, 2),
+            **properties,
+        )
 
     @staticmethod
     def _render_content(content: Any) -> str:
