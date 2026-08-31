@@ -194,7 +194,8 @@ results = m.search(
 
 for result in results["results"]:
     print(f"Memory: {result['memory']}")
-    print(f"Score: {result['score']:.3f}")
+    print(f"Vector Score: {result['score']:.3f}")
+    print(f"Rerank Score: {result['rerank_score']:.3f}")
 ```
 
 ### Batch Processing
