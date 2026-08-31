@@ -374,11 +374,7 @@ describe("Node OSS temporal usage notice", () => {
       "payload_disabled",
     ],
     ["missing config", { notices: {} }, "missing_notice_config"],
-    [
-      "missing copy",
-      temporalUsagePayload({ copy: "" }),
-      "missing_copy",
-    ],
+    ["missing copy", temporalUsagePayload({ copy: "" }), "missing_copy"],
   ])("is silent and safe for %s", async (_label, payload, bypassReason) => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({

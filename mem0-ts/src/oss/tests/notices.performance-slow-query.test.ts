@@ -291,11 +291,7 @@ describe("Node OSS performance slow query notice", () => {
       "payload_disabled",
     ],
     ["missing config", { notices: {} }, "missing_notice_config"],
-    [
-      "missing copy",
-      performancePayload({ copy: "" }),
-      "missing_copy",
-    ],
+    ["missing copy", performancePayload({ copy: "" }), "missing_copy"],
   ])("is silent and safe for %s", async (_label, payload, bypassReason) => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({
