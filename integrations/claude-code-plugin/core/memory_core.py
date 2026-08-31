@@ -2565,13 +2565,11 @@ def search_memories(
     )
     payload = {
         "query": query,
+        "app_id": directory_app_id(repo),
         "filters": filters,
-        # Over-fetch because weak matches are dropped locally.
         "top_k": min(result_limit * 2, 20),
         "threshold": min_score,
         "rerank": False,
-        # Corrections are stored as new memories linked to the older version.
-        # Return the newest linked version instead of both claims.
         "latest_only": True,
     }
     url = (

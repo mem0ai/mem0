@@ -1958,6 +1958,7 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
     assert "1. The ODS serializer is in src/ods.py." in rendered
     assert second_result.memories == []
     assert second_result.already_shown_count == 3
+    assert captured_payloads[0]["app_id"] == "code-example"
     assert captured_payloads[0]["filters"] == {"OR": [{"agent_id": "code-example"}, {"user_id": "test-user"}]}
     assert captured_payloads[0]["top_k"] == 6
     assert captured_payloads[0]["threshold"] == 0.15
@@ -3769,6 +3770,20 @@ def test_search_filters_dir_scope_at_the_root_is_the_whole_repository():
 def test_directory_app_id_is_the_repository_at_the_root_and_nested_below():
     assert memory_core.directory_app_id(_payments()) == "payments-api"
     assert memory_core.directory_app_id(_payments("services/billing")) == "payments-api/services/billing"
+
+
+def test_search_payload_includes_directory_app_id(isolated_env, monkeypatch):
+    monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
+    store = memory_core.EvidenceStore()
+
+    with patch.object(
+        memory_core, "_request_json", return_value=({"results": []}, 100, 20)
+    ) as request:
+        memory_core.search_memories(store, _payments("services/billing"), "s1", "Stripe config")
+
+    payload = request.call_args.args[2]
+    assert payload["app_id"] == "payments-api/services/billing"
+    store.close()
 
 
 def test_no_search_scope_wildcards_the_user():
