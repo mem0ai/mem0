@@ -8,22 +8,25 @@ It gives a MiniMax agent persistent long-term memory: it remembers the user's pr
 
 This is a declarative MiniMax plugin (no build step). It follows the MiniMax plugin spec:
 
-Built to the [Agent Plugins 1.0](https://agent-plugins.org/specification) standard, which the MiniMax runtime imports and validates against.
+Built as a MiniMax **App** (OAuth connect), the same one-click "Connect" experience as peer memory plugins. Mem0's authenticated MCP server is integrated through MiniMax's Connector, so users authorize their Mem0 account once and never handle a key.
 
 ```
 minimax-mem0/
-  plugin.json            # manifest (Agent Plugins 1.0, at plugin root)
-  mcp.json               # remote MCP: https://mcp.mem0.ai/mcp/ (auto-discovered at root)
+  .minimax-plugin/
+    plugin.json          # manifest: apps + skills
+  mem0.app.json          # App capability -> Connector provider (assigned by MiniMax)
   icon.png               # square Mem0 icon
   skills/
     memory/
       SKILL.md           # when to recall / save / update memory
 ```
 
-Two capabilities:
+Capabilities:
 
-- **MCP** (`mcp.json`) points at Mem0's hosted MCP server (`https://mcp.mem0.ai/mcp/`), which exposes the memory tools (`add_memory`, `search_memories`, `update_memory`, `delete_memory`, and more). No secrets are stored in the package.
+- **App** (`mem0.app.json`) connects the agent to Mem0's OAuth-secured MCP server through MiniMax's Connector (tools: `add_memory`, `search_memories`, `update_memory`, `delete_memory`, and more). The user clicks Connect, authorizes their Mem0 account, done. No secrets in the package.
 - **Skill** (`skills/memory/SKILL.md`) tells the agent when to search, save, update, and delete memory so recall happens automatically.
+
+> **Pending:** the App `provider` in `mem0.app.json` is assigned by MiniMax once they complete Connector integration for Mem0's OAuth MCP server. It is a placeholder until then.
 
 ## Authentication
 
