@@ -463,13 +463,6 @@ def _int_option(name: str, fallback: str, default: int) -> int:
         return default
 
 
-def _float_option(name: str, fallback: str, default: float) -> float:
-    value = _plugin_option(name, fallback)
-    try:
-        return float(value) if value else default
-    except ValueError:
-        return default
-
 
 def _message_content_text(content: Any) -> str:
     """Return visible text from one Claude transcript message."""
