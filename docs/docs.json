@@ -152,6 +152,7 @@
                       "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility",
+                      "open-source/features/embedding-failures",
                       "platform/features/memory-expiration"
                     ]
                   },

@@ -240,6 +240,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Custom Instructions (OSS)](https://docs.mem0.ai/open-source/features/custom-instructions) [OSS]: Use when tailoring extraction prompts in OSS.
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api) [OSS]: Use when exposing a self-hosted Mem0 as a FastAPI service.
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility) [OSS]: Use when hitting an OpenAI-compatible endpoint with self-hosted.
+- [Embedding Failures](https://docs.mem0.ai/open-source/features/embedding-failures) [OSS]: Use when inspecting which memories `add()` dropped and whether to retry them.
 
 ## Integrations
 
