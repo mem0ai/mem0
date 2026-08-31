@@ -908,7 +908,11 @@ class Memory(MemoryBase):
 
         Returns:
             dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
-                  "failed" holds per-item embedding failures, each ``{"index", "text", "error_class", "error_code", "remediation", "error"}`` (index = position in the source list)
+                  "failed" holds per-item embedding failures, each ``{"index", "text", "error_class", "error_code", "remediation", "error"}``. ``index`` is the item's position
+                  in the array the caller passed to ``add()``, captured before any parse step, so
+                  ``messages[f["index"]]`` round-trips (for infer=True it is the position in the
+                  extracted-fact list — extraction carries no per-message provenance). One
+                  coordinate space per ``failed`` list, embed and insert failures alike.
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking for callers reading only
                   "results". Example: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}], "failed": []}`.
@@ -2679,7 +2683,11 @@ class AsyncMemory(MemoryBase):
 
         Returns:
             dict: ``{"results": [...], "failed": [...]}``. "results" holds the memory items added;
-                  "failed" holds per-item embedding failures, each ``{"index", "text", "error_class", "error_code", "remediation", "error"}`` (index = position in the source list)
+                  "failed" holds per-item embedding failures, each ``{"index", "text", "error_class", "error_code", "remediation", "error"}``. ``index`` is the item's position
+                  in the array the caller passed to ``add()``, captured before any parse step, so
+                  ``messages[f["index"]]`` round-trips (for infer=True it is the position in the
+                  extracted-fact list — extraction carries no per-message provenance). One
+                  coordinate space per ``failed`` list, embed and insert failures alike.
                   with error_class one of provider_error / validation_error / internal_error. "failed"
                   is empty on the happy path — additive and non-breaking. Scope: the embedding phase
                   (infer=True extraction, infer=False raw, and procedural) plus vector-store insert
