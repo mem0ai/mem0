@@ -57,7 +57,7 @@ class GCPAuthenticator:
                 credentials_path, scopes=scopes
             )
             # Extract project_id from the file
-            with open(credentials_path, 'r') as f:
+            with open(credentials_path, "r", encoding="utf-8") as f:
                 cred_data = json.load(f)
                 project_id = cred_data.get("project_id")
 
@@ -69,7 +69,7 @@ class GCPAuthenticator:
                     env_path, scopes=scopes
                 )
                 # Extract project_id from the file
-                with open(env_path, 'r') as f:
+                with open(env_path, "r", encoding="utf-8") as f:
                     cred_data = json.load(f)
                     project_id = cred_data.get("project_id")
 
