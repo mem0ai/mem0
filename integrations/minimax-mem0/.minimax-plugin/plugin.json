@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "name": "mem0",
+  "displayName": "Mem0 Memory",
+  "version": "0.1.0",
+  "description": "Persistent long-term memory for your agent: remember preferences, decisions, and project context across sessions, and recall them on demand.",
+  "author": "Mem0",
+  "icon": "icon.png",
+  "category": "Productivity",
+  "exampleQueries": [
+    "Remember that I prefer TypeScript and pnpm",
+    "What do you remember about my project?",
+    "Update what you know about my deployment setup"
+  ],
+  "apps": [],
+  "mcpServers": ["mem0.mcp.json"],
+  "skills": ["skills/memory/SKILL.md"]
+}
