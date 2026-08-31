@@ -91,10 +91,24 @@ class TestScoreAndRank:
             {"id": "a", "score": 0.05, "payload": {"data": "mem a"}},  # Below threshold
             {"id": "b", "score": 0.5, "payload": {"data": "mem b"}},
         ]
-        bm25 = {"a": 0.99}  # High BM25 shouldn't save it
+        bm25 = {"a": 0.99}  # High BM25 shouldn't save a semantic candidate
         scored = score_and_rank(results, bm25, {}, threshold=0.1, top_k=10)
         assert len(scored) == 1
         assert scored[0]["id"] == "b"
+
+    def test_keyword_only_candidate_is_not_gated_by_semantic_threshold(self):
+        results = [
+            {
+                "id": "a",
+                "score": 0.0,
+                "payload": {"data": "mem a"},
+                "_keyword_only": True,
+            }
+        ]
+        scored = score_and_rank(results, {"a": 0.9}, {}, threshold=0.9, top_k=10)
+        assert len(scored) == 1
+        assert scored[0]["id"] == "a"
+        assert scored[0]["score"] == pytest.approx(0.45)
 
     def test_top_k_limit(self):
         results = [{"id": str(i), "score": 0.5, "payload": {}} for i in range(20)]
