@@ -1,11 +1,9 @@
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import {
-  POSTHOG_API_KEY,
-  captureNoticeEvent,
-  isTelemetryEnabled,
-} from "./telemetry";
+import { captureNoticeEvent, isTelemetryEnabled } from "./telemetry";
+import bundledNoticeConfig from "./oss_notices_config.json";
 import type { TelemetryInstance } from "./telemetry.types";
 
 export const NOTICE_FLAG_KEY = "mem0-oss-notices";
@@ -21,7 +19,51 @@ export const PERFORMANCE_SLOW_QUERY_NOTICE_ID = "performance_slow_query";
 export const NOTICE_CAP_LIMIT = 10;
 export const NOTICE_CAP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const NOTICE_FLAG_TIMEOUT_MS = 500;
-export const POSTHOG_FLAGS_URL = "https://us.i.posthog.com/flags?v=2";
+const REMOTE_CONFIG_URL =
+  "https://raw.githubusercontent.com/mem0ai/mem0/main/mem0/memory/oss_notices_config.json";
+const CONFIG_TTL_MS = 3_600_000;
+const CONFIG_FETCH_TIMEOUT_MS = 2000;
+
+let _cachedConfig: Record<string, any> | null = null;
+let _cachedConfigTs = 0;
+
+async function fetchNoticeConfig(
+  fetchImpl: typeof fetch,
+): Promise<Record<string, any>> {
+  const now = Date.now();
+  if (_cachedConfig && now - _cachedConfigTs < CONFIG_TTL_MS) {
+    return _cachedConfig;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      CONFIG_FETCH_TIMEOUT_MS,
+    );
+    try {
+      const resp = await fetchImpl(REMOTE_CONFIG_URL, {
+        signal: controller.signal,
+      });
+      if (resp.ok) {
+        const config: Record<string, any> = await resp.json();
+        _cachedConfig = config;
+        _cachedConfigTs = now;
+        return config;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {}
+
+  if (_cachedConfig) return _cachedConfig;
+  return bundledNoticeConfig as Record<string, any>;
+}
+
+function resetNoticeConfigCache(): void {
+  _cachedConfig = null;
+  _cachedConfigTs = 0;
+}
 const DISPLAYED_VARIANT = "displayed";
 const HOLDOUT_VARIANT = "holdout";
 const LOG_LINE_NOTICE_TYPE = "log_line";
@@ -253,39 +295,22 @@ export async function evaluateNoticeFlag(
 ): Promise<NoticeFlagEvaluation | null> {
   if (!isTelemetryEnabled()) return null;
 
-  const timeoutMs = options.timeoutMs ?? NOTICE_FLAG_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetchImpl(POSTHOG_FLAGS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: POSTHOG_API_KEY,
-        distinct_id: distinctId,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) return null;
-    const data: any = await response.json();
-    const flag = data?.flags?.[NOTICE_FLAG_KEY];
-    if (!flag || flag.enabled === false) return null;
-
-    const variant = typeof flag.variant === "string" ? flag.variant : null;
-    if (!variant) return null;
+    const config = await fetchNoticeConfig(fetchImpl);
+    const split = typeof config.variant_split === "number" ? config.variant_split : 0.5;
+    const hash = crypto.createHash("sha256").update(distinctId).digest("hex");
+    const bucket = parseInt(hash.substring(0, 8), 16) % 10000;
+    const variant = bucket < split * 10000 ? DISPLAYED_VARIANT : HOLDOUT_VARIANT;
 
     return {
       variant,
-      payload: parsePayload(flag.metadata?.payload),
-      flag,
+      payload: { notices: config.notices ?? {} },
+      flag: { key: NOTICE_FLAG_KEY, enabled: true, variant },
     };
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -1408,6 +1433,7 @@ export const __noticeTestHooks = {
   appendNoticeCapEvent,
   emitNoticeDisplayed,
   evaluateNoticeFlag,
+  resetNoticeConfigCache,
   displayFirstRunNotice,
   displayDecayUsageNotice,
   displayTemporalUsageNotice,
