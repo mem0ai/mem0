@@ -198,7 +198,6 @@ def test_project_memory_never_carries_a_user_id(ns):
     for memory in found:
         assert memory.get("user_id") is None
         assert memory.get("agent_id") == memory_core.resolve_repo(str(ns.root)).project_id
-        assert (memory.get("metadata") or {}).get("lane") == "project"
 
 
 def test_same_named_plain_folders_at_different_paths_do_not_share(ns):

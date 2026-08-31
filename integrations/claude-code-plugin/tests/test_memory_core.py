@@ -1167,7 +1167,6 @@ def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
     idle_called = []
 
     original_periodic = hook.schedule_periodic_checkpoint
-    original_idle = hook.schedule_idle_flush
 
     def mock_periodic(*a, **kw):
         result = original_periodic(*a, **kw)
