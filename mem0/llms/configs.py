@@ -24,6 +24,7 @@ class LlmConfig(BaseModel):
             "gemini",
             "deepseek",
             "minimax",
+            "mistral",
             "xai",
             "sarvam",
             "lmstudio",
