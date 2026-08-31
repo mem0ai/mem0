@@ -201,8 +201,6 @@ def _scope_value(raw: str | None) -> str:
 
 SEARCH_SCOPES = ("repo", "dir", "mine")
 DEFAULT_SEARCH_SCOPE = "repo"
-DEFAULT_MIN_SCORE = 0.15
-
 
 def directory_app_id(repo: RepoContext) -> str:
     """The app_id of the directory this session runs in: the repository at the root, repository/path below it."""
@@ -2502,13 +2500,6 @@ def checkpoint_session(
     return flush_session(store, hook_input, reason)
 
 
-def _score_at_least(memory: dict[str, Any], min_score: float) -> bool:
-    """Mem0's search ignores the threshold field, so weak matches are dropped here."""
-    try:
-        return float(memory.get("score")) >= min_score
-    except (TypeError, ValueError):
-        return True
-
 
 def search_memories(
     store: EvidenceStore | None,
@@ -2561,15 +2552,11 @@ def search_memories(
         filters = {"AND": [filters, {"categories": {"contains": category}}]}
     if run_id:
         filters = {"AND": [filters, {"run_id": run_id}]}
-    min_score = (
-        0.0 if run_id else _float_option("min_score", "MEM0_CODE_MIN_SCORE", DEFAULT_MIN_SCORE)
-    )
     payload = {
         "query": query,
         "app_id": repo.app_id,
         "filters": filters,
-        "top_k": min(result_limit * 2, 20),
-        "threshold": min_score,
+        "top_k": result_limit,
         "rerank": False,
         "latest_only": True,
     }
@@ -2590,9 +2577,7 @@ def search_memories(
             for memory in memories
             if isinstance(memory, dict)
             and (memory.get("metadata") or {}).get("record_kind") != "task_episode"
-            and _score_at_least(memory, min_score)
-        ]
-        memories = memories[:result_limit]
+        ][:result_limit]
         if track_session:
             returned_memories = store.unseen(session_id, repo.identity, memories)
             store.mark_injected(session_id, repo.identity, returned_memories)

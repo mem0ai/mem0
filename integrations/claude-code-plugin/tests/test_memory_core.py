@@ -1965,8 +1965,8 @@ def test_search_is_repo_scoped_and_does_not_reinject_seen_results(
             {"AND": [{"user_id": "test-user"}, {"app_id": "code-example"}]},
         ]
     }
-    assert captured_payloads[0]["top_k"] == 6
-    assert captured_payloads[0]["threshold"] == 0.15
+    assert captured_payloads[0]["top_k"] == 3
+    assert "threshold" not in captured_payloads[0]
     assert captured_payloads[0]["rerank"] is False
     retrieval = store.conn.execute(
         "SELECT rank, score, memory_text, context_chars FROM retrievals "
@@ -2163,8 +2163,8 @@ def test_plugin_top_k_option_does_not_enable_threshold_or_reranking(
         )
 
     payload = request.call_args.args[2]
-    assert payload["top_k"] == 6
-    assert payload["threshold"] == 0.15
+    assert payload["top_k"] == 3
+    assert "threshold" not in payload
     assert payload["rerank"] is False
     store.close()
 
@@ -2791,8 +2791,8 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
 
     payload = request.call_args.args[2]
     assert payload["query"] == prompt
-    assert payload["top_k"] == 10
-    assert payload["threshold"] == 0.15
+    assert payload["top_k"] == 5
+    assert "threshold" not in payload
     assert payload["rerank"] is False
     assert payload["latest_only"] is True
     assert "systemMessage" not in output
@@ -2895,8 +2895,8 @@ def test_manual_search_remains_available_after_automatic_search(
 
     assert [memory["id"] for memory in result.memories] == ["manual-memory"]
     assert request.call_count == 2
-    assert request.call_args_list[0].args[2]["top_k"] == 10
-    assert request.call_args_list[1].args[2]["top_k"] == 6
+    assert request.call_args_list[0].args[2]["top_k"] == 5
+    assert request.call_args_list[1].args[2]["top_k"] == 3
     store.close()
 
 
@@ -4122,18 +4122,11 @@ def test_run_id_narrows_the_search_to_one_session(monkeypatch):
     }
 
 
-def test_min_score_is_configurable(monkeypatch):
-    monkeypatch.setenv("MEM0_API_KEY", "test-key")
-    monkeypatch.setenv("MEM0_CODE_MIN_SCORE", "0.3")
-
-    assert _search_payload(monkeypatch, repo())["threshold"] == 0.3
-
-
-def test_weak_matches_are_dropped_locally_because_the_api_ignores_threshold(monkeypatch):
+def test_all_matches_returned_regardless_of_score(monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "test-key")
     results = [
         {"id": "strong", "memory": "a", "score": 0.4},
-        {"id": "noise", "memory": "b", "score": 0.08},
+        {"id": "weak", "memory": "b", "score": 0.08},
         {"id": "unscored", "memory": "c"},
     ]
     monkeypatch.setattr(
@@ -4143,10 +4136,7 @@ def test_weak_matches_are_dropped_locally_because_the_api_ignores_threshold(monk
     )
 
     found = memory_core.search_memories(None, repo(), None, "q")
-    assert [m["id"] for m in found.memories] == ["strong", "unscored"]
-
-    by_session = memory_core.search_memories(None, repo(), None, "q", run_id="s1")
-    assert [m["id"] for m in by_session.memories] == ["strong", "noise", "unscored"]
+    assert [m["id"] for m in found.memories] == ["strong", "weak", "unscored"]
 
 
 def test_doctor_flags_a_wildcard_user_id(isolated_env, monkeypatch):
