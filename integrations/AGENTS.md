@@ -45,7 +45,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 - **`openclaw/`**, **`pi-agent-plugin/`**, **`deepseek-plugin/`** are editor and agent plugins with the same shape. `deepseek-plugin/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).
-- **`minimax-mem0/`** is a declarative MiniMax Marketplace plugin (no build step): a `.minimax-plugin/plugin.json` manifest plus an MCP capability pointing at the hosted Mem0 MCP server (`https://mcp.mem0.ai/mcp/`) and a memory Skill. It is distributed by submitting the subdirectory to the MiniMax Marketplace (their Feishu form), not through the release router or npm/PyPI.
+- **`minimax-mem0/`** is a declarative MiniMax Marketplace plugin (no build step): a `.minimax-plugin/plugin.json` manifest plus an MCP capability pointing at the hosted Mem0 MCP server (`https://mcp.mem0.ai/mcp/`) and a memory Skill. It ships to the MiniMax Marketplace as a subdirectory, not through the release router or npm/PyPI.
 - **`mem0-strands/`** is a native Strands `MemoryStore` (Python, published to PyPI as `mem0-strands`). It plugs into the Strands `MemoryManager` for automatic recall and server-side extraction, over the hosted Mem0 platform or self-hosted Mem0 OSS. The package lives under `mem0-strands/python/`.
 
 ## Adding an integration
