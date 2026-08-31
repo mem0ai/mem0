@@ -30,6 +30,13 @@ def main() -> int:
     completed = False
     try:
         payload = json.loads(handoff_path.read_text(encoding="utf-8"))
+        delay = float(payload.get("delay_seconds") or 0)
+        if delay > 0:
+            payload.pop("delay_seconds", None)
+            handoff_path.write_text(
+                json.dumps(payload), encoding="utf-8"
+            )
+            time.sleep(delay)
         hook_input = payload.get("hook_input") or {}
         reason = str(payload.get("reason") or "checkpoint")
         wait_for_inflight = bool(payload.get("wait_for_inflight"))

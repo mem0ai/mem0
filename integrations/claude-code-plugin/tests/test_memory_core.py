@@ -1099,6 +1099,136 @@ def test_stop_schedules_one_background_checkpoint_when_block_is_ready(
     store.close()
 
 
+def test_stop_schedules_idle_flush_when_periodic_not_due(isolated_env):
+    import hook
+
+    store = memory_core.EvidenceStore()
+    _record_exchange(store, 1)
+
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    with (
+        patch.object(hook, "api_key", return_value="m0-test-key"),
+        patch.object(hook, "_launch_handoff", return_value=True) as launch,
+    ):
+        assert not hook.schedule_periodic_checkpoint(store, hook_input, repo(), "s1")
+        assert hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+
+    payload = json.loads(launch.call_args.args[0].read_text(encoding="utf-8"))
+    assert payload["reason"] == "idle"
+    assert payload["delay_seconds"] == hook.DEFAULT_IDLE_FLUSH_SECONDS
+    store.close()
+
+
+def test_idle_flush_skipped_when_inflight_flush_exists(isolated_env):
+    import hook
+
+    store = memory_core.EvidenceStore()
+    for number in range(1, 6):
+        _record_exchange(store, number)
+
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    with patch.object(hook, "api_key", return_value="m0-test-key"):
+        store.prepare_flush(repo(), "s1", "periodic")
+        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    store.close()
+
+
+def test_idle_flush_skipped_when_no_unflushed_events(isolated_env):
+    import hook
+
+    store = memory_core.EvidenceStore()
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    with patch.object(hook, "api_key", return_value="m0-test-key"):
+        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    store.close()
+
+
+def test_idle_flush_skipped_when_disabled(isolated_env, monkeypatch):
+    import hook
+
+    store = memory_core.EvidenceStore()
+    _record_exchange(store, 1)
+
+    monkeypatch.setenv("MEM0_CODE_IDLE_FLUSH_SECONDS", "0")
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    with patch.object(hook, "api_key", return_value="m0-test-key"):
+        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    store.close()
+
+
+def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
+    import hook
+
+    store = memory_core.EvidenceStore()
+    _record_exchange(store, 1)
+
+    hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
+    periodic_called = []
+    idle_called = []
+
+    original_periodic = hook.schedule_periodic_checkpoint
+    original_idle = hook.schedule_idle_flush
+
+    def mock_periodic(*a, **kw):
+        result = original_periodic(*a, **kw)
+        periodic_called.append(result)
+        return result
+
+    def mock_idle(*a, **kw):
+        idle_called.append(True)
+        return True
+
+    with (
+        patch.object(hook, "api_key", return_value="m0-test-key"),
+        patch.object(hook, "schedule_periodic_checkpoint", side_effect=mock_periodic),
+        patch.object(hook, "schedule_idle_flush", side_effect=mock_idle),
+        patch.object(hook, "record_stop", return_value=(repo(), "s1")),
+    ):
+        monkeypatch.setattr("sys.stdin", __import__("io").StringIO(json.dumps(hook_input)))
+        monkeypatch.setattr("sys.argv", ["hook.py", "stop"])
+        hook.main()
+
+    assert periodic_called == [False]
+    assert idle_called == [True]
+    store.close()
+
+
+def test_flush_worker_sleeps_for_delay_seconds(isolated_env, monkeypatch):
+    import flush_worker
+
+    data_dir_path = Path(os.environ["MEM0_CODE_DATA_DIR"])
+    pending_dir = data_dir_path / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    handoff_path = pending_dir / "idle-test.running"
+    handoff_path.write_text(
+        json.dumps({
+            "hook_input": {"session_id": "s1", "cwd": "/tmp/repo"},
+            "reason": "idle",
+            "delay_seconds": 42,
+        }),
+        encoding="utf-8",
+    )
+
+    slept = []
+    rewritten_content = {}
+
+    def mock_sleep(seconds):
+        slept.append(seconds)
+        rewritten_content.update(
+            json.loads(handoff_path.read_text(encoding="utf-8"))
+        )
+
+    monkeypatch.setattr(time, "sleep", mock_sleep)
+    monkeypatch.setattr(
+        "sys.argv", ["flush_worker.py", str(handoff_path)]
+    )
+    with patch.object(flush_worker, "checkpoint_session", return_value={"status": "nothing-to-flush"}):
+        flush_worker.main()
+
+    assert slept == [42.0]
+    assert "delay_seconds" not in rewritten_content
+
+
 def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     """hook.py lives in adapters/claude/; flush_worker.py lives in core/.
 
@@ -1323,55 +1453,50 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
         result = memory_core.flush_session(store, hook_input, "session-end")
 
     assert result["status"] == "semantic-succeeded"
-    assert request.call_count == 2
-    first_body, personal_body = (call.args[2] for call in request.call_args_list)
+    assert request.call_count == 1
+    (sent_body,) = (call.args[2] for call in request.call_args_list)
 
-    assert first_body["infer"] is True
-    assert first_body["agent_id"] == "code-example"
-    assert "user_id" not in first_body
-    assert first_body["app_id"] == "code-example"
-    assert first_body["run_id"] == "s1"
-    assert first_body["metadata"] == {
+    assert sent_body["infer"] is True
+    assert sent_body["agent_id"] == "code-example"
+    assert sent_body["user_id"] == "test-user"
+    assert sent_body["app_id"] == "code-example"
+    assert sent_body["run_id"] == "s1"
+    assert sent_body["metadata"] == {
         "source": "claude_code_plugin",
         "branch": "main",
         "git_sha": "abc123",
-        "lane": "project",
         "author": "test-user",
         "dirs": [],
     }
-    assert "immutable" not in first_body
-    assert "Save concise repository facts" in first_body[
+    assert "immutable" not in sent_body
+    assert "Save concise repository facts" in sent_body[
         "agent_custom_instructions"
     ]
-    assert personal_body["user_id"] == "test-user"
-    assert "agent_id" not in personal_body
-    assert personal_body["metadata"]["lane"] == "personal"
-    assert "preferred tools" in personal_body["custom_instructions"]
-    first_body["custom_instructions"] = first_body["agent_custom_instructions"]
-    assert "A completed change should produce one memory" in first_body[
-        "custom_instructions"
+    assert "preferred tools" in sent_body["custom_instructions"]
+    assert "A completed change should produce one memory" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "where it is implemented when useful" in first_body[
-        "custom_instructions"
+    assert "where it is implemented when useful" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "only when they are independently useful" in first_body[
-        "custom_instructions"
+    assert "only when they are independently useful" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "Write about the repository, not the user" in first_body[
-        "custom_instructions"
+    assert "Write about the repository, not the user" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "Do not include test results, documentation updates" in first_body[
-        "custom_instructions"
+    assert "Do not include test results, documentation updates" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "If nothing useful was established" in first_body[
-        "custom_instructions"
+    assert "If nothing useful was established" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "Do not save proposed or recommended changes" in first_body[
-        "custom_instructions"
+    assert "Do not save proposed or recommended changes" in sent_body[
+        "agent_custom_instructions"
     ]
-    assert "includes" not in first_body
-    assert "excludes" not in first_body
-    assert first_body["custom_categories"] == [
+    assert "includes" not in sent_body
+    assert "excludes" not in sent_body
+    assert sent_body["custom_categories"] == [
         {
             "project_knowledge": (
                 "What the project is and how its code, APIs, data, files, and "
@@ -1403,35 +1528,33 @@ def test_checkpoint_queues_only_prod_extraction_with_canonical_evidence(
             )
         },
     ]
-    assert first_body["run_id"] == "s1"
-    assert [message["role"] for message in first_body["messages"]] == [
+    assert sent_body["run_id"] == "s1"
+    assert [message["role"] for message in sent_body["messages"]] == [
         "user",
         "assistant",
         "user",
-        "assistant",
         "assistant",
     ]
-    serialized = json.dumps(first_body)
+    serialized = json.dumps(sent_body)
     assert "Canonical issue: preserve ODS datetime formatting." not in serialized
     assert "Fix the ODS datetime serialization bug." in serialized
     assert "Remember that ODS dates must remain timezone-naive." in serialized
     assert "Fixed serialization in src/ods.py" in serialized
     assert "The serializer now preserves timezone-naive ODS dates." in serialized
-    assert "Sidekick outcome" in serialized
-    assert "src/ods.py is the only writer" in serialized
+    assert "Sidekick outcome" not in serialized
     assert "pytest tests/test_ods.py" not in serialized
     assert "Submission PASSED" not in serialized
     assert "Files read" not in serialized
     assert "FEEDBACK FROM PREVIOUS ACTION" not in serialized
     assert "task_episode" not in serialized
-    assert result["memory_count"] == 4
+    assert result["memory_count"] == 2
     operation = store.conn.execute(
         "SELECT item_count FROM operations WHERE operation = 'flush'"
     ).fetchone()
-    assert operation["item_count"] == 4
+    assert operation["item_count"] == 2
     assert wait_for_event.call_args_list == [
         (("https://api.mem0.ai", "m0-test-key", "semantic-event"),)
-    ] * 2
+    ]
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -1483,15 +1606,11 @@ def test_non_git_memory_metadata_omits_branch_and_commit(isolated_env, monkeypat
             store, {"session_id": "s1", "cwd": "/tmp/workspace"}, "session-end"
         )
 
+    assert request.call_count == 1
     assert request.call_args_list[0].args[2]["metadata"] == {
         "source": "claude_code_plugin",
-        "lane": "project",
         "author": "test-user",
         "dirs": [],
-    }
-    assert request.call_args.args[2]["metadata"] == {
-        "source": "claude_code_plugin",
-        "lane": "personal",
     }
     store.close()
 
@@ -1569,17 +1688,15 @@ def test_large_extraction_submits_every_batch_before_polling(
         )
 
     posted = [value for kind, value in calls if kind == "post"]
-    assert len(posted) == 4
-    assert [kind for kind, _ in calls] == ["post"] * 4 + ["wait"] * 4
-    assert [message for body in posted[:2] for message in body["messages"]] == messages
-    assert [message for body in posted[2:] for message in body["messages"]] == messages
-    assert {
-        (body.get("agent_id"), body.get("user_id"), body["app_id"], body["run_id"])
-        for body in posted
-    } == {("code-example", None, "code-example", "s1"), (None, "test-user", "code-example", "s1")}
+    assert len(posted) == 2
+    assert [kind for kind, _ in calls] == ["post"] * 2 + ["wait"] * 2
+    assert [message for body in posted for message in body["messages"]] == messages
+    for body in posted:
+        assert body["agent_id"] == "code-example"
+        assert body["user_id"] == "test-user"
     assert result["status"] == "semantic-succeeded"
-    assert result["semantic_event_id"] == "event-4"
-    assert result["memory_count"] == 4
+    assert result["semantic_event_id"] == "event-2"
+    assert result["memory_count"] == 2
     store.close()
 
 
@@ -1652,7 +1769,7 @@ def test_session_end_flushes_events_recorded_after_an_earlier_packet_was_queued(
         )
 
     assert result["status"] == "semantic-succeeded"
-    assert request.call_count == 2
+    assert request.call_count == 1
     assert "timezone-naive dates" in json.dumps(request.call_args.args[2])
     assert (
         store.conn.execute(
@@ -1742,7 +1859,7 @@ def test_legacy_memory_write_event_does_not_bypass_production_extraction(
 
     assert first["status"] == "semantic-succeeded"
     assert repeated == {"status": "nothing-to-flush"}
-    assert request.call_count == 2
+    assert request.call_count == 1
     store.close()
 
 
@@ -3316,9 +3433,9 @@ def test_failed_batch_is_cleared_and_only_that_batch_is_resent(
         "SELECT semantic_event_id, attempts FROM flushes"
     ).fetchone()
     assert first["status"] == "semantic-failed"
-    assert json.loads(record["semantic_event_id"]) == ["", "event-2", "event-3", "event-4"]
+    assert json.loads(record["semantic_event_id"]) == ["", "event-2"]
     assert record["attempts"] == 1
-    assert len(posted) == 4
+    assert len(posted) == 2
 
     waited = []
 
@@ -3337,10 +3454,10 @@ def test_failed_batch_is_cleared_and_only_that_batch_is_resent(
         second = memory_core.flush_session(store, hook_input, "session-end")
 
     assert second["status"] == "semantic-succeeded"
-    assert len(posted) == 5
-    assert waited == ["event-5", "event-2", "event-3", "event-4"]
+    assert len(posted) == 3
+    assert waited == ["event-3", "event-2"]
     stored = store.conn.execute("SELECT semantic_event_id FROM flushes").fetchone()
-    assert json.loads(stored["semantic_event_id"]) == ["event-5", "event-2", "event-3", "event-4"]
+    assert json.loads(stored["semantic_event_id"]) == ["event-3", "event-2"]
     operation = store.conn.execute(
         "SELECT operation FROM operations WHERE operation LIKE 'flush%' "
         "ORDER BY id DESC LIMIT 1"
@@ -3372,7 +3489,7 @@ def test_timed_out_batch_event_is_kept_for_the_next_retry(isolated_env, monkeypa
 
     record = store.conn.execute("SELECT semantic_event_id FROM flushes").fetchone()
     assert first["status"] == "semantic-timeout"
-    assert json.loads(record["semantic_event_id"]) == ["event-1", "event-2", "event-3", "event-4"]
+    assert json.loads(record["semantic_event_id"]) == ["event-1", "event-2"]
 
     waited = []
 
@@ -3392,7 +3509,7 @@ def test_timed_out_batch_event_is_kept_for_the_next_retry(isolated_env, monkeypa
 
     assert second["status"] == "semantic-succeeded"
     retry_request.assert_not_called()
-    assert waited == ["event-1", "event-2", "event-3", "event-4"]
+    assert waited == ["event-1", "event-2"]
     store.close()
 
 
@@ -3763,7 +3880,7 @@ def _record_failed_then_recovered_command(store, session_id="s1"):
     )
 
 
-def test_every_flush_writes_project_memory_and_personal_memory(isolated_env, monkeypatch):
+def test_flush_sends_unified_body_with_both_agent_and_user_id(isolated_env, monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
     _record_complete_session(store)
@@ -3781,29 +3898,21 @@ def test_every_flush_writes_project_memory_and_personal_memory(isolated_env, mon
             store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end"
         )
 
-    assert request.call_count == 2
-    project_body, personal_body = (call.args[2] for call in request.call_args_list)
-    assert project_body["agent_id"] == "code-example"
-    assert "user_id" not in project_body
-    assert project_body["app_id"] == "code-example"
-    assert project_body["run_id"] == "s1"
-    assert project_body["metadata"]["lane"] == "project"
-    assert "custom_instructions" not in project_body
-    assert "Save concise repository facts" in project_body["agent_custom_instructions"]
-    assert "invocation that succeeded" in project_body["agent_custom_instructions"]
-    assert project_body["custom_categories"] == memory_core.CODING_MEMORY_CATEGORIES
-
-    assert personal_body["user_id"] == "test-user"
-    assert "agent_id" not in personal_body
-    assert personal_body["app_id"] == "code-example"
-    assert personal_body["run_id"] == "s1"
-    assert personal_body["metadata"]["lane"] == "personal"
-    assert "Do not save repository facts" in personal_body["custom_instructions"]
-    assert request.call_args_list[0].args[2]["messages"] == request.call_args_list[1].args[2]["messages"]
+    assert request.call_count == 1
+    (sent_body,) = (call.args[2] for call in request.call_args_list)
+    assert sent_body["agent_id"] == "code-example"
+    assert sent_body["user_id"] == "test-user"
+    assert sent_body["app_id"] == "code-example"
+    assert sent_body["run_id"] == "s1"
+    assert "lane" not in sent_body["metadata"]
+    assert "Save concise repository facts" in sent_body["agent_custom_instructions"]
+    assert "invocation that succeeded" in sent_body["agent_custom_instructions"]
+    assert "Do not save repository facts" in sent_body["custom_instructions"]
+    assert sent_body["custom_categories"] == memory_core.CODING_MEMORY_CATEGORIES
     store.close()
 
 
-def test_a_failed_command_does_not_add_a_second_project_lane_call(isolated_env, monkeypatch):
+def test_a_failed_command_appears_in_extraction_evidence(isolated_env, monkeypatch):
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
     _record_complete_session(store)
@@ -3823,11 +3932,12 @@ def test_a_failed_command_does_not_add_a_second_project_lane_call(isolated_env, 
         )
 
     assert result["status"] == "semantic-succeeded"
-    assert request.call_count == 2
-    bodies = [call.args[2] for call in request.call_args_list]
-    assert [body["metadata"]["lane"] for body in bodies] == ["project", "personal"]
-    assert "Commands run in this session:" in bodies[0]["messages"][-1]["content"]
-    assert "[failed/test]" in bodies[0]["messages"][-1]["content"]
+    assert request.call_count == 1
+    sent_body = request.call_args_list[0].args[2]
+    assert sent_body["agent_id"] == "code-example"
+    assert sent_body["user_id"] == "test-user"
+    assert "Commands run in this session:" in sent_body["messages"][-1]["content"]
+    assert "[failed/test]" in sent_body["messages"][-1]["content"]
     store.close()
 
 
@@ -3851,14 +3961,12 @@ def test_a_folder_without_a_remote_shares_project_memory_under_a_path_hashed_nam
             store, {"session_id": "s1", "cwd": folder.cwd}, "session-end"
         )
 
-    bodies = [call.args[2] for call in request.call_args_list]
-    assert [body["metadata"]["lane"] for body in bodies] == ["project", "personal"]
-    assert bodies[0]["agent_id"] == folder.project_id
-    assert bodies[0]["agent_id"].startswith("local-marketing-")
-    assert "user_id" not in bodies[0]
-    assert bodies[0]["metadata"]["author"] == "maya"
-    assert bodies[1]["user_id"] == "maya"
-    assert "agent_id" not in bodies[1]
+    assert request.call_count == 1
+    sent_body = request.call_args_list[0].args[2]
+    assert sent_body["agent_id"] == folder.project_id
+    assert sent_body["agent_id"].startswith("local-marketing-")
+    assert sent_body["user_id"] == "maya"
+    assert sent_body["metadata"]["author"] == "maya"
     store.close()
 
 
@@ -4015,6 +4123,6 @@ def test_every_write_carries_the_session_run_id(isolated_env, monkeypatch):
         memory_core.flush_session(store, {"session_id": "s1", "cwd": "/tmp/repo"}, "session-end")
 
     bodies = [call.args[2] for call in request.call_args_list if "memories/add" in call.args[0]]
-    assert len(bodies) == 2
-    assert {body["run_id"] for body in bodies} == {"s1"}
+    assert len(bodies) == 1
+    assert bodies[0]["run_id"] == "s1"
     store.close()

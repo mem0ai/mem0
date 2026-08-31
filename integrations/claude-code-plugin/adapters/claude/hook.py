@@ -208,6 +208,54 @@ def schedule_periodic_checkpoint(
     return True
 
 
+DEFAULT_IDLE_FLUSH_SECONDS = 300
+
+
+def _idle_flush_seconds() -> int:
+    try:
+        return max(
+            int(os.environ.get("MEM0_CODE_IDLE_FLUSH_SECONDS", str(DEFAULT_IDLE_FLUSH_SECONDS))),
+            0,
+        )
+    except ValueError:
+        return DEFAULT_IDLE_FLUSH_SECONDS
+
+
+def schedule_idle_flush(
+    store: EvidenceStore,
+    hook_input: dict,
+    repo,
+    session_id: str,
+) -> bool:
+    """Launch a delayed background flush for sessions that may never end."""
+    delay = _idle_flush_seconds()
+    if delay <= 0 or not automatic_flush_enabled() or not api_key():
+        return False
+    if store.has_inflight_flush(repo.identity, session_id):
+        return False
+    if not store.has_unflushed_events(repo.identity, session_id):
+        return False
+    pending_dir = data_dir() / "pending"
+    pending_dir.mkdir(parents=True, exist_ok=True)
+    material = f"idle\0{hook_input.get('cwd', '')}\0{hook_input.get('session_id', '')}"
+    digest = hashlib.sha256(material.encode()).hexdigest()[:24]
+    handoff_path = pending_dir / f"idle-{digest}.json"
+    if handoff_path.with_suffix(".running").exists():
+        return False
+    temporary_path = handoff_path.with_suffix(".tmp")
+    temporary_path.write_text(
+        json.dumps({
+            "hook_input": hook_input,
+            "reason": "idle",
+            "delay_seconds": delay,
+        }),
+        encoding="utf-8",
+    )
+    temporary_path.replace(handoff_path)
+    _launch_handoff(handoff_path)
+    return True
+
+
 def log_failure(exc: Exception) -> None:
     try:
         log_path = data_dir() / "plugin-errors.log"
@@ -282,7 +330,8 @@ def main() -> int:
             record_sidekick_stop(store, hook_input)
         elif args.action == "stop":
             repo, session_id = record_stop(store, hook_input)
-            schedule_periodic_checkpoint(store, hook_input, repo, session_id)
+            if not schedule_periodic_checkpoint(store, hook_input, repo, session_id):
+                schedule_idle_flush(store, hook_input, repo, session_id)
         elif args.action == "flush":
             automatic = args.reason in {"session-end", "pre-compact"}
             if automatic and not automatic_flush_enabled():

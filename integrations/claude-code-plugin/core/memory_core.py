@@ -1883,27 +1883,6 @@ def build_episode(
                         }
                     )
             pending_user_messages = []
-        elif event["kind"] == "sidekick_stop" and event["payload"].get(
-            "final_message"
-        ):
-            final_message = bounded(
-                event["payload"].get("final_message", ""),
-                MAX_ASSISTANT_CHARS,
-            )
-            if any(
-                final_message
-                and final_message in message.get("content", "")
-                for message in extraction_messages
-                if message.get("role") == "assistant"
-            ):
-                continue
-            extraction_messages.append(
-                {
-                    "role": "assistant",
-                    "content": "Sidekick outcome:\n"
-                    + final_message,
-                }
-            )
     extraction_messages.extend(pending_user_messages)
 
     structured = {
@@ -2251,26 +2230,19 @@ def flush_session(
     api_url = os.environ.get("MEM0_API_URL", DEFAULT_API_URL).rstrip("/")
     add_url = f"{api_url}/v3/memories/add/"
 
-    write_user, write_app = _scope_value(user_id()), _scope_value(repo.app_id)
+    write_user = _scope_value(user_id())
     write_project = _scope_value(repo.project_id)
-    if not write_user or not write_app or not write_project:
+    if not write_user or not _scope_value(repo.app_id) or not write_project:
         telemetry.record("flush", reason=reason, status="unscoped", success=False)
         return {"status": "error", "reason": "wildcard-scope"}
 
-    project_body = {
+    body = {
         "agent_id": write_project,
+        "user_id": write_user,
         "app_id": directory_app_id(repo),
         "run_id": session_id,
-        "metadata": {**metadata, "lane": "project", "author": write_user, "dirs": directory_chain(repo)},
+        "metadata": {**metadata, "author": write_user, "dirs": directory_chain(repo)},
         "agent_custom_instructions": PROJECT_MEMORY_INSTRUCTIONS,
-        "custom_categories": CODING_MEMORY_CATEGORIES,
-        "infer": True,
-    }
-    personal_body = {
-        "user_id": write_user,
-        "app_id": write_app,
-        "run_id": session_id,
-        "metadata": {**metadata, "lane": "personal"},
         "custom_instructions": PERSONAL_MEMORY_INSTRUCTIONS,
         "custom_categories": CODING_MEMORY_CATEGORIES,
         "infer": True,
@@ -2372,8 +2344,7 @@ def flush_session(
             )
             if batch
         ]
-        batches = [(project_body, messages) for messages in message_batches]
-        batches += [(personal_body, messages) for messages in message_batches]
+        batches = [(body, messages) for messages in message_batches]
         if not batches:
             store.update_flush(packet_id, status="semantic-succeeded", error="")
             return {"status": "nothing-to-flush", "packet_id": packet_id}
