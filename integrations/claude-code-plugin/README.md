@@ -48,9 +48,9 @@ claude --plugin-dir .
 
 2. **Flush.** After every five completed exchanges, a detached background worker sends that batch to Mem0. Large exchanges flush sooner. Ending or compacting the session flushes anything remaining. If idle, an auto-flush runs after five minutes (configurable with `MEM0_CODE_IDLE_FLUSH_SECONDS`). The worker survives Claude Code exiting.
 
-3. **Extract.** Each flush sends a single `add` call with both `agent_id` (the repository) and `user_id` (you). Mem0 classifies each extracted memory as either:
-   - **Shared project memory** (`agent_id`): one namespace per repo, tagged by directory. Stores conventions, decisions, constraints, working commands, and failed commands with their fixes. Everyone on the repo reads and writes the same pool. Never carries a `user_id`.
-   - **Personal memory** (`user_id`): your preferred tools, style, habits, and anything you asked to be remembered. Follows you across repos. Private to you.
+3. **Extract.** Each flush sends a single `add` call with `agent_id` (the project identity), `user_id` (you), `app_id` (the repository), and `run_id` (the session). Mem0 classifies each extracted memory as either:
+   - **Shared project memory** (`agent_id`): one namespace per repo, scoped by `app_id`. Stores conventions, decisions, constraints, working commands, and failed commands with their fixes. Everyone on the repo reads and writes the same pool. Never carries a `user_id`. Directory information is stored in metadata for directory-scoped searches.
+   - **Personal memory** (`user_id`): your preferred tools, style, habits, and anything you asked to be remembered. Scoped to the repo by `app_id`. Private to you.
 
 4. **Recall.** On the next session's first prompt, the plugin searches automatically and supplies up to five relevant memories. No model is called to write the query.
 
@@ -115,7 +115,6 @@ Set the default with the `search_scope` setting or `MEM0_CODE_SEARCH_SCOPE`. Pas
 | `top_k` | `3` | Max memories per explicit search (1 to 20) |
 | `max_context_chars` | `4000` | Max characters returned per search (1,000 to 10,000) |
 | `search_scope` | `repo` | Default scope: `repo`, `dir`, or `mine` |
-| `min_score` | `0.15` | Minimum relevance score (0 to 1) |
 
 ## What is stored and sent
 

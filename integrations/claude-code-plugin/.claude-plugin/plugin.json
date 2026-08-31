@@ -47,15 +47,6 @@
       "description": "How wide every search runs by default. 'repo' is the whole repository's shared memory plus your own preferences, 'dir' narrows the shared memory to the directory you are working in, and 'mine' is your preferences alone.",
       "default": "repo",
       "required": false
-    },
-    "min_score": {
-      "type": "number",
-      "title": "Minimum match score",
-      "description": "Memories scoring below this relevance (0 to 1) are not returned. Lower it if searches miss, raise it if unrelated memories appear.",
-      "default": 0.15,
-      "min": 0,
-      "max": 1,
-      "required": false
     }
   }
 }

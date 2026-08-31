@@ -85,7 +85,7 @@ The plugin follows a simple cycle: capture during a session, extract memories in
 
 2. **Flush.** After every five completed exchanges, a detached background worker sends that batch to Mem0. Large exchanges flush sooner. Ending or compacting the session flushes anything remaining. If the session sits idle, an auto-flush runs after five minutes (configurable with `MEM0_CODE_IDLE_FLUSH_SECONDS`). The timer resets on each new exchange. The worker survives Claude Code exiting.
 
-3. **Extract.** Each flush sends a single `add` call with both `agent_id` (the repository) and `user_id` (you). Mem0 classifies each extracted memory as shared project knowledge or a personal preference.
+3. **Extract.** Each flush sends a single `add` call with `agent_id` (the project identity), `user_id` (you), `app_id` (the repository), and `run_id` (the session). Mem0 classifies each extracted memory as shared project knowledge or a personal preference.
 
 4. **Recall.** On the next session's first prompt, the plugin searches automatically and supplies up to five relevant memories. No model is called to write the query.
 
@@ -93,9 +93,9 @@ The plugin follows a simple cycle: capture during a session, extract memories in
 
 Each `add` call carries separate extraction instructions for project facts and personal facts. Mem0 sorts each memory into one of two buckets:
 
-- **Shared project memory** (keyed by `agent_id`): one namespace per repository, tagged with the directory it was learned in. Stores conventions, decisions, constraints, commands that work, and commands that failed with what fixed them. Everyone on the repo reads and writes the same pool. Project memory never carries a `user_id`, so teammates' searches never mix in your preferences.
+- **Shared project memory** (keyed by `agent_id`, scoped by `app_id`): one namespace per repository. Stores conventions, decisions, constraints, commands that work, and commands that failed with what fixed them. Everyone on the repo reads and writes the same pool. Project memory never carries a `user_id`, so teammates' searches never mix in your preferences. Directory information is stored in metadata for directory-scoped searches.
 
-- **Personal memory** (keyed by `user_id`): your preferred tools, style, habits, and anything you asked to be remembered. Follows you across repositories. Private to you.
+- **Personal memory** (keyed by `user_id`, scoped by `app_id`): your preferred tools, style, habits, and anything you asked to be remembered. Scoped to the repository by `app_id`, private to you.
 
 Credentials are redacted before anything leaves your machine.
 
@@ -110,8 +110,8 @@ Every memory carries identifiers showing where it came from:
 | Identifier | What it is | Example |
 | --- | --- | --- |
 | `user_id` | You (personal memory only) | Your Mem0 user ID |
-| `agent_id` | The repository (project memory only) | `acme-payments-api` |
-| `app_id` | The directory inside the repo | `acme-payments-api/services/billing` |
+| `agent_id` | The project identity (shared memory only) | `acme-payments-api` |
+| `app_id` | The repository (scopes both lanes) | `acme-payments-api` |
 | `run_id` | The Claude Code session | The session ID |
 
 A search returns the union of shared project memory and your personal preferences. The scope narrows the project part:
@@ -135,7 +135,6 @@ Pass `--run-id <session-id>` to see only what one specific session recorded. Set
 | `top_k` | `3` | Max memories per explicit search (1 to 20). |
 | `max_context_chars` | `4000` | Max characters returned per search (1,000 to 10,000). |
 | `search_scope` | `repo` | Default scope: `repo`, `dir`, or `mine`. Also read from `MEM0_CODE_SEARCH_SCOPE`. |
-| `min_score` | `0.15` | Minimum relevance score (0 to 1). Lower if searches miss, raise if unrelated results show up. Also read from `MEM0_CODE_MIN_SCORE`. |
 
 ## Upgrading from 0.2.x
 
