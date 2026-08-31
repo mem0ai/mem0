@@ -85,8 +85,8 @@
   <rect x="620" y="568" width="28" height="12" rx="2" fill="#f5f5f5"/>
   <text x="634" y="578" fill="#2e5aa8" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">ADD</text>
   <line x1="544" y1="592" x2="736" y2="592" stroke="#2e5aa8" stroke-width="1" marker-end="url(#arrow-link)"/>
-  <rect x="576" y="596" width="136" height="12" rx="2" fill="#f5f5f5"/>
-  <text x="644" y="606" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle">agent_id + user_id + app_id</text>
+  <rect x="564" y="596" width="160" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="644" y="606" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle">agent_id + user_id + app_id + run_id</text>
 
   <rect x="616" y="616" width="48" height="12" rx="2" fill="#f5f5f5"/>
   <text x="640" y="626" fill="#7a8399" font-size="8" font-family="monospace" text-anchor="middle" letter-spacing="0.06em">STORED</text>

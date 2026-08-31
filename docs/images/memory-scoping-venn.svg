@@ -60,9 +60,9 @@
   <text x="300" y="212" fill="#eb6c36" font-size="12" font-weight="600"
         font-family="sans-serif" text-anchor="middle">Result</text>
   <text x="300" y="232" fill="#7a8399" font-size="9"
-        font-family="monospace" text-anchor="middle">OR [agent_id,</text>
+        font-family="monospace" text-anchor="middle">OR [agent_id+app_id,</text>
   <text x="300" y="244" fill="#7a8399" font-size="9"
-        font-family="monospace" text-anchor="middle">user_id]</text>
+        font-family="monospace" text-anchor="middle">user_id+app_id]</text>
 
   <line x1="40" y1="360" x2="560" y2="360" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
 
@@ -74,7 +74,7 @@
   <text x="220" y="380" fill="#4f5d75" font-size="9" font-weight="600"
         font-family="monospace" text-anchor="middle" letter-spacing="0.06em">app_id</text>
   <text x="220" y="396" fill="#7a8399" font-size="8"
-        font-family="monospace" text-anchor="middle">repo/subdir</text>
+        font-family="monospace" text-anchor="middle">repo</text>
 
   <text x="380" y="380" fill="#4f5d75" font-size="9" font-weight="600"
         font-family="monospace" text-anchor="middle" letter-spacing="0.06em">user_id</text>
