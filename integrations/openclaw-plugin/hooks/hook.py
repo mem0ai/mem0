@@ -1,0 +1,1 @@
+../../plugin-template/hooks/hook.py

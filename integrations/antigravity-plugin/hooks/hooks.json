@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/antigravity/hook.py\" session-start --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness antigravity session-start --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/antigravity/hook.py\" user-prompt --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness antigravity user-prompt --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 6
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/antigravity/hook.py\" post-tool --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness antigravity post-tool --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 3
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/antigravity/hook.py\" stop --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness antigravity stop --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 3
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/antigravity/hook.py\" flush --reason session-end --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness antigravity flush --reason session-end --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 5
           }
         ]

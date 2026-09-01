@@ -43,4 +43,9 @@ for plugin in "$@"; do
         cp -L "$TEMPLATE_DIR/mcp.json" "$target/mcp.json"
         echo "  Resolved mcp.json symlink"
     fi
+    if [ -L "$target/hooks/hook.py" ]; then
+        rm "$target/hooks/hook.py"
+        cp -L "$TEMPLATE_DIR/hooks/hook.py" "$target/hooks/hook.py"
+        echo "  Resolved hooks/hook.py symlink"
+    fi
 done

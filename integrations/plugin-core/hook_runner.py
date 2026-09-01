@@ -266,7 +266,12 @@ def run(
     parser.add_argument("action", choices=all_actions)
     parser.add_argument("--reason", default="manual")
     parser.add_argument("--plugin-data-dir", default="")
+    parser.add_argument("--harness", default="")
     args = parser.parse_args()
+
+    if args.harness:
+        configure_harness(args.harness)
+        telemetry.init(harness=args.harness)
 
     if args.plugin_data_dir:
         os.environ[data_dir_env] = args.plugin_data_dir
@@ -347,3 +352,7 @@ def entry_point(
     except Exception as exc:
         log_failure(exc)
         raise SystemExit(0)
+
+
+if __name__ == "__main__":
+    entry_point()

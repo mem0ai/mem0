@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" session-start --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness codex session-start --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" user-prompt --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness codex user-prompt --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 6
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" post-tool --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness codex post-tool --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 3
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" stop --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness codex stop --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 3
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" flush --reason session-end --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness codex flush --reason session-end --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 5
           }
         ]

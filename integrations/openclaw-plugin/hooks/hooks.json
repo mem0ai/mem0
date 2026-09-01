@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/openclaw/hook.py\" session-start --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness openclaw session-start --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/openclaw/hook.py\" user-prompt --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness openclaw user-prompt --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 6
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/openclaw/hook.py\" post-tool --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness openclaw post-tool --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 3
           }
         ]
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/openclaw/hook.py\" stop --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness openclaw stop --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 3
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/adapters/openclaw/hook.py\" flush --reason session-end --plugin-data-dir \"${PLUGIN_DATA}\"",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/hook.py\" --harness openclaw flush --reason session-end --plugin-data-dir \"${PLUGIN_DATA}\"",
             "timeout": 5
           }
         ]
