@@ -16,6 +16,9 @@ class SQLiteManager:
         self._migrate_history_table()
         self._create_history_table()
         self._create_messages_table()
+        self._create_message_seq_table()
+
+
 
     def _migrate_history_table(self) -> None:
         """
@@ -147,6 +150,27 @@ class SQLiteManager:
                 logger.error(f"Failed to create messages table: {e}")
                 raise
 
+    def _create_message_seq_table(self) -> None:
+        """Per-scope counter tracking how many messages were saved since the
+        last relevance refresh. Used to trigger periodic cache refreshes
+        (relevance-based eviction) instead of pure time-FIFO eviction."""
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS message_seq (
+                        session_scope TEXT PRIMARY KEY,
+                        saved_count INTEGER DEFAULT 0
+                    )
+                    """
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to create message_seq table: {e}")
+                raise
+
     def add_history(
         self,
         memory_id: str,
@@ -254,9 +278,19 @@ class SQLiteManager:
             for r in rows
         ]
 
-    def save_messages(self, messages: List[Dict[str, Any]], session_scope: str) -> None:
+    def save_messages(
+        self, messages: List[Dict[str, Any]], session_scope: str, keep_ids: Optional[set] = None
+    ) -> None:
+        """Insert messages, then FIFO-evict to the most recent ``window`` rows.
+
+        ``keep_ids`` (set of message ids) are protected from eviction — used by
+        the buffer gate so its KEEP decision is not undone by the plain FIFO
+        trim. Callers of the gate should pass the keep_ids it returned.
+        """
         if not messages:
             return
+        keep_ids = keep_ids or set()
+        window = 10
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
@@ -276,19 +310,41 @@ class SQLiteManager:
                             now,
                         ),
                     )
-                # Evict old messages beyond the most recent 10 for this scope.
-                # Wrapped in a derived table to force SQLite to materialize the
-                # ORDER BY before the outer NOT IN evaluates it.
-                self.connection.execute(
-                    """
-                    DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
-                        SELECT id FROM (
-                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+                if keep_ids:
+                    # Keep the most recent `window` rows PLUS any gate-protected ids,
+                    # evicting everything older than the union. Each UNION branch is
+                    # wrapped in a derived table so ORDER BY/LIMIT apply per-branch.
+                    placeholders = ",".join("?" * len(keep_ids))
+                    self.connection.execute(
+                        """
+                        DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
+                            SELECT id FROM (
+                                SELECT id FROM (
+                                    SELECT id FROM messages
+                                    WHERE session_scope = ? ORDER BY created_at DESC LIMIT ?
+                                )
+                                UNION
+                                SELECT id FROM (
+                                    SELECT id FROM messages
+                                    WHERE session_scope = ? AND id IN ({})
+                                )
+                            )
                         )
+                    """.format(placeholders),
+                        (session_scope, session_scope, window, session_scope, *keep_ids),
                     )
-                """,
-                    (session_scope, session_scope),
-                )
+                else:
+                    # Plain FIFO eviction (no protected ids).
+                    self.connection.execute(
+                        """
+                        DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
+                            SELECT id FROM (
+                                SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT ?
+                            )
+                        )
+                    """,
+                        (session_scope, session_scope, window),
+                    )
                 self.connection.execute("COMMIT")
             except Exception as e:
                 self.connection.execute("ROLLBACK")
@@ -332,6 +388,113 @@ class SQLiteManager:
                 self.connection.execute("BEGIN")
                 self.connection.execute("DROP TABLE IF EXISTS history")
                 self.connection.execute("DROP TABLE IF EXISTS messages")
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to reset tables: {e}")
+                raise
+
+    def close(self) -> None:
+        if self.connection:
+            self.connection.close()
+            self.connection = None
+
+    def __del__(self):
+        self.close()
+    # ── Relevance-based cache refresh helpers ──────────────────────────────
+
+    def get_all_messages(self, session_scope: str) -> List[Dict[str, Any]]:
+        """Return ALL buffered messages for a scope, newest first, with ids."""
+        with self._lock:
+            cur = self.connection.execute(
+                "SELECT id, role, content, name, created_at FROM messages WHERE session_scope = ? ORDER BY created_at DESC",
+                (session_scope,),
+            )
+            rows = cur.fetchall()
+        return [
+            {"id": r[0], "role": r[1], "content": r[2], "name": r[3], "created_at": r[4]}
+            for r in rows
+        ]
+
+    def delete_messages_except(self, session_scope: str, keep_ids: set) -> int:
+        """Delete messages in a scope whose id is NOT in keep_ids. Returns count deleted.
+
+        An empty keep_ids set means the LLM judged everything irrelevant, so the
+        entire buffer for the scope is cleared (except nothing is kept)."""
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                if not keep_ids:
+                    cur = self.connection.execute(
+                        "DELETE FROM messages WHERE session_scope = ?", (session_scope,)
+                    )
+                else:
+                    placeholders = ",".join("?" for _ in keep_ids)
+                    cur = self.connection.execute(
+                        f"DELETE FROM messages WHERE session_scope = ? AND id NOT IN ({placeholders})",
+                        (session_scope, *keep_ids),
+                    )
+                deleted = cur.rowcount
+                self.connection.execute("COMMIT")
+                return deleted
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to delete messages except keep_ids: {e}")
+                raise
+
+    def increment_message_count(self, session_scope: str, delta: int = 1, refresh_interval: int = 0) -> bool:
+            """Increment per-scope saved-message counter. Returns True when interval reached."""
+            if refresh_interval <= 0:
+                return False
+            with self._lock:
+                try:
+                    self.connection.execute("BEGIN")
+                    self.connection.execute(
+                        "INSERT INTO message_seq (session_scope, saved_count) VALUES (?, ?) "
+                        "ON CONFLICT(session_scope) DO UPDATE SET saved_count = saved_count + ?",
+                        (session_scope, delta, delta),
+                    )
+                    cur = self.connection.execute(
+                        "SELECT saved_count FROM message_seq WHERE session_scope = ?", (session_scope,)
+                    )
+                    count = cur.fetchone()[0]
+                    if count >= refresh_interval:
+                        # Reset counter
+                        self.connection.execute(
+                            "UPDATE message_seq SET saved_count = 0 WHERE session_scope = ?", (session_scope,)
+                        )
+                        self.connection.execute("COMMIT")
+                        return True
+                    self.connection.execute("COMMIT")
+                    return False
+                except Exception as e:
+                    self.connection.execute("ROLLBACK")
+                    logger.error(f"Failed to increment message count: {e}")
+                    raise
+
+    def reset_message_count(self, session_scope: str) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.execute(
+                    "UPDATE message_seq SET saved_count = 0 WHERE session_scope = ?", (session_scope,)
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to reset message count: {e}")
+                raise
+
+    def reset(self) -> None:
+        """Drop both tables. Caller is expected to replace this instance."""
+        if not self.connection:
+            raise RuntimeError("Cannot reset a closed SQLiteManager")
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.execute("DROP TABLE IF EXISTS history")
+                self.connection.execute("DROP TABLE IF EXISTS messages")
+                self.connection.execute("DROP TABLE IF EXISTS message_seq")
                 self.connection.execute("COMMIT")
             except Exception as e:
                 self.connection.execute("ROLLBACK")

@@ -876,6 +876,125 @@ class Memory(MemoryBase):
             display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
 
+    def _buffer_gate(self, session_scope: str, messages) -> tuple:
+        """Relevance-based admission + eviction in ONE LLM call.
+
+        Every ``cache_refresh_interval`` saved messages, ask the LLM two
+        questions in a single pass:
+          1. ADMIT — which of the CURRENT messages belong in the buffer
+          2. KEEP  — which of the BUFFERED messages are still relevant to the
+                     current conversation
+
+        Buffered messages not kept are evicted immediately. Returns
+        ``(admitted, keep_ids)``: ``admitted`` are the current messages the
+        caller should persist, ``keep_ids`` are the buffered ids the gate
+        decided to retain (pass them to ``save_messages`` so its FIFO eviction
+        does not delete them). When refresh is disabled or not due, the
+        original messages are returned with empty ``keep_ids``.
+
+        Failures never block memory writes — on any error the original
+        messages are returned and refresh is skipped.
+        """
+        _gate_fired = False
+        try:
+            # Normalize to a list; single non-list messages are wrapped.
+            gate_messages = list(messages) if isinstance(messages, list) else [messages]
+
+            interval = getattr(self.config, "cache_refresh_interval", 0) or 0
+            if interval <= 0:
+                # Gate disabled: pure time-FIFO fallback.
+                return gate_messages, set()
+
+            if not gate_messages:
+                return [], set()
+
+            delta = len(gate_messages)
+            due = self.db.increment_message_count(session_scope, delta=delta, refresh_interval=interval)
+            if not due:
+                return gate_messages, set()
+            # Interval reached: gate fires (success or LLM failure alike resets
+            # the counter so the next window starts fresh).
+            _gate_fired = True
+
+            buffered = self.db.get_all_messages(session_scope)
+            if not buffered:
+                self.db.reset_message_count(session_scope)
+                return gate_messages, set()
+
+            max_batch = getattr(self.config, "cache_refresh_max_batch", 40) or 40
+            if len(buffered) > max_batch:
+                buffered = buffered[:max_batch]
+
+            from mem0.configs.prompts import build_cache_refresh_prompt
+
+            prompt = build_cache_refresh_prompt(gate_messages, buffered)
+            resp = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": "You are a JSON-only conversation buffer curator."},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+            resp = remove_code_blocks(resp or "")
+            if not resp or not resp.strip():
+                self.db.reset_message_count(session_scope)
+                return gate_messages, set()
+
+            try:
+                payload = json.loads(resp, strict=False)
+            except json.JSONDecodeError:
+                payload = json.loads(extract_json(resp), strict=False)
+
+            # ADMIT — current messages to persist
+            admit_indices = payload.get("admit_indices", []) or []
+            if not isinstance(admit_indices, list):
+                admit_indices = []
+            msg_list = list(gate_messages) if isinstance(gate_messages, list) else [gate_messages]
+            admitted = []
+            for idx in admit_indices:
+                try:
+                    idx = int(idx)
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= idx < len(msg_list):
+                    admitted.append(msg_list[idx])
+
+            # KEEP — buffered messages to retain; evict the rest
+            keep_indices = payload.get("keep_indices", []) or []
+            if not isinstance(keep_indices, list):
+                keep_indices = []
+            keep_ids = set()
+            for idx in keep_indices:
+                try:
+                    idx = int(idx)
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= idx < len(buffered):
+                    keep_ids.add(buffered[idx]["id"])
+
+            deleted = self.db.delete_messages_except(session_scope, keep_ids)
+            logger.info(
+                f"Buffer gate scope={session_scope}: admitted {len(admitted)}/{len(msg_list)} new, "
+                f"kept {len(keep_ids)}/{len(buffered)} buffered, evicted {deleted}"
+            )
+            return admitted, keep_ids
+        except Exception as e:
+            # Never block memory writes on a failed gate.
+            logger.warning(f"Buffer gate skipped for scope={session_scope}: {e}")
+            return (list(messages) if isinstance(messages, list) else messages), set()
+        finally:
+            # Reset the counter ONLY once the interval was reached. Do NOT reset
+            # when not due — that would zero the accumulator before it ever
+            # reaches the interval, so the gate would never fire.
+            # increment_message_count already resets the counter when the
+            # interval IS reached; this covers the LLM-failure path too.
+            if _gate_fired:
+                try:
+                    self.db.reset_message_count(session_scope)
+                except Exception:
+                    pass
+
+
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
             returned_memories = []
@@ -985,7 +1104,8 @@ class Memory(MemoryBase):
 
         if not extracted_memories:
             # Save messages even if nothing extracted
-            self.db.save_messages(messages, session_scope)
+            admitted, _keep_ids = self._buffer_gate(session_scope, messages)
+            self.db.save_messages(admitted, session_scope, keep_ids=_keep_ids)
             return []
 
         # Phase 3: Batch embed all extracted memory texts
@@ -1039,7 +1159,8 @@ class Memory(MemoryBase):
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
-            self.db.save_messages(messages, session_scope)
+            admitted, _keep_ids = self._buffer_gate(session_scope, messages)
+            self.db.save_messages(admitted, session_scope, keep_ids=_keep_ids)
             return []
 
         # Phase 6: Batch persist
@@ -1190,7 +1311,8 @@ class Memory(MemoryBase):
             logger.warning(f"Batch entity linking failed: {e}")
 
         # Phase 8: Save messages + return
-        self.db.save_messages(messages, session_scope)
+        admitted, _keep_ids = self._buffer_gate(session_scope, messages)
+        self.db.save_messages(admitted, session_scope, keep_ids=_keep_ids)
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
@@ -2645,7 +2767,8 @@ class AsyncMemory(MemoryBase):
             extracted_memories = []
 
         if not extracted_memories:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            admitted, keep_ids = await asyncio.to_thread(self._buffer_gate, session_scope, messages)
+            await asyncio.to_thread(self.db.save_messages, admitted, session_scope, keep_ids)
             return []
 
         # Phase 3: Batch embed all extracted memory texts
@@ -2697,7 +2820,8 @@ class AsyncMemory(MemoryBase):
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
-            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            admitted, keep_ids = await asyncio.to_thread(self._buffer_gate, session_scope, messages)
+            await asyncio.to_thread(self.db.save_messages, admitted, session_scope, keep_ids)
             return []
 
         # Phase 6: Batch persist
@@ -2848,7 +2972,8 @@ class AsyncMemory(MemoryBase):
             logger.warning(f"Batch entity linking failed (async): {e}")
 
         # Phase 8: Save messages + return
-        await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+        admitted, keep_ids = await asyncio.to_thread(self._buffer_gate, session_scope, messages)
+        await asyncio.to_thread(self.db.save_messages, admitted, session_scope, keep_ids)
 
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}

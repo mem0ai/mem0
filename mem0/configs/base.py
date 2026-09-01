@@ -55,6 +55,23 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    cache_refresh_interval: int = Field(
+        description=(
+            "Number of messages after which the message buffer is refreshed by "
+            "relevance. When 0 or negative, relevance-based cache refresh is "
+            "disabled (default pure time-FIFO behavior). When positive, every "
+            "`cache_refresh_interval` messages the buffer's stored messages are "
+            "scored against the current conversation topic by the LLM and "
+            "irrelevant ones are evicted, so extraction context stays correlated "
+            "with the active session instead of carrying stale cross-session "
+            "content."
+        ),
+        default=20,
+    )
+    cache_refresh_max_batch: int = Field(
+        description="Max messages considered in a single relevance refresh (safety cap on prompt size).",
+        default=40,
+    )
 
 
 class AzureConfig(BaseModel):

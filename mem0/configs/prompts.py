@@ -1060,3 +1060,61 @@ def generate_additive_extraction_prompt(
 
     sections.append("# Output:")
     return "\n\n".join(sections)
+
+
+CACHE_REFRESH_PROMPT = """You are a conversation buffer curator. Your job: given the CURRENT conversation messages and a list of buffered PAST messages, decide TWO things in ONE pass:
+
+1. ADMIT: which of the current (new) messages should be ADDED to the buffer
+2. KEEP: which of the buffered (old) messages are still RELEVANT to the current conversation and should be KEPT
+
+ADMIT a new message if it:
+- Advances the current conversation topic (not a trivial acknowledgment)
+- Contains information worth remembering for the ongoing discussion
+
+DROP a new message (do NOT admit) if it:
+- Is a different, unrelated topic that would pollute the buffer
+- Is trivial filler that adds no context
+
+KEEP a buffered message if it:
+- Discusses the same topic as the current conversation
+- Contains facts, decisions, or context the current conversation depends on
+- Is likely needed to understand the current conversation's purpose
+
+EVICT a buffered message if it:
+- Belongs to a different, unrelated conversation topic
+- Is stale or superseded by newer messages
+- Would pollute memory extraction with irrelevant cross-session content
+
+Rules:
+- Output STRICTLY valid JSON, no markdown fences, no commentary.
+- The output must be: {{"admit_indices": [0-based indices of current messages to ADD], "keep_indices": [0-based indices of buffered messages to KEEP]}}
+- admit_indices refer to the Current Conversation Messages list.
+- keep_indices refer to the Buffered Messages list.
+- If none are relevant, output empty lists.
+
+## Current Conversation Messages (new, to admit, 0-based indices)
+{candidate_messages}
+
+## Buffered Messages (old, 0-based indices)
+{buffered_messages}
+"""
+
+
+def build_cache_refresh_prompt(candidate_messages, buffered_messages) -> str:
+    """Build the prompt asking the LLM which current messages to ADMIT and
+    which buffered messages to KEEP — admission and eviction in one call.
+
+    Both lists are numbered [i] so admit_indices / keep_indices map 1:1.
+    """
+    candidate_text = "\n".join(
+        f"[{i}] {m.get('role', 'unknown')}: {_truncate_content(m.get('content', ''), 200)}"
+        for i, m in enumerate(candidate_messages or [])
+    )
+    buffer_text = "\n".join(
+        f"[{i}] {m.get('role', 'unknown')}: {_truncate_content(m.get('content', ''), 200)}"
+        for i, m in enumerate(buffered_messages or [])
+    )
+    return CACHE_REFRESH_PROMPT.format(
+        candidate_messages=candidate_text or "(empty)",
+        buffered_messages=buffer_text or "(empty)",
+    )
