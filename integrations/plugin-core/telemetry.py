@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Anonymous usage telemetry for the Mem0 Claude Code plugin.
+"""Anonymous usage telemetry for Mem0 agent plugins.
 
 Hooks run on a 3-6 second budget and fire on every tool call, so recording never
 touches the network: `record` appends one JSON line to a local spool and returns.
@@ -28,6 +28,15 @@ from pathlib import Path
 from typing import Any
 
 import memory_core
+
+_harness: str = "generic"
+_source_tag: str = "MEM0_PLUGIN"
+
+
+def init(harness: str = "generic", source_tag: str = "") -> None:
+    global _harness, _source_tag
+    _harness = harness
+    _source_tag = source_tag or f"MEM0_{harness.upper().replace('-', '_')}_PLUGIN"
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_CAPTURE_URL = "https://us.i.posthog.com/i/v0/e/"
@@ -119,7 +128,7 @@ def record(
         except OSError:
             pass
         properties.update(
-            harness="claude-code",
+            harness=_harness,
             plugin_version=memory_core.PLUGIN_VERSION,
             os=sys.platform,
             python_version=platform.python_version(),
@@ -316,7 +325,7 @@ def flush() -> int:
                 "distinct_id": distinct_id,
                 "timestamp": event.get("timestamp"),
                 "properties": {
-                    "source": "CLAUDE_CODE_PLUGIN",
+                    "source": _source_tag,
                     "language": "python",
                     "$process_person_profile": False,
                     "$lib": "posthog-python",

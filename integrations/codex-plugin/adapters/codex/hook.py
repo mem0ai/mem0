@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claude Code hooks for Mem0."""
+"""Codex hooks for Mem0."""
 
 from __future__ import annotations
 
@@ -18,12 +18,14 @@ _local_core = _here.parents[2] / "core"
 _shared_core = _here.parents[3] / "plugin-core"
 _core_dir = _local_core if _local_core.exists() else _shared_core
 sys.path.insert(0, str(_core_dir))
-sys.path.insert(0, str(_here.parent))
 
 import telemetry
 from memory_core import (
     EvidenceStore,
+    MAX_ASSISTANT_CHARS,
+    _session_id,
     api_key,
+    bounded,
     cache_plugin_api_key,
     checkpoint_session,
     clear_stale_api_key_cache,
@@ -32,16 +34,13 @@ from memory_core import (
     detached_process_kwargs,
     format_context,
     record_session_start,
-    record_sidekick_start,
-    record_sidekick_stop,
     record_tool,
     record_user_prompt,
     search_memories,
 )
-from transcript import record_stop
 
-configure_harness("claude-code", data_dir_name="claude-code-plugin", source_tag="claude_code_plugin")
-telemetry.init(harness="claude-code", source_tag="CLAUDE_CODE_PLUGIN")
+configure_harness("codex", data_dir_name="codex-plugin", source_tag="codex_plugin")
+telemetry.init(harness="codex", source_tag="CODEX_PLUGIN")
 
 
 STALE_RUNNING_SECONDS = 300
@@ -57,8 +56,20 @@ def read_hook_input() -> dict:
         return {}
 
 
+def record_stop(store: EvidenceStore, hook_input: dict):
+    """Record the assistant's response without transcript parsing."""
+    session_id = _session_id(hook_input)
+    repo = store.repo_for_session(session_id, hook_input.get("cwd"))
+    message = bounded(hook_input.get("last_assistant_message", ""), MAX_ASSISTANT_CHARS)
+    if message:
+        store.record_event(
+            repo, session_id, "assistant_stop", {"text": message}
+        )
+    return repo, session_id
+
+
 def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
-    """Search once before Claude handles the first prompt in a session."""
+    """Search once before the agent handles the first prompt in a session."""
     repo, session_id, prompt, is_first_prompt = record_user_prompt(store, hook_input)
     if not is_first_prompt:
         return {}
@@ -69,13 +80,8 @@ def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
     if len(prompt.strip()) < max(minimum_query_chars, 1):
         return {}
     result = search_memories(
-        store,
-        repo,
-        session_id,
-        prompt,
-        top_k=5,
-        operation="first-prompt-search",
-        timeout=2,
+        store, repo, session_id, prompt,
+        top_k=5, operation="first-prompt-search", timeout=2,
     )
     if not result.memories:
         return {}
@@ -85,11 +91,8 @@ def first_prompt_memory_output(store: EvidenceStore, hook_input: dict) -> dict:
     )
     telemetry.record(
         "context_injected",
-        repo=repo,
-        session_id=session_id,
-        trigger="first-prompt",
-        memory_count=len(result.memories),
-        context_chars=len(context),
+        repo=repo, session_id=session_id, trigger="first-prompt",
+        memory_count=len(result.memories), context_chars=len(context),
         prompt_chars=len(prompt),
     )
     return {
@@ -113,8 +116,7 @@ def _launch_handoff(handoff_path: Path) -> bool:
         subprocess.Popen(
             [sys.executable, str(worker), str(running_path)],
             stdin=subprocess.DEVNULL,
-            stdout=log_handle,
-            stderr=log_handle,
+            stdout=log_handle, stderr=log_handle,
             close_fds=True,
             **detached_process_kwargs(),
         )
@@ -151,7 +153,6 @@ def recover_pending_handoffs() -> int:
 
 
 def refresh_pending_handoffs() -> None:
-    """Hold unsent packets while paused instead of letting them expire."""
     pending_dir = data_dir() / "pending"
     if not pending_dir.is_dir():
         return
@@ -166,7 +167,6 @@ def refresh_pending_handoffs() -> None:
 def hand_off_flush(
     hook_input: dict, reason: str, *, wait_for_inflight: bool = False
 ) -> None:
-    """Persist hook input and detach delivery from Claude's shutdown lifecycle."""
     pending_dir = data_dir() / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
     material = (
@@ -176,13 +176,11 @@ def hand_off_flush(
     handoff_path = pending_dir / f"{digest}-{uuid.uuid4().hex[:8]}.json"
     temporary_path = handoff_path.with_suffix(".tmp")
     temporary_path.write_text(
-        json.dumps(
-            {
-                "hook_input": hook_input,
-                "reason": reason,
-                "wait_for_inflight": wait_for_inflight,
-            }
-        ),
+        json.dumps({
+            "hook_input": hook_input,
+            "reason": reason,
+            "wait_for_inflight": wait_for_inflight,
+        }),
         encoding="utf-8",
     )
     temporary_path.replace(handoff_path)
@@ -191,20 +189,13 @@ def hand_off_flush(
 
 def automatic_flush_enabled() -> bool:
     return os.environ.get("MEM0_CODE_AUTO_FLUSH", "true").lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
+        "1", "true", "yes", "on",
     }
 
 
 def schedule_periodic_checkpoint(
-    store: EvidenceStore,
-    hook_input: dict,
-    repo,
-    session_id: str,
+    store: EvidenceStore, hook_input: dict, repo, session_id: str,
 ) -> bool:
-    """Start one background extraction when a complete block is ready."""
     if (
         not automatic_flush_enabled()
         or not api_key()
@@ -231,12 +222,8 @@ def _idle_flush_seconds() -> int:
 
 
 def schedule_idle_flush(
-    store: EvidenceStore,
-    hook_input: dict,
-    repo,
-    session_id: str,
+    store: EvidenceStore, hook_input: dict, repo, session_id: str,
 ) -> bool:
-    """Launch a delayed background flush for sessions that may never end."""
     delay = _idle_flush_seconds()
     if delay <= 0 or not automatic_flush_enabled() or not api_key():
         return False
@@ -279,21 +266,15 @@ def main() -> int:
     parser.add_argument(
         "action",
         choices=[
-            "session-start",
-            "user-prompt",
-            "post-tool",
-            "post-tool-failure",
-            "sidekick-start",
-            "sidekick-stop",
-            "stop",
-            "flush",
+            "session-start", "user-prompt", "post-tool",
+            "stop", "flush",
         ],
     )
     parser.add_argument("--reason", default="manual")
     parser.add_argument("--plugin-data-dir", default="")
     args = parser.parse_args()
     if args.plugin_data_dir:
-        os.environ["MEM0_CODE_DATA_DIR"] = args.plugin_data_dir
+        os.environ["MEM0_PLUGIN_DATA_DIR"] = args.plugin_data_dir
     cache_plugin_api_key()
     if args.action == "session-start":
         clear_stale_api_key_cache()
@@ -320,35 +301,15 @@ def main() -> int:
                 print(json.dumps(output))
         elif args.action == "post-tool":
             record_tool(store, hook_input)
-        elif args.action == "post-tool-failure":
-            record_tool(store, hook_input, failed=True)
-        elif args.action == "sidekick-start":
-            context = record_sidekick_start(store, hook_input)
-            if context:
-                print(
-                    json.dumps(
-                        {
-                            "hookSpecificOutput": {
-                                "hookEventName": "SubagentStart",
-                                "additionalContext": context,
-                            }
-                        }
-                    )
-                )
-        elif args.action == "sidekick-stop":
-            record_sidekick_stop(store, hook_input)
         elif args.action == "stop":
             repo, session_id = record_stop(store, hook_input)
             if not schedule_periodic_checkpoint(store, hook_input, repo, session_id):
                 schedule_idle_flush(store, hook_input, repo, session_id)
         elif args.action == "flush":
-            automatic = args.reason in {"session-end", "pre-compact"}
+            automatic = args.reason in {"session-end"}
             if automatic and not automatic_flush_enabled():
                 return 0
             if args.reason == "session-end":
-                # In print mode, SessionEnd can arrive before the Stop hook has
-                # recorded Claude's final response. Read any remaining visible
-                # transcript messages before preparing the final extraction.
                 record_stop(store, hook_input)
             if os.environ.get("MEM0_CODE_SYNC_FLUSH") == "1":
                 print(json.dumps(checkpoint_session(store, hook_input, args.reason)))
@@ -357,9 +318,7 @@ def main() -> int:
                 repo = store.repo_for_session(session_id, hook_input.get("cwd"))
                 already_running = store.has_inflight_flush(repo.identity, session_id)
                 if already_running and args.reason == "session-end":
-                    hand_off_flush(
-                        hook_input, args.reason, wait_for_inflight=True
-                    )
+                    hand_off_flush(hook_input, args.reason, wait_for_inflight=True)
                 elif not already_running and store.prepare_flush(
                     repo, session_id, args.reason
                 ) is not None:
@@ -373,6 +332,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        # Memory must never prevent the coding agent from continuing.
         log_failure(exc)
         raise SystemExit(0)

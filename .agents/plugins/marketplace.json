@@ -8,7 +8,55 @@
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "./integrations/mem0-plugin"
+        "path": "./integrations/claude-code-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "mem0-cursor",
+      "source": {
+        "source": "local",
+        "path": "./integrations/cursor-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "mem0-codex",
+      "source": {
+        "source": "local",
+        "path": "./integrations/codex-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "mem0-openclaw",
+      "source": {
+        "source": "local",
+        "path": "./integrations/openclaw-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "mem0-harmless",
+      "source": {
+        "source": "local",
+        "path": "./integrations/harmless-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
