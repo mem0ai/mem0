@@ -1033,7 +1033,11 @@ def generate_additive_extraction_prompt(
     current_date, observation_date = _resolve_dates(current_date, timestamp)
 
     sections = []
-    sections.append(f"## Summary\n{_format_summary(summary)}")
+    # Empty-Summary sanitation: omit the section entirely when there is no
+    # summary to convey, avoiding a PROHIBITED_CONTENT trigger pattern.
+    formatted_summary = _format_summary(summary).strip()
+    if formatted_summary:
+        sections.append(f"## Summary\n{formatted_summary}")
     sections.append(f"## Last k Messages\n{_format_conversation_history(last_k_messages)}")
     sections.append(f"## Recently Extracted Memories\n{_serialize_memories(recently_extracted_memories)}")
     sections.append(f"## Existing Memories\n{_serialize_memories(existing_memories)}")
