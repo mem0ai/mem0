@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CORE_DIR="$SCRIPT_DIR/plugin-core"
+TEMPLATE_DIR="$SCRIPT_DIR/plugin-template"
 
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <plugin-dir> [plugin-dir...]"
@@ -26,4 +27,20 @@ for plugin in "$@"; do
     mkdir -p "$dest"
     cp "$CORE_DIR"/*.py "$dest/"
     echo "Bundled plugin-core into $plugin/core/ ($(ls "$dest"/*.py | wc -l | tr -d ' ') files)"
+
+    if [ -d "$TEMPLATE_DIR" ] && [ -L "$target/skills" ]; then
+        rm "$target/skills"
+        cp -RL "$TEMPLATE_DIR/skills" "$target/skills"
+        echo "  Resolved skills/ symlink"
+    fi
+    if [ -d "$TEMPLATE_DIR" ] && [ -L "$target/agents" ]; then
+        rm "$target/agents"
+        cp -RL "$TEMPLATE_DIR/agents" "$target/agents"
+        echo "  Resolved agents/ symlink"
+    fi
+    if [ -d "$TEMPLATE_DIR" ] && [ -L "$target/mcp.json" ]; then
+        rm "$target/mcp.json"
+        cp -L "$TEMPLATE_DIR/mcp.json" "$target/mcp.json"
+        echo "  Resolved mcp.json symlink"
+    fi
 done

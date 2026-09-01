@@ -13,10 +13,13 @@ from pathlib import Path
 import pytest
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PLUGIN_ROOT / "core"))
+_local_core = PLUGIN_ROOT / "core"
+_shared_core = PLUGIN_ROOT.parent / "plugin-core"
+_core_dir = _local_core if _local_core.exists() else _shared_core
+sys.path.insert(0, str(_core_dir))
 sys.path.insert(0, str(PLUGIN_ROOT / "adapters" / "claude"))
 
-import hook  # noqa: E402
+import hook_runner  # noqa: E402
 import memory_core  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
@@ -232,7 +235,7 @@ def test_a_pending_packet_is_recovered_and_delivered_by_the_worker(ns):
     stale.write_text(json.dumps({"hook_input": {"session_id": sid, "cwd": str(ns.root)}, "reason": "session-end"}))
     os.utime(stale, (time.time() - 3600, time.time() - 3600))
 
-    assert hook.recover_pending_handoffs() == 1
+    assert hook_runner.recover_pending_handoffs() == 1
     deadline = time.time() + 240
     while time.time() < deadline and list(pending.iterdir()):
         time.sleep(3)

@@ -13,7 +13,9 @@ import pytest
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-CORE = PLUGIN_ROOT / "core"
+_local_core = PLUGIN_ROOT / "core"
+_shared_core = PLUGIN_ROOT.parent / "plugin-core"
+CORE = _local_core if _local_core.exists() else _shared_core
 ADAPTER = PLUGIN_ROOT / "adapters" / "claude"
 sys.path.insert(0, str(CORE))
 sys.path.insert(0, str(ADAPTER))
@@ -1061,32 +1063,32 @@ def test_forced_checkpoint_sends_an_incomplete_remainder(isolated_env):
 def test_stop_schedules_one_background_checkpoint_when_block_is_ready(
     isolated_env,
 ):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     for number in range(1, 5):
         _record_exchange(store, number)
 
     with (
-        patch.object(hook, "api_key", return_value="m0-test-key"),
-        patch.object(hook, "hand_off_flush") as handoff,
+        patch.object(hook_runner, "api_key", return_value="m0-test-key"),
+        patch.object(hook_runner, "hand_off_flush") as handoff,
     ):
         assert (
-            hook.schedule_periodic_checkpoint(
+            hook_runner.schedule_periodic_checkpoint(
                 store, {"session_id": "s1", "cwd": "/tmp/repo"}, repo(), "s1"
             )
             is False
         )
         _record_exchange(store, 5)
         assert (
-            hook.schedule_periodic_checkpoint(
+            hook_runner.schedule_periodic_checkpoint(
                 store, {"session_id": "s1", "cwd": "/tmp/repo"}, repo(), "s1"
             )
             is True
         )
         _record_exchange(store, 6)
         assert (
-            hook.schedule_periodic_checkpoint(
+            hook_runner.schedule_periodic_checkpoint(
                 store, {"session_id": "s1", "cwd": "/tmp/repo"}, repo(), "s1"
             )
             is False
@@ -1100,64 +1102,64 @@ def test_stop_schedules_one_background_checkpoint_when_block_is_ready(
 
 
 def test_stop_schedules_idle_flush_when_periodic_not_due(isolated_env):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     _record_exchange(store, 1)
 
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
     with (
-        patch.object(hook, "api_key", return_value="m0-test-key"),
-        patch.object(hook, "_launch_handoff", return_value=True) as launch,
+        patch.object(hook_runner, "api_key", return_value="m0-test-key"),
+        patch.object(hook_runner, "_launch_handoff", return_value=True) as launch,
     ):
-        assert not hook.schedule_periodic_checkpoint(store, hook_input, repo(), "s1")
-        assert hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+        assert not hook_runner.schedule_periodic_checkpoint(store, hook_input, repo(), "s1")
+        assert hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
 
     payload = json.loads(launch.call_args.args[0].read_text(encoding="utf-8"))
     assert payload["reason"] == "idle"
-    assert payload["delay_seconds"] == hook.DEFAULT_IDLE_FLUSH_SECONDS
+    assert payload["delay_seconds"] == hook_runner.DEFAULT_IDLE_FLUSH_SECONDS
     store.close()
 
 
 def test_idle_flush_skipped_when_inflight_flush_exists(isolated_env):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     for number in range(1, 6):
         _record_exchange(store, number)
 
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
-    with patch.object(hook, "api_key", return_value="m0-test-key"):
+    with patch.object(hook_runner, "api_key", return_value="m0-test-key"):
         store.prepare_flush(repo(), "s1", "periodic")
-        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+        assert not hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
     store.close()
 
 
 def test_idle_flush_skipped_when_no_unflushed_events(isolated_env):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
-    with patch.object(hook, "api_key", return_value="m0-test-key"):
-        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    with patch.object(hook_runner, "api_key", return_value="m0-test-key"):
+        assert not hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
     store.close()
 
 
 def test_idle_flush_skipped_when_disabled(isolated_env, monkeypatch):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     _record_exchange(store, 1)
 
     monkeypatch.setenv("MEM0_CODE_IDLE_FLUSH_SECONDS", "0")
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
-    with patch.object(hook, "api_key", return_value="m0-test-key"):
-        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    with patch.object(hook_runner, "api_key", return_value="m0-test-key"):
+        assert not hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
     store.close()
 
 
 def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     _record_exchange(store, 1)
@@ -1166,7 +1168,7 @@ def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
     periodic_called = []
     idle_called = []
 
-    original_periodic = hook.schedule_periodic_checkpoint
+    original_periodic = hook_runner.schedule_periodic_checkpoint
 
     def mock_periodic(*a, **kw):
         result = original_periodic(*a, **kw)
@@ -1178,14 +1180,17 @@ def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
         return True
 
     with (
-        patch.object(hook, "api_key", return_value="m0-test-key"),
-        patch.object(hook, "schedule_periodic_checkpoint", side_effect=mock_periodic),
-        patch.object(hook, "schedule_idle_flush", side_effect=mock_idle),
-        patch.object(hook, "record_stop", return_value=(repo(), "s1")),
+        patch.object(hook_runner, "api_key", return_value="m0-test-key"),
+        patch.object(hook_runner, "schedule_periodic_checkpoint", side_effect=mock_periodic),
+        patch.object(hook_runner, "schedule_idle_flush", side_effect=mock_idle),
     ):
         monkeypatch.setattr("sys.stdin", __import__("io").StringIO(json.dumps(hook_input)))
         monkeypatch.setattr("sys.argv", ["hook.py", "stop"])
-        hook.main()
+        hook_runner.run(
+            record_stop_fn=lambda s, h: (repo(), "s1"),
+            data_dir_env="MEM0_CODE_DATA_DIR",
+            automatic_flush_reasons={"session-end", "pre-compact"},
+        )
 
     assert periodic_called == [False]
     assert idle_called == [True]
@@ -1235,7 +1240,7 @@ def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     sibling of hook.py, or every background flush launches against a
     nonexistent path.
     """
-    import hook
+    import hook_runner
 
     data_dir_path = Path(os.environ["MEM0_CODE_DATA_DIR"])
     pending_dir = data_dir_path / "pending"
@@ -1243,8 +1248,8 @@ def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     handoff_path = pending_dir / "test-handoff.json"
     handoff_path.write_text("{}", encoding="utf-8")
 
-    with patch.object(hook.subprocess, "Popen") as popen:
-        assert hook._launch_handoff(handoff_path) is True
+    with patch.object(hook_runner.subprocess, "Popen") as popen:
+        assert hook_runner._launch_handoff(handoff_path) is True
 
     launched_args = popen.call_args.args[0]
     worker_path = Path(launched_args[1])
@@ -1258,30 +1263,30 @@ def test_flush_worker_detaches_on_windows_as_well_as_posix(monkeypatch):
     Without a creationflags fallback the worker stays attached to Claude's
     console on Windows and background extraction can die with the session.
     """
-    import hook
+    import hook_runner
 
-    assert hook.detached_process_kwargs("darwin") == {"start_new_session": True}
-    assert hook.detached_process_kwargs("linux") == {"start_new_session": True}
+    assert hook_runner.detached_process_kwargs("darwin") == {"start_new_session": True}
+    assert hook_runner.detached_process_kwargs("linux") == {"start_new_session": True}
 
     monkeypatch.setattr(subprocess, "DETACHED_PROCESS", 0x00000008, raising=False)
     monkeypatch.setattr(
         subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200, raising=False
     )
-    windows_kwargs = hook.detached_process_kwargs("win32")
+    windows_kwargs = hook_runner.detached_process_kwargs("win32")
     assert windows_kwargs == {"creationflags": 0x00000208}
     assert "start_new_session" not in windows_kwargs
 
 
 def test_launch_handoff_always_requests_detachment(isolated_env):
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
     handoff_path = pending_dir / "detach-handoff.json"
     handoff_path.write_text("{}", encoding="utf-8")
 
-    with patch.object(hook.subprocess, "Popen") as popen:
-        assert hook._launch_handoff(handoff_path) is True
+    with patch.object(hook_runner.subprocess, "Popen") as popen:
+        assert hook_runner._launch_handoff(handoff_path) is True
 
     assert popen.call_args.kwargs["start_new_session"] is True
 
@@ -1294,23 +1299,23 @@ def test_pending_recovery_is_capped_and_leaves_the_rest_for_next_session(
     Each worker can block for MEM0_CODE_EXTRACTION_WAIT_SECONDS, so an
     uncapped launch is a thundering herd at session start.
     """
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
-    for number in range(hook.PENDING_LAUNCH_LIMIT + 3):
+    for number in range(hook_runner.PENDING_LAUNCH_LIMIT + 3):
         (pending_dir / f"packet-{number}.json").write_text("{}", encoding="utf-8")
 
-    with patch.object(hook.subprocess, "Popen"):
-        launched = hook.recover_pending_handoffs()
+    with patch.object(hook_runner.subprocess, "Popen"):
+        launched = hook_runner.recover_pending_handoffs()
 
-    assert launched == hook.PENDING_LAUNCH_LIMIT
-    assert len(list(pending_dir.glob("*.running"))) == hook.PENDING_LAUNCH_LIMIT
+    assert launched == hook_runner.PENDING_LAUNCH_LIMIT
+    assert len(list(pending_dir.glob("*.running"))) == hook_runner.PENDING_LAUNCH_LIMIT
     assert len(list(pending_dir.glob("*.json"))) == 3
 
 
 def test_pending_recovery_drops_packets_past_the_expiry_window(isolated_env):
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
@@ -1319,11 +1324,11 @@ def test_pending_recovery_drops_packets_past_the_expiry_window(isolated_env):
     fresh = pending_dir / "fresh.json"
     fresh.write_text("{}", encoding="utf-8")
 
-    stale_time = time.time() - hook.PENDING_EXPIRY_SECONDS - 60
+    stale_time = time.time() - hook_runner.PENDING_EXPIRY_SECONDS - 60
     os.utime(expired, (stale_time, stale_time))
 
-    with patch.object(hook.subprocess, "Popen"):
-        launched = hook.recover_pending_handoffs()
+    with patch.object(hook_runner.subprocess, "Popen"):
+        launched = hook_runner.recover_pending_handoffs()
 
     assert launched == 1
     assert not expired.exists()
@@ -2774,7 +2779,7 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
         for index in range(1, 7)
     ]
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2784,7 +2789,7 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
             return_value=({"results": results}, 200, 600),
         ) as request,
     ):
-        output = hook.first_prompt_memory_output(
+        output = hook_runner.first_prompt_memory_output(
             store,
             {"session_id": "s1", "cwd": "/tmp/repo", "prompt": prompt},
         )
@@ -2814,7 +2819,7 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2824,7 +2829,7 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
             return_value=({"results": []}, 100, 20),
         ) as request,
     ):
-        first = hook.first_prompt_memory_output(
+        first = hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2832,7 +2837,7 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
                 "prompt": "Where is ODS date formatting implemented?",
             },
         )
-        second = hook.first_prompt_memory_output(
+        second = hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2853,7 +2858,7 @@ def test_manual_search_remains_available_after_automatic_search(
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2878,7 +2883,7 @@ def test_manual_search_remains_available_after_automatic_search(
             ],
         ) as request,
     ):
-        hook.first_prompt_memory_output(
+        hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2912,7 +2917,7 @@ def test_first_prompt_is_silent_when_all_matches_were_already_provided(
     }
     store.mark_injected("s1", repo().identity, [existing])
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2922,7 +2927,7 @@ def test_first_prompt_is_silent_when_all_matches_were_already_provided(
             return_value=({"results": [existing]}, 100, 100),
         ),
     ):
-        output = hook.first_prompt_memory_output(
+        output = hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -3355,7 +3360,7 @@ def test_event_poll_touches_the_worker_heartbeat(isolated_env, monkeypatch, tmp_
 
 
 def test_paused_session_start_keeps_pending_packets_fresh(isolated_env):
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
@@ -3363,11 +3368,11 @@ def test_paused_session_start_keeps_pending_packets_fresh(isolated_env):
     held.write_text("{}", encoding="utf-8")
     claimed = pending_dir / "claimed.running"
     claimed.write_text("{}", encoding="utf-8")
-    stale_time = time.time() - hook.PENDING_EXPIRY_SECONDS - 60
+    stale_time = time.time() - hook_runner.PENDING_EXPIRY_SECONDS - 60
     for path in (held, claimed):
         os.utime(path, (stale_time, stale_time))
 
-    hook.refresh_pending_handoffs()
+    hook_runner.refresh_pending_handoffs()
 
     assert held.stat().st_mtime > time.time() - 60
     assert claimed.stat().st_mtime > time.time() - 60
