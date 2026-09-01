@@ -23,6 +23,7 @@ sys.path.insert(0, str(ADAPTER))
 import memory_core  # noqa: E402
 import memory_cli  # noqa: E402
 import mcp_server  # noqa: E402
+import transcript as transcript_mod  # noqa: E402
 
 
 @pytest.fixture
@@ -237,7 +238,7 @@ def test_transcript_extraction_keeps_meaningful_messages_and_excludes_raw_tools(
         ],
     )
 
-    messages, leaf, _ = memory_core.transcript_extraction_messages(
+    messages, leaf, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1"
     )
     serialized = json.dumps(messages)
@@ -337,7 +338,7 @@ def test_transcript_extraction_pairs_background_agent_notification(tmp_path):
         ],
     )
 
-    messages, _, _ = memory_core.transcript_extraction_messages(
+    messages, _, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1", previous_leaf_uuid="launch-result"
     )
     serialized = json.dumps(messages)
@@ -390,7 +391,7 @@ def test_transcript_extraction_omits_claude_ui_messages_but_keeps_attachments(
         ],
     )
 
-    messages, _, _ = memory_core.transcript_extraction_messages(
+    messages, _, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1", prompt_hint="The attached issue says repository scope is wrong."
     )
     serialized = json.dumps(messages)
@@ -489,7 +490,7 @@ def test_transcript_extraction_uses_active_branch_and_omits_rejected_plan(tmp_pa
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
 
-    messages, leaf, _ = memory_core.transcript_extraction_messages(
+    messages, leaf, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1"
     )
     serialized = json.dumps(messages)
@@ -527,7 +528,7 @@ def test_record_stop_processes_only_new_transcript_entries(
             store,
             {"session_id": "s1", "cwd": "/tmp/repo", "prompt": "Inspect the parser."},
         )
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -564,7 +565,7 @@ def test_record_stop_processes_only_new_transcript_entries(
                 "prompt": "Where is that implemented?",
             },
         )
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -3188,7 +3189,7 @@ def test_transcript_rows_resume_from_a_byte_offset(tmp_path):
         ],
     )
 
-    rows, end, resumed = memory_core._transcript_rows(str(transcript))
+    rows, end, resumed = transcript_mod._transcript_rows(str(transcript))
     assert [row["uuid"] for row in rows] == ["entry-1", "entry-2"]
     assert end == transcript.stat().st_size
     assert resumed is False
@@ -3206,12 +3207,12 @@ def test_transcript_rows_resume_from_a_byte_offset(tmp_path):
         handle.write(json.dumps(third_row) + "\n")
         handle.write('{"uuid": "partial-row"')
 
-    rows, end, resumed = memory_core._transcript_rows(str(transcript), first_size)
+    rows, end, resumed = transcript_mod._transcript_rows(str(transcript), first_size)
     assert [row["uuid"] for row in rows] == ["entry-3"]
     assert resumed is True
     assert end < transcript.stat().st_size
 
-    rows, _, resumed = memory_core._transcript_rows(
+    rows, _, resumed = transcript_mod._transcript_rows(
         str(transcript), transcript.stat().st_size + 100
     )
     assert [row["uuid"] for row in rows] == ["entry-1", "entry-2", "entry-3"]
@@ -3240,7 +3241,7 @@ def test_record_stop_reads_the_transcript_from_the_stored_offset(
     store = memory_core.EvidenceStore()
 
     with patch.object(memory_core, "resolve_repo", return_value=repo()):
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -3275,7 +3276,7 @@ def test_record_stop_reads_the_transcript_from_the_stored_offset(
         },
     ]
     _write_transcript(transcript, "s1", second_entries)
-    original_rows = memory_core._transcript_rows
+    original_rows = transcript_mod._transcript_rows
     offsets = []
 
     def spying_rows(path, offset=0):
@@ -3284,9 +3285,9 @@ def test_record_stop_reads_the_transcript_from_the_stored_offset(
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
-        patch.object(memory_core, "_transcript_rows", side_effect=spying_rows),
+        patch.object(transcript_mod, "_transcript_rows", side_effect=spying_rows),
     ):
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",

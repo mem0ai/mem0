@@ -14,10 +14,10 @@ import time
 from pathlib import Path
 
 import telemetry
+from hook_runner import default_record_stop
 from memory_core import (
     EvidenceStore,
     checkpoint_session,
-    record_stop,
     touch_handoff_heartbeat,
 )
 
@@ -59,7 +59,7 @@ def main() -> int:
                     touch_handoff_heartbeat()
                     time.sleep(0.25)
                 if reason == "session-end":
-                    record_stop(store, hook_input)
+                    default_record_stop(store, hook_input)
             result = checkpoint_session(store, hook_input, reason)
             print(json.dumps(result, sort_keys=True), flush=True)
             completed = result.get("status") in {
