@@ -13,6 +13,8 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 | `openclaw-plugin/` | OpenClaw plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
 | `harmless-plugin/` | Harmless plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
 | `antigravity-plugin/` | Antigravity plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
+| `kimi-plugin/` | Kimi plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
+| `opencode-plugin/` | `@mem0/opencode-plugin` (Bun/TypeScript) | tsup (via Bun) | tsc | bun test |
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
 | `deepseek-plugin/` | `@mem0/deepseek-plugin` | tsup (ESM) | none | vitest |
 | `n8n-nodes-mem0/` | `@mem0/n8n-nodes-mem0` | tsc | ESLint (n8n-nodes-base) | none |
@@ -47,7 +49,8 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
 - **`plugin-core/`** is the shared host-agnostic core for all Mem0 agent plugins: memory evidence store, telemetry, MCP server, flush worker, and memory CLI. All per-host plugins import from here (directly in dev, or via a bundled `core/` built by `build-plugin.sh` for distribution). Each plugin calls `configure_harness()` to set its host name, data directory, and telemetry tags.
 - **`claude-code-plugin/`** is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`): local evidence capture via lifecycle hooks, background memory extraction to the Mem0 Platform, a local `search_memories` MCP tool, six `/mem0:*` skills, and the `mem0:sidekick` agent. Pure-stdlib Python, no dependencies to install. Claude-specific transcript parsing lives in `adapters/claude/transcript.py`.
-- **`cursor-plugin/`**, **`codex-plugin/`**, **`openclaw-plugin/`**, **`harmless-plugin/`**, **`antigravity-plugin/`** are per-host plugins following the agent-plugins.org v1.0.0 spec. Each is a thin adapter (~336 lines) over plugin-core with its own `configure_harness()` call, hooks, skills, and sidekick agent.
+- **`cursor-plugin/`**, **`codex-plugin/`**, **`openclaw-plugin/`**, **`harmless-plugin/`**, **`antigravity-plugin/`**, **`kimi-plugin/`** are per-host plugins following the agent-plugins.org v1.0.0 spec. Each is a thin adapter (~336 lines) over plugin-core with its own `configure_harness()` call, hooks, skills, and sidekick agent.
+- **`opencode-plugin/`** is a Bun/TypeScript plugin for OpenCode (`@mem0/opencode-plugin` on npm). It registers Mem0 memory tools as an OpenCode plugin with its own skills and telemetry.
 - **`openclaw/`**, **`pi-agent-plugin/`**, **`deepseek-plugin/`** are editor and agent plugins with the same shape. `deepseek-plugin/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
 - **`zapier-mem0/`** is a Zapier Platform CLI app: add, search, get, delete. It deploys to Zapier, not npm, so it is **not** in the release router. Deploy it with `gh workflow run zapier-mem0-cd.yml --ref main` (needs the `ZAPIER_DEPLOY_KEY` secret).

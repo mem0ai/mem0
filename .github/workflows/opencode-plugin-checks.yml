@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'integrations/mem0-plugin/.opencode-plugin/**'
+      - 'integrations/opencode-plugin/**'
       - '.github/workflows/opencode-plugin-checks.yml'
   workflow_call:
 
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: integrations/mem0-plugin/.opencode-plugin
+        working-directory: integrations/opencode-plugin
     steps:
       - uses: actions/checkout@v4
 

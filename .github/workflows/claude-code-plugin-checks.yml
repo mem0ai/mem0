@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'integrations/claude-code-plugin/**'
+      - 'integrations/plugin-core/**'
       - '.github/workflows/claude-code-plugin-checks.yml'
   workflow_call:
 

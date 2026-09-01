@@ -69,6 +69,28 @@
       "category": "Productivity",
       "description": "Cross-session memory and token savings for coding agents.",
       "version": "0.3.0"
+    },
+    {
+      "name": "mem0-kimi",
+      "source": "./integrations/kimi-plugin",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "description": "Cross-session memory and token savings for coding agents.",
+      "version": "0.3.0"
+    },
+    {
+      "name": "mem0-opencode",
+      "source": "./integrations/opencode-plugin",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "description": "Cross-session memory and token savings for coding agents.",
+      "version": "0.2.2"
     }
   ]
 }

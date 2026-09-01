@@ -18,9 +18,9 @@ Package workflows keep their own push-to-main and manual triggers. Their `pull_r
 | Python CLI | `cli-python-ci.yml` | Push to main (`cli/python/`), manual | Ruff + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | Node CLI | `cli-node-ci.yml` | Push to main (`cli/node/`), manual | Biome + tsc + vitest + tsup on Node 20, 22 |
 | OpenClaw | `openclaw-checks.yml` | Push to main (`integrations/openclaw/`), manual | tsc + vitest (Codecov) + tsup on Node 20, 22 |
-| Mem0 Plugin (legacy) | `mem0-plugin-checks.yml` | Push to main (`integrations/mem0-plugin/`, excluding `.opencode-plugin/`), manual | pytest + hook exec bits + JSON manifest validation on Python 3.10, 3.11, 3.12 |
-| Claude Code Plugin | `claude-code-plugin-checks.yml` | Push to main (`integrations/claude-code-plugin/`), manual | pytest + ruff + JSON manifest validation on Python 3.10, 3.11, 3.12 |
-| OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (`.opencode-plugin/`), manual | Bun: tsc + build + dist artifact check |
+| Plugin Core | `plugin-core-checks.yml` | Push to main (`integrations/plugin-core/`), manual | Ruff on Python 3.10, 3.11, 3.12 |
+| Claude Code Plugin | `claude-code-plugin-checks.yml` | Push to main (`integrations/claude-code-plugin/`, `integrations/plugin-core/`), manual | pytest + ruff + JSON manifest validation on Python 3.10, 3.11, 3.12 |
+| OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (`integrations/opencode-plugin/`), manual | Bun: tsc + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (`integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup on Node 20, 22 |
 | DeepSeek Harness Plugin | `deepseek-plugin-checks.yml` | Push to main (`integrations/deepseek-plugin/`), manual | tsc + vitest + tsup on Node 20, 22 |
 | n8n Node | `n8n-nodes-mem0-checks.yml` | Push to main (`integrations/n8n-nodes-mem0/`), manual | ESLint + tsc build on Node 20 |

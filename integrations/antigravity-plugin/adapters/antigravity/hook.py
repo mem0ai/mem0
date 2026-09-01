@@ -19,8 +19,8 @@ _shared_core = _here.parents[3] / "plugin-core"
 _core_dir = _local_core if _local_core.exists() else _shared_core
 sys.path.insert(0, str(_core_dir))
 
-import telemetry
-from memory_core import (
+import telemetry  # noqa: E402
+from memory_core import (  # noqa: E402
     EvidenceStore,
     MAX_ASSISTANT_CHARS,
     _session_id,

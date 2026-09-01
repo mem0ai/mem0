@@ -15,7 +15,7 @@ _local = _here.parents[2] / "core"
 _shared = _here.parents[3] / "plugin-core"
 sys.path.insert(0, str(_local if _local.exists() else _shared))
 
-from memory_core import (
+from memory_core import (  # noqa: E402
     EvidenceStore,
     RepoContext,
     MAX_ASSISTANT_CHARS,

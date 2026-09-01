@@ -38,7 +38,7 @@ jobs:
       cli_python: ${{ steps.filter.outputs.cli_python }}
       cli_node: ${{ steps.filter.outputs.cli_node }}
       openclaw: ${{ steps.filter.outputs.openclaw }}
-      mem0_plugin: ${{ steps.filter.outputs.mem0_plugin }}
+      plugin_core: ${{ steps.filter.outputs.plugin_core }}
       claude_code_plugin: ${{ steps.filter.outputs.claude_code_plugin }}
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
@@ -78,17 +78,17 @@ jobs:
               - 'integrations/openclaw/**'
               - '.github/workflows/openclaw-checks.yml'
               - '.github/workflows/ci-gate.yml'
-            mem0_plugin:
-              - 'integrations/mem0-plugin/**'
-              - '!integrations/mem0-plugin/.opencode-plugin/**'
-              - '.github/workflows/mem0-plugin-checks.yml'
+            plugin_core:
+              - 'integrations/plugin-core/**'
+              - '.github/workflows/plugin-core-checks.yml'
               - '.github/workflows/ci-gate.yml'
             claude_code_plugin:
               - 'integrations/claude-code-plugin/**'
+              - 'integrations/plugin-core/**'
               - '.github/workflows/claude-code-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
-              - 'integrations/mem0-plugin/.opencode-plugin/**'
+              - 'integrations/opencode-plugin/**'
               - '.github/workflows/opencode-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             pi_agent_plugin:
@@ -160,11 +160,11 @@ jobs:
     uses: ./.github/workflows/openclaw-checks.yml
     secrets: inherit
 
-  mem0-plugin:
-    name: Mem0 Plugin
+  plugin-core:
+    name: Plugin Core
     needs: changes
-    if: needs.changes.outputs.mem0_plugin == 'true'
-    uses: ./.github/workflows/mem0-plugin-checks.yml
+    if: needs.changes.outputs.plugin_core == 'true'
+    uses: ./.github/workflows/plugin-core-checks.yml
     secrets: inherit
 
   claude-code-plugin:
@@ -248,7 +248,7 @@ jobs:
       - cli-python
       - cli-node
       - openclaw
-      - mem0-plugin
+      - plugin-core
       - claude-code-plugin
       - opencode-plugin
       - pi-agent-plugin
