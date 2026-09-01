@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mem0": {
+      "command": "python3",
+      "args": ["${PLUGIN_ROOT}/core/mcp_server.py"],
+      "env": {
+        "MEM0_PLUGIN_DATA_DIR": "${PLUGIN_DATA}"
+      }
+    }
+  }
+}
