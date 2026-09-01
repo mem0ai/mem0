@@ -13,6 +13,15 @@ class SQLiteManager:
         self.db_path = db_path
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._lock = threading.Lock()
+        # Concurrency hardening: WAL allows concurrent readers + single writer,
+        # busy_timeout lets readers wait instead of failing with 'database is locked'
+        # under Hermes' concurrent sessions / heartbeat / tool calls.
+        if db_path != ":memory:":
+            try:
+                self.connection.execute("PRAGMA journal_mode=WAL")
+                self.connection.execute("PRAGMA busy_timeout=5000")
+            except Exception as e:
+                logger.warning("Failed to set SQLite PRAGMAs on %s: %s", db_path, e)
         self._migrate_history_table()
         self._create_history_table()
         self._create_messages_table()
