@@ -209,13 +209,10 @@ memory = Memory()
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # 1. 检索与当前输入最相关的 Top-3 历史记忆
     relevant_memories = memory.search(query=message, filters={"user_id": user_id}, top_k=3)
-    memories_str = "
-".join(f"- {entry[memory]}" for entry in relevant_memories["results"])
+    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
 
     # 2. 将历史记忆注入 System Prompt 构建回复
-    system_prompt = f"你是一名贴心的智能助手。请结合用户提问与历史记忆进行回答。
-用户历史记忆：
-{memories_str}"
+    system_prompt = f"你是一名贴心的智能助手。请结合用户提问与历史记忆进行回答。\n用户历史记忆：\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
     response = openai_client.chat.completions.create(model="gpt-5-mini", messages=messages)
     assistant_response = response.choices[0].message.content
