@@ -39,18 +39,15 @@ class OpenAILLM(LLMBase):
         if not self.config.model:
             self.config.model = "gpt-5-mini"
 
-        if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
-            self.client = OpenAI(
-                api_key=os.environ.get("OPENROUTER_API_KEY"),
-                base_url=self.config.openrouter_base_url
-                or os.getenv("OPENROUTER_API_BASE")
-                or "https://openrouter.ai/api/v1",
-            )
-        else:
-            api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
-            base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        # Priority: explicit config > env vars. Never let ambient OPENROUTER_API_KEY hijack explicit config.
+        api_key = self.config.api_key or os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+        base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL")
+        if not base_url and os.getenv("OPENROUTER_API_KEY") and not self.config.api_key:
+            base_url = self.config.openrouter_base_url or os.getenv("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
+        if not base_url:
+            base_url = "https://api.openai.com/v1"
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def _parse_response(self, response, tools):
         """
@@ -138,7 +135,16 @@ class OpenAILLM(LLMBase):
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
             params["tool_choice"] = tool_choice
-        response = self.client.chat.completions.create(**params)
+        try:
+            response = self.client.chat.completions.create(**params)
+        except Exception as e:
+            # Graceful fallback: if upstream rejects response_format (e.g. 400 parameter error), retry without it
+            if response_format and ("response_format" in str(e).lower() or "400" in str(e)):
+                logging.warning("Upstream rejected response_format, retrying without response_format param: %s", e)
+                params.pop("response_format", None)
+                response = self.client.chat.completions.create(**params)
+            else:
+                raise e
         parsed_response = self._parse_response(response, tools)
         if self.config.response_callback:
             try:
