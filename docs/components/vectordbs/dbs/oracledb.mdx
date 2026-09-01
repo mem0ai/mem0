@@ -234,8 +234,11 @@ m.search(
 
 ```typescript TypeScript
 await memory.search("movie recommendations", {
-  userId: "alice",
-  filters: { category: { in: ["movies", "books"] }, rating: { gte: 4 } },
+  filters: {
+    user_id: "alice",
+    category: { in: ["movies", "books"] },
+    rating: { gte: 4 },
+  },
 });
 ```
 </CodeGroup>
