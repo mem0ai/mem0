@@ -22,6 +22,7 @@ from memory_core import (
     cache_plugin_api_key,
     checkpoint_session,
     clear_stale_api_key_cache,
+    configure_harness,
     data_dir,
     detached_process_kwargs,
     format_context,
