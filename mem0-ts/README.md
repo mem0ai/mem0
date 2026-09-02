@@ -1,14 +1,49 @@
 # Mem0 TypeScript SDK
 
-[![npm version](https://img.shields.io/npm/v/mem0ai.svg)](https://www.npmjs.com/package/mem0ai)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/mem0ai/mem0/blob/main/LICENSE)
+<p align="center">
+  <a href="https://github.com/mem0ai/mem0">
+    <img src="../docs/images/banner-sm.png" width="800px" alt="Mem0, the memory layer for personalized AI">
+  </a>
+</p>
+<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
+  <a href="https://trendshift.io/repositories/11194" target="blank">
+    <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
+  </a>
+</p>
 
-Mem0 gives AI assistants and agents persistent memory. It extracts useful facts from conversations, scopes them to a user, agent, or run, and retrieves the relevant facts for later interactions. The `mem0ai` package includes `MemoryClient` for the hosted Mem0 Platform and `Memory` for open-source, in-process memory.
+<p align="center">
+  <a href="https://mem0.ai">Learn more</a>
+  ·
+  <a href="https://mem0.dev/DiG">Join Discord</a>
+  ·
+  <a href="https://mem0.dev/demo">Demo</a>
+</p>
+
+<p align="center">
+  <a href="https://mem0.dev/DiG">
+    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Mem0 Discord">
+  </a>
+  <a href="https://www.npmjs.com/package/mem0ai">
+    <img src="https://img.shields.io/npm/dm/mem0ai" alt="Mem0 npm downloads">
+  </a>
+  <a href="https://github.com/mem0ai/mem0">
+    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
+  </a>
+  <a href="https://www.npmjs.com/package/mem0ai" target="blank">
+    <img src="https://img.shields.io/npm/v/mem0ai?color=%2334D058&label=npm%20package" alt="npm package version">
+  </a>
+  <a href="https://www.ycombinator.com/companies/mem0">
+    <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
+  </a>
+</p>
+
+Mem0 gives AI assistants and agents persistent memory. It extracts useful facts from conversations, scopes them to a user, agent, or run, and retrieves the relevant facts for later interactions. The TypeScript package, `mem0ai` on npm, includes `MemoryClient` for the hosted Mem0 Platform, imported from `mem0ai`, and `Memory` for open-source, in-process memory, imported from `mem0ai/oss`.
 
 ## Requirements
 
-- Hosted `MemoryClient`: Node.js 18 or later and `MEM0_API_KEY` from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys)
-- Open-source `Memory` with the default storage: Node.js 20 or later because `better-sqlite3` v12 requires Node 20+
+- Node.js 18 or later
+- Open-source `Memory` with the default storage: Node.js 20 or later, because `better-sqlite3` v12 requires Node 20+
+- Hosted Platform: `MEM0_API_KEY` from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys)
 - Open source with the default providers: `OPENAI_API_KEY`
 
 ## Install
@@ -19,13 +54,13 @@ npm install mem0ai
 
 ## Platform or open source
 
-|                     | Platform (`MemoryClient`)               | Open source (`Memory`)                                                |
-| ------------------- | --------------------------------------- | --------------------------------------------------------------------- |
-| Import              | `import { MemoryClient } from "mem0ai"` | `import { Memory } from "mem0ai/oss"`                                 |
-| Where memories live | Mem0's hosted API                       | Your configured vector store                                          |
-| Required key        | `MEM0_API_KEY`                          | `OPENAI_API_KEY` with the defaults, or keys for your chosen providers |
-| Extraction          | Managed and asynchronous                | Runs against your configured LLM                                      |
-| Best for            | Zero-ops production use                 | Local development and custom infrastructure                           |
+| | Platform (`MemoryClient`) | Open source (`Memory`) |
+|---|---|---|
+| Import | `import { MemoryClient } from "mem0ai"` | `import { Memory } from "mem0ai/oss"` |
+| Where memories live | Mem0's hosted API | Your configured vector store |
+| Required key | `MEM0_API_KEY` | `OPENAI_API_KEY` with the defaults, or keys for your chosen providers |
+| Extraction | Managed and asynchronous | Runs against your configured LLM |
+| Best for | Zero-ops production use | Local development and custom infrastructure |
 
 ## Platform quickstart
 
@@ -80,90 +115,97 @@ const results = await memory.search("What does Alex eat?", {
 console.log(results.results);
 ```
 
-The default `Memory` configuration uses OpenAI `gpt-5-mini`, OpenAI `text-embedding-3-small`, a SQLite-backed vector store at `~/.mem0/vector_store.db`, and a SQLite history database at `memory.db`.
+The default `Memory` configuration uses OpenAI `gpt-5-mini`, OpenAI `text-embedding-3-small`, a SQLite-backed vector store at `~/.mem0/vector_store.db`, and a SQLite history database at `memory.db`. Pass a config object to `Memory` to change the LLM, embedder, vector store, history path, or reranker.
 
 ## Configuration and features
 
-Pass a config object to `Memory` to change providers or storage:
+| Feature | Documentation |
+|---|---|
+| Memory operations: `add`, `search`, `get`, `getAll`, `update`, `delete`, `deleteAll`, `history`, all async and Promise-based | [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart) |
+| Entity scoping with `userId`, `agentId`, and `runId` | [Entity-scoped memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) |
+| Metadata and filters | [Metadata filtering](https://docs.mem0.ai/open-source/features/metadata-filtering) |
+| LLMs, embedders, vector stores, and rerankers | [Components](https://docs.mem0.ai/components/llms/overview) |
+| Graph memory | [Graph memory](https://docs.mem0.ai/platform/features/graph-memory) |
+| Custom instructions | [Custom instructions](https://docs.mem0.ai/open-source/features/custom-instructions) |
+| Multimodal input | [Multimodal support](https://docs.mem0.ai/open-source/features/multimodal-support) |
+| Platform webhooks, export, feedback, expiration, and custom categories | [Platform features](https://docs.mem0.ai/platform/features) |
 
-```ts
-import { Memory } from "mem0ai/oss";
+## Benchmarks
 
-const memory = new Memory({
-  llm: {
-    provider: "anthropic",
-    config: {
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      model: "claude-sonnet-4-5",
-    },
-  },
-  embedder: {
-    provider: "openai",
-    config: {
-      apiKey: process.env.OPENAI_API_KEY,
-      model: "text-embedding-3-small",
-    },
-  },
-  vectorStore: {
-    provider: "qdrant",
-    config: {
-      collectionName: "memories",
-      host: "localhost",
-      port: 6333,
-      dimension: 1536,
-    },
-  },
-});
+<p align="center">
+  <a href="https://mem0.ai/research"><strong>Benchmarking Mem0's token-efficient memory algorithm</strong></a>
+</p>
+
+| Benchmark | Old | New | Tokens | Latency p50 |
+|---|---:|---:|---:|---:|
+| **LoCoMo** | 71.4 | **92.5** | 7.0K | 0.88s |
+| **LongMemEval** | 67.8 | **94.4** | 6.8K | 1.09s |
+| **BEAM (1M)** | n/a | **64.1** | 6.7K | 1.00s |
+| **BEAM (10M)** | n/a | **48.6** | 6.9K | 1.05s |
+
+All benchmarks use the same production-representative model stack, single-pass retrieval, and a top-200 retrieval budget. Scores reflect the managed Platform, which includes proprietary optimizations not available in the open-source SDK. Open-source results should show similar directional gains, but may not match these scores.
+
+The current algorithm uses single-pass ADD-only extraction, first-class agent facts, entity linking, multi-signal retrieval, and temporal reasoning. Read the [research paper](https://mem0.ai/research), the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3), or the open-source [evaluation framework](https://github.com/mem0ai/memory-benchmarks).
+
+## Self-hosted server
+
+Run Mem0 as a FastAPI service with PostgreSQL, pgvector, and Neo4j:
+
+```bash
+# Recommended: start the stack, create an admin, and issue the first API key.
+cd server && make bootstrap
+
+# Manual: start the stack, then finish setup in the browser wizard.
+cd server && docker compose up -d
 ```
 
-Provider integrations use a mix of bundled dependencies and peer dependencies. OpenAI is bundled. Most provider peers are optional, but `package.json` also declares required peers such as `better-sqlite3`, `pg`, `compromise`, and `natural`. Install the SDK for any optional provider you configure.
+Self-hosted authentication is enabled by default. See the [self-hosted documentation](https://docs.mem0.ai/open-source/overview) and [upgrade notes](https://docs.mem0.ai/open-source/setup#upgrade-notes).
 
-### Memory operations
+## CLI
 
-Both clients expose asynchronous memory operations. The open-source methods finish their work before resolving. Hosted `add()` only confirms that the extraction job was queued.
-
-| Operation              | Platform                            | Open source                         |
-| ---------------------- | ----------------------------------- | ----------------------------------- |
-| Add                    | `client.add(messages, { userId })`  | `memory.add(messages, { userId })`  |
-| Search                 | `client.search(query, { filters })` | `memory.search(query, { filters })` |
-| List                   | `client.getAll({ filters })`        | `memory.getAll({ filters })`        |
-| Get                    | `client.get(memoryId)`              | `memory.get(memoryId)`              |
-| Update                 | `client.update(memoryId, { text })` | `memory.update(memoryId, { text })` |
-| Delete                 | `client.delete(memoryId)`           | `memory.delete(memoryId)`           |
-| Delete scoped memories | `client.deleteAll({ userId })`      | `memory.deleteAll({ userId })`      |
-| History                | `client.history(memoryId)`          | `memory.history(memoryId)`          |
-
-### Filters
-
-Use snake_case keys inside `filters`. A flat object combines conditions with AND. Use `AND`, `OR`, or `NOT` for explicit grouping:
-
-```ts
-const filters = {
-  AND: [{ user_id: "alex" }, { categories: { contains: "food" } }],
-};
-```
-
-Pass this object as `filters` to `search()` or `getAll()`.
-
-Comparison operators include `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, and `icontains`. Open-source `Memory` also supports `nin`. See [memory filters](https://docs.mem0.ai/platform/features/v2-memory-filters).
-
-### Platform features
-
-`MemoryClient` also supports users, batch operations, project settings, webhooks, feedback, and memory exports. See the [Platform API reference](https://docs.mem0.ai/api-reference).
-
-### Open-source providers
-
-The TypeScript SDK supports configurable LLMs, embedders, vector stores, history stores, and rerankers. See the [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart) and [component documentation](https://docs.mem0.ai/components/llms/overview) for supported provider names and configuration.
-
-### CLI and integrations
-
-Use the Node CLI to manage hosted memories from your terminal:
+Manage hosted memories from your terminal:
 
 ```bash
 npm install -g @mem0/cli
+
+mem0 init
+mem0 add "Prefers dark mode and vim keybindings" --user-id alice
+mem0 search "What does Alice prefer?" --user-id alice
 ```
 
-See the [CLI reference](https://docs.mem0.ai/platform/cli) and [Vercel AI SDK integration](https://docs.mem0.ai/integrations/vercel-ai-sdk).
+AI agents can create an account without email or a dashboard:
+
+```bash
+mem0 init --agent --agent-caller claude-code
+```
+
+The human owner can claim the account later with `mem0 init --email <their-email>`. The API key and memories remain unchanged. See the [CLI documentation](https://docs.mem0.ai/platform/cli) and [agent signup guide](https://docs.mem0.ai/platform/agent-signup).
+
+## Agent skills
+
+Install reference skills to give compatible coding assistants Mem0 context:
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
+```
+
+Install pipeline skills for end-to-end workflows:
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
+```
+
+See the [skills catalog](../skills/) or [Vibecoding with Mem0](https://docs.mem0.ai/vibecoding).
+
+## Integrations and demos
+
+- [ChatGPT with Memory demo](https://mem0.dev/demo)
+- [Browser extension](https://chromewebstore.google.com/detail/onihkkbipkfeijkadecaafbgagkhglop?utm_source=item-share-cb)
+- [LangGraph integration](https://docs.mem0.ai/integrations/langgraph)
+- [CrewAI integration](https://docs.mem0.ai/integrations/crewai)
 
 ## Documentation and help
 
@@ -177,6 +219,17 @@ See the [CLI reference](https://docs.mem0.ai/platform/cli) and [Vercel AI SDK in
 ## Contributing
 
 Read [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md) before opening an issue or pull request.
+
+## Citation
+
+```bibtex
+@article{mem0,
+  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
+  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
+  journal={arXiv preprint arXiv:2504.19413},
+  year={2025}
+}
+```
 
 ## License
 
