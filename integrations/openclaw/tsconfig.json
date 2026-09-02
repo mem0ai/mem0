@@ -7,7 +7,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "strict": false,
     "noImplicitAny": false,
     "types": ["node"],

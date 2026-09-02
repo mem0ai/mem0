@@ -32,14 +32,13 @@
   },
   "files": [
     "dist",
-    "src",
     "skills",
     "README.md",
     "LICENSE"
   ],
   "pi": {
     "extensions": [
-      "./src/entry.ts"
+      "./dist/entry.js"
     ],
     "skills": [
       "./skills"

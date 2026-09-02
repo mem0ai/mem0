@@ -2,6 +2,10 @@ import * as path from "node:path";
 import * as crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import type { Scope, ScopeContext } from "../types.ts";
+import {
+  scopeAddParams,
+  scopeSearchFilters,
+} from "../../../agent-plugins/core/typescript/src/scoping.ts";
 
 export function detectAppId(cwd: string): string {
   try {
@@ -26,26 +30,12 @@ export function resolveSearchFilters(
   scope: Scope,
   ctx: ScopeContext,
 ): Record<string, string> {
-  switch (scope) {
-    case "project":
-      return { user_id: ctx.userId, app_id: ctx.appId };
-    case "session":
-      return { user_id: ctx.userId, app_id: ctx.appId, run_id: ctx.runId };
-    case "global":
-      return { user_id: ctx.userId, app_id: "*" };
-  }
+  return scopeSearchFilters(scope, ctx);
 }
 
 export function resolveAddParams(
   scope: Scope,
   ctx: ScopeContext,
 ): Record<string, string> {
-  switch (scope) {
-    case "project":
-      return { userId: ctx.userId, appId: ctx.appId };
-    case "session":
-      return { userId: ctx.userId, appId: ctx.appId, runId: ctx.runId };
-    case "global":
-      return { userId: ctx.userId };
-  }
+  return scopeAddParams(scope, ctx);
 }

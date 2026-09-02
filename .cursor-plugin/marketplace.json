@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "mem0",
-      "source": "./integrations/cursor-plugin",
+      "source": "./integrations/agent-plugins/dist/cursor/native",
       "description": "Cross-session memory and token savings for coding agents.",
       "version": "0.3.0"
     }

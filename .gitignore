@@ -16,6 +16,8 @@ server/.env
 build/
 develop-eggs/
 dist/
+!integrations/agent-plugins/dist/
+!integrations/agent-plugins/dist/**
 downloads/
 eggs/
 .eggs/

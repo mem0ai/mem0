@@ -4,10 +4,10 @@
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./index.d.ts",
       "import": "./dist/index.js"
     }
   },
@@ -30,11 +30,12 @@
   },
   "files": [
     "dist",
+    "index.d.ts",
     "LICENSE",
     "opencode-skills"
   ],
   "scripts": {
-    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
+    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext]",
     "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
     "type-check": "tsc --noEmit",
     "prepack": "bun run build",

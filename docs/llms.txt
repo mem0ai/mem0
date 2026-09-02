@@ -415,15 +415,15 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 ### Claude Code Plugin
 
-Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugins
 
-The `integrations/claude-code-plugin/` directory is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+The Claude Code native bundle is generated from `integrations/agent-plugins/` (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the unchanged `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
 
-### Editor Plugin (shared glue)
+### Editor Plugins (shared core)
 
-Source: https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugins
 
-The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Cursor, Codex, Kimi, Antigravity, and OpenCode. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`. Claude Code moved to `integrations/claude-code-plugin/` in v0.3.0; do not run both at the same time.
+The `integrations/agent-plugins/` directory provides one memory runtime and generated native/portable bundles for Claude Code, Cursor, Codex, Kimi, and Antigravity. TypeScript integrations reuse its formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 

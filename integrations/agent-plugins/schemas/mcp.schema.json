@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "title": "Agent Plugins MCP Configuration",
+  "description": "Machine-readable schema for mcp.json in Agent Plugins 1.0.0. The Agent Plugins specification defines additional semantic and operational requirements.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "const": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+      "description": "Canonical identifier of the MCP configuration schema for the Agent Plugins version targeted by this document."
+    },
+    "mcpServers": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/server" }
+    }
+  },
+  "required": ["$schema", "mcpServers"],
+  "additionalProperties": false,
+  "$defs": {
+    "server": {
+      "title": "MCP server",
+      "oneOf": [
+        { "$ref": "#/$defs/stdioServer" },
+        { "$ref": "#/$defs/streamableHttpServer" },
+        { "$ref": "#/$defs/sseServer" }
+      ]
+    },
+    "stdioServer": {
+      "title": "stdio MCP server",
+      "type": "object",
+      "properties": {
+        "type": { "const": "stdio" },
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Executable token. Resolution rules are defined by the Agent Plugins specification."
+        },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "env": {
+          "type": "object",
+          "propertyNames": { "not": { "enum": ["PLUGIN_ROOT", "PLUGIN_DATA"] } },
+          "additionalProperties": { "type": "string" }
+        },
+        "cwd": {
+          "type": "string",
+          "pattern": "^(?:\\./|\\$\\{PLUGIN_ROOT\\}(?:/|$)|\\$\\{PLUGIN_DATA\\}(?:/|$))",
+          "description": "Plugin-relative, PLUGIN_ROOT-rooted, or PLUGIN_DATA-rooted working directory. Filesystem containment is validated separately."
+        }
+      },
+      "required": ["type", "command"],
+      "additionalProperties": false
+    },
+    "streamableHttpServer": {
+      "title": "Streamable HTTP MCP server",
+      "type": "object",
+      "properties": {
+        "type": { "const": "streamable-http" },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "MCP endpoint URL. URL semantics are defined by the Agent Plugins specification."
+        },
+        "headers": { "$ref": "#/$defs/headers" }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false
+    },
+    "sseServer": {
+      "title": "Legacy HTTP+SSE MCP server",
+      "type": "object",
+      "properties": {
+        "type": { "const": "sse" },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "MCP endpoint URL. URL semantics are defined by the Agent Plugins specification."
+        },
+        "headers": { "$ref": "#/$defs/headers" }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false
+    },
+    "headers": {
+      "title": "HTTP headers",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  }
+}

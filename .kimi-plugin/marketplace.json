@@ -9,7 +9,7 @@
       "description": "Cross-session memory and token savings for coding agents.",
       "homepage": "https://mem0.ai",
       "keywords": ["memory", "personalization", "mcp", "semantic-search"],
-      "source": "https://github.com/mem0ai/mem0/tree/main/integrations/kimi-plugin"
+      "source": "https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugins/dist/kimi/native"
     }
   ]
 }

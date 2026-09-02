@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "mem0",
-      "source": "./integrations/claude-code-plugin",
+      "source": "./integrations/agent-plugins/dist/claude-code/native",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
@@ -17,7 +17,7 @@
     },
     {
       "name": "mem0-cursor",
-      "source": "./integrations/cursor-plugin",
+      "source": "./integrations/agent-plugins/dist/cursor/native",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
@@ -28,7 +28,7 @@
     },
     {
       "name": "mem0-codex",
-      "source": "./integrations/codex-plugin",
+      "source": "./integrations/agent-plugins/dist/codex/native",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
@@ -39,18 +39,7 @@
     },
     {
       "name": "mem0-openclaw",
-      "source": "./integrations/openclaw-plugin",
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity",
-      "description": "Cross-session memory and token savings for coding agents.",
-      "version": "0.3.0"
-    },
-    {
-      "name": "mem0-harmless",
-      "source": "./integrations/harmless-plugin",
+      "source": "./integrations/openclaw",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
@@ -61,7 +50,7 @@
     },
     {
       "name": "mem0-antigravity",
-      "source": "./integrations/antigravity-plugin",
+      "source": "./integrations/agent-plugins/dist/antigravity/native",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
@@ -72,7 +61,7 @@
     },
     {
       "name": "mem0-kimi",
-      "source": "./integrations/kimi-plugin",
+      "source": "./integrations/agent-plugins/dist/kimi/native",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"

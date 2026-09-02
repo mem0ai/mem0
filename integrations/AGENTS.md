@@ -1,20 +1,12 @@
 # Integrations (`integrations/`)
 
-Agent and editor integrations. Each subdirectory is self-contained: its own `package.json`, lockfile, build, and tests. **There is no shared toolchain.** Check the table before running anything.
+Agent and editor integrations. Most packages are self-contained; coding-agent plugins share the code in `agent-plugins/`. Check the table before running anything.
 
 | Directory | Package | Build | Lint | Test |
 |-----------|---------|-------|------|------|
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
-| `plugin-core/` | Shared core for all Mem0 agent plugins | none | ruff | pytest |
-| `plugin-template/` | Canonical skills, sidekick, MCP config for spec plugins | none | none | none |
-| `claude-code-plugin/` | Claude Code plugin, installs as `mem0@mem0-plugins` (v0.3.0) | none | ruff | pytest |
-| `cursor-plugin/` | Cursor plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
-| `codex-plugin/` | Codex plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
-| `openclaw-plugin/` | OpenClaw plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
-| `harmless-plugin/` | Harmless plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
-| `antigravity-plugin/` | Antigravity plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
-| `kimi-plugin/` | Kimi plugin (agent-plugins.org v1.0.0 spec) | none | ruff | pytest |
+| `agent-plugins/` | Shared Python/TypeScript cores and native/portable bundles for Claude Code, Cursor, Codex, Kimi, and Antigravity | Python build script | ruff + tsc | pytest + node:test |
 | `opencode-plugin/` | `@mem0/opencode-plugin` (Bun/TypeScript) | tsup (via Bun) | tsc | bun test |
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
 | `deepseek-plugin/` | `@mem0/deepseek-plugin` | tsup (ESM) | none | vitest |
@@ -22,7 +14,7 @@ Agent and editor integrations. Each subdirectory is self-contained: its own `pac
 | `zapier-mem0/` | `@mem0/zapier` | tsc | none | offline unit tests + `zapier validate` |
 | `mem0-strands/` | `mem0-strands` (PyPI) | hatch | Ruff + mypy | pytest |
 
-pnpm everywhere except `mem0-strands/` (Python: pip / hatch). Never npm, never yarn.
+pnpm for TypeScript packages except `opencode-plugin/` (Bun). `mem0-strands/` uses Python/pip/hatch. Never npm or yarn.
 
 ## Commands
 
@@ -48,10 +40,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 ## What each one is
 
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
-- **`plugin-core/`** is the shared host-agnostic core for all Mem0 agent plugins: memory evidence store, telemetry, MCP server, flush worker, memory CLI, and `hook_runner.py` (the shared hook orchestration logic). All per-host plugins import from here (directly in dev, or via a bundled `core/` built by `build-plugin.sh` for distribution). Each plugin calls `configure_harness()` to set its host name, data directory, and telemetry tags, then delegates to `hook_runner.entry_point()`.
-- **`plugin-template/`** holds the canonical copies of skills, sidekick agent, MCP config, and the generic hook entry point shared by all agent-plugins.org spec plugins. Spec plugins symlink to these files in dev; `build-plugin.sh` resolves the symlinks for distribution. Each plugin's `hooks/hooks.json` is unique (hooks are client-defined, not spec-portable) and passes `--harness <name>` to the shared entry point so `hook_runner` can configure itself for that host.
-- **`claude-code-plugin/`** is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`): local evidence capture via lifecycle hooks, background memory extraction to the Mem0 Platform, a local `search_memories` MCP tool, six `/mem0:*` skills, and the `mem0:sidekick` agent. Pure-stdlib Python, no dependencies to install. Claude-specific transcript parsing lives in `adapters/claude/transcript.py`. Its `hook.py` is a thin adapter (~55 lines) that passes Claude-specific actions (sidekick, post-tool-failure, pre-compact) to `hook_runner.entry_point()`.
-- **`cursor-plugin/`**, **`codex-plugin/`**, **`openclaw-plugin/`**, **`harmless-plugin/`**, **`antigravity-plugin/`**, **`kimi-plugin/`** are per-host plugins following the agent-plugins.org v1.0.0 spec. Each has no adapter code of its own: `hooks/hook.py` is symlinked from `plugin-template/` and `hooks/hooks.json` passes `--harness <name>` to identify the host. Skills, sidekick, agents, and MCP config are also symlinked from `plugin-template/`.
+- **`agent-plugins/`** owns the shared Python memory runtime, shared TypeScript utilities, skill templates, sidekick prompt, small host adapters, and generated self-contained bundles. Claude Code is the behavioral source of truth. Edit source under `core/`, `shared/`, or `hosts/`; never hand-edit `dist/`. Build and validation details are in [`agent-plugins/README.md`](agent-plugins/README.md).
 - **`opencode-plugin/`** is a Bun/TypeScript plugin for OpenCode (`@mem0/opencode-plugin` on npm). It registers Mem0 memory tools as an OpenCode plugin with its own skills and telemetry.
 - **`openclaw/`**, **`pi-agent-plugin/`**, **`deepseek-plugin/`** are editor and agent plugins with the same shape. `deepseek-plugin/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
@@ -60,11 +49,11 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 ## Adding an integration
 
-1. Create `integrations/<name>/` and build it there, self-contained.
+1. For a coding-agent host, add a descriptor and thin adapter under `agent-plugins/hosts/<name>/`, then build its native and portable bundles. For an independent integration, create `integrations/<name>/` and keep its package self-contained.
 2. If it publishes to a registry, set `repository.directory: "integrations/<name>"` in `package.json` so npm provenance links to the right subdirectory.
 3. Add `.github/workflows/<name>-checks.yml` and `<name>-cd.yml`. Use `integrations/<name>` in the `paths:` trigger, `working-directory`, and `cache-dependency-path`. Register the release tag prefix in the `case` block in `release.yml`, keeping the bare `v*` arm last.
    **Workflow filenames are load-bearing:** npm OIDC trusted publishing is pinned to repository plus workflow filename. Renaming one breaks publishing.
 4. Register the CI workflow in `ci-gate.yml`: a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.
-5. If it is a Claude Code or editor marketplace plugin, register its path in all five `marketplace.json` files: root, `.claude-plugin/`, `.cursor-plugin/`, `.codex-plugin/`, and `.agents/plugins/`.
+5. If it is a Claude Code or editor marketplace plugin, register the generated native bundle path in the applicable marketplace files. Preserve the existing public plugin name.
 6. Document it under `docs/integrations/` and add the page to `docs/docs.json` and `docs/llms.txt`.
 7. Add rows to the table above and to the CI/CD tables in [`../.github/AGENTS.md`](../.github/AGENTS.md).

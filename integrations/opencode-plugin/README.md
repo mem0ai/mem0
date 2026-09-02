@@ -13,7 +13,7 @@ This adds the plugin to your `~/.config/opencode/opencode.json`. The plugin regi
 **Or let your agent do it** — paste this into OpenCode:
 
 ```
-Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/opencode-plugin/README.md
 ```
 
 Get your API key (free): [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)

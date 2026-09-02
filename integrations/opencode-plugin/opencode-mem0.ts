@@ -259,7 +259,7 @@ function extractUserText(input: any, output: any): string {
 const Mem0Plugin: Plugin = async (ctx) => {
   const {$, client} = ctx;
 
-  const apiKey = resolveApiKey();
+  const apiKey = resolveApiKey(process.env, process.env.HOME || process.env.USERPROFILE || homedir());
 
   if (!apiKey) {
     try {
