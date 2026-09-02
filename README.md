@@ -232,7 +232,7 @@ See the [skills catalog](./skills/) or [Vibecoding with Mem0](https://docs.mem0.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening an issue or pull request.
+Read [CONTRIBUTING.md](https://github.com/mem0ai/mem0/blob/main/CONTRIBUTING.md) before opening an issue or pull request.
 
 ## Citation
 
@@ -247,4 +247,4 @@ Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening an issue or pull reques
 
 ## License
 
-Apache 2.0. See [LICENSE](./LICENSE).
+Apache 2.0. See [LICENSE](https://github.com/mem0ai/mem0/blob/main/LICENSE).
