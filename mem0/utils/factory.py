@@ -11,7 +11,10 @@ from mem0.configs.llms.deepseek import DeepSeekConfig
 from mem0.configs.llms.gemini import GeminiConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.minimax import MinimaxConfig
+from mem0.configs.llms.moonshot import MoonshotConfig
 from mem0.configs.llms.ollama import OllamaConfig
+from mem0.configs.llms.qwen import QwenConfig
+from mem0.configs.llms.zhipu import ZhipuConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.llms.xai import XAIConfig
@@ -52,6 +55,9 @@ class LlmFactory:
         "azure_openai_structured": ("mem0.llms.azure_openai_structured.AzureOpenAIStructuredLLM", AzureOpenAIConfig),
         "gemini": ("mem0.llms.gemini.GeminiLLM", GeminiConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
+        "qwen": ("mem0.llms.qwen.QwenLLM", QwenConfig),
+        "zhipu": ("mem0.llms.zhipu.ZhipuLLM", ZhipuConfig),
+        "moonshot": ("mem0.llms.moonshot.MoonshotLLM", MoonshotConfig),
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
         "xai": ("mem0.llms.xai.XAILLM", XAIConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
