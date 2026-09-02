@@ -7,13 +7,13 @@
           {
             "name": "mem0-ensure-deps",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/ensure_deps.sh 2>/dev/null || true",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/ensure_deps.sh || true",
             "timeout": 60
           },
           {
             "name": "mem0-session-start",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_session_start.sh 2>/dev/null || true"
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_session_start.sh || true"
           }
         ]
       }
@@ -24,7 +24,7 @@
           {
             "name": "mem0-user-prompt",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_user_prompt.sh 2>/dev/null || true",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_user_prompt.sh || true",
             "timeout": 8
           }
         ]

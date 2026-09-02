@@ -191,3 +191,7 @@ qdrant_storage/
 testing.ipynb
 .weave/
 
+
+# TypeScript incremental build info and local, uncommitted e2e scripts (used by the integrations, e.g. integrations/deepseek-plugin)
+*.tsbuildinfo
+*.local.mjs

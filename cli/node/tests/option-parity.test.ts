@@ -16,18 +16,46 @@ const OPENAPI_PATH = path.join(
 	"openapi.json",
 );
 
-const KNOWN_UNSURFACED: Record<string, Record<string, string>> = {};
+const KNOWN_UNSURFACED: Record<string, Record<string, string>> = {
+	"/v3/memories/add/": {
+		includes: "extraction hint, no CLI flag yet",
+		excludes: "extraction hint, no CLI flag yet",
+		enable_graph: "graph memory toggle, no CLI flag yet",
+		output_format: "response envelope is pinned by the CLI",
+		prompt_profile_id: "no CLI flag yet",
+		temporal_reasoning: "no CLI flag yet",
+		timezone: "no CLI flag yet",
+		observation_datetime: "no CLI flag yet, --timestamp backdates instead",
+		observation_date: "no CLI flag yet, --timestamp backdates instead",
+	},
+	"/v3/memories/search/": {
+		categories: "expressible through --filter",
+		metadata: "expressible through --filter",
+	},
+	"/v3/memories/": {
+		start_date: "covered by --after via filters.created_at.gte",
+		end_date: "covered by --before via filters.created_at.lte",
+		categories: "covered by --category via filters.categories",
+		fields: "no CLI flag yet",
+		keywords: "no CLI flag yet",
+	},
+};
 
 const ADD_MAPPING: Record<string, string[]> = {
 	messages: ["--messages", "--file", "text"],
 	user_id: ["--user-id"],
 	agent_id: ["--agent-id"],
+	app_id: ["--app-id"],
 	run_id: ["--run-id"],
 	metadata: ["--metadata"],
 	expiration_date: ["--expires"],
 	custom_instructions: ["--custom-instructions"],
+	agent_custom_instructions: ["--agent-custom-instructions"],
 	custom_categories: ["--custom-categories"],
 	infer: ["--no-infer"],
+	immutable: ["--immutable"],
+	structured_data_schema: ["--structured-data-schema"],
+	timestamp: ["--timestamp"],
 };
 
 const SEARCH_MAPPING: Record<string, string[]> = {
@@ -38,6 +66,7 @@ const SEARCH_MAPPING: Record<string, string[]> = {
 	threshold: ["--threshold"],
 	rerank: ["--rerank"],
 	reference_date: ["--reference-date"],
+	fields: ["--fields"],
 };
 
 const LIST_MAPPING: Record<string, string[]> = {
@@ -50,6 +79,8 @@ const LIST_MAPPING: Record<string, string[]> = {
 		"--before",
 	],
 	show_expired: ["--show-expired"],
+	page: ["--page"],
+	page_size: ["--page-size"],
 };
 
 function documentedFields(endpoint: string): string[] {

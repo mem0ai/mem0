@@ -1,0 +1,52 @@
+{
+  "name": "mem0",
+  "version": "0.3.0",
+  "description": "Cross-session memory and token savings for coding agents.",
+  "author": {
+    "name": "Mem0"
+  },
+  "homepage": "https://docs.mem0.ai/integrations/claude-code",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "coding-agents", "continual-learning", "token-efficiency"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Mem0 API Key",
+      "description": "Mem0 Platform API key used to create and search memories.",
+      "sensitive": true,
+      "required": true
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Memory user ID",
+      "description": "Optional stable ID shared across machines. When omitted, Mem0 uses your local account name, matching the earlier Mem0 Claude Code plugin.",
+      "required": false
+    },
+    "top_k": {
+      "type": "number",
+      "title": "Manual search results",
+      "description": "Maximum number of memories returned when Claude runs another search after the automatic first search.",
+      "default": 3,
+      "min": 1,
+      "max": 20,
+      "required": false
+    },
+    "max_context_chars": {
+      "type": "number",
+      "title": "Maximum retrieved context",
+      "description": "Maximum number of memory characters returned for one search.",
+      "default": 4000,
+      "min": 1000,
+      "max": 10000,
+      "required": false
+    },
+    "search_scope": {
+      "type": "string",
+      "title": "Default search scope",
+      "description": "How wide every search runs by default. 'repo' is the whole repository's shared memory plus your own preferences, 'dir' narrows the shared memory to the directory you are working in, and 'mine' is your preferences alone.",
+      "default": "repo",
+      "required": false
+    }
+  }
+}

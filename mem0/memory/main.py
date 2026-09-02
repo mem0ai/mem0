@@ -135,18 +135,30 @@ _SENSITIVE_SUFFIXES = (
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
 DELETE_ALL_BATCH_SIZE = 1000
 
-# Tenant-scoping fields that update() must never let caller-supplied metadata overwrite (issues #4490, #6277).
+# Tenant-scoping fields that caller-supplied metadata must never set, on either the
+# creation or the update path (issues #4490, #6277, #6655).
 _IDENTITY_KEYS = ENTITY_PARAMS | {"actor_id"}
 
 
-def _strip_identity_keys(metadata: Dict[str, Any], existing_payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Drop identity keys from caller metadata; they are immutable after creation (issues #4490, #6277)."""
+def _strip_identity_keys(
+    metadata: Dict[str, Any],
+    existing_payload: Dict[str, Any],
+    *,
+    context: str = "update()",
+) -> Dict[str, Any]:
+    """Drop identity keys from caller metadata; scope is set by the entity params, not metadata.
+
+    On the update path `existing_payload` carries the memory's current scope, so
+    re-sending an identical value is silently accepted; only a changed value warns.
+    On the creation path there is no prior payload, so pass an empty dict and every
+    identity key present in `metadata` is dropped with a warning.
+    """
     clean = {}
     for key, value in metadata.items():
         if key not in _IDENTITY_KEYS:
             clean[key] = value
         elif value != existing_payload.get(key):
-            logger.warning(f"update(): ignoring metadata['{key}'] - identity fields are immutable after creation")
+            logger.warning(f"{context}: ignoring metadata['{key}'] - identity fields cannot be set through metadata")
     return clean
 
 
@@ -315,7 +327,9 @@ def _build_filters_and_metadata(
     for flexible session scoping and optionally narrows queries to a specific `actor_id`. It returns two dicts:
 
     1. `base_metadata_template`: Used as a template for metadata when storing new memories.
-       It includes all provided session identifier(s) and any `input_metadata`.
+       It includes all provided session identifier(s) and any `input_metadata`. Identity
+       scope is set from the entity params only; identity keys in `input_metadata` are
+       dropped, so freeform metadata cannot place a memory into an unrequested scope.
     2. `effective_query_filters`: Used for querying existing memories. It includes all
        provided session identifier(s), any `input_filters`, and a resolved actor
        identifier for targeted filtering if specified by any actor-related inputs.
@@ -343,7 +357,12 @@ def _build_filters_and_metadata(
               scoped to the provided session(s) and potentially a resolved actor.
     """
 
-    base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
+    # Identity scope is set below from the entity params only. Stripping the keys here
+    # stops caller metadata from placing a memory into a scope the caller did not pass,
+    # which the re-pins below cannot prevent for a param that was left unset (issue #6655).
+    base_metadata_template = (
+        _strip_identity_keys(deepcopy(input_metadata), {}, context="add()") if input_metadata else {}
+    )
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
     # ---------- validate and add all provided session ids ----------
@@ -385,13 +404,18 @@ def _build_filters_and_metadata(
     return base_metadata_template, effective_query_filters
 
 
+def _escape_scope_value(val: Any) -> str:
+    """Escape the structural delimiters of the session scope key."""
+    return str(val).replace("%", "%25").replace("&", "%26").replace("=", "%3D")
+
+
 def _build_session_scope(filters):
     """Build deterministic session scope string from entity IDs."""
     parts = []
     for key in sorted(["user_id", "agent_id", "run_id"]):
         val = filters.get(key)
         if val:
-            parts.append(f"{key}={val}")
+            parts.append(f"{key}={_escape_scope_value(val)}")
     return "&".join(parts)
 
 
@@ -771,6 +795,11 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
 
 
         Returns:
@@ -1988,6 +2017,12 @@ class Memory(MemoryBase):
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
 
+        if not procedural_memory:
+            raise ValueError(
+                "The LLM returned no content for the procedural memory summary. "
+                "The model may have declined the request or returned an empty response."
+            )
+
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
@@ -2428,6 +2463,12 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+
+        Note:
+            `search()` and `get_all()` scope queries via `filters={"user_id": "...", "agent_id": "...", "run_id": "..."}` —
+            they reject top-level `user_id`/`agent_id`/`run_id` arguments. `add()` accepts them top-level, but passing
+            the same arguments to `search()`/`get_all()` raises a `ValueError`; use the `filters` form there instead.
+
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
@@ -3666,10 +3707,16 @@ class AsyncMemory(MemoryBase):
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
+
+        if not procedural_memory:
+            raise ValueError(
+                "The LLM returned no content for the procedural memory summary. "
+                "The model may have declined the request or returned an empty response."
+            )
 
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")

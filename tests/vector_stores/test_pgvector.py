@@ -2508,3 +2508,20 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_numeric_scalar_becomes_string(self):
         conditions, params = _build_filter_conditions({"priority": 42})
         self.assertEqual(params, ["priority", "42"])
+
+    def test_in_rejects_string_value(self):
+        """Passing a string to 'in' would iterate characters and produce a misleading ANY() clause."""
+        with self.assertRaises(ValueError, msg="Expected ValueError for non-list 'in' value"):
+            _build_filter_conditions({"user_id": {"in": "alice"}})
+
+    def test_in_rejects_dict_value(self):
+        with self.assertRaises(ValueError):
+            _build_filter_conditions({"user_id": {"in": {"$gt": 0}}})
+
+    def test_nin_rejects_string_value(self):
+        with self.assertRaises(ValueError):
+            _build_filter_conditions({"user_id": {"nin": "alice"}})
+
+    def test_in_accepts_list_value(self):
+        conditions, params = _build_filter_conditions({"user_id": {"in": ["alice", "bob"]}})
+        self.assertEqual(params, ["user_id", ["alice", "bob"]])

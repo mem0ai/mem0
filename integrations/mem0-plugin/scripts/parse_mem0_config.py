@@ -132,6 +132,28 @@ def parse_section_list(content: str, heading: str) -> list[str]:
     return items
 
 
+def parse_section_text(content: str, heading: str) -> str:
+    """Parse a free-text prose section from mem0.md.
+
+    Looks for ``## <heading>`` (case-insensitive) and returns the prose beneath
+    it (up to the next ``##`` heading) collapsed to a single line. Blank lines and
+    full-line ``#`` comments are dropped; inline ``#`` is preserved (prose may
+    reference e.g. issue ``#123``).
+    """
+    pattern = rf"^##\s+{re.escape(heading)}[^\n]*\n(.*?)(?=^##\s|\Z)"
+    match = re.search(pattern, content, flags=re.MULTILINE | re.DOTALL | re.IGNORECASE)
+    if not match:
+        return ""
+
+    lines: list[str] = []
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        lines.append(stripped)
+    return " ".join(lines).strip()
+
+
 def parse_ignore_patterns(content: str) -> list[str]:
     """Parse the ``## Ignore`` section of *content*.
 
@@ -202,6 +224,16 @@ def load_full_config(cwd: str | None = None) -> dict:
     settings = parse_section_kv(content, "Settings")
     if settings:
         config["settings"] = settings
+
+    # Extraction policy: `## Instructions` -> custom_instructions (user/project
+    # scope), `## Agent Instructions` -> agent_custom_instructions (agent scope).
+    instructions = parse_section_text(content, "Instructions")
+    if instructions:
+        config["instructions"] = instructions
+
+    agent_instructions = parse_section_text(content, "Agent Instructions")
+    if agent_instructions:
+        config["agent_instructions"] = agent_instructions
 
     return config
 

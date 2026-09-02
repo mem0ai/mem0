@@ -95,6 +95,10 @@ async function getBackendOnly(
 	return (await getBackendAndConfig(apiKey, baseUrl)).backend;
 }
 
+function printVersion(): void {
+	console.log(`  ${colors.brand("◆ Mem0")} CLI v${CLI_VERSION}`);
+}
+
 function checkAgentMode(): boolean {
 	const rootOpts = program.opts();
 	const isAgent = !!(rootOpts.json || rootOpts.agent);
@@ -154,7 +158,7 @@ program
 	.enablePositionalOptions()
 	.option("--version", "Show version and exit.")
 	.on("option:version", () => {
-		console.log(`  ${colors.brand("◆ Mem0")} CLI v${CLI_VERSION}`);
+		printVersion();
 		process.exit(0);
 	})
 	.option("--json", "Output as JSON for agent/programmatic use.")
@@ -329,6 +333,10 @@ program
 		"Custom instructions for fact extraction.",
 	)
 	.option(
+		"--agent-custom-instructions <text>",
+		"Extraction instructions for agent-scoped memories, overriding the project setting.",
+	)
+	.option(
 		"--custom-categories <json>",
 		"Custom categories as a JSON array of {name: description} objects.",
 	)
@@ -383,7 +391,10 @@ program
 	)
 	.option("--rerank", "Enable reranking (Platform only).", false)
 	.option("--keyword", "Use keyword search.", false)
-	.option("--filter <json>", "Advanced filter expression (JSON).")
+	.option(
+		"--filter <json>",
+		'Advanced filter as JSON: {"AND": [...]} or {"OR": [...]}, e.g. {"AND": [{"categories": {"in": ["work"]}}]}.',
+	)
 	.option("--fields <list>", "Specific fields to return (comma-separated).")
 	.option("--show-expired", "Include expired memories.", false)
 	.option(
@@ -400,7 +411,7 @@ program
 	.option("--base-url <url>", "Override API base URL.")
 	.addHelpText(
 		"after",
-		'\nExamples:\n  $ mem0 search "preferences" --user-id alice\n  $ mem0 search "tools" -u alice -o json -k 5\n  $ echo "preferences" | mem0 search -u alice',
+		'\nExamples:\n  $ mem0 search "preferences" --user-id alice\n  $ mem0 search "tools" -u alice -o json -k 5\n  $ echo "preferences" | mem0 search -u alice\n  $ mem0 search "invoices" -u alice --filter \'{"AND": [{"categories": {"in": ["work"]}}]}\'',
 	)
 	.action(async (query, opts) => {
 		let resolvedQuery = query;
@@ -820,6 +831,13 @@ program
 	});
 
 program
+	.command("version")
+	.description("Show version and exit.")
+	.action(() => {
+		printVersion();
+	});
+
+program
 	.command("import <filePath>")
 	.description("Import memories from a JSON file.")
 	.option("-u, --user-id <id>", "Override user ID.")
@@ -858,8 +876,8 @@ program
 	.addHelpText("after", "\nExamples:\n  $ mem0 help\n  $ mem0 help --json")
 	.action((opts) => {
 		// opts.json is set when `mem0 help --json` is used (subcommand flag).
-		// program.opts().json is set when the root --json global flag was used first.
-		if (opts.json || program.opts().json) {
+		// program.opts().json/.agent is set when a root global flag was used first.
+		if (opts.json || program.opts().json || program.opts().agent) {
 			// Load spec from parent directory
 			const __dirname = path.dirname(fileURLToPath(import.meta.url));
 			const specPath = path.join(__dirname, "..", "..", "cli-spec.json");

@@ -10,18 +10,40 @@ from mem0_cli.app import app
 REPO_ROOT = Path(__file__).resolve().parents[3]
 OPENAPI_PATH = REPO_ROOT / "docs" / "openapi.json"
 
-KNOWN_UNSURFACED: dict[tuple[str, str], str] = {}
+KNOWN_UNSURFACED: dict[tuple[str, str], str] = {
+    ("/v3/memories/add/", "includes"): "extraction hint, no CLI flag yet",
+    ("/v3/memories/add/", "excludes"): "extraction hint, no CLI flag yet",
+    ("/v3/memories/add/", "enable_graph"): "graph memory toggle, no CLI flag yet",
+    ("/v3/memories/add/", "output_format"): "response envelope is pinned by the CLI",
+    ("/v3/memories/add/", "prompt_profile_id"): "no CLI flag yet",
+    ("/v3/memories/add/", "temporal_reasoning"): "no CLI flag yet",
+    ("/v3/memories/add/", "timezone"): "no CLI flag yet",
+    ("/v3/memories/add/", "observation_datetime"): "no CLI flag yet, --timestamp backdates instead",
+    ("/v3/memories/add/", "observation_date"): "no CLI flag yet, --timestamp backdates instead",
+    ("/v3/memories/search/", "categories"): "expressible through --filter",
+    ("/v3/memories/search/", "metadata"): "expressible through --filter",
+    ("/v3/memories/", "start_date"): "covered by --after via filters.created_at.gte",
+    ("/v3/memories/", "end_date"): "covered by --before via filters.created_at.lte",
+    ("/v3/memories/", "categories"): "covered by --category via filters.categories",
+    ("/v3/memories/", "fields"): "no CLI flag yet",
+    ("/v3/memories/", "keywords"): "no CLI flag yet",
+}
 
 ADD_MAPPING: dict[str, list[str]] = {
     "messages": ["messages", "file", "text"],
     "user_id": ["user_id"],
     "agent_id": ["agent_id"],
+    "app_id": ["app_id"],
     "run_id": ["run_id"],
     "metadata": ["metadata"],
     "expiration_date": ["expires"],
     "custom_instructions": ["custom_instructions"],
+    "agent_custom_instructions": ["agent_custom_instructions"],
     "custom_categories": ["custom_categories"],
     "infer": ["no_infer"],
+    "immutable": ["immutable"],
+    "structured_data_schema": ["structured_data_schema"],
+    "timestamp": ["timestamp"],
 }
 
 SEARCH_MAPPING: dict[str, list[str]] = {
@@ -32,11 +54,14 @@ SEARCH_MAPPING: dict[str, list[str]] = {
     "threshold": ["threshold"],
     "rerank": ["rerank"],
     "reference_date": ["reference_date"],
+    "fields": ["fields"],
 }
 
 LIST_MAPPING: dict[str, list[str]] = {
     "filters": ["user_id", "agent_id", "run_id", "category", "after", "before"],
     "show_expired": ["show_expired"],
+    "page": ["page"],
+    "page_size": ["page_size"],
 }
 
 

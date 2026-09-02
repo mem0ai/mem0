@@ -1,6 +1,15 @@
-# Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode & Antigravity
+> **Claude Code users:** version 0.3.0 of the Claude Code plugin now lives at
+> [`integrations/claude-code-plugin`](../claude-code-plugin/) and is what `mem0@mem0-plugins` installs.
+> Update with `claude plugin marketplace update mem0-plugins` then
+> `claude plugin update mem0@mem0-plugins --scope user` — your memories carry over
+> automatically. This directory continues to serve the Cursor, Codex, Kimi,
+> Antigravity, and OpenCode integrations until they are ported. The Claude Code
+> manifest, hooks, and MCP config have been removed from this directory, so
+> there is nothing here left to install into Claude Code.
 
-Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, and **Antigravity**.
+# Mem0 Plugin for Cursor, Codex, Kimi, OpenCode & Antigravity
+
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Cursor**, **Codex**, **Kimi**, **OpenCode**, and **Antigravity**. For Claude Code, use [`integrations/claude-code-plugin`](../claude-code-plugin/).
 
 ## Quick path for agents
 
@@ -52,21 +61,6 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
 
 Choose one of the options below. All require `MEM0_API_KEY` to be set first (see above).
 
-### Claude Code (CLI) / Claude Cowork (Desktop)
-
-Claude Code and Claude Cowork share the same plugin system.
-
-**CLI:**
-
-```
-/plugin marketplace add mem0ai/mem0
-/plugin install mem0@mem0-plugins
-```
-
-**Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
-
-This installs the full plugin including the MCP server, lifecycle hooks (automatic memory capture), and the Mem0 SDK skill.
-
 ### Codex
 
 **Option A — Direct MCP** (fastest, MCP only):
@@ -100,13 +94,16 @@ This points Codex at the repo's `.agents/plugins/marketplace.json`, which refere
 python3 ~/codex-plugins/mem0-source/integrations/mem0-plugin/scripts/install_codex_hooks.py
 ```
 
-This merges three entries into `~/.codex/hooks.json` with absolute paths pointing into your clone:
+This merges six event handlers into `~/.codex/hooks.json` with absolute paths pointing into your clone:
 
 | Event | What it does |
 |-------|--------------|
 | `SessionStart` | Loads prior memories as bootstrap context |
 | `UserPromptSubmit` | Injects relevant memories into the prompt |
+| `PreToolUse` (3 handlers) | Blocks MEMORY.md writes; enforces `user_id`/`app_id` on mem0 tool calls; scans files being read for relevant memory context |
+| `PostToolUse` (2 handlers) | Tracks stats, scans bash errors for related memories |
 | `Stop` | Reminds the agent to persist learnings at turn end |
+| `PreCompact` | Stores a summary before the context is compacted |
 
 Re-running the installer is idempotent (replaces the Mem0 entries rather than duplicating) and preserves any other hooks you have. To remove: `python3 .../install_codex_hooks.py --uninstall`. If you move or delete the clone directory, re-run the installer from the new location — the hooks file stores absolute paths.
 
@@ -188,7 +185,7 @@ This runs the setup wizard which:
 3. Installs coding-optimized memory categories
 4. Shows your identity (user ID, project scope, branch)
 
-The onboarding is idempotent — safe to re-run anytime. On first session in a new project (0 memories), Claude is prompted to run it automatically.
+The onboarding is idempotent — safe to re-run anytime. On first session in a new project (0 memories), the agent is prompted to run it automatically.
 
 ## Verify it works
 
@@ -221,27 +218,26 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (MCP) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
-|-----------|:--------------------:|:------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | No | Opt-in | No | Yes | No | Yes |
-| Mem0 SDK Skill | Yes | No | Yes | No | Yes | No | Yes |
+| Component | Cursor (MCP) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
+|-----------|:------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | No | Opt-in | No | Yes | No | Yes |
+| Mem0 SDK Skill | No | Yes | No | Yes | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
+- **Lifecycle Hooks** — Automatic memory capture at key points. OpenCode and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 
 ## Updating the plugin
 
 When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
 
-- **Claude Code:** run `/restart` in the prompt, or close and reopen the CLI.
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
 - **OpenCode:** restart the session.
 - **Antigravity:** restart the session.
 
-Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
+Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile), reconnection is automatic on restart.
 
 If reconnection still fails after a restart, check that `MEM0_API_KEY` is reachable in the new shell (`echo $MEM0_API_KEY`) and confirm you're using a key that starts with `m0-` (from https://app.mem0.ai/dashboard/api-keys, not a legacy token).
 

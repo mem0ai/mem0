@@ -1,0 +1,15 @@
+{
+  "name": "mem0-plugins",
+  "version": "1",
+  "plugins": [
+    {
+      "id": "mem0",
+      "displayName": "Mem0",
+      "version": "0.1.0",
+      "description": "Persistent memory for Kimi Code. Remembers decisions, patterns, and preferences across sessions.",
+      "homepage": "https://mem0.ai",
+      "keywords": ["memory", "personalization", "mcp", "semantic-search"],
+      "source": "https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin"
+    }
+  ]
+}

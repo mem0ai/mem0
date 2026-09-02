@@ -29,6 +29,46 @@ Filters use a nested JSON structure with logical operators at the root:
 }
 ```
 
+A single bare condition needs no wrapper:
+
+```python
+# Works: one condition, no wrapper needed
+filters = {"user_id": "user_123"}
+```
+
+Sibling top-level keys in a flat object are accepted too: the API implicitly ANDs them, so the flat form and the explicit `AND` form are equivalent:
+
+```python
+# Works: sibling keys are implicitly ANDed
+filters = {
+    "user_id": "user_123",
+    "categories": {"in": ["finance"]}
+}
+
+# Equivalent, explicit form
+filters = {
+    "AND": [
+        {"user_id": "user_123"},
+        {"categories": {"in": ["finance"]}}
+    ]
+}
+```
+
+Reach for an explicit `AND`, `OR`, or `NOT` wrapper when you need `OR` or `NOT` semantics, or when you need to nest conditions. What the API does reject is an unrecognized top-level key:
+
+```python
+# Rejected: unknown top-level key
+filters = {"user_id": "user_123", "bogus_key": "z"}
+# 400: Top-level key must be a logical operator or an allowed field:
+# ['AND', 'OR', 'NOT', 'user_id', 'agent_id', 'app_id', 'run_id',
+#  'created_at', 'updated_at', 'timestamp', 'expiration_date', 'text',
+#  'categories', 'metadata', 'keywords_search', 'memory_ids', 'keywords']
+```
+
+<Callout type="info" icon="cloud" color="#00A8FF">
+Both the hosted Platform API and the self-hosted OSS SDK implicitly AND sibling top-level keys, so the flat and explicit `AND` forms behave the same way on either. The real differences: Platform validates each top-level key against a fixed allow-list and returns a 400 for anything else, and Platform has no `nin` operator. See [Enhanced Metadata Filtering](/open-source/features/metadata-filtering) for the OSS grammar.
+</Callout>
+
 ## Available fields and operators
 
 ### Entity fields
@@ -42,14 +82,15 @@ Filters use a nested JSON structure with logical operators at the root:
 ### Time fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `created_at` | `gt`, `gte`, `lt`, `lte`, `eq`, `ne` | `{"created_at": {"gte": "2024-01-01"}}` |
-| `updated_at` | `gt`, `gte`, `lt`, `lte`, `eq`, `ne` | `{"updated_at": {"lt": "2024-12-31"}}` |
-| `timestamp` | `gt`, `gte`, `lt`, `lte`, `eq`, `ne` | `{"timestamp": {"gt": "2024-01-01"}}` |
+| `created_at` | `gt`, `gte`, `lt`, `lte`, `ne`, `in`. Explicit `eq` is rejected, pass a bare value instead | `{"created_at": {"gte": "2024-01-01"}}` |
+| `updated_at` | `gt`, `gte`, `lt`, `lte`, `ne`, `in`. Explicit `eq` is rejected, pass a bare value instead | `{"updated_at": {"lt": "2024-12-31"}}` |
+| `timestamp` | `gt`, `gte`, `lt`, `lte`, `ne`, `in`. Explicit `eq` is rejected, pass a bare value instead | `{"timestamp": {"gt": "2024-01-01"}}` |
+| `expiration_date` | `gt`, `gte`, `lt`, `lte`, `ne`, `in`. Explicit `eq` is rejected, pass a bare value instead | `{"expiration_date": {"lte": "2026-12-31"}}` |
 
 ### Content fields
 | Field | Operators | Example |
 |-------|-----------|---------|
-| `categories` | `eq`, `ne`, `in` (matches any category in the list), `contains` (case-insensitive) | `{"categories": {"in": ["finance"]}}` |
+| `categories` | `in` (takes a list, matches any category in it), `contains` (case-insensitive). `eq` and `ne` are rejected | `{"categories": {"in": ["finance"]}}` |
 | `metadata` | `eq`, `ne`, `contains` | `{"metadata": {"key": "value"}}` |
 | `keywords` | `contains` (case-sensitive), `icontains` (case-insensitive) | `{"keywords": {"icontains": "invoice"}}` |
 
@@ -64,6 +105,14 @@ The `*` wildcard matches any non-null value. Records with null values for that f
 
 <Callout type="info" icon="keyboard" color="#00A8FF">
 Use operator keywords exactly as shown (`eq`, `ne`, `gte`, etc.). SQL-style symbols such as `>=` or `!=` are rejected by the Platform API.
+</Callout>
+
+<Callout type="warning" icon="exclamation-triangle" color="#E74C3C">
+There is no `nin` ("not in") operator on Platform. It is an OSS-only operator; see [Enhanced Metadata Filtering](/open-source/features/metadata-filtering). To exclude a set of values on Platform, wrap an `in` clause in `NOT`:
+
+```python
+{"NOT": {"categories": {"in": ["spam", "test"]}}}
+```
 </Callout>
 
 ## Common filter patterns
@@ -328,7 +377,7 @@ Level up foundational patterns with compound filters that coordinate entity scop
 ## Best practices
 
 <Callout type="tip" icon="lightbulb" color="#26A17B">
-The root does not have to be `AND`, `OR`, or `NOT`. A bare filter like `{"user_id": "alice"}` works on its own; wrap conditions in a logical operator only when you need to combine more than one.
+The root does not have to be `AND`, `OR`, or `NOT`. A bare filter like `{"user_id": "alice"}` works on its own, and several top-level keys in one flat filter are implicitly ANDed. Wrap conditions in a logical operator when you need OR/NOT semantics or nested grouping.
 </Callout>
 
 <Callout type="tip" icon="lightbulb" color="#26A17B">
@@ -392,7 +441,7 @@ A filter object with both an `AND` key and a sibling `OR` key at the same level 
 
 <AccordionGroup>
   <Accordion title="Do I need AND/OR/NOT?">
-    No. A bare filter like `{"user_id": "u1"}` works on its own. Add `AND`, `OR`, or `NOT` only when you need to combine more than one condition.
+    No. A bare filter like `{"user_id": "u1"}` works on its own, and several top-level keys in one flat filter like `{"user_id": "u1", "agent_id": "a1"}` are implicitly ANDed. Reach for `AND`, `OR`, or `NOT` when you need OR/NOT semantics or nested grouping, not merely to combine conditions.
   </Accordion>
 
   <Accordion title="What does * match?">
@@ -421,8 +470,8 @@ A filter object with both an `AND` key and a sibling `OR` key at the same level 
         "AND": [
             {"user_id": "user_123"},
             {"OR": [
-                {"categories": "finance"},
-                {"categories": "health"}
+                {"categories": {"in": ["finance"]}},
+                {"categories": {"in": ["health"]}}
             ]}
         ]
     }

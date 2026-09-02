@@ -83,7 +83,7 @@ Passing both `user_id` and `agent_id` to `client.add` does **not** produce recor
 As a result, `{"AND": [{"user_id": ...}, {"agent_id": ...}]}` returns nothing for memories created this way. Use `OR` to match either scope. Records with both fields populated only come from [Direct Import](/platform/features/direct-import) (`infer=False`), which writes your text verbatim without attribution splitting.
 </Warning>
 
-The HTTP equivalent uses `POST /v1/memories/` with the same identifiers in the JSON body. See the Add Memories API reference for REST details.
+The HTTP equivalent uses `POST /v3/memories/add/` with the same identifiers in the JSON body. See the [Add Memories](/api-reference/memory/add-memories) API reference for REST details.
 
 ## See it in action
 

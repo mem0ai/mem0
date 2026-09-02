@@ -150,7 +150,7 @@ def main() -> int:
 
     print(f"Installed Mem0 hooks into {HOOKS_FILE}")
     print(f"Plugin path: {PLUGIN_ROOT}")
-    print("Events: PreToolUse, SessionStart, UserPromptSubmit, PostToolUse")
+    print("Events: PreToolUse, SessionStart, UserPromptSubmit, PostToolUse, Stop, PreCompact")
 
     if not feature_flag_enabled():
         print_feature_flag_hint()

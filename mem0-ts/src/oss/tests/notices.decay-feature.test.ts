@@ -57,34 +57,25 @@ function decayPayload(overrides: Record<string, any> = {}) {
 
 function createFetchMock(options: {
   variant?: string;
-  payload?: unknown;
-  failFlags?: boolean;
-  flagEnabled?: boolean;
+  payload?: Record<string, any>;
+  failConfig?: boolean;
 }) {
   const calls: any[] = [];
+  const variantSplit = options.variant === "holdout" ? 0.0 : 1.0;
+  const payload = options.payload ?? decayPayload();
   const fetchMock = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const target = String(url);
 
-    if (target.includes("/flags")) {
-      if (options.failFlags) {
-        throw new Error("flag evaluation failed");
+    if (target.includes("raw.githubusercontent.com")) {
+      if (options.failConfig) {
+        throw new Error("config fetch failed");
       }
       return {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          flags: {
-            "mem0-oss-notices": {
-              key: "mem0-oss-notices",
-              enabled: options.flagEnabled ?? true,
-              variant: options.variant ?? "displayed",
-              metadata: {
-                payload:
-                  options.payload === undefined
-                    ? JSON.stringify(decayPayload())
-                    : options.payload,
-              },
-            },
-          },
+          version: 1,
+          variant_split: variantSplit,
+          ...payload,
         }),
       };
     }
@@ -222,32 +213,10 @@ describe("Node OSS decay feature error notice", () => {
     expect(notices[0].properties.bypass_reason).toBeUndefined();
   });
 
-  it("uses plain error for unknown future variants and emits not_displayed", async () => {
-    const { fetchMock, calls } = createFetchMock({ variant: "silent" });
-    global.fetch = fetchMock as any;
-    const memory = await createMemory();
-
-    await expect(memory.updateProject({ decay: true })).rejects.toThrow(
-      PLAIN_DECAY_ERROR,
-    );
-
-    const notices = noticeEvents(calls);
-    expect(notices).toHaveLength(1);
-    expect(notices[0].properties).toEqual(
-      expect.objectContaining({
-        notice_id: "decay_stub",
-        variant: "silent",
-        displayed: false,
-        bypass_reason: "not_displayed",
-        payload: DECAY_COPY,
-      }),
-    );
-  });
-
   it("uses plain error for disabled payload and emits payload_disabled", async () => {
     const { fetchMock, calls } = createFetchMock({
       variant: "holdout",
-      payload: JSON.stringify(decayPayload({ enabled: false })),
+      payload: decayPayload({ enabled: false }),
     });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
@@ -270,17 +239,8 @@ describe("Node OSS decay feature error notice", () => {
   });
 
   it.each([
-    [
-      "missing config",
-      JSON.stringify({ notices: {} }),
-      "missing_notice_config",
-    ],
-    [
-      "missing copy",
-      JSON.stringify(decayPayload({ copy: "" })),
-      "missing_copy",
-    ],
-    ["malformed payload", "{not-json", "missing_notice_config"],
+    ["missing config", { notices: {} }, "missing_notice_config"],
+    ["missing copy", decayPayload({ copy: "" }), "missing_copy"],
   ])("uses plain error for %s", async (_label, payload, bypassReason) => {
     const { fetchMock, calls } = createFetchMock({
       variant: "displayed",
@@ -304,11 +264,8 @@ describe("Node OSS decay feature error notice", () => {
     );
   });
 
-  it("uses plain error and emits no event when the blunt flag is disabled", async () => {
-    const { fetchMock, calls } = createFetchMock({
-      variant: "displayed",
-      flagEnabled: false,
-    });
+  it("uses plain error when config fetch fails (bundled config fallback)", async () => {
+    const { fetchMock, calls } = createFetchMock({ failConfig: true });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
 
@@ -316,19 +273,14 @@ describe("Node OSS decay feature error notice", () => {
       PLAIN_DECAY_ERROR,
     );
 
-    expect(noticeEvents(calls)).toHaveLength(0);
-  });
-
-  it("uses plain error and emits no event when PostHog fails", async () => {
-    const { fetchMock, calls } = createFetchMock({ failFlags: true });
-    global.fetch = fetchMock as any;
-    const memory = await createMemory();
-
-    await expect(memory.updateProject({ decay: true })).rejects.toThrow(
-      PLAIN_DECAY_ERROR,
+    const notices = noticeEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "decay_stub",
+        displayed: false,
+      }),
     );
-
-    expect(noticeEvents(calls)).toHaveLength(0);
   });
 
   it("uses plain error and skips flag evaluation when telemetry is off", async () => {
@@ -361,7 +313,9 @@ describe("Node OSS decay feature error notice", () => {
     );
 
     expect(
-      fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags")),
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("raw.githubusercontent.com"),
+      ),
     ).toHaveLength(0);
     expect(noticeEvents(calls)).toHaveLength(0);
   });
