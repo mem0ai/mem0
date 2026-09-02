@@ -32,7 +32,7 @@ class MoonshotLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "moonshot-v1-8k"
+            self.config.model = "kimi-k3"
 
         api_key = self.config.api_key or os.getenv("MOONSHOT_API_KEY")
         base_url = self.config.moonshot_base_url or os.getenv("MOONSHOT_API_BASE") or "https://api.moonshot.cn/v1"

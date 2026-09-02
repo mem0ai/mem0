@@ -18,21 +18,21 @@ def mock_moonshot_client():
 
 def test_moonshot_llm_base_url():
     # case1: default config with Moonshot official base url
-    config = BaseLlmConfig(model="moonshot-v1-8k", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = BaseLlmConfig(model="kimi-k3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = MoonshotLLM(config)
     assert str(llm.client.base_url) == "https://api.moonshot.cn/v1/"
 
     # case2: with env variable MOONSHOT_API_BASE
     provider_base_url = "https://api.provider.com/v1/"
     os.environ["MOONSHOT_API_BASE"] = provider_base_url
-    config = MoonshotConfig(model="moonshot-v1-8k", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = MoonshotConfig(model="kimi-k3", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
     llm = MoonshotLLM(config)
     assert str(llm.client.base_url) == provider_base_url
 
     # case3: with config.moonshot_base_url
     config_base_url = "https://api.config.com/v1/"
     config = MoonshotConfig(
-        model="moonshot-v1-8k",
+        model="kimi-k3",
         temperature=0.7,
         max_tokens=100,
         top_p=1.0,
@@ -44,7 +44,7 @@ def test_moonshot_llm_base_url():
 
 
 def test_generate_response_without_tools(mock_moonshot_client):
-    config = BaseLlmConfig(model="moonshot-v1-8k", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="kimi-k3", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = MoonshotLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -58,13 +58,13 @@ def test_generate_response_without_tools(mock_moonshot_client):
     response = llm.generate_response(messages)
 
     mock_moonshot_client.chat.completions.create.assert_called_once_with(
-        model="moonshot-v1-8k", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
+        model="kimi-k3", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
 
 def test_generate_response_with_tools(mock_moonshot_client):
-    config = BaseLlmConfig(model="moonshot-v1-8k", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="kimi-k3", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = MoonshotLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
@@ -100,7 +100,7 @@ def test_generate_response_with_tools(mock_moonshot_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_moonshot_client.chat.completions.create.assert_called_once_with(
-        model="moonshot-v1-8k",
+        model="kimi-k3",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -116,7 +116,7 @@ def test_generate_response_with_tools(mock_moonshot_client):
 
 
 def test_generate_response_with_response_format(mock_moonshot_client):
-    config = BaseLlmConfig(model="moonshot-v1-8k", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="kimi-k3", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = MoonshotLLM(config)
     messages = [
         {"role": "system", "content": "You are a memory extraction assistant."},
@@ -130,7 +130,7 @@ def test_generate_response_with_response_format(mock_moonshot_client):
     response = llm.generate_response(messages, response_format={"type": "json_object"})
 
     mock_moonshot_client.chat.completions.create.assert_called_once_with(
-        model="moonshot-v1-8k",
+        model="kimi-k3",
         messages=messages,
         temperature=0.7,
         max_tokens=100,
@@ -141,7 +141,7 @@ def test_generate_response_with_response_format(mock_moonshot_client):
 
 
 def test_generate_response_without_response_format(mock_moonshot_client):
-    config = BaseLlmConfig(model="moonshot-v1-8k", temperature=0.7, max_tokens=100, top_p=1.0)
+    config = BaseLlmConfig(model="kimi-k3", temperature=0.7, max_tokens=100, top_p=1.0)
     llm = MoonshotLLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
