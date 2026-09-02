@@ -1,0 +1,56 @@
+---
+title: Qwen
+description: "Configure Qwen (Alibaba Cloud DashScope) as an LLM provider in Mem0 with API key setup and optional custom endpoint configuration."
+---
+
+To use Qwen LLM models, set the `DASHSCOPE_API_KEY` environment variable. You can also set `QWEN_API_BASE` if you need a different API endpoint (defaults to `https://dashscope.aliyuncs.com/compatible-mode/v1`).
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["DASHSCOPE_API_KEY"] = "your-api-key"
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # used for embedder model
+
+config = {
+    "llm": {
+        "provider": "qwen",
+        "config": {
+            "model": "qwen-plus",  # default model
+            "temperature": 0.1,
+            "max_tokens": 2000,
+            "top_p": 0.1
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+You can also configure the API base URL in the config:
+
+```python
+config = {
+    "llm": {
+        "provider": "qwen",
+        "config": {
+            "model": "qwen-plus",
+            "qwen_base_url": "https://your-custom-endpoint.com",
+            "api_key": "your-api-key"  # alternative to using the environment variable
+        }
+    }
+}
+```
+
+## Config
+
+All available parameters for the `qwen` config are present in the [Master List of All Params in Config](../config).
