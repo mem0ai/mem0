@@ -203,6 +203,7 @@ class VectorStoreFactory:
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
+        "scylladb": "mem0.vector_stores.scylladb.ScyllaDB",
         "oracledb": "mem0.vector_stores.oracledb.OracleAIVectorSearch",
     }
 
