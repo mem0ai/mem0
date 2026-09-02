@@ -1,11 +1,15 @@
-# mem0ai
+# Mem0 TypeScript SDK
 
 [![npm version](https://img.shields.io/npm/v/mem0ai.svg)](https://www.npmjs.com/package/mem0ai)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/mem0ai/mem0/blob/main/LICENSE)
 
-Mem0 is a memory layer for AI agents: it extracts, stores, and retrieves facts from conversations so an LLM app can stay personalized across sessions instead of re-reading the full chat history on every call. This package gives you two clients: a hosted `MemoryClient` backed by the Mem0 Platform, and a self-hosted `Memory` you run in-process against your own LLM, embedder, and vector store.
+Mem0 gives AI assistants and agents persistent memory. It extracts useful facts from conversations, scopes them to a user, agent, or run, and retrieves the relevant facts for later interactions. The `mem0ai` package includes `MemoryClient` for the hosted Mem0 Platform and `Memory` for open-source, in-process memory.
 
-Docs: [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart) · [Platform quickstart](https://docs.mem0.ai/platform/quickstart) · [API reference](https://docs.mem0.ai/api-reference)
+## Requirements
+
+- Hosted `MemoryClient`: Node.js 18 or later and `MEM0_API_KEY` from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys)
+- Open-source `Memory` with the default storage: Node.js 20 or later because `better-sqlite3` v12 requires Node 20+
+- Open source with the default providers: `OPENAI_API_KEY`
 
 ## Install
 
@@ -13,18 +17,19 @@ Docs: [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart) · [Pl
 npm install mem0ai
 ```
 
-Requires Node 18 or later.
-
 ## Platform or open source
 
-|                     | Platform (`MemoryClient`)                                                                    | Open source (`Memory`)                                                                         |
-| ------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Import              | `import { MemoryClient } from "mem0ai"`                                                      | `import { Memory } from "mem0ai/oss"`                                                          |
-| Where memories live | Mem0's hosted API                                                                            | Your own vector store, in-process                                                              |
-| Setup               | `MEM0_API_KEY` from [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys) | `OPENAI_API_KEY` (default LLM and embedder), or any [supported provider](#supported-providers) |
-| Extraction          | Managed, asynchronous, includes graph memory                                                 | Runs against the LLM you configure, no graph memory                                            |
+|                     | Platform (`MemoryClient`)               | Open source (`Memory`)                                                |
+| ------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| Import              | `import { MemoryClient } from "mem0ai"` | `import { Memory } from "mem0ai/oss"`                                 |
+| Where memories live | Mem0's hosted API                       | Your configured vector store                                          |
+| Required key        | `MEM0_API_KEY`                          | `OPENAI_API_KEY` with the defaults, or keys for your chosen providers |
+| Extraction          | Managed and asynchronous                | Runs against your configured LLM                                      |
+| Best for            | Zero-ops production use                 | Local development and custom infrastructure                           |
 
 ## Platform quickstart
+
+Set `MEM0_API_KEY`, then add a conversation:
 
 ```ts
 import { MemoryClient, type Message } from "mem0ai";
@@ -32,77 +37,30 @@ import { MemoryClient, type Message } from "mem0ai";
 const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
 
 const messages: Message[] = [
-  { role: "user", content: "I'm a vegetarian and I'm allergic to nuts." },
-  { role: "assistant", content: "Got it, I'll remember that." },
+  { role: "user", content: "I am vegetarian and allergic to nuts." },
+  { role: "assistant", content: "I will remember that." },
 ];
-
 await client.add(messages, { userId: "alex" });
 ```
 
-`add()` queues extraction and returns `{ eventId, status: "PENDING" }` right away. The extracted memories become searchable a few seconds later:
+Hosted `add()` queues extraction and usually returns an `eventId` with `status: "PENDING"`. Do not search immediately after `add()`. Wait for processing to finish in the dashboard, or use a [`memory_add` webhook](https://docs.mem0.ai/platform/features/webhooks), then search:
 
 ```ts
-const found = await client.search("What does Alex eat?", {
+import { MemoryClient } from "mem0ai";
+
+const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
+const results = await client.search("What does Alex eat?", {
   filters: { user_id: "alex" },
   topK: 5,
 });
-
-const page = await client.getAll({
-  filters: { user_id: "alex" },
-  pageSize: 20,
-});
-
-const memory = await client.get(found.results[0].id);
-const history = await client.history(memory.id);
-
-await client.update(memory.id, {
-  text: "Alex is a vegetarian, allergic to nuts and shellfish.",
-});
-await client.delete(memory.id);
-await client.deleteAll({ userId: "alex" });
+console.log(results.results);
 ```
 
-Note that `search` and `getAll` reject top-level `userId`/`agentId`/`appId`/`runId`: those go inside `filters`, and `filters` keys are always snake_case (`user_id`, not `userId`). `add` and `deleteAll` are the opposite: they take entity ids as top-level camelCase options.
+`search()` and `getAll()` take entity IDs inside `filters` with snake_case keys. `add()` and `deleteAll()` take `userId`, `agentId`, or `runId` as top-level camelCase options.
 
-### More platform operations
+## Open-source quickstart
 
-```ts
-import { MemoryClient, Feedback, WebhookEvent } from "mem0ai";
-
-const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
-
-const users = await client.users();
-await client.deleteUsers({ userId: "alex" });
-
-await client.batchUpdate([{ memoryId: "mem-1", text: "Updated text" }]);
-await client.batchDelete(["mem-1", "mem-2"]);
-
-const project = await client.getProject({
-  fields: ["customInstructions", "customCategories"],
-});
-await client.updateProject({ customInstructions: "Always answer in French." });
-
-const webhook = await client.createWebhook({
-  name: "memory-events",
-  url: "https://example.com/webhooks/mem0",
-  eventTypes: [WebhookEvent.MEMORY_ADDED, WebhookEvent.MEMORY_UPDATED],
-});
-await client.deleteWebhook({ webhookId: webhook.webhookId! });
-
-await client.feedback({ memoryId: "mem-1", feedback: Feedback.POSITIVE });
-
-const { id: exportId } = await client.createMemoryExport({
-  schema: { name: "string", preferences: "string[]" },
-  filters: { user_id: "alex" },
-});
-const exportResult = await client.getMemoryExport({ memoryExportId: exportId });
-
-await client.ping();
-```
-
-`getProject`/`updateProject` need an API key scoped to a single organization and project. `getWebhooks`/`createWebhook` resolve the project from the client automatically; there is no `projectId` field on the create payload.
-
-## Open source quickstart
+Set `OPENAI_API_KEY` before using the default OpenAI LLM and embedder:
 
 ```ts
 import { Memory } from "mem0ai/oss";
@@ -110,75 +68,23 @@ import { Memory } from "mem0ai/oss";
 const memory = new Memory();
 
 const messages = [
-  { role: "user", content: "I'm a vegetarian and I'm allergic to nuts." },
-  { role: "assistant", content: "Got it, I'll remember that." },
+  { role: "user", content: "I am vegetarian and allergic to nuts." },
+  { role: "assistant", content: "I will remember that." },
 ];
-
 await memory.add(messages, { userId: "alex" });
 
-const found = await memory.search("What does Alex eat?", {
+const results = await memory.search("What does Alex eat?", {
   filters: { user_id: "alex" },
+  topK: 5,
 });
-const all = await memory.getAll({ filters: { user_id: "alex" } });
-
-await memory.update(
-  found.results[0].id,
-  "Alex is a vegetarian, allergic to nuts and shellfish.",
-);
-const history = await memory.history(found.results[0].id);
-await memory.delete(found.results[0].id);
-await memory.reset();
+console.log(results.results);
 ```
 
-With no config, `Memory` uses OpenAI `gpt-5-mini` for extraction, OpenAI `text-embedding-3-small` for embeddings, an in-memory (non-persistent) vector store, and a SQLite history log at `memory.db`. `add`, `search`, and `getAll` all require at least one of `userId`/`agentId`/`runId` (top-level for `add`, inside `filters` as `user_id`/`agent_id`/`run_id` for `search` and `getAll`).
+The default `Memory` configuration uses OpenAI `gpt-5-mini`, OpenAI `text-embedding-3-small`, a SQLite-backed vector store at `~/.mem0/vector_store.db`, and a SQLite history database at `memory.db`.
 
-### Chat loop example
+## Configuration and features
 
-```ts
-import OpenAI from "openai";
-import { Memory } from "mem0ai/oss";
-
-const openai = new OpenAI();
-const memory = new Memory();
-
-async function chatWithMemories(
-  message: string,
-  userId = "default_user",
-): Promise<string> {
-  const relevant = await memory.search(message, {
-    filters: { user_id: userId },
-    topK: 3,
-  });
-  const memoriesStr = relevant.results
-    .map((entry) => `- ${entry.memory}`)
-    .join("\n");
-
-  const systemPrompt = `You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n${memoriesStr}`;
-  const messages = [
-    { role: "system" as const, content: systemPrompt },
-    { role: "user" as const, content: message },
-  ];
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
-    messages,
-  });
-  const assistantResponse = response.choices[0].message.content ?? "";
-
-  await memory.add(
-    [...messages, { role: "assistant" as const, content: assistantResponse }],
-    { userId },
-  );
-
-  return assistantResponse;
-}
-```
-
-Requires `npm install openai` alongside `mem0ai`.
-
-### Configuration
-
-Pass a config object to `new Memory()` to swap the LLM, embedder, vector store, history store, or reranker:
+Pass a config object to `Memory` to change providers or storage:
 
 ```ts
 import { Memory } from "mem0ai/oss";
@@ -207,64 +113,71 @@ const memory = new Memory({
       dimension: 1536,
     },
   },
-  reranker: {
-    provider: "cohere",
-    config: {
-      apiKey: process.env.COHERE_API_KEY,
-      model: "rerank-english-v3.0",
-    },
-  },
-  historyDbPath: "memory.db",
 });
 ```
 
-Set `rerank: true` on `search()` to use the configured reranker. There is no `graphStore` option: graph memory is a Platform-only feature, not part of the OSS TypeScript SDK.
+Provider integrations use a mix of bundled dependencies and peer dependencies. OpenAI is bundled. Most provider peers are optional, but `package.json` also declares required peers such as `better-sqlite3`, `pg`, `compromise`, and `natural`. Install the SDK for any optional provider you configure.
 
-### Supported providers
+### Memory operations
 
-Provider SDKs are optional peer dependencies. Install the package for the provider you use (for example `npm install @qdrant/js-client-rest` for Qdrant); the rest stay out of your bundle.
+Both clients expose asynchronous memory operations. The open-source methods finish their work before resolving. Hosted `add()` only confirms that the extraction job was queued.
 
-| Kind          | Provider strings                                                                                                                                                                                                                                                                                                                                               |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| LLMs          | `openai`, `openai_structured`, `anthropic`, `groq`, `mistral`, `google` (`gemini`), `azure_openai`, `ollama`, `lmstudio`, `together`, `deepseek`, `xai`, `sarvam`, `aws_bedrock`, `litellm`, `minimax`, `vllm`, `langchain`                                                                                                                                    |
-| Embedders     | `openai`, `azure_openai`, `google` (`gemini`), `aws_bedrock`, `vertexai`, `huggingface`, `fastembed`, `ollama`, `lmstudio`, `together`, `langchain`                                                                                                                                                                                                            |
-| Vector stores | `memory`, `qdrant`, `chroma`, `pgvector`, `pinecone`, `milvus`, `mongodb`, `weaviate`, `redis`, `valkey`, `supabase`, `cassandra`, `elasticsearch`, `opensearch`, `turbopuffer`, `upstash_vector`, `vectorize`, `s3_vectors`, `baidu`, `databricks`, `oracledb`, `azure-ai-search`, `azure_mysql`, `neptune-analytics`, `vertex_ai_vector_search`, `langchain` |
-| Rerankers     | `cohere`, `zero_entropy`, `llm_reranker`, `sentence_transformer`, `huggingface`                                                                                                                                                                                                                                                                                |
+| Operation              | Platform                            | Open source                         |
+| ---------------------- | ----------------------------------- | ----------------------------------- |
+| Add                    | `client.add(messages, { userId })`  | `memory.add(messages, { userId })`  |
+| Search                 | `client.search(query, { filters })` | `memory.search(query, { filters })` |
+| List                   | `client.getAll({ filters })`        | `memory.getAll({ filters })`        |
+| Get                    | `client.get(memoryId)`              | `memory.get(memoryId)`              |
+| Update                 | `client.update(memoryId, { text })` | `memory.update(memoryId, { text })` |
+| Delete                 | `client.delete(memoryId)`           | `memory.delete(memoryId)`           |
+| Delete scoped memories | `client.deleteAll({ userId })`      | `memory.deleteAll({ userId })`      |
+| History                | `client.history(memoryId)`          | `memory.history(memoryId)`          |
 
-## Filters
+### Filters
 
-`filters` selects which memories a search, `getAll`, or export applies to. Keys are snake_case. A flat object ANDs its keys together; wrap conditions in `AND`/`OR` for explicit grouping:
+Use snake_case keys inside `filters`. A flat object combines conditions with AND. Use `AND`, `OR`, or `NOT` for explicit grouping:
 
 ```ts
-{ filters: { user_id: "alex", categories: { contains: "food" } } }
-
-{
-  filters: {
-    OR: [{ agent_id: "assistant-1" }, { run_id: "session-42" }],
-  },
-}
+const filters = {
+  AND: [{ user_id: "alex" }, { categories: { contains: "food" } }],
+};
 ```
 
-Comparison operators: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `icontains`. The open-source `Memory` also supports `nin`; the Platform client does not. See [Memory filters](https://docs.mem0.ai/platform/features/v2-memory-filters) for the full grammar.
+Pass this object as `filters` to `search()` or `getAll()`.
 
-## CLI and integrations
+Comparison operators include `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, and `icontains`. Open-source `Memory` also supports `nin`. See [memory filters](https://docs.mem0.ai/platform/features/v2-memory-filters).
+
+### Platform features
+
+`MemoryClient` also supports users, batch operations, project settings, webhooks, feedback, and memory exports. See the [Platform API reference](https://docs.mem0.ai/api-reference).
+
+### Open-source providers
+
+The TypeScript SDK supports configurable LLMs, embedders, vector stores, history stores, and rerankers. See the [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart) and [component documentation](https://docs.mem0.ai/components/llms/overview) for supported provider names and configuration.
+
+### CLI and integrations
+
+Use the Node CLI to manage hosted memories from your terminal:
 
 ```bash
 npm install -g @mem0/cli
 ```
 
-The CLI wraps both clients from your shell. See [CLI reference](https://docs.mem0.ai/platform/cli).
+See the [CLI reference](https://docs.mem0.ai/platform/cli) and [Vercel AI SDK integration](https://docs.mem0.ai/integrations/vercel-ai-sdk).
 
-Using the Vercel AI SDK? See the [Vercel AI SDK integration](https://docs.mem0.ai/integrations/vercel-ai-sdk).
+## Documentation and help
+
+- [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart)
+- [Platform quickstart](https://docs.mem0.ai/platform/quickstart)
+- [API reference](https://docs.mem0.ai/api-reference)
+- [Discord](https://mem0.dev/DiG)
+- [GitHub issues](https://github.com/mem0ai/mem0/issues)
+- Email: founders@mem0.ai
+
+## Contributing
+
+Read [CONTRIBUTING.md](../CONTRIBUTING.md) before opening an issue or pull request.
 
 ## License
 
-Apache-2.0
-
-## Getting Help
-
-If you have any questions or need assistance, please reach out to us:
-
-- Email: founders@mem0.ai
-- [Join our discord community](https://mem0.ai/discord)
-- GitHub Issues: [Report bugs or request features](https://github.com/mem0ai/mem0/issues)
+Apache 2.0. See [LICENSE](../LICENSE).
