@@ -53,13 +53,13 @@ npm install mem0ai
 
 ## Platform or open source
 
-| | Platform (`MemoryClient`) | Open source (`Memory`) |
-|---|---|---|
-| Import | `import { MemoryClient } from "mem0ai"` | `import { Memory } from "mem0ai/oss"` |
-| Where memories live | Mem0's hosted API | Your configured vector store |
-| Required key | `MEM0_API_KEY` | `OPENAI_API_KEY` with the defaults, or keys for your chosen providers |
-| Extraction | Managed and asynchronous | Runs against your configured LLM |
-| Best for | Zero-ops production use | Local development and custom infrastructure |
+|                     | Platform (`MemoryClient`)               | Open source (`Memory`)                                                |
+| ------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| Import              | `import { MemoryClient } from "mem0ai"` | `import { Memory } from "mem0ai/oss"`                                 |
+| Where memories live | Mem0's hosted API                       | Your configured vector store                                          |
+| Required key        | `MEM0_API_KEY`                          | `OPENAI_API_KEY` with the defaults, or keys for your chosen providers |
+| Extraction          | Managed and asynchronous                | Runs against your configured LLM                                      |
+| Best for            | Zero-ops production use                 | Local development and custom infrastructure                           |
 
 ## Platform quickstart
 
@@ -118,16 +118,16 @@ The default `Memory` configuration uses OpenAI `gpt-5-mini`, OpenAI `text-embedd
 
 ## Configuration and features
 
-| Feature | Documentation |
-|---|---|
-| Memory operations: `add`, `search`, `get`, `getAll`, `update`, `delete`, `deleteAll`, `history`, all async and Promise-based | [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart) |
-| Entity scoping with `userId`, `agentId`, and `runId` | [Entity-scoped memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) |
-| Metadata and filters | [Metadata filtering](https://docs.mem0.ai/open-source/features/metadata-filtering) |
-| LLMs, embedders, vector stores, and rerankers | [Components](https://docs.mem0.ai/components/llms/overview) |
-| Graph memory | [Graph memory](https://docs.mem0.ai/platform/features/graph-memory) |
-| Custom instructions | [Custom instructions](https://docs.mem0.ai/open-source/features/custom-instructions) |
-| Multimodal input | [Multimodal support](https://docs.mem0.ai/open-source/features/multimodal-support) |
-| Platform webhooks, export, feedback, expiration, and custom categories | [Platform features](https://docs.mem0.ai/platform/features) |
+| Feature                                                                                                                      | Documentation                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Memory operations: `add`, `search`, `get`, `getAll`, `update`, `delete`, `deleteAll`, `history`, all async and Promise-based | [Node quickstart](https://docs.mem0.ai/open-source/node-quickstart)                  |
+| Entity scoping with `userId`, `agentId`, and `runId`                                                                         | [Entity-scoped memory](https://docs.mem0.ai/platform/features/entity-scoped-memory)  |
+| Metadata and filters                                                                                                         | [Metadata filtering](https://docs.mem0.ai/open-source/features/metadata-filtering)   |
+| LLMs, embedders, vector stores, and rerankers                                                                                | [Components](https://docs.mem0.ai/components/llms/overview)                          |
+| Graph memory                                                                                                                 | [Graph memory](https://docs.mem0.ai/platform/features/graph-memory)                  |
+| Custom instructions                                                                                                          | [Custom instructions](https://docs.mem0.ai/open-source/features/custom-instructions) |
+| Multimodal input                                                                                                             | [Multimodal support](https://docs.mem0.ai/open-source/features/multimodal-support)   |
+| Platform webhooks, export, feedback, expiration, and custom categories                                                       | [Platform features](https://docs.mem0.ai/platform/features)                          |
 
 ## Benchmarks
 
@@ -135,12 +135,12 @@ The default `Memory` configuration uses OpenAI `gpt-5-mini`, OpenAI `text-embedd
   <a href="https://mem0.ai/research"><strong>Benchmarking Mem0's token-efficient memory algorithm</strong></a>
 </p>
 
-| Benchmark | Old | New | Tokens | Latency p50 |
-|---|---:|---:|---:|---:|
-| **LoCoMo** | 71.4 | **92.5** | 7.0K | 0.88s |
-| **LongMemEval** | 67.8 | **94.4** | 6.8K | 1.09s |
-| **BEAM (1M)** | n/a | **64.1** | 6.7K | 1.00s |
-| **BEAM (10M)** | n/a | **48.6** | 6.9K | 1.05s |
+| Benchmark       |  Old |      New | Tokens | Latency p50 |
+| --------------- | ---: | -------: | -----: | ----------: |
+| **LoCoMo**      | 71.4 | **92.5** |   7.0K |       0.88s |
+| **LongMemEval** | 67.8 | **94.4** |   6.8K |       1.09s |
+| **BEAM (1M)**   |  n/a | **64.1** |   6.7K |       1.00s |
+| **BEAM (10M)**  |  n/a | **48.6** |   6.9K |       1.05s |
 
 All benchmarks use the same production-representative model stack, single-pass retrieval, and a top-200 retrieval budget. Scores reflect the managed Platform, which includes proprietary optimizations not available in the open-source SDK. Open-source results should show similar directional gains, but may not match these scores.
 
