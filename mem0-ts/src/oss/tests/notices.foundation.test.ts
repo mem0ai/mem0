@@ -142,11 +142,42 @@ describe("Node OSS notice foundation", () => {
     const notices = await import("../src/utils/notices");
     const fetchMock = jest.fn().mockRejectedValue(new Error("network down"));
 
-    const result = await notices.evaluateNoticeFlag("notice-test-user", {
+    const firstResult = await notices.evaluateNoticeFlag("notice-test-user", {
       fetchImpl: fetchMock,
     });
-    expect(result).not.toBeNull();
-    expect(result?.variant).toMatch(/^(displayed|holdout)$/);
+    const secondResult = await notices.evaluateNoticeFlag("notice-test-user", {
+      fetchImpl: fetchMock,
+    });
+
+    expect(firstResult).not.toBeNull();
+    expect(secondResult?.variant).toBe(firstResult?.variant);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("coalesces concurrent remote config fetches", async () => {
+    const notices = await import("../src/utils/notices");
+    const resolvers: Array<(response: any) => void> = [];
+    const fetchMock = jest.fn(
+      () => new Promise((resolve) => resolvers.push(resolve)),
+    );
+
+    const evaluations = [
+      notices.evaluateNoticeFlag("user-0", { fetchImpl: fetchMock as any }),
+      notices.evaluateNoticeFlag("user-1", { fetchImpl: fetchMock as any }),
+    ];
+    resolvers.forEach((resolve) =>
+      resolve({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          version: 1,
+          variant_split: 0.5,
+          notices: {},
+        }),
+      }),
+    );
+
+    await Promise.all(evaluations);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to bundled config when remote fetch times out", async () => {
@@ -160,11 +191,14 @@ describe("Node OSS notice foundation", () => {
         }),
     );
 
+    const startedAt = Date.now();
     const result = await notices.evaluateNoticeFlag("notice-test-user", {
       fetchImpl: fetchMock as any,
+      timeoutMs: 10,
     });
     expect(result).not.toBeNull();
     expect(result?.variant).toMatch(/^(displayed|holdout)$/);
+    expect(Date.now() - startedAt).toBeLessThan(500);
   });
 
   it("parses variant and notices from static config response", async () => {
@@ -194,6 +228,27 @@ describe("Node OSS notice foundation", () => {
     );
     expect(parsed.found).toBe(true);
     expect(parsed.config?.copy).toBe("Foundation notice");
+  });
+
+  it.each([
+    ["user-0", "holdout"],
+    ["user-1", "displayed"],
+  ])("preserves the PostHog cohort for %s", async (distinctId, expected) => {
+    const notices = await import("../src/utils/notices");
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        version: 1,
+        variant_split: 0.5,
+        notices: {},
+      }),
+    });
+
+    const result = await notices.evaluateNoticeFlag(distinctId, {
+      fetchImpl: fetchMock,
+    });
+
+    expect(result?.variant).toBe(expected);
   });
 
   it("emits mem0.notice_displayed with sample_rate=1", async () => {

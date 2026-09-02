@@ -1555,6 +1555,14 @@ def test_notice_priority_scale_beats_first_run(monkeypatch):
 
 
 class TestStaticFlagEvaluation:
+    def test_static_flag_result_exposes_posthog_event_properties(self):
+        flags = notices.StaticFlagResult(notices.DISPLAYED_VARIANT, {"notices": {}})
+
+        assert flags._get_event_properties() == {
+            f"$feature/{notices.FLAG_KEY}": notices.DISPLAYED_VARIANT,
+            "$active_feature_flags": [notices.FLAG_KEY],
+        }
+
     def test_evaluate_notice_flags_returns_displayed_or_holdout(self):
         result = notices._evaluate_notice_flags("user-abc")
         variant = result.get_flag(notices.FLAG_KEY)
@@ -1564,6 +1572,16 @@ class TestStaticFlagEvaluation:
         a = notices._evaluate_notice_flags("user-123").get_flag(notices.FLAG_KEY)
         b = notices._evaluate_notice_flags("user-123").get_flag(notices.FLAG_KEY)
         assert a == b
+
+    @pytest.mark.parametrize(
+        ("user_id", "expected_variant"),
+        [("user-0", notices.HOLDOUT_VARIANT), ("user-1", notices.DISPLAYED_VARIANT)],
+    )
+    def test_evaluate_notice_flags_preserves_posthog_cohorts(self, monkeypatch, user_id, expected_variant):
+        monkeypatch.setattr(notices, "_cached_config", {"variant_split": 0.5, "notices": {}})
+        monkeypatch.setattr(notices, "_cached_config_ts", float("inf"))
+
+        assert notices._evaluate_notice_flags(user_id).get_flag(notices.FLAG_KEY) == expected_variant
 
     def test_evaluate_notice_flags_returns_payload_with_notices(self):
         result = notices._evaluate_notice_flags("user-abc")
@@ -1577,6 +1595,18 @@ class TestStaticFlagEvaluation:
         config = notices._get_notice_config()
         assert "notices" in config
         assert config.get("version") == 1
+
+    def test_remote_config_fetch_uses_telemetry_timeout(self, monkeypatch):
+        timeouts = []
+
+        def fail_fetch(_request, timeout):
+            timeouts.append(timeout)
+            raise TimeoutError
+
+        monkeypatch.setattr(notices.urllib.request, "urlopen", fail_fetch)
+
+        assert notices._fetch_remote_config() is None
+        assert timeouts == [telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS]
 
     def test_get_notice_config_prefers_remote(self, monkeypatch):
         remote = {"version": 2, "variant_split": 0.5, "notices": {"first_run": {"copy": "remote", "enabled": True}}}

@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mem0.memory import notices
 from mem0.memory import main as memory_main
+from mem0.memory import notices
 from mem0.memory.main import AsyncMemory, Memory
 
 

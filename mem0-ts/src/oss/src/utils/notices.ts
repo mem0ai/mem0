@@ -22,47 +22,53 @@ export const NOTICE_FLAG_TIMEOUT_MS = 500;
 const REMOTE_CONFIG_URL =
   "https://raw.githubusercontent.com/mem0ai/mem0/main/mem0/memory/oss_notices_config.json";
 const CONFIG_TTL_MS = 3_600_000;
-const CONFIG_FETCH_TIMEOUT_MS = 2000;
 
 let _cachedConfig: Record<string, any> | null = null;
 let _cachedConfigTs = 0;
+let _configFetch: Promise<Record<string, any>> | null = null;
 
 async function fetchNoticeConfig(
   fetchImpl: typeof fetch,
+  timeoutMs: number,
 ): Promise<Record<string, any>> {
   const now = Date.now();
   if (_cachedConfig && now - _cachedConfigTs < CONFIG_TTL_MS) {
     return _cachedConfig;
   }
+  if (_configFetch) return _configFetch;
+
+  _configFetch = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const resp = await fetchImpl(REMOTE_CONFIG_URL, {
+          signal: controller.signal,
+        });
+        if (resp.ok) {
+          _cachedConfig = await resp.json();
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {}
+
+    _cachedConfig ??= bundledNoticeConfig as Record<string, any>;
+    _cachedConfigTs = Date.now();
+    return _cachedConfig;
+  })();
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      CONFIG_FETCH_TIMEOUT_MS,
-    );
-    try {
-      const resp = await fetchImpl(REMOTE_CONFIG_URL, {
-        signal: controller.signal,
-      });
-      if (resp.ok) {
-        const config: Record<string, any> = await resp.json();
-        _cachedConfig = config;
-        _cachedConfigTs = now;
-        return config;
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-  } catch {}
-
-  if (_cachedConfig) return _cachedConfig;
-  return bundledNoticeConfig as Record<string, any>;
+    return await _configFetch;
+  } finally {
+    _configFetch = null;
+  }
 }
 
 function resetNoticeConfigCache(): void {
   _cachedConfig = null;
   _cachedConfigTs = 0;
+  _configFetch = null;
 }
 const DISPLAYED_VARIANT = "displayed";
 const HOLDOUT_VARIANT = "holdout";
@@ -295,16 +301,17 @@ export async function evaluateNoticeFlag(
 ): Promise<NoticeFlagEvaluation | null> {
   if (!isTelemetryEnabled()) return null;
 
+  const timeoutMs = options.timeoutMs ?? NOTICE_FLAG_TIMEOUT_MS;
   const fetchImpl = options.fetchImpl ?? fetch;
 
   try {
-    const config = await fetchNoticeConfig(fetchImpl);
+    const config = await fetchNoticeConfig(fetchImpl, timeoutMs);
     const split =
       typeof config.variant_split === "number" ? config.variant_split : 0.5;
-    const hash = crypto.createHash("sha256").update(distinctId).digest("hex");
-    const bucket = parseInt(hash.substring(0, 8), 16) % 10000;
-    const variant =
-      bucket < split * 10000 ? DISPLAYED_VARIANT : HOLDOUT_VARIANT;
+    const hashKey = `${NOTICE_FLAG_KEY}.${distinctId}variant`;
+    const hash = crypto.createHash("sha1").update(hashKey).digest("hex");
+    const bucket = parseInt(hash.substring(0, 15), 16) / 0xfffffffffffffff;
+    const variant = bucket < split ? DISPLAYED_VARIANT : HOLDOUT_VARIANT;
 
     return {
       variant,

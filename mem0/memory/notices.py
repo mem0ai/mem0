@@ -24,7 +24,7 @@ _REMOTE_CONFIG_URL = (
 )
 _BUNDLED_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "oss_notices_config.json")
 _CONFIG_TTL_SECONDS = 3600
-_CONFIG_FETCH_TIMEOUT_SECONDS = 2
+_CONFIG_FETCH_TIMEOUT_SECONDS = telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS
 
 _cached_config = None
 _cached_config_ts = 0.0
@@ -43,6 +43,12 @@ class StaticFlagResult:
 
     def get_flag_payload(self, key):
         return self._payload
+
+    def _get_event_properties(self):
+        return {
+            f"$feature/{FLAG_KEY}": self._variant,
+            "$active_feature_flags": [FLAG_KEY],
+        }
 
 
 def _load_bundled_config():
@@ -84,8 +90,9 @@ def _get_notice_config():
 def _evaluate_notice_flags(user_id):
     config = _get_notice_config()
     split = config.get("variant_split", 0.5)
-    bucket = int(hashlib.sha256(user_id.encode()).hexdigest()[:8], 16) % 10000
-    variant = DISPLAYED_VARIANT if bucket < split * 10000 else HOLDOUT_VARIANT
+    hash_key = f"{FLAG_KEY}.{user_id}variant"
+    bucket = int(hashlib.sha1(hash_key.encode()).hexdigest()[:15], 16) / float(0xFFFFFFFFFFFFFFF)
+    variant = DISPLAYED_VARIANT if bucket < split else HOLDOUT_VARIANT
     payload = {"notices": config.get("notices", {})}
     return StaticFlagResult(variant, payload)
 

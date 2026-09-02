@@ -313,7 +313,9 @@ describe("Node OSS decay feature error notice", () => {
     );
 
     expect(
-      fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags")),
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("raw.githubusercontent.com"),
+      ),
     ).toHaveLength(0);
     expect(noticeEvents(calls)).toHaveLength(0);
   });
