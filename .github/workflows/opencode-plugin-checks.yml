@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'integrations/opencode-plugin/**'
+      - 'integrations/agent-plugins/core/typescript/**'
       - '.github/workflows/opencode-plugin-checks.yml'
   workflow_call:
 

@@ -1,0 +1,77 @@
+name: Agent Plugins Python Checks
+
+# Python runtime, adapters, generated bundles, and portable plugin validation.
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/agent-plugins/**'
+      - '!integrations/agent-plugins/core/typescript/**'
+      - 'marketplace.json'
+      - '.agents/plugins/marketplace.json'
+      - '.claude-plugin/marketplace.json'
+      - '.codex-plugin/marketplace.json'
+      - '.cursor-plugin/marketplace.json'
+      - '.kimi-plugin/marketplace.json'
+      - '.github/workflows/agent-plugins-python-checks.yml'
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install runtime test tooling
+        if: matrix.python-version == '3.10'
+        run: pip install pytest
+
+      - name: Install build and test tooling
+        if: matrix.python-version != '3.10'
+        run: pip install pytest ruff -r integrations/agent-plugins/requirements-dev.txt
+
+      - name: Check Python runtime compatibility
+        run: python3 -m compileall -q integrations/agent-plugins/core/python integrations/agent-plugins/hosts
+
+      - name: Lint
+        if: matrix.python-version == '3.12'
+        run: python3 -m ruff check integrations/agent-plugins
+
+      - name: Verify generated bundles are current
+        if: matrix.python-version == '3.12'
+        run: |
+          for descriptor in integrations/agent-plugins/hosts/*/host.json; do
+            host="${descriptor%/host.json}"
+            host="${host##*/}"
+            for kind in native portable; do
+              python3 integrations/agent-plugins/scripts/build.py "$host" \
+                --kind "$kind" \
+                --output "integrations/agent-plugins/dist/$host/$kind"
+            done
+          done
+          git diff --exit-code -- integrations/agent-plugins/dist
+
+      - name: Run Python 3.10 runtime tests
+        if: matrix.python-version == '3.10'
+        run: >-
+          python3 -m pytest -q
+          integrations/agent-plugins/hosts/claude-code/tests/test_memory_core.py
+          integrations/agent-plugins/hosts/claude-code/tests/test_telemetry.py
+
+      - name: Run full tests
+        if: matrix.python-version != '3.10'
+        run: >-
+          python3 -m pytest integrations/agent-plugins -q
+          --ignore=integrations/agent-plugins/hosts/claude-code/tests/integration

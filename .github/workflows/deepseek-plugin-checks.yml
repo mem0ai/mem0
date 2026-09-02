@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'integrations/deepseek-plugin/**'
+      - 'integrations/agent-plugins/core/typescript/**'
       - '.github/workflows/deepseek-plugin-checks.yml'
   workflow_call:
 

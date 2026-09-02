@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'integrations/openclaw/**'
+      - 'integrations/agent-plugins/core/typescript/**'
       - '.github/workflows/openclaw-checks.yml'
   workflow_call:
 

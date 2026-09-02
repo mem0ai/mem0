@@ -14,10 +14,12 @@ Host adapters only normalize the host payload and delegate to the shared core. K
 
 ## Build and test
 
+The generated plugins support Python 3.10+. Build and specification validation require Python 3.11+ because `skills-ref` requires it.
+
 From the repository root:
 
 ```bash
-python3 -m venv /tmp/mem0-agent-plugins
+python3.11 -m venv /tmp/mem0-agent-plugins
 /tmp/mem0-agent-plugins/bin/pip install -r integrations/agent-plugins/requirements-dev.txt
 /tmp/mem0-agent-plugins/bin/python integrations/agent-plugins/scripts/build.py cursor --kind native --output integrations/agent-plugins/dist/cursor/native
 /tmp/mem0-agent-plugins/bin/python integrations/agent-plugins/scripts/build.py cursor --kind portable --output integrations/agent-plugins/dist/cursor/portable
