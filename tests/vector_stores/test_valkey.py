@@ -159,15 +159,13 @@ def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
 
 
 def test_insert_and_update_with_none_timestamps(valkey_db, mock_valkey_client):
-    """Regression: None created_at/updated_at must not crash insert() or update().
+    """Regression: a None timestamp must not crash insert() or update().
 
-    created_at falls back to now, and a None updated_at is omitted from the hash
-    rather than passed to fromisoformat().
+    A None created_at falls back to now and a None updated_at is skipped, so
+    neither reaches fromisoformat() which only accepts a str.
     """
     vector = np.random.rand(1536).tolist()
 
-    # Separate dicts: insert() backfills created_at in place, which would hide the
-    # same fallback in update().
     valkey_db.insert(
         vectors=[vector],
         payloads=[{"hash": "h", "data": "d", "created_at": None, "updated_at": None}],
