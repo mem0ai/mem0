@@ -41,8 +41,7 @@ Mem0 gives AI assistants and agents persistent memory. It extracts useful facts 
 
 ## Requirements
 
-- Node.js 18 or later
-- Open-source `Memory` with the default storage: Node.js 20 or later, because `better-sqlite3` v12 requires Node 20+
+- Node.js 20 or later
 - Hosted Platform: `MEM0_API_KEY` from the [Mem0 dashboard](https://app.mem0.ai/dashboard/api-keys)
 - Open source with the default providers: `OPENAI_API_KEY`
 
