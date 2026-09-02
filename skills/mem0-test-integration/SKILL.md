@@ -175,8 +175,8 @@ shape for the detected stack.
     c = MemoryClient()                               # uses MEM0_API_KEY
     uid = f"mem0-test-integration-{os.urandom(4).hex()}"
     c.add([{"role": "user", "content": "I prefer aisle seats"}], user_id=uid)
-    hits = c.search("seat preference", user_id=uid)
-    assert any("aisle" in h.get("memory", "") for h in hits), hits
+    hits = c.search("seat preference", filters={"user_id": uid})
+    assert any("aisle" in h.get("memory", "") for h in hits.get("results", [])), hits
     c.delete_all(user_id=uid)                        # clean up
 
 **Platform (TS):** same shape with `MemoryClient` from `"mem0ai"`.
