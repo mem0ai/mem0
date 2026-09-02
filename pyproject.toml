@@ -92,10 +92,12 @@ pythonpath = ["."]
 [tool.hatch.build]
 include = [
     "mem0/**/*.py",
+    "mem0/memory/oss_notices_config.json",
 ]
 exclude = [
     "**/*",
     "!mem0/**/*.py",
+    "!mem0/memory/oss_notices_config.json",
 ]
 
 [tool.hatch.build.targets.wheel]
