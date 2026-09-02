@@ -306,8 +306,8 @@ class ValkeyDB(VectorStoreBase):
                 # Prepare the hash data
                 hash_data = {
                     "memory_id": id,
-                    "hash": payload.get("hash", ""),
-                    "memory": payload.get("data", ""),
+                    "hash": payload.get("hash", f"hash_{id}"),  # Use a default hash if not provided
+                    "memory": payload.get("data", f"data_{id}"),  # Use a default data if not provided
                     "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
                     "embedding": np.array(vector, dtype=np.float32).tobytes(),
                 }
@@ -501,8 +501,8 @@ class ValkeyDB(VectorStoreBase):
             # Prepare the hash data
             hash_data = {
                 "memory_id": vector_id,
-                "hash": payload.get("hash", ""),
-                "memory": payload.get("data", ""),
+                "hash": payload.get("hash", f"hash_{vector_id}"),  # Use a default hash if not provided
+                "memory": payload.get("data", f"data_{vector_id}"),  # Use a default data if not provided
                 "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
             }
 

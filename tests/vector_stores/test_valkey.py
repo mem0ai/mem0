@@ -158,19 +158,32 @@ def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
-def test_insert_and_update_with_empty_timestamps(valkey_db, mock_valkey_client):
+def test_insert_and_update_with_none_timestamps(valkey_db, mock_valkey_client):
     """Regression: None created_at/updated_at must not crash insert() or update().
 
-    Realistic (infer=True) consolidation feeds back payloads with None timestamps;
-    fromisoformat(None) previously would be hit and raise a TypeError.
+    created_at falls back to now, and a None updated_at is omitted from the hash
+    rather than passed to fromisoformat().
     """
     vector = np.random.rand(1536).tolist()
-    payload = {"hash": "h", "data": "d", "created_at": None, "updated_at": None}
 
-    valkey_db.insert(vectors=[vector], payloads=[payload], ids=["id1"])
-    valkey_db.update(vector_id="id1", vector=vector, payload=payload)
+    # Separate dicts: insert() backfills created_at in place, which would hide the
+    # same fallback in update().
+    valkey_db.insert(
+        vectors=[vector],
+        payloads=[{"hash": "h", "data": "d", "created_at": None, "updated_at": None}],
+        ids=["id1"],
+    )
+    _, insert_kwargs = mock_valkey_client.hset.call_args
+    assert isinstance(insert_kwargs["mapping"]["created_at"], int)
 
-    assert mock_valkey_client.hset.call_count == 2
+    valkey_db.update(
+        vector_id="id1",
+        vector=vector,
+        payload={"hash": "h", "data": "d", "created_at": None, "updated_at": None},
+    )
+    _, update_kwargs = mock_valkey_client.hset.call_args
+    assert isinstance(update_kwargs["mapping"]["created_at"], int)
+    assert "updated_at" not in update_kwargs["mapping"]
 
 
 def test_delete(valkey_db, mock_valkey_client):
