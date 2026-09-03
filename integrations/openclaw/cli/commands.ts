@@ -1225,7 +1225,18 @@ export function registerCliCommands(
         .option("--json", "Output as JSON")
         .action(async (opts: { json?: boolean } = {}) => {
           try {
-            const auth = readPluginAuth();
+            if (cfg.needsSetup || !backend) {
+              const error = "Mem0 is not configured. Run `openclaw mem0 init`.";
+              if (jsonOut(opts, {
+                ok: true,
+                mode: cfg.mode,
+                connected: false,
+                userId: cfg.userId,
+                error,
+              })) return;
+              console.log(error);
+              return;
+            }
             const result = await backend.status();
             if (jsonOut(opts, {
               ok: true,

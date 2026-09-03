@@ -2062,7 +2062,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - Removed obsolete plugin-side consolidation commands, skills, configuration, and runtime paths from OpenClaw, OpenCode, and Pi Agent.
 
 <Note>
-  Claude Code, Cursor, Codex, Kimi Code, and Antigravity are version `0.3.0`. This internal refactor does not rename or version-bump the existing npm packages: OpenClaw remains `1.0.16`, OpenCode `0.2.2`, Pi Agent `0.1.5`, and DeepSeek Harness `0.1.1`.
+  Claude Code, Cursor, Codex, Kimi Code, and Antigravity are version `0.3.0`. OpenClaw remains `1.0.16`, OpenCode `0.2.2`, and DeepSeek Harness `0.1.1`. Pi Agent moves to `0.2.0` because its obsolete Dream and pin APIs were removed.
 </Note>
 
 </Update>
@@ -2813,6 +2813,17 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="Pi Agent">
+
+<Update label="2026-09-03" description="Pi Agent plugin v0.2.0">
+
+**Breaking changes:**
+- **Focused memory surface:** Removed the obsolete Dream consolidation and pin commands, skills, configuration, exports, and runtime code. Pi Agent now exposes the same six maintained memory workflows documented across the plugin family.
+
+**Improvements:**
+- **Shared runtime behavior:** Reuses the common TypeScript lifecycle, formatting, identity, project-scoping, and telemetry utilities while keeping Pi's native extension API and package name.
+- **Publishable entry point:** Loads the built `dist/entry.js` artifact so registry installs do not execute TypeScript source directly.
+
+</Update>
 
 <Update label="2026-08-24" description="Pi Agent plugin v0.1.5">
 

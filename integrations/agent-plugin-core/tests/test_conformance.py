@@ -163,6 +163,19 @@ def test_runtime_checks_preserve_the_callers_telemetry_setting(tmp_path: Path, m
     assert result["output"] == "unset"
 
 
+def test_command_check_can_force_non_interactive_installs(tmp_path: Path) -> None:
+    result = _command_check(
+        "environment",
+        "test",
+        [sys.executable, "-c", "import os; print(os.environ['CI'])"],
+        cwd=tmp_path,
+        environment_overrides={"CI": "true"},
+    )
+
+    assert result["status"] == "passed"
+    assert result["output"] == "true"
+
+
 def test_conformance_report_redacts_command_output(tmp_path: Path) -> None:
     secret = "sk-eval-12345678901234567890"
 

@@ -11,7 +11,7 @@ anonymous telemetry ping still fires at session start unless
 `MEM0_TELEMETRY=false`):
 
 ```bash
-python3 "${ANTIGRAVITY_PLUGIN_ROOT}/core/memory_cli.py" pause
+python3 "${ANTIGRAVITY_PLUGIN_ROOT}/core/memory_cli.py" --harness "antigravity"  pause
 ```
 
 Confirm the new state back to the user, and remind them that already-created

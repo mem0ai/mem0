@@ -1028,6 +1028,19 @@ describe("registerCliCommands", () => {
   // ========================================================================
 
   describe("status subcommand", () => {
+    it("reports setup instructions when Mem0 is not configured", async () => {
+      const { mem0, backend, cfg } = setup();
+      (cfg as any).needsSetup = true;
+      const statusCmd = findCommand(mem0, "status")!;
+
+      await statusCmd._action!();
+
+      expect(backend.status).not.toHaveBeenCalled();
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        expect.stringContaining("openclaw mem0 init"),
+      );
+    });
+
     it("calls backend.status and prints connection info", async () => {
       const { mem0, backend } = setup();
       const statusCmd = findCommand(mem0, "status")!;

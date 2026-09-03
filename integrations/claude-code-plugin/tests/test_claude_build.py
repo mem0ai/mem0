@@ -22,7 +22,9 @@ def test_native_claude_bundle_preserves_working_contract(tmp_path: Path) -> None
     values = {
         "PLUGIN_ROOT": "${CLAUDE_PLUGIN_ROOT}",
         "PLUGIN_DATA": "${PLUGIN_DATA}",
+        "PLUGIN_DATA_ARG": '--plugin-data-dir "${CLAUDE_PLUGIN_DATA}"',
         "COMMAND_PREFIX": "mem0",
+        "HARNESS_ID": "claude-code",
         "HARNESS_NAME": "Claude Code",
     }
     for skill in SHARED_SKILLS.glob("*/SKILL.md.tmpl"):

@@ -4,6 +4,7 @@
   "homepage": "https://docs.mem0.ai/integrations/codex",
   "native": {
     "pluginRoot": "${PLUGIN_ROOT}",
+    "pluginData": "${PLUGIN_DATA}",
     "files": {
       ".codex-plugin/plugin.json": ".codex-plugin/plugin.json",
       "hooks/hooks.json": "hooks/hooks.json",

@@ -10,7 +10,7 @@ anonymous telemetry ping still fires at session start unless
 `MEM0_TELEMETRY=false`):
 
 ```bash
-python3 "${PLUGIN_ROOT}/core/memory_cli.py" pause
+python3 "${PLUGIN_ROOT}/core/memory_cli.py" --harness "coding-agent"  pause
 ```
 
 Confirm the new state back to the user, and remind them that already-created

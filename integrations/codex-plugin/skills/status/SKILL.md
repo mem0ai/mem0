@@ -9,8 +9,8 @@ disable-model-invocation: false
 Run both commands and report the combined result in plain language:
 
 ```bash
-python3 "${PLUGIN_ROOT}/core/memory_cli.py" status --json
-python3 "${PLUGIN_ROOT}/core/memory_cli.py" doctor
+python3 "${PLUGIN_ROOT}/core/memory_cli.py" --harness "codex" --plugin-data-dir "${PLUGIN_DATA}" status --json
+python3 "${PLUGIN_ROOT}/core/memory_cli.py" --harness "codex" --plugin-data-dir "${PLUGIN_DATA}" doctor
 ```
 
 Summarize, using only fields the JSON actually reports: whether capture is

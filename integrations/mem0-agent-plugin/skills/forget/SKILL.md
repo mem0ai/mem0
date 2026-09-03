@@ -13,7 +13,7 @@ so it stays unless the user explicitly asks to delete that too.
 After the user confirms, run:
 
 ```bash
-python3 "${PLUGIN_ROOT}/core/memory_cli.py" forget --remote --yes
+python3 "${PLUGIN_ROOT}/core/memory_cli.py" --harness "coding-agent"  forget --remote --yes
 ```
 
 If the user also asked to delete the repository's shared project memory, add

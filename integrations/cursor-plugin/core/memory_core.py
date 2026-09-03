@@ -49,6 +49,17 @@ def configure_harness(
     _harness_env_prefix = env_prefix or f"MEM0_{name.upper().replace('-', '_')}"
     _harness_data_dir_name = data_dir_name or f"{name}-plugin"
     _harness_source_tag = source_tag or f"{name.replace('-', '_')}_plugin"
+
+
+def harness_config() -> dict[str, str]:
+    return {
+        "name": _harness_name,
+        "env_prefix": _harness_env_prefix,
+        "data_dir_name": _harness_data_dir_name,
+        "source_tag": _harness_source_tag,
+    }
+
+
 MAX_PROMPT_CHARS = 6000
 MAX_ASSISTANT_CHARS = 6000
 MAX_COMMAND_CHARS = 2000

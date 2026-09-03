@@ -4,6 +4,7 @@
   "homepage": "https://docs.mem0.ai/integrations/claude-code",
   "native": {
     "pluginRoot": "${CLAUDE_PLUGIN_ROOT}",
+    "pluginData": "${CLAUDE_PLUGIN_DATA}",
     "files": {
       ".claude-plugin/plugin.json": ".claude-plugin/plugin.json",
       ".mcp.json": ".mcp.json",

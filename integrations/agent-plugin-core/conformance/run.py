@@ -139,9 +139,11 @@ def _command_check(
     command: list[str],
     *,
     cwd: Path,
+    environment_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     environment = dict(os.environ)
+    environment.update(environment_overrides or {})
     safe_command = [redact(part) for part in command]
     try:
         result = subprocess.run(
@@ -209,7 +211,15 @@ def _install_checks(groups: set[str]) -> list[dict[str, Any]]:
             if group == "opencode"
             else ["pnpm", "install", "--frozen-lockfile"]
         )
-        checks.append(_command_check(f"{group}-install", group, command, cwd=package))
+        checks.append(
+            _command_check(
+                f"{group}-install",
+                group,
+                command,
+                cwd=package,
+                environment_overrides={"CI": "true"},
+            )
+        )
     return checks
 
 

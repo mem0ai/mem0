@@ -11,7 +11,7 @@ Resume memory capture for this machine.
 Run:
 
 ```bash
-python3 "${ANTIGRAVITY_PLUGIN_ROOT}/core/memory_cli.py" resume
+python3 "${ANTIGRAVITY_PLUGIN_ROOT}/core/memory_cli.py" --harness "antigravity"  resume
 ```
 
 Confirm to the user that capture is active again. New sessions record evidence and

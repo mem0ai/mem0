@@ -26,6 +26,7 @@ from memory_core import (
     data_dir,
     detached_process_kwargs,
     format_context,
+    harness_config,
     record_session_start,
     record_tool,
     record_user_prompt,
@@ -102,12 +103,24 @@ def _launch_handoff(handoff_path: Path) -> bool:
     worker = _core_dir / "flush_worker.py"
     log_path = data_dir() / "flush-worker.log"
     log_handle = open(log_path, "a", encoding="utf-8")
+    harness = harness_config()
+    child_env = os.environ.copy()
+    child_env.update(
+        {
+            "MEM0_CODE_DATA_DIR": str(data_dir()),
+            "MEM0_PLUGIN_HARNESS": harness["name"],
+            "MEM0_PLUGIN_ENV_PREFIX": harness["env_prefix"],
+            "MEM0_PLUGIN_DATA_DIR_NAME": harness["data_dir_name"],
+            "MEM0_PLUGIN_SOURCE_TAG": harness["source_tag"],
+        }
+    )
     try:
         subprocess.Popen(
             [sys.executable, str(worker), str(running_path)],
             stdin=subprocess.DEVNULL,
             stdout=log_handle, stderr=log_handle,
             close_fds=True,
+            env=child_env,
             **detached_process_kwargs(),
         )
     finally:

@@ -34,7 +34,14 @@ PROTECTED_OUTPUTS = {
     *NATIVE_PLUGINS.values(),
 }
 TEMPLATE_TOKEN = re.compile(r"{{([A-Z_]+)}}")
-TEMPLATE_TOKENS = {"PLUGIN_ROOT", "PLUGIN_DATA", "COMMAND_PREFIX", "HARNESS_NAME"}
+TEMPLATE_TOKENS = {
+    "PLUGIN_ROOT",
+    "PLUGIN_DATA",
+    "PLUGIN_DATA_ARG",
+    "COMMAND_PREFIX",
+    "HARNESS_ID",
+    "HARNESS_NAME",
+}
 
 
 def render_template(source: str, values: Mapping[str, str]) -> str:
@@ -74,7 +81,14 @@ def replace_output(staged: Path, output: Path) -> Path:
     return output
 
 
-def _bundle_python(staged: Path, host: str, plugin_root: str, *, portable: bool = False) -> None:
+def _bundle_python(
+    staged: Path,
+    host: str,
+    plugin_root: str,
+    *,
+    plugin_data: str = "",
+    portable: bool = False,
+) -> None:
     core = staged / "core"
     core.mkdir()
     for source in sorted((CORE_ROOT / "python").glob("*.py")):
@@ -85,7 +99,9 @@ def _bundle_python(staged: Path, host: str, plugin_root: str, *, portable: bool 
     values = {
         "PLUGIN_ROOT": plugin_root,
         "PLUGIN_DATA": "${PLUGIN_DATA}",
+        "PLUGIN_DATA_ARG": f'--plugin-data-dir "{plugin_data}"' if plugin_data else "",
         "COMMAND_PREFIX": "mem0",
+        "HARNESS_ID": host,
         "HARNESS_NAME": host.replace("-", " ").title(),
     }
     for source in sorted(SHARED_SKILLS.glob("*/SKILL.md.tmpl")):
@@ -129,7 +145,12 @@ def _build_native(host: str, source_root: Path, staged: Path, descriptor: dict) 
     native = descriptor.get("native")
     if not isinstance(native, dict) or not isinstance(native.get("pluginRoot"), str):
         raise ValueError(f"native build is not declared for {host}")
-    _bundle_python(staged, host, native["pluginRoot"])
+    _bundle_python(
+        staged,
+        host,
+        native["pluginRoot"],
+        plugin_data=str(native.get("pluginData") or ""),
+    )
     _copy_declared_files(staged, source_root, native.get("files", {}))
 
 

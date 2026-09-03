@@ -73,6 +73,18 @@ def test_native_bundle_is_self_contained(host: str, tmp_path: Path) -> None:
     assert not any(path.is_symlink() for path in root.rglob("*"))
 
 
+@pytest.mark.parametrize("host", ["claude-code", "cursor", "codex", "kimi", "antigravity"])
+def test_native_control_skills_select_the_host_store(host: str, tmp_path: Path) -> None:
+    root = build(host, "native", tmp_path / host)
+    status = (root / "skills" / "status" / "SKILL.md").read_text(encoding="utf-8")
+
+    assert f'--harness "{host}"' in status
+    if host == "claude-code":
+        assert '--plugin-data-dir "${CLAUDE_PLUGIN_DATA}"' in status
+    elif host == "codex":
+        assert '--plugin-data-dir "${PLUGIN_DATA}"' in status
+
+
 @pytest.mark.parametrize(
     ("host", "kind"),
     [

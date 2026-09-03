@@ -10,7 +10,7 @@ Resume memory capture for this machine.
 Run:
 
 ```bash
-python3 "${PLUGIN_ROOT}/core/memory_cli.py" resume
+python3 "${PLUGIN_ROOT}/core/memory_cli.py" --harness "coding-agent"  resume
 ```
 
 Confirm to the user that capture is active again. New sessions record evidence and

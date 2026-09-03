@@ -11,7 +11,7 @@ Resume memory capture for this machine.
 Run:
 
 ```bash
-python3 "${CURSOR_PLUGIN_ROOT}/core/memory_cli.py" resume
+python3 "${CURSOR_PLUGIN_ROOT}/core/memory_cli.py" --harness "cursor"  resume
 ```
 
 Confirm to the user that capture is active again. New sessions record evidence and
