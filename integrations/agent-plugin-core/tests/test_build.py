@@ -92,20 +92,13 @@ def test_marketplaces_keep_public_names_and_reference_real_plugins() -> None:
     marketplace = json.loads((REPOSITORY_ROOT / "marketplace.json").read_text(encoding="utf-8"))
     sources = {plugin["name"]: plugin["source"] for plugin in marketplace["plugins"]}
 
-    assert sources == {
-        "mem0": "./integrations/claude-code-plugin",
-        "mem0-cursor": "./integrations/cursor-plugin",
-        "mem0-codex": "./integrations/codex-plugin",
-        "mem0-openclaw": "./integrations/openclaw",
-        "mem0-antigravity": "./integrations/antigravity-plugin",
-        "mem0-kimi": "./integrations/kimi-plugin",
-        "mem0-opencode": "./integrations/opencode-plugin",
-    }
+    assert sources == {"mem0": "./integrations/claude-code-plugin"}
     for source in sources.values():
         assert (REPOSITORY_ROOT / source).exists()
 
-    portable_marketplace = json.loads(
+    codex_marketplace = json.loads(
         (REPOSITORY_ROOT / ".agents" / "plugins" / "marketplace.json").read_text(encoding="utf-8")
     )
-    portable = next(plugin for plugin in portable_marketplace["plugins"] if plugin["name"] == "mem0")
-    assert portable["source"]["path"] == "./integrations/mem0-agent-plugin"
+    assert [plugin["name"] for plugin in codex_marketplace["plugins"]] == ["mem0"]
+    codex = codex_marketplace["plugins"][0]
+    assert codex["source"]["path"] == "./integrations/codex-plugin"

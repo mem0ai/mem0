@@ -54,19 +54,28 @@ source ~/.bashrc
 
 ## Try it locally
 
-1. Build the plugin:
+1. Build and pack the plugin:
    ```sh
    cd integrations/deepseek-plugin
-   pnpm install
+   pnpm install --frozen-lockfile
    pnpm build
+   mkdir -p /tmp/mem0-deepseek-plugin
+   pnpm pack --pack-destination /tmp/mem0-deepseek-plugin
    ```
 
-2. Point the Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then load it:
+2. Install it into a disposable Harness profile so Harness supplies its peer dependencies:
    ```sh
-   npx @deepseek-ai/dsh@0.1.1-rc.2 web --patch ./integrations/deepseek-plugin/cordis.example.yml
+   DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.1.1.tgz
    ```
 
-3. Open the web UI and ask the agent to remember something, then recall it in a later turn.
+3. Copy `cordis.example.yml`, set its installed package path and your `userId`, then load it with the same profile:
+   ```sh
+   DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
+     web --patch ./integrations/deepseek-plugin/cordis.example.yml
+   ```
+
+4. Open the web UI and ask the agent to remember something, then recall it in a later turn.
 
 The `cordis.yml` entry looks like this:
 
@@ -75,7 +84,7 @@ The `cordis.yml` entry looks like this:
 - name: "@deepseek-ai/dsh-tools"
 - insert:
     - id: mem0
-      name: "/absolute/path/to/integrations/deepseek-plugin/dist/index.js"
+      name: "/tmp/mem0-dsh-dev/profiles/headless/node_modules/@mem0/deepseek-plugin/dist/index.js"
       config:
         # apiKey is read from MEM0_API_KEY when omitted here.
         userId: "your-user-id"

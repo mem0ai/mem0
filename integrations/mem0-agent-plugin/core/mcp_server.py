@@ -117,9 +117,9 @@ def _validate_arguments(
     return query, top_k, category, scope, run_id
 
 
-def call_search_memories(arguments: Any) -> str:
+def call_search_memories(arguments: Any, cwd: str | None = None) -> str:
     query, top_k, category, scope, run_id = _validate_arguments(arguments)
-    repo = resolve_repo(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+    repo = resolve_repo(cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
     result = search_memories(
         None,
         repo,
@@ -132,6 +132,19 @@ def call_search_memories(arguments: Any) -> str:
         operation="mcp-search",
     )
     return format_search_result(result)
+
+
+def _workspace_cwd(params: dict[str, Any]) -> str | None:
+    meta = params.get("_meta")
+    if not isinstance(meta, dict):
+        return None
+    metadata = meta.get("x-codex-turn-metadata")
+    if not isinstance(metadata, dict):
+        return None
+    workspaces = metadata.get("workspaces") or {}
+    if isinstance(workspaces, dict):
+        return next((path for path in workspaces if isinstance(path, str) and path), None)
+    return None
 
 
 def _tool_response(text: str, *, is_error: bool = False) -> dict[str, Any]:
@@ -187,7 +200,9 @@ def handle_request(message: Any) -> dict[str, Any] | None:
             result = _tool_response("Unknown Mem0 tool.", is_error=True)
         else:
             try:
-                result = _tool_response(call_search_memories(params.get("arguments")))
+                result = _tool_response(
+                    call_search_memories(params.get("arguments"), _workspace_cwd(params))
+                )
             except ToolInputError as exc:
                 result = _tool_response(str(exc), is_error=True)
             except Exception:

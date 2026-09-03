@@ -8,79 +8,7 @@
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "./integrations/mem0-agent-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "mem0-cursor",
-      "source": {
-        "source": "local",
-        "path": "./integrations/cursor-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "mem0-codex",
-      "source": {
-        "source": "local",
         "path": "./integrations/codex-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "mem0-openclaw",
-      "source": {
-        "source": "local",
-        "path": "./integrations/openclaw"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "mem0-antigravity",
-      "source": {
-        "source": "local",
-        "path": "./integrations/antigravity-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "mem0-kimi",
-      "source": {
-        "source": "local",
-        "path": "./integrations/kimi-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "mem0-opencode",
-      "source": {
-        "source": "local",
-        "path": "./integrations/opencode-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",

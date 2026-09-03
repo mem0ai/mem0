@@ -9,5 +9,5 @@
   "keywords": ["memory", "coding-agents", "continual-learning", "token-efficiency"],
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
-  "mcpServers": "./mcp.json"
+  "mcpServers": "./.mcp.json"
 }

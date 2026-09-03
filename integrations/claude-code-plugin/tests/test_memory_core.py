@@ -2444,6 +2444,35 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
     assert "project_knowledge" not in rendered
 
 
+def test_mcp_tool_uses_codex_workspace_metadata(isolated_env):
+    result = memory_core.MemorySearchResult(
+        succeeded=True, matched_count=0, already_shown_count=0, memories=[]
+    )
+    request = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "search_memories",
+            "arguments": {"query": "parser"},
+            "_meta": {
+                "x-codex-turn-metadata": {
+                    "workspaces": {"/tmp/active-repository": {"has_changes": False}}
+                }
+            },
+        },
+    }
+
+    with (
+        patch.object(mcp_server, "resolve_repo", return_value=repo()) as resolve,
+        patch.object(mcp_server, "search_memories", return_value=result),
+    ):
+        response = mcp_server.handle_request(request)
+
+    resolve.assert_called_once_with("/tmp/active-repository")
+    assert response["result"]["isError"] is False
+
+
 @pytest.mark.parametrize(
     "arguments, message",
     [

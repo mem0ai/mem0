@@ -49,6 +49,12 @@ def test_normalizes_cursor_events(event: str, action: str) -> None:
     assert normalized["payload"]["last_assistant_message"] == "assistant response"
 
 
+def test_after_agent_response_does_not_return_internal_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(adapter.hook_runner, "default_record_stop", lambda store, payload: (object(), "session"))
+
+    assert adapter._record_response(object(), {}) is None
+
+
 def test_cursor_hooks_use_native_flat_entries() -> None:
     hooks = json.loads((HOST / "hooks" / "hooks.json").read_text(encoding="utf-8"))
 

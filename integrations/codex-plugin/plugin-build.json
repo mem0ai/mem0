@@ -8,7 +8,7 @@
       ".codex-plugin/plugin.json": ".codex-plugin/plugin.json",
       "hooks/hooks.json": "hooks/hooks.json",
       "hooks/adapter.py": "hooks/adapter.py",
-      "mcp.json": "mcp.json"
+      ".mcp.json": ".mcp.json"
     }
   }
 }

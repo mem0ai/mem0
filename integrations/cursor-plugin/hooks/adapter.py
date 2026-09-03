@@ -51,7 +51,7 @@ def _record_failure(store, payload):
 
 
 def _record_response(store, payload):
-    return hook_runner.default_record_stop(store, payload)
+    hook_runner.default_record_stop(store, payload)
 
 
 def main() -> int:

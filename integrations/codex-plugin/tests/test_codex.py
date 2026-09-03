@@ -26,6 +26,19 @@ def test_codex_hooks_use_native_events_and_plugin_paths() -> None:
     assert all("${PLUGIN_ROOT}/hooks/adapter.py" in command for command in commands)
     assert any("flush --reason pre-compact" in command for command in commands)
     assert any("flush --reason session-end" in command for command in commands)
+    assert all(hook.get("timeout", 0) <= 3 for groups in hooks.values() for group in groups for hook in group["hooks"])
+
+
+def test_codex_mcp_uses_host_relative_paths() -> None:
+    manifest = json.loads((HOST / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert manifest["mcpServers"] == "./.mcp.json"
+
+    server = json.loads((HOST / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"]["mem0"]
+    assert server["command"] == "python3"
+    assert server["args"] == ["./core/mcp_server.py"]
+    assert server["cwd"] == "."
+    assert set(server["env_vars"]) >= {"MEM0_API_KEY", "MEM0_CODE_USER_ID"}
+    assert "PLUGIN_ROOT" not in json.dumps(server)
 
 
 def test_native_codex_bundle_is_self_contained(tmp_path: Path) -> None:
@@ -36,5 +49,6 @@ def test_native_codex_bundle_is_self_contained(tmp_path: Path) -> None:
     assert manifest["skills"] == "./skills/"
     assert (root / "hooks" / "adapter.py").is_file()
     assert (root / "core" / "mcp_server.py").is_file()
+    assert (root / ".mcp.json").is_file()
     assert not (root / "agents").exists()
     assert not any(path.is_symlink() for path in root.rglob("*"))

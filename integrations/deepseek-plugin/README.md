@@ -33,21 +33,29 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
 
 ## Try it locally
 
-1. Build the plugin:
+1. Build and pack the plugin:
    ```sh
    cd integrations/deepseek-plugin
-   pnpm install
+   pnpm install --frozen-lockfile
    pnpm build
+   mkdir -p /tmp/mem0-deepseek-plugin
+   pnpm pack --pack-destination /tmp/mem0-deepseek-plugin
    ```
 2. Set your Mem0 key:
    ```sh
    export MEM0_API_KEY=...
    ```
-3. Point Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then run the published Harness launcher:
+3. Install it into a disposable Harness profile:
    ```sh
-   npx @deepseek-ai/dsh@0.1.1-rc.2 web --patch ./integrations/deepseek-plugin/cordis.example.yml
+   DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.1.1.tgz
    ```
-4. Open http://127.0.0.1:3080 and ask the agent to remember something, then recall it in a later turn.
+4. Copy `cordis.example.yml`, set its installed package path and your `userId`, then run Harness with the same profile:
+   ```sh
+   DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
+     web --patch ./integrations/deepseek-plugin/cordis.example.yml
+   ```
+5. Open http://127.0.0.1:3080 and ask the agent to remember something, then recall it in a later turn.
 
 For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that base URL (defaults to `api.mem0.ai`). `host` is a Platform base-URL override — it is not a switch to self-hosted Mem0 OSS, whose server exposes a different API surface.
 
