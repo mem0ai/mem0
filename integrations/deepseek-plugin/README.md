@@ -2,10 +2,12 @@
 
 [Mem0](https://mem0.ai) long-term memory as a native [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (Cordis) plugin.
 
-It gives a Harness agent two memory tools backed by the Mem0 SDK, so recall and writes persist across sessions:
+It gives a Harness agent automatic long-term memory plus two explicit memory tools backed by the Mem0 SDK:
 
-| Tool | Does |
+| Capability | Does |
 |---|---|
+| Auto-recall | Searches Mem0 for the latest human prompt and adds unseen results to the model context |
+| Auto-capture | Stores the human/assistant messages from each completed turn |
 | `search_memory` | Recall facts from Mem0 relevant to a query |
 | `add_memory` | Store a fact in Mem0 for future sessions |
 
@@ -13,12 +15,18 @@ Unlike the local/file-based memory plugins in the ecosystem, Mem0 is a managed b
 
 ## How it works
 
-A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `inject = ['tools']` so it waits for the harness tool registry, then registers the two tools via `ctx.tools.register(defineTool(...))`. When the plugin unmounts, the tools are removed automatically (Cordis revertible effects).
+A Cordis plugin is a module exporting `apply(ctx, config)`. This one waits for the Harness tool and system-prompt services, then uses the native extension points:
+
+- `system-prompt/assemble` recalls memory before a model request.
+- `session/event` captures only completed turns from the durable event stream.
+- `ctx.tools.register(...)` exposes explicit search and add tools.
+
+Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic path is fail-open: a memory API failure does not block the agent.
 
 ```
 [ mem0ai SDK ]  <-- managed memory, owned by Mem0
       |
-[ deepseek-plugin: apply(ctx) -> ctx.tools.register(...) ]  <-- this package
+[ deepseek-plugin: prompt + session listeners, memory tools ]  <-- this package
       |
 [ DeepSeek Harness ]  <-- the agent, loaded via cordis.yml
 ```
@@ -35,9 +43,9 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This one declares `i
    ```sh
    export MEM0_API_KEY=...
    ```
-3. Point Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then:
+3. Point Harness at it. Copy `cordis.example.yml`, set the absolute path to `dist/index.js` and your `userId`, then run the published Harness launcher:
    ```sh
-   pnpm dsh web --patch ./integrations/deepseek-plugin/cordis.example.yml
+   npx @deepseek-ai/dsh@0.1.1-rc.2 web --patch ./integrations/deepseek-plugin/cordis.example.yml
    ```
 4. Open http://127.0.0.1:3080 and ask the agent to remember something, then recall it in a later turn.
 
@@ -50,6 +58,8 @@ For a Mem0 Platform on-prem or dedicated deployment, point `config.host` at that
 | `apiKey` | no | `$MEM0_API_KEY` | Mem0 platform API key |
 | `userId` | yes | | Entity that owns the memories |
 | `host` | no | `api.mem0.ai` | Platform base URL (on-prem / dedicated) |
+| `autoRecall` | no | `true` | Recall relevant memory before model requests |
+| `autoCapture` | no | `true` | Store completed human/assistant turns |
 
 ## Telemetry
 
@@ -59,4 +69,4 @@ The plugin also sends anonymous usage events (which tool ran, duration, result c
 
 ## Status
 
-Developer preview. Tracks the DeepSeek Harness v0.1 plugin API (`@deepseek-ai/cordis`, `@deepseek-ai/dsh-tools`), which is young and moving; pin versions once it stabilizes. Auto-capture (store turns without an explicit tool call) and auto-recall (inject memory into the prompt at assembly) are planned once the harness session/assembly event API is confirmed.
+Developer preview. Tracks the DeepSeek Harness v0.1 plugin API, which is young and moving. Harness capability packages are peer dependencies supplied by the host; this package pins matching release-candidate versions for local typechecking and tests.

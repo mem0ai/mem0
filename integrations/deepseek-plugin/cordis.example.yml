@@ -3,11 +3,6 @@
 #
 #   pnpm dsh web --patch ./integrations/deepseek-plugin/cordis.example.yml
 #
-# The tools plugin (and its system-prompt dependency) must be present, because
-# the memory tools contribute schemas the system prompt renders.
-
-- name: "@deepseek-ai/dsh-system-prompt"
-- name: "@deepseek-ai/dsh-tools"
 - insert:
     - id: mem0
       # Absolute path to the built plugin (run `pnpm build` first), or point
@@ -16,4 +11,6 @@
       config:
         # apiKey is read from the MEM0_API_KEY env var when omitted here.
         userId: "your-user-id"
+        # autoRecall: true   # optional; enabled by default
+        # autoCapture: true  # optional; enabled by default
         # host: "https://your-onprem.mem0.ai"   # optional: Platform on-prem / dedicated base URL

@@ -26,6 +26,7 @@ import {
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
 import {parseProjectFromRemote} from "./project";
 import {resolveApiKey} from "./api-key";
+import {createMemoryLifecycle} from "../agent-plugins/core/typescript/src/lifecycle.ts";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -76,23 +77,6 @@ function generateSessionId(): string {
   const ts = Math.floor(Date.now() / 1000);
   const rnd = randomBytes(3).toString("hex");
   return `ses_${ts}_${rnd}`;
-}
-
-const SECRET_PATTERNS = [
-  /sk-[A-Za-z0-9]{20,}/g,
-  /m0-[A-Za-z0-9]{20,}/g,
-  /AKIA[0-9A-Z]{16}/g,
-  /xox[baprs]-[A-Za-z0-9-]{20,}/g,
-  /ghp_[A-Za-z0-9]{36,}/g,
-  /gho_[A-Za-z0-9]{36,}/g,
-];
-
-function redact(text: string): string {
-  let out = text;
-  for (const re of SECRET_PATTERNS) {
-    out = out.replace(re, "[REDACTED]");
-  }
-  return out;
 }
 
 /** Read & parse `~/.mem0/settings.json`, returning {} when missing/invalid. */
@@ -283,6 +267,8 @@ const Mem0Plugin: Plugin = async (ctx) => {
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
   const globalSearch = loadGlobalSearch();
+  const lifecycle = createMemoryLifecycle();
+  lifecycle.beginSession();
 
   let initialized = false;
   let memoryCount = 0;
@@ -449,7 +435,7 @@ Identity context (resolved at plugin startup):
           }
 
           const res = await mem0.add(
-            [{ role: "user", content: args.text }],
+            [{ role: "user", content: lifecycle.prepareUserText(args.text) }],
             {
               user_id: finalUserId,
               app_id: finalAppId,
@@ -481,7 +467,7 @@ Identity context (resolved at plugin startup):
           const topK = args.limit ?? args.top_k ?? 10;
           const filters = readScopeFilters(args);
 
-          const res = await mem0.search(args.query, {
+          const res = await mem0.search(lifecycle.prepareUserText(args.query), {
             filters,
             topK,
           });
@@ -535,7 +521,10 @@ Identity context (resolved at plugin startup):
         async execute(args) {
           captureEvent("tool_use", {tool: "update_memory"}, apiKey, appId);
           const res = await mem0.update(args.id, {
-            text: args.text,
+            text:
+              args.text === undefined
+                ? undefined
+                : lifecycle.prepareUserText(args.text),
             metadata: args.metadata,
           });
           return JSON.stringify(res);
@@ -631,7 +620,7 @@ Identity context (resolved at plugin startup):
     const userText = extractUserText(input, output);
     if (!userText || userText.length < 10) return;
 
-    const safeText = redact(userText);
+    const safeText = lifecycle.prepareUserText(userText);
     msgCount++;
     stats.messages++;
 

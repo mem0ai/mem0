@@ -25,13 +25,26 @@ interface RegisteredTool {
   execute(args: unknown, exec: unknown): Promise<unknown>;
 }
 
+type HarnessListener = (...args: any[]) => unknown;
+
 function applyAndCollect(config: Config): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
   const ctx = {
     tools: { register: (t: RegisteredTool) => tools.set(t.name, t) },
+    on: vi.fn(),
   };
   apply(ctx as never, config);
   return tools;
+}
+
+function applyAndCollectListeners(config: Config): Map<string, HarnessListener> {
+  const listeners = new Map<string, HarnessListener>();
+  const ctx = {
+    tools: { register: vi.fn() },
+    on: (event: string, listener: HarnessListener) => listeners.set(event, listener),
+  };
+  apply(ctx as never, config);
+  return listeners;
 }
 
 let savedKey: string | undefined;
@@ -65,6 +78,97 @@ describe("apply() config validation", () => {
   it("registers both memory tools", () => {
     const tools = applyAndCollect({ apiKey: "k", userId: "u" });
     expect([...tools.keys()].sort()).toEqual(["add_memory", "search_memory"]);
+  });
+});
+
+describe("Harness lifecycle", () => {
+  it("automatically recalls memory into the prompt for the latest human message", async () => {
+    mockSearch.mockResolvedValue({
+      results: [{ id: "m1", memory: "Likes tea" }],
+    });
+    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
+    const assemble = listeners.get("system-prompt/assemble")!;
+    const base = { sections: [], contexts: [], tools: [], variables: {} };
+
+    const result = await assemble(
+      base,
+      {
+        agent: {
+          session: {
+            deriveMessages: () => [
+              {
+                role: "user",
+                content: [{ type: "text", text: "What do I drink?" }],
+                source: { kind: "user" },
+              },
+            ],
+          },
+        },
+      },
+      async () => base,
+    );
+
+    expect(mockSearch).toHaveBeenCalledWith("What do I drink?", {
+      filters: { user_id: "u" },
+      topK: 5,
+    });
+    expect(result).toMatchObject({
+      contexts: [{ name: "mem0:recall", text: expect.stringContaining("Likes tea") }],
+    });
+  });
+
+  it("automatically captures a completed human and assistant turn", async () => {
+    mockAdd.mockResolvedValue({ eventId: "evt-1", status: "PENDING" });
+    const listeners = applyAndCollectListeners({ apiKey: "k", userId: "u" });
+    const onSessionEvent = listeners.get("session/event")!;
+    const session = {};
+
+    onSessionEvent(session, { type: "turn/start", data: { turn: 1 } });
+    onSessionEvent(session, {
+      type: "user/message",
+      data: {
+        role: "user",
+        content: [{ type: "text", text: "Remember I like tea" }],
+        source: { kind: "user" },
+      },
+    });
+    onSessionEvent(session, {
+      type: "assistant/message",
+      data: {
+        turn: 1,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "I will remember that." }],
+          source: { kind: "model" },
+        },
+      },
+    });
+    onSessionEvent(session, {
+      type: "turn/end",
+      data: { turn: 1, reason: { kind: "completed" } },
+    });
+
+    await vi.waitFor(() => {
+      expect(mockAdd).toHaveBeenCalledWith(
+        [
+          { role: "user", content: "Remember I like tea" },
+          { role: "assistant", content: "I will remember that." },
+        ],
+        { userId: "u", source: "DEEPSEEK_HARNESS" },
+      );
+    });
+  });
+
+  it("can disable automatic recall and capture without removing the memory tools", () => {
+    const listeners = applyAndCollectListeners({
+      apiKey: "k",
+      userId: "u",
+      autoRecall: false,
+      autoCapture: false,
+    });
+
+    expect(listeners.has("system-prompt/assemble")).toBe(false);
+    expect(listeners.has("session/event")).toBe(false);
   });
 });
 
@@ -134,6 +238,18 @@ describe("add_memory tool", () => {
 
     expect(out).toContain("Stored 1 memory");
     expect(out).toContain("[mem0:m1]");
+  });
+
+  it("redacts credentials before storing explicit memory", async () => {
+    mockAdd.mockResolvedValue([]);
+    const tools = applyAndCollect({ apiKey: "k", userId: "u" });
+
+    await tools.get("add_memory")!.execute({ text: "api_key=do-not-store-this" }, {});
+
+    expect(mockAdd).toHaveBeenCalledWith(
+      [{ role: "user", content: "api_key=[REDACTED]" }],
+      { userId: "u", source: "DEEPSEEK_HARNESS" },
+    );
   });
 
   it("returns a graceful failure line on error", async () => {

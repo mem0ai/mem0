@@ -1,2 +1,3 @@
 jsonschema>=4.23,<5
+pytest>=8,<10
 skills-ref==0.1.1

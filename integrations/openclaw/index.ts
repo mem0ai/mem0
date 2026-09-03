@@ -62,6 +62,7 @@ import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
+import { createMemoryLifecycle } from "../agent-plugins/core/typescript/src/lifecycle.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
 
 // ============================================================================
@@ -176,6 +177,8 @@ const memoryPlugin = definePluginEntry({
     }
 
     const provider = createProvider(cfg, api);
+    const lifecycle = createMemoryLifecycle();
+    lifecycle.beginSession();
 
     // Create Backend instance — PlatformBackend for platform mode, providerToBackend adapter for OSS
     let backend: Backend;
@@ -377,6 +380,7 @@ const memoryPlugin = definePluginEntry({
       },
       skillsActive,
       _captureEvent,
+      lifecycle,
     );
 
     // ========================================================================
@@ -427,6 +431,7 @@ function registerHooks(
     event: string,
     props?: Record<string, unknown>,
   ) => void = () => {},
+  lifecycle: ReturnType<typeof createMemoryLifecycle> = createMemoryLifecycle(),
 ) {
   // ========================================================================
   // SKILLS MODE: Agentic memory via before_prompt_build
@@ -493,7 +498,7 @@ function registerHooks(
       if (recallEnabled && recallStrategy !== "manual") {
         const recallStart = Date.now();
         try {
-          const query = sanitizeQuery(event.prompt);
+          const query = lifecycle.prepareUserText(sanitizeQuery(event.prompt));
 
           // Smart mode: skip session search (saves 1 API call per turn)
           const sessionIdForRecall =
@@ -733,6 +738,7 @@ function registerHooks(
           "",
         )
         .trim();
+      const safePrompt = lifecycle.prepareUserText(cleanPrompt);
 
       const recallStart = Date.now();
       const recallWork = async () => {
@@ -741,7 +747,7 @@ function registerHooks(
 
         // Search long-term memories (user-scoped; subagents read from parent namespace)
         let longTermResults = await provider.search(
-          cleanPrompt,
+          safePrompt,
           buildSearchOptions(
             undefined,
             recallTopK,
@@ -767,7 +773,7 @@ function registerHooks(
 
         // Only broaden for genuinely new sessions with short prompts
         // (cold-start blindness). Skip on subsequent turns to save API calls.
-        if (isNewSession && cleanPrompt.length < 100) {
+        if (isNewSession && safePrompt.length < 100) {
           const broadOpts = buildSearchOptions(
             undefined,
             5,
@@ -1008,7 +1014,8 @@ function registerHooks(
       }));
 
       // Apply noise filtering pipeline: drop noise, strip fragments, truncate
-      const formattedMessages = filterMessagesForExtraction(selected);
+      const formattedMessages: Array<{ role: string; content: string }> =
+        lifecycle.prepareConversation(filterMessagesForExtraction(selected));
 
       if (formattedMessages.length === 0) return;
 
