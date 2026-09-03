@@ -23,6 +23,7 @@ from mem0.configs.prompts import (
     generate_additive_extraction_prompt,
 )
 from mem0.exceptions import LLMError
+from mem0.exceptions import VectorStoreError
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.notices import (
@@ -1053,13 +1054,30 @@ class Memory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            # Fallback: insert one by one, keeping only the records that
+            # actually persist. A record whose individual insert fails must
+            # not be reported as an ADD or indexed (history/entities), or
+            # callers would hold an ID that the vector store never stored.
+            persisted_records = []
+            last_insert_error = None
+            for record in records:
+                mid, vec, pay = record[0], record[2], record[3]
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    persisted_records.append(record)
                 except Exception as e:
+                    last_insert_error = e
                     logger.error(f"Failed to insert memory {mid}: {e}")
+            if not persisted_records:
+                raise VectorStoreError(
+                    message="All vector store inserts failed; no memories were persisted",
+                    error_code="VECTOR_002",
+                    details={"attempted_ids": all_ids},
+                    suggestion="Check the vector store connection and capacity, then retry",
+                ) from last_insert_error
+        records = persisted_records
 
         # Batch history
         history_records = [
@@ -2712,12 +2730,30 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            persisted_records = records
         except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+            # Fallback: insert one by one, keeping only the records that
+            # actually persist. A record whose individual insert fails must
+            # not be reported as an ADD or indexed (history/entities), or
+            # callers would hold an ID that the vector store never stored.
+            persisted_records = []
+            last_insert_error = None
+            for record in records:
+                mid, vec, pay = record[0], record[2], record[3]
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    persisted_records.append(record)
                 except Exception as e:
+                    last_insert_error = e
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+            if not persisted_records:
+                raise VectorStoreError(
+                    message="All vector store inserts failed; no memories were persisted",
+                    error_code="VECTOR_002",
+                    details={"attempted_ids": all_ids},
+                    suggestion="Check the vector store connection and capacity, then retry",
+                ) from last_insert_error
+        records = persisted_records
 
         # Batch history
         history_records = [
