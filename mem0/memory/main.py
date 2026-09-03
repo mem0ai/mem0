@@ -1054,12 +1054,17 @@ class Memory(MemoryBase):
                 payloads=all_payloads,
             )
         except Exception:
-            # Fallback: insert one by one
+            # Fallback: insert one by one. Drop records that still fail so they
+            # are not returned as ADD or passed to history/entity indexing.
+            failed_ids = set()
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+                    failed_ids.add(mid)
+            if failed_ids:
+                records = [r for r in records if r[0] not in failed_ids]
 
         # Batch history
         history_records = [
@@ -2713,11 +2718,15 @@ class AsyncMemory(MemoryBase):
                 payloads=all_payloads,
             )
         except Exception:
+            failed_ids = set()
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+                    failed_ids.add(mid)
+            if failed_ids:
+                records = [r for r in records if r[0] not in failed_ids]
 
         # Batch history
         history_records = [

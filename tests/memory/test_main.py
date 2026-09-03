@@ -80,6 +80,42 @@ class TestAddToVectorStoreErrors:
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
 
+    def test_failed_fallback_record_is_not_returned_or_indexed(self, mocker, mock_memory):
+        """If per-record fallback insert fails, do not report that memory as ADD."""
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "first memory"}, {"text": "second memory"}]}'
+        )
+        mock_memory.embedding_model = MagicMock()
+        mock_memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+        mock_memory._entity_store = MagicMock()
+        mock_memory.db.batch_add_history = MagicMock()
+
+        def fail_batch_and_second_record(*, vectors, ids, payloads):
+            if len(ids) > 1:
+                raise RuntimeError("batch insert failed")
+            if payloads[0]["data"] == "second memory":
+                raise RuntimeError("single insert failed")
+
+        mock_memory.vector_store.insert.side_effect = fail_batch_and_second_record
+        extract_entities = mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "remember two facts"}],
+            metadata={},
+            filters={"user_id": "u1"},
+            infer=True,
+        )
+
+        assert len(result) == 1
+        assert result[0]["memory"] == "first memory"
+        history_ids = [h["memory_id"] for h in mock_memory.db.batch_add_history.call_args[0][0]]
+        assert result[0]["id"] in history_ids
+        assert len(history_ids) == 1
+        extract_entities.assert_called_once()
+        assert extract_entities.call_args[0][0] == ["first memory"]
+
     def test_llm_extraction_exception_is_reraised(self, mocker, mock_memory):
         """A provider error during fact extraction must propagate, not be swallowed.
 
