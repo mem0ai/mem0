@@ -169,6 +169,40 @@ class AzureAISearch(VectorStoreBase):
                 document[field] = payload[field]
         return document
 
+    def _validate_indexing_results(self, response, operation: str, default_id: str = None):
+        """Raise when Azure indexing reports a per-document failure.
+
+        Azure SDK returns ``IndexingResult`` objects with ``succeeded`` /
+        ``status_code`` attributes. Older code paths and some mocks yield dicts.
+        The previous ``not hasattr(doc, "status_code") and doc.get(...)`` check
+        short-circuited to False for real SDK objects, silently swallowing errors.
+        """
+        for doc in response:
+            if isinstance(doc, dict):
+                succeeded = doc.get("succeeded", doc.get("status"))
+                status_code = doc.get("status_code")
+                doc_id = doc.get("key", doc.get("id", default_id))
+                error_message = doc.get("error_message", doc.get("errorMessage"))
+            else:
+                succeeded = getattr(doc, "succeeded", None)
+                status_code = getattr(doc, "status_code", None)
+                doc_id = getattr(doc, "key", getattr(doc, "id", default_id))
+                error_message = getattr(doc, "error_message", getattr(doc, "errorMessage", None))
+
+            is_success = True
+            if succeeded is not None:
+                is_success = bool(succeeded)
+            elif status_code is not None:
+                is_success = status_code in (200, 201)
+
+            if not is_success:
+                msg = f"{operation} failed for document {doc_id}"
+                if error_message:
+                    msg += f": {error_message}"
+                else:
+                    msg += f": {doc}"
+                raise Exception(msg)
+
     # Note: Explicit "insert" calls may later be decoupled from memory management decisions.
     def insert(self, vectors, payloads=None, ids=None):
         """
@@ -184,9 +218,7 @@ class AzureAISearch(VectorStoreBase):
             self._generate_document(vector, payload, id) for id, vector, payload in zip(ids, vectors, payloads)
         ]
         response = self.search_client.upload_documents(documents)
-        for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 201:
-                raise Exception(f"Insert failed for document {doc.get('id')}: {doc}")
+        self._validate_indexing_results(response, "Insert")
         return response
 
     def _sanitize_key(self, key: str) -> str:
@@ -289,9 +321,7 @@ class AzureAISearch(VectorStoreBase):
             vector_id (str): ID of the vector to delete.
         """
         response = self.search_client.delete_documents(documents=[{"id": vector_id}])
-        for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
-                raise Exception(f"Delete failed for document {vector_id}: {doc}")
+        self._validate_indexing_results(response, "Delete", default_id=vector_id)
         logger.info(f"Deleted document with ID '{vector_id}' from index '{self.index_name}'.")
         return response
 
@@ -313,9 +343,7 @@ class AzureAISearch(VectorStoreBase):
             for field in ["user_id", "run_id", "agent_id"]:
                 document[field] = payload.get(field)
         response = self.search_client.merge_or_upload_documents(documents=[document])
-        for doc in response:
-            if not hasattr(doc, "status_code") and doc.get("status_code") != 200:
-                raise Exception(f"Update failed for document {vector_id}: {doc}")
+        self._validate_indexing_results(response, "Update", default_id=vector_id)
         return response
 
     def get(self, vector_id) -> OutputData:
