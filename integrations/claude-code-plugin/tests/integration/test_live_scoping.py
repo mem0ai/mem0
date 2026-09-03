@@ -178,15 +178,17 @@ def test_shared_project_memory_reaches_a_teammate_who_never_wrote(ns):
 def test_repo_scope_spans_every_subdirectory(ns):
     found = ns.search("erin", ns.root, "how many times are Stripe webhooks retried", scope="repo")
     assert "stripe" in _text(found)
-    app_ids = {m.get("app_id") for m in found}
-    assert any(app.endswith("/services/billing") for app in app_ids)
+    assert any("services/billing" in (memory.get("metadata") or {}).get("dirs", []) for memory in found)
 
 
 def test_dir_scope_narrows_shared_memory_to_the_directory(ns):
     billing = ns.root / "services" / "billing"
     found = ns.search("erin", billing, "how do I run the tests here", scope="dir")
     assert "billing-test" in _text(found)
-    assert {m.get("app_id") for m in found if m.get("agent_id")} == {memory_core.directory_app_id(memory_core.resolve_repo(str(billing)))}
+    shared = [memory for memory in found if memory.get("agent_id")]
+    assert shared
+    assert {memory.get("app_id") for memory in shared} == {memory_core.resolve_repo(str(billing)).app_id}
+    assert all("services/billing" in (memory.get("metadata") or {}).get("dirs", []) for memory in shared)
 
     web = ns.root / "apps" / "web"
     elsewhere = ns.search("erin", web, "Stripe webhook retries exponential backoff", scope="dir", tries=1)
