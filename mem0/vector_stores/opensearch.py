@@ -19,36 +19,186 @@ _SAFE_FILTER_KEY = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.]*$")
 _IDENTITY_FILTER_KEYS = ("user_id", "agent_id", "run_id")
 
 
-def _validate_filter(key: str, value) -> None:
+def _validate_filter_key(key: str) -> None:
+    """Validate that a filter key is safe (no injection)."""
     if not isinstance(key, str) or not _SAFE_FILTER_KEY.match(key):
         raise ValueError(f"Invalid filter key: {key!r}")
+
+
+def _validate_scalar(value) -> None:
+    """Validate that a scalar filter value is safe."""
     if not isinstance(value, (str, int, float, bool)):
         raise ValueError(
-            f"Filter value for {key!r} must be str, int, float, or bool, "
-            f"got {type(value).__name__}"
+            f"Filter value must be str, int, float, or bool, got {type(value).__name__}"
         )
 
 
-def _build_filter_clauses(filters):
-    """Build term clauses from every filter key, not just the identity keys."""
+def _build_field_clause(key: str, value) -> Optional[dict]:
+    """Build a single OpenSearch filter clause from a key-value pair.
+
+    Supports the enhanced filter syntax documented at
+    https://docs.mem0.ai/open-source/features/metadata-filtering
+
+    Args:
+        key: The payload field name.
+        value: A scalar for simple equality, a dict with operator keys,
+               or "*" for exists wildcard.
+
+    Returns:
+        An OpenSearch DSL filter clause dict, or None for "*" wildcard
+        (field exists — handled separately).
+    """
+    if value == "*":
+        # "Any value" wildcard: match documents where the field exists.
+        _validate_filter_key(key)
+        return {"exists": {"field": f"payload.{key}"}}
+
+    if not isinstance(value, dict):
+        # Simple equality: {"field": "value"}
+        # List shorthand: {"field": ["a", "b"]} treated as in-operator.
+        if isinstance(value, list):
+            for item in value:
+                _validate_scalar(item)
+            _validate_filter_key(key)
+            first_scalar = value[0] if value else None
+            field = f"payload.{key}.keyword" if isinstance(first_scalar, str) else f"payload.{key}"
+            return {"terms": {field: value}}
+        _validate_scalar(value)
+        _validate_filter_key(key)
+        field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
+        return {"term": {field: value}}
+
+    # Operator dict: {"priority": {"gte": 3}}
+    _validate_filter_key(key)
+
+    ops = set(value.keys())
+    range_ops = {"gt", "gte", "lt", "lte"}
+    non_range_ops = ops - range_ops
+
+    # Build range clause
+    if ops & range_ops:
+        if non_range_ops:
+            raise ValueError(
+                f"Cannot mix range operators ({ops & range_ops}) with "
+                f"non-range operators ({non_range_ops}) for field '{key}'. "
+                f"Use AND to combine them as separate conditions."
+            )
+        range_kwargs = {op: value[op] for op in range_ops if op in value}
+        return {"range": {f"payload.{key}": range_kwargs}}
+
+    # Single-operator clauses (one key only in the value dict)
+    if "eq" in value:
+        v = value["eq"]
+        _validate_scalar(v)
+        field = f"payload.{key}.keyword" if isinstance(v, str) else f"payload.{key}"
+        return {"term": {field: v}}
+
+    if "ne" in value:
+        v = value["ne"]
+        _validate_scalar(v)
+        field = f"payload.{key}.keyword" if isinstance(v, str) else f"payload.{key}"
+        return {"bool": {"must_not": {"term": {field: v}}}}
+
+    if "in" in value:
+        v = value["in"]
+        if not isinstance(v, list):
+            raise ValueError(f"'in' operator value must be a list, got {type(v).__name__}")
+        for item in v:
+            _validate_scalar(item)
+        # Use terms query for all values; .keyword subfield for strings.
+        first_scalar = v[0] if v else None
+        field = f"payload.{key}.keyword" if isinstance(first_scalar, str) else f"payload.{key}"
+        return {"terms": {field: v}}
+
+    if "nin" in value:
+        v = value["nin"]
+        if not isinstance(v, list):
+            raise ValueError(f"'nin' operator value must be a list, got {type(v).__name__}")
+        for item in v:
+            _validate_scalar(item)
+        first_scalar = v[0] if v else None
+        field = f"payload.{key}.keyword" if isinstance(first_scalar, str) else f"payload.{key}"
+        return {"bool": {"must_not": {"terms": {field: v}}}}
+
+    if "contains" in value:
+        text = value["contains"]
+        if not isinstance(text, str):
+            raise ValueError(f"'contains' operator value must be a string, got {type(text).__name__}")
+        return {"wildcard": {f"payload.{key}.keyword": f"*{text}*"}}
+
+    if "icontains" in value:
+        text = value["icontains"]
+        if not isinstance(text, str):
+            raise ValueError(f"'icontains' operator value must be a string, got {type(text).__name__}")
+        return {
+            "wildcard": {
+                f"payload.{key}.keyword": {
+                    "value": f"*{text}*",
+                    "case_insensitive": True,
+                }
+            }
+        }
+
+    supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
+    raise ValueError(
+        f"Unsupported filter operator(s) for field '{key}': {ops}. "
+        f"Supported operators: {supported}"
+    )
+
+
+def _build_filter_clauses(filters: Optional[Dict[str, Any]]) -> List[dict]:
+    """Build OpenSearch DSL filter clauses from the documented filter grammar.
+
+    Supports comparison operators (eq, ne, gt, gte, lt, lte),
+    list operators (in, nin), string operators (contains, icontains),
+    logical operators ($or, $not), and the wildcard "*" (exists).
+    """
+    if not filters:
+        return []
+
+    # Normalize $or/$not/$and → OR/NOT/AND and deduplicate.
+    key_map = {"$or": "OR", "$not": "NOT", "$and": "AND"}
+    normalized = {}
+    for key, value in filters.items():
+        norm_key = key_map.get(key, key)
+        if norm_key not in normalized:
+            normalized[norm_key] = value
+
     filter_clauses = []
-    for key, value in (filters or {}).items():
+
+    for key, value in normalized.items():
         if value is None:
             continue
-        if value == "*":
-            # "Any value" wildcard (a documented Platform pattern): match
-            # documents where the field exists — as opensearch.ts already
-            # does for every key — instead of a literal, near-always-empty
-            # term match on the string "*".
-            _validate_filter(key, value)
-            filter_clauses.append({"exists": {"field": f"payload.{key}"}})
-            continue
-        if key not in _IDENTITY_FILTER_KEYS and not isinstance(value, (str, int, float, bool)):
-            logger.debug(f"Ignoring non-scalar filter value for key {key!r}")
-            continue
-        _validate_filter(key, value)
-        field = f"payload.{key}.keyword" if isinstance(value, str) else f"payload.{key}"
-        filter_clauses.append({"term": {field: value}})
+        if key in ("AND", "OR", "NOT"):
+            if not isinstance(value, list):
+                raise ValueError(
+                    f"{key} filter value must be a list of filter dicts, "
+                    f"got {type(value).__name__}"
+                )
+            sub_clauses = []
+            for item in value:
+                if not isinstance(item, dict):
+                    raise ValueError(
+                        f"{key} filter list item must be a dict, "
+                        f"got {type(item).__name__}: {item!r}"
+                    )
+                # Recursively build clauses for each sub-filter
+                sub = _build_filter_clauses(item)
+                if sub:
+                    sub_clauses.extend(sub)
+            if not sub_clauses:
+                continue
+            if key == "OR":
+                filter_clauses.append({"bool": {"should": sub_clauses, "minimum_should_match": 1}})
+            elif key == "NOT":
+                filter_clauses.append({"bool": {"must_not": sub_clauses}})
+            else:  # AND
+                filter_clauses.extend(sub_clauses)
+        else:
+            clause = _build_field_clause(key, value)
+            if clause is not None:
+                filter_clauses.append(clause)
+
     return filter_clauses
 
 

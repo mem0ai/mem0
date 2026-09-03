@@ -12,7 +12,7 @@ except ImportError:
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
-from mem0.vector_stores.opensearch import OpenSearchDB
+from mem0.vector_stores.opensearch import OpenSearchDB, _build_filter_clauses
 
 
 # Mock classes for testing OpenSearch with AWS authentication
@@ -563,7 +563,7 @@ def test_memory_initialization_opensearch_aws_auth(
 
 
 class TestOpenSearchFilterValidation(unittest.TestCase):
-    """Validate that non-scalar filter values are rejected to prevent term injection."""
+    """Validate that invalid filter values are rejected to prevent injection."""
 
     def setUp(self):
         self.client_mock = MagicMock(spec=OpenSearch)
@@ -586,23 +586,6 @@ class TestOpenSearchFilterValidation(unittest.TestCase):
         )
         self.client_mock.reset_mock()
 
-    def test_search_rejects_dict_filter_value(self):
-        with self.assertRaises(ValueError):
-            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": {"$ne": ""}})
-
-    def test_search_rejects_list_filter_value(self):
-        with self.assertRaises(ValueError):
-            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": ["alice", "bob"]})
-
-    def test_list_rejects_dict_filter_value(self):
-        result = self.os_db.list(filters={"user_id": {"$ne": ""}})
-        self.assertEqual(result, [[]])
-        self.client_mock.search.assert_not_called()
-
-    def test_keyword_search_rejects_dict_filter_value(self):
-        with self.assertRaises(ValueError):
-            self.os_db.keyword_search(query="test", filters={"user_id": {"$ne": ""}})
-
     def test_search_accepts_string_filter(self):
         mock_response = {"hits": {"hits": []}}
         self.client_mock.search.return_value = mock_response
@@ -611,11 +594,29 @@ class TestOpenSearchFilterValidation(unittest.TestCase):
         self.client_mock.search.assert_called_once()
 
 
-class TestOpenSearchCustomFilters(TestOpenSearchFilterValidation):
+class TestOpenSearchCustomFilters(unittest.TestCase):
     """Custom (non-identity) filter keys must be honored, not silently dropped."""
 
     def setUp(self):
-        super().setUp()
+        self.client_mock = MagicMock(spec=OpenSearch)
+        self.client_mock.indices = MagicMock()
+        self.client_mock.indices.exists = MagicMock(return_value=False)
+        self.client_mock.indices.create = MagicMock()
+        self.client_mock.search = MagicMock()
+
+        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
+        self.mock_os = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.os_db = OpenSearchDB(
+            host="localhost",
+            port=9200,
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            verify_certs=False,
+            use_ssl=False,
+        )
+        self.client_mock.reset_mock()
         self.client_mock.search.return_value = {"hits": {"hits": []}}
 
     def _search_body(self):
@@ -648,16 +649,6 @@ class TestOpenSearchCustomFilters(TestOpenSearchFilterValidation):
         with self.assertRaises(ValueError):
             self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"bad key!": "x"})
 
-    def test_search_ignores_or_operator_filter(self):
-        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "$or": [{"a": 1}]})
-        clauses = self._search_body()["query"]["bool"]["filter"]
-        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
-
-    def test_search_ignores_operator_shaped_filter_value(self):
-        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "score": {"gte": 5}})
-        clauses = self._search_body()["query"]["bool"]["filter"]
-        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
-
     def test_search_translates_wildcard_filter_value_to_exists(self):
         self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "category": "*"})
         clauses = self._search_body()["query"]["bool"]["filter"]
@@ -669,20 +660,32 @@ class TestOpenSearchCustomFilters(TestOpenSearchFilterValidation):
             ],
         )
 
-    def test_list_ignores_or_operator_filter(self):
-        self.os_db.list(filters={"user_id": "alice", "$or": [{"a": 1}]})
-        self.client_mock.search.assert_called_once()
-        clauses = self._search_body()["query"]["bool"]["filter"]
-        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
 
-
-class TestOpenSearchWildcardFilters(TestOpenSearchFilterValidation):
+class TestOpenSearchWildcardFilters(unittest.TestCase):
     """The "*" wildcard means "any value" (a documented Platform pattern) and
     must build an exists query — as opensearch.ts does — for every key,
     including the identity keys, instead of a literal term match on "*"."""
 
     def setUp(self):
-        super().setUp()
+        self.client_mock = MagicMock(spec=OpenSearch)
+        self.client_mock.indices = MagicMock()
+        self.client_mock.indices.exists = MagicMock(return_value=False)
+        self.client_mock.indices.create = MagicMock()
+        self.client_mock.search = MagicMock()
+
+        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
+        self.mock_os = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.os_db = OpenSearchDB(
+            host="localhost",
+            port=9200,
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            verify_certs=False,
+            use_ssl=False,
+        )
+        self.client_mock.reset_mock()
         self.client_mock.search.return_value = {"hits": {"hits": []}}
 
     def _search_body(self):
@@ -704,3 +707,377 @@ class TestOpenSearchWildcardFilters(TestOpenSearchFilterValidation):
         clauses = self._search_body()["query"]["bool"]["filter"]
         self.assertIn({"term": {"payload.user_id.keyword": "u1"}}, clauses)
         self.assertIn({"exists": {"field": "payload.topic"}}, clauses)
+
+
+class TestOpenSearchEnhancedFilters(unittest.TestCase):
+    """Regression tests for enhanced metadata filter operators (Issue #7214).
+
+    Verifies that comparison, list, string, and logical operators are
+    translated into native OpenSearch DSL instead of being silently dropped.
+    """
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=OpenSearch)
+        self.client_mock.indices = MagicMock()
+        self.client_mock.indices.exists = MagicMock(return_value=False)
+        self.client_mock.indices.create = MagicMock()
+        self.client_mock.search = MagicMock(return_value={"hits": {"hits": []}})
+
+        patcher = patch("mem0.vector_stores.opensearch.OpenSearch", return_value=self.client_mock)
+        self.mock_os = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        self.os_db = OpenSearchDB(
+            host="localhost",
+            port=9200,
+            collection_name="test_collection",
+            embedding_model_dims=1536,
+            verify_certs=False,
+            use_ssl=False,
+        )
+        self.client_mock.reset_mock()
+
+    def _search_body(self):
+        return self.client_mock.search.call_args[1]["body"]
+
+    def _filter_clauses(self):
+        return self._search_body()["query"]["bool"]["filter"]
+
+    # ── Comparison operators ──────────────────────────────────────────
+
+    def test_range_gte(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"priority": {"gte": 3}})
+        clauses = self._filter_clauses()
+        self.assertIn({"range": {"payload.priority": {"gte": 3}}}, clauses)
+
+    def test_range_gt(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"score": {"gt": 0.5}})
+        clauses = self._filter_clauses()
+        self.assertIn({"range": {"payload.score": {"gt": 0.5}}}, clauses)
+
+    def test_range_lte(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"age": {"lte": 65}})
+        clauses = self._filter_clauses()
+        self.assertIn({"range": {"payload.age": {"lte": 65}}}, clauses)
+
+    def test_range_lt(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"price": {"lt": 100}})
+        clauses = self._filter_clauses()
+        self.assertIn({"range": {"payload.price": {"lt": 100}}}, clauses)
+
+    def test_range_combined_gte_lte(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"age": {"gte": 18, "lte": 65}})
+        clauses = self._filter_clauses()
+        self.assertIn({"range": {"payload.age": {"gte": 18, "lte": 65}}}, clauses)
+
+    # ── eq / ne ───────────────────────────────────────────────────────
+
+    def test_eq_string(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"status": {"eq": "active"}})
+        clauses = self._filter_clauses()
+        self.assertIn({"term": {"payload.status.keyword": "active"}}, clauses)
+
+    def test_eq_number(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"count": {"eq": 5}})
+        clauses = self._filter_clauses()
+        self.assertIn({"term": {"payload.count": 5}}, clauses)
+
+    def test_ne_string(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"status": {"ne": "deleted"}})
+        clauses = self._filter_clauses()
+        self.assertIn(
+            {"bool": {"must_not": {"term": {"payload.status.keyword": "deleted"}}}},
+            clauses,
+        )
+
+    def test_ne_number(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"errors": {"ne": 0}})
+        clauses = self._filter_clauses()
+        self.assertIn(
+            {"bool": {"must_not": {"term": {"payload.errors": 0}}}},
+            clauses,
+        )
+
+    # ── in / nin ──────────────────────────────────────────────────────
+
+    def test_in_string_list(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"status": {"in": ["a", "b"]}})
+        clauses = self._filter_clauses()
+        self.assertIn({"terms": {"payload.status.keyword": ["a", "b"]}}, clauses)
+
+    def test_in_number_list(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"priority": {"in": [1, 2, 3]}})
+        clauses = self._filter_clauses()
+        self.assertIn({"terms": {"payload.priority": [1, 2, 3]}}, clauses)
+
+    def test_nin_string_list(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"status": {"nin": ["archived", "deleted"]}})
+        clauses = self._filter_clauses()
+        self.assertIn(
+            {"bool": {"must_not": {"terms": {"payload.status.keyword": ["archived", "deleted"]}}}},
+            clauses,
+        )
+
+    # ── contains / icontains ──────────────────────────────────────────
+
+    def test_contains(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"title": {"contains": "auth"}})
+        clauses = self._filter_clauses()
+        self.assertIn({"wildcard": {"payload.title.keyword": "*auth*"}}, clauses)
+
+    def test_icontains(self):
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"title": {"icontains": "Auth"}})
+        clauses = self._filter_clauses()
+        self.assertIn(
+            {
+                "wildcard": {
+                    "payload.title.keyword": {
+                        "value": "*Auth*",
+                        "case_insensitive": True,
+                    }
+                }
+            },
+            clauses,
+        )
+
+    # ── Logical operators ─────────────────────────────────────────────
+
+    def test_or_operator(self):
+        self.os_db.search(
+            query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "$or": [{"category": "work"}, {"category": "personal"}]}
+        )
+        clauses = self._filter_clauses()
+        self.assertIn({"term": {"payload.user_id.keyword": "alice"}}, clauses)
+        self.assertIn(
+            {"bool": {"should": [
+                {"term": {"payload.category.keyword": "work"}},
+                {"term": {"payload.category.keyword": "personal"}},
+            ], "minimum_should_match": 1}},
+            clauses,
+        )
+
+    def test_not_operator(self):
+        self.os_db.search(
+            query="", vectors=[[0.1] * 1536], filters={"user_id": "alice", "$not": [{"priority": {"lt": 1}}]}
+        )
+        clauses = self._filter_clauses()
+        self.assertIn({"term": {"payload.user_id.keyword": "alice"}}, clauses)
+        self.assertIn(
+            {"bool": {"must_not": [{"range": {"payload.priority": {"lt": 1}}}]}},
+            clauses,
+        )
+
+    def test_and_operator(self):
+        self.os_db.search(
+            query="",
+            vectors=[[0.1] * 1536],
+            filters={"$and": [{"status": {"eq": "active"}}, {"priority": {"gte": 3}}]},
+        )
+        clauses = self._filter_clauses()
+        self.assertIn({"term": {"payload.status.keyword": "active"}}, clauses)
+        self.assertIn({"range": {"payload.priority": {"gte": 3}}}, clauses)
+
+    # ── Mixed real-world filters ──────────────────────────────────────
+
+    def test_mixed_identity_and_custom_with_range(self):
+        self.os_db.search(
+            query="",
+            vectors=[[0.1] * 1536],
+            filters={"user_id": "alice", "priority": {"gte": 3}, "category": "billing"},
+        )
+        clauses = self._filter_clauses()
+        self.assertIn({"term": {"payload.user_id.keyword": "alice"}}, clauses)
+        self.assertIn({"range": {"payload.priority": {"gte": 3}}}, clauses)
+        self.assertIn({"term": {"payload.category.keyword": "billing"}}, clauses)
+
+    # ── Error handling ────────────────────────────────────────────────
+
+    def test_unsupported_operator_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"score": {"gtz": 5}})
+        self.assertIn("Unsupported filter operator", str(ctx.exception))
+
+    def test_mixed_range_and_non_range_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"score": {"gte": 1, "eq": 5}})
+        self.assertIn("Cannot mix range operators", str(ctx.exception))
+
+    def test_invalid_filter_key_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"bad key!": "x"})
+        self.assertIn("Invalid filter key", str(ctx.exception))
+
+    def test_invalid_scalar_value_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": {"eq": {"nested": "dict"}}})
+        self.assertIn("Filter value must be", str(ctx.exception))
+
+    # ── End-to-end: all methods translate correctly ───────────────────
+
+    def test_keyword_search_translates_range(self):
+        self.os_db.keyword_search(query="test", filters={"priority": {"gte": 3}})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"range": {"payload.priority": {"gte": 3}}}, clauses)
+
+    def test_list_translates_range(self):
+        self.os_db.list(filters={"priority": {"gte": 3}})
+        clauses = self._search_body()["query"]["bool"]["filter"]
+        self.assertIn({"range": {"payload.priority": {"gte": 3}}}, clauses)
+
+    def test_identity_key_with_operator_dict(self):
+        """Operator dict on identity key should be translated, not raise ValueError."""
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": {"$ne": ""}})
+        clauses = self._filter_clauses()
+        self.assertIn(
+            {"bool": {"must_not": {"term": {"payload.user_id.keyword": ""}}}},
+            clauses,
+        )
+
+    def test_list_value_on_identity_key(self):
+        """List values on identity keys were previously rejected; now they are translated."""
+        self.os_db.search(query="", vectors=[[0.1] * 1536], filters={"user_id": ["alice", "bob"]})
+        clauses = self._filter_clauses()
+        # List shorthand treated as in-operator
+        self.assertIn({"terms": {"payload.user_id.keyword": ["alice", "bob"]}}, clauses)
+
+
+# ── Stand-alone unit tests for _build_filter_clauses ─────────────────
+
+
+class TestBuildFilterClausesUnit(unittest.TestCase):
+    """Unit tests for the _build_filter_clauses helper (no OpenSearch mock needed)."""
+
+    def test_empty_filters(self):
+        self.assertEqual(_build_filter_clauses(None), [])
+        self.assertEqual(_build_filter_clauses({}), [])
+
+    def test_simple_equality(self):
+        clauses = _build_filter_clauses({"user_id": "alice"})
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_simple_equality_number(self):
+        clauses = _build_filter_clauses({"age": 30})
+        self.assertEqual(clauses, [{"term": {"payload.age": 30}}])
+
+    def test_wildcard_exists(self):
+        clauses = _build_filter_clauses({"category": "*"})
+        self.assertEqual(clauses, [{"exists": {"field": "payload.category"}}])
+
+    def test_range_gte(self):
+        clauses = _build_filter_clauses({"priority": {"gte": 3}})
+        self.assertEqual(clauses, [{"range": {"payload.priority": {"gte": 3}}}])
+
+    def test_eq_operator(self):
+        clauses = _build_filter_clauses({"status": {"eq": "active"}})
+        self.assertEqual(clauses, [{"term": {"payload.status.keyword": "active"}}])
+
+    def test_ne_operator(self):
+        clauses = _build_filter_clauses({"status": {"ne": "deleted"}})
+        self.assertEqual(
+            clauses,
+            [{"bool": {"must_not": {"term": {"payload.status.keyword": "deleted"}}}}],
+        )
+
+    def test_in_operator(self):
+        clauses = _build_filter_clauses({"status": {"in": ["a", "b"]}})
+        self.assertEqual(clauses, [{"terms": {"payload.status.keyword": ["a", "b"]}}])
+
+    def test_nin_operator(self):
+        clauses = _build_filter_clauses({"status": {"nin": ["a", "b"]}})
+        self.assertEqual(
+            clauses,
+            [{"bool": {"must_not": {"terms": {"payload.status.keyword": ["a", "b"]}}}}],
+        )
+
+    def test_contains_operator(self):
+        clauses = _build_filter_clauses({"title": {"contains": "auth"}})
+        self.assertEqual(clauses, [{"wildcard": {"payload.title.keyword": "*auth*"}}])
+
+    def test_icontains_operator(self):
+        clauses = _build_filter_clauses({"title": {"icontains": "Auth"}})
+        self.assertEqual(
+            clauses,
+            [{
+                "wildcard": {
+                    "payload.title.keyword": {
+                        "value": "*Auth*",
+                        "case_insensitive": True,
+                    }
+                }
+            }],
+        )
+
+    def test_or_logical(self):
+        clauses = _build_filter_clauses({"$or": [{"category": "work"}, {"category": "personal"}]})
+        self.assertEqual(
+            clauses,
+            [{
+                "bool": {
+                    "should": [
+                        {"term": {"payload.category.keyword": "work"}},
+                        {"term": {"payload.category.keyword": "personal"}},
+                    ],
+                    "minimum_should_match": 1,
+                }
+            }],
+        )
+
+    def test_not_logical(self):
+        clauses = _build_filter_clauses({"$not": [{"priority": {"lt": 1}}]})
+        self.assertEqual(
+            clauses,
+            [{"bool": {"must_not": [{"range": {"payload.priority": {"lt": 1}}}]}}],
+        )
+
+    def test_and_logical(self):
+        clauses = _build_filter_clauses({"$and": [{"status": {"eq": "active"}}, {"priority": {"gte": 3}}]})
+        self.assertEqual(
+            clauses,
+            [
+                {"term": {"payload.status.keyword": "active"}},
+                {"range": {"payload.priority": {"gte": 3}}},
+            ],
+        )
+
+    def test_unsupported_operator_raises(self):
+        with self.assertRaises(ValueError):
+            _build_filter_clauses({"score": {"gtz": 5}})
+
+    def test_mixed_range_raises(self):
+        with self.assertRaises(ValueError):
+            _build_filter_clauses({"score": {"gte": 1, "eq": 5}})
+
+    def test_invalid_key_raises(self):
+        with self.assertRaises(ValueError):
+            _build_filter_clauses({"bad key!": "x"})
+
+    def test_invalid_scalar_raises(self):
+        with self.assertRaises(ValueError):
+            _build_filter_clauses({"user_id": {"eq": {"nested": "dict"}}})
+
+    def test_none_value_skipped(self):
+        clauses = _build_filter_clauses({"user_id": "alice", "extra": None})
+        self.assertEqual(clauses, [{"term": {"payload.user_id.keyword": "alice"}}])
+
+    def test_list_shorthand_as_in(self):
+        clauses = _build_filter_clauses({"user_id": ["alice", "bob"]})
+        self.assertEqual(clauses, [{"terms": {"payload.user_id.keyword": ["alice", "bob"]}}])
+
+    def test_complex_nested_filter(self):
+        clauses = _build_filter_clauses({
+            "user_id": "alice",
+            "$or": [
+                {"category": "work"},
+                {"$and": [{"priority": {"gte": 5}}, {"status": {"ne": "archived"}}]},
+            ],
+        })
+        self.assertIn({"term": {"payload.user_id.keyword": "alice"}}, clauses)
+        # Find the OR clause
+        or_clauses = [c for c in clauses if "bool" in c and "should" in c["bool"]]
+        self.assertEqual(len(or_clauses), 1)
+        should = or_clauses[0]["bool"]["should"]
+        self.assertIn({"term": {"payload.category.keyword": "work"}}, should)
+        # The nested $and inside $or
+        and_clauses = [c for c in should if "bool" in c and "filter" in c["bool"]]
+        # Actually it's just extended into should list
+        self.assertEqual(len(should), 2)  # category work, and the bool with must
