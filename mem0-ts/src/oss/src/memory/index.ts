@@ -28,6 +28,15 @@ import {
   generateAdditiveExtractionPrompt,
 } from "../prompts";
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
+import {
+  AddResult,
+  EmbeddingFailure,
+  Classification,
+  makeVectorValidator,
+  classifyValidation,
+  classifyEmbedError,
+} from "./errorRetry";
+import { EMBED_ERROR_CODE } from "../../../common/exceptions";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { Reranker } from "../rerankers/base";
@@ -270,6 +279,10 @@ export class Memory {
       try {
         const probe = await this.embedder.embed("dimension probe");
         this.config.vectorStore.config.dimension = probe.length;
+        // Cloud stores (pgvector/redis/azure) read embeddingModelDims, not dimension.
+        if (this.config.vectorStore.config.embeddingModelDims == null) {
+          this.config.vectorStore.config.embeddingModelDims = probe.length;
+        }
       } catch (error: any) {
         throw new Error(
           `Failed to auto-detect embedding dimension from provider '${this.config.embedder.provider}': ${error.message}. ` +
@@ -720,7 +733,7 @@ export class Memory {
   async add(
     messages: string | Message[],
     config: AddMemoryOptions,
-  ): Promise<SearchResult> {
+  ): Promise<AddResult> {
     if (config?.timestamp !== undefined) {
       await this._getNoticeTelemetryId();
       throw new Error(
@@ -799,15 +812,23 @@ export class Memory {
       ? (messages as Message[])
       : [{ role: "user", content: messages }];
 
+    // parse_vision_messages drops system messages, so the parsed array no
+    // longer lines up with what the caller passed. failed[].index has to point
+    // into their array, so carry the original positions across with it.
+    const sourcePositions = parsedMessages
+      .map((m, i) => (m.role === "system" ? -1 : i))
+      .filter((i) => i >= 0);
     const final_parsedMessages = await parse_vision_messages(parsedMessages);
 
     // Add to vector store
-    const vectorStoreResult = await this.addToVectorStore(
+    const addResult = await this.addToVectorStore(
       final_parsedMessages,
       metadata,
       filters,
       infer,
+      sourcePositions,
     );
+    const vectorStoreResult = addResult.results;
 
     if (temporalUsageNotice) {
       await this._displayTemporalUsageNotice({
@@ -830,8 +851,113 @@ export class Memory {
       }
     }
 
+    return { results: vectorStoreResult, failed: addResult.failed };
+  }
+
+  // The configured embedding dimension, from either config field a store may use.
+  private _expectedDim(): number | null {
+    const c = this.config.vectorStore?.config as any;
+    return c?.dimension ?? c?.embeddingModelDims ?? null;
+  }
+
+  /**
+   * The canonical stored shape for one memory. Every write path must go
+   * through this: `hash` drives dedup, `textLemmatized` drives keyword/hybrid
+   * search, and the entity ids carry tenancy. A row missing any of them is
+   * silently unsearchable or unreachable by its owner.
+   */
+  private _memoryPayload(
+    text: string,
+    metadata: Record<string, any>,
+    filters: SearchFilters,
+  ): Record<string, any> {
+    const now = new Date().toISOString();
+    const payload: Record<string, any> = {
+      ...metadata,
+      data: text,
+      textLemmatized: lemmatizeForBm25(text),
+      hash: createHash("md5").update(text).digest("hex"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    if (filters.user_id) payload.user_id = filters.user_id;
+    if (filters.agent_id) payload.agent_id = filters.agent_id;
+    if (filters.run_id) payload.run_id = filters.run_id;
+    return payload;
+  }
+
+  /**
+   * Persist a batch of memory records: vector-store insert (with per-item
+   * fallback) plus a history entry each.
+   *
+   * Returns the records that failed rather than their texts, because a record
+   * position is not a caller position: the record list skips system messages
+   * and anything that already failed to embed. `failed[]` only works if every
+   * entry in it is in one coordinate space.
+   */
+  private async persistRecords(
+    records: Array<{
+      memoryId: string;
+      text: string;
+      index: number;
+      embedding: number[];
+      payload: Record<string, any>;
+    }>,
+  ): Promise<{
+    persisted: MemoryItem[];
+    insertFailed: Array<{ text: string; index: number }>;
+  }> {
+    if (records.length === 0) return { persisted: [], insertFailed: [] };
+
+    const inserted = new Set<string>();
+    const allVectors = records.map((r) => r.embedding);
+    const allIds = records.map((r) => r.memoryId);
+    const allPayloads = records.map((r) => r.payload);
+
+    try {
+      await this.vectorStore.insert(allVectors, allIds, allPayloads);
+      for (const id of allIds) inserted.add(id);
+    } catch {
+      for (let i = 0; i < allIds.length; i++) {
+        try {
+          await this.vectorStore.insert(
+            [allVectors[i]],
+            [allIds[i]],
+            [allPayloads[i]],
+          );
+          inserted.add(allIds[i]);
+        } catch (e) {
+          console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
+        }
+      }
+    }
+
+    const persistedRecords = records.filter((r) => inserted.has(r.memoryId));
+    const insertFailed = records
+      .filter((r) => !inserted.has(r.memoryId))
+      .map((r) => ({ text: r.text, index: r.index }));
+
+    for (const r of persistedRecords) {
+      try {
+        await this.db.addHistory(
+          r.memoryId,
+          null,
+          r.text,
+          "ADD",
+          r.payload.createdAt as string | undefined,
+        );
+      } catch (e) {
+        console.error(`Failed to add history for ${r.memoryId}: ${e}`);
+      }
+    }
+
     return {
-      results: vectorStoreResult,
+      persisted: persistedRecords.map((r) => ({
+        id: r.memoryId,
+        memory: r.text,
+        metadata: { event: "ADD" },
+      })),
+      insertFailed,
     };
   }
 
@@ -840,25 +966,78 @@ export class Memory {
     metadata: Record<string, any>,
     filters: SearchFilters,
     infer: boolean,
-  ): Promise<MemoryItem[]> {
+    sourcePositions: number[] = [],
+  ): Promise<AddResult> {
     if (!infer) {
-      const returnedMemories: MemoryItem[] = [];
-      for (const message of messages) {
+      const guard = makeVectorValidator(this._expectedDim());
+      const failed: EmbeddingFailure[] = [];
+      const records: Array<{
+        memoryId: string;
+        text: string;
+        index: number;
+        embedding: number[];
+        payload: Record<string, any>;
+      }> = [];
+      // Index is the caller's own position, so messages[f.index] is the
+      // message that failed even though system messages were dropped upstream.
+      for (let i = 0; i < messages.length; i++) {
+        const message = messages[i];
         if (message.role === "system") {
           continue;
         }
-        const memoryId = await this.createMemory(
-          message.content as string,
-          {},
-          metadata,
-        );
-        returnedMemories.push({
-          id: memoryId,
-          memory: message.content as string,
-          metadata: { event: "ADD" },
+        const index = sourcePositions[i] ?? i;
+        const text = message.content as string;
+        const payload = this._memoryPayload(text, metadata, filters);
+        let vec: number[];
+        try {
+          vec = await this.embedder.embed(text, "add");
+        } catch (e) {
+          const c = classifyEmbedError(e);
+          failed.push({
+            text,
+            index,
+            errorClass: c.errorClass,
+            remediation: c.remediation,
+            errorCode: c.errorCode,
+            retryAfter: c.retryAfter,
+            error: e instanceof Error ? e.message : String(e),
+          });
+          continue;
+        }
+        const v = guard.validate(vec);
+        if (!v.ok) {
+          const c = classifyValidation(v.reason!);
+          failed.push({
+            text,
+            index,
+            errorClass: c.errorClass,
+            remediation: c.remediation,
+            errorCode: c.errorCode,
+            error: `embedding validation failed: ${v.reason}`,
+          });
+          continue;
+        }
+        records.push({
+          memoryId: uuidv4(),
+          text,
+          index,
+          embedding: vec,
+          payload,
         });
       }
-      return returnedMemories;
+      const { persisted, insertFailed } = await this.persistRecords(records);
+      for (const r of insertFailed) {
+        failed.push({
+          text: r.text,
+          index: r.index,
+          errorClass: "internal_error",
+          remediation: "escalate",
+          errorCode: EMBED_ERROR_CODE.INTERNAL,
+          error: "vector store insert failed",
+        });
+      }
+      failed.sort((a, b) => a.index - b.index);
+      return { results: persisted, failed };
     }
 
     // === V3 PHASED BATCH PIPELINE ===
@@ -971,26 +1150,78 @@ export class Memory {
           );
         } catch {}
       }
-      return [];
+      return { results: [], failed: [] };
     }
 
-    // Phase 3: Batch embed all extracted memory texts
-    const memTexts = extractedMemories
-      .map((m) => m.text ?? "")
-      .filter((t) => t.length > 0);
-    let embedMap: Record<string, number[]> = {};
+    // Phase 3: Batch embed all extracted memory texts. Index is the position in
+    // this request, the same way a bulk API numbers its items. It separates two
+    // identical facts, but it is mem0's list and not the caller's, so it does
+    // not lead back to the message a fact came from.
+    const memEntries = extractedMemories.filter(
+      (m) => (m.text ?? "").length > 0,
+    );
+    const memTexts = memEntries.map((m) => m.text as string);
+    const embedMap: Record<string, number[]> = {};
+    const failures: EmbeddingFailure[] = [];
+    const guard = makeVectorValidator(this._expectedDim());
+    const recordFailure = (
+      text: string,
+      index: number,
+      c: Classification,
+      errMsg: string,
+    ) =>
+      failures.push({
+        text,
+        index,
+        errorClass: c.errorClass,
+        remediation: c.remediation,
+        errorCode: c.errorCode,
+        retryAfter: c.retryAfter,
+        error: errMsg,
+      });
+
+    let batch: number[][] | undefined;
     try {
-      const memEmbeddingsList = await this.embedder.embedBatch(memTexts, "add");
-      for (let i = 0; i < memTexts.length; i++) {
-        embedMap[memTexts[i]] = memEmbeddingsList[i];
-      }
+      batch = await this.embedder.embedBatch(memTexts, "add");
     } catch {
-      // Fallback: embed individually
-      for (const text of memTexts) {
+      batch = undefined; // whole-batch failure — fall back to per-item
+    }
+
+    if (batch) {
+      // Common path: validate every returned vector before trusting it.
+      for (let i = 0; i < memTexts.length; i++) {
+        const v = guard.validate(batch[i]);
+        if (v.ok) embedMap[memTexts[i]] = batch[i];
+        else
+          recordFailure(
+            memTexts[i],
+            i,
+            classifyValidation(v.reason!),
+            `embedding validation failed: ${v.reason}`,
+          );
+      }
+    } else {
+      // Fallback: embed individually, still validated by the same guard.
+      for (let i = 0; i < memTexts.length; i++) {
+        const text = memTexts[i];
         try {
-          embedMap[text] = await this.embedder.embed(text, "add");
+          const vec = await this.embedder.embed(text, "add");
+          const v = guard.validate(vec);
+          if (v.ok) embedMap[text] = vec;
+          else
+            recordFailure(
+              text,
+              i,
+              classifyValidation(v.reason!),
+              `embedding validation failed: ${v.reason}`,
+            );
         } catch (e) {
-          console.warn(`Failed to embed memory text: ${e}`);
+          recordFailure(
+            text,
+            i,
+            classifyEmbedError(e),
+            e instanceof Error ? e.message : String(e),
+          );
         }
       }
     }
@@ -1005,12 +1236,14 @@ export class Memory {
     const records: Array<{
       memoryId: string;
       text: string;
+      index: number;
       embedding: number[];
       payload: Record<string, any>;
     }> = [];
     const seenHashes = new Set<string>();
 
-    for (const mem of extractedMemories) {
+    for (let index = 0; index < memEntries.length; index++) {
+      const mem = memEntries[index];
       const text = mem.text;
       if (!text || !Object.prototype.hasOwnProperty.call(embedMap, text))
         continue;
@@ -1021,28 +1254,16 @@ export class Memory {
       }
       seenHashes.add(memHash);
 
-      const textLemmatized = lemmatizeForBm25(text);
       const memoryId = uuidv4();
-      const now = new Date().toISOString();
-
-      const memPayload: Record<string, any> = {
-        ...metadata,
-        data: text,
-        textLemmatized,
-        hash: memHash,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const memPayload = this._memoryPayload(text, metadata, filters);
       if (mem.attributed_to) {
         memPayload.attributedTo = mem.attributed_to;
       }
-      if (filters.user_id) memPayload.user_id = filters.user_id;
-      if (filters.agent_id) memPayload.agent_id = filters.agent_id;
-      if (filters.run_id) memPayload.run_id = filters.run_id;
 
       records.push({
         memoryId,
         text,
+        index,
         embedding: embedMap[text],
         payload: memPayload,
       });
@@ -1060,16 +1281,18 @@ export class Memory {
           );
         } catch {}
       }
-      return [];
+      return { results: [], failed: failures };
     }
 
     // Phase 6: Batch persist
     const allVectors = records.map((r) => r.embedding);
     const allIds = records.map((r) => r.memoryId);
     const allPayloads = records.map((r) => r.payload);
+    const inserted = new Set<string>();
 
     try {
       await this.vectorStore.insert(allVectors, allIds, allPayloads);
+      for (const id of allIds) inserted.add(id);
     } catch {
       // Fallback: insert one by one
       for (let i = 0; i < allIds.length; i++) {
@@ -1079,11 +1302,27 @@ export class Memory {
             [allIds[i]],
             [allPayloads[i]],
           );
+          inserted.add(allIds[i]);
         } catch (e) {
           console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
         }
       }
     }
+
+    // Inserts that failed are not silent: report them so the caller knows.
+    for (const r of records) {
+      if (!inserted.has(r.memoryId)) {
+        failures.push({
+          text: r.text,
+          index: r.index,
+          errorClass: "internal_error",
+          remediation: "escalate",
+          errorCode: EMBED_ERROR_CODE.INTERNAL,
+          error: "vector store insert failed",
+        });
+      }
+    }
+    failures.sort((a, b) => a.index - b.index);
 
     // Batch history
     const historyRecords = records.map((r) => ({
@@ -1280,11 +1519,15 @@ export class Memory {
       } catch {}
     }
 
-    return records.map((r) => ({
-      id: r.memoryId,
-      memory: r.text,
-      metadata: { event: "ADD" },
-    }));
+    const results = records
+      .filter((r) => inserted.has(r.memoryId))
+      .map((r) => ({
+        id: r.memoryId,
+        memory: r.text,
+        metadata: { event: "ADD" },
+      }));
+
+    return { results, failed: failures };
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {
