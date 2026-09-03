@@ -189,7 +189,7 @@ export function writePluginConfigField(
 
 /**
  * Default skills configuration — matches configure.py output.
- * Enables triage, recall (with reranking), and dream consolidation.
+ * Enables triage and recall with reranking.
  */
 const DEFAULT_SKILLS_CONFIG = {
   triage: { enabled: true },
@@ -200,7 +200,6 @@ const DEFAULT_SKILLS_CONFIG = {
     keywordSearch: true,
     identityAlwaysInclude: true,
   },
-  dream: { enabled: true },
   domain: "companion",
 };
 

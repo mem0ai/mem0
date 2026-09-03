@@ -1,20 +1,11 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import MemoryClient from "mem0ai";
-import { loadConfig, CONFIG_DIR } from "./config/index.ts";
+import { loadConfig } from "./config/index.ts";
 import { detectAppId, detectRunId, resolveSearchFilters } from "./memory/scoping.ts";
 import { registerMemoryTool } from "./memory/tools.ts";
 import { registerCommands } from "./commands.ts";
 import { setupAutoCapture } from "./capture/index.ts";
 import { MEMORY_POLICY } from "./prompt.ts";
-import { DREAM_PROTOCOL } from "./dream/prompt.ts";
-import {
-  incrementSessionCount,
-  checkCheapGates,
-  checkMemoryGate,
-  acquireDreamLock,
-  releaseDreamLock,
-  recordDreamCompletion,
-} from "./dream/index.ts";
 import { captureEvent } from "./telemetry.ts";
 import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
@@ -59,7 +50,6 @@ export default function mem0Extension(pi: ExtensionAPI): void {
 
   captureEvent("pi.plugin.registered", {
     auto_capture: config.autoCapture,
-    dream_enabled: config.dream.enabled,
     default_scope: config.defaultScope,
   }, telemetryCtx);
 
@@ -75,17 +65,10 @@ export default function mem0Extension(pi: ExtensionAPI): void {
       scopeCtx.userId = config.userId;
     }
 
-    if (config.dream.enabled) {
-      incrementSessionCount(CONFIG_DIR, scopeCtx.runId);
-    }
-
     captureEvent("pi.session.start", {}, telemetryCtx);
   });
 
-  // ── before_agent_start: append memory policy + auto-dream trigger ───
-  let dreamTriggered = false;
-  let dreamChecked = false;
-
+  // ── before_agent_start: append memory policy and recall ─────────────
   pi.on("before_agent_start", async (event, _ctx) => {
     let extra = MEMORY_POLICY;
 
@@ -98,63 +81,13 @@ export default function mem0Extension(pi: ExtensionAPI): void {
     );
     if (recall) extra += "\n\n" + recall;
 
-    if (config.dream.enabled && config.dream.auto && !dreamTriggered && !dreamChecked) {
-      const gates = checkCheapGates(CONFIG_DIR, config.dream);
-      if (gates.proceed) {
-        try {
-          const filters = resolveSearchFilters("project", scopeCtx);
-          const result = await mem0.getAll({ filters });
-          const count = result.count ?? (result.results ?? []).length;
-          dreamChecked = true;
-          const memGate = checkMemoryGate(count, config.dream);
-
-          if (memGate.pass && acquireDreamLock(CONFIG_DIR)) {
-            dreamTriggered = true;
-            extra += "\n\n" + DREAM_PROTOCOL;
-            captureEvent("pi.dream.triggered", { memory_count: count }, telemetryCtx);
-          }
-        } catch {
-          // Transient error — retry next turn
-        }
-      }
-    }
-
     return {
       systemPrompt: (event.systemPrompt ?? "") + "\n\n" + extra,
     };
   });
 
-  // ── agent_end: dream completion check ───────────────────────────────
-  pi.on("agent_end", async (event) => {
-    if (!dreamTriggered) return;
-
-    const messages = event.messages ?? [];
-    const hadWriteAction = messages.some((m) => {
-      if (m.role !== "assistant") return false;
-      const content = Array.isArray(m.content) ? m.content : [];
-      return content.some(
-        (block: any) =>
-          block.type === "tool_use" &&
-          block.name === "mem0_memory" &&
-          ["add", "delete", "delete_all"].includes(block.input?.action),
-      );
-    });
-
-    if (hadWriteAction) {
-      recordDreamCompletion(CONFIG_DIR);
-      captureEvent("pi.dream.completed", {}, telemetryCtx);
-    }
-
-    releaseDreamLock(CONFIG_DIR);
-    dreamTriggered = false;
-  });
-
-  // ── session_shutdown: release dream lock if still held ──────────────
+  // ── session_shutdown ────────────────────────────────────────────────
   pi.on("session_shutdown", async () => {
     captureEvent("pi.session.stop", {}, telemetryCtx);
-    if (dreamTriggered) {
-      releaseDreamLock(CONFIG_DIR);
-      dreamTriggered = false;
-    }
   });
 }

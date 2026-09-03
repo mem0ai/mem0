@@ -379,13 +379,6 @@ describe("mem0ConfigSchema.parse() — skills config", () => {
         tokenBudget: 2000,
         maxMemories: 10,
       },
-      dream: {
-        enabled: true,
-        auto: true,
-        minHours: 12,
-        minSessions: 3,
-        minMemories: 15,
-      },
       domain: "engineering",
       customRules: {
         include: ["tool configs"],

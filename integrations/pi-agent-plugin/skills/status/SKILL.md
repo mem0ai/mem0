@@ -86,4 +86,4 @@ Duplicates: <N> · Stale: <N> · Contradictions: <N>
 ```
 
 If all counts are 0: `Memory quality: clean.`
-If any non-zero: append `Run /mem0-dream to fix.`
+If any non-zero, list the affected memory IDs so the user can review them with the normal search and forget commands.

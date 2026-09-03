@@ -75,7 +75,7 @@ Look at the user's message for a target scope word: `project`, `session`, or
 
 3. Write the file back with the Write tool, keeping ALL existing keys and only
    setting `"default_scope"` to the target. Pretty-print with 2-space indent and
-   a trailing newline. Do not drop `global_search`, `dream`, `auto_save`, or any
+   a trailing newline. Do not drop `global_search`, `auto_save`, or any
    other field that was present.
 
    Example resulting file (when other keys already existed):

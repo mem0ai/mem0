@@ -79,15 +79,15 @@ bun run build
 | Claude Code, Cursor, Codex, Kimi, Antigravity | Python | Generated native/portable bundles; thin adapters translate native events into the shared Python lifecycle. |
 | Pi | TypeScript | Native session/turn adapter over the shared lifecycle's session, recall, and conversation-capture operations. |
 | OpenClaw | TypeScript | Native prompt/agent adapter over the shared lifecycle; retains host-specific ranking, noise filtering, and platform/OSS providers. |
-| OpenCode | TypeScript on Bun | Native tool/chat/compaction adapter over the shared lifecycle; retains OpenCode-specific resume, error, and dream heuristics. |
+| OpenCode | TypeScript on Bun | Native tool/chat/compaction adapter over the shared lifecycle; retains OpenCode-specific resume and error heuristics. |
 | DeepSeek | TypeScript | Native Cordis prompt-assembly, session-event, and tool adapter over the shared lifecycle; automatic recall and completed-turn capture are independently configurable. |
 
 Claude's sidekick remains host-specific. A different host should adopt the same parent-context and lifecycle behavior only through a documented native subagent seam; copying the prompt alone does not create a working sidekick.
 
 ## Add a Python host
 
-1. Add `hosts/<name>/host.json`, a thin `adapter.py`, and only the manifest files required by that host's official plugin format.
-2. Add the smallest native builder in `scripts/build.py`; portable output already comes from the descriptor and shared templates.
+1. Add `hosts/<name>/host.json`, including the native file mapping and plugin-root token.
+2. Add a thin `adapter.py` and only the manifest files required by that host's official plugin format. The shared builder produces both native and portable artifacts from the descriptor.
 3. Add an adapter contract test and build both artifacts. Register the native path in the appropriate marketplace without renaming the plugin.
 
 Do not use symlinks or copy shared logic into a host directory. Add sidekick metadata only when that host documents a native subagent format; do not assume Claude's worktree semantics elsewhere.

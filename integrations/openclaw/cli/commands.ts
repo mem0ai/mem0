@@ -20,7 +20,6 @@
  *   - config set  : Update a plugin config field
  *   - event list  : List recent background events
  *   - event status: Get status of a specific event
- *   - dream       : Run memory consolidation
  *
  * Naming conventions match the Python CLI (`mem0 init`, `mem0 search`, etc.)
  */
@@ -36,7 +35,6 @@ import type {
   MemoryItem,
   SearchOptions,
 } from "../types.ts";
-import { loadDreamPrompt } from "../skill-loader.ts";
 import { readText } from "../fs-safe.ts";
 import type { PluginAuthConfig } from "./config-file.ts";
 import {
@@ -1714,7 +1712,6 @@ export function registerCliCommands(
               status: "Check connectivity and authentication",
               config: "Manage mem0 configuration (show, get, set)",
               event: "Manage background processing events (list, status)",
-              dream: "Run memory consolidation (review, merge, prune)",
               help: "Show help. Use --json for machine-readable output (for LLM agents)",
             },
           };
@@ -1736,7 +1733,6 @@ export function registerCliCommands(
                   status: { description: "Check connectivity", flags: { "--json": "JSON output" } },
                   config: { description: "Manage configuration (show, get, set)", flags: { "--json": "JSON output" } },
                   event: { description: "Manage background events (list, status)", flags: { "--json": "JSON output" } },
-                  dream: { description: "Run memory consolidation", flags: { "--dry-run": "Show inventory only", "--json": "JSON output" } },
                   help: { description: "Show help", flags: { "--json": "JSON output" } },
                 },
               },
@@ -1760,108 +1756,6 @@ export function registerCliCommands(
           console.log("");
         });
 
-      // ====================================================================
-      // dream
-      // ====================================================================
-
-      mem0
-        .command("dream")
-        .description(
-          "Run memory consolidation (review, merge, prune stored memories)",
-        )
-        .option(
-          "--dry-run",
-          "Show memory inventory without running consolidation",
-        )
-        .option("--json", "Output as JSON")
-        .action(async (opts: { dryRun?: boolean; json?: boolean }) => {
-          try {
-            const uid = cfg.userId;
-            const memories = await provider.getAll({
-              user_id: uid,
-              source: "OPENCLAW",
-            });
-            const count = Array.isArray(memories) ? memories.length : 0;
-
-            if (count === 0) {
-              if (jsonOut(opts, { ok: true, count: 0, message: "No memories to consolidate." })) return;
-              console.log("No memories to consolidate.");
-              return;
-            }
-
-            const catCounts = new Map<string, number>();
-            for (const mem of memories) {
-              const cat =
-                (mem.metadata as any)?.category ??
-                mem.categories?.[0] ??
-                "uncategorized";
-              catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
-            }
-
-            if (opts.dryRun && opts.json) {
-              jsonOut(opts, { ok: true, count, categories: Object.fromEntries(catCounts) });
-              return;
-            }
-
-            if (opts.json && !opts.dryRun) {
-              jsonOut(opts, { ok: true, count, message: `${count} memories available for consolidation` });
-              return;
-            }
-
-            process.stderr.write(`\nMemory inventory for "${uid}":\n`);
-            for (const [cat, num] of [...catCounts.entries()].sort(
-              (a, b) => b[1] - a[1],
-            )) {
-              process.stderr.write(`  ${cat}: ${num}\n`);
-            }
-            process.stderr.write(`  TOTAL: ${count}\n\n`);
-
-            if (opts.dryRun) {
-              process.stderr.write("Dry run — no changes made.\n");
-              return;
-            }
-
-            const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
-            if (!dreamPrompt) {
-              process.stderr.write(
-                "Dream skill file not found at skills/memory-dream/SKILL.md\n",
-              );
-              return;
-            }
-
-            const memoryDump = (memories as MemoryItem[])
-              .map((m, i) => {
-                const cat =
-                  (m.metadata as any)?.category ??
-                  m.categories?.[0] ??
-                  "uncategorized";
-                const imp = (m.metadata as any)?.importance ?? "?";
-                const created = m.created_at ?? "unknown";
-                return `${i + 1}. [${m.id}] (${cat}, importance: ${imp}, created: ${created}) ${m.memory}`;
-              })
-              .join("\n");
-
-            const fullPrompt = [
-              "<dream-protocol>",
-              dreamPrompt,
-              "</dream-protocol>",
-              "",
-              `<all-memories count="${count}" user="${uid}">`,
-              memoryDump,
-              "</all-memories>",
-              "",
-              "Begin consolidation. Review all memories above and execute merge, delete, and rewrite operations using the available tools.",
-            ].join("\n");
-
-            process.stdout.write(fullPrompt + "\n");
-            process.stderr.write(
-              `Dream prompt written to stdout (${fullPrompt.length} chars). Paste it into an OpenClaw session to run consolidation.\n`,
-            );
-          } catch (err) {
-            if (jsonErr(opts, `Dream failed: ${String(err)}`)) return;
-            console.error(`Dream failed: ${String(err)}`);
-          }
-        });
     },
     {
       descriptors: [

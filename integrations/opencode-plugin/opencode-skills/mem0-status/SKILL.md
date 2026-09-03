@@ -79,36 +79,6 @@ echo "branch=${MEM0_BRANCH:-}"
 - If all three are non-empty: PASS — "Session active"
 - If any are missing: WARN — "Plugin env vars not set; shell.env hook may not have fired"
 
-### Check 6: Auto-dream readiness
-
-Explain whether auto-dream (memory consolidation) is eligible to run, and if not, exactly which gate is blocking. Auto-dream runs at most once per session and only when **all** gates pass: time since last consolidation ≥ `minHours`, sessions since ≥ `minSessions`, and project memory count ≥ `minMemories`.
-
-Read the gate state and thresholds:
-
-```bash
-_ST="$HOME/.mem0/mem0-dream-state.json"
-_SET="$HOME/.mem0/settings.json"
-echo "sessions_since=$(grep -o '"sessionsSince"[[:space:]]*:[[:space:]]*[0-9]*' "$_ST" 2>/dev/null | grep -o '[0-9]*$' || echo 0)"
-echo "last_consolidated_ms=$(grep -o '"lastConsolidatedAt"[[:space:]]*:[[:space:]]*[0-9]*' "$_ST" 2>/dev/null | grep -o '[0-9]*$' || echo 0)"
-echo "min_hours=$(grep -o '"minHours"[[:space:]]*:[[:space:]]*[0-9]*' "$_SET" 2>/dev/null | grep -o '[0-9]*$' || echo 24)"
-echo "min_sessions=$(grep -o '"minSessions"[[:space:]]*:[[:space:]]*[0-9]*' "$_SET" 2>/dev/null | grep -o '[0-9]*$' || echo 5)"
-echo "min_memories=$(grep -o '"minMemories"[[:space:]]*:[[:space:]]*[0-9]*' "$_SET" 2>/dev/null | grep -o '[0-9]*$' || echo 20)"
-echo "now_s=$(date +%s)"
-echo "dream_env=${MEM0_DREAM:-unset}"
-```
-
-For the memory count, reuse the project memory count from Check 3/4 (or call `get_memories` with the project filter, `page_size=1`, and read `count`).
-
-Compute each gate:
-- **time**: `hours_since = (now_s - last_consolidated_ms/1000) / 3600`. Passes when `≥ min_hours`. If `last_consolidated_ms` is 0 it has never run → time gate passes.
-- **sessions**: passes when `sessions_since ≥ min_sessions`.
-- **memories**: passes when project memory count `≥ min_memories`.
-
-Report:
-- If `dream_env` is `false`/`0`/`no`/`off`, or `dream.enabled` is false in settings: WARN — "Auto-dream disabled".
-- If all three gates pass: PASS — "eligible (runs at next session start)".
-- Otherwise: WARN — list the blocking gate(s), e.g. `sessions 2/5, memories 3/20`. This is expected, not an error — auto-dream is just waiting. Note the user can run `/mem0-dream` to consolidate now, or lower the thresholds via the `dream` block in `~/.mem0/settings.json`.
-
 ### Display
 
 ```
@@ -120,18 +90,15 @@ PASS  Default scope   project
 PASS  Memory Tools    142ms
 PASS  Write/Read      write + delete OK
 PASS  Session         session_id=abc123, app_id=mem0, branch=main
-WARN  Auto-dream      waiting — sessions 2/5, memories 3/20 (/mem0-dream to run now)
 
 All checks passed.
 ```
-
-The Auto-dream line is informational: WARN here means "waiting on gates", not a failure. Show PASS when eligible, or "disabled" when turned off.
 
 If any check fails, add a `## Troubleshooting` section with specific fix steps for each failure.
 
 ## Extended mode: Memory Quality Analysis
 
-When invoked with `--deep` (e.g., `/mem0-status --deep`), run the standard 6 checks above **plus** a memory quality scan.
+When invoked with `--deep` (e.g., `/mem0-status --deep`), run the standard 5 checks above **plus** a memory quality scan.
 
 ### Quality Check 1: Duplicates
 
@@ -188,9 +155,7 @@ Duplicates: <N> · Stale: <N> · Contradictions: <N> · Orphans: <N>
 ```
 
 If all counts are 0: `Memory quality: clean.`
-If any non-zero: append `Run /mem0-dream to fix.`
-
-To fix issues found by `--deep`, run `/mem0-dream` for automated consolidation (merges, prunes, conflict resolution).
+If any non-zero, list the affected memory IDs so the user can review them with the normal search, update, and delete tools.
 
 ## Output formatting
 

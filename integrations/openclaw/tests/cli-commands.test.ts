@@ -29,11 +29,6 @@ vi.mock("../fs-safe.ts", () => ({
   unlink: vi.fn(),
 }));
 
-vi.mock("../skill-loader.ts", () => ({
-  loadDreamPrompt: vi.fn().mockReturnValue("dream prompt"),
-}));
-
-
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -46,7 +41,6 @@ import {
   enableSkillsConfig,
   getBaseUrl,
 } from "../cli/config-file.ts";
-import { loadDreamPrompt } from "../skill-loader.ts";
 
 // ---------------------------------------------------------------------------
 // Mock Commander program builder
@@ -263,8 +257,6 @@ describe("registerCliCommands", () => {
     (readPluginAuth as ReturnType<typeof vi.fn>).mockReturnValue({});
     (writePluginAuth as ReturnType<typeof vi.fn>).mockImplementation(() => {});
     (getBaseUrl as ReturnType<typeof vi.fn>).mockReturnValue("https://api.mem0.ai");
-    (loadDreamPrompt as ReturnType<typeof vi.fn>).mockReturnValue("dream prompt");
-
     consoleSpy = {
       log: vi.spyOn(console, "log").mockImplementation(() => {}),
       error: vi.spyOn(console, "error").mockImplementation(() => {}),
@@ -311,7 +303,6 @@ describe("registerCliCommands", () => {
       expect(names).toContain("delete");
       expect(names).toContain("status");
       expect(names).toContain("config");
-      expect(names).toContain("dream");
     });
 
     it("registers config subcommands: show, get, set", () => {
@@ -1281,104 +1272,6 @@ describe("registerCliCommands", () => {
   });
 
   // ========================================================================
-  // dream subcommand
-  // ========================================================================
-
-  describe("dream subcommand", () => {
-    it("fetches memories and outputs dream prompt to stdout", async () => {
-      const { mem0, provider } = setup();
-      provider.getAll.mockResolvedValueOnce([
-        {
-          id: "m1",
-          memory: "User is an engineer",
-          categories: ["identity"],
-          metadata: { category: "identity", importance: 0.9 },
-          created_at: "2026-01-01",
-        },
-      ]);
-      const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-      const dreamCmd = findCommand(mem0, "dream")!;
-
-      await dreamCmd._action!({});
-
-      expect(provider.getAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: "testuser",
-          source: "OPENCLAW",
-        }),
-      );
-      expect(loadDreamPrompt).toHaveBeenCalled();
-
-      // stdout should contain the dream prompt
-      const stdoutOutput = stdoutSpy.mock.calls.map((c) => c[0]).join("");
-      expect(stdoutOutput).toContain("<dream-protocol>");
-      expect(stdoutOutput).toContain("dream prompt");
-      expect(stdoutOutput).toContain("<all-memories");
-      expect(stdoutOutput).toContain("User is an engineer");
-
-      stdoutSpy.mockRestore();
-    });
-
-    it("prints dry-run message and does not output dream prompt", async () => {
-      const { mem0, provider } = setup();
-      provider.getAll.mockResolvedValueOnce([
-        { id: "m1", memory: "test", categories: [], metadata: {}, created_at: "2026-01-01" },
-      ]);
-      const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-      const dreamCmd = findCommand(mem0, "dream")!;
-
-      await dreamCmd._action!({ dryRun: true });
-
-      // Dry run should write inventory to stderr, NOT dream prompt to stdout
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Dry run"),
-      );
-      expect(stdoutSpy).not.toHaveBeenCalled();
-
-      stdoutSpy.mockRestore();
-    });
-
-    it("prints message when no memories to consolidate", async () => {
-      const { mem0, provider } = setup();
-      provider.getAll.mockResolvedValueOnce([]);
-      const dreamCmd = findCommand(mem0, "dream")!;
-
-      await dreamCmd._action!({});
-
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        "No memories to consolidate.",
-      );
-    });
-
-    it("prints error when dream skill file is not found", async () => {
-      const { mem0, provider } = setup();
-      provider.getAll.mockResolvedValueOnce([
-        { id: "m1", memory: "test", categories: [], metadata: {}, created_at: "2026-01-01" },
-      ]);
-      (loadDreamPrompt as ReturnType<typeof vi.fn>).mockReturnValueOnce("");
-      const dreamCmd = findCommand(mem0, "dream")!;
-
-      await dreamCmd._action!({});
-
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Dream skill file not found"),
-      );
-    });
-
-    it("handles dream errors gracefully", async () => {
-      const { mem0, provider } = setup();
-      provider.getAll.mockRejectedValueOnce(new Error("dream boom"));
-      const dreamCmd = findCommand(mem0, "dream")!;
-
-      await dreamCmd._action!({});
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining("Dream failed"),
-      );
-    });
-  });
-
-  // ========================================================================
   // import subcommand
   // ========================================================================
 
@@ -1647,7 +1540,7 @@ describe("registerCliCommands", () => {
   // ========================================================================
 
   describe("--json flag registration", () => {
-    for (const name of ["search", "add", "get", "list", "update", "delete", "status", "import", "dream"]) {
+    for (const name of ["search", "add", "get", "list", "update", "delete", "status", "import"]) {
       it(`registers --json on ${name}`, () => {
         const { mem0 } = setup();
         const cmd = findCommand(mem0, name)!;
