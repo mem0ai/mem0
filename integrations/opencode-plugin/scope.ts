@@ -3,7 +3,7 @@ import {
   scopeAddParams,
   scopeSearchFilters as sharedSearchFilters,
   type Scope,
-} from "../agent-plugins/core/typescript/src/scoping.ts";
+} from "../agent-plugin-core/typescript/src/scoping.ts";
 
 export type { Scope };
 

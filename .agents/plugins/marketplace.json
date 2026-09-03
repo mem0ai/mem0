@@ -8,7 +8,7 @@
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "./integrations/agent-plugins/dist/claude-code/native"
+        "path": "./integrations/mem0-agent-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -20,7 +20,7 @@
       "name": "mem0-cursor",
       "source": {
         "source": "local",
-        "path": "./integrations/agent-plugins/dist/cursor/native"
+        "path": "./integrations/cursor-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -32,7 +32,7 @@
       "name": "mem0-codex",
       "source": {
         "source": "local",
-        "path": "./integrations/agent-plugins/dist/codex/native"
+        "path": "./integrations/codex-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -56,7 +56,7 @@
       "name": "mem0-antigravity",
       "source": {
         "source": "local",
-        "path": "./integrations/agent-plugins/dist/antigravity/native"
+        "path": "./integrations/antigravity-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -68,7 +68,7 @@
       "name": "mem0-kimi",
       "source": {
         "source": "local",
-        "path": "./integrations/agent-plugins/dist/kimi/native"
+        "path": "./integrations/kimi-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",

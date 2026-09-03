@@ -4,9 +4,9 @@ import type { Mem0Config, ScopeContext } from "../types.ts";
 import { DEFAULT_CUSTOM_CATEGORIES } from "../types.ts";
 import { resolveAddParams } from "../memory/scoping.ts";
 import { captureEvent } from "../telemetry.ts";
-import { createMemoryLifecycle } from "../../../agent-plugins/core/typescript/src/lifecycle.ts";
+import { createMemoryLifecycle } from "../../../agent-plugin-core/typescript/src/lifecycle.ts";
 
-export { extractConversation } from "../../../agent-plugins/core/typescript/src/lifecycle.ts";
+export { extractConversation } from "../../../agent-plugin-core/typescript/src/lifecycle.ts";
 
 export function setupAutoCapture(
   pi: ExtensionAPI,

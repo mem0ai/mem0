@@ -1,0 +1,15 @@
+{
+  "id": "mem0",
+  "version": "0.3.0",
+  "homepage": "https://docs.mem0.ai/integrations/cursor",
+  "native": {
+    "pluginRoot": "${CURSOR_PLUGIN_ROOT}",
+    "files": {
+      ".cursor-plugin/plugin.json": ".cursor-plugin/plugin.json",
+      "hooks/hooks.json": "hooks/hooks.json",
+      "hooks/adapter.py": "hooks/adapter.py",
+      "agents/sidekick.md": "agents/sidekick.md",
+      "mcp.json": "mcp.json"
+    }
+  }
+}

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-import { createTelemetry } from "../../agent-plugins/core/typescript/src/telemetry.ts";
+import { createTelemetry } from "../../agent-plugin-core/typescript/src/telemetry.ts";
 import { CONFIG_DIR } from "./config/index.ts";
 
 const PLUGIN_VERSION = (() => {

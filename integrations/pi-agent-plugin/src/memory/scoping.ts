@@ -5,7 +5,7 @@ import type { Scope, ScopeContext } from "../types.ts";
 import {
   scopeAddParams,
   scopeSearchFilters,
-} from "../../../agent-plugins/core/typescript/src/scoping.ts";
+} from "../../../agent-plugin-core/typescript/src/scoping.ts";
 
 export function detectAppId(cwd: string): string {
   try {

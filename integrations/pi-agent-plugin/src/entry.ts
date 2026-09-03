@@ -9,9 +9,9 @@ import { MEMORY_POLICY } from "./prompt.ts";
 import { captureEvent } from "./telemetry.ts";
 import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
-import { createMemoryLifecycle } from "../../agent-plugins/core/typescript/src/lifecycle.ts";
+import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
-export { buildRecallContext } from "../../agent-plugins/core/typescript/src/lifecycle.ts";
+export { buildRecallContext } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
 export function resolveUserId(configUserId: string): string {
   if (configUserId) return configUserId;

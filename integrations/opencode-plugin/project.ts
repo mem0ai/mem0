@@ -1,1 +1,1 @@
-export { parseProjectFromRemote } from "../agent-plugins/core/typescript/src/identity.ts";
+export { parseProjectFromRemote } from "../agent-plugin-core/typescript/src/identity.ts";

@@ -20,7 +20,7 @@ import { formatMemoryList, formatAddResult } from "./formatting.ts";
 import { truncateOutput } from "./output.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { captureEvent, errorKind } from "./telemetry.ts";
-import { createMemoryLifecycle } from "../../agent-plugins/core/typescript/src/lifecycle.ts";
+import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";
 
 export const name = "mem0";
 export const inject = ["tools", "systemPrompt"];

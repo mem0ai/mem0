@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { createTelemetry } from "../agent-plugins/core/typescript/src/telemetry.ts";
+import { createTelemetry } from "../agent-plugin-core/typescript/src/telemetry.ts";
 import { clearAnonymousTelemetryId, getBaseUrl, readPluginAuth, writePluginAuth } from "./cli/config-file.ts";
 
 declare const __OPENCLAW_PLUGIN_VERSION__: string;

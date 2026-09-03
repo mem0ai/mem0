@@ -416,15 +416,15 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 ### Claude Code Plugin
 
-Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugins
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
 
-The Claude Code native bundle is generated from `integrations/agent-plugins/` (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the unchanged `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the unchanged `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
 
 ### Coding-Agent Plugin Sources
 
-Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugins
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugin-core
 
-The `integrations/agent-plugins/` directory provides one memory runtime and generated native/portable bundles for Claude Code, Cursor, Codex, Kimi, and Antigravity. TypeScript integrations reuse its formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
+The `integrations/agent-plugin-core/` directory is the single source for shared Python and TypeScript memory behavior. Native plugins live in their own sibling directories, while `integrations/mem0-agent-plugin/` is the single portable Agent Plugins v1 package. TypeScript integrations reuse the core's lifecycle, formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 

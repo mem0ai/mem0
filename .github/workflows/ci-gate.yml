@@ -76,12 +76,18 @@ jobs:
               - '.github/workflows/ci-gate.yml'
             openclaw:
               - 'integrations/openclaw/**'
-              - 'integrations/agent-plugins/core/typescript/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/openclaw-checks.yml'
               - '.github/workflows/ci-gate.yml'
             agent_plugins_python:
-              - 'integrations/agent-plugins/**'
-              - '!integrations/agent-plugins/core/typescript/**'
+              - 'integrations/agent-plugin-core/**'
+              - '!integrations/agent-plugin-core/typescript/**'
+              - 'integrations/mem0-agent-plugin/**'
+              - 'integrations/claude-code-plugin/**'
+              - 'integrations/cursor-plugin/**'
+              - 'integrations/codex-plugin/**'
+              - 'integrations/kimi-plugin/**'
+              - 'integrations/antigravity-plugin/**'
               - 'marketplace.json'
               - '.agents/plugins/marketplace.json'
               - '.claude-plugin/marketplace.json'
@@ -91,22 +97,22 @@ jobs:
               - '.github/workflows/agent-plugins-python-checks.yml'
               - '.github/workflows/ci-gate.yml'
             agent_plugins_typescript:
-              - 'integrations/agent-plugins/core/typescript/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/agent-plugins-typescript-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
               - 'integrations/opencode-plugin/**'
-              - 'integrations/agent-plugins/core/typescript/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/opencode-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             pi_agent_plugin:
               - 'integrations/pi-agent-plugin/**'
-              - 'integrations/agent-plugins/core/typescript/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/pi-agent-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             deepseek_plugin:
               - 'integrations/deepseek-plugin/**'
-              - 'integrations/agent-plugins/core/typescript/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/deepseek-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             n8n_nodes_mem0:

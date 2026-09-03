@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths:
       - 'integrations/pi-agent-plugin/**'
-      - 'integrations/agent-plugins/core/typescript/**'
+      - 'integrations/agent-plugin-core/typescript/**'
       - '.github/workflows/pi-agent-plugin-checks.yml'
   workflow_call:
 

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "mem0": {
-      "command": "python3",
-      "args": ["./core/mcp_server.py"]
-    }
-  }
-}

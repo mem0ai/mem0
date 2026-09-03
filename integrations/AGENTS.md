@@ -1,12 +1,14 @@
 # Integrations (`integrations/`)
 
-Agent and editor integrations. Most packages are self-contained; coding-agent plugins share the code in `agent-plugins/`. Check the table before running anything.
+Agent and editor integrations. Most packages are self-contained; coding-agent plugins share the code in `agent-plugin-core/`. Check the table before running anything.
 
 | Directory | Package | Build | Lint | Test |
 |-----------|---------|-------|------|------|
 | `vercel-ai-sdk/` | `@mem0/vercel-ai-provider` | tsup (CJS+ESM) | ESLint + Prettier | jest + vitest (edge/node) |
 | `openclaw/` | `@mem0/openclaw-mem0` | tsup (ESM) | none | vitest |
-| `agent-plugins/` | Shared Python/TypeScript cores and native/portable bundles for Claude Code, Cursor, Codex, Kimi, and Antigravity | Python build script | ruff + tsc | pytest + node:test |
+| `agent-plugin-core/` | Shared Python/TypeScript behavior, skill templates, builds, and conformance | Python build script | ruff + tsc | pytest + node:test |
+| `mem0-agent-plugin/` | One portable Agent Plugins v1 package | Python | ruff | shared conformance |
+| `claude-code-plugin/`, `cursor-plugin/`, `codex-plugin/`, `kimi-plugin/`, `antigravity-plugin/` | Self-contained native plugins generated from the shared Python core | Python | ruff | pytest |
 | `opencode-plugin/` | `@mem0/opencode-plugin` (Bun/TypeScript) | tsup (via Bun) | tsc | bun test |
 | `pi-agent-plugin/` | `@mem0/pi-agent-plugin` | tsup | none | vitest |
 | `deepseek-plugin/` | `@mem0/deepseek-plugin` | tsup (ESM) | none | vitest |
@@ -40,7 +42,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 ## What each one is
 
 - **`vercel-ai-sdk/`** wraps the Vercel AI SDK through a `createMem0` provider. Integrations for AI-SDK repos go through this wrapper, not raw `MemoryClient`.
-- **`agent-plugins/`** owns the shared Python memory runtime, shared TypeScript utilities, skill templates, sidekick prompt, small host adapters, and generated self-contained bundles. Claude Code is the behavioral source of truth. Edit source under `core/`, `shared/`, or `hosts/`; never hand-edit `dist/`. Build and validation details are in [`agent-plugins/README.md`](agent-plugins/README.md).
+- **`agent-plugin-core/`** owns the shared Python memory runtime, TypeScript lifecycle utilities, skill templates, builds, and conformance runner. Claude Code is the behavioral source of truth. Native manifests and adapters live in sibling plugin directories; do not hand-edit their generated `core/` or `skills/` trees. Build and validation details are in [`agent-plugin-core/README.md`](agent-plugin-core/README.md).
 - **`opencode-plugin/`** is a Bun/TypeScript plugin for OpenCode (`@mem0/opencode-plugin` on npm). It registers Mem0 memory tools as an OpenCode plugin with its own skills and telemetry.
 - **`openclaw/`**, **`pi-agent-plugin/`**, **`deepseek-plugin/`** are editor and agent plugins with the same shape. `deepseek-plugin/` registers Mem0 search/add tools as a native DeepSeek Harness (Cordis) plugin.
 - **`n8n-nodes-mem0/`** is an n8n community node: add, search, get, update, delete.
@@ -49,7 +51,7 @@ Run the type check after every TypeScript change: `pnpm run typecheck` or `tsc -
 
 ## Adding an integration
 
-1. For a coding-agent host, add a descriptor and thin adapter under `agent-plugins/hosts/<name>/`, then build its native and portable bundles. For an independent integration, create `integrations/<name>/` and keep its package self-contained.
+1. For a native coding-agent host, add `integrations/<name>-plugin/` with `plugin-build.json`, its manifest, and a thin adapter, then generate its shared runtime. Portable clients use the single `mem0-agent-plugin/` package. Independent TypeScript integrations stay self-contained and import shared lifecycle behavior from `agent-plugin-core/typescript/`.
 2. If it publishes to a registry, set `repository.directory: "integrations/<name>"` in `package.json` so npm provenance links to the right subdirectory.
 3. Add `.github/workflows/<name>-checks.yml` and `<name>-cd.yml`. Use `integrations/<name>` in the `paths:` trigger, `working-directory`, and `cache-dependency-path`. Register the release tag prefix in the `case` block in `release.yml`, keeping the bare `v*` arm last.
    **Workflow filenames are load-bearing:** npm OIDC trusted publishing is pinned to repository plus workflow filename. Renaming one breaks publishing.

@@ -18,8 +18,8 @@ Package workflows keep their own push-to-main and manual triggers. Their `pull_r
 | Python CLI | `cli-python-ci.yml` | Push to main (`cli/python/`), manual | Ruff + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | Node CLI | `cli-node-ci.yml` | Push to main (`cli/node/`), manual | Biome + tsc + vitest + tsup on Node 20, 22 |
 | OpenClaw | `openclaw-checks.yml` | Push to main (`integrations/openclaw/`), manual | tsc + vitest (Codecov) + tsup on Node 20, 22 |
-| Agent Plugins Python | `agent-plugins-python-checks.yml` | Push to main (`integrations/agent-plugins/`, excluding the TypeScript core), manual | Runtime tests on Python 3.10; full pytest on 3.11, 3.12; ruff + generated-bundle drift on 3.12 |
-| Agent Plugins TypeScript | `agent-plugins-typescript-checks.yml` | Push to main (`integrations/agent-plugins/core/typescript/`), manual | tsc + node:test on Node 22 |
+| Agent Plugins Python | `agent-plugins-python-checks.yml` | Push to main (shared Python core and native/portable plugin directories), manual | Runtime tests on Python 3.10; full pytest on 3.11, 3.12; ruff + generated-package drift on 3.12 |
+| Agent Plugins TypeScript | `agent-plugins-typescript-checks.yml` | Push to main (`integrations/agent-plugin-core/typescript/`), manual | tsc + node:test on Node 22 |
 | OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (`integrations/opencode-plugin/`), manual | Bun: tsc + build + dist artifact check |
 | Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (`integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup on Node 20, 22 |
 | DeepSeek Harness Plugin | `deepseek-plugin-checks.yml` | Push to main (`integrations/deepseek-plugin/`), manual | tsc + vitest + tsup on Node 20, 22 |

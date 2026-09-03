@@ -53,7 +53,7 @@ import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
-import { createMemoryLifecycle } from "../agent-plugins/core/typescript/src/lifecycle.ts";
+import { createMemoryLifecycle } from "../agent-plugin-core/typescript/src/lifecycle.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
 
 // ============================================================================

@@ -8,7 +8,7 @@
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "./integrations/agent-plugins/dist/codex/native"
+        "path": "./integrations/codex-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",

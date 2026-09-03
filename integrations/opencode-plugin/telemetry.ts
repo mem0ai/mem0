@@ -5,7 +5,7 @@ import { release } from "node:os";
 import {
   createTelemetry,
   isTelemetryEnabled,
-} from "../agent-plugins/core/typescript/src/telemetry.ts";
+} from "../agent-plugin-core/typescript/src/telemetry.ts";
 
 export { isTelemetryEnabled };
 

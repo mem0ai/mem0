@@ -7,7 +7,7 @@ import {
   createTelemetry,
   errorKind,
   isTelemetryEnabled,
-} from "../../agent-plugins/core/typescript/src/telemetry.ts";
+} from "../../agent-plugin-core/typescript/src/telemetry.ts";
 
 export { errorKind, isTelemetryEnabled };
 

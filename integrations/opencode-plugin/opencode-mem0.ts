@@ -16,7 +16,7 @@ import {captureEvent} from "./telemetry";
 import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
 import {parseProjectFromRemote} from "./project";
 import {resolveApiKey} from "./api-key";
-import {createMemoryLifecycle} from "../agent-plugins/core/typescript/src/lifecycle.ts";
+import {createMemoryLifecycle} from "../agent-plugin-core/typescript/src/lifecycle.ts";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;

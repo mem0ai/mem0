@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'integrations/agent-plugins/core/typescript/**'
+      - 'integrations/agent-plugin-core/typescript/**'
       - '.github/workflows/agent-plugins-typescript-checks.yml'
   workflow_call:
 
@@ -27,16 +27,16 @@ jobs:
         with:
           node-version: 22
           cache: 'pnpm'
-          cache-dependency-path: integrations/agent-plugins/core/typescript/pnpm-lock.yaml
+          cache-dependency-path: integrations/agent-plugin-core/typescript/pnpm-lock.yaml
 
       - name: Install dependencies
-        working-directory: integrations/agent-plugins/core/typescript
+        working-directory: integrations/agent-plugin-core/typescript
         run: pnpm install --frozen-lockfile
 
       - name: Type check
-        working-directory: integrations/agent-plugins/core/typescript
+        working-directory: integrations/agent-plugin-core/typescript
         run: pnpm typecheck
 
       - name: Run tests
-        working-directory: integrations/agent-plugins/core/typescript
+        working-directory: integrations/agent-plugin-core/typescript
         run: pnpm test
