@@ -5,6 +5,8 @@ description: "Add persistent memory to OpenCode with the Mem0 plugin: native SDK
 
 Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
 
+<Info>Current package version: `0.2.2`.</Info>
+
 ## Prerequisites
 
 1. A Mem0 API key (starts with `m0-`):
@@ -33,7 +35,7 @@ opencode plugin @mem0/opencode-plugin
 **Or let your agent do it**: paste this into OpenCode:
 
 ```
-Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/opencode-plugin/README.md
 ```
 
 This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode. You get the native memory tools, lifecycle hooks, and all `/mem0-*` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK. No MCP server to configure.
@@ -61,7 +63,7 @@ If you only need the memory tools without the plugin's hooks or skills, point Op
 
 | Component | Plugin (A) | Standalone MCP (B) |
 |-----------|:----------:|:------------------:|
-| 9 memory tools | Native (SDK) | Remote MCP server |
+| 10 memory tools | Native (SDK) | 9 remote MCP tools |
 | Lifecycle Hooks | Yes | No |
 | 7 Skills | Yes | No |
 
@@ -78,6 +80,7 @@ If you only need the memory tools without the plugin's hooks or skills, point Op
 | `delete_all_memories` | Bulk delete all memories in scope |
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
+| `get_event_status` | Check the processing status of an asynchronous memory event |
 
 ## Memory scope
 

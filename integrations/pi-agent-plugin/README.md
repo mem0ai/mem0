@@ -42,7 +42,7 @@ Or create a config file at `~/.pi/agent/mem0-config.json`:
   "userId": "your-username",
   "autoCapture": true,
   "defaultScope": "project",
-  "searchThreshold": 0.2
+  "searchThreshold": 0.3
 }
 ```
 
@@ -108,7 +108,7 @@ pi-agent-plugin/
 ├── src/
 │   ├── entry.ts          # Extension entry point
 │   ├── index.ts          # Barrel exports
-│   ├── commands.ts       # 8 slash commands
+│   ├── commands.ts       # 6 slash commands
 │   ├── prompt.ts         # System prompt injection (MEMORY_POLICY)
 │   ├── types.ts          # Shared interfaces and categories
 │   ├── telemetry.ts      # PostHog telemetry (batched, PII-safe)

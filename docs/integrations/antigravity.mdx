@@ -1,9 +1,11 @@
 ---
 title: Antigravity
-description: "Add persistent memory to Google Antigravity with the Mem0 plugin: MCP server, lifecycle hooks, and slash commands."
+description: "Add persistent memory to Google Antigravity with the Mem0 plugin: a search tool, lifecycle hooks, and memory skills."
 ---
 
-Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. Your agent forgets everything between sessions. Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
+Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. The plugin captures completed work, and Antigravity can search those memories in later sessions.
+
+<Info>Current plugin version: `0.3.0`.</Info>
 
 ## Prerequisites
 
@@ -28,20 +30,27 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 
 ```bash
 # Install the plugin (MCP server, hooks, scripts)
-npx degit mem0ai/mem0/integrations/mem0-plugin ~/.gemini/config/plugins/mem0
+npx degit mem0ai/mem0/integrations/agent-plugins/dist/antigravity/native ~/.gemini/config/plugins/mem0
 ```
 
-This installs the MCP server, lifecycle hooks, and shared scripts.
+This installs the generated Antigravity bundle with the Mem0 server, lifecycle hooks, and six memory skills.
 
 ## What's Included
 
 | Component | Included |
 |-----------|:--------:|
-| MCP Server (9 memory tools) | Yes |
+| Local MCP Server (`search_memories`) | Yes |
 | Lifecycle Hooks | Yes |
-| 16 Slash Commands | Yes |
+| 6 Memory Skills | Yes |
+| Sidekick Agent | Yes |
 
-## Available MCP Tools
+## Memory tools and skills
+
+The full plugin exposes a focused `search_memories` tool and captures completed work through lifecycle hooks. Six skills provide search, status, remember, forget, pause, and resume workflows. A native sidekick can handle a bounded task in the workspace assigned by Antigravity; it does not claim Claude Code worktree isolation.
+
+If you need the full set of direct CRUD tools, connect the [hosted Mem0 MCP server](/platform/mem0-mcp) separately instead of installing both configurations under the same server name.
+
+## Hosted MCP tools
 
 | Tool | Description |
 |------|-------------|
@@ -57,17 +66,17 @@ This installs the MCP server, lifecycle hooks, and shared scripts.
 
 ## Lifecycle Hooks
 
-The plugin uses the same shell scripts as Claude Code, Cursor, and Codex: hooks bridge environment variables using `${extensionPath}` (Antigravity's plugin-root token).
+The plugin translates Antigravity events into the shared Mem0 capture lifecycle.
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Session start** | `SessionStart` | Loads prior memories and displays status banner |
-| **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
-| **Pre-tool** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tools |
-| **Post-tool** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
-| **Stop** | `Stop` | Stores a session summary at the end of every assistant turn (not just at session end) |
+| **Invocation** | `PreInvocation` | Initializes the first invocation and recovers pending capture |
+| **Post-tool** | `PostToolUse` | Records useful tool results and failures |
+| **Stop** | `Stop` | Captures the completed exchange for a later session |
 
-What you type is stored as yours. What the agent produces (session summaries and compaction summaries) is stored as the assistant's, so its suggestions never become your stated preferences.
+Recall is explicit through `search_memories` and the search skill. The current Antigravity adapter does not inject query-specific memory during `PreInvocation` because that event does not include the user's prompt.
+
+What you type is stored as yours. Captured agent summaries are stored as the assistant's, so its suggestions never become your stated preferences.
 
 ## Troubleshooting
 

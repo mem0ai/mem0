@@ -5,6 +5,8 @@ description: "Add long-term memory to OpenClaw agents using the Mem0 plugin with
 
 Add long-term memory to [OpenClaw](https://github.com/openclaw/openclaw) agents with the `@mem0/openclaw-mem0` plugin. Your agent forgets everything between sessions. This plugin fixes that by automatically watching conversations, extracting what matters, and bringing it back when relevant.
 
+<Info>Current package version: `1.0.16`.</Info>
+
 ## Overview
 
 <Frame>
@@ -14,8 +16,7 @@ Add long-term memory to [OpenClaw](https://github.com/openclaw/openclaw) agents 
 The plugin provides:
 1. **Triage**: The agent extracts durable facts from conversations using a structured protocol with importance gates and domain overlays
 2. **Recall**: Before each turn, relevant memories are retrieved with reranking and injected into context
-3. **Dream**: Periodic memory consolidation merges duplicates, resolves conflicts, prunes stale entries
-4. **Agent Tools**: Eight tools for explicit memory operations during conversations
+3. **Agent Tools**: Eight tools for explicit memory operations during conversations
 
 Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
@@ -101,7 +102,7 @@ You no longer need manual config editing to get started. Everything happens insi
   </Step>
 </Steps>
 
-That's it. No API key, no config file editing, no environment variables. The plugin is now active with skills-based memory (triage, recall, and dream) running automatically.
+That's it. No API key, no config file editing, no environment variables. The plugin is now active with skills-based memory (triage and recall) running automatically.
 
 <Note>The chat flow uses the same underlying config as manual setup: it writes `apiKey`, `userId`, and `skills` config into `openclaw.json` for you. You can still open the file to inspect or override values afterward.</Note>
 
@@ -142,7 +143,6 @@ That's it. No API key, no config file editing, no environment variables. The plu
                   "keywordSearch": true,
                   "identityAlwaysInclude": true
                 },
-                "dream": { "enabled": true },
                 "domain": "companion"
               }
             }
@@ -441,7 +441,7 @@ If `openclaw plugins update` fails:
 
 ### Auto-Capture and Auto-Recall
 
-Auto-capture and auto-recall are **enabled by default**. When skills mode is configured (the default after `openclaw mem0 init`), these are ignored in favor of the skills-based triage/recall/dream protocol.
+Auto-capture and auto-recall are **enabled by default**. When skills mode is configured (the default after `openclaw mem0 init`), these are ignored in favor of the skills-based triage and recall protocol.
 
 To disable either:
 
@@ -464,13 +464,12 @@ The agent can always use memory tools (`memory_add`, `memory_search`, etc.) expl
 
 ### Credential Protection
 
-The plugin never stores API keys, tokens, or secrets as memories. Five independent layers enforce this:
+The plugin never stores API keys, tokens, or secrets as memories. Four independent layers enforce this:
 
 1. **Triage gate**: The extraction prompt rejects values matching known credential patterns (`sk-`, `m0-`, `ghp_`, `AKIA`, `Bearer`, `password=`, `token=`, `secret=`)
-2. **Dream cleanup**: Periodic memory consolidation deletes any memories that slipped through containing credential patterns
-3. **Extraction instructions**: Default extraction rules explicitly instruct the model to store only that a credential was configured, never the value
-4. **Configurable patterns**: Add custom credential patterns via `skills.triage.credentialPatterns`
-5. **CLI redaction**: `openclaw mem0 config show` redacts sensitive fields (`apiKey`, `oss.*.config.apiKey`)
+2. **Extraction instructions**: Default extraction rules explicitly instruct the model to store only that a credential was configured, never the value
+3. **Configurable patterns**: Add custom credential patterns via `skills.triage.credentialPatterns`
+4. **CLI redaction**: `openclaw mem0 config show` redacts sensitive fields (`apiKey`, `oss.*.config.apiKey`)
 
 ### API Key Storage
 

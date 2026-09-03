@@ -59,6 +59,7 @@ Pure TypeScript — no Python, no shell scripts. Memory operations are native Op
 | `delete_all_memories` | Bulk delete all memories in scope |
 | `delete_entities` | Delete an entity and its memories |
 | `list_entities` | List users/agents/apps stored in Mem0 |
+| `get_event_status` | Check the processing status of an asynchronous memory event |
 
 ## Memory scope
 
