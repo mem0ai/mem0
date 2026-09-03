@@ -4,9 +4,16 @@ import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 import requests
+
+# Use the same dual-import strategy as the production client. mem0.client.main
+# prefers httpx2 when present; tests that exercise that module must use the
+# same module so isinstance / raise_for_status / exception matching line up.
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 
 from mem0.client.main import AsyncMemoryClient
 from mem0.client.types import GetAllMemoryOptions, SearchMemoryOptions

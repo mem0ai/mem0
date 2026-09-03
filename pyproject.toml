@@ -18,6 +18,7 @@ dependencies = [
     "pydantic>=2.7.3",
     "openai>=1.90.0",
     "httpx>=0.28.0",
+    "httpx2>=2.12.0; python_version >= '3.10'",
     "posthog>=7.14.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",

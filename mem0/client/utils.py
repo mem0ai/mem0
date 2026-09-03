@@ -3,7 +3,10 @@ import json
 import logging
 from functools import wraps
 
-import httpx
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 
 from mem0.exceptions import (
     NetworkError,

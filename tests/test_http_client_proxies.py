@@ -1,5 +1,11 @@
-import httpx
 import pytest
+
+# mem0.utils.http (and the configs that call it) now produce httpx2.Client
+# objects. Mirror that here so the isinstance checks below match reality.
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.configs.llms.base import BaseLlmConfig

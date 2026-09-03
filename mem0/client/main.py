@@ -5,7 +5,10 @@ import warnings
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
-import httpx
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 import requests
 
 from mem0.client.project import AsyncProject, Project

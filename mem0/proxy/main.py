@@ -2,7 +2,10 @@ import logging
 import threading
 from typing import List, Optional, Union
 
-import httpx
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 
 import mem0
 

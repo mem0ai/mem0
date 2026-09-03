@@ -1,6 +1,9 @@
 from typing import Dict, Optional, Union
 
-import httpx
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 
 
 def build_http_client(http_client_proxies: Optional[Union[Dict, str]]) -> Optional[httpx.Client]:

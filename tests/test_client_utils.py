@@ -1,7 +1,14 @@
 import inspect
 
-import httpx
 import pytest
+
+# mem0.client.utils prefers httpx2 when present; mirror that here so the
+# exception classes (HTTPStatusError, ConnectError, RequestError, TimeoutException)
+# used as side_effect in the fixtures match what the SUT catches.
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 
 from mem0.client.utils import api_error_handler
 from mem0.exceptions import AuthenticationError, NetworkError, RateLimitError

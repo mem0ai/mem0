@@ -2,7 +2,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-import httpx
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:
+    import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from mem0.client.utils import api_error_handler
