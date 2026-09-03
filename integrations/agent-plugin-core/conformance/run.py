@@ -32,6 +32,7 @@ sys.path.insert(0, str(CORE_ROOT))
 sys.path.insert(0, str(CORE_ROOT / "python"))
 from memory_core import redact  # noqa: E402
 from build.build import build  # noqa: E402
+from conformance.artifacts import TYPESCRIPT_ARTIFACTS, verify_artifact as _typescript_artifact_check  # noqa: E402
 
 
 def _package_directories() -> dict[str, Path]:
@@ -117,6 +118,16 @@ def _planned_checks(groups: set[str]) -> list[dict[str, Any]]:
                     "group": group,
                     "status": "planned",
                     "command": command,
+                }
+            )
+        if group in TYPESCRIPT_ARTIFACTS:
+            _, required = TYPESCRIPT_ARTIFACTS[group]
+            checks.append(
+                {
+                    "name": f"{group}-artifact",
+                    "group": group,
+                    "status": "planned",
+                    "required": list(required),
                 }
             )
     return checks
@@ -219,6 +230,15 @@ def _runtime_checks(groups: set[str]) -> list[dict[str, Any]]:
                     group,
                     command,
                     cwd=directories[group],
+                )
+            )
+        if group in TYPESCRIPT_ARTIFACTS:
+            _, required = TYPESCRIPT_ARTIFACTS[group]
+            checks.append(
+                _typescript_artifact_check(
+                    group,
+                    directories[group],
+                    required,
                 )
             )
     return checks

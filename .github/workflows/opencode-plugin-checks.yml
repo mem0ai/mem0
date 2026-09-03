@@ -35,6 +35,6 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Verify dist output exists
-        run: |
-          test -f dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
+      - name: Verify package artifact
+        working-directory: .
+        run: python3 integrations/agent-plugin-core/conformance/artifacts.py opencode

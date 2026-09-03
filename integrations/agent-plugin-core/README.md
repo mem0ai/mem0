@@ -58,6 +58,8 @@ Run every offline Python and TypeScript check and write one machine-readable rep
   --report /tmp/mem0-plugin-conformance.json
 ```
 
+For every TypeScript integration, this also builds the publishable package, verifies its required entry files, and rejects compiled artifacts that still import monorepo source. This keeps published plugins self-contained without committing their `dist/` directories.
+
 The offline suite does not contact Mem0 Platform. An explicit disposable key enables the inherited live scoping suite:
 
 ```bash

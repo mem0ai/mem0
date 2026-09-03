@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from conformance import run as conformance_run  # noqa: E402
 from conformance.run import _command_check  # noqa: E402
 
 
@@ -77,6 +78,27 @@ def test_conformance_plan_covers_every_runtime(tmp_path: Path) -> None:
         "deepseek",
     }
     assert all(entry["status"] == "planned" for entry in payload["checks"])
+    assert {
+        entry["group"]
+        for entry in payload["checks"]
+        if entry["name"].endswith("-artifact")
+    } == {"openclaw", "opencode", "pi-agent", "deepseek"}
+
+
+def test_typescript_artifact_check_rejects_monorepo_imports(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.js").write_text(
+        'import { createMemoryLifecycle } from "../../agent-plugin-core/typescript/src/lifecycle.ts";\n',
+        encoding="utf-8",
+    )
+
+    artifact_check = getattr(conformance_run, "_typescript_artifact_check", None)
+    assert artifact_check is not None, "TypeScript package artifacts are not checked"
+    result = artifact_check("example", tmp_path, ("dist/index.js",))
+
+    assert result["status"] == "failed"
+    assert "monorepo source import" in result["output"]
 
 
 def test_live_conformance_requires_an_explicit_mem0_key(tmp_path: Path) -> None:
