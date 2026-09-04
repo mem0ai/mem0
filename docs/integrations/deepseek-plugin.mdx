@@ -5,7 +5,7 @@ description: "Add persistent memory to DeepSeek Harness with automatic recall, a
 
 Add persistent memory to the [**DeepSeek Harness**](https://github.com/deepseek-ai/deepseek-harness) with `@mem0/deepseek-plugin`. The plugin recalls relevant context before a model request, captures completed turns, and provides explicit Mem0 tools when the agent needs them.
 
-<Info>Current package version: `0.1.1`.</Info>
+<Info>Current package version: `0.3.0`.</Info>
 
 ## Overview
 
@@ -68,7 +68,7 @@ source ~/.bashrc
 2. Install it into a disposable Harness profile so Harness supplies its peer dependencies:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.1.1.tgz
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.0.tgz
    ```
 
 3. Copy `cordis.example.yml`, set its installed package path and your `userId`, then load it with the same profile:

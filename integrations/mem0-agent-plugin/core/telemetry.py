@@ -33,8 +33,12 @@ _harness: str = "generic"
 _source_tag: str = "MEM0_PLUGIN"
 _PRIVATE_KEYS = {
     "apikey",
+    "authorization",
+    "password",
     "query",
+    "secret",
     "prompt",
+    "token",
     "text",
     "memory",
     "message",

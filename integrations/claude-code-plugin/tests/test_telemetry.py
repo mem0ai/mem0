@@ -97,6 +97,22 @@ def test_record_rejects_sensitive_properties_at_the_shared_boundary(isolated_env
     assert not {"prompt", "query", "api_key", "user_id"} & event["properties"].keys()
 
 
+def test_record_removes_sensitive_keys_from_nested_lists(isolated_env):
+    telemetry.record(
+        "search",
+        details=[
+            {"password": "plain-password", "count": 2},
+            {"nested": {"authorization": "plain-authorization", "ok": True}},
+        ],
+    )
+
+    (event,) = spool_lines()
+    assert event["properties"]["details"] == [
+        {"count": 2},
+        {"nested": {"ok": True}},
+    ]
+
+
 def test_record_stops_appending_past_the_spool_cap(isolated_env):
     spool = memory_core.data_dir() / "telemetry.jsonl"
     spool.parent.mkdir(parents=True, exist_ok=True)

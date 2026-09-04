@@ -89,6 +89,28 @@ test("telemetry redacts secrets nested inside allowed properties", () => {
   assert.equal((event?.properties as { details: { count: number } }).details.count, 2);
 });
 
+test("telemetry removes sensitive keys from nested list elements", () => {
+  const telemetry = createTelemetry({
+    host: "pi",
+    source: "PI_AGENT_PLUGIN",
+    version: "1",
+    distinctId: "person",
+  });
+
+  const event = telemetry.build("pi.test", {
+    details: [
+      { password: "plain-password", count: 2 },
+      { nested: { token: "plain-token", ok: true } },
+    ],
+  });
+  telemetry.resetForTesting();
+
+  assert.deepEqual((event?.properties as { details: unknown[] }).details, [
+    { count: 2 },
+    { nested: { ok: true } },
+  ]);
+});
+
 test("error classification does not expose messages", () => {
   assert.equal(errorKind(new Error("429 secret query")), "rate-limited");
   assert.equal(errorKind(new Error("401 key")), "auth");

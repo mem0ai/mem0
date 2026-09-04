@@ -48,7 +48,7 @@ Cordis owns listener and tool cleanup when the plugin unmounts. Every automatic 
 3. Install it into a disposable Harness profile:
    ```sh
    DSH_HOME=/tmp/mem0-dsh-dev pnpm dlx @deepseek-ai/dsh@0.1.1-rc.2 \
-     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.1.1.tgz
+     plugin --profile headless add /tmp/mem0-deepseek-plugin/mem0-deepseek-plugin-0.3.0.tgz
    ```
 4. Copy `cordis.example.yml`, set its installed package path and your `userId`, then run Harness with the same profile:
    ```sh

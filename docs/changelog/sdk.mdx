@@ -2062,7 +2062,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 - Removed obsolete plugin-side consolidation commands, skills, configuration, and runtime paths from OpenClaw, OpenCode, and Pi Agent.
 
 <Note>
-  Claude Code, Cursor, Codex, Kimi Code, and Antigravity are version `0.3.0`. OpenClaw remains `1.0.16`, OpenCode `0.2.2`, and DeepSeek Harness `0.1.1`. Pi Agent moves to `0.2.0` because its obsolete Dream and pin APIs were removed.
+  Claude Code stays at `0.3.0`. Cursor, Codex, Kimi Code, Antigravity, the portable bundle, OpenCode, Pi Agent, and DeepSeek Harness are aligned at `0.3.0`. OpenClaw moves to `1.1.0` because Dream and pin APIs were intentionally removed.
 </Note>
 
 </Update>
@@ -2200,12 +2200,12 @@ Existing memories written by the previous versions are not rewritten. If your me
 - **Hook schema:** PostToolUse scripts now read `tool_response`, Stop hook output is schema-compliant, and SessionStart uses visible raw stdout.
 - **Tool coverage:** Memory write blocking includes `MultiEdit`, and metadata enforcement covers add, search, get, update, and delete-all variants.
 - **Identity injection:** `add_memory`, `search_memories`, `get_memories`, and `delete_all_memories` receive safe default `user_id` and `app_id` values when the agent omits them.
-- **Skill API calls:** Export, stats, pin, health, memory-reviewer, tour, onboard, context-loader, and weekly stats examples now use the correct filter and `top_k` shapes.
+- **Skill API calls:** Export, stats, pin, health, memory-reviewer, dream, tour, onboard, context-loader, and weekly stats examples now use the correct filter and `top_k` shapes.
 - **Compact summary capture:** `capture_compact_summary.py` is spawned correctly after compaction and guarded against unset identity variables.
 
 **New Features:**
 - **Stop hook analyzer:** Added `stop_hook_check.py` to detect meaningful work before prompting memory capture.
-- **Skill checklists:** Added a progress checklist to `/mem0:onboard`.
+- **Skill checklists:** Added progress checklists to `/mem0:dream` and `/mem0:onboard`.
 
 **Changes:**
 - `enforce_metadata_defaults.sh` was rewritten around handler-based dispatch and never overrides explicitly provided identity.
@@ -2246,7 +2246,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 - API key resolution now checks `CLAUDE_PLUGIN_OPTION_API_KEY`, and hook timeouts increased for prompt and bash-output searches.
 
 **Removed:**
-- Removed `/mem0:health --fix` and CLI config fallback.
+- Removed `/mem0:dream --forget`, `/mem0:dream --schedule`, `/mem0:health --fix`, and CLI config fallback.
 
 </Update>
 
@@ -2263,7 +2263,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 **New Features:**
 - **Chunking and import:** Added shared chunking helpers and Markdown chunk imports.
 - **Metadata defaults:** Added `enforce_metadata_defaults.sh` for default confidence, source, and type on `add_memory`.
-- **Project utilities:** Added list-projects, all-project tour, weekly stats, and competing-tools import.
+- **Project utilities:** Added list-projects, all-project tour, weekly stats, dream forget mode, and competing-tools import.
 
 **Removed:**
 - Removed `on_pre_commit.py` and merged digest, forget, import-tools, and peek flows into existing skills.
@@ -2273,7 +2273,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 <Update label="2026-06-25" description="mem0-plugin v0.2.1">
 
 **New Features:**
-- **Skill suite:** Added 10 skills for export, import, tool import, forget, health, peek, pin, remember, stats, and digest.
+- **Skill suite:** Added 11 skills for dream, export, import, tool import, forget, health, peek, pin, remember, stats, and digest.
 - **Hook suite:** Added bash-error recall, git/commit context hooks, compaction recovery, session-end capture, subagent reminders, tool-failure recovery, and pre-commit capture.
 - **Telemetry:** Added sampled PostHog telemetry with no memory content or API keys and `MEM0_TELEMETRY=false` opt-out.
 - **Coding categories:** Added 10 more coding categories and dependency-managed SDK install through `ensure_deps.sh`.
@@ -2355,6 +2355,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="OpenCode">
 
+<Update label="2026-09-03" description="OpenCode plugin v0.3.0">
+
+**Breaking changes:**
+- Removed the obsolete Dream consolidation and pin commands, skills, configuration, and runtime paths.
+
+**Improvements:**
+- Reuses the shared TypeScript lifecycle, scoping, formatting, and telemetry implementation while retaining OpenCode's native plugin API.
+
+</Update>
+
 <Update label="2026-07-22" description="OpenCode plugin v0.2.2">
 
 **Fixes:**
@@ -2374,14 +2384,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 **Breaking Changes:**
 - **Native SDK tools:** Memory tools are registered through `@opencode-ai/plugin` and backed by the `mem0ai` SDK directly. The plugin no longer registers or depends on `mcp.mem0.ai`.
 - **Skills load in place:** The `config` hook adds `opencode-skills/` to `skills.paths`; skills are no longer copied into user config directories.
-- **Focused skill set:** Trimmed to 7 skills: `context-loader`, `forget`, `status`, `search`, `scope`, `remember`, and `tour`.
+- **Focused skill set:** Trimmed to 9 skills: `context-loader`, `dream`, `forget`, `status`, `search`, `scope`, `pin`, `remember`, and `tour`.
 
 **New Features:**
 - **Memory scopes:** Memory operations support `project`, `session`, and `global` scope, with `/mem0-scope` for changing the default.
-- **Expanded telemetry:** OpenCode emits the shared `plugin.*` schema for prompt, bash-error, pre-compact, and session-stop events.
+- **Auto-dream:** Gated memory consolidation can merge duplicates, drop stale/sensitive entries, and rewrite vague memories.
+- **Expanded telemetry:** OpenCode emits the shared `plugin.*` schema, including prompt, bash-error, pre-compact, session-stop, dream-triggered, and dream-completed events.
 
 **Fixes:**
 - **Project ID detection:** Git remote parsing now handles HTTPS, SSH, and custom SSH host aliases before falling back to the repo root.
+- **Auto-dream visibility:** `/mem0-status` shows which dream gate is blocking consolidation.
 - **Delete-all safety:** User-wide deletes require explicit `scope="global"`, regardless of the default scope.
 
 </Update>
@@ -2546,6 +2558,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="OpenClaw">
 
+<Update label="2026-09-03" description="openclaw-mem0 v1.1.0">
+
+**Breaking changes:**
+- Removed the obsolete Dream consolidation and pin APIs, skills, configuration, and runtime paths.
+
+**Improvements:**
+- Reuses the shared TypeScript lifecycle, identity, project-scoping, formatting, and telemetry implementation while retaining OpenClaw's native memory backend and CLI.
+
+</Update>
+
 <Update label="2026-08-24" description="openclaw-mem0 v1.0.16">
 
 **Security:**
@@ -2600,10 +2622,10 @@ Existing memories written by the previous versions are not rewritten. If your me
 <Update label="2026-04-29" description="openclaw-mem0 v1.0.11">
 
 **New Features:**
-- **Skills-mode auto-setup:** Onboarding enables triage, recall, and the full tool profile automatically.
+- **Skills-mode auto-setup:** Onboarding enables triage, recall, dream consolidation, and full tool profile automatically.
 - **Memory runtime capability:** Exposes `runtime.getMemorySearchManager()` and `resolveMemoryBackendConfig()`.
 - **Dimension-aware collections:** OSS wizard creates a new collection when embedder dimensions change.
-- **Tool docs in skills:** Memory triage and recall skills now include full tool reference sections.
+- **Tool docs in skills:** Memory triage and dream skills now include full tool reference sections.
 
 **Improvements:**
 - Auto-capture and auto-recall default to enabled.
@@ -2723,6 +2745,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 - **License:** Added Apache-2.0 license file.
 
 **Fixes:**
+- **Dream gate:** Fixed cheap-first ordering, session isolation, and completion verification.
 - **Graceful startup:** Plugin starts cleanly when no API key is configured.
 
 </Update>
@@ -2730,7 +2753,8 @@ Existing memories written by the previous versions are not rewritten. If your me
 <Update label="2026-04-01" description="openclaw-mem0 v1.0.0">
 
 **New Features:**
-- **Skills-based memory architecture:** Added the skill loader, memory triage skill, batched extraction, and skill-aware recall.
+- **Skills-based memory architecture:** Added the skill loader, memory triage skill, memory dream skill, batched extraction, and skill-aware recall.
+- **Dream gate:** Added idle-period memory consolidation.
 - **Enhanced recall:** Added `recall.ts` with improved retrieval and injection logic.
 - **Plugin manifest:** Added `openclaw.plugin.json` and setup helper scripts.
 
@@ -2814,7 +2838,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
-<Update label="2026-09-03" description="Pi Agent plugin v0.2.0">
+<Update label="2026-09-03" description="Pi Agent plugin v0.3.0">
 
 **Breaking changes:**
 - **Focused memory surface:** Removed the obsolete Dream consolidation and pin commands, skills, configuration, exports, and runtime code. Pi Agent now exposes the same six maintained memory workflows documented across the plugin family.
@@ -2858,6 +2882,7 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 **Improvements:**
 - **Richer command output:** Commands show scope, query, match counts, and affected memories.
+- **Cleaner dream flow:** `/mem0-dream` keeps the consolidation protocol hidden behind a concise status line.
 - **Configurable relevance floor:** `searchThreshold` defaults to `0.3` in `mem0-config.json` and is shown in `/mem0-status`.
 
 </Update>
@@ -2874,13 +2899,14 @@ Existing memories written by the previous versions are not rewritten. If your me
 **Initial Release:**
 - **Extension entry point:** Registers the `mem0_memory` tool, 8 slash commands, and auto-capture hooks.
 - **Agent tool:** Supports search, add, get-all, delete, and delete-all with scoped filters.
-- **Slash commands:** Adds `/mem0-remember`, `/mem0-forget`, `/mem0-search`, `/mem0-tour`, `/mem0-scope`, and `/mem0-status`.
+- **Slash commands:** Adds `/mem0-remember`, `/mem0-forget`, `/mem0-search`, `/mem0-tour`, `/mem0-dream`, `/mem0-pin`, `/mem0-scope`, and `/mem0-status`.
 - **Auto-capture:** Extracts and stores memories from user and assistant messages on `agent_end`.
+- **Dream consolidation:** Merges duplicates, resolves contradictions, and prunes stale entries behind session, time, and memory-count gates.
 - **System prompt injection:** Appends `MEMORY_POLICY` before every agent turn.
 - **Project scoping:** Uses `git rev-parse --show-toplevel` for stable `app_id` values across monorepos.
 - **Scopes and categories:** Supports project, session, and global scopes plus 10 default memory categories.
-- **Agent skills:** Bundles `context-loader`, `remember`, `search`, `forget`, `tour`, and `status` skills.
-- **Safety:** Confirmation dialogs protect destructive commands, full memory UUIDs stay visible, outputs are truncated, and all tool actions respect `AbortSignal`.
+- **Agent skills:** Bundles `context-loader`, `remember`, `search`, `forget`, `dream`, `tour`, `pin`, and `status` skills.
+- **Safety:** Confirmation dialogs protect destructive commands, pins preserve memory IDs, full memory UUIDs stay visible, outputs are truncated, all tool actions respect `AbortSignal`, and shutdown releases dream locks.
 - **Telemetry:** Batched PostHog telemetry uses PII-safe error payloads.
 
 </Update>
@@ -2917,6 +2943,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="DeepSeek Harness">
+
+<Update label="2026-09-03" description="deepseek-plugin v0.3.0">
+
+**New features:**
+- Recalls relevant memory during system-prompt assembly and captures completed turns from the durable Harness session stream.
+
+**Improvements:**
+- Reuses the shared TypeScript lifecycle, identity, project-scoping, formatting, and telemetry implementation while retaining the native Cordis plugin API.
+
+</Update>
 
 <Update label="2026-08-25" description="deepseek-plugin v0.1.1">
 

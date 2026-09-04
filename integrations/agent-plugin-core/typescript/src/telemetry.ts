@@ -5,8 +5,12 @@ const POSTHOG_BATCH_URL = "https://us.i.posthog.com/batch/";
 const OFF_VALUES = new Set(["false", "0", "no", "off"]);
 const PRIVATE_KEYS = new Set([
   "apikey",
+  "authorization",
+  "password",
   "query",
+  "secret",
   "prompt",
+  "token",
   "text",
   "memory",
   "message",
