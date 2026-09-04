@@ -46,4 +46,68 @@ describe("scoreAndRank", () => {
     expect(details.maxPossibleScore).toBe(1.0);
     expect(details.finalScore).toBe(0.8);
   });
+
+  it("admits an absent semantic score only with an active entity signal", () => {
+    const scored = scoreAndRank(
+      [
+        {
+          id: "entity",
+          score: undefined,
+          payload: { data: "entity memory" },
+          isEntityRescue: true,
+        },
+      ],
+      {},
+      { entity: 0.3 },
+      0.1,
+      10,
+    );
+
+    expect(scored).toHaveLength(1);
+    expect(scored[0].id).toBe("entity");
+    expect(scored[0].score).toBeCloseTo(0.2);
+  });
+
+  it("rejects an absent semantic score without an active entity signal", () => {
+    const scored = scoreAndRank(
+      [{ id: "unscored", score: undefined, payload: { data: "memory" } }],
+      {},
+      {},
+      0.1,
+      10,
+    );
+
+    expect(scored).toHaveLength(0);
+  });
+
+  it("preserves an ordinary unscored candidate at zero threshold", () => {
+    const scored = scoreAndRank(
+      [{ id: "ordinary", score: undefined, payload: { data: "memory" } }],
+      {},
+      {},
+      0,
+      10,
+    );
+
+    expect(scored.map((item) => item.id)).toEqual(["ordinary"]);
+  });
+
+  it("does not rescue a numeric below-threshold semantic score with entity boost", () => {
+    const scored = scoreAndRank(
+      [
+        {
+          id: "weak",
+          score: 0.05,
+          payload: { data: "weak semantic" },
+          isEntityRescue: true,
+        },
+      ],
+      {},
+      { weak: 0.5 },
+      0.1,
+      10,
+    );
+
+    expect(scored).toHaveLength(0);
+  });
 });

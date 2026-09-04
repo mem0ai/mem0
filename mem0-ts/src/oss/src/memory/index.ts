@@ -80,6 +80,42 @@ import { logger } from "../utils/logger";
 import { normalizeExpirationDate, payloadIsExpired } from "../utils/expiration";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
+function matchesSimpleRescueFilters(
+  payload: Record<string, any>,
+  filters: Record<string, any>,
+): boolean {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !filters ||
+    typeof filters !== "object"
+  ) {
+    return false;
+  }
+
+  return Object.entries(filters).every(([key, expected]) => {
+    if (
+      key === "$or" ||
+      key === "$and" ||
+      key === "$not" ||
+      key === "OR" ||
+      key === "AND" ||
+      key === "NOT"
+    )
+      return false;
+    if (
+      expected === "*" ||
+      Array.isArray(expected) ||
+      (expected !== null && typeof expected === "object")
+    )
+      return false;
+    return (
+      Object.prototype.hasOwnProperty.call(payload, key) &&
+      payload[key] === expected
+    );
+  });
+}
+
 export class LLMError extends Error {
   readonly cause?: unknown;
 
@@ -1548,13 +1584,69 @@ export class Memory {
     }
 
     // Step 7: Build candidate set from semantic results
-    const candidates = semanticResults
-      .filter((mem) => showExpired || !payloadIsExpired(mem.payload))
-      .map((mem) => ({
-        id: String(mem.id),
-        score: mem.score ?? 0,
+    const candidates: Array<{
+      id: string;
+      score?: number;
+      payload: Record<string, any>;
+      isEntityRescue?: boolean;
+    }> = [];
+    const candidateIds = new Set<string>();
+    for (const mem of semanticResults) {
+      const id = String(mem.id);
+      if (
+        candidateIds.has(id) ||
+        (!showExpired && payloadIsExpired(mem.payload))
+      ) {
+        continue;
+      }
+      candidateIds.add(id);
+      candidates.push({
+        id,
+        score: mem.score,
         payload: mem.payload || {},
-      }));
+      });
+    }
+
+    const rescueIds = Object.entries(entityBoosts)
+      .filter(([id, boost]) => boost > 0 && !candidateIds.has(id))
+      .sort(([leftId, leftBoost], [rightId, rightBoost]) => {
+        return rightBoost - leftBoost || leftId.localeCompare(rightId);
+      })
+      .slice(0, Math.min(internalLimit, 60))
+      .map(([id]) => id);
+
+    for (const memoryId of rescueIds) {
+      let fetched;
+      try {
+        fetched = await this.vectorStore.get(memoryId);
+      } catch (error) {
+        console.warn(
+          `Entity-linked point fetch failed for ${memoryId}:`,
+          error,
+        );
+        continue;
+      }
+
+      const payload = fetched?.payload;
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        typeof payload.data !== "string" ||
+        !payload.data ||
+        !matchesSimpleRescueFilters(payload, effectiveFilters) ||
+        (!showExpired && payloadIsExpired(payload))
+      ) {
+        continue;
+      }
+
+      candidates.push({
+        id: memoryId,
+        score: undefined,
+        payload,
+        isEntityRescue: true,
+      });
+      candidateIds.add(memoryId);
+    }
 
     // Step 8: Score and rank
     const scoredResults = scoreAndRank(
