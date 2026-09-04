@@ -204,6 +204,21 @@ def test_update_handles_missing_created_at(valkey_db, mock_valkey_client):
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
 
 
+def test_update_ignores_none_updated_at(valkey_db, mock_valkey_client):
+    """A missing Valkey timestamp should not fail a metadata update."""
+    payload = {
+        "hash": "test_hash",
+        "data": "updated_data",
+        "created_at": datetime.now(pytz.timezone("UTC")).isoformat(),
+        "updated_at": None,
+    }
+
+    valkey_db.update(vector_id="test_id", vector=None, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    assert "updated_at" not in mock_valkey_client.hset.call_args.kwargs["mapping"]
+
+
 def test_update_with_none_vector_preserves_embedding(valkey_db, mock_valkey_client):
     """Test that update with vector=None does not corrupt the stored embedding.
 
