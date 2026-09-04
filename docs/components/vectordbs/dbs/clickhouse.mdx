@@ -1,0 +1,59 @@
+---
+title: ClickHouse
+---
+
+<Snippet file="paper-release.mdx" />
+[ClickHouse](https://clickhouse.com/) is an open-source, column-oriented database designed for fast analytical queries, with built-in support for vector similarity search. It's a good fit if you're already running ClickHouse for other data and want to store memories alongside it, rather than standing up a separate vector database.
+
+## Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "clickhouse",
+        "config": {
+            "collection_name": "test",
+            "embedding_model_dims": 1536,
+            "host": "localhost",
+            "port": 8123,
+            "username": "default",
+            "password": "",
+            "database": "default",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+m.add("Likes to play cricket on weekends", user_id="alice", metadata={"category": "hobbies"})
+```
+
+## Config
+
+Here are the parameters available for configuring ClickHouse:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection (ClickHouse table) | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `host` | The host address for the ClickHouse server | `localhost` |
+| `port` | The port for the ClickHouse server (HTTP interface) | `8123` |
+| `username` | Username for authentication | `default` |
+| `password` | Password for authentication | `""` |
+| `database` | Database name | `default` |
+
+## Running ClickHouse locally
+
+The quickest way to try this out is via Docker:
+
+```bash
+docker run -d -p 8123:8123 -p 9000:9000 -e CLICKHOUSE_PASSWORD=<your-password> clickhouse/clickhouse-server
+```
+
+<Note type="info">
+  ClickHouse deletes are processed asynchronously as background mutations. A delete may take a brief moment to be reflected in subsequent reads.
+</Note>
