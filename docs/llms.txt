@@ -465,7 +465,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Ollama](https://docs.mem0.ai/components/llms/models/ollama) [OSS]: Use when the LLM is a local Ollama model.
 - [LM Studio](https://docs.mem0.ai/components/llms/models/lmstudio) [OSS]: Use when the LLM is served from LM Studio.
 - [LiteLLM](https://docs.mem0.ai/components/llms/models/litellm) [OSS]: Use when multiplexing many providers behind LiteLLM.
-- [vLLM](https://docs.mem0.ai/components/llms/models/vllm) [OSS]: Use when self-hosting inference with vLLM.
+- [vLLM](https://docs.mem0.ai/components/llms/models/vllm) [OSS]: Use when self-hosting inference with vLLM or enabling LMCache-backed KV reuse.
 - [LangChain LLM](https://docs.mem0.ai/components/llms/models/langchain) [OSS]: Use when the LLM is wrapped behind a LangChain adapter.
 
 ### Embedding Providers [OSS]
