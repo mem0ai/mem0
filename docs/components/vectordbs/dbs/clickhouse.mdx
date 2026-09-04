@@ -1,0 +1,76 @@
+---
+title: ClickHouse
+---
+
+ClickHouse is an open-source, column-oriented database management system that allows generating analytical data reports in real-time. Mem0 supports ClickHouse as a vector store for fast and efficient vector search operations.
+
+## Setup
+
+First, install the required dependencies:
+
+<CodeGroup>
+```bash Python
+pip install clickhouse-connect
+```
+```bash TypeScript
+npm install @clickhouse/client
+```
+</CodeGroup>
+
+## Usage
+
+You can use ClickHouse as a vector store with Mem0 in both Python and TypeScript. Here's how to configure and use it:
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "clickhouse",
+        "config": {
+            "collection_name": "mem0",
+            "host": "localhost",
+            "port": 8123,
+            "username": "default",
+            "password": "",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+# Add a memory
+m.add("I'm working on improving my tennis serve.", user_id="user_123")
+
+# Search for memories
+results = m.search("What is my focus in tennis?", user_id="user_123")
+print(results)
+```
+```typescript TypeScript
+import { Memory } from "mem0ai";
+
+const config = {
+  vectorStore: {
+    provider: "clickhouse",
+    config: {
+      collectionName: "mem0",
+      host: "localhost",
+      port: 8123,
+      username: "default",
+      password: "",
+      protocol: "http",
+    }
+  }
+};
+
+const memory = new Memory(config);
+
+// Add a memory
+await memory.add("I'm working on improving my tennis serve.", { user_id: "user_123" });
+
+// Search for memories
+const results = await memory.search("What is my focus in tennis?", { user_id: "user_123" });
+console.log(results);
+```
+</CodeGroup>
