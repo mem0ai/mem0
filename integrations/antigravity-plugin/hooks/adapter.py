@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -46,8 +47,9 @@ def normalize(payload: dict) -> dict:
     value = dict(payload)
     value.setdefault("session_id", value.get("conversationId", ""))
     workspaces = value.get("workspacePaths") or []
-    if workspaces:
-        value.setdefault("cwd", workspaces[0])
+    cwd = workspaces[0] if workspaces else os.environ.get("MEM0_CWD", "").strip()
+    if cwd:
+        value.setdefault("cwd", cwd)
     value.setdefault("transcript_path", value.get("transcriptPath", ""))
     prompt, assistant = _transcript_messages(value["transcript_path"])
     if prompt:
@@ -88,6 +90,12 @@ def main() -> int:
     except (json.JSONDecodeError, OSError):
         raw = {}
     payload = normalize(raw if isinstance(raw, dict) else {})
+    if not payload.get("cwd"):
+        output = {"injectSteps": []} if event == "PreInvocation" else {}
+        if event == "Stop":
+            output = {"decision": "allow"}
+        print(json.dumps(output))
+        return 0
     configure_harness("antigravity", data_dir_name="antigravity-plugin", source_tag="antigravity_plugin")
     telemetry.init(harness="antigravity", source_tag="ANTIGRAVITY_PLUGIN")
     if event == "PreInvocation":

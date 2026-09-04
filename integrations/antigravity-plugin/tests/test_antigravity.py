@@ -63,6 +63,28 @@ def test_normalizes_antigravity_camel_case_payload(tmp_path: Path) -> None:
     assert value["tool_response"] == "failed"
 
 
+def test_uses_explicit_cwd_when_antigravity_omits_workspaces(monkeypatch) -> None:
+    monkeypatch.setenv("MEM0_CWD", "/repo")
+
+    value = adapter.normalize({"workspacePaths": []})
+
+    assert value["cwd"] == "/repo"
+
+
+def test_skips_capture_when_workspace_is_unknown(monkeypatch, capsys) -> None:
+    monkeypatch.delenv("MEM0_CWD", raising=False)
+
+    def run_shared(*_):
+        raise AssertionError("shared runtime should not run")
+
+    monkeypatch.setattr(adapter, "_run_shared", run_shared)
+    monkeypatch.setattr(sys, "argv", ["adapter.py", "PostToolUse"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"workspacePaths": []}'))
+
+    assert adapter.main() == 0
+    assert json.loads(capsys.readouterr().out) == {}
+
+
 def test_pre_invocation_translates_shared_recall_to_ephemeral_message(monkeypatch, capsys) -> None:
     calls = []
 
@@ -76,7 +98,7 @@ def test_pre_invocation_translates_shared_recall_to_ephemeral_message(monkeypatc
 
     monkeypatch.setattr(adapter, "_run_shared", run_shared)
     monkeypatch.setattr(sys, "argv", ["adapter.py", "PreInvocation"])
-    monkeypatch.setattr(sys, "stdin", io.StringIO('{"invocationNum": 0}'))
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"invocationNum": 0, "workspacePaths": ["/repo"]}'))
 
     assert adapter.main() == 0
     assert calls == [["session-start"], ["user-prompt"]]
