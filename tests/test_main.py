@@ -561,3 +561,14 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+    def test_search_rejects_nan_threshold(self, memory_instance):
+        """Search should reject a NaN threshold before doing any retrieval work."""
+        memory_instance.embedding_model.embed = Mock()
+        memory_instance.vector_store.search = Mock()
+
+        with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
+            memory_instance.search("test query", filters={"user_id": "test"}, threshold=float("nan"))
+
+        memory_instance.embedding_model.embed.assert_not_called()
+        memory_instance.vector_store.search.assert_not_called()
