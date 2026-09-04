@@ -87,33 +87,25 @@ function scalePayload(overrides: Record<string, any> = {}) {
 
 function createFetchMock(options: {
   variant?: string;
-  payload?: unknown;
-  failFlags?: boolean;
-  flagEnabled?: boolean;
+  payload?: Record<string, any>;
+  failConfig?: boolean;
 }) {
   const calls: any[] = [];
+  const variantSplit = options.variant === "holdout" ? 0.0 : 1.0;
+  const payload = options.payload ?? scalePayload();
   const fetchMock = jest.fn(async (url: string | URL, init?: RequestInit) => {
     const target = String(url);
 
-    if (target.includes("/flags")) {
-      if (options.failFlags) {
-        throw new Error("flag evaluation failed");
+    if (target.includes("raw.githubusercontent.com")) {
+      if (options.failConfig) {
+        throw new Error("config fetch failed");
       }
-      const payload =
-        options.payload === undefined
-          ? JSON.stringify(scalePayload())
-          : options.payload;
       return {
         ok: true,
         json: jest.fn().mockResolvedValue({
-          flags: {
-            "mem0-oss-notices": {
-              key: "mem0-oss-notices",
-              enabled: options.flagEnabled ?? true,
-              variant: options.variant ?? "displayed",
-              metadata: { payload },
-            },
-          },
+          version: 1,
+          variant_split: variantSplit,
+          ...payload,
         }),
       };
     }
@@ -146,9 +138,10 @@ function scaleEvents(calls: any[]) {
   );
 }
 
-function flagRequestCount(fetchMock: jest.Mock) {
-  return fetchMock.mock.calls.filter(([url]) => String(url).includes("/flags"))
-    .length;
+function configRequestCount(fetchMock: jest.Mock) {
+  return fetchMock.mock.calls.filter(([url]) =>
+    String(url).includes("raw.githubusercontent.com"),
+  ).length;
 }
 
 async function createMemory() {
@@ -290,14 +283,14 @@ describe("Node OSS scale threshold notice", () => {
       topK: 49,
     });
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(scaleEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state?.scale_threshold).toBeUndefined();
   });
 
-  it("marks memory-count threshold evaluated before PostHog display", async () => {
+  it("marks memory-count threshold evaluated even when config fetch fails", async () => {
     consumeFirstRun();
-    const { fetchMock, calls } = createFetchMock({ failFlags: true });
+    const { fetchMock, calls } = createFetchMock({ failConfig: true });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
     (memory as any).vectorStore.count = jest
@@ -314,7 +307,14 @@ describe("Node OSS scale threshold notice", () => {
       readConfig().notice_state.scale_threshold
         .memory_count_threshold_evaluated,
     ).toBe(true);
-    expect(scaleEvents(calls)).toHaveLength(0);
+    const notices = scaleEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "scale_threshold",
+        displayed: false,
+      }),
+    );
   });
 
   it("does not count provider memories once threshold was evaluated", async () => {
@@ -332,7 +332,7 @@ describe("Node OSS scale threshold notice", () => {
     });
 
     expect((memory as any).vectorStore.count).not.toHaveBeenCalled();
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
   });
 
   it("throttles under-threshold provider counts", async () => {
@@ -354,14 +354,14 @@ describe("Node OSS scale threshold notice", () => {
     });
 
     expect((memory as any).vectorStore.count).toHaveBeenCalledTimes(1);
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
   });
 
   it("records holdout and disabled variants silently", async () => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({
       variant: "holdout",
-      payload: JSON.stringify(scalePayload({ enabled: false })),
+      payload: scalePayload({ enabled: false }),
     });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
@@ -389,7 +389,7 @@ describe("Node OSS scale threshold notice", () => {
     delete (payload.notices.scale_threshold as Record<string, any>).enabled;
     const { fetchMock, calls } = createFetchMock({
       variant: "displayed",
-      payload: JSON.stringify(payload),
+      payload,
     });
     global.fetch = fetchMock as any;
     const memory = await createMemory();
@@ -425,7 +425,7 @@ describe("Node OSS scale threshold notice", () => {
     }
 
     expect(scaleEvents(calls)).toHaveLength(10);
-    expect(flagRequestCount(fetchMock)).toBe(10);
+    expect(configRequestCount(fetchMock)).toBeLessThanOrEqual(1);
     expect(stderrSpy).toHaveBeenCalledTimes(10);
     expect(readConfig().notice_state.scale_threshold.events).toHaveLength(10);
   });
@@ -456,7 +456,7 @@ describe("Node OSS scale threshold notice", () => {
       topK: 50,
     });
 
-    expect(flagRequestCount(fetchMock)).toBe(0);
+    expect(configRequestCount(fetchMock)).toBe(0);
     expect(scaleEvents(calls)).toHaveLength(0);
     expect(readConfig().notice_state).toBeUndefined();
   });
