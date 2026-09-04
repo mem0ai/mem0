@@ -2060,6 +2060,28 @@ A full-featured command-line interface for Mem0, available in both Python and No
 <Tabs>
 <Tab title="Mem0 Plugin">
 
+<Update label="2026-09-03" description="mem0-plugin v0.3.0">
+
+**New Features:**
+- **Unified plugin core:** Claude Code, Cursor, Codex, Kimi Code, and Antigravity now build self-contained native and Agent Plugins specification bundles from one Python memory runtime and one set of six skills ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
+- **TypeScript lifecycle:** OpenClaw, OpenCode, Pi Agent, and DeepSeek Harness now reuse shared lifecycle safety, formatting, identity, project scoping, and telemetry utilities while keeping their existing packages and native host APIs ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
+- **DeepSeek automatic memory:** The Harness plugin recalls relevant context during system-prompt assembly and captures completed turns from the durable session event stream ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
+- **Kimi Code guide:** Added installation, verification, lifecycle, and troubleshooting documentation for the native Kimi plugin.
+
+**Improvements:**
+- **Host adapters:** Native event differences now live in small adapters. Memory policy, redaction, bounds, failure isolation, and telemetry stay in the shared cores.
+- **Generated bundles:** Native and portable Python artifacts contain no symlinks and are validated against their manifests during CI.
+- **Claude Code compatibility:** The existing capture, recall, scope, and `mem0:sidekick` worktree behavior are preserved. Public plugin names and memory namespaces are unchanged.
+
+**Removed:**
+- Removed obsolete plugin-side consolidation commands, skills, configuration, and runtime paths from OpenClaw, OpenCode, and Pi Agent.
+
+<Note>
+  Claude Code stays at `0.3.0`. Cursor, Codex, Kimi Code, Antigravity, the portable bundle, OpenCode, Pi Agent, and DeepSeek Harness are aligned at `0.3.0`. OpenClaw moves to `1.1.0` because Dream and pin APIs were intentionally removed.
+</Note>
+
+</Update>
+
 <Update label="2026-08-24" description="mem0-plugin v0.2.15">
 
 **Fixes:**
@@ -2348,6 +2370,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="OpenCode">
 
+<Update label="2026-09-03" description="OpenCode plugin v0.3.0">
+
+**Breaking changes:**
+- Removed the obsolete Dream consolidation and pin commands, skills, configuration, and runtime paths.
+
+**Improvements:**
+- Reuses the shared TypeScript lifecycle, scoping, formatting, and telemetry implementation while retaining OpenCode's native plugin API.
+
+</Update>
+
 <Update label="2026-07-22" description="OpenCode plugin v0.2.2">
 
 **Fixes:**
@@ -2428,6 +2460,16 @@ Initial release of the Mem0 plugin for Claude Code and Cursor, followed by Codex
 
 <Tab title="Antigravity">
 
+<Update label="2026-09-03" description="Antigravity plugin v0.3.0">
+
+**Changed:**
+- **Claude Code architecture:** Antigravity now ships as a generated, self-contained bundle built from the same Python capture, recall, scoping, MCP, skill, and telemetry sources as Claude Code ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
+- **Native lifecycle:** A thin adapter maps Antigravity's supported `PreInvocation`, `PostToolUse`, and `Stop` events into capture and session handling. Recall remains explicit because `PreInvocation` does not include the user's prompt.
+- **Focused interface:** The plugin exposes the local `search_memories` tool and six memory skills: search, status, remember, forget, pause, and resume.
+- **Compatibility:** The public plugin name and existing memory namespace remain unchanged.
+
+</Update>
+
 <Update label="2026-08-24" description="Antigravity plugin v0.1.7">
 
 **Fixes:**
@@ -2504,6 +2546,17 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Kimi">
 
+<Update label="2026-09-03" description="Kimi plugin v0.3.0">
+
+**Changed:**
+- **Claude Code architecture:** Kimi Code now ships as a generated, self-contained bundle built from the shared Python memory runtime and six canonical memory skills ([#7203](https://github.com/mem0ai/mem0/pull/7203)).
+- **Native lifecycle:** The adapter maps Kimi's session, prompt, tool, compaction, shutdown, and subagent events into shared capture and recall behavior.
+- **Local memory server:** The plugin uses the bundled `search_memories` server instead of the previous remote MCP-only configuration.
+- **Sidekick behavior:** Kimi's sidekick receives parent context through Kimi's native subagent lifecycle without claiming Claude Code worktree isolation.
+- **Compatibility:** The public plugin name and existing memory namespace remain unchanged.
+
+</Update>
+
 <Update label="2026-08-24" description="kimi-plugin v0.1.0">
 
 **Initial release** of the Mem0 plugin for Kimi Code, sharing its scripts, skills, and marketplace listing with the Claude Code / Cursor / Codex / Antigravity plugin family ([#6919](https://github.com/mem0ai/mem0/pull/6919))
@@ -2519,6 +2572,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="OpenClaw">
+
+<Update label="2026-09-03" description="openclaw-mem0 v1.1.0">
+
+**Breaking changes:**
+- Removed the obsolete Dream consolidation and pin APIs, skills, configuration, and runtime paths.
+
+**Improvements:**
+- Reuses the shared TypeScript lifecycle, identity, project-scoping, formatting, and telemetry implementation while retaining OpenClaw's native memory backend and CLI.
+
+</Update>
 
 <Update label="2026-08-24" description="openclaw-mem0 v1.0.16">
 
@@ -2790,6 +2853,17 @@ Existing memories written by the previous versions are not rewritten. If your me
 
 <Tab title="Pi Agent">
 
+<Update label="2026-09-03" description="Pi Agent plugin v0.3.0">
+
+**Breaking changes:**
+- **Focused memory surface:** Removed the obsolete Dream consolidation and pin commands, skills, configuration, exports, and runtime code. Pi Agent now exposes the same six maintained memory workflows documented across the plugin family.
+
+**Improvements:**
+- **Shared runtime behavior:** Reuses the common TypeScript lifecycle, formatting, identity, project-scoping, and telemetry utilities while keeping Pi's native extension API and package name.
+- **Publishable entry point:** Loads the built `dist/entry.js` artifact so registry installs do not execute TypeScript source directly.
+
+</Update>
+
 <Update label="2026-08-24" description="Pi Agent plugin v0.1.5">
 
 **Security:**
@@ -2884,6 +2958,16 @@ Existing memories written by the previous versions are not rewritten. If your me
 </Tab>
 
 <Tab title="DeepSeek Harness">
+
+<Update label="2026-09-03" description="deepseek-plugin v0.3.0">
+
+**New features:**
+- Recalls relevant memory during system-prompt assembly and captures completed turns from the durable Harness session stream.
+
+**Improvements:**
+- Reuses the shared TypeScript lifecycle, identity, project-scoping, formatting, and telemetry implementation while retaining the native Cordis plugin API.
+
+</Update>
 
 <Update label="2026-08-25" description="deepseek-plugin v0.1.1">
 

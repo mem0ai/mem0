@@ -1,18 +1,15 @@
 /**
  * Public Artifacts Provider for OpenClaw memory-wiki bridge mode.
  *
- * Exposes Mem0 memories and dream state as artifacts that can be
+ * Exposes Mem0 memories as artifacts that can be
  * consumed by other plugins (e.g., memory-wiki in bridge mode).
  */
 
-import type { Mem0Provider, MemoryItem, Mem0Config } from "./types.ts";
+import type { Mem0Provider, MemoryItem } from "./types.ts";
 import type { MemoryArtifact } from "openclaw/plugin-sdk";
-import { getDreamState } from "./dream-gate.ts";
 
 export interface PublicArtifactsContext {
   provider: Mem0Provider;
-  cfg: Mem0Config;
-  stateDir?: string;
   effectiveUserId: (sessionKey?: string) => string;
 }
 
@@ -28,7 +25,7 @@ export function createPublicArtifactsProvider(ctx: PublicArtifactsContext) {
     }): Promise<MemoryArtifact[]> {
       const artifacts: MemoryArtifact[] = [];
       const userId = options?.userId ?? ctx.effectiveUserId();
-      const types = options?.types ?? ["memory", "dream", "entity"];
+      const types = options?.types ?? ["memory", "entity"];
       const limit = options?.limit ?? 100;
 
       try {
@@ -41,14 +38,6 @@ export function createPublicArtifactsProvider(ctx: PublicArtifactsContext) {
 
           for (const mem of memories) {
             artifacts.push(memoryToArtifact(mem));
-          }
-        }
-
-        // Dream state artifact (if dream enabled and stateDir available)
-        if (types.includes("dream") && ctx.stateDir && ctx.cfg.skills?.dream?.enabled) {
-          const dreamArtifact = getDreamArtifact(ctx.stateDir, userId);
-          if (dreamArtifact) {
-            artifacts.push(dreamArtifact);
           }
         }
 
@@ -88,39 +77,6 @@ function memoryToArtifact(mem: MemoryItem): MemoryArtifact {
     createdAt: mem.created_at,
     updatedAt: mem.updated_at,
   };
-}
-
-/**
- * Get dream consolidation state as an artifact.
- */
-function getDreamArtifact(stateDir: string, userId: string): MemoryArtifact | null {
-  try {
-    const state = getDreamState(stateDir);
-    if (state.lastConsolidatedAt === 0) {
-      return null; // No consolidation has occurred yet
-    }
-
-    const lastDate = new Date(state.lastConsolidatedAt).toISOString();
-    return {
-      id: `mem0:dream:${userId}:state`,
-      type: "dream",
-      title: `Dream State (last: ${lastDate.split("T")[0]})`,
-      content: [
-        `Last consolidation: ${lastDate}`,
-        `Sessions since: ${state.sessionsSince}`,
-        `Last session: ${state.lastSessionId ?? "none"}`,
-      ].join("\n"),
-      metadata: {
-        lastConsolidatedAt: state.lastConsolidatedAt,
-        sessionsSince: state.sessionsSince,
-        lastSessionId: state.lastSessionId,
-        user_id: userId,
-      },
-      updatedAt: lastDate,
-    };
-  } catch {
-    return null;
-  }
 }
 
 /**

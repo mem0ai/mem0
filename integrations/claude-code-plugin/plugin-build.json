@@ -1,0 +1,17 @@
+{
+  "id": "mem0",
+  "version": "0.3.0",
+  "homepage": "https://docs.mem0.ai/integrations/claude-code",
+  "native": {
+    "pluginRoot": "${CLAUDE_PLUGIN_ROOT}",
+    "pluginData": "${CLAUDE_PLUGIN_DATA}",
+    "files": {
+      ".claude-plugin/plugin.json": ".claude-plugin/plugin.json",
+      ".mcp.json": ".mcp.json",
+      "hooks/hooks.json": "hooks/hooks.json",
+      "adapters/claude/hook.py": "adapters/claude/hook.py",
+      "adapters/claude/transcript.py": "adapters/claude/transcript.py",
+      "agents/sidekick.md": "agents/sidekick.md"
+    }
+  }
+}

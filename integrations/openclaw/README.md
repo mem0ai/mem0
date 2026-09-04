@@ -4,7 +4,7 @@ Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, po
 
 Your agent forgets everything between sessions. This plugin fixes that — it stores conversations, extracts what matters, and brings it back when relevant.
 
-By default, the plugin runs in **skills mode**: the agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
+By default, the plugin runs in **skills mode**: the agent controls what to remember (triage) and how to recall (recall). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
 ## Requirements
 
@@ -74,7 +74,6 @@ Humans should follow the Quick Start below.
                  "keywordSearch": true,
                  "identityAlwaysInclude": true
                },
-               "dream": { "enabled": true },
                "domain": "companion"
              }
            }
@@ -210,11 +209,10 @@ All `oss` fields are optional. See the [Mem0 OSS docs](https://docs.mem0.ai/open
 
 ### Skills Mode (Default)
 
-Enabled automatically during `openclaw mem0 init`. The agent controls memory through three skills:
+Enabled automatically during `openclaw mem0 init`. The agent controls memory through two skills:
 
 - **Triage** — Extracts durable facts from conversations using a structured protocol. Categories, importance gates, and domain overlays control what gets stored.
 - **Recall** — Before each turn, rewrites the user message into search queries, retrieves relevant memories with reranking, and injects them into context.
-- **Dream** — Periodic memory consolidation: merges duplicates, resolves conflicts, and prunes stale entries.
 
 When skills mode is active, the skills handle memory operations. `autoRecall` and `autoCapture` remain `true` by default alongside skills mode. The built-in `session-memory` hook is disabled to avoid conflicts.
 
@@ -280,10 +278,6 @@ openclaw mem0 config set user_id alice
 openclaw mem0 event list
 openclaw mem0 event status <event_id>
 
-# Memory consolidation
-openclaw mem0 dream
-openclaw mem0 dream --dry-run
-
 # JSON output (any command)
 openclaw mem0 search "preferences" --json
 openclaw mem0 list --json
@@ -316,7 +310,6 @@ Enabled by default during `openclaw mem0 init`. `autoRecall` and `autoCapture` a
 | `skills.recall.rerank` | `boolean` | `true` | Rerank search results for relevance |
 | `skills.recall.keywordSearch` | `boolean` | `true` | Augment with keyword-based search |
 | `skills.recall.identityAlwaysInclude` | `boolean` | `true` | Always include identity memories |
-| `skills.dream.enabled` | `boolean` | `true` | Enable periodic memory consolidation |
 | `skills.domain` | `string` | `"companion"` | Domain overlay for triage rules |
 
 ### Platform Mode
@@ -362,7 +355,7 @@ To avoid plaintext credentials:
 
 ### Memory Processing
 
-In **skills mode** (default after `openclaw mem0 init`), the agent uses structured protocols (triage, recall, dream) to decide what to store and recall. The built-in `session-memory` hook is disabled to avoid conflicts.
+In **skills mode** (default after `openclaw mem0 init`), the agent uses structured triage and recall protocols to decide what to store and recall. The built-in `session-memory` hook is disabled to avoid conflicts.
 
 Without skills, `autoCapture` and `autoRecall` are both enabled by default:
 - `autoCapture`: sends conversation content to your configured backend after each agent turn
@@ -377,7 +370,6 @@ In platform mode, conversation content is sent to `api.mem0.ai` for processing. 
 | `~/.openclaw/openclaw.json` | Plugin configuration (API keys, user ID, settings) |
 | `~/.mem0/vector_store.db` | Local vector store (open-source mode only) |
 | `~/.mem0/history.db` | Memory edit history (open-source mode only) |
-| `<pluginStateDir>/dream-state.json` | Memory consolidation state |
 
 ## License
 

@@ -1,19 +1,20 @@
 ---
 title: Pi Agent
-description: "Add persistent memory to Pi Agent with the Mem0 plugin semantic search, auto-capture, and dream consolidation."
+description: "Add persistent memory to Pi Agent with the Mem0 plugin, semantic search, and automatic capture."
 ---
 
 Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions. This plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
+
+<Info>Current package version: `0.3.0`.</Info>
 
 ## Overview
 
 The plugin provides:
 1. **Auto-capture**: Extracts durable facts from both user and assistant messages automatically
 2. **Semantic recall**: Retrieves relevant memories via the `mem0_memory` tool before each response
-3. **Dream consolidation**: Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
-4. **Monorepo-aware scoping**: Uses git root for project detection, consistent across subdirectories
-5. **Confirmation dialogs**: Destructive commands ask before acting via Pi's built-in UI
-6. **8 skills + 8 commands**: Essential memory management from slash commands and agent-guided workflows
+3. **Monorepo-aware scoping**: Uses git root for project detection, consistent across subdirectories
+4. **Confirmation dialogs**: Destructive commands ask before acting via Pi's built-in UI
+5. **6 skills + 6 commands**: Essential memory management from slash commands and agent-guided workflows
 
 ## Prerequisites
 
@@ -59,14 +60,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
   "userId": "your-username",
   "autoCapture": true,
   "defaultScope": "project",
-  "searchThreshold": 0.3,
-  "dream": {
-    "enabled": true,
-    "auto": true,
-    "minHours": 24,
-    "minSessions": 5,
-    "minMemories": 20
-  }
+  "searchThreshold": 0.3
 }
 ```
 
@@ -76,12 +70,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | `userId` | `string` | `$MEM0_USER_ID` or `"default"` | User identity for memory scoping |
 | `autoCapture` | `boolean` | `true` | Store facts from conversations automatically |
 | `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, or `global` |
-| `searchThreshold` | `number` | `0.3` | Minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search`, `/mem0-forget`, and `/mem0-pin`, enforced on each result's relevance score. Raise it to be stricter; lower it if relevant results are missed. |
-| `dream.enabled` | `boolean` | `true` | Enable dream consolidation |
-| `dream.auto` | `boolean` | `true` | Auto-trigger dreams when thresholds are met |
-| `dream.minHours` | `number` | `24` | Minimum hours between auto-dreams |
-| `dream.minSessions` | `number` | `5` | Minimum sessions before first auto-dream |
-| `dream.minMemories` | `number` | `20` | Minimum memories before auto-dream triggers |
+| `searchThreshold` | `number` | `0.3` | Minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`, enforced on each result's relevance score. Raise it to be stricter; lower it if relevant results are missed. |
 
 
 ## What's Included
@@ -89,11 +78,10 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | Component | Description |
 |-----------|-------------|
 | `mem0_memory` tool | Agent-callable tool for search, add, get_all, delete, delete_all |
-| 8 slash commands | Essential memory management from the command line |
-| 8 skills | Guide the agent on how to use each capability |
+| 6 slash commands | Essential memory management from the command line |
+| 6 skills | Guide the agent on how to use each capability |
 | Auto-capture | Extracts and stores facts on every `agent_end` event |
 | System prompt | Appends memory policy to every agent turn |
-| Dream consolidation | Automated memory maintenance with session/time/count gates |
 
 ## Agent Tool
 
@@ -119,8 +107,6 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-forget <query>` | Search and delete memories (with confirmation dialog) |
 | `/mem0-search <query>` | Semantic search across memories |
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
-| `/mem0-dream` | Consolidate: merge duplicates, prune stale, resolve contradictions |
-| `/mem0-pin <query>` | Pin a memory to protect from dream pruning (preserves memory ID) |
 | `/mem0-scope <scope>` | Change default scope for this session (project, session, global) |
 | `/mem0-status` | Connection health, identity, and memory count |
 
@@ -136,23 +122,12 @@ Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
 
 The `app_id` is auto-detected from the git repository root (`git rev-parse --show-toplevel`), so all subdirectories within a monorepo share the same memory pool. Falls back to the working directory name for non-git directories. The `run_id` is derived from Pi's session file path.
 
-## Dream Consolidation
-
-### Confirmation Dialogs
+## Confirmation Dialogs
 
 Destructive and mutating commands use Pi's built-in `ctx.ui.confirm()` dialog before acting:
 
 - `/mem0-forget` asks "Delete this memory?" before deleting a single match
-- `/mem0-pin` asks "Pin this memory?" before modifying it
-- Cancelling either operation is always safe. No changes are made
-
-### Pin
-
-`/mem0-pin` uses Mem0's `update()` API to prepend `[PINNED]` to the memory text. This preserves the original memory ID. There is no add+delete cycle that would lose history or change the UUID.
-
-### Dream Consolidation
-
-The plugin includes automated memory maintenance ("dream") that merges duplicates, resolves contradictions, and prunes stale entries. When enabled, dreams auto-trigger after enough sessions, time, and memories accumulate (configurable via `dream.*` settings). Run `/mem0-dream` to trigger consolidation manually at any time. Pinned memories (via `/mem0-pin`) are protected from pruning.
+- Cancelling the operation is always safe. No changes are made.
 
 ## Example Workflow
 
@@ -172,7 +147,6 @@ You: What do you know about my preferences?
 - **Extension not loading**: Check Pi startup output for errors. Run `pi -e ./src/entry.ts` from the plugin directory for verbose output
 - **Memories not capturing**: Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
 - **Wrong project detected**: The plugin uses the git repository root as `app_id`. If not in a git repo, it falls back to the working directory name. Run `/mem0-status` to see the detected project
-- **Dream not triggering**: All three gates must pass (time, sessions, memories). Use `/mem0-dream` to force it manually
 
 <CardGroup cols={2}>
   <Card title="Claude Code Integration" icon="/images/provider-icons/anthropic.svg" href="/integrations/claude-code">

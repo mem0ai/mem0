@@ -34,10 +34,11 @@ To remove:
 claude plugin uninstall mem0@mem0-plugins
 ```
 
-For local development, load the current checkout directly:
+For local development, verify and load the self-contained plugin directory:
 
 ```bash
-claude --plugin-dir .
+python3 integrations/agent-plugin-core/build/build.py claude-code --kind native --check
+claude --plugin-dir integrations/claude-code-plugin
 ```
 
 ## How it works
@@ -181,10 +182,10 @@ Breaking update. Memories carry over, most local config does not.
 
 ## Development checks
 
-Run from `integrations/claude-code-plugin/`:
+Run from the repository root:
 
 ```bash
-python3 -m pytest tests -q
-python3 -m ruff check .
-claude plugin validate --strict .
+python3 -m pytest integrations/claude-code-plugin/tests -q --ignore=integrations/claude-code-plugin/tests/integration
+python3 -m ruff check integrations/agent-plugin-core/python integrations/claude-code-plugin
+claude plugin validate --strict integrations/claude-code-plugin
 ```

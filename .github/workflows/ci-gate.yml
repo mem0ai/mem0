@@ -38,8 +38,8 @@ jobs:
       cli_python: ${{ steps.filter.outputs.cli_python }}
       cli_node: ${{ steps.filter.outputs.cli_node }}
       openclaw: ${{ steps.filter.outputs.openclaw }}
-      mem0_plugin: ${{ steps.filter.outputs.mem0_plugin }}
-      claude_code_plugin: ${{ steps.filter.outputs.claude_code_plugin }}
+      agent_plugins_python: ${{ steps.filter.outputs.agent_plugins_python }}
+      agent_plugins_typescript: ${{ steps.filter.outputs.agent_plugins_typescript }}
       opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
       pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
       deepseek_plugin: ${{ steps.filter.outputs.deepseek_plugin }}
@@ -76,27 +76,43 @@ jobs:
               - '.github/workflows/ci-gate.yml'
             openclaw:
               - 'integrations/openclaw/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/openclaw-checks.yml'
               - '.github/workflows/ci-gate.yml'
-            mem0_plugin:
-              - 'integrations/mem0-plugin/**'
-              - '!integrations/mem0-plugin/.opencode-plugin/**'
-              - '.github/workflows/mem0-plugin-checks.yml'
-              - '.github/workflows/ci-gate.yml'
-            claude_code_plugin:
+            agent_plugins_python:
+              - 'integrations/agent-plugin-core/**'
+              - '!integrations/agent-plugin-core/typescript/**'
+              - 'integrations/mem0-agent-plugin/**'
               - 'integrations/claude-code-plugin/**'
-              - '.github/workflows/claude-code-plugin-checks.yml'
+              - 'integrations/cursor-plugin/**'
+              - 'integrations/codex-plugin/**'
+              - 'integrations/kimi-plugin/**'
+              - 'integrations/antigravity-plugin/**'
+              - 'marketplace.json'
+              - '.agents/plugins/marketplace.json'
+              - '.claude-plugin/marketplace.json'
+              - '.codex-plugin/marketplace.json'
+              - '.cursor-plugin/marketplace.json'
+              - '.kimi-plugin/marketplace.json'
+              - '.github/workflows/agent-plugins-python-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            agent_plugins_typescript:
+              - 'integrations/agent-plugin-core/typescript/**'
+              - '.github/workflows/agent-plugins-typescript-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
-              - 'integrations/mem0-plugin/.opencode-plugin/**'
+              - 'integrations/opencode-plugin/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/opencode-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             pi_agent_plugin:
               - 'integrations/pi-agent-plugin/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/pi-agent-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             deepseek_plugin:
               - 'integrations/deepseek-plugin/**'
+              - 'integrations/agent-plugin-core/typescript/**'
               - '.github/workflows/deepseek-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             n8n_nodes_mem0:
@@ -160,18 +176,17 @@ jobs:
     uses: ./.github/workflows/openclaw-checks.yml
     secrets: inherit
 
-  mem0-plugin:
-    name: Mem0 Plugin
+  agent-plugins-python:
+    name: Agent Plugins Python
     needs: changes
-    if: needs.changes.outputs.mem0_plugin == 'true'
-    uses: ./.github/workflows/mem0-plugin-checks.yml
-    secrets: inherit
+    if: needs.changes.outputs.agent_plugins_python == 'true'
+    uses: ./.github/workflows/agent-plugins-python-checks.yml
 
-  claude-code-plugin:
-    name: Claude Code Plugin
+  agent-plugins-typescript:
+    name: Agent Plugins TypeScript
     needs: changes
-    if: needs.changes.outputs.claude_code_plugin == 'true'
-    uses: ./.github/workflows/claude-code-plugin-checks.yml
+    if: needs.changes.outputs.agent_plugins_typescript == 'true'
+    uses: ./.github/workflows/agent-plugins-typescript-checks.yml
     secrets: inherit
 
   opencode-plugin:
@@ -248,8 +263,8 @@ jobs:
       - cli-python
       - cli-node
       - openclaw
-      - mem0-plugin
-      - claude-code-plugin
+      - agent-plugins-python
+      - agent-plugins-typescript
       - opencode-plugin
       - pi-agent-plugin
       - deepseek-plugin

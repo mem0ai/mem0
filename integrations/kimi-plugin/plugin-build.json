@@ -1,0 +1,13 @@
+{
+  "id": "mem0",
+  "version": "0.3.0",
+  "homepage": "https://docs.mem0.ai/integrations/kimi",
+  "native": {
+    "pluginRoot": "${KIMI_PLUGIN_ROOT}",
+    "files": {
+      "kimi.plugin.json": "kimi.plugin.json",
+      "hooks/adapter.py": "hooks/adapter.py",
+      "agents/sidekick.md": "agents/sidekick.md"
+    }
+  }
+}

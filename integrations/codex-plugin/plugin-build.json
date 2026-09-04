@@ -1,0 +1,15 @@
+{
+  "id": "mem0",
+  "version": "0.3.0",
+  "homepage": "https://docs.mem0.ai/integrations/codex",
+  "native": {
+    "pluginRoot": "${PLUGIN_ROOT}",
+    "pluginData": "${PLUGIN_DATA}",
+    "files": {
+      ".codex-plugin/plugin.json": ".codex-plugin/plugin.json",
+      "hooks/hooks.json": "hooks/hooks.json",
+      "hooks/adapter.py": "hooks/adapter.py",
+      ".mcp.json": ".mcp.json"
+    }
+  }
+}

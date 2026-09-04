@@ -256,12 +256,12 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Platform]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
-- [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
-- [DeepSeek Harness](https://docs.mem0.ai/integrations/deepseek-plugin) [Platform]: Use when adding persistent memory to the DeepSeek Harness (Cordis) agent via the Mem0 plugin.
+- [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding automatic capture, prompt recall, scoped memory, and six memory commands to Pi Agent.
+- [DeepSeek Harness](https://docs.mem0.ai/integrations/deepseek-plugin) [Platform]: Use when adding automatic recall, completed-turn capture, and native search/add tools to DeepSeek Harness.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Platform]: Use when the user is on the OpenAI Agents SDK.
 - [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Platform]: Use when the user is on Google's Agent Development Kit.
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Platform]: Use when the user is on Mastra (TypeScript).
-- [OpenClaw](https://docs.mem0.ai/integrations/openclaw) [Both]: Use when wiring Mem0 into Claude Code or editors via OpenClaw.
+- [OpenClaw](https://docs.mem0.ai/integrations/openclaw) [Both]: Use when adding persistent memory to OpenClaw agents with Mem0 Platform or a self-hosted backend.
 - [Vercel AI SDK](https://docs.mem0.ai/integrations/vercel-ai-sdk) [Both]: Use when the user is on the Vercel AI SDK.
 - [Vercel](https://docs.mem0.ai/integrations/vercel) [Platform]: Use when deploying on Vercel and installing Mem0 from the Vercel Marketplace.
 - [Strands Agents](https://docs.mem0.ai/integrations/strands) [Both]: Use when the user is on AWS Strands and wants a native MemoryStore.
@@ -269,10 +269,11 @@ If the user is on a pre-current major (Python < 2, TS < 3, or a Platform call st
 ### AI Coding Tools
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
 - [Claude.ai](https://docs.mem0.ai/integrations/claude-ai) [Platform]: Use when connecting Mem0 to Claude.ai (the hosted web app) via a custom remote MCP connector, or when Claude's native memory seems to be crowding out mem0 tool calls.
-- [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when wiring memory into Cursor.
-- [Codex](https://docs.mem0.ai/integrations/codex) [Platform]: Use when wiring memory into Codex / other editor assistants.
-- [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when wiring memory into OpenCode.
-- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Platform]: Use when wiring memory into Google Antigravity.
+- [Cursor](https://docs.mem0.ai/integrations/cursor) [Platform]: Use when adding lifecycle capture, explicit memory recall, six skills, and a sidekick to Cursor.
+- [Codex](https://docs.mem0.ai/integrations/codex) [Platform]: Use when adding automatic capture and recall, six memory skills, and a search tool to OpenAI Codex.
+- [Kimi Code](https://docs.mem0.ai/integrations/kimi) [Platform]: Use when adding persistent project memory to Kimi Code through its native plugin lifecycle.
+- [OpenCode](https://docs.mem0.ai/integrations/opencode) [Platform]: Use when adding ten native SDK memory tools, automatic context, seven skills, and project scoping to OpenCode.
+- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Platform]: Use when adding lifecycle capture, explicit recall, six memory skills, and a native sidekick to Google Antigravity.
 
 ### Voice & Real-time
 - [LiveKit](https://docs.mem0.ai/integrations/livekit) [Platform]: Use when building real-time voice/video with memory.
@@ -417,22 +418,25 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 Source: https://github.com/mem0ai/mem0/tree/main/integrations/claude-code-plugin
 
-The `integrations/claude-code-plugin/` directory is the Claude Code plugin (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
+The self-contained Claude Code plugin lives in `integrations/claude-code-plugin/` (v0.3.0, installs as `mem0@mem0-plugins`). It captures evidence locally through lifecycle hooks, extracts memories in a detached background worker, and exposes a single local MCP tool, `search_memories`, plus six `/mem0:*` skills and the unchanged `mem0:sidekick` agent. Pure-stdlib Python, nothing to install.
 
-### Editor Plugin (shared glue)
+### Coding-Agent Plugin Sources
 
-Source: https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/agent-plugin-core
 
-The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Cursor, Codex, Kimi, Antigravity, and OpenCode. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`. Claude Code moved to `integrations/claude-code-plugin/` in v0.3.0; do not run both at the same time.
+The `integrations/agent-plugin-core/` directory is the single source for shared Python and TypeScript memory behavior. Native plugins live in their own sibling directories, while `integrations/mem0-agent-plugin/` is the single portable Agent Plugins v1 package. TypeScript integrations reuse the core's lifecycle, formatting, identity, scoping, and telemetry utilities while keeping their public packages and native host APIs unchanged.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
 - `integrations/claude-code` [Both]
 - `integrations/cursor` [Platform]
 - `integrations/codex` [Platform]
+- `integrations/kimi` [Platform]
 - `integrations/opencode` [Platform]
 - `integrations/antigravity` [Platform]
 - `integrations/openclaw` [Both]
+- `integrations/pi-agent` [Platform]
+- `integrations/deepseek-plugin` [Platform]
 
 ### MCP Endpoints
 

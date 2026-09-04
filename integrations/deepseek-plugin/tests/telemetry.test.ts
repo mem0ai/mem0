@@ -31,7 +31,10 @@ interface RegisteredTool {
 
 function applyAndCollect(config: Config): Map<string, RegisteredTool> {
   const tools = new Map<string, RegisteredTool>();
-  apply({ tools: { register: (t: RegisteredTool) => tools.set(t.name, t) } } as never, config);
+  apply({
+    tools: { register: (t: RegisteredTool) => tools.set(t.name, t) },
+    on: vi.fn(),
+  } as never, config);
   return tools;
 }
 

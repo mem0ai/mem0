@@ -43,18 +43,9 @@ import {
 } from "./isolation.ts";
 import {
   loadCompactTriagePrompt,
-  loadDreamPrompt,
   isSkillsMode,
 } from "./skill-loader.ts";
 import { recall as skillRecall, sanitizeQuery } from "./recall.ts";
-import {
-  incrementSessionCount,
-  checkCheapGates,
-  checkMemoryGate,
-  acquireDreamLock,
-  releaseDreamLock,
-  recordDreamCompletion,
-} from "./dream-gate.ts";
 import { PlatformBackend } from "./backend/platform.ts";
 import type { Backend } from "./backend/base.ts";
 import { registerCliCommands } from "./cli/commands.ts";
@@ -62,6 +53,7 @@ import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
+import { createMemoryLifecycle } from "../agent-plugin-core/typescript/src/lifecycle.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
 
 // ============================================================================
@@ -176,6 +168,8 @@ const memoryPlugin = definePluginEntry({
     }
 
     const provider = createProvider(cfg, api);
+    const lifecycle = createMemoryLifecycle();
+    lifecycle.beginSession();
 
     // Create Backend instance — PlatformBackend for platform mode, providerToBackend adapter for OSS
     let backend: Backend;
@@ -220,10 +214,6 @@ const memoryPlugin = definePluginEntry({
       api.registerMemoryCapability({
         publicArtifacts: createPublicArtifactsProvider({
           provider,
-          cfg,
-          get stateDir() {
-            return pluginStateDir;
-          },
           effectiveUserId: _effectiveUserId,
         }),
         runtime: {
@@ -373,10 +363,10 @@ const memoryPlugin = definePluginEntry({
         setCurrentSessionId: (id: string) => {
           currentSessionId = id;
         },
-        getStateDir: () => pluginStateDir,
       },
       skillsActive,
       _captureEvent,
+      lifecycle,
     );
 
     // ========================================================================
@@ -420,13 +410,13 @@ function registerHooks(
   ) => SearchOptions,
   session: {
     setCurrentSessionId: (id: string) => void;
-    getStateDir: () => string | undefined;
   },
   skillsActive: boolean = false,
   _captureEvent: (
     event: string,
     props?: Record<string, unknown>,
   ) => void = () => {},
+  lifecycle: ReturnType<typeof createMemoryLifecycle> = createMemoryLifecycle(),
 ) {
   // ========================================================================
   // SKILLS MODE: Agentic memory via before_prompt_build
@@ -493,7 +483,7 @@ function registerHooks(
       if (recallEnabled && recallStrategy !== "manual") {
         const recallStart = Date.now();
         try {
-          const query = sanitizeQuery(event.prompt);
+          const query = lifecycle.prepareUserText(sanitizeQuery(event.prompt));
 
           // Smart mode: skip session search (saves 1 API call per turn)
           const sessionIdForRecall =
@@ -533,141 +523,17 @@ function registerHooks(
         );
       }
 
-      // Auto-dream: check CHEAP gates first (local file reads only).
-      // Only hit the API for memory count if time + session gates pass.
-      const stateDir = session.getStateDir();
-      const dreamEnabled =
-        cfg.skills?.dream?.enabled !== false &&
-        cfg.skills?.dream?.auto !== false;
-      let dreamContext = "";
-      if (dreamEnabled && stateDir && !isSubagent) {
-        try {
-          const cheapResult = checkCheapGates(
-            stateDir,
-            cfg.skills?.dream ?? {},
-          );
-          if (cheapResult.proceed) {
-            // Cheap gates passed. Now do the expensive memory count check.
-            const memories = await provider.getAll({
-              user_id: userId,
-              source: "OPENCLAW",
-            });
-            const memCount = Array.isArray(memories) ? memories.length : 0;
-            const memResult = checkMemoryGate(
-              memCount,
-              cfg.skills?.dream ?? {},
-            );
-            if (memResult.pass && acquireDreamLock(stateDir)) {
-              const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
-              if (dreamPrompt) {
-                dreamContext =
-                  "\n\n<auto-dream>\nIMPORTANT: Before responding to the user, run a memory consolidation pass. Follow the protocol below, then respond normally.\n\n" +
-                  dreamPrompt +
-                  "\n</auto-dream>";
-                // Track which session triggered dream (session-keyed, not global)
-                dreamSessionId = sessionId;
-                _captureEvent("openclaw.hook.dream", {
-                  phase: "triggered",
-                  memory_count: memCount,
-                });
-                api.logger.info(
-                  `openclaw-mem0: auto-dream triggered (${memCount} memories, gate passed)`,
-                );
-              } else {
-                releaseDreamLock(stateDir);
-              }
-            }
-          }
-        } catch (err) {
-          api.logger.warn(
-            `openclaw-mem0: auto-dream gate check failed: ${String(err)}`,
-          );
-        }
-      }
-
       return {
         prependSystemContext: systemContext, // cached by provider
-        prependContext: recallContext + dreamContext, // per-turn dynamic
+        prependContext: recallContext, // per-turn dynamic
       };
     });
 
-    // Session-keyed dream tracking. Only the session that triggered dream
-    // can complete it. Prevents cross-session false completion.
-    let dreamSessionId: string | undefined;
-
     api.on("agent_end", async (event: any, ctx: any) => {
       const sessionId = ctx?.sessionKey ?? undefined;
-      const trigger = ctx?.trigger ?? undefined;
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // If dream was triggered for THIS session, handle cleanup regardless
-      // of success/failure. A failed turn must still release the lock.
-      const stateDir = session.getStateDir();
-      if (dreamSessionId && dreamSessionId === sessionId && stateDir) {
-        dreamSessionId = undefined;
-
-        if (!event.success) {
-          // Turn failed/aborted after lock acquired. Release lock, do not
-          // record completion. Gates will re-trigger next eligible turn.
-          releaseDreamLock(stateDir);
-          api.logger.warn(
-            "openclaw-mem0: auto-dream turn failed, lock released, will retry",
-          );
-          return;
-        }
-
-        // Verify the model actually performed WRITE operations (not just reads).
-        // Only count memory_add, memory_update, memory_delete.
-        // Exclude memory_list and memory_search (read-only, orient-only pass).
-        // Scan only the LAST assistant message (this turn), not the full session
-        // snapshot, to avoid matching earlier tool calls from prior turns.
-        const WRITE_TOOLS = new Set([
-          "memory_add",
-          "memory_update",
-          "memory_delete",
-        ]);
-        const messages = event.messages ?? [];
-        // Find the last assistant message (this turn's output)
-        const lastAssistant = [...messages]
-          .reverse()
-          .find((m: any) => m.role === "assistant");
-        const writeToolUsed =
-          lastAssistant && Array.isArray(lastAssistant.content)
-            ? lastAssistant.content.some(
-                (block: any) =>
-                  block.type === "tool_use" && WRITE_TOOLS.has(block.name),
-              )
-            : false;
-
-        if (writeToolUsed) {
-          releaseDreamLock(stateDir);
-          recordDreamCompletion(stateDir);
-          _captureEvent("openclaw.hook.dream", {
-            phase: "completed",
-            write_tools_used: true,
-          });
-          api.logger.info(
-            "openclaw-mem0: auto-dream completed (verified write tool usage), lock released",
-          );
-        } else {
-          releaseDreamLock(stateDir);
-          api.logger.warn(
-            "openclaw-mem0: auto-dream injected but no write tools executed. Lock released, will retry.",
-          );
-        }
-        return;
-      }
-
       if (!event.success) return;
-
-      // Track session for dream gating (interactive turns only)
-      if (
-        stateDir &&
-        sessionId &&
-        !isNonInteractiveTrigger(trigger, sessionId)
-      ) {
-        incrementSessionCount(stateDir, sessionId);
-      }
 
       api.logger.info("openclaw-mem0: skills-mode agent_end (no auto-capture)");
     });
@@ -733,6 +599,7 @@ function registerHooks(
           "",
         )
         .trim();
+      const safePrompt = lifecycle.prepareUserText(cleanPrompt);
 
       const recallStart = Date.now();
       const recallWork = async () => {
@@ -741,7 +608,7 @@ function registerHooks(
 
         // Search long-term memories (user-scoped; subagents read from parent namespace)
         let longTermResults = await provider.search(
-          cleanPrompt,
+          safePrompt,
           buildSearchOptions(
             undefined,
             recallTopK,
@@ -767,7 +634,7 @@ function registerHooks(
 
         // Only broaden for genuinely new sessions with short prompts
         // (cold-start blindness). Skip on subsequent turns to save API calls.
-        if (isNewSession && cleanPrompt.length < 100) {
+        if (isNewSession && safePrompt.length < 100) {
           const broadOpts = buildSearchOptions(
             undefined,
             5,
@@ -1008,7 +875,8 @@ function registerHooks(
       }));
 
       // Apply noise filtering pipeline: drop noise, strip fragments, truncate
-      const formattedMessages = filterMessagesForExtraction(selected);
+      const formattedMessages: Array<{ role: string; content: string }> =
+        lifecycle.prepareConversation(filterMessagesForExtraction(selected));
 
       if (formattedMessages.length === 0) return;
 

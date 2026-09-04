@@ -12,15 +12,18 @@ from unittest.mock import patch
 import pytest
 
 
-PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-CORE = PLUGIN_ROOT / "core"
-ADAPTER = PLUGIN_ROOT / "adapters" / "claude"
+HOST_ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = HOST_ROOT.parents[1]
+PLUGIN_ROOT = HOST_ROOT
+CORE = HOST_ROOT / "core"
+ADAPTER = HOST_ROOT / "adapters" / "claude" / "hook.py"
 sys.path.insert(0, str(CORE))
-sys.path.insert(0, str(ADAPTER))
+sys.path.insert(0, str(ADAPTER.parent))
 
 import memory_core  # noqa: E402
 import memory_cli  # noqa: E402
 import mcp_server  # noqa: E402
+import transcript as transcript_mod  # noqa: E402
 
 
 @pytest.fixture
@@ -52,6 +55,14 @@ def repo() -> memory_core.RepoContext:
         head_sha="abc123",
         project_id="code-example",
     )
+
+
+def test_portable_plugin_uses_standard_data_directory(tmp_path, monkeypatch):
+    monkeypatch.delenv("MEM0_CODE_DATA_DIR", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.setenv("PLUGIN_DATA", str(tmp_path))
+
+    assert memory_core.data_dir() == tmp_path
 
 
 def _write_transcript(path: Path, session_id: str, entries: list[dict]) -> None:
@@ -235,7 +246,7 @@ def test_transcript_extraction_keeps_meaningful_messages_and_excludes_raw_tools(
         ],
     )
 
-    messages, leaf, _ = memory_core.transcript_extraction_messages(
+    messages, leaf, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1"
     )
     serialized = json.dumps(messages)
@@ -335,7 +346,7 @@ def test_transcript_extraction_pairs_background_agent_notification(tmp_path):
         ],
     )
 
-    messages, _, _ = memory_core.transcript_extraction_messages(
+    messages, _, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1", previous_leaf_uuid="launch-result"
     )
     serialized = json.dumps(messages)
@@ -388,7 +399,7 @@ def test_transcript_extraction_omits_claude_ui_messages_but_keeps_attachments(
         ],
     )
 
-    messages, _, _ = memory_core.transcript_extraction_messages(
+    messages, _, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1", prompt_hint="The attached issue says repository scope is wrong."
     )
     serialized = json.dumps(messages)
@@ -487,7 +498,7 @@ def test_transcript_extraction_uses_active_branch_and_omits_rejected_plan(tmp_pa
         "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
     )
 
-    messages, leaf, _ = memory_core.transcript_extraction_messages(
+    messages, leaf, _ = transcript_mod.transcript_extraction_messages(
         str(transcript), "s1"
     )
     serialized = json.dumps(messages)
@@ -525,7 +536,7 @@ def test_record_stop_processes_only_new_transcript_entries(
             store,
             {"session_id": "s1", "cwd": "/tmp/repo", "prompt": "Inspect the parser."},
         )
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -562,7 +573,7 @@ def test_record_stop_processes_only_new_transcript_entries(
                 "prompt": "Where is that implemented?",
             },
         )
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -863,6 +874,20 @@ def test_common_tokens_and_private_keys_are_redacted():
     assert "private-material" not in value
 
 
+def test_json_shaped_secrets_are_redacted():
+    value = memory_core.redact('{"apiKey": "sk-secret-12345", "name": "test"}')
+    assert "sk-secret-12345" not in value
+    assert "[REDACTED]" in value
+    assert '"name": "test"' in value
+
+    value = memory_core.redact('{"password": "hunter2", "count": 1}')
+    assert "hunter2" not in value
+
+    value = memory_core.redact('{"secret_access_key": "ABCDEFGHIJ1234567890", "region": "us-east-1"}')
+    assert "ABCDEFGHIJ1234567890" not in value
+    assert '"region": "us-east-1"' in value
+
+
 def test_remote_identity_removes_embedded_credentials():
     normalized = memory_core._normalize_remote(
         "https://secret-token@github.com/example/repo.git"
@@ -894,6 +919,15 @@ def test_repo_scope_matches_the_previous_plugin_mapping(
     resolved = memory_core.resolve_repo("/tmp/repo")
 
     assert resolved.app_id == "customer-platform"
+
+
+def test_different_git_hosts_produce_different_project_ids():
+    github = memory_core._project_id("/tmp/repo", "https://github.com/acme/api", "acme-api")
+    gitlab = memory_core._project_id("/tmp/repo", "https://gitlab.internal/acme/api", "acme-api")
+
+    assert github != gitlab
+    assert github.startswith("acme-api-")
+    assert gitlab.startswith("acme-api-")
 
 
 def test_non_git_session_keeps_starting_project_scope_after_nested_commands(
@@ -1061,32 +1095,32 @@ def test_forced_checkpoint_sends_an_incomplete_remainder(isolated_env):
 def test_stop_schedules_one_background_checkpoint_when_block_is_ready(
     isolated_env,
 ):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     for number in range(1, 5):
         _record_exchange(store, number)
 
     with (
-        patch.object(hook, "api_key", return_value="m0-test-key"),
-        patch.object(hook, "hand_off_flush") as handoff,
+        patch.object(hook_runner, "api_key", return_value="m0-test-key"),
+        patch.object(hook_runner, "hand_off_flush") as handoff,
     ):
         assert (
-            hook.schedule_periodic_checkpoint(
+            hook_runner.schedule_periodic_checkpoint(
                 store, {"session_id": "s1", "cwd": "/tmp/repo"}, repo(), "s1"
             )
             is False
         )
         _record_exchange(store, 5)
         assert (
-            hook.schedule_periodic_checkpoint(
+            hook_runner.schedule_periodic_checkpoint(
                 store, {"session_id": "s1", "cwd": "/tmp/repo"}, repo(), "s1"
             )
             is True
         )
         _record_exchange(store, 6)
         assert (
-            hook.schedule_periodic_checkpoint(
+            hook_runner.schedule_periodic_checkpoint(
                 store, {"session_id": "s1", "cwd": "/tmp/repo"}, repo(), "s1"
             )
             is False
@@ -1100,64 +1134,64 @@ def test_stop_schedules_one_background_checkpoint_when_block_is_ready(
 
 
 def test_stop_schedules_idle_flush_when_periodic_not_due(isolated_env):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     _record_exchange(store, 1)
 
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
     with (
-        patch.object(hook, "api_key", return_value="m0-test-key"),
-        patch.object(hook, "_launch_handoff", return_value=True) as launch,
+        patch.object(hook_runner, "api_key", return_value="m0-test-key"),
+        patch.object(hook_runner, "_launch_handoff", return_value=True) as launch,
     ):
-        assert not hook.schedule_periodic_checkpoint(store, hook_input, repo(), "s1")
-        assert hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+        assert not hook_runner.schedule_periodic_checkpoint(store, hook_input, repo(), "s1")
+        assert hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
 
     payload = json.loads(launch.call_args.args[0].read_text(encoding="utf-8"))
     assert payload["reason"] == "idle"
-    assert payload["delay_seconds"] == hook.DEFAULT_IDLE_FLUSH_SECONDS
+    assert payload["delay_seconds"] == hook_runner.DEFAULT_IDLE_FLUSH_SECONDS
     store.close()
 
 
 def test_idle_flush_skipped_when_inflight_flush_exists(isolated_env):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     for number in range(1, 6):
         _record_exchange(store, number)
 
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
-    with patch.object(hook, "api_key", return_value="m0-test-key"):
+    with patch.object(hook_runner, "api_key", return_value="m0-test-key"):
         store.prepare_flush(repo(), "s1", "periodic")
-        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+        assert not hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
     store.close()
 
 
 def test_idle_flush_skipped_when_no_unflushed_events(isolated_env):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
-    with patch.object(hook, "api_key", return_value="m0-test-key"):
-        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    with patch.object(hook_runner, "api_key", return_value="m0-test-key"):
+        assert not hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
     store.close()
 
 
 def test_idle_flush_skipped_when_disabled(isolated_env, monkeypatch):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     _record_exchange(store, 1)
 
     monkeypatch.setenv("MEM0_CODE_IDLE_FLUSH_SECONDS", "0")
     hook_input = {"session_id": "s1", "cwd": "/tmp/repo"}
-    with patch.object(hook, "api_key", return_value="m0-test-key"):
-        assert not hook.schedule_idle_flush(store, hook_input, repo(), "s1")
+    with patch.object(hook_runner, "api_key", return_value="m0-test-key"):
+        assert not hook_runner.schedule_idle_flush(store, hook_input, repo(), "s1")
     store.close()
 
 
 def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
-    import hook
+    import hook_runner
 
     store = memory_core.EvidenceStore()
     _record_exchange(store, 1)
@@ -1166,7 +1200,7 @@ def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
     periodic_called = []
     idle_called = []
 
-    original_periodic = hook.schedule_periodic_checkpoint
+    original_periodic = hook_runner.schedule_periodic_checkpoint
 
     def mock_periodic(*a, **kw):
         result = original_periodic(*a, **kw)
@@ -1178,14 +1212,17 @@ def test_stop_hook_falls_through_to_idle_flush(isolated_env, monkeypatch):
         return True
 
     with (
-        patch.object(hook, "api_key", return_value="m0-test-key"),
-        patch.object(hook, "schedule_periodic_checkpoint", side_effect=mock_periodic),
-        patch.object(hook, "schedule_idle_flush", side_effect=mock_idle),
-        patch.object(hook, "record_stop", return_value=(repo(), "s1")),
+        patch.object(hook_runner, "api_key", return_value="m0-test-key"),
+        patch.object(hook_runner, "schedule_periodic_checkpoint", side_effect=mock_periodic),
+        patch.object(hook_runner, "schedule_idle_flush", side_effect=mock_idle),
     ):
         monkeypatch.setattr("sys.stdin", __import__("io").StringIO(json.dumps(hook_input)))
         monkeypatch.setattr("sys.argv", ["hook.py", "stop"])
-        hook.main()
+        hook_runner.run(
+            record_stop_fn=lambda s, h: (repo(), "s1"),
+            data_dir_env="MEM0_CODE_DATA_DIR",
+            automatic_flush_reasons={"session-end", "pre-compact"},
+        )
 
     assert periodic_called == [False]
     assert idle_called == [True]
@@ -1228,6 +1265,40 @@ def test_flush_worker_sleeps_for_delay_seconds(isolated_env, monkeypatch):
     assert "delay_seconds" not in rewritten_content
 
 
+def test_flush_worker_restores_harness_identity_from_child_environment(isolated_env, monkeypatch):
+    import flush_worker
+
+    handoff_path = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending" / "kimi.running"
+    handoff_path.parent.mkdir(parents=True, exist_ok=True)
+    handoff_path.write_text(
+        json.dumps({"hook_input": {"session_id": "s1", "cwd": "/tmp/repo"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MEM0_PLUGIN_HARNESS", "kimi")
+    monkeypatch.setenv("MEM0_PLUGIN_ENV_PREFIX", "MEM0_KIMI")
+    monkeypatch.setenv("MEM0_PLUGIN_DATA_DIR_NAME", "kimi-plugin")
+    monkeypatch.setenv("MEM0_PLUGIN_SOURCE_TAG", "kimi_plugin")
+    monkeypatch.setattr("sys.argv", ["flush_worker.py", str(handoff_path)])
+
+    with (
+        patch.object(flush_worker, "configure_harness", wraps=memory_core.configure_harness) as configure,
+        patch.object(flush_worker.telemetry, "init") as telemetry_init,
+        patch.object(flush_worker, "checkpoint_session", return_value={"status": "nothing-to-flush"}),
+    ):
+        flush_worker.main()
+
+    configure.assert_called_once_with(
+        "kimi",
+        env_prefix="MEM0_KIMI",
+        data_dir_name="kimi-plugin",
+        source_tag="kimi_plugin",
+    )
+    telemetry_init.assert_called_once_with(harness="kimi", source_tag="KIMI_PLUGIN")
+    memory_core.configure_harness(
+        "claude-code", data_dir_name="claude-code-plugin", source_tag="claude_code_plugin"
+    )
+
+
 def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     """hook.py lives in adapters/claude/; flush_worker.py lives in core/.
 
@@ -1235,7 +1306,7 @@ def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     sibling of hook.py, or every background flush launches against a
     nonexistent path.
     """
-    import hook
+    import hook_runner
 
     data_dir_path = Path(os.environ["MEM0_CODE_DATA_DIR"])
     pending_dir = data_dir_path / "pending"
@@ -1243,13 +1314,18 @@ def test_launch_handoff_resolves_flush_worker_under_core(isolated_env):
     handoff_path = pending_dir / "test-handoff.json"
     handoff_path.write_text("{}", encoding="utf-8")
 
-    with patch.object(hook.subprocess, "Popen") as popen:
-        assert hook._launch_handoff(handoff_path) is True
+    with patch.object(hook_runner.subprocess, "Popen") as popen:
+        assert hook_runner._launch_handoff(handoff_path) is True
 
     launched_args = popen.call_args.args[0]
     worker_path = Path(launched_args[1])
     assert worker_path == CORE / "flush_worker.py"
     assert worker_path.is_file()
+    child_env = popen.call_args.kwargs["env"]
+    assert child_env["MEM0_PLUGIN_HARNESS"] == "claude-code"
+    assert child_env["MEM0_PLUGIN_DATA_DIR_NAME"] == "claude-code-plugin"
+    assert child_env["MEM0_PLUGIN_SOURCE_TAG"] == "claude_code_plugin"
+    assert child_env["MEM0_CODE_DATA_DIR"] == os.environ["MEM0_CODE_DATA_DIR"]
 
 
 def test_flush_worker_detaches_on_windows_as_well_as_posix(monkeypatch):
@@ -1258,30 +1334,30 @@ def test_flush_worker_detaches_on_windows_as_well_as_posix(monkeypatch):
     Without a creationflags fallback the worker stays attached to Claude's
     console on Windows and background extraction can die with the session.
     """
-    import hook
+    import hook_runner
 
-    assert hook.detached_process_kwargs("darwin") == {"start_new_session": True}
-    assert hook.detached_process_kwargs("linux") == {"start_new_session": True}
+    assert hook_runner.detached_process_kwargs("darwin") == {"start_new_session": True}
+    assert hook_runner.detached_process_kwargs("linux") == {"start_new_session": True}
 
     monkeypatch.setattr(subprocess, "DETACHED_PROCESS", 0x00000008, raising=False)
     monkeypatch.setattr(
         subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200, raising=False
     )
-    windows_kwargs = hook.detached_process_kwargs("win32")
+    windows_kwargs = hook_runner.detached_process_kwargs("win32")
     assert windows_kwargs == {"creationflags": 0x00000208}
     assert "start_new_session" not in windows_kwargs
 
 
 def test_launch_handoff_always_requests_detachment(isolated_env):
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
     handoff_path = pending_dir / "detach-handoff.json"
     handoff_path.write_text("{}", encoding="utf-8")
 
-    with patch.object(hook.subprocess, "Popen") as popen:
-        assert hook._launch_handoff(handoff_path) is True
+    with patch.object(hook_runner.subprocess, "Popen") as popen:
+        assert hook_runner._launch_handoff(handoff_path) is True
 
     assert popen.call_args.kwargs["start_new_session"] is True
 
@@ -1294,23 +1370,23 @@ def test_pending_recovery_is_capped_and_leaves_the_rest_for_next_session(
     Each worker can block for MEM0_CODE_EXTRACTION_WAIT_SECONDS, so an
     uncapped launch is a thundering herd at session start.
     """
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
-    for number in range(hook.PENDING_LAUNCH_LIMIT + 3):
+    for number in range(hook_runner.PENDING_LAUNCH_LIMIT + 3):
         (pending_dir / f"packet-{number}.json").write_text("{}", encoding="utf-8")
 
-    with patch.object(hook.subprocess, "Popen"):
-        launched = hook.recover_pending_handoffs()
+    with patch.object(hook_runner.subprocess, "Popen"):
+        launched = hook_runner.recover_pending_handoffs()
 
-    assert launched == hook.PENDING_LAUNCH_LIMIT
-    assert len(list(pending_dir.glob("*.running"))) == hook.PENDING_LAUNCH_LIMIT
+    assert launched == hook_runner.PENDING_LAUNCH_LIMIT
+    assert len(list(pending_dir.glob("*.running"))) == hook_runner.PENDING_LAUNCH_LIMIT
     assert len(list(pending_dir.glob("*.json"))) == 3
 
 
 def test_pending_recovery_drops_packets_past_the_expiry_window(isolated_env):
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
@@ -1319,11 +1395,11 @@ def test_pending_recovery_drops_packets_past_the_expiry_window(isolated_env):
     fresh = pending_dir / "fresh.json"
     fresh.write_text("{}", encoding="utf-8")
 
-    stale_time = time.time() - hook.PENDING_EXPIRY_SECONDS - 60
+    stale_time = time.time() - hook_runner.PENDING_EXPIRY_SECONDS - 60
     os.utime(expired, (stale_time, stale_time))
 
-    with patch.object(hook.subprocess, "Popen"):
-        launched = hook.recover_pending_handoffs()
+    with patch.object(hook_runner.subprocess, "Popen"):
+        launched = hook_runner.recover_pending_handoffs()
 
     assert launched == 1
     assert not expired.exists()
@@ -2061,7 +2137,7 @@ def test_format_context_labels_memories_from_non_main_branches():
 
 
 def test_sidekick_instructions_reject_unrequested_related_changes():
-    prompt = (Path(__file__).parents[1] / "agents" / "sidekick.md").read_text()
+    prompt = (PLUGIN_ROOT / "agents" / "sidekick.md").read_text()
     normalized = " ".join(prompt.split())
     assert "Skill" in prompt.split("---", 2)[1]
     assert "ALWAYS call `search_memories` before answering anything" in normalized
@@ -2119,6 +2195,36 @@ def test_sidekick_reuses_parent_memory_once_and_records_lifecycle(
     ]
     assert events == ["sidekick_start", "sidekick_start", "sidekick_stop"]
     store.close()
+
+
+def test_sidekick_stop_without_agent_id_closes_latest_matching_run(isolated_env):
+    store = memory_core.EvidenceStore()
+    start_input = {
+        "session_id": "s1",
+        "cwd": "/tmp/repo",
+        "agent_id": "agent-123",
+        "agent_type": "sidekick",
+    }
+
+    with patch.object(memory_core, "resolve_repo", return_value=repo()):
+        memory_core.record_sidekick_start(store, start_input)
+        memory_core.record_sidekick_stop(
+            store,
+            {
+                "session_id": "s1",
+                "cwd": "/tmp/repo",
+                "agent_type": "sidekick",
+                "last_assistant_message": "Done.",
+            },
+        )
+
+    rows = store.conn.execute("SELECT agent_id, stopped_at, final_message FROM sidekick_runs").fetchall()
+    store.close()
+
+    assert len(rows) == 1
+    assert rows[0]["agent_id"] == "agent-123"
+    assert rows[0]["stopped_at"]
+    assert rows[0]["final_message"] == "Done."
 
 
 def test_search_once_per_session_avoids_repeated_remote_searches(
@@ -2430,6 +2536,35 @@ def test_mcp_tool_is_session_independent_and_returns_plain_memories(
     assert "project_knowledge" not in rendered
 
 
+def test_mcp_tool_uses_codex_workspace_metadata(isolated_env):
+    result = memory_core.MemorySearchResult(
+        succeeded=True, matched_count=0, already_shown_count=0, memories=[]
+    )
+    request = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": "search_memories",
+            "arguments": {"query": "parser"},
+            "_meta": {
+                "x-codex-turn-metadata": {
+                    "workspaces": {"/tmp/active-repository": {"has_changes": False}}
+                }
+            },
+        },
+    }
+
+    with (
+        patch.object(mcp_server, "resolve_repo", return_value=repo()) as resolve,
+        patch.object(mcp_server, "search_memories", return_value=result),
+    ):
+        response = mcp_server.handle_request(request)
+
+    resolve.assert_called_once_with("/tmp/active-repository")
+    assert response["result"]["isError"] is False
+
+
 @pytest.mark.parametrize(
     "arguments, message",
     [
@@ -2447,7 +2582,7 @@ def test_mcp_tool_rejects_invalid_arguments(arguments, message):
 
 
 def test_search_skill_describes_memory_as_optional_starting_knowledge():
-    prompt = (Path(__file__).parents[1] / "skills" / "search" / "SKILL.md").read_text()
+    prompt = (PLUGIN_ROOT / "skills" / "search" / "SKILL.md").read_text()
     normalized = " ".join(prompt.split())
 
     assert "earlier work may already explain" in normalized
@@ -2493,7 +2628,7 @@ def test_pause_skill_points_to_dedicated_resume_command():
 def test_resume_skill_runs_cli_and_is_a_dedicated_command():
     text = (PLUGIN_ROOT / "skills" / "resume" / "SKILL.md").read_text()
     assert "disable-model-invocation: true" in text
-    assert 'core/memory_cli.py" resume' in text
+    assert '--harness "claude-code" --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" resume' in text
 
 
 def test_remember_skill_acknowledges_without_write_api():
@@ -2591,7 +2726,7 @@ def _run_hook(
     env.pop("CLAUDE_PLUGIN_OPTION_API_KEY", None)
     env.pop("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", None)
     return subprocess.run(
-        [sys.executable, str(ADAPTER / "hook.py"), action, *extra],
+        [sys.executable, str(ADAPTER), action, *extra],
         input=json.dumps(payload),
         text=True,
         capture_output=True,
@@ -2774,7 +2909,7 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
         for index in range(1, 7)
     ]
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2784,7 +2919,7 @@ def test_first_user_prompt_searches_verbatim_and_returns_five_memories(
             return_value=({"results": results}, 200, 600),
         ) as request,
     ):
-        output = hook.first_prompt_memory_output(
+        output = hook_runner.first_prompt_memory_output(
             store,
             {"session_id": "s1", "cwd": "/tmp/repo", "prompt": prompt},
         )
@@ -2814,7 +2949,7 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2824,7 +2959,7 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
             return_value=({"results": []}, 100, 20),
         ) as request,
     ):
-        first = hook.first_prompt_memory_output(
+        first = hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2832,7 +2967,7 @@ def test_later_user_prompts_do_not_search_automatically(isolated_env, monkeypatc
                 "prompt": "Where is ODS date formatting implemented?",
             },
         )
-        second = hook.first_prompt_memory_output(
+        second = hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2853,7 +2988,7 @@ def test_manual_search_remains_available_after_automatic_search(
     monkeypatch.setenv("MEM0_API_KEY", "m0-test-key")
     store = memory_core.EvidenceStore()
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2878,7 +3013,7 @@ def test_manual_search_remains_available_after_automatic_search(
             ],
         ) as request,
     ):
-        hook.first_prompt_memory_output(
+        hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2912,7 +3047,7 @@ def test_first_prompt_is_silent_when_all_matches_were_already_provided(
     }
     store.mark_injected("s1", repo().identity, [existing])
 
-    import hook
+    import hook_runner
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
@@ -2922,7 +3057,7 @@ def test_first_prompt_is_silent_when_all_matches_were_already_provided(
             return_value=({"results": [existing]}, 100, 100),
         ),
     ):
-        output = hook.first_prompt_memory_output(
+        output = hook_runner.first_prompt_memory_output(
             store,
             {
                 "session_id": "s1",
@@ -2943,7 +3078,7 @@ def test_user_prompt_search_failure_still_records_evidence_and_emits_no_context(
     env["MEM0_API_KEY"] = "m0-test-key"
     env["MEM0_API_URL"] = "http://127.0.0.1:1"
     result = subprocess.run(
-        [sys.executable, str(ADAPTER / "hook.py"), "user-prompt"],
+        [sys.executable, str(ADAPTER), "user-prompt"],
         input=json.dumps(
             {
                 "session_id": "s1",
@@ -3027,7 +3162,7 @@ def test_plugin_entrypoints_share_explicit_claude_data_dir(tmp_path, monkeypatch
     sidekick = subprocess.run(
         [
             sys.executable,
-            str(ADAPTER / "hook.py"),
+            str(ADAPTER),
             "sidekick-start",
             "--plugin-data-dir",
             str(canonical_data),
@@ -3102,7 +3237,7 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
     env["MEM0_API_KEY"] = "m0-test-key"
 
     start = subprocess.run(
-        [sys.executable, str(ADAPTER / "hook.py"), "user-prompt"],
+        [sys.executable, str(ADAPTER), "user-prompt"],
         input=json.dumps(
             {"session_id": "s1", "cwd": cwd, "prompt": "Inspect parser behavior."}
         ),
@@ -3112,7 +3247,7 @@ def test_automatic_flush_can_be_disabled_for_external_harnesses(isolated_env):
         check=False,
     )
     flushed = subprocess.run(
-        [sys.executable, str(ADAPTER / "hook.py"), "flush", "--reason", "session-end"],
+        [sys.executable, str(ADAPTER), "flush", "--reason", "session-end"],
         input=json.dumps({"session_id": "s1", "cwd": cwd}),
         text=True,
         capture_output=True,
@@ -3137,7 +3272,7 @@ def test_version_is_single_sourced():
     manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text())
     assert manifest["name"] == "mem0"
     assert manifest["version"] == memory_core.PLUGIN_VERSION == "0.3.0"
-    root = PLUGIN_ROOT.parents[1]
+    root = REPOSITORY_ROOT
     for mp in (root / "marketplace.json", root / ".claude-plugin" / "marketplace.json"):
         entry = next(p for p in json.loads(mp.read_text())["plugins"] if p["name"] == "mem0")
         assert entry["version"] == memory_core.PLUGIN_VERSION
@@ -3183,7 +3318,7 @@ def test_transcript_rows_resume_from_a_byte_offset(tmp_path):
         ],
     )
 
-    rows, end, resumed = memory_core._transcript_rows(str(transcript))
+    rows, end, resumed = transcript_mod._transcript_rows(str(transcript))
     assert [row["uuid"] for row in rows] == ["entry-1", "entry-2"]
     assert end == transcript.stat().st_size
     assert resumed is False
@@ -3201,12 +3336,12 @@ def test_transcript_rows_resume_from_a_byte_offset(tmp_path):
         handle.write(json.dumps(third_row) + "\n")
         handle.write('{"uuid": "partial-row"')
 
-    rows, end, resumed = memory_core._transcript_rows(str(transcript), first_size)
+    rows, end, resumed = transcript_mod._transcript_rows(str(transcript), first_size)
     assert [row["uuid"] for row in rows] == ["entry-3"]
     assert resumed is True
     assert end < transcript.stat().st_size
 
-    rows, _, resumed = memory_core._transcript_rows(
+    rows, _, resumed = transcript_mod._transcript_rows(
         str(transcript), transcript.stat().st_size + 100
     )
     assert [row["uuid"] for row in rows] == ["entry-1", "entry-2", "entry-3"]
@@ -3235,7 +3370,7 @@ def test_record_stop_reads_the_transcript_from_the_stored_offset(
     store = memory_core.EvidenceStore()
 
     with patch.object(memory_core, "resolve_repo", return_value=repo()):
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -3270,7 +3405,7 @@ def test_record_stop_reads_the_transcript_from_the_stored_offset(
         },
     ]
     _write_transcript(transcript, "s1", second_entries)
-    original_rows = memory_core._transcript_rows
+    original_rows = transcript_mod._transcript_rows
     offsets = []
 
     def spying_rows(path, offset=0):
@@ -3279,9 +3414,9 @@ def test_record_stop_reads_the_transcript_from_the_stored_offset(
 
     with (
         patch.object(memory_core, "resolve_repo", return_value=repo()),
-        patch.object(memory_core, "_transcript_rows", side_effect=spying_rows),
+        patch.object(transcript_mod, "_transcript_rows", side_effect=spying_rows),
     ):
-        memory_core.record_stop(
+        transcript_mod.record_stop(
             store,
             {
                 "session_id": "s1",
@@ -3355,7 +3490,7 @@ def test_event_poll_touches_the_worker_heartbeat(isolated_env, monkeypatch, tmp_
 
 
 def test_paused_session_start_keeps_pending_packets_fresh(isolated_env):
-    import hook
+    import hook_runner
 
     pending_dir = Path(os.environ["MEM0_CODE_DATA_DIR"]) / "pending"
     pending_dir.mkdir(parents=True, exist_ok=True)
@@ -3363,11 +3498,11 @@ def test_paused_session_start_keeps_pending_packets_fresh(isolated_env):
     held.write_text("{}", encoding="utf-8")
     claimed = pending_dir / "claimed.running"
     claimed.write_text("{}", encoding="utf-8")
-    stale_time = time.time() - hook.PENDING_EXPIRY_SECONDS - 60
+    stale_time = time.time() - hook_runner.PENDING_EXPIRY_SECONDS - 60
     for path in (held, claimed):
         os.utime(path, (stale_time, stale_time))
 
-    hook.refresh_pending_handoffs()
+    hook_runner.refresh_pending_handoffs()
 
     assert held.stat().st_mtime > time.time() - 60
     assert claimed.stat().st_mtime > time.time() - 60
@@ -4025,7 +4160,8 @@ def test_same_named_folders_at_different_paths_get_different_namespaces():
     b = memory_core._project_id("/home/raj/marketing", "local:/home/raj/marketing", "marketing")
     assert a != b
     assert a.startswith("local-marketing-") and b.startswith("local-marketing-")
-    assert memory_core._project_id("/x", "https://github.com/acme/api", "acme-api") == "acme-api"
+    remote_id = memory_core._project_id("/x", "https://github.com/acme/api", "acme-api")
+    assert remote_id.startswith("acme-api-") and remote_id != "acme-api"
 
 
 def test_relative_directory_is_empty_at_the_root_and_posix_below():

@@ -1,19 +1,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Mem0Config, DreamConfig } from "../types.ts";
+import type { Mem0Config } from "../types.ts";
 
 const AGENT_ROOT = path.join(os.homedir(), ".pi", "agent");
 export const CONFIG_DIR = AGENT_ROOT;
 const CONFIG_PATH = path.join(AGENT_ROOT, "mem0-config.json");
-
-const DEFAULT_DREAM: DreamConfig = {
-  enabled: true,
-  auto: true,
-  minHours: 24,
-  minSessions: 5,
-  minMemories: 20,
-};
 
 const DEFAULT_CONFIG: Mem0Config = {
   apiKey: "",
@@ -22,7 +14,6 @@ const DEFAULT_CONFIG: Mem0Config = {
   defaultScope: "project",
   contextInjection: true,
   searchThreshold: 0.3,
-  dream: DEFAULT_DREAM,
 };
 
 export function loadConfig(): Mem0Config {
@@ -37,15 +28,9 @@ export function loadConfig(): Mem0Config {
     }
   }
 
-  const dream: DreamConfig = {
-    ...DEFAULT_DREAM,
-    ...(fileConfig.dream ?? {}),
-  };
-
   const config: Mem0Config = {
     ...DEFAULT_CONFIG,
     ...fileConfig,
-    dream,
   };
 
   if (process.env.MEM0_API_KEY) {

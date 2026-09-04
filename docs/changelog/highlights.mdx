@@ -4,21 +4,41 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-09-03" description="Mem0 plugin architecture">
+
+**Mem0 Plugins: One Memory Experience Across Nine Hosts**
+
+Mem0 integrations now share a consistent memory contract across Claude Code, Cursor, Codex, Kimi Code, Antigravity, OpenClaw, OpenCode, Pi Agent, and DeepSeek Harness.
+
+- **Consistent behavior:** Supported hosts expose relevant recall, capture completed work, isolate project memory, redact credentials, and fail open when memory is unavailable.
+- **Native host integration:** Each plugin translates its host's lifecycle events into the shared memory behavior instead of forcing every agent into one runtime.
+- **Python plugin family:** Claude Code, Cursor, Codex, Kimi Code, and Antigravity use generated, self-contained bundles built from one Python core and one set of memory skills.
+- **TypeScript plugin family:** OpenClaw, OpenCode, Pi Agent, and DeepSeek Harness reuse the same lifecycle safety, formatting, scoping, identity, and telemetry utilities through their native SDKs.
+- **Claude Code preserved:** The existing capture, recall, scoping, and `mem0:sidekick` worktree behavior remain intact.
+- **Faster host support:** A new Python host needs a descriptor, native manifest, thin event adapter, and contract test. Shared memory policy stays in the core.
+- **Current versions:** Claude Code, Cursor, Codex, Kimi Code, and Antigravity are `0.3.0`. The npm packages are OpenClaw `1.0.16`, OpenCode `0.2.2`, Pi Agent `0.2.0`, and DeepSeek Harness `0.1.1`.
+
+Open the individual setup guide for [Claude Code](/integrations/claude-code), [Cursor](/integrations/cursor), [Codex](/integrations/codex), [Kimi Code](/integrations/kimi), [Antigravity](/integrations/antigravity), [OpenClaw](/integrations/openclaw), [OpenCode](/integrations/opencode), [Pi Agent](/integrations/pi-agent), or [DeepSeek Harness](/integrations/deepseek-plugin).
+
+</Update>
+
 <Update label="2026-08-24" description="DeepSeek Harness plugin">
 
 **DeepSeek Harness: Mem0 as a Native Cordis Plugin**
 
-The DeepSeek Harness agent forgets everything between sessions. [`@mem0/deepseek-plugin`](https://www.npmjs.com/package/@mem0/deepseek-plugin) gives it two Mem0-backed tools, so recall and writes persist across runs against the same memory bank you already use from Claude Code, Codex, and every other connected agent.
+The DeepSeek Harness agent forgets everything between sessions. [`@mem0/deepseek-plugin`](https://www.npmjs.com/package/@mem0/deepseek-plugin) now recalls relevant context automatically, captures completed turns, and provides two explicit tools against the same memory bank you use from other connected agents.
 
 - **Two agent-callable tools:** `search_memory` recalls facts relevant to a query, `add_memory` stores a fact for future sessions. Both accept per-call `userId` / `agentId` / `runId` scope overrides.
-- **Native Cordis lifecycle:** The plugin declares `inject = ['tools']` so it waits for the harness tool registry, then registers through `ctx.tools.register()`. Unmounting the plugin removes the tools automatically.
+- **Automatic recall:** The `system-prompt/assemble` event searches Mem0 with the latest human prompt and adds unseen results to the model context.
+- **Completed-turn capture:** The `session/event` listener stores durable human and assistant turns after completion, not intermediate model output.
+- **Native Cordis lifecycle:** The plugin waits for the Harness tool and system-prompt services, registers through native extension points, and cleans up automatically when unmounted.
 - **Managed backend, not a memory file:** Server-side extraction, semantic dedup, and conflict resolution, rather than a Markdown file the agent has to maintain itself.
-- **Config:** `userId` is required, `apiKey` defaults to `$MEM0_API_KEY`, and `host` optionally targets a dedicated Mem0 Platform base URL.
+- **Config:** `userId` is required, `apiKey` defaults to `$MEM0_API_KEY`, and `autoRecall` and `autoCapture` default to `true`.
 
 See [DeepSeek Harness](/integrations/deepseek-plugin) for setup and [SDK & Tools](/changelog/sdk) for PR links.
 
 <Note>
-  Developer preview. Auto-capture and auto-recall, where memory reaches the context with no explicit tool call, are planned but not yet built.
+  Developer preview. The plugin tracks the evolving DeepSeek Harness plugin API.
 </Note>
 
 </Update>
@@ -44,7 +64,7 @@ See [Strands Agents](/integrations/strands) for setup and [SDK & Tools](/changel
 
 The shared Mem0 editor plugin now covers Kimi Code alongside Claude Code, Cursor, Codex, and Antigravity, running on the same scripts, skills, and memory bank, so context written in one editor is available in the others.
 
-- **Hosted MCP server:** Registers `https://mcp.mem0.ai/mcp/`, authenticated with `MEM0_API_KEY` as a bearer token.
+- **Local memory server:** Registers the bundled Mem0 server and authenticates with `MEM0_API_KEY`.
 - **Automatic capture and recall:** SessionStart loads context through the `context-loader` skill, and hooks on prompt submit, file reads, Bash output, stop, and pre-compact capture and inject memory without an explicit tool call.
 - **Guardrails:** Direct `Write` / `Edit` / `MultiEdit` to memory files is blocked, and metadata defaults are enforced on every Mem0 MCP tool call.
 - **Kimi hook adapter:** A shim normalizes Kimi Code's hook contract to the shape the shared scripts already expect, resolving the real project directory and translating the differing prompt, tool-output, and MCP tool-name fields.
@@ -105,7 +125,7 @@ See [SDK & Tools](/changelog/sdk) for version details and PR links.
 
 **Mem0 Plugin: Shared Memory for Claude Code, Cursor, Codex, and Antigravity**
 
-The shared Mem0 editor plugin is current through v0.2.11:
+The v0.2.11 editor plugin release added:
 
 - **Automatic context injection:** File reads, bash errors, session resume prompts, and startup timelines can retrieve relevant memories automatically.
 - **Project and global scopes:** Project-scoped memories remain the default, while `global_search` supports team-wide recall across users and app scopes.
@@ -119,7 +139,7 @@ The shared Mem0 editor plugin is current through v0.2.11:
 
 **Antigravity Plugin: Mem0 for Google Antigravity**
 
-Antigravity support in the shared Mem0 editor plugin family is current through v0.1.3:
+The Antigravity v0.1.3 release added:
 
 - **Self-contained plugin:** Includes its own plugin manifest, MCP config, hooks, shared scripts, and skills.
 - **AGENTS.md convention:** Uses Antigravity's `contextFileName: "AGENTS.md"` convention.
@@ -139,7 +159,6 @@ Antigravity support in the shared Mem0 editor plugin family is current through v
 - **Native SDK tools:** Memory tools register through `@opencode-ai/plugin` and call the `mem0ai` SDK directly, so the plugin no longer depends on `mcp.mem0.ai`.
 - **Memory scopes:** Operations support `project`, `session`, and `global` scope, with `/mem0-scope` to change the default.
 - **Automatic context:** File-context injection, structured compaction summaries, and a recent-activity timeline surface relevant memories without manual recall.
-- **Auto-dream consolidation:** Gated consolidation merges duplicates, drops stale or sensitive entries, and rewrites vague memories.
 - **Skills load in place:** The `config` hook adds bundled skills to `skills.paths` instead of copying them into user config directories.
 - **Safety controls:** Blocks `MEMORY.md` writes and redacts secrets before storing memories.
 
@@ -149,14 +168,13 @@ Antigravity support in the shared Mem0 editor plugin family is current through v
 
 **Pi Agent Plugin: Persistent Memory for Pi Agent**
 
-`@mem0/pi-agent-plugin` adds semantic memory to Pi Agent and has been updated through v0.1.2:
+The Pi Agent v0.1.2 release added:
 
 - **Agent memory tool:** Registers `mem0_memory` for scoped search, add, get, delete, and delete-all operations.
-- **Slash commands:** Adds `/mem0-remember`, `/mem0-search`, `/mem0-forget`, `/mem0-tour`, `/mem0-dream`, `/mem0-pin`, `/mem0-scope`, and `/mem0-status`.
+- **Slash commands:** Adds `/mem0-remember`, `/mem0-search`, `/mem0-forget`, `/mem0-tour`, `/mem0-scope`, and `/mem0-status`.
 - **Auto-capture:** Stores user and assistant memories after agent turns.
-- **Dream consolidation:** Merges duplicates, resolves contradictions, and prunes stale memories behind session, time, and memory-count gates.
 - **Project scoping:** Uses git-root detection for stable `app_id` values across monorepos.
-- **Relevant command results:** v0.1.2 adds visible command feedback and thresholded, reranked search for search, forget, and pin commands.
+- **Relevant command results:** Commands provide visible feedback, and search and forget use thresholded, reranked retrieval.
 
 </Update>
 
@@ -164,12 +182,12 @@ Antigravity support in the shared Mem0 editor plugin family is current through v
 
 **OpenClaw Plugin: Current Memory Backend for OpenClaw**
 
-`@mem0/openclaw-mem0` is current through v1.0.13, with the original production-ready memory backend plus newer setup, security, and runtime work:
+The OpenClaw v1.0.13 release added:
 
-- **Skills-based memory architecture:** Triage, recall, and dream skills handle extraction, recall, consolidation, and tool guidance.
+- **Skills-based memory architecture:** Triage and recall skills handle extraction, retrieval, and tool guidance.
 - **Chat and CLI setup:** Supports chat-based platform setup, `openclaw mem0 init`, direct API keys, email OTP, autonomous agent setup, and OSS onboarding.
 - **Platform and OSS modes:** Works with Mem0 Platform or self-hosted OSS providers including OpenAI, Anthropic, Ollama, Qdrant, and PGVector.
-- **Agent-friendly CLI:** All 16 CLI commands support `--json` for machine-driven setup and diagnostics.
+- **Agent-friendly CLI:** Every CLI command supports `--json` for machine-driven setup and diagnostics.
 - **Runtime integration:** Exposes OpenClaw memory capability APIs for search manager and backend config status.
 - **Security and compliance:** Added path containment checks, sensitive config metadata, dependency overrides, telemetry hashing, and metadata-only registration safety.
 

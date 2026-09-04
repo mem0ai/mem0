@@ -20,7 +20,7 @@ preferences.
 
 Pass `scope` when the question needs something else: `dir` to narrow the
 shared memory to the directory you are working in (a package inside a
-monorepo), `mine` for your own preferences alone. Pass `run_id` with a Claude
-Code session ID to look at what one earlier session recorded, for example to
+monorepo), `mine` for your own preferences alone. Pass `run_id` with a
+Claude Code session ID to look at what one earlier session recorded, for example to
 pick up where a compacted or closed session left off. Return the tool's result
 directly.

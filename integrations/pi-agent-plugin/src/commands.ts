@@ -4,9 +4,6 @@ import type { Mem0Config, ScopeContext, Scope } from "./types.ts";
 import { DEFAULT_CUSTOM_CATEGORIES } from "./types.ts";
 import { resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
 import { formatMemoryList, formatMemoryCompact, groupByCategory } from "./memory/formatting.ts";
-import { DREAM_PROTOCOL } from "./dream/prompt.ts";
-import { acquireDreamLock } from "./dream/index.ts";
-import { CONFIG_DIR } from "./config/index.ts";
 import { captureCommandEvent } from "./telemetry.ts";
 
 const SEARCH_TOP_K = 10;
@@ -184,90 +181,6 @@ export function registerCommands(
     },
   });
 
-  pi.registerCommand("mem0-dream", {
-    description: "Consolidate memories — merge duplicates, prune stale entries, resolve contradictions",
-    handler: async (_args, ctx) => {
-      if (!acquireDreamLock(CONFIG_DIR)) {
-        ctx.ui.notify("A dream consolidation is already in progress.", "warning");
-        return;
-      }
-
-      captureCommandEvent("mem0-dream", {}, telemetryCtx);
-      pi.sendMessage({ customType: "mem0-dream", content: DREAM_PROTOCOL, display: false }, { triggerTurn: true });
-      sendFeedback(
-        "mem0-dream",
-        "**Dreaming** — reviewing your memories to merge duplicates, resolve contradictions, and prune stale entries. I'll report what changed.",
-      );
-    },
-  });
-
-  pi.registerCommand("mem0-pin", {
-    description: "Pin a memory to protect it from dream pruning",
-    handler: async (args, ctx) => {
-      const query = args?.trim();
-      if (!query) {
-        ctx.ui.notify("Usage: /mem0-pin <query>", "warning");
-        return;
-      }
-
-      const memories = await searchMemories(query, config.defaultScope);
-
-      if (memories.length === 0) {
-        captureCommandEvent("mem0-pin", { result_count: 0 }, telemetryCtx);
-        sendFeedback("mem0-pin", `**No matches for "${query}"** — nothing to pin.`);
-        return;
-      }
-
-      const pinned = (mem: Parameters<typeof formatMemoryCompact>[0]) => {
-        captureCommandEvent("mem0-pin", { pinned: true }, telemetryCtx);
-        sendFeedback(
-          "mem0-pin",
-          ["**Pinned** — protected from dream pruning", `- ${formatMemoryCompact(mem)}`].join("\n"),
-        );
-      };
-      const alreadyPinned = (mem: Parameters<typeof formatMemoryCompact>[0]) => {
-        sendFeedback("mem0-pin", ["**Already pinned**", `- ${formatMemoryCompact(mem)}`].join("\n"));
-      };
-
-      if (memories.length === 1) {
-        const target = memories[0];
-        const text = target.memory ?? "";
-        if (text.startsWith("[PINNED]")) {
-          alreadyPinned(target);
-          return;
-        }
-        const confirmed = await ctx.ui.confirm("Pin this memory?", formatMemoryCompact(target));
-        if (!confirmed) {
-          sendFeedback("mem0-pin", "**Cancelled** — nothing was pinned.");
-          return;
-        }
-        await mem0.update(target.id, { text: `[PINNED] ${text}` });
-        pinned(target);
-        return;
-      }
-
-      const labels = memories.map((m) => formatMemoryCompact(m));
-      const selected = await ctx.ui.select(
-        `Found ${pluralize(memories.length, "match", "matches")} for "${query}" — which should I pin?`,
-        labels,
-      );
-      if (!selected) {
-        sendFeedback("mem0-pin", "**Cancelled** — nothing was pinned.");
-        return;
-      }
-      const idx = labels.indexOf(selected);
-      if (idx < 0) return;
-      const target = memories[idx];
-      const selectedText = target.memory ?? "";
-      if (selectedText.startsWith("[PINNED]")) {
-        alreadyPinned(target);
-        return;
-      }
-      await mem0.update(target.id, { text: `[PINNED] ${selectedText}` });
-      pinned(target);
-    },
-  });
-
   pi.registerCommand("mem0-scope", {
     description: "Change default memory scope for this session (project, session, global)",
     handler: async (args, ctx) => {
@@ -329,7 +242,6 @@ export function registerCommands(
         `- Search relevance threshold: ${config.searchThreshold}`,
         `- Project memories: ${count}`,
         `- Auto-capture: ${config.autoCapture ? "on" : "off"}`,
-        `- Dream: ${config.dream.enabled ? "enabled" : "disabled"}`,
       ];
 
       captureCommandEvent("mem0-status", { connected, memory_count: count }, telemetryCtx);

@@ -1,0 +1,109 @@
+---
+title: Kimi Code
+description: "Add persistent project memory to Kimi Code with automatic capture, automatic recall, Mem0 skills, and tools."
+---
+
+Kimi Code forgets project decisions between sessions. The Mem0 plugin captures completed work, recalls relevant context before a response, and gives Kimi explicit memory tools and skills.
+
+<Info>Current plugin version: `0.3.0`.</Info>
+
+## Prerequisites
+
+1. A Mem0 Platform account and API key:
+   - [Sign up at app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=integration-kimi)
+   - [Get your API key](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-kimi) (starts with `m0-`)
+
+2. [Kimi Code](https://www.kimi.com/code) with plugin support.
+
+3. Python 3.10+ and Git on your machine.
+
+## Quick start
+
+Export the key in the shell where you start Kimi Code:
+
+```bash
+export MEM0_API_KEY='your-mem0-api-key'
+kimi
+```
+
+Inside Kimi Code, install the native plugin bundle and reload the session:
+
+```text
+/plugins install https://github.com/mem0ai/mem0/tree/main/integrations/kimi-plugin
+/reload
+```
+
+Run `/plugins info mem0` to confirm that the plugin, MCP server, skills, hooks, and sidekick agent loaded.
+
+## What you get
+
+- **Automatic capture:** Kimi records completed exchanges locally and flushes durable project knowledge to Mem0 in the background.
+- **Automatic recall:** Relevant memories are added before Kimi answers the first prompt in a session.
+- **Explicit search:** Kimi can call `search_memories` when it needs a more specific answer.
+- **Six memory skills:** Search, status, remember, forget, pause, and resume use the same memory behavior as the other Mem0 coding-agent plugins.
+- **Project scoping:** Memories stay attached to the repository, with separate personal and shared project lanes.
+- **Kimi sidekick:** A focused subagent can investigate or implement a bounded task in a separate context. Filesystem isolation depends on the environment Kimi provides.
+
+Credentials are redacted before memory capture. If Mem0 is unavailable, hooks fail open so Kimi can continue its normal work.
+
+## How it works
+
+Kimi's native lifecycle events are translated into the shared Mem0 memory lifecycle:
+
+| Kimi event | What Mem0 does |
+| --- | --- |
+| `SessionStart` | Loads recent project context |
+| `UserPromptSubmit` | Searches for relevant memories before the response |
+| `PostToolUse` / `PostToolUseFailure` | Records useful tool results and failures |
+| `Stop` | Captures the completed exchange |
+| `PreCompact` / `SessionEnd` | Flushes pending capture in the background |
+| `SubagentStart` / `SubagentStop` | Passes parent context to the Mem0 sidekick and records its lifecycle |
+
+## Verify the plugin
+
+In one session, say:
+
+```text
+Remember exactly: the release codename for this repository is ORCHID-9274.
+```
+
+Start a new Kimi session in the same repository and ask:
+
+```text
+What is the release codename for this repository? Do not infer it from repository files.
+```
+
+Kimi should return `ORCHID-9274` from memory.
+
+## Managing the plugin
+
+```text
+/plugins list
+/plugins info mem0
+/plugins disable mem0
+/plugins enable mem0
+/plugins remove mem0
+```
+
+Run `/reload` or start a new session after enabling, disabling, or reinstalling the plugin.
+
+## Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| Missing API key | Start Kimi from a shell where `MEM0_API_KEY` is exported. |
+| Plugin changes do not appear | Run `/plugins reload`, then `/reload` or `/new`. |
+| MCP server is disabled | Run `/plugins mcp enable mem0 mem0`, then `/reload`. |
+| No memory in a later session | Wait a moment for the background flush, then ask Kimi to search memory explicitly. |
+| Remove the plugin | Run `/plugins remove mem0`. |
+
+<CardGroup cols={2}>
+  <Card title="Cursor" icon="arrow-pointer" href="/integrations/cursor">
+    Add the same persistent project memory to Cursor
+  </Card>
+  <Card title="Claude Code" icon="/images/provider-icons/anthropic.svg" href="/integrations/claude-code">
+    Use Mem0 with Claude Code and its isolated sidekick
+  </Card>
+</CardGroup>
+
+<Snippet file="star-on-github.mdx" />

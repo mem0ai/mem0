@@ -2,7 +2,7 @@
 
 Persistent semantic memory for [Pi Agent](https://pi.dev), powered by [Mem0](https://mem0.ai).
 
-This extension gives Pi Agent long-term memory that persists across sessions, projects, and devices. Memories are automatically captured from conversations and can be searched, managed, and consolidated through slash commands and an agent-accessible tool.
+This extension gives Pi Agent long-term memory that persists across sessions, projects, and devices. Memories are automatically captured from conversations and can be searched and managed through slash commands and an agent-accessible tool.
 
 ## Features
 
@@ -10,9 +10,8 @@ This extension gives Pi Agent long-term memory that persists across sessions, pr
 - **Semantic search** — find memories by meaning, not just keywords
 - **Scoped memory** — project, session, or global scope
 - **Monorepo-aware** — uses git root for project detection, consistent app_id across subdirectories
-- **Dream consolidation** — merges duplicates, resolves contradictions, prunes stale entries
 - **Confirmation dialogs** — destructive commands ask before acting
-- **8 slash commands** — essential memory management from the command line
+- **6 slash commands** — essential memory management from the command line
 - **Agent tool** — `mem0_memory` tool lets the agent search and store memories autonomously
 
 ## Setup
@@ -43,20 +42,13 @@ Or create a config file at `~/.pi/agent/mem0-config.json`:
   "userId": "your-username",
   "autoCapture": true,
   "defaultScope": "project",
-  "searchThreshold": 0.2,
-  "dream": {
-    "enabled": true,
-    "auto": true,
-    "minHours": 24,
-    "minSessions": 5,
-    "minMemories": 20
-  }
+  "searchThreshold": 0.3
 }
 ```
 
 Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 
-`searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search`, `/mem0-forget`, and `/mem0-pin`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
+`searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search` and `/mem0-forget`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
 
 ## Commands
 
@@ -66,14 +58,12 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 | `/mem0-forget <query>` | Search and delete memories (with confirmation) |
 | `/mem0-search <query>` | Semantic search across memories |
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
-| `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
-| `/mem0-pin <query>` | Pin a memory to protect from dream pruning (preserves ID) |
 | `/mem0-scope <scope>` | Change default scope for this session |
 | `/mem0-status` | Connection health, identity, and memory count |
 
 ## Skills
 
-The plugin includes 8 skills that guide the agent on how to use each capability:
+The plugin includes 6 skills that guide the agent on how to use each capability:
 
 | Skill | Purpose |
 |-------|---------|
@@ -81,9 +71,7 @@ The plugin includes 8 skills that guide the agent on how to use each capability:
 | `remember` | Store facts with category classification |
 | `search` | Quick semantic search with compact results |
 | `forget` | Delete memories with confirmation |
-| `dream` | Memory consolidation workflow |
 | `tour` | Full memory walkthrough by category |
-| `pin` | Protect critical memories from pruning |
 | `status` | Health check and diagnostics |
 
 ## Memory Scopes
@@ -120,15 +108,14 @@ pi-agent-plugin/
 ├── src/
 │   ├── entry.ts          # Extension entry point
 │   ├── index.ts          # Barrel exports
-│   ├── commands.ts       # 8 slash commands
+│   ├── commands.ts       # 6 slash commands
 │   ├── prompt.ts         # System prompt injection (MEMORY_POLICY)
 │   ├── types.ts          # Shared interfaces and categories
 │   ├── telemetry.ts      # PostHog telemetry (batched, PII-safe)
 │   ├── config/           # Config loading (~/.pi/agent/mem0-config.json)
 │   ├── memory/           # Tool registration, scoping (git root), formatting
-│   ├── capture/          # Auto-capture from conversations (user + assistant)
-│   └── dream/            # Consolidation state, gating, locking, prompts
-├── skills/               # 8 SKILL.md files for Pi Agent
+│   └── capture/          # Auto-capture from conversations (user + assistant)
+├── skills/               # 6 SKILL.md files for Pi Agent
 ├── tests/                # Vitest unit tests
 └── dist/                 # Built output (ESM + DTS)
 ```
