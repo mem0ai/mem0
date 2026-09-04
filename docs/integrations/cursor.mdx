@@ -125,12 +125,15 @@ The full plugin translates Cursor's native events into the shared Mem0 memory li
 | `sessionStart` | Initializes the project session and recovers pending capture |
 | `beforeSubmitPrompt` | Observes the submitted prompt; recall stays tool-driven because this event cannot inject context |
 | `postToolUse` / `postToolUseFailure` | Records useful tool results and failures |
+| `subagentStart` / `subagentStop` | Records the Mem0 Sidekick lifecycle and completed result |
 | `afterAgentResponse` / `stop` | Captures the completed exchange |
 | `preCompact` / `sessionEnd` | Flushes pending capture in the background |
 
 <Note>
   Cursor's `beforeSubmitPrompt` hook can allow or block a prompt, but it cannot add context to that prompt. The plugin therefore gives the agent `search_memories` and a memory-aware sidekick for recall instead of claiming automatic per-prompt injection.
 </Note>
+
+Cursor's `subagentStart` hook also cannot inject parent context. The bundled Sidekick searches Mem0 itself, while the lifecycle hooks correlate its start and completion for later capture.
 
 ## Example Workflow
 

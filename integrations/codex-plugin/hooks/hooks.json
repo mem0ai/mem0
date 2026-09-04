@@ -24,6 +24,20 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" sidekick-start --plugin-data-dir \"${PLUGIN_DATA}\"", "timeout": 3 }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"${PLUGIN_ROOT}/hooks/adapter.py\" sidekick-stop --plugin-data-dir \"${PLUGIN_DATA}\"", "timeout": 3 }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

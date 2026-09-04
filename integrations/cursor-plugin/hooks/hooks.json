@@ -6,6 +6,8 @@
     "postToolUse": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" postToolUse", "timeout": 3 }],
     "postToolUseFailure": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" postToolUseFailure", "timeout": 3 }],
     "afterAgentResponse": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" afterAgentResponse", "timeout": 3 }],
+    "subagentStart": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" subagentStart", "matcher": "^sidekick$", "timeout": 5 }],
+    "subagentStop": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" subagentStop", "matcher": "^sidekick$", "timeout": 5 }],
     "stop": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" stop", "timeout": 3 }],
     "preCompact": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" preCompact", "timeout": 5 }],
     "sessionEnd": [{ "command": "python3 \"${CURSOR_PLUGIN_ROOT}/hooks/adapter.py\" sessionEnd", "timeout": 5 }]

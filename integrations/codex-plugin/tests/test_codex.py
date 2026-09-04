@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 
@@ -18,15 +20,52 @@ def test_codex_hooks_use_native_events_and_plugin_paths() -> None:
         "SessionStart",
         "UserPromptSubmit",
         "PostToolUse",
+        "SubagentStart",
+        "SubagentStop",
         "Stop",
         "PreCompact",
         "SessionEnd",
     }
     commands = [hook["command"] for groups in hooks.values() for group in groups for hook in group["hooks"]]
+    assert "matcher" not in hooks["SubagentStart"][0]
+    assert "matcher" not in hooks["SubagentStop"][0]
     assert all("${PLUGIN_ROOT}/hooks/adapter.py" in command for command in commands)
     assert any("flush --reason pre-compact" in command for command in commands)
     assert any("flush --reason session-end" in command for command in commands)
     assert all(hook.get("timeout", 0) <= 3 for groups in hooks.values() for group in groups for hook in group["hooks"])
+
+
+def test_codex_sidekick_records_lifecycle(tmp_path: Path) -> None:
+    adapter = HOST / "hooks" / "adapter.py"
+    payload = {
+        "session_id": "session-1",
+        "cwd": str(tmp_path),
+        "agent_id": "agent-1",
+        "agent_type": "default",
+    }
+
+    for action, extra in (
+        ("sidekick-start", {}),
+        ("sidekick-stop", {"last_assistant_message": "SIDEKICK_OK"}),
+    ):
+        result = subprocess.run(
+            [sys.executable, str(adapter), action, "--plugin-data-dir", str(tmp_path / "data")],
+            input=json.dumps({**payload, **extra}),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+
+    with sqlite3.connect(tmp_path / "data" / "evidence.sqlite3") as connection:
+        row = connection.execute(
+            "SELECT agent_id, stopped_at, final_message FROM sidekick_runs"
+        ).fetchone()
+
+    assert row is not None
+    assert row[0] == "agent-1"
+    assert row[1]
+    assert row[2] == "SIDEKICK_OK"
 
 
 def test_codex_mcp_uses_host_relative_paths() -> None:

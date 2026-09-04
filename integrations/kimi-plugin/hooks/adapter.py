@@ -113,30 +113,6 @@ def _sidekick_start(store, payload):
 
 
 def _sidekick_stop(store, payload):
-    payload = dict(payload)
-    if not payload.get("agent_id"):
-        session_id = str(payload.get("session_id") or "unknown-session")
-        repo = store.repo_for_session(session_id, payload.get("cwd"))
-        agent_type = str(payload.get("agent_type") or "mem0:sidekick")[:200]
-        store.conn.execute("BEGIN IMMEDIATE")
-        try:
-            row = store.conn.execute(
-                """SELECT agent_id FROM sidekick_runs
-                   WHERE repo_id = ? AND session_id = ? AND agent_type = ? AND stopped_at IS NULL
-                   ORDER BY started_at DESC, rowid DESC LIMIT 1""",
-                (repo.identity, session_id, agent_type),
-            ).fetchone()
-            if row:
-                store.conn.execute(
-                    """UPDATE sidekick_runs SET stopped_at = CURRENT_TIMESTAMP
-                       WHERE repo_id = ? AND session_id = ? AND agent_id = ?""",
-                    (repo.identity, session_id, row["agent_id"]),
-                )
-            store.conn.commit()
-        except Exception:
-            store.conn.rollback()
-            raise
-        payload["agent_id"] = row["agent_id"] if row else f"kimi-{uuid.uuid4().hex}"
     record_sidekick_stop(store, payload)
 
 

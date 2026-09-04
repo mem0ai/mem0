@@ -30,6 +30,8 @@ A Cordis plugin is a module exporting `apply(ctx, config)`. This plugin waits fo
 
 Cordis removes the listeners and tools when the plugin unmounts. Memory failures are fail-open, so a Mem0 outage does not stop the agent from completing its normal work.
 
+DeepSeek Harness provides subagents through separate host-composition packages. This Mem0 package does not register a named Sidekick or claim child filesystem isolation. A Harness child uses Mem0 only when its own agent preset includes the Mem0 plugin.
+
 ## Prerequisites
 
 1. A Mem0 Platform account and API key:
@@ -114,3 +116,9 @@ Writes are tagged `source="DEEPSEEK_HARNESS"` so Mem0 can attribute usage to thi
 <Note>
   This plugin is a developer preview and tracks the evolving DeepSeek Harness plugin API.
 </Note>
+
+## Troubleshooting
+
+- **`MISSING_CREDENTIAL` for `deepseek-official`**: Configure `DEEPSEEK_API_KEY` through Harness's Models page or export it in the shell that launches Harness.
+- **`EMFILE: too many open files, watch` on macOS**: Launch Harness with `CHOKIDAR_USEPOLLING=1`.
+- **Mem0 tools do not appear**: Run Harness with `--dump-config` and confirm the final composition contains the `mem0` row and the installed `dist/index.js` path.

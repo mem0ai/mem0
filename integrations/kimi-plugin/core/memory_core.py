@@ -473,6 +473,7 @@ def user_id() -> str:
 def data_dir() -> Path:
     configured = (
         os.environ.get("MEM0_CODE_DATA_DIR")
+        or os.environ.get("MEM0_PLUGIN_DATA_DIR")
         or os.environ.get("PLUGIN_DATA")
         or os.environ.get("CLAUDE_PLUGIN_DATA")
     )
@@ -1046,9 +1047,18 @@ class EvidenceStore:
         agent_type: str,
         transcript_path: str,
         final_message: str,
-    ) -> None:
+    ) -> str:
         now = utc_now()
-        with self.conn:
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            if not agent_id:
+                row = self.conn.execute(
+                    """SELECT agent_id FROM sidekick_runs
+                       WHERE repo_id = ? AND session_id = ? AND agent_type = ? AND stopped_at IS NULL
+                       ORDER BY started_at DESC, rowid DESC LIMIT 1""",
+                    (repo.identity, session_id, agent_type),
+                ).fetchone()
+                agent_id = row["agent_id"] if row else f"unknown-agent-{time.time_ns()}"
             self.conn.execute(
                 """INSERT INTO sidekick_runs
                    (repo_id, session_id, agent_id, agent_type, started_at,
@@ -1069,6 +1079,11 @@ class EvidenceStore:
                     bounded(final_message, MAX_ASSISTANT_CHARS),
                 ),
             )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
+        return agent_id
 
     def operation(
         self,
@@ -1379,13 +1394,13 @@ def record_sidekick_start(
 def record_sidekick_stop(store: EvidenceStore, hook_input: dict[str, Any]) -> None:
     session_id = _session_id(hook_input)
     repo = store.repo_for_session(session_id, hook_input.get("cwd"))
-    agent_id = bounded(hook_input.get("agent_id", "unknown-agent"), 200)
     agent_type = bounded(hook_input.get("agent_type", "mem0:sidekick"), 200)
+    agent_id = bounded(hook_input.get("agent_id", ""), 200)
     final_message = bounded(
         hook_input.get("last_assistant_message", ""), MAX_ASSISTANT_CHARS
     )
     transcript_path = bounded(hook_input.get("agent_transcript_path", ""), 2000)
-    store.stop_sidekick(
+    agent_id = store.stop_sidekick(
         repo,
         session_id,
         agent_id,

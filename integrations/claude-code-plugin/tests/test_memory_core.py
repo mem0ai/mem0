@@ -2174,6 +2174,36 @@ def test_sidekick_reuses_parent_memory_once_and_records_lifecycle(
     store.close()
 
 
+def test_sidekick_stop_without_agent_id_closes_latest_matching_run(isolated_env):
+    store = memory_core.EvidenceStore()
+    start_input = {
+        "session_id": "s1",
+        "cwd": "/tmp/repo",
+        "agent_id": "agent-123",
+        "agent_type": "sidekick",
+    }
+
+    with patch.object(memory_core, "resolve_repo", return_value=repo()):
+        memory_core.record_sidekick_start(store, start_input)
+        memory_core.record_sidekick_stop(
+            store,
+            {
+                "session_id": "s1",
+                "cwd": "/tmp/repo",
+                "agent_type": "sidekick",
+                "last_assistant_message": "Done.",
+            },
+        )
+
+    rows = store.conn.execute("SELECT agent_id, stopped_at, final_message FROM sidekick_runs").fetchall()
+    store.close()
+
+    assert len(rows) == 1
+    assert rows[0]["agent_id"] == "agent-123"
+    assert rows[0]["stopped_at"]
+    assert rows[0]["final_message"] == "Done."
+
+
 def test_search_once_per_session_avoids_repeated_remote_searches(
     isolated_env, monkeypatch
 ):

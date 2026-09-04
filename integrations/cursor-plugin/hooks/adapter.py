@@ -17,7 +17,7 @@ sys.path.insert(0, str(CORE))
 
 import hook_runner  # noqa: E402
 import telemetry  # noqa: E402
-from memory_core import configure_harness, record_tool  # noqa: E402
+from memory_core import configure_harness, record_sidekick_start, record_sidekick_stop, record_tool  # noqa: E402
 
 EVENTS = {
     "sessionStart": "session-start",
@@ -25,6 +25,8 @@ EVENTS = {
     "postToolUse": "post-tool",
     "postToolUseFailure": "post-tool-failure",
     "afterAgentResponse": "assistant-stop",
+    "subagentStart": "sidekick-start",
+    "subagentStop": "sidekick-stop",
     "stop": "stop",
     "sessionEnd": "session-end",
     "preCompact": "pre-compact",
@@ -33,7 +35,7 @@ EVENTS = {
 
 def normalize(payload: dict, event: str) -> dict:
     value = dict(payload)
-    value.setdefault("session_id", value.get("conversation_id", ""))
+    value.setdefault("session_id", value.get("conversation_id") or value.get("parent_conversation_id", ""))
     roots = value.get("workspace_roots") or []
     if roots:
         value.setdefault("cwd", roots[0])
@@ -43,6 +45,12 @@ def normalize(payload: dict, event: str) -> dict:
         value.setdefault("tool_response", value["error_message"])
     if "text" in value:
         value.setdefault("last_assistant_message", value["text"])
+    if "summary" in value:
+        value.setdefault("last_assistant_message", value["summary"])
+    if "subagent_id" in value:
+        value.setdefault("agent_id", value["subagent_id"])
+    if "subagent_type" in value:
+        value.setdefault("agent_type", value["subagent_type"])
     return {"action": EVENTS[event], "payload": value}
 
 
@@ -52,6 +60,15 @@ def _record_failure(store, payload):
 
 def _record_response(store, payload):
     hook_runner.default_record_stop(store, payload)
+
+
+def _record_sidekick_start(store, payload):
+    record_sidekick_start(store, payload)
+    return {"permission": "allow"}
+
+
+def _record_sidekick_stop(store, payload):
+    record_sidekick_stop(store, payload)
 
 
 def main() -> int:
@@ -75,7 +92,12 @@ def main() -> int:
     telemetry.init(harness="cursor", source_tag="CURSOR_PLUGIN")
     with contextlib.redirect_stdout(io.StringIO()):
         result = hook_runner.run(
-            extra_actions={"post-tool-failure": _record_failure, "assistant-stop": _record_response},
+            extra_actions={
+                "post-tool-failure": _record_failure,
+                "assistant-stop": _record_response,
+                "sidekick-start": _record_sidekick_start,
+                "sidekick-stop": _record_sidekick_stop,
+            },
             automatic_flush_reasons={"session-end", "pre-compact"},
         )
     if event == "sessionStart":
@@ -92,6 +114,8 @@ def main() -> int:
         }
         if environment:
             print(json.dumps({"env": environment}))
+    elif event == "subagentStart":
+        print(json.dumps({"permission": "allow"}))
     return result
 
 

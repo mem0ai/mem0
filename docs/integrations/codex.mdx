@@ -112,7 +112,10 @@ Lifecycle hooks that shell out to local scripts (Option A) are not applicable in
 |-----------|:--------------:|:--------:|
 | Memory tools | `search_memories` | 9 CRUD tools |
 | Lifecycle hooks | Yes | No |
+| Native subagent memory lifecycle | Yes | No |
 | Memory skills | 6 | No |
+
+Codex plugins cannot currently bundle a named custom agent. If you define project or user agents under `.codex/agents/` or `~/.codex/agents/`, the full Mem0 plugin gives every native subagent the parent turn's retrieved memory context and records its completed result.
 
 ## Direct MCP tools
 
@@ -139,6 +142,8 @@ Option A registers the hooks with the plugin. No separate hook installer or glob
 | **Session start** | `SessionStart` | Loads prior memories and displays status banner |
 | **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
 | **Post-tool** | `PostToolUse` | Records useful tool outcomes for the completed exchange |
+| **Subagent start** | `SubagentStart` | Reuses the parent turn's retrieved memory context in the child |
+| **Subagent stop** | `SubagentStop` | Records the child transcript path and completed result |
 | **Stop** | `Stop` | Captures completed work and starts a background flush when needed |
 | **Pre-compact** | `PreCompact` | Flushes pending capture before context compaction |
 | **Session end** | `SessionEnd` | Flushes any remaining capture in the background |
