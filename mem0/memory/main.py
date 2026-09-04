@@ -48,7 +48,8 @@ from mem0.memory.notices import (
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
-from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.redaction import redact_secrets
+from mem0.memory.setup import _ensure_dir, mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
@@ -249,6 +250,11 @@ def _validate_and_trim_search_query(query: str) -> str:
     if not trimmed:
         raise ValueError("Invalid query: cannot be empty or whitespace-only.")
     return trimmed
+
+
+def _identity(value):
+    """No-op stand-in for redact_secrets when redaction is turned off."""
+    return value
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -528,18 +534,22 @@ class Memory(MemoryBase):
             # Override collection name for telemetry
             telemetry_config_dict['collection_name'] = "mem0migrations"
 
-            # Set path for file-based vector stores
+            # Set path for file-based vector stores. An uncreatable mem0_dir
+            # costs local telemetry state only, so skip it rather than failing
+            # Memory() construction.
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+            telemetry_dir_ok = True
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+                telemetry_dir_ok = _ensure_dir(telemetry_config_dict['path'])
 
-            # Create the config object using the same class as the original
-            telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
-            self._telemetry_vector_store = VectorStoreFactory.create(
-                self.config.vector_store.provider, telemetry_config
-            )
+            if telemetry_dir_ok:
+                # Create the config object using the same class as the original
+                telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
+                self._telemetry_vector_store = VectorStoreFactory.create(
+                    self.config.vector_store.provider, telemetry_config
+                )
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
                 "The '%s' vector store does not support keyword search. "
@@ -1698,6 +1708,10 @@ class Memory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        # Recall boundary: search() results are what the proxy splices into the next
+        # model turn, so secret-shaped strings are stripped here unless opted out.
+        redact = redact_secrets if self.config.redact_recalled_secrets else _identity
+
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
@@ -1707,7 +1721,7 @@ class Memory(MemoryBase):
 
             memory_item_dict = MemoryItem(
                 id=scored["id"],
-                memory=payload.get("data", ""),
+                memory=redact(payload.get("data", "")),
                 hash=payload.get("hash"),
                 created_at=payload.get("created_at"),
                 updated_at=payload.get("updated_at"),
@@ -2199,11 +2213,13 @@ class AsyncMemory(MemoryBase):
         if MEM0_TELEMETRY:
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             telemetry_config.collection_name = "mem0migrations"
+            telemetry_dir_ok = True
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config.path, exist_ok=True)
-            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+                telemetry_dir_ok = _ensure_dir(telemetry_config.path)
+            if telemetry_dir_ok:
+                self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
 
         if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
             logger.warning(
@@ -3362,6 +3378,10 @@ class AsyncMemory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        # Recall boundary: search() results are what the proxy splices into the next
+        # model turn, so secret-shaped strings are stripped here unless opted out.
+        redact = redact_secrets if self.config.redact_recalled_secrets else _identity
+
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
@@ -3370,7 +3390,7 @@ class AsyncMemory(MemoryBase):
 
             memory_item_dict = MemoryItem(
                 id=scored["id"],
-                memory=payload.get("data", ""),
+                memory=redact(payload.get("data", "")),
                 hash=payload.get("hash"),
                 created_at=payload.get("created_at"),
                 updated_at=payload.get("updated_at"),
