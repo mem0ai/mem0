@@ -6,6 +6,7 @@ const mockMem0 = {
   search: vi.fn(),
   add: vi.fn(),
   getAll: vi.fn(),
+  update: vi.fn(),
   delete: vi.fn(),
   deleteAll: vi.fn(),
 };
@@ -57,5 +58,20 @@ describe("buildToolExecute", () => {
     mockMem0.delete.mockResolvedValue({ message: "deleted" });
     await execute({ action: "delete", memory_id: fullId });
     expect(mockMem0.delete).toHaveBeenCalledWith(fullId);
+  });
+
+  it("write actions accept the citation ID returned by search", async () => {
+    mockMem0.update.mockResolvedValue({ status: "updated" });
+    mockMem0.delete.mockResolvedValue({ message: "deleted" });
+    await execute({
+      action: "update",
+      memory_id: "[mem0:956e3d68-b420-4e07-a4e3-3019e7cebe6f]",
+      content: "updated memory",
+    });
+    await execute({ action: "delete", memory_id: "mem0:956e3d68-b420-4e07-a4e3-3019e7cebe6f" });
+    expect(mockMem0.update).toHaveBeenLastCalledWith("956e3d68-b420-4e07-a4e3-3019e7cebe6f", {
+      text: "updated memory",
+    });
+    expect(mockMem0.delete).toHaveBeenLastCalledWith("956e3d68-b420-4e07-a4e3-3019e7cebe6f");
   });
 });

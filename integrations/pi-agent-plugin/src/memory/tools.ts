@@ -17,6 +17,10 @@ interface MemoryResult {
 const MAX_OUTPUT_LINES = 200;
 const MAX_OUTPUT_BYTES = 50_000;
 
+function normalizeMemoryId(id: string): string {
+  return id.replace(/^\[?mem0:([0-9a-f-]{36})\]?$/i, "$1");
+}
+
 function truncateOutput(text: string): string {
   const lines = text.split("\n");
   if (lines.length <= MAX_OUTPUT_LINES && text.length <= MAX_OUTPUT_BYTES) {
@@ -96,18 +100,19 @@ export function buildToolExecute(
         if (signal?.aborted) throw new Error("Cancelled");
         if (!params.memory_id) throw new Error("memory_id is required for update");
         if (!params.content) throw new Error("content is required for update");
-        const updateResult = await mem0.update(params.memory_id, { text: params.content });
+        const memoryId = normalizeMemoryId(params.memory_id);
+        const updateResult = await mem0.update(memoryId, { text: params.content });
         const res = updateResult as MemoryResult;
         return {
           content: [{ type: "text" as const, text: res.status ?? "Memory updated." }],
-          details: { memoryId: params.memory_id },
+          details: { memoryId },
         };
       }
 
       case "delete": {
         if (signal?.aborted) throw new Error("Cancelled");
         if (!params.memory_id) throw new Error("memory_id is required for delete");
-        const result = await mem0.delete(params.memory_id);
+        const result = await mem0.delete(normalizeMemoryId(params.memory_id));
         return {
           content: [{ type: "text" as const, text: result.message ?? "Memory deleted." }],
           details: {},
