@@ -46,6 +46,10 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
+if [ "${MEM0_AUTO_SEARCH:-true}" = "false" ]; then
+  exit 0
+fi
+
 # Extract error class/message (first matching line)
 ERROR_LINE=$(echo "$TOOL_RESULT" | grep -iE '(Error:|Exception:|panic:|FAIL:|fatal:)' | head -1 | sed 's/^[[:space:]]*//' | cut -c1-120)
 

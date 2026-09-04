@@ -30,6 +30,11 @@ fi
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
+
+if [ "${MEM0_AUTO_SEARCH:-true}" = "false" ]; then
+  exit 0
+fi
+
 CWD=$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")
 
 # Call the Python worker — it handles gating (file size, existence)
