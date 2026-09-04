@@ -46,6 +46,13 @@ def validate_bundle(root: Path, kind: str) -> list[str]:
         if skills.is_dir():
             for skill in sorted(path for path in skills.iterdir() if path.is_dir()):
                 errors.extend(f"skills/{skill.name}: {error}" for error in validate_skill(skill))
+    elif kind == "native":
+        for path in sorted(root.rglob("*.json")):
+            relative = path.relative_to(root)
+            try:
+                json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as error:
+                errors.append(f"{relative}: {error}")
     return sorted(errors)
 
 

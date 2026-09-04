@@ -158,6 +158,11 @@ SECRET_PATTERNS = [
         r"-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----",
         re.DOTALL,
     ),
+    re.compile(
+        r'(?i)("(?:api[_-]?key|password|secret(?:[_-]?access[_-]?key)?'
+        r'|(?:access|refresh|session)[_-]?token|token|authorization|credential'
+        r')"\s*:\s*")[^"]*'
+    ),
 ]
 
 
@@ -325,9 +330,9 @@ class RepoContext:
 
 
 def _project_id(root: str, identity: str, app_id: str) -> str:
-    """The shared namespace: the repository, or a folder path hashed so same-named folders stay apart."""
+    """The shared namespace: includes a host hash so repos with the same owner/name on different hosts stay apart."""
     if not identity.startswith("local:"):
-        return app_id
+        return f"{app_id}-{hashlib.sha256(identity.encode()).hexdigest()[:10]}"
     return f"local-{app_id}-{hashlib.sha256(root.encode()).hexdigest()[:10]}"
 
 

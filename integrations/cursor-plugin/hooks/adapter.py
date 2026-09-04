@@ -120,4 +120,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except Exception as exc:
+        hook_runner.log_failure(exc)
+        raise SystemExit(0) from None

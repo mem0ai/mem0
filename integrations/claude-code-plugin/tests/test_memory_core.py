@@ -874,6 +874,20 @@ def test_common_tokens_and_private_keys_are_redacted():
     assert "private-material" not in value
 
 
+def test_json_shaped_secrets_are_redacted():
+    value = memory_core.redact('{"apiKey": "sk-secret-12345", "name": "test"}')
+    assert "sk-secret-12345" not in value
+    assert "[REDACTED]" in value
+    assert '"name": "test"' in value
+
+    value = memory_core.redact('{"password": "hunter2", "count": 1}')
+    assert "hunter2" not in value
+
+    value = memory_core.redact('{"secret_access_key": "ABCDEFGHIJ1234567890", "region": "us-east-1"}')
+    assert "ABCDEFGHIJ1234567890" not in value
+    assert '"region": "us-east-1"' in value
+
+
 def test_remote_identity_removes_embedded_credentials():
     normalized = memory_core._normalize_remote(
         "https://secret-token@github.com/example/repo.git"
@@ -905,6 +919,15 @@ def test_repo_scope_matches_the_previous_plugin_mapping(
     resolved = memory_core.resolve_repo("/tmp/repo")
 
     assert resolved.app_id == "customer-platform"
+
+
+def test_different_git_hosts_produce_different_project_ids():
+    github = memory_core._project_id("/tmp/repo", "https://github.com/acme/api", "acme-api")
+    gitlab = memory_core._project_id("/tmp/repo", "https://gitlab.internal/acme/api", "acme-api")
+
+    assert github != gitlab
+    assert github.startswith("acme-api-")
+    assert gitlab.startswith("acme-api-")
 
 
 def test_non_git_session_keeps_starting_project_scope_after_nested_commands(
@@ -4137,7 +4160,8 @@ def test_same_named_folders_at_different_paths_get_different_namespaces():
     b = memory_core._project_id("/home/raj/marketing", "local:/home/raj/marketing", "marketing")
     assert a != b
     assert a.startswith("local-marketing-") and b.startswith("local-marketing-")
-    assert memory_core._project_id("/x", "https://github.com/acme/api", "acme-api") == "acme-api"
+    remote_id = memory_core._project_id("/x", "https://github.com/acme/api", "acme-api")
+    assert remote_id.startswith("acme-api-") and remote_id != "acme-api"
 
 
 def test_relative_directory_is_empty_at_the_root_and_posix_below():

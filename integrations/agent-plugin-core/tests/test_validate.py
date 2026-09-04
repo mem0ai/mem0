@@ -79,3 +79,37 @@ def test_rejects_nonconformant_agent_skill(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "skills/Bad_Name" in result.stderr
+
+
+def run_native_validator(bundle: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(VALIDATE), str(bundle), "--kind", "native"],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+
+def test_native_bundle_rejects_malformed_json(tmp_path: Path) -> None:
+    bundle = tmp_path / "plugin"
+    bundle.mkdir(parents=True)
+    (bundle / "plugin.json").write_text("{bad json", encoding="utf-8")
+
+    result = run_native_validator(bundle)
+
+    assert result.returncode == 1
+    assert "plugin.json" in result.stderr
+
+
+def test_native_bundle_accepts_valid_json(tmp_path: Path) -> None:
+    bundle = tmp_path / "plugin"
+    bundle.mkdir(parents=True)
+    (bundle / "plugin.json").write_text('{"name": "mem0"}', encoding="utf-8")
+    hooks = bundle / "hooks"
+    hooks.mkdir()
+    (hooks / "hooks.json").write_text('{"version": 1}', encoding="utf-8")
+
+    result = run_native_validator(bundle)
+
+    assert result.returncode == 0
+    assert "native" in result.stdout
