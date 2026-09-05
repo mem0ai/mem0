@@ -789,7 +789,7 @@ export default class MemoryClient {
   ): Promise<{ message: string; id: string }> {
     this._captureEvent("get_memory_export", []);
 
-    if (!data.memoryExportId && !data.filters) {
+    if (!data.memoryExportId && !data.memory_export_id && !data.filters) {
       throw new Error("Missing memoryExportId or filters");
     }
 
