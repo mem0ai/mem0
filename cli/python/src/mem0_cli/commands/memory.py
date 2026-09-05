@@ -102,7 +102,7 @@ def cmd_add(
     # Read from file
     if file:
         try:
-            raw = Path(file).read_text()
+            raw = Path(file).read_text(encoding="utf-8")
             msgs = json.loads(raw)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print_error(err_console, f"Failed to read file: {e}")
