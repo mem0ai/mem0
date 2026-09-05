@@ -295,7 +295,10 @@ class ChromaDB(VectorStoreBase):
         def convert_condition(key: str, value: any) -> list:
             """Convert one field condition to a list of single-field ChromaDB clauses."""
             if value == "*":
-                # Wildcard - match any value (ChromaDB doesn't have direct wildcard, so we skip this filter)
+                # "Any value" wildcard. ChromaDB has no exists operator, and $ne
+                # matches documents that lack the key entirely, so a sentinel $ne
+                # can't emulate "field exists" either. Best available translation
+                # is to not constrain the field (match all), same as chroma.ts.
                 return []
             if isinstance(value, dict):
                 # One clause per operator: ChromaDB rejects field expressions
