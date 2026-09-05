@@ -404,6 +404,58 @@ class TestGenerateResponseConverse:
 
 
 # ---------------------------------------------------------------------------
+# _parse_response — tool-enabled Converse responses
+# ---------------------------------------------------------------------------
+
+class TestParseResponseTools:
+    """Tool-enabled Converse responses must expose a `content` key alongside
+    `tool_calls`, mirroring every other provider (openai, anthropic, gemini, ...).
+    Callers do `resp.get("content")`; omitting it caused KeyError/divergence and
+    dropped any assistant text co-occurring with toolUse blocks.
+    """
+
+    def test_text_and_tool_use_both_captured(self, mock_boto3):
+        """A message with both a text block and a toolUse block keeps the text."""
+        response = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"text": "Let me store that for you."},
+                        {"toolUse": {"name": "add_memory", "input": {"data": "likes tea"}}},
+                    ]
+                }
+            }
+        }
+        mock_boto3.converse.return_value = response
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        result = llm.generate_response(MESSAGES, tools=TOOLS)
+
+        assert result["content"] == "Let me store that for you."
+        assert result["tool_calls"] == [{"name": "add_memory", "arguments": {"data": "likes tea"}}]
+
+    def test_tool_only_response_has_none_content(self, mock_boto3):
+        """A tool-only response (no text block) reports content as None, not missing."""
+        response = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"toolUse": {"name": "add_memory", "input": {"data": "likes tea"}}},
+                    ]
+                }
+            }
+        }
+        mock_boto3.converse.return_value = response
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+
+        result = llm.generate_response(MESSAGES, tools=TOOLS)
+
+        assert "content" in result
+        assert result["content"] is None
+        assert result["tool_calls"] == [{"name": "add_memory", "arguments": {"data": "likes tea"}}]
+
+
+# ---------------------------------------------------------------------------
 # MiniMax provider
 # ---------------------------------------------------------------------------
 
