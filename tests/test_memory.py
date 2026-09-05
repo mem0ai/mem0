@@ -240,6 +240,79 @@ def test_search_explain_includes_score_details(
     assert details["threshold"] == 0.1
 
 
+@patch("mem0.memory.main.extract_entities", return_value=[])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+def test_search_falls_back_to_semantic_results_when_keyword_search_fails(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+    caplog,
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("semantic", {"data": "Semantic result", "user_id": "test"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.side_effect = RuntimeError("keyword backend unavailable")
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    with caplog.at_level("WARNING", logger="mem0.memory.main"):
+        result = MemoryClass(MemoryConfig()).search("test query", filters={"user_id": "test"})
+
+    assert [item["id"] for item in result["results"]] == ["semantic"]
+    assert result["results"][0]["score"] == pytest.approx(0.8)
+    assert "Keyword search failed; continuing with semantic search" in caplog.text
+
+
+@pytest.mark.asyncio
+@patch("mem0.memory.main.extract_entities", return_value=[])
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.main.SQLiteManager")
+async def test_async_search_falls_back_to_semantic_results_when_keyword_search_fails(
+    mock_sqlite,
+    mock_llm_factory,
+    mock_vector_factory,
+    mock_embedder_factory,
+    _mock_extract_entities,
+    caplog,
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("semantic", {"data": "Semantic result", "user_id": "test"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.side_effect = RuntimeError("keyword backend unavailable")
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+
+    with caplog.at_level("WARNING", logger="mem0.memory.main"):
+        result = await AsyncMemory(MemoryConfig()).search("test query", filters={"user_id": "test"})
+
+    assert [item["id"] for item in result["results"]] == ["semantic"]
+    assert result["results"][0]["score"] == pytest.approx(0.8)
+    assert "Keyword search failed; continuing with semantic search" in caplog.text
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
