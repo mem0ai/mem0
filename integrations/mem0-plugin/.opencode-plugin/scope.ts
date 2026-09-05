@@ -37,7 +37,7 @@ export function scopeWriteParams(
   userId: string,
   appId: string,
   runId: string,
-): { user_id: string; app_id?: string; run_id?: string } {
+): { user_id: string; app_id?: string; run_id?: string; agent_id?: string } {
   switch (scope) {
     case "session":
       return { user_id: userId, app_id: appId, run_id: runId };

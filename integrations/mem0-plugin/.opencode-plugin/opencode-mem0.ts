@@ -268,7 +268,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
           service: "mem0",
           level: "error",
           message:
-            "MEM0_API_KEY environment variable not set. Get one at https://app.mem0.ai/dashboard/api-keys",
+            "MEM0_API_KEY environment variable not set.",
         },
       });
     } catch {
@@ -276,12 +276,58 @@ const Mem0Plugin: Plugin = async (ctx) => {
     return {};
   }
 
-  const mem0 = new MemoryClient({apiKey});
+  const apiUrl = process.env.MEM0_API_URL || process.env.MEM0_BASE_URL || "";
+  const mem0 = apiUrl
+    ? new MemoryClient({apiKey, host: apiUrl.replace(/\/+$/, "")})
+    : new MemoryClient({apiKey});
+
+  // Self-hosted Mem0 servers (this deployment) authenticate with `X-API-Key`
+  // and expose UNVERSIONED routes (`/memories`, `/search`, `/entities`), while
+  // the hosted platform uses `Authorization: Token <key>` and versioned routes
+  // (`/v3/memories/add/`, `/v3/memories/search/`, ...). The mem0ai SDK hardcodes
+  // both the `Token` scheme and the versioned paths, so when a self-hosted
+  // `host` is configured we override the request to send `X-API-Key` and rewrite
+  // the SDK's versioned URLs to the server's unversioned routes. Hosted calls
+  // (no `host` set) are untouched.
+  if (apiUrl) {
+    const rewriteSelfHostedUrl = (url: string): string => {
+      // `${host}/v3/memories/add/` -> `${host}/memories` (create)
+      // `${host}/v3/memories/search/` -> `${host}/search` (search)
+      // `${host}/v3/memories/` -> `${host}/memories`
+      // `${host}/v1/memories/{id}/` -> `${host}/memories/{id}`
+      // `${host}/v1/memories/{id}/history/` -> `${host}/memories/{id}/history`
+      // `${host}/v1/memories/?q` -> `${host}/memories?q`
+      // `${host}/v1/entities/...` -> `${host}/entities/...`
+      // `${host}/v1/ping/` -> `${host}/configure` (server has no /ping; /configure is 200)
+      return url
+        .replace(/\/v3\/memories\/add\/?$/, "/memories")
+        .replace(/\/v3\/memories\/search\/?$/, "/search")
+        .replace(/\/v3\/memories\/?$/, "/memories")
+        .replace(/\/v1\/memories\/([^/]+)\/history\/?$/, "/memories/$1/history")
+        .replace(/\/v1\/memories\/([^/]+)\/?(\?.*)?$/, "/memories/$1$2")
+        .replace(/\/v1\/memories\/?(\?.*)?$/, "/memories$1")
+        .replace(/\/v1\/entities\/?/, "/entities/")
+        .replace(/\/v1\/ping\/?$/, "/configure");
+    };
+    const originalFetch = mem0._fetchWithErrorHandling.bind(mem0);
+    mem0._fetchWithErrorHandling = async (url: string, options: any = {}) => {
+      const headers = {...(options.headers || {})};
+      delete headers["Authorization"];
+      headers["X-API-Key"] = apiKey;
+      return originalFetch(rewriteSelfHostedUrl(url), {...options, headers});
+    };
+    if (mem0.client?.defaults?.headers) {
+      delete (mem0.client.defaults.headers as any)["Authorization"];
+      (mem0.client.defaults.headers as any)["X-API-Key"] = apiKey;
+    }
+  }
+
   const userId = await getUserId();
   const appId = await getProjectId($);
   const branch = await getBranch($);
   const stats = {adds: 0, searches: 0, messages: 0};
   const sessionId = generateSessionId();
+  let currentAgent = "main";
   const globalSearch = loadGlobalSearch();
 
   let initialized = false;
@@ -432,7 +478,7 @@ Identity context (resolved at plugin startup):
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
           const effScope: Scope = args.scope ? asScope(args.scope) : loadDefaultScope();
           const sp = scopeWriteParams(effScope, userId, appId, sessionId);
-          const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
+          const finalUserId = args.user_id ?? sp.user_id;
           const finalAppId = args.app_id ?? sp.app_id;
 
           const meta = args.metadata ?? {};
@@ -454,7 +500,7 @@ Identity context (resolved at plugin startup):
               user_id: finalUserId,
               app_id: finalAppId,
               run_id: sp.run_id,
-              agent_id: args.agent_id,
+              agent_id: args.agent_id ?? sp.agent_id ?? currentAgent,
               metadata: meta,
               infer
             } as any
@@ -568,7 +614,7 @@ Identity context (resolved at plugin startup):
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
           const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, sessionId) : null;
           const res = await mem0.deleteAll({
-            user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
+            user_id: sp ? sp.user_id : (args.user_id ?? userId),
             app_id: sp ? sp.app_id : (args.app_id ?? appId),
             run_id: sp?.run_id,
             agent_id: args.agent_id,
@@ -628,6 +674,7 @@ Identity context (resolved at plugin startup):
   };
 
   async function chatMessageHook(input: any, output: any) {
+    currentAgent = input.agent || "main";
     const userText = extractUserText(input, output);
     if (!userText || userText.length < 10) return;
 
@@ -832,6 +879,8 @@ Identity context (resolved at plugin startup):
               session_id: sessionId,
               branch,
             },
+            agent_id: currentAgent,
+            agent: currentAgent,
             infer: true,
           } as any);
           stats.adds++;
@@ -972,6 +1021,8 @@ Identity context (resolved at plugin startup):
               session_id: compactSessionId,
               branch,
             },
+            agent_id: currentAgent,
+            agent: currentAgent,
             infer: true,
           } as any);
         } catch {
@@ -989,7 +1040,7 @@ Identity context (resolved at plugin startup):
       if (memories.length > 0 && output?.context) {
         const lines = memories.map((m) => `- ${m.memory}`).join("\n");
         output.context.push(
-          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool.`,
+          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool. Tag memories with agent_id "${currentAgent}" so they can be recalled per-agent.`,
         );
       }
     } catch {
