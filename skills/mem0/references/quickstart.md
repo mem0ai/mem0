@@ -27,7 +27,7 @@ messages = [
 client.add(messages, user_id="user123")
 
 # Search memories
-results = client.search("What are my dietary restrictions?", user_id="user123")
+results = client.search("What are my dietary restrictions?", filters={"user_id": "user123"})
 print(results)
 ```
 
@@ -39,7 +39,10 @@ from mem0 import AsyncMemoryClient
 client = AsyncMemoryClient(api_key="your-api-key")
 
 await client.add(messages, user_id="user123")
-results = await client.search("query", user_id="user123")
+results = await client.search(
+    "query",
+    filters={"user_id": "user123"},
+)
 ```
 
 ## TypeScript / JavaScript Setup
