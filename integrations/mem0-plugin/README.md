@@ -70,10 +70,16 @@ Codex reads MCP servers from `~/.codex/config.toml` as TOML. Add:
 ```toml
 [mcp_servers.mem0]
 url = "https://mcp.mem0.ai/mcp"
-bearer_token_env_var = "MEM0_API_KEY"
+bearer_token_env_var = "MEM0_AUTH"
 ```
 
-Export `MEM0_API_KEY` in your shell and restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
+Export the credential under `MEM0_AUTH` for Codex and restart Codex:
+
+```bash
+export MEM0_AUTH="$MEM0_API_KEY"
+```
+
+Codex filters inherited variables containing `KEY`, `SECRET`, or `TOKEN` in managed environments. `MEM0_API_KEY` remains the SDK and hook variable; `MEM0_AUTH` is the narrow MCP-only alias. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
 
 **Option B — Sideload the plugin** (full experience: MCP + skills + opt-in hooks):
 
