@@ -391,17 +391,42 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
+            # Only the id and payload are needed; exclude the stored vector so we do not
+            # pull every embedding into the response.
+            source_fields = ["id", "payload"]
+
+            def _to_output(hit: Dict) -> OutputData:
+                src = hit.get("_source", {})
+                return OutputData(id=src.get("id"), score=1.0, payload=src.get("payload", {}))
+
             if top_k:
-                query["size"] = top_k
+                body = {**query, "size": top_k, "_source": source_fields}
+                response = self.client.search(index=self.collection_name, body=body)
+                return [[_to_output(hit) for hit in response["hits"]["hits"]]]
 
-            response = self.client.search(index=self.collection_name, body=query)
-            hits = response["hits"]["hits"]
-
-            # Return a flat list, not a nested array
-            results = [
-                OutputData(id=hit["_source"].get("id"), score=1.0, payload=hit["_source"].get("payload", {}))
-                for hit in hits
-            ]
+            # Unbounded: scroll so results are not capped at max_result_window and the
+            # whole set is never held in one response.
+            results: List[OutputData] = []
+            page_size = 1000
+            response = self.client.search(
+                index=self.collection_name,
+                body={**query, "size": page_size, "_source": source_fields},
+                scroll="2m",
+            )
+            scroll_id = response.get("_scroll_id")
+            try:
+                while True:
+                    hits = response["hits"]["hits"]
+                    if not hits:
+                        break
+                    results.extend(_to_output(hit) for hit in hits)
+                    if len(hits) < page_size:
+                        break
+                    response = self.client.scroll(scroll_id=scroll_id, scroll="2m")
+                    scroll_id = response.get("_scroll_id", scroll_id)
+            finally:
+                if scroll_id:
+                    self.client.clear_scroll(scroll_id=scroll_id)
             return [results]  # VectorStore expects tuple/list format
         except Exception as e:
             logger.error(f"Error listing vectors: {e}", exc_info=True)
