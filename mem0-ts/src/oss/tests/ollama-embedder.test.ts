@@ -56,15 +56,39 @@ describe("OllamaEmbedder (unit)", () => {
     expect(mockEmbed.mock.calls[0][0].input).toBe("42");
   });
 
-  it("embedBatch() returns vectors for multiple inputs", async () => {
+  it("embedBatch() makes a single API call with all inputs", async () => {
+    mockEmbed.mockResolvedValueOnce({
+      model: "nomic-embed-text:latest",
+      embeddings: [[0.1, 0.2], [0.3, 0.4]],
+    });
+
     const embedder = new OllamaEmbedder({
       model: "nomic-embed-text:latest",
     });
 
     const result = await embedder.embedBatch(["text1", "text2"]);
 
-    expect(mockEmbed).toHaveBeenCalledTimes(2);
-    expect(result).toEqual([mockEmbedding, mockEmbedding]);
+    expect(mockEmbed).toHaveBeenCalledTimes(1);
+    expect(mockEmbed.mock.calls[0][0]).toEqual({
+      model: "nomic-embed-text:latest",
+      input: ["text1", "text2"],
+    });
+    expect(result).toEqual([[0.1, 0.2], [0.3, 0.4]]);
+  });
+
+  it("embedBatch() throws when embeddings array is empty", async () => {
+    mockEmbed.mockResolvedValueOnce({
+      model: "nomic-embed-text:latest",
+      embeddings: [],
+    });
+
+    const embedder = new OllamaEmbedder({
+      model: "nomic-embed-text:latest",
+    });
+
+    await expect(embedder.embedBatch(["text"])).rejects.toThrow(
+      "Ollama embedBatch() returned no embeddings",
+    );
   });
 
   it("ensureModelExists() does not pull when model is already present", async () => {
