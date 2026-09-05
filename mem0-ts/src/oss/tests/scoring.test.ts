@@ -46,4 +46,18 @@ describe("scoreAndRank", () => {
     expect(details.maxPossibleScore).toBe(1.0);
     expect(details.finalScore).toBe(0.8);
   });
+
+  it("does not gate keyword-only candidates on semantic threshold", () => {
+    const scored = scoreAndRank(
+      [{ id: "keyword", payload: { data: "exact match" } }],
+      { keyword: 0.9 },
+      {},
+      0.1,
+      10,
+    );
+
+    expect(scored).toHaveLength(1);
+    expect(scored[0].id).toBe("keyword");
+    expect(scored[0].score).toBeCloseTo(0.45);
+  });
 });
