@@ -60,6 +60,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         self.deployment_index_id = config.deployment_index_id  # The deployment-specific ID
         self.collection_name = config.collection_name
         self.vector_search_api_endpoint = config.vector_search_api_endpoint
+        self.distance_metric = config.distance_metric
 
         logger.debug("Using project=%s, location=%s", self.project_id, self.region)
 
@@ -102,6 +103,23 @@ class GoogleMatchingEngine(VectorStoreBase):
             logger.error("Failed to initialize Matching Engine components: %s", str(e))
             raise ValueError(f"Invalid configuration: {str(e)}")
 
+    def _distance_to_similarity(self, raw_distance: Optional[float]) -> Optional[float]:
+        """Convert a Vertex AI raw distance into a similarity score.
+
+        Follows the conversion contract documented on ``VectorStoreBase.search``:
+
+        - cosine distance: ``max(0.0, 1.0 - distance)``
+        - squared L2 distance: ``1.0 / (1.0 + distance)`` (bounded, monotone)
+        - dot product: returned as-is (already higher-is-better)
+        """
+        if raw_distance is None:
+            return None
+        if self.distance_metric == "squared_l2":
+            return 1.0 / (1.0 + raw_distance)
+        if self.distance_metric == "dot_product":
+            return float(raw_distance)
+        return max(0.0, 1.0 - raw_distance)
+
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
         Parse the output data.
@@ -114,7 +132,7 @@ class GoogleMatchingEngine(VectorStoreBase):
         output_data = []
         for result in results:
             raw_distance = result.get("distance")
-            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
+            score = self._distance_to_similarity(raw_distance)
             output_data.append(
                 OutputData(
                     id=result.get("datapoint").get("datapointId"),
@@ -265,7 +283,7 @@ class GoogleMatchingEngine(VectorStoreBase):
                             logger.debug("Adding %s: %s", restrict.name, restrict.allow_tokens[0])
                             payload[restrict.name] = restrict.allow_tokens[0]
 
-                score = max(0.0, 1.0 - neighbor.distance) if neighbor.distance is not None else None
+                score = self._distance_to_similarity(neighbor.distance)
                 output_data = OutputData(id=neighbor.id, score=score, payload=payload)
                 results.append(output_data)
 
@@ -415,7 +433,7 @@ class GoogleMatchingEngine(VectorStoreBase):
                                 if restrict.allow_list:
                                     payload[restrict.namespace] = restrict.allow_list[0]
 
-                        score = max(0.0, 1.0 - neighbor.distance) if neighbor.distance is not None else None
+                        score = self._distance_to_similarity(neighbor.distance)
                         return OutputData(id=neighbor.datapoint.datapoint_id, score=score, payload=payload)
 
                 logger.debug("No results found")

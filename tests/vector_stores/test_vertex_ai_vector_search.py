@@ -165,3 +165,67 @@ def test_error_handling(vector_store, mock_vertex_ai):
 
     assert isinstance(exc_info.value, exceptions.InvalidArgument)
     assert "Invalid request" in str(exc_info.value)
+
+
+class TestDistanceMetric:
+    """Metric-aware distance-to-similarity conversion (issue #7232)."""
+
+    def _config(self, **overrides):
+        base = dict(
+            project_id="test-project",
+            project_number="123456789",
+            region="us-central1",
+            endpoint_id="test-endpoint",
+            index_id="test-index",
+            deployment_index_id="test-deployment",
+            collection_name="test-collection",
+            vector_search_api_endpoint="test.vertexai.goog",
+        )
+        base.update(overrides)
+        return GoogleMatchingEngineConfig(**base)
+
+    def _store(self, config, mock_vertex_ai):
+        mock_vertex_ai["index_class"].return_value = mock_vertex_ai["index"]
+        mock_vertex_ai["endpoint_class"].return_value = mock_vertex_ai["endpoint"]
+        return GoogleMatchingEngine(**config.model_dump())
+
+    def test_default_metric_is_cosine(self):
+        assert self._config().distance_metric == "cosine"
+
+    def test_metric_aliases_are_canonicalized(self):
+        assert self._config(distance_metric="SQUARED_L2_DISTANCE").distance_metric == "squared_l2"
+        assert self._config(distance_metric="dot_product_point").distance_metric == "dot_product"
+        assert self._config(distance_metric="euclidean").distance_metric == "squared_l2"
+
+    def test_invalid_metric_is_rejected(self):
+        with pytest.raises(Exception):
+            self._config(distance_metric="manhattan")
+
+    def test_metric_reaches_the_store(self, mock_vertex_ai):
+        store = self._store(self._config(distance_metric="squared_l2"), mock_vertex_ai)
+        assert store.distance_metric == "squared_l2"
+
+    def test_cosine_conversion_unchanged(self, mock_vertex_ai):
+        store = self._store(self._config(), mock_vertex_ai)
+        assert store._distance_to_similarity(0.2) == pytest.approx(0.8)
+        assert store._distance_to_similarity(2.0) == 0.0
+        assert store._distance_to_similarity(None) is None
+
+    def test_squared_l2_conversion_is_bounded(self, mock_vertex_ai):
+        store = self._store(self._config(distance_metric="squared_l2"), mock_vertex_ai)
+        assert store._distance_to_similarity(2.0) == pytest.approx(1.0 / 3.0)
+        assert 0.0 < store._distance_to_similarity(2.0) < 1.0
+
+    def test_dot_product_passes_through(self, mock_vertex_ai):
+        store = self._store(self._config(distance_metric="dot_product"), mock_vertex_ai)
+        assert store._distance_to_similarity(2.0) == pytest.approx(2.0)
+
+    def test_parse_output_respects_metric(self, mock_vertex_ai):
+        """Regression: _parse_output must not hardcode the cosine conversion."""
+        data = {"nearestNeighbors": {"neighbors": [{"datapoint": {"datapointId": "d1", "metadata": {}}, "distance": 2.0}]}}
+
+        cosine_store = self._store(self._config(), mock_vertex_ai)
+        assert cosine_store._parse_output(data)[0].score == 0.0
+
+        l2_store = self._store(self._config(distance_metric="squared_l2"), mock_vertex_ai)
+        assert l2_store._parse_output(data)[0].score == pytest.approx(1.0 / 3.0)
