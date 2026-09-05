@@ -94,6 +94,21 @@ def test_update_vector(supabase_instance, mock_collection):
     mock_collection.upsert.assert_called_once_with([("id1", new_vector, new_payload)])
 
 
+def test_update_metadata_only_persists(supabase_instance, mock_collection):
+    # vector=None must recover the stored embedding and still upsert, not silently no-op.
+    # A vecs fetch record supports both attribute (.id/.metadata) and index ([1]) access.
+    record = Mock()
+    record.id = "id1"
+    record.metadata = {"name": "old"}
+    record.__getitem__ = lambda _self, i: ("id1", [0.1, 0.2, 0.3], {"name": "old"})[i]
+    mock_collection.fetch.return_value = [record]
+    new_payload = {"name": "updated_vector"}
+
+    supabase_instance.update(vector_id="id1", payload=new_payload)
+
+    mock_collection.upsert.assert_called_once_with([("id1", [0.1, 0.2, 0.3], new_payload)])
+
+
 def test_get_vector(supabase_instance, mock_collection):
     # Create a Mock object to represent the record
     mock_record = Mock()
