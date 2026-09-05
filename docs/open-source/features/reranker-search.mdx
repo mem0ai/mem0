@@ -193,7 +193,7 @@ m = Memory.from_config(config)
 ```
 
 <Info icon="check">
-  Confirm `results["results"][0]["score"]` reflects the reranker output: if the field is missing, the reranker was not applied.
+  Confirm `results["results"][0]["rerank_score"]` is present: rerankers add this field on top of the existing vector `score`, so if `rerank_score` is missing the reranker was not applied.
 </Info>
 
 <Tip>
@@ -394,16 +394,18 @@ results = m.search("query", filters={"user_id": "alice"})
 ```python
 results = m.search(
     "What are my food preferences?",
-    filters={"user_id": "alice"}
+    filters={"user_id": "alice"},
+    rerank=True
 )
 
 for result in results["results"]:
     print(f"Memory: {result['memory']}")
-    print(f"Score: {result['score']}")
+    print(f"Vector score: {result['score']}")
+    print(f"Rerank score: {result['rerank_score']}")
 ```
 
 <Info icon="check">
-  Expect each result to list the reranker-adjusted score so you can compare ordering against baseline vector results.
+  Each result keeps its vector `score` and gains a `rerank_score` from the reranker, so you can compare the reranked ordering against the baseline vector results.
 </Info>
 
 ### Toggle reranking per request
@@ -491,7 +493,7 @@ results = m.search(
 
 for result in results["results"]:
     print(f"Recommendation: {result['memory']}")
-    print(f"Relevance: {result['score']:.3f}")
+    print(f"Relevance: {result['rerank_score']:.3f}")
 ```
 
 <Info icon="check">
@@ -527,7 +529,7 @@ results = m.search(
 
 ## Verify the feature is working
 
-- Inspect result payloads for both `score` (vector) and reranker scores; mismatched fields indicate the reranker didn’t execute.
+- Inspect result payloads for both `score` (vector) and `rerank_score` (reranker); a missing `rerank_score` means the reranker didn’t execute.
 - Track latency before and after enabling reranking to ensure SLAs hold.
 - Review provider logs or dashboards for throttling or quota warnings.
 - Run A/B comparisons (rerank on/off) to validate improved relevance before defaulting to reranked responses.
