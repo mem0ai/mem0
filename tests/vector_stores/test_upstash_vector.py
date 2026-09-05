@@ -132,27 +132,57 @@ def test_list_vectors(upstash_instance):
     handler.fetch_next.side_effect = [mock_result[1:2], mock_result[2:3], []]
 
     filters = {"age": 30, "name": "John"}
-    print("filters", filters)
     [results] = upstash_instance.list(filters=filters, top_k=15)
-
-    upstash_instance.client.info.return_value = {
-        "dimension": 10,
-    }
 
     upstash_instance.client.resumable_query.assert_called_once_with(
         vector=[1.0] * 10,
         filter='age = 30 AND name = "John"',
         include_metadata=True,
         namespace="ns",
-        top_k=100,
+        top_k=15,
     )
 
-    handler.fetch_next.assert_has_calls([call(100), call(100), call(100)])
+    # fetch_next should only request the remaining rows needed to reach top_k.
+    handler.fetch_next.assert_has_calls([call(14), call(13), call(12)])
     handler.__exit__.assert_called_once()
 
     assert len(results) == len(mock_result)
     assert results[0].id == "id1"
     assert results[0].payload == {"name": "vector1"}
+
+
+def test_list_vectors_truncates_to_top_k(upstash_instance):
+    """Regression: list(top_k=n) must return at most n rows.
+
+    Previously the initial resumable_query hardcoded top_k=100 and the results
+    were never sliced, so list(top_k=5) returned up to 100 rows and get_all's
+    limit was silently ignored for the Upstash backend.
+    """
+    mock_result = [
+        QueryResult(id=f"id{i}", score=None, vector=None, metadata={"name": f"vector{i}"}, data=None)
+        for i in range(100)
+    ]
+    handler = MagicMock()
+
+    upstash_instance.client.info.return_value.dimension = 10
+    upstash_instance.client.resumable_query.return_value = (mock_result, handler)
+
+    [results] = upstash_instance.list(top_k=5)
+
+    upstash_instance.client.resumable_query.assert_called_once_with(
+        vector=[1.0] * 10,
+        filter="",
+        include_metadata=True,
+        namespace="ns",
+        top_k=5,
+    )
+
+    # First page already satisfies top_k, so no extra pages are fetched.
+    handler.fetch_next.assert_not_called()
+    handler.__exit__.assert_called_once()
+
+    assert len(results) == 5
+    assert [r.id for r in results] == ["id0", "id1", "id2", "id3", "id4"]
 
 
 def test_insert_vectors_with_embeddings(upstash_instance_with_embeddings, mock_index):
