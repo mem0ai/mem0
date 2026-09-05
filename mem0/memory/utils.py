@@ -76,6 +76,55 @@ def parse_messages(messages):
     return response
 
 
+# Conservative ceiling that fits every current OpenAI embedding model
+# (text-embedding-3-small/large and ada-002 all top out at 8192 tokens).
+# We leave a small safety margin so encoding overhead / BOS tokens don't
+# push us over the hard model limit.
+DEFAULT_EMBED_TOKEN_LIMIT = 8000
+
+
+def truncate_text_to_token_limit(text: str, max_tokens: int = DEFAULT_EMBED_TOKEN_LIMIT) -> str:
+    """Truncate ``text`` so that its tokenized length does not exceed ``max_tokens``.
+
+    Used before passing concatenated conversation text to an embedding model. All
+    current OpenAI embedding models cap input at 8192 tokens; sending more raises
+    a 400 error which, in ``Memory.add()`` Phase 1, fails the entire add() call
+    before any memory is extracted or stored (see issue #5148).
+
+    Token counting prefers ``tiktoken`` (already a transitive dependency via the
+    OpenAI SDK) and falls back to a conservative ~4 chars/token heuristic when
+    tiktoken or the encoding is unavailable. The fallback intentionally
+    over-truncates rather than risking an over-the-limit call.
+
+    The function is a no-op when ``text`` is below the limit.
+    """
+    if not text:
+        return text
+
+    try:
+        import tiktoken  # type: ignore
+
+        try:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:  # pragma: no cover - very narrow tiktoken init failure
+            encoding = None
+
+        if encoding is not None:
+            tokens = encoding.encode(text)
+            if len(tokens) <= max_tokens:
+                return text
+            return encoding.decode(tokens[:max_tokens])
+    except ImportError:
+        pass
+
+    # Fallback: char-based heuristic. Average English token ~= 4 chars; we use 4
+    # so the resulting string is *under* the token budget rather than at it.
+    char_budget = max_tokens * 4
+    if len(text) <= char_budget:
+        return text
+    return text[:char_budget]
+
+
 def format_entities(entities):
     if not entities:
         return ""
