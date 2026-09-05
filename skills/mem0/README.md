@@ -54,7 +54,7 @@ After installing, just ask Claude:
 - "Add memory to my chatbot"
 - "Help me search user memories with filters"
 - "Integrate mem0 with my LangChain app"
-- "Add graph memory to track entity relationships"
+- "Migrate my app from mem0 v2 to v3"
 
 ## What's Inside
 
@@ -74,7 +74,7 @@ skills/mem0/
     ├── sdk-guide.md            # All SDK methods (Python + TypeScript)
     ├── api-reference.md        # REST endpoints, filters, memory object
     ├── architecture.md         # Processing pipeline, lifecycle, scoping, performance
-    ├── features.md             # Retrieval, graph, categories, MCP, webhooks, multimodal
+    ├── features.md             # Retrieval, entity linking, categories, MCP, webhooks, multimodal
     ├── integration-patterns.md # LangChain, CrewAI, OpenAI Agents, LangGraph, LlamaIndex, etc.
     └── use-cases.md            # 7 real-world patterns with Python + TypeScript code
 ```

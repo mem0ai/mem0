@@ -239,6 +239,13 @@ is created with the correct tag prefix.
 | `@mem0/cli` (Node CLI) | npm | `cli-node-v*` | `cli-node-v0.1.2` |
 | `@mem0/vercel-ai-provider` | npm | `vercel-ai-v*` | `vercel-ai-v2.0.6` |
 | `@mem0/openclaw-mem0` | npm | `openclaw-v*` | `openclaw-v1.0.1` |
+| `@mem0/opencode-plugin` | npm | `opencode-v*` | `opencode-v1.0.1` |
+| `@mem0/pi-agent-plugin` | npm | `pi-agent-v*` | `pi-agent-v1.0.1` |
+| `@mem0/n8n-nodes-mem0` | npm | `n8n-nodes-mem0-v*` | `n8n-nodes-mem0-v1.0.1` |
+
+The Zapier app (`integrations/zapier-mem0`) deploys to Zapier's own platform rather
+than a package registry, so it has no release tag. Deploy it manually with
+`gh workflow run zapier-mem0-cd.yml --ref main`.
 
 ### How to Release
 
