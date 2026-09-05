@@ -276,6 +276,40 @@ class TestConvertFilters:
         assert ("user_id", "Eq", "u1") in conditions
         assert ("score", "Gte", 0.5) in conditions
 
+    def test_gt_operator_not_dropped(self, db):
+        """Regression: {"gt": ...} was silently dropped, returning unfiltered results."""
+        result = db._convert_filters({"age": {"gt": 18}})
+        assert result == ("age", "Gt", 18)
+
+    @pytest.mark.parametrize(
+        "op,expected_token",
+        [
+            ("eq", "Eq"),
+            ("ne", "NotEq"),
+            ("gt", "Gt"),
+            ("gte", "Gte"),
+            ("lt", "Lt"),
+            ("lte", "Lte"),
+            ("in", "In"),
+            ("nin", "NotIn"),
+        ],
+    )
+    def test_all_operators_mapped(self, db, op, expected_token):
+        operand = [1, 2] if op in ("in", "nin") else 5
+        result = db._convert_filters({"age": {op: operand}})
+        assert result == ("age", expected_token, operand)
+
+    def test_multiple_operators_on_one_field(self, db):
+        result = db._convert_filters({"age": {"gt": 18, "lt": 65}})
+        assert result[0] == "And"
+        conditions = result[1]
+        assert ("age", "Gt", 18) in conditions
+        assert ("age", "Lt", 65) in conditions
+
+    def test_unknown_operator_raises(self, db):
+        with pytest.raises(ValueError, match="Unsupported filter operator"):
+            db._convert_filters({"age": {"between": [1, 2]}})
+
 
 # ── search ───────────────────────────────────────────────────────────
 
