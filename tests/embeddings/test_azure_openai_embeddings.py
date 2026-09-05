@@ -1,3 +1,4 @@
+import inspect
 from unittest.mock import Mock, patch
 
 import pytest
@@ -50,6 +51,22 @@ def test_embed_text_with_default_headers(default_headers, expected_header):
     assert embedder.client.api_key == "test"
     assert embedder.client._api_version == "test_version"
     assert embedder.client.default_headers.get("Test") == expected_header
+
+
+def test_base_embedder_config_azure_kwargs_default_is_not_mutable():
+    sig = inspect.signature(BaseEmbedderConfig.__init__)
+    azure_kwargs_default = sig.parameters["azure_kwargs"].default
+    assert azure_kwargs_default is None
+
+
+def test_base_embedder_config_instances_do_not_share_azure_kwargs():
+    first_config = BaseEmbedderConfig()
+    second_config = BaseEmbedderConfig()
+
+    assert first_config.azure_kwargs is not second_config.azure_kwargs
+
+    first_config.azure_kwargs.default_headers = {"X-Test": "Header"}
+    assert second_config.azure_kwargs.default_headers is None
 
 
 @pytest.fixture
