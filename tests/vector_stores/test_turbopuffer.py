@@ -232,6 +232,35 @@ class TestParseOutput:
     def test_parse_empty_rows(self, db):
         assert db._parse_output([]) == []
 
+    def test_parse_cosine_score_is_one_minus_dist(self, db):
+        # Default cosine metric: score = 1 - dist, unchanged by the metric fix.
+        results = db._parse_output([_make_row("id1", dist=0.25)])
+        assert results[0].score == pytest.approx(0.75)
+
+    def test_parse_euclidean_squared_score_is_bounded(self, mock_client):
+        # euclidean_squared $dist is unbounded (e.g. 4.0). 1 - dist would give -3.0,
+        # violating the higher-is-better contract; map it to 1/(1+dist) instead.
+        db = TurbopufferDB(
+            collection_name="test_ns",
+            embedding_model_dims=4,
+            api_key="tpuf_test_key",
+            region="gcp-us-central1",
+            distance_metric="euclidean_squared",
+        )
+        results = db._parse_output([_make_row("id1", dist=4.0)])
+        assert results[0].score == pytest.approx(0.2)
+        assert 0.0 <= results[0].score <= 1.0
+
+    def test_parse_euclidean_squared_preserves_none(self, mock_client):
+        db = TurbopufferDB(
+            collection_name="test_ns",
+            embedding_model_dims=4,
+            api_key="tpuf_test_key",
+            region="gcp-us-central1",
+            distance_metric="euclidean_squared",
+        )
+        assert db._parse_output([_make_row("id1")])[0].score is None
+
 
 # ── _convert_filters ─────────────────────────────────────────────────
 
