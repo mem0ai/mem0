@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
 from auth import require_admin, verify_auth
@@ -35,9 +35,12 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+    # Normalize to tz-aware UTC so naive timestamps don't raise when compared
+    # against tz-aware ones in list_entities().
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 @router.get("", response_model=list[Entity])
