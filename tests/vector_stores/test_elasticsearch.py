@@ -329,6 +329,35 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(results[0][1].id, "id2")
         self.assertEqual(results[0][1].payload, {"key2": "value2"})
 
+    def test_list_unbounded_paginates_and_excludes_vector(self):
+        # Unbounded list() must page with a point-in-time + search_after (not one
+        # size=10000 request that caps at max_result_window and pulls every vector),
+        # and must exclude the stored vector from _source.
+        self.client_mock.open_point_in_time.return_value = {"id": "pit-123"}
+        page1 = {
+            "hits": {
+                "hits": [
+                    {"_id": f"id{i}", "_source": {"metadata": {"user_id": "u"}}, "sort": [i]} for i in range(1000)
+                ]
+            }
+        }
+        page2 = {"hits": {"hits": [{"_id": "id1000", "_source": {"metadata": {"user_id": "u"}}, "sort": [1000]}]}}
+        self.client_mock.search.side_effect = [page1, page2]
+
+        results = self.es_db.list()
+
+        # every match collected across pages (not capped at 10 or a single page)
+        self.assertEqual(len(results[0]), 1001)
+        self.assertEqual(self.client_mock.search.call_count, 2)
+        self.client_mock.open_point_in_time.assert_called_once()
+        self.client_mock.close_point_in_time.assert_called_once_with(id="pit-123")
+
+        first_body = self.client_mock.search.call_args_list[0].kwargs["body"]
+        second_body = self.client_mock.search.call_args_list[1].kwargs["body"]
+        self.assertEqual(first_body["_source"], ["metadata"])  # vector excluded
+        self.assertNotIn("search_after", first_body)
+        self.assertEqual(second_body["search_after"], [999])  # paged via search_after
+
     def test_delete(self):
         # Perform delete
         self.es_db.delete(vector_id="id1")
