@@ -276,6 +276,33 @@ class TestConvertFilters:
         assert ("user_id", "Eq", "u1") in conditions
         assert ("score", "Gte", 0.5) in conditions
 
+    def test_eq_rejects_dict_value(self, db):
+        with pytest.raises(ValueError, match="string, int, float, or bool"):
+            db._convert_filters({"user_id": {"$exists": True}})
+
+    def test_eq_rejects_list_value(self, db):
+        with pytest.raises(ValueError, match="string, int, float, or bool"):
+            db._convert_filters({"user_id": ["alice", "bob"]})
+
+    def test_gte_rejects_dict_value(self, db):
+        with pytest.raises(ValueError, match="string, int, float, or bool"):
+            db._convert_filters({"score": {"gte": {"nested": "object"}}})
+
+    def test_lte_rejects_list_value(self, db):
+        with pytest.raises(ValueError, match="string, int, float, or bool"):
+            db._convert_filters({"score": {"lte": [1, 2, 3]}})
+
+    def test_accepts_bool_value(self, db):
+        result = db._convert_filters({"active": False})
+        assert result == ("active", "Eq", False)
+
+    def test_accepts_int_and_float_range(self, db):
+        result = db._convert_filters({"score": {"gte": 1, "lte": 10.5}})
+        assert result[0] == "And"
+        conditions = result[1]
+        assert ("score", "Gte", 1) in conditions
+        assert ("score", "Lte", 10.5) in conditions
+
 
 # ── search ───────────────────────────────────────────────────────────
 
