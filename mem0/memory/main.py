@@ -485,7 +485,9 @@ class _AsyncOSSProject:
 
 
 class Memory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        if config is None:
+            config = MemoryConfig()
         self.config = config
 
         self.embedding_model = EmbedderFactory.create(
@@ -2170,7 +2172,9 @@ class Memory(MemoryBase):
 
 
 class AsyncMemory(MemoryBase):
-    def __init__(self, config: MemoryConfig = MemoryConfig()):
+    def __init__(self, config: Optional[MemoryConfig] = None):
+        if config is None:
+            config = MemoryConfig()
         self.config = config
 
         self.embedding_model = EmbedderFactory.create(
