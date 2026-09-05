@@ -83,7 +83,7 @@ test = [
 dev = [
     "ruff==0.16.0",
     "isort>=5.13.2",
-    "pytest>=8.2.2",
+    "pre-commit>=3.5.0",
 ]
 
 [tool.pytest.ini_options]
@@ -111,6 +111,7 @@ features = [
   "vector-stores",
   "llms",
   "extras",
+  "dev",
 ]
 
 [tool.hatch.envs.dev_py_3_11]
@@ -120,6 +121,7 @@ features = [
   "vector-stores",
   "llms",
   "extras",
+  "dev",
 ]
 
 [tool.hatch.envs.dev_py_3_12]
@@ -129,6 +131,12 @@ features = [
   "vector-stores",
   "llms",
   "extras",
+  "dev",
+]
+
+[tool.hatch.envs.default]
+features = [
+  "dev",
 ]
 
 [tool.hatch.envs.default.scripts]
