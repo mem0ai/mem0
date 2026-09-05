@@ -225,8 +225,17 @@ def test_list_with_exception(langchain_instance):
 
     results = langchain_instance.list(filters={"user_id": "alice"}, top_k=10)
 
-    # Verify that an empty list is returned when an exception occurs
-    assert results == []
+    # Verify that a nested empty list is returned when an exception occurs
+    assert results == [[]]
+
+
+def test_list_when_collection_lacks_get_method(langchain_instance):
+    """Test list() when _collection exists but has no .get — should return [[]] not None."""
+    langchain_instance.client._collection = object()  # no .get attribute
+
+    results = langchain_instance.list()
+
+    assert results == [[]]
 
 
 def test_search_score_is_never_none(langchain_instance):
