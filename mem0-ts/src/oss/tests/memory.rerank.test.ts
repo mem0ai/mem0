@@ -181,4 +181,79 @@ describe("Memory.search reranking", () => {
 
     expect((memory as any).reranker).toBeInstanceOf(CohereReranker);
   });
+
+  // Prime the store with `n` semantic results (descending score), so the
+  // candidate pool is larger than a small topK.
+  async function primeSearchN(m: any, n: number) {
+    await m._ensureInitialized();
+    m.embedder = { embed: jest.fn().mockResolvedValue(mockEmbedding) };
+    m.vectorStore.search = jest.fn().mockResolvedValue(
+      Array.from({ length: n }, (_, i) => ({
+        id: `m${i}`,
+        score: 1 - i * 0.01,
+        payload: { data: `doc${i}` },
+      })),
+    );
+    m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
+  }
+
+  it("hands the reranker the full candidate pool, not the truncated topK", async () => {
+    const memory = createMemory();
+    const m = memory as any;
+    const POOL = 8;
+    const FINAL = 3;
+    await primeSearchN(m, POOL);
+
+    const rerank = jest
+      .fn<Promise<RerankResult[]>, [string, string[], number?]>()
+      .mockImplementation(async (_q, memories, topK) =>
+        // Narrow whatever pool we received down to the final topK.
+        memories
+          .slice(0, topK)
+          .map((_mem, index) => ({ index, rerankScore: 1 - index * 0.1 })),
+      );
+    m.reranker = { rerank };
+
+    const result = await m.search("q", {
+      filters: { user_id: "u1" },
+      topK: FINAL,
+      rerank: true,
+    });
+
+    // Reranker must have seen the full over-fetched pool (> final topK)...
+    const pooledInput = rerank.mock.calls[0][1];
+    expect(pooledInput.length).toBeGreaterThan(FINAL);
+    expect(pooledInput.length).toBe(POOL);
+    // ...been asked to narrow to the final topK...
+    expect(rerank.mock.calls[0][2]).toBe(FINAL);
+    // ...and the final results still respect topK.
+    expect(result.results.length).toBe(FINAL);
+
+    await memory.reset();
+  });
+
+  it("trims the over-fetched pool back to topK when the reranker throws", async () => {
+    const memory = createMemory();
+    const m = memory as any;
+    const POOL = 8;
+    const FINAL = 3;
+    await primeSearchN(m, POOL);
+    m.reranker = {
+      rerank: jest.fn().mockRejectedValue(new Error("provider down")),
+    };
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await m.search("q", {
+      filters: { user_id: "u1" },
+      topK: FINAL,
+      rerank: true,
+    });
+
+    // Failure must not leak the whole over-fetched pool.
+    expect(result.results.length).toBe(FINAL);
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+    await memory.reset();
+  });
 });
