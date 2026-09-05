@@ -33,6 +33,7 @@ class OpenAIConfig(BaseLlmConfig):
         store: Optional[bool] = None,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
+        max_retries: int = 0,
     ):
         """
         Initialize OpenAI configuration.
@@ -77,6 +78,7 @@ class OpenAIConfig(BaseLlmConfig):
             reasoning_effort=reasoning_effort,
             http_client_proxies=http_client_proxies,
             is_reasoning_model=is_reasoning_model,
+            max_retries=max_retries,
         )
 
         # OpenAI-specific parameters

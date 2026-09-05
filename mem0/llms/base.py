@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Sequence, Type, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.utils.retry import retry_call
 
 
 class LLMBase(ABC):
@@ -168,3 +169,30 @@ class LLMBase(ABC):
         params.update(kwargs)
 
         return params
+
+    def _retry(
+        self,
+        func: Callable[[], object],
+        *,
+        retry_on: Sequence[Type[BaseException]],
+        on_giveup: Optional[Callable[[BaseException], BaseException]] = None,
+        retry_after: Optional[Callable[[BaseException], Optional[float]]] = None,
+    ):
+        """Run ``func`` under the retry policy configured on ``self.config``.
+
+        When ``config.max_retries`` is 0 (default), ``func`` is called once and
+        its exceptions propagate unchanged (no behavior change). Otherwise
+        transient errors in ``retry_on`` are retried with exponential backoff
+        and jitter, and ``on_giveup`` / ``retry_after`` are forwarded to
+        :func:`mem0.utils.retry.retry_call`.
+        """
+        max_retries = getattr(self.config, "max_retries", 0) or 0
+        if max_retries <= 0:
+            return func()
+        return retry_call(
+            func,
+            max_retries=max_retries,
+            retry_on=retry_on,
+            retry_after=retry_after,
+            on_giveup=on_giveup,
+        )
