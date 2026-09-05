@@ -22,6 +22,7 @@ export type Mem0Config = {
   };
   // Shared
   userId: string;
+  userIdScope: "static" | "per-sender";
   autoCapture: boolean;
   autoRecall: boolean;
   searchThreshold: number;

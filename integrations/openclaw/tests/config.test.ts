@@ -33,6 +33,15 @@ describe("DEFAULT_CUSTOM_CATEGORIES", () => {
 // mem0ConfigSchema.parse() — defaults
 // ---------------------------------------------------------------------------
 describe("mem0ConfigSchema.parse() — defaults", () => {
+  it("defaults to static scoping and accepts only explicit supported scopes", () => {
+    expect(mem0ConfigSchema.parse({}).userIdScope).toBe("static");
+    expect(mem0ConfigSchema.parse({ userIdScope: "static" }).userIdScope).toBe("static");
+    expect(mem0ConfigSchema.parse({ userIdScope: "per-sender" }).userIdScope).toBe("per-sender");
+    for (const userIdScope of ["per-user", "", null, true, 1]) {
+      expect(() => mem0ConfigSchema.parse({ userIdScope })).toThrow("userIdScope must be");
+    }
+  });
+
   it("mode defaults to 'platform' when omitted", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
     expect(cfg.mode).toBe("platform");

@@ -105,3 +105,56 @@ export function resolveUserId(
   if (opts.userId) return opts.userId;
   return effectiveUserId(baseUserId, currentSessionId);
 }
+
+// Fields supplied by OpenClaw agent hooks (v2026.9.1 hook-types.ts).
+// Tool factories map their requesterSenderId/messageChannel/agentAccountId
+// fields to this shape; neither path obtains identity from model arguments.
+export interface SenderContext {
+  senderId?: string;
+  channel?: string;
+  messageProvider?: string;
+  accountId?: string;
+  agentId?: string;
+  sessionKey?: string;
+  trigger?: string;
+}
+
+export class SenderIsolationError extends Error {
+  constructor(message: string) {
+    super(`openclaw-mem0: per-sender isolation: ${message}`);
+    this.name = "SenderIsolationError";
+  }
+}
+
+const MEMORY_IDENTITY_SELECTORS = new Set([
+  "userId", "user_id", "agentId", "agent_id", "runId", "run_id",
+]);
+
+export function isMemoryIdentitySelector(key: string): boolean {
+  return MEMORY_IDENTITY_SELECTORS.has(key);
+}
+
+export function senderUserId(baseUserId: string, ctx: SenderContext): string {
+  if (
+    (ctx.trigger && ctx.trigger !== "user") ||
+    isNonInteractiveTrigger(undefined, ctx.sessionKey)
+  ) {
+    throw new SenderIsolationError("memory is unavailable for non-user triggers.");
+  }
+
+  const agentId = ctx.agentId ?? ctx.sessionKey?.match(/^agent:([^:]+):/)?.[1];
+  const channel = ctx.channel ?? ctx.messageProvider;
+  const parts = [baseUserId, agentId, channel, ctx.accountId, ctx.senderId];
+  if (parts.some((part) => typeof part !== "string" || !part.trim())) {
+    throw new SenderIsolationError(
+      "trusted sender, channel, account and agent identity are required. " +
+        "Use a sender-aware OpenClaw host (hook contract verified at v2026.9.1) " +
+        "and a channel that supplies these fields. OpenClaw v2026.4.24 hooks " +
+        "do not supply sender identity. No shared-namespace fallback is allowed.",
+    );
+  }
+
+  // An encoded tuple avoids delimiter collisions, including in the base userId.
+  // Session IDs are intentionally excluded so memory survives new sessions.
+  return `mem0:sender:v1:${Buffer.from(JSON.stringify(parts)).toString("base64url")}`;
+}

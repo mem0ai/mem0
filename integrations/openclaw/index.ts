@@ -17,7 +17,7 @@
  */
 
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/plugin-entry";
 
 import type {
   Mem0Config,
@@ -40,7 +40,10 @@ import {
   resolveUserId,
   isNonInteractiveTrigger,
   isSubagentSession,
+  senderUserId,
+  SenderIsolationError,
 } from "./isolation.ts";
+import type { SenderContext } from "./isolation.ts";
 import {
   loadCompactTriagePrompt,
   loadDreamPrompt,
@@ -196,7 +199,9 @@ const memoryPlugin = definePluginEntry({
     // Per-agent isolation helpers (thin wrappers around exported functions)
     // ========================================================================
     const _effectiveUserId = (sessionKey?: string) =>
-      effectiveUserId(cfg.userId, sessionKey);
+      cfg.userIdScope === "per-sender"
+        ? senderUserId(cfg.userId, { sessionKey })
+        : effectiveUserId(cfg.userId, sessionKey);
     const _agentUserId = (id: string) => agentUserId(cfg.userId, id);
     const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
       resolveUserId(cfg.userId, opts, currentSessionId);
@@ -216,7 +221,14 @@ const memoryPlugin = definePluginEntry({
     // ========================================================================
     // Public Artifacts (for memory-wiki bridge mode)
     // ========================================================================
-    if (typeof api.registerMemoryCapability === "function") {
+    if (cfg.userIdScope === "per-sender") {
+      api.logger.warn(
+        "openclaw-mem0: per-sender mode requires trusted request identity " +
+          "(hook contract verified at OpenClaw v2026.9.1; v2026.4.24 hooks lack senderId). " +
+          "Sender-less memory capabilities/public artifacts, event tools, CLI data " +
+          "commands and automatic dream scheduling are disabled. No shared fallback.",
+      );
+    } else if (typeof api.registerMemoryCapability === "function") {
       api.registerMemoryCapability({
         publicArtifacts: createPublicArtifactsProvider({
           provider,
@@ -428,6 +440,17 @@ function registerHooks(
     props?: Record<string, unknown>,
   ) => void = () => {},
 ) {
+  function hookUserId(ctx: SenderContext, staticSessionKey?: string): string | undefined {
+    if (cfg.userIdScope !== "per-sender") return _effectiveUserId(staticSessionKey);
+    try {
+      return senderUserId(cfg.userId, ctx);
+    } catch (err) {
+      if (!(err instanceof SenderIsolationError)) throw err;
+      api.logger.warn(err.message);
+      return undefined;
+    }
+  }
+
   // ========================================================================
   // SKILLS MODE: Agentic memory via before_prompt_build
   // ========================================================================
@@ -441,11 +464,14 @@ function registerHooks(
     // mutable state vulnerable to cross-session races. Removed in favor of using
     // sanitizeQuery() on event.prompt within this hook, where ctx.sessionKey is
     // available and the execution is scoped to the correct session.
-    api.on("before_prompt_build", async (event: any, ctx: any) => {
+    api.on("before_prompt_build", async (event, ctx) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       const trigger = ctx?.trigger ?? undefined;
       const sessionId = ctx?.sessionKey ?? undefined;
+      const isSubagent = isSubagentSession(sessionId);
+      const userId = hookUserId(ctx, isSubagent ? undefined : sessionId);
+      if (userId === undefined) return;
       if (isNonInteractiveTrigger(trigger, sessionId)) {
         api.logger.info(
           "openclaw-mem0: skills-mode skipping non-interactive trigger",
@@ -468,10 +494,9 @@ function registerHooks(
         return { prependSystemContext: systemContext };
       }
 
-      if (sessionId) session.setCurrentSessionId(sessionId);
-
-      const isSubagent = isSubagentSession(sessionId);
-      const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
+      if (sessionId && cfg.userIdScope !== "per-sender") {
+        session.setCurrentSessionId(sessionId);
+      }
 
       // Static protocol goes in prependSystemContext (cacheable across turns)
       let systemContext = loadCompactTriagePrompt(cfg.skills ?? {});
@@ -537,6 +562,7 @@ function registerHooks(
       // Only hit the API for memory count if time + session gates pass.
       const stateDir = session.getStateDir();
       const dreamEnabled =
+        cfg.userIdScope !== "per-sender" &&
         cfg.skills?.dream?.enabled !== false &&
         cfg.skills?.dream?.auto !== false;
       let dreamContext = "";
@@ -595,7 +621,9 @@ function registerHooks(
     // can complete it. Prevents cross-session false completion.
     let dreamSessionId: string | undefined;
 
-    api.on("agent_end", async (event: any, ctx: any) => {
+    api.on("agent_end", async (event, ctx) => {
+      // Automatic dream state is process-wide, not sender-scoped.
+      if (cfg.userIdScope === "per-sender") return;
       const sessionId = ctx?.sessionKey ?? undefined;
       const trigger = ctx?.trigger ?? undefined;
       if (sessionId) session.setCurrentSessionId(sessionId);
@@ -632,7 +660,8 @@ function registerHooks(
           .reverse()
           .find((m: any) => m.role === "assistant");
         const writeToolUsed =
-          lastAssistant && Array.isArray(lastAssistant.content)
+          lastAssistant && typeof lastAssistant === "object" &&
+          "content" in lastAssistant && Array.isArray(lastAssistant.content)
             ? lastAssistant.content.some(
                 (block: any) =>
                   block.type === "tool_use" && WRITE_TOOLS.has(block.name),
@@ -686,12 +715,15 @@ function registerHooks(
   if (cfg.autoRecall) {
     const RECALL_TIMEOUT_MS = 8_000;
 
-    api.on("before_prompt_build", async (event: any, ctx: any) => {
+    api.on("before_prompt_build", async (event, ctx) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       // Skip non-interactive triggers (cron, heartbeat, automation)
-      const trigger = (ctx as any)?.trigger ?? undefined;
-      const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      const trigger = ctx?.trigger ?? undefined;
+      const sessionId = ctx?.sessionKey ?? undefined;
+      const isSubagent = isSubagentSession(sessionId);
+      const userId = hookUserId(ctx, isSubagent ? undefined : sessionId);
+      if (userId === undefined) return;
       if (isNonInteractiveTrigger(trigger, sessionId)) {
         api.logger.info(
           "openclaw-mem0: skipping recall for non-interactive trigger",
@@ -712,8 +744,10 @@ function registerHooks(
         return;
       }
 
-      // Update shared state for tools (best-effort — tools don't have ctx)
-      if (sessionId) session.setCurrentSessionId(sessionId);
+      // Static mode retains its legacy tool session behavior.
+      if (sessionId && cfg.userIdScope !== "per-sender") {
+        session.setCurrentSessionId(sessionId);
+      }
 
       // Detect actual new session (first turn with a different sessionKey)
       const isNewSession =
@@ -723,7 +757,6 @@ function registerHooks(
       // Subagents have ephemeral UUIDs — their namespace is always empty.
       // Search the parent (main) user namespace instead so subagents get
       // the user's long-term context.
-      const isSubagent = isSubagentSession(sessionId);
       const recallSessionKey = isSubagent ? undefined : sessionId;
 
       // Strip OpenClaw sender metadata from the prompt before searching
@@ -743,7 +776,7 @@ function registerHooks(
         let longTermResults = await provider.search(
           cleanPrompt,
           buildSearchOptions(
-            undefined,
+            userId,
             recallTopK,
             undefined,
             recallSessionKey,
@@ -769,7 +802,7 @@ function registerHooks(
         // (cold-start blindness). Skip on subsequent turns to save API calls.
         if (isNewSession && cleanPrompt.length < 100) {
           const broadOpts = buildSearchOptions(
-            undefined,
+            userId,
             5,
             undefined,
             recallSessionKey,
@@ -847,8 +880,10 @@ function registerHooks(
       }
 
       // Skip non-interactive triggers (cron, heartbeat, automation)
-      const trigger = (ctx as any)?.trigger ?? undefined;
-      const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      const trigger = ctx?.trigger ?? undefined;
+      const sessionId = ctx?.sessionKey ?? undefined;
+      const userId = hookUserId(ctx, sessionId);
+      if (userId === undefined) return;
       if (isNonInteractiveTrigger(trigger, sessionId)) {
         api.logger.info(
           "openclaw-mem0: skipping capture for non-interactive trigger",
@@ -866,15 +901,33 @@ function registerHooks(
         return;
       }
 
-      // Update shared state for tools (best-effort — tools don't have ctx)
-      if (sessionId) session.setCurrentSessionId(sessionId);
+      if (sessionId && cfg.userIdScope !== "per-sender") {
+        session.setCurrentSessionId(sessionId);
+      }
+
+      let messages = event.messages;
+      if (cfg.userIdScope === "per-sender") {
+        // agent_end contains the full transcript, without per-message sender
+        // identity. Capture only the current user turn, never earlier senders.
+        let lastUserIndex = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const message = messages[i];
+          if (message && typeof message === "object" &&
+              "role" in message && message.role === "user") {
+            lastUserIndex = i;
+            break;
+          }
+        }
+        if (lastUserIndex < 0) return;
+        messages = messages.slice(lastUserIndex);
+      }
 
       const MEMORY_MUTATE_TOOLS = new Set([
         "memory_add",
         "memory_update",
         "memory_delete",
       ]);
-      const agentUsedMemoryTool = event.messages.some((msg: any) => {
+      const agentUsedMemoryTool = messages.some((msg: any) => {
         if (msg?.role !== "assistant" || !Array.isArray(msg?.content))
           return false;
         return msg.content.some(
@@ -912,8 +965,8 @@ function registerHooks(
         isSummary: boolean;
       }> = [];
 
-      for (let i = 0; i < event.messages.length; i++) {
-        const msg = event.messages[i];
+      for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i];
         if (!msg || typeof msg !== "object") continue;
         const msgObj = msg as Record<string, unknown>;
 
@@ -1030,10 +1083,10 @@ function registerHooks(
       const timestamp = new Date().toISOString().split("T")[0];
       formattedMessages.unshift({
         role: "system",
-        content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
+        content: `Current date: ${timestamp}. The user is identified as "${cfg.userIdScope === "per-sender" ? userId : cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
       });
 
-      const addOpts = buildAddOptions(undefined, undefined, sessionId);
+      const addOpts = buildAddOptions(userId, undefined, sessionId);
       const captureStart = Date.now();
       provider
         .add(formattedMessages, addOpts)

@@ -1,4 +1,46 @@
 declare module "openclaw/plugin-sdk" {
+  // Relevant fields from upstream tool-types.ts, available since v2026.4.24.
+  // https://github.com/openclaw/openclaw/blob/cbcfdf62c7297bda66009ea7476f053c3e9addab/src/plugins/tool-types.ts
+  export interface OpenClawPluginToolContext {
+    agentId?: string;
+    sessionKey?: string;
+    sessionId?: string;
+    messageChannel?: string;
+    agentAccountId?: string;
+    requesterSenderId?: string;
+  }
+
+  interface AgentTool {
+    name: string;
+    description: string;
+    parameters: unknown;
+    execute: (
+      toolCallId: string,
+      params: Record<string, unknown>,
+    ) => Promise<{ content: Array<{ type: string; text: string }>; [key: string]: unknown }>;
+    [key: string]: unknown;
+  }
+
+  export type OpenClawPluginToolFactory = (
+    ctx: OpenClawPluginToolContext,
+  ) => AgentTool | AgentTool[] | null | undefined;
+
+  // Relevant hook-types.ts fields at v2026.9.1. Identity remains optional:
+  // v2026.4.24 and non-user runs do not supply senderId.
+  // https://github.com/openclaw/openclaw/blob/ad6fe23aecb9b833d68139b0ddc9f239b894d2f1/src/plugins/hook-types.ts
+  interface PluginHookAgentContext {
+    agentId?: string;
+    sessionKey?: string;
+    sessionId?: string;
+    runId?: string;
+    channel?: string;
+    messageProvider?: string;
+    accountId?: string;
+    senderId?: string;
+    trigger?: string;
+    channelId?: string;
+  }
+
   export interface MemoryArtifact {
     id: string;
     type: "memory" | "dream" | "digest" | "entity";
@@ -35,19 +77,23 @@ declare module "openclaw/plugin-sdk" {
     };
     resolvePath(p: string): string;
     registerTool(
-      definition: {
-        name: string;
-        description: string;
-        parameters: unknown;
-        execute: (
-          toolCallId: string,
-          params: Record<string, unknown>,
-        ) => Promise<{ content: Array<{ type: string; text: string }>; [key: string]: unknown }>;
-        [key: string]: unknown;
-      },
+      definition: AgentTool | OpenClawPluginToolFactory,
       metadata?: { optional?: boolean; [key: string]: unknown },
     ): void;
-    on(event: string, handler: (event: any, ctx: any) => any): void;
+    on(
+      event: "before_prompt_build",
+      handler: (
+        event: { prompt: string; messages: unknown[] },
+        ctx: PluginHookAgentContext,
+      ) => unknown,
+    ): void;
+    on(
+      event: "agent_end",
+      handler: (
+        event: { messages: unknown[]; success: boolean; runId?: string },
+        ctx: PluginHookAgentContext,
+      ) => unknown,
+    ): void;
     registerCli(
       handler: (context: { program: any }) => void,
       options?: Record<string, unknown>,
@@ -65,6 +111,11 @@ declare module "openclaw/plugin-sdk" {
 
 declare module "openclaw/plugin-sdk/plugin-entry" {
   import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+  export type {
+    OpenClawPluginApi,
+    OpenClawPluginToolContext,
+    OpenClawPluginToolFactory,
+  } from "openclaw/plugin-sdk";
 
   export interface PluginEntry {
     id: string;
