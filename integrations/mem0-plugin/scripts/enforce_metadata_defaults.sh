@@ -47,8 +47,16 @@ _MEM0_USER_ID="${MEM0_RESOLVED_USER_ID:-}" \
 _MEM0_APP_ID="${MEM0_PROJECT_ID:-}" \
 _MEM0_GLOBAL_SEARCH="${MEM0_GLOBAL_SEARCH:-false}" \
 _MEM0_HANDLER="$HANDLER" \
+PYTHONPATH="$SCRIPT_DIR" \
 python3 <<'PYEOF' > "$_PATCH_OUT" 2>/dev/null || true
 import json, os, sys
+
+sys.path.insert(0, os.environ.get("PYTHONPATH", "."))
+try:
+    from _identity import global_search_filter
+except Exception:  # keep the hook non-fatal if the helper is unavailable
+    def global_search_filter(user_id):
+        return {"OR": [{"user_id": user_id}, {"agent_id": "*"}]}
 
 raw = os.environ.get("_MEM0_TOOL_INPUT", "{}")
 try:
@@ -179,8 +187,8 @@ if handler == "add_memory":
         inp["metadata"] = meta
 
 elif handler in ("search_memories", "get_memories"):
-    if global_search:
-        inp["filters"] = {"OR": [{"user_id": "*"}]}
+    if global_search and resolved_uid:
+        inp["filters"] = global_search_filter(resolved_uid)
         changed = True
     else:
         changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
