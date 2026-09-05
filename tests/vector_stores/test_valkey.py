@@ -1066,3 +1066,76 @@ def test_escape_tag_value_normal_strings(valkey_db):
 def test_escape_tag_value_hyphenated_user_id(valkey_db):
     """Hyphenated user IDs must have the hyphen escaped for exact-match."""
     assert valkey_db._escape_tag_value("user-123") == r"user\-123"
+
+def test_search_score_cosine_uses_one_minus_distance(valkey_db, mock_valkey_client):
+    """Cosine metric keeps the 1 - distance similarity mapping."""
+    mock_doc = MagicMock()
+    mock_doc.memory_id = "id1"
+    mock_doc.hash = "h1"
+    mock_doc.memory = "near"
+    mock_doc.created_at = str(int(datetime.now().timestamp()))
+    mock_doc.metadata = json.dumps({})
+    mock_doc.vector_score = "0.25"
+
+    mock_results = MagicMock()
+    mock_results.docs = [mock_doc]
+    mock_valkey_client.ft.return_value.search.return_value = mock_results
+
+    valkey_db.distance = "COSINE"
+    results = valkey_db.search(query="test", vectors=np.random.rand(1536).tolist(), top_k=1)
+
+    assert results[0].score == pytest.approx(0.75)
+
+
+def test_search_score_l2_uses_bounded_map(valkey_db, mock_valkey_client):
+    """L2 distance is unbounded; scores must not collapse to 0."""
+    near = MagicMock()
+    near.memory_id = "near"
+    near.hash = "h1"
+    near.memory = "near"
+    near.created_at = str(int(datetime.now().timestamp()))
+    near.metadata = json.dumps({})
+    near.vector_score = "0.5"
+
+    far = MagicMock()
+    far.memory_id = "far"
+    far.hash = "h2"
+    far.memory = "far"
+    far.created_at = str(int(datetime.now().timestamp()))
+    far.metadata = json.dumps({})
+    far.vector_score = "4.0"
+
+    mock_results = MagicMock()
+    mock_results.docs = [near, far]
+    mock_valkey_client.ft.return_value.search.return_value = mock_results
+
+    valkey_db.distance = "L2"
+    results = valkey_db.search(query="test", vectors=np.random.rand(1536).tolist(), top_k=2)
+
+    # 1 / (1 + d): a distance > 1 would give a negative (clamped 0) score under
+    # the old cosine-only formula; the bounded map keeps ranking intact.
+    assert results[0].score == pytest.approx(1.0 / 1.5)
+    assert results[1].score == pytest.approx(1.0 / 5.0)
+    assert results[0].score > results[1].score > 0.0
+
+
+def test_create_col_persists_distance_for_scoring(valkey_db, mock_valkey_client):
+    """create_col(distance=...) must update scoring, not only FT.CREATE."""
+    valkey_db.create_col(name="l2_collection", vector_size=768, distance="L2")
+    assert valkey_db.distance == "L2"
+
+    mock_doc = MagicMock()
+    mock_doc.memory_id = "id1"
+    mock_doc.hash = "h1"
+    mock_doc.memory = "x"
+    mock_doc.created_at = str(int(datetime.now().timestamp()))
+    mock_doc.metadata = json.dumps({})
+    mock_doc.vector_score = "4.0"
+
+    mock_results = MagicMock()
+    mock_results.docs = [mock_doc]
+    mock_valkey_client.ft.return_value.search.return_value = mock_results
+
+    results = valkey_db.search(query="test", vectors=np.random.rand(768).tolist(), top_k=1)
+    assert results[0].score == pytest.approx(1.0 / 5.0)
+

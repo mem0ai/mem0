@@ -66,6 +66,7 @@ class ValkeyDB(VectorStoreBase):
         hnsw_ef_construction: int = 200,
         hnsw_ef_runtime: int = 10,
         cluster_mode: bool = False,
+        distance: str = "COSINE",
     ):
         """
         Initialize the Valkey vector store.
@@ -80,6 +81,7 @@ class ValkeyDB(VectorStoreBase):
             hnsw_ef_construction (int, optional): HNSW ef_construction parameter. Defaults to 200.
             hnsw_ef_runtime (int, optional): HNSW ef_runtime parameter. Defaults to 10.
             cluster_mode (bool, optional): Enable cluster mode for Valkey cluster (CME) deployments. Defaults to False.
+            distance (str, optional): Distance metric for the vector index ('COSINE', 'L2', or 'IP'). Defaults to "COSINE".
         """
         self.embedding_model_dims = embedding_model_dims
         self.collection_name = collection_name
@@ -90,6 +92,7 @@ class ValkeyDB(VectorStoreBase):
         self.hnsw_ef_construction = hnsw_ef_construction
         self.hnsw_ef_runtime = hnsw_ef_runtime
         self.cluster_mode = cluster_mode
+        self.distance = (distance or "COSINE").upper()
 
         # Validate index type
         if self.index_type not in ["hnsw", "flat"]:
@@ -231,7 +234,7 @@ class ValkeyDB(VectorStoreBase):
         cmd = self._build_index_schema(
             self.collection_name,
             embedding_model_dims,
-            "COSINE",  # Fixed distance metric for initialization
+            self.distance,
             self.prefix,
         )
 
@@ -257,7 +260,7 @@ class ValkeyDB(VectorStoreBase):
         # Use provided parameters or fall back to instance attributes
         collection_name = name or self.collection_name
         embedding_dims = vector_size or self.embedding_model_dims
-        distance_metric = distance or "COSINE"
+        distance_metric = (distance or self.distance or "COSINE").upper()
         prefix = f"mem0:{collection_name}"
 
         # Try to drop the index if it exists (cleanup before creation)
@@ -279,6 +282,7 @@ class ValkeyDB(VectorStoreBase):
             if name:
                 self.collection_name = collection_name
                 self.prefix = prefix
+            self.distance = distance_metric
 
             return self.client.ft(collection_name)
         except Exception as e:
@@ -389,6 +393,25 @@ class ValkeyDB(VectorStoreBase):
             logger.error(f"Search failed with query '{query}': {e}")
             raise
 
+    def _distance_to_score(self, raw_distance):
+        """Convert Valkey/Redis vector distance into a similarity-style score.
+
+        Mirrors the metric-aware conversion used by S3 Vectors (#6547):
+        - COSINE: distance in [0, 2] -> ``max(0, 1 - distance)``
+        - L2: unbounded Euclidean distance -> ``1 / (1 + distance)``
+        - IP: Redis/Valkey KNN already exposes ``1 / (1 + inner_product)``
+          (lower is closer), so ``1 - distance`` recovers similarity
+        """
+        if raw_distance is None:
+            return None
+        metric = (self.distance or "COSINE").upper()
+        distance = float(raw_distance)
+        # Euclidean / L2 distance is unbounded, so 1 - distance collapses
+        # almost every hit with distance > 1 to 0.
+        if metric in ("L2", "EUCLIDEAN"):
+            return 1.0 / (1.0 + distance)
+        return max(0.0, 1.0 - distance)
+
     def _process_search_results(self, results):
         """
         Process search results into OutputData objects.
@@ -402,7 +425,7 @@ class ValkeyDB(VectorStoreBase):
         memory_results = []
         for doc in results.docs:
             raw_distance = float(doc.vector_score) if hasattr(doc, "vector_score") else None
-            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
+            score = self._distance_to_score(raw_distance)
 
             # Create the payload
             payload = {
