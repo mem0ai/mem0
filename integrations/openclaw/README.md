@@ -314,7 +314,7 @@ Enabled by default during `openclaw mem0 init`. `autoRecall` and `autoCapture` a
 | `skills.recall.enabled` | `boolean` | `true` | Enable memory recall before each turn |
 | `skills.recall.tokenBudget` | `number` | `1500` | Max tokens for injected memories |
 | `skills.recall.rerank` | `boolean` | `true` | Rerank search results for relevance |
-| `skills.recall.keywordSearch` | `boolean` | `true` | Augment with keyword-based search |
+| `skills.recall.keywordSearch` | `boolean` | `true` | Reserved for compatibility; keyword matching is handled by the Mem0 search backend |
 | `skills.recall.identityAlwaysInclude` | `boolean` | `true` | Always include identity memories |
 | `skills.dream.enabled` | `boolean` | `true` | Enable periodic memory consolidation |
 | `skills.domain` | `string` | `"companion"` | Domain overlay for triage rules |

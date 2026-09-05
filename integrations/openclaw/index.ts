@@ -299,7 +299,7 @@ const memoryPlugin = definePluginEntry({
     }
 
     // Helper: build search options (skills config overrides legacy defaults)
-    // v3.0.0: removed keyword_search, reranking, filter_memories, limit
+    // v3.0.0: keyword_search, filter_memories, and limit were removed.
     function buildSearchOptions(
       userIdOverride?: string,
       limit?: number,
@@ -313,6 +313,7 @@ const memoryPlugin = definePluginEntry({
         threshold: recallCfg?.threshold ?? cfg.searchThreshold,
         source: "OPENCLAW",
       };
+      if (recallCfg?.rerank !== false) opts.rerank = true;
       if (runId) opts.run_id = runId;
       return opts;
     }
