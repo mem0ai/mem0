@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class OutputData(BaseModel):
     id: Optional[str]  # memory id
-    score: Optional[float]  # distance
+    score: Optional[float]  # similarity score
     payload: Optional[Dict]  # metadata
 
 
@@ -26,8 +26,8 @@ class OutputData(BaseModel):
 # but exposed by several concrete implementations.
 _SCORED_BY_VECTOR_METHODS = [
     "similarity_search_by_vector_with_relevance_scores",  # Chroma
-    "similarity_search_with_score_by_vector",             # FAISS, Qdrant
-    "similarity_search_by_vector_with_score",             # Pinecone, YDB
+    "similarity_search_with_score_by_vector",  # FAISS, Qdrant
+    "similarity_search_by_vector_with_score",  # Pinecone, YDB
 ]
 
 
@@ -35,6 +35,57 @@ class Langchain(VectorStoreBase):
     def __init__(self, client: VectorStore, collection_name: str = "mem0"):
         self.client = client
         self.collection_name = collection_name
+
+    def _uses_distance_scores(self, method_name: str) -> bool:
+        """Return whether the client's scored method reports a distance."""
+        distance_strategy = getattr(self.client, "distance_strategy", None)
+        strategy_name = getattr(distance_strategy, "value", distance_strategy)
+        if str(strategy_name).upper() in {
+            "EUCLIDEAN_DISTANCE",
+            "EUCLIDEAN",
+            "EUCLID",
+            "L2",
+        }:
+            return True
+
+        # Chroma exposes raw distances through a method whose name includes
+        # "relevance". Its metric is stored on the collection instead of on
+        # the vector store, and its default metric is L2.
+        collection = getattr(self.client, "_collection", None)
+        if method_name == "similarity_search_by_vector_with_relevance_scores":
+            return collection is not None
+
+        metadata = getattr(collection, "metadata", None)
+        return isinstance(metadata, dict) and "hnsw:space" in metadata
+
+    def _normalize_score(self, score: float, method_name: str) -> float:
+        """Convert a raw distance into a higher-is-better score."""
+        if not self._uses_distance_scores(method_name):
+            return float(score)
+
+        select_relevance_score_fn = getattr(self.client, "_select_relevance_score_fn", None)
+        relevance_score_fn = None
+        if callable(select_relevance_score_fn):
+            try:
+                relevance_score_fn = select_relevance_score_fn()
+            except (NotImplementedError, TypeError, ValueError):
+                pass
+
+        if relevance_score_fn is None:
+            relevance_score_fn = getattr(self.client, "relevance_score_fn", None)
+
+        if relevance_score_fn is None:
+            relevance_score_fn = getattr(self.client, "override_relevance_score_fn", None)
+
+        if callable(relevance_score_fn):
+            try:
+                return float(relevance_score_fn(score))
+            except (TypeError, ValueError):
+                pass
+
+        # Keep the adapter's documented score contract even for a custom
+        # distance-based client that does not expose a normalizer.
+        return 1.0 / (1.0 + float(score))
 
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
@@ -120,7 +171,7 @@ class Langchain(VectorStoreBase):
                 return [
                     OutputData(
                         id=getattr(doc, "id", None),
-                        score=float(score),
+                        score=self._normalize_score(score, method_name),
                         payload=getattr(doc, "metadata", {}),
                     )
                     for doc, score in results
