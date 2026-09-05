@@ -544,6 +544,62 @@ def delete_all_memories(
         raise upstream_error()
 
 
+class MemoryImportRequest(BaseModel):
+    memories: List[Dict[str, Any]] = Field(..., description="List of memory objects to import.")
+    user_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+    preserve_ids: bool = Field(False, description="Keep original memory IDs.")
+    skip_duplicates: bool = Field(True, description="Skip memories with duplicate content hashes.")
+
+
+@app.post("/export", summary="Export memories")
+def export_memories(
+    user_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    limit: int = 10000,
+    _auth=Depends(verify_auth),
+):
+    """Export memories to a portable JSON format for backup or migration."""
+    if not any([user_id, agent_id, run_id]):
+        raise HTTPException(status_code=400, detail="At least one identifier is required.")
+    try:
+        params = {
+            k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}.items() if v is not None
+        }
+        return get_memory_instance().export_memories(**params, limit=limit)
+    except ValueError as e:
+        raise _client_error(e)
+    except Exception:
+        raise upstream_error()
+
+
+@app.post("/import", summary="Import memories")
+def import_memories(import_req: MemoryImportRequest, _auth=Depends(verify_auth)):
+    """Import memories from a previously exported payload."""
+    try:
+        params = {
+            k: v
+            for k, v in {
+                "user_id": import_req.user_id,
+                "agent_id": import_req.agent_id,
+                "run_id": import_req.run_id,
+            }.items()
+            if v is not None
+        }
+        return get_memory_instance().import_memories(
+            import_req.memories,
+            preserve_ids=import_req.preserve_ids,
+            skip_duplicates=import_req.skip_duplicates,
+            **params,
+        )
+    except (ValueError, Mem0ValidationError) as e:
+        raise _client_error(e)
+    except Exception:
+        raise upstream_error()
+
+
 @app.post("/reset", summary="Reset all memories")
 def reset_memory(_auth=Depends(require_admin)):
     """Completely reset stored memories. Requires admin role."""
