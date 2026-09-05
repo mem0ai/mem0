@@ -16,7 +16,16 @@ class OpenAIStructuredLLM(LLMBase):
 
         api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
         base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+
+        # This provider is mapped to OpenAIConfig in the LLM factory, so it accepts
+        # `extra_headers` too; honour it here rather than silently ignoring it.
+        # getattr keeps a plain BaseLlmConfig (the annotated type) working.
+        client_kwargs = {}
+        extra_headers = getattr(self.config, "extra_headers", None)
+        if extra_headers:
+            client_kwargs["default_headers"] = extra_headers
+
+        self.client = OpenAI(api_key=api_key, base_url=base_url, **client_kwargs)
 
     def generate_response(
         self,
