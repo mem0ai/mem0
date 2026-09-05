@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 try:
     from together import Together
@@ -8,19 +8,40 @@ except ImportError:
     raise ImportError("The 'together' library is required. Please install it using 'pip install together'.")
 
 from mem0.configs.llms.base import BaseLlmConfig
+from mem0.configs.llms.together import TogetherConfig
 from mem0.llms.base import LLMBase
 from mem0.memory.utils import extract_json
 
 
 class TogetherLLM(LLMBase):
-    def __init__(self, config: Optional[BaseLlmConfig] = None):
+    def __init__(self, config: Optional[Union[BaseLlmConfig, TogetherConfig, Dict]] = None):
+        # Convert to TogetherConfig if needed
+        if config is None:
+            config = TogetherConfig()
+        elif isinstance(config, dict):
+            config = TogetherConfig(**config)
+        elif isinstance(config, BaseLlmConfig) and not isinstance(config, TogetherConfig):
+            # Convert BaseLlmConfig to TogetherConfig
+            config = TogetherConfig(
+                model=config.model,
+                temperature=config.temperature,
+                api_key=config.api_key,
+                max_tokens=config.max_tokens,
+                top_p=config.top_p,
+                top_k=config.top_k,
+                enable_vision=config.enable_vision,
+                vision_details=config.vision_details,
+                http_client_proxies=config.http_client_proxies,
+            )
+
         super().__init__(config)
 
         if not self.config.model:
             self.config.model = "MiniMaxAI/MiniMax-M3"
 
         api_key = self.config.api_key or os.getenv("TOGETHER_API_KEY")
-        self.client = Together(api_key=api_key)
+        base_url = self.config.together_base_url or os.getenv("TOGETHER_API_BASE") or "https://api.together.ai/v1"
+        self.client = Together(api_key=api_key, base_url=base_url)
 
     def _parse_response(self, response, tools):
         """
