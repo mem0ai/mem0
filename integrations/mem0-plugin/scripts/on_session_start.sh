@@ -185,8 +185,16 @@ if [ "$SOURCE" = "startup" ]; then
 
   # Configure the coding-category taxonomy in the background (idempotent, never blocks).
   # Prefer the venv python since this path needs the mem0ai SDK.
-  _VENV_PY="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/venv/bin/python3"
-  if [ -x "$_VENV_PY" ]; then
+  # Venv layout differs by platform: bin/ on POSIX, Scripts/ on Windows.
+  _VENV_ROOT="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/venv"
+  _VENV_PY=""
+  for _p in "$_VENV_ROOT/bin/python3" "$_VENV_ROOT/Scripts/python.exe"; do
+    if [ -x "$_p" ]; then
+      _VENV_PY="$_p"
+      break
+    fi
+  done
+  if [ -n "$_VENV_PY" ]; then
     MEM0_CWD="$MEM0_CWD_RESOLVED" "$_VENV_PY" "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
   else
     MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
