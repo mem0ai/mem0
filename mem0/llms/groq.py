@@ -92,13 +92,13 @@ class GroqLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
+        params = self._get_supported_params(messages=messages)
+        params.update(
+            {
+                "model": self.config.model,
+                "messages": messages,
+            }
+        )
         if response_format:
             requests_json = isinstance(response_format, dict) and response_format.get("type") in (
                 "json_object",
