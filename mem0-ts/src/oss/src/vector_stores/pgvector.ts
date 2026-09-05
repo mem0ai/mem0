@@ -1,6 +1,6 @@
-import type { Client as ClientType, ClientConfig } from "pg";
+import type { Pool as PoolType, ClientConfig } from "pg";
 import pkg from "pg";
-const { Client, escapeIdentifier } = pkg;
+const { Pool, escapeIdentifier } = pkg;
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -212,7 +212,7 @@ function buildClientConfig(
 }
 
 export class PGVector implements VectorStore {
-  private client: ClientType;
+  private client: PoolType;
   private collectionName: string;
   private useDiskann: boolean;
   private useHnsw: boolean;
@@ -235,7 +235,14 @@ export class PGVector implements VectorStore {
       : validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
-    this.client = new Client(
+    // Use a Pool rather than a single Client: insert()/list() below issue
+    // concurrent query() calls via Promise.all, and a single pg.Client
+    // cannot safely serve overlapping queries (node-postgres logs
+    // "Calling client.query() when the client is already executing a
+    // query is deprecated" and the call stalls or corrupts the
+    // connection's protocol state, silently dropping the write). Pool
+    // checks out a separate connection per concurrent query.
+    this.client = new Pool(
       buildClientConfig(
         config,
         this.useDirectConnection ? undefined : "postgres",
@@ -257,7 +264,10 @@ export class PGVector implements VectorStore {
 
   private async _doInitialize(): Promise<void> {
     try {
-      await this.client.connect();
+      // No explicit connect() here: Pool has no single-connection connect
+      // step to await, and calling pool.connect() would check out (and
+      // leak, since nothing releases it) a pooled connection. pool.query()
+      // below acquires connections lazily as needed.
 
       if (!this.useDirectConnection) {
         const dbExists = await this.checkDatabaseExists(this.dbName);
@@ -267,8 +277,7 @@ export class PGVector implements VectorStore {
 
         await this.client.end();
 
-        this.client = new Client(buildClientConfig(this.config, this.dbName));
-        await this.client.connect();
+        this.client = new Pool(buildClientConfig(this.config, this.dbName));
       }
 
       await this.client.query("CREATE EXTENSION IF NOT EXISTS vector");
