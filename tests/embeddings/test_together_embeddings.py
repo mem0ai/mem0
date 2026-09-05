@@ -85,3 +85,10 @@ def test_explicit_config_overrides_defaults(mock_together_client):
     mock_together_client.embeddings.create.return_value = Mock(data=[Mock(embedding=[0.0] * 768)])
     embedder.embed("hello")
     mock_together_client.embeddings.create.assert_called_once_with(model="BAAI/bge-base-en-v1.5", input="hello")
+
+def test_init_with_base_url(mock_together_client):
+    import os
+    with patch.dict(os.environ, {"TOGETHER_API_BASE": "https://custom.together.endpoint/v1"}):
+        TogetherEmbedding(BaseEmbedderConfig(model=DEFAULT_MODEL))
+        from mem0.embeddings.together import Together
+        Together.assert_called_with(api_key=None, base_url="https://custom.together.endpoint/v1")
