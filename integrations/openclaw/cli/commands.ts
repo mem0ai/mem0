@@ -37,6 +37,7 @@ import type {
   SearchOptions,
 } from "../types.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
+import { SenderIsolationError } from "../isolation.ts";
 import { readText } from "../fs-safe.ts";
 import type { PluginAuthConfig } from "./config-file.ts";
 import {
@@ -419,6 +420,20 @@ export function registerCliCommands(
         .command("mem0")
         .description("Mem0 memory plugin commands\n\nTip: All commands support --json for machine-readable output (for LLM agents)")
         .configureHelp({ sortSubcommands: false, subcommandTerm: (cmd) => cmd.name() });
+
+      if (cfg.userIdScope === "per-sender") {
+        mem0.hook("preAction", (_thisCmd, actionCmd) => {
+          const name = actionCmd.name();
+          const parent = actionCmd.parent?.name();
+          if (parent === "config" || (parent === "mem0" && ["init", "help"].includes(name))) {
+            return;
+          }
+          throw new SenderIsolationError(
+            "CLI data commands have no trusted sender identity. Use memory tools " +
+              "from the sender's conversation. Only init, config and help are available.",
+          );
+        });
+      }
 
       // Telemetry: fire event for each CLI subcommand
       if (captureCliEvent) {
@@ -1275,6 +1290,7 @@ export function registerCliCommands(
         email: "userEmail",
         base_url: "baseUrl",
         user_id: "userId",
+        user_id_scope: "userIdScope",
         auto_recall: "autoRecall",
         auto_capture: "autoCapture",
         top_k: "topK",
@@ -1330,6 +1346,7 @@ export function registerCliCommands(
           apiKey: auth.apiKey ?? cfg.apiKey,
           baseUrl: auth.baseUrl ?? cfg.baseUrl ?? "https://api.mem0.ai",
           userId: auth.userId ?? cfg.userId,
+          userIdScope: auth.userIdScope ?? cfg.userIdScope,
           mode: auth.mode ?? cfg.mode,
           userEmail: auth.userEmail,
           autoRecall: cfg.autoRecall,
@@ -1360,6 +1377,7 @@ export function registerCliCommands(
             const showEntries: Array<[string, string]> = [
               ["mode", "mode"],
               ["user_id", "userId"],
+              ["user_id_scope", "userIdScope"],
               ["auto_recall", "autoRecall"],
               ["auto_capture", "autoCapture"],
               ["top_k", "topK"],
@@ -1393,6 +1411,7 @@ export function registerCliCommands(
           const entries: Array<[string, string]> = [
             ["mode", "mode"],
             ["user_id", "userId"],
+            ["user_id_scope", "userIdScope"],
             ["auto_recall", "autoRecall"],
             ["auto_capture", "autoCapture"],
             ["top_k", "topK"],
@@ -1491,6 +1510,12 @@ export function registerCliCommands(
           }
 
           // Type coercion (matches Python CLI behavior)
+          if (field === "userIdScope" && rawValue !== "static" && rawValue !== "per-sender") {
+            const error = 'user_id_scope must be "static" or "per-sender"';
+            if (jsonErr(opts, error)) return;
+            console.error(error);
+            return;
+          }
           let value: unknown = rawValue;
           if (BOOLEAN_KEYS.has(field)) {
             value =

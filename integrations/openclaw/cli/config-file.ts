@@ -29,6 +29,7 @@ export interface PluginAuthConfig {
   apiKey?: string;
   baseUrl?: string;
   userId?: string;
+  userIdScope?: "static" | "per-sender";
   userEmail?: string;
   mode?: string;
   autoRecall?: boolean;
@@ -129,6 +130,7 @@ export function readPluginAuth(): PluginAuthConfig {
     apiKey: (cfg.apiKey ?? cfg.api_key) as string | undefined,
     baseUrl: (cfg.baseUrl ?? cfg.base_url) as string | undefined,
     userId: (cfg.userId ?? cfg.user_id) as string | undefined,
+    userIdScope: cfg.userIdScope,
     userEmail: (cfg.userEmail ?? cfg.user_email) as string | undefined,
     mode: cfg.mode as string | undefined,
     autoRecall: cfg.autoRecall as boolean | undefined,

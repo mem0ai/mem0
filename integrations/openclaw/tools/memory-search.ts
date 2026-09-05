@@ -38,6 +38,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
         let results: MemoryItem[] = [];
         const uid = resolveUserId({ agentId, userId });
         const currentSessionId = getCurrentSessionId();
+        const runId = cfg.userIdScope === "per-sender" ? currentSessionId : undefined;
 
         const applyFilters = (opts: SearchOptions): SearchOptions => {
           if (filterCategories?.length) opts.categories = filterCategories;
@@ -47,7 +48,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
 
         if (scope === "session") {
           if (currentSessionId) {
-            results = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, undefined, currentSessionId)));
+            results = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, runId, currentSessionId)));
           }
         } else if (scope === "long-term") {
           results = await provider.search(query, applyFilters(buildSearchOptions(uid, limit)));
@@ -55,7 +56,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
           const longTerm = await provider.search(query, applyFilters(buildSearchOptions(uid, limit)));
           let session: MemoryItem[] = [];
           if (currentSessionId) {
-            session = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, undefined, currentSessionId)));
+            session = await provider.search(query, applyFilters(buildSearchOptions(uid, limit, runId, currentSessionId)));
           }
           const seen = new Set(longTerm.map((r) => r.id));
           results = [...longTerm, ...session.filter((r) => !seen.has(r.id))];

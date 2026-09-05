@@ -8,6 +8,7 @@
 import type { Mem0Provider, MemoryItem, Mem0Config } from "./types.ts";
 import type { MemoryArtifact } from "openclaw/plugin-sdk";
 import { getDreamState } from "./dream-gate.ts";
+import { SenderIsolationError } from "./isolation.ts";
 
 export interface PublicArtifactsContext {
   provider: Mem0Provider;
@@ -26,6 +27,11 @@ export function createPublicArtifactsProvider(ctx: PublicArtifactsContext) {
       types?: string[];
       limit?: number;
     }): Promise<MemoryArtifact[]> {
+      if (ctx.cfg.userIdScope === "per-sender") {
+        throw new SenderIsolationError(
+          "public artifacts have no trusted sender context and are disabled.",
+        );
+      }
       const artifacts: MemoryArtifact[] = [];
       const userId = options?.userId ?? ctx.effectiveUserId();
       const types = options?.types ?? ["memory", "dream", "entity"];

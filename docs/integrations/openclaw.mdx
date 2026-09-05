@@ -30,7 +30,8 @@ openclaw --version
 
 | OpenClaw Version | Plugin Support |
 |------------------|----------------|
-| `>= 2026.4.25`   | Fully supported |
+| `>= 2026.4.24`   | Default static/per-agent mode (package compatibility minimum) |
+| Sender-aware host, hook contract verified at `2026.9.1` | Opt-in per-sender mode, with the limitations below |
 
 ## Installation
 
@@ -61,6 +62,67 @@ Pick any stable, unique identifier for the user. Common choices:
 All memories are scoped to this `userId`: different values create separate memory namespaces. If you don't set it, it defaults to your OS username.
 
 <Tip>In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.</Tip>
+
+### Per-sender memory isolation
+
+For a multi-user DM bot, opt in by adding this to
+`plugins.entries.openclaw-mem0.config` alongside your existing backend settings:
+
+```json
+{
+  "userId": "shop-assistant",
+  "userIdScope": "per-sender"
+}
+```
+
+The default `"static"` mode keeps existing behavior, including per-agent
+namespaces and explicit tool overrides. Per-sender mode instead uses a
+collision-safe namespace containing the configured `userId`, trusted agent,
+channel, channel account and sender. It is stable across sessions. The format is
+`mem0:sender:v1:` plus the base64url-encoded JSON tuple
+`[userId, agentId, channel, accountId, senderId]`; this is encoding, not encryption.
+Changing any component selects a new namespace. Old shared memories are neither
+searched nor migrated.
+
+Legacy capture/recall, skills recall and memory tools resolve identity from
+the current host request, never from prompts or a global last-sender/session
+variable. Tool factories use OpenClaw's `requesterSenderId`, `messageChannel`,
+`agentAccountId` and `agentId`. Hooks use `senderId`, `channel` (or
+`messageProvider`), `accountId` and `agentId`. Missing or empty identity blocks
+the operation with an actionable diagnostic, with no shared-memory fallback.
+Legacy capture only extracts the latest user turn; skills capture remains
+tool-driven.
+
+<Warning>
+OpenClaw `2026.4.24` supplies sender identity to tool factories but **not** to
+agent hooks. Per-sender automatic capture/recall therefore skips on that host.
+Use a sender-aware host for hooks; the upstream contract is verified at
+[v2026.9.1](https://github.com/openclaw/openclaw/blob/v2026.9.1/src/plugins/hook-types.ts).
+Every request still needs trusted sender/channel/account/agent fields, even on
+newer hosts. Explicitly non-user hook triggers are blocked. Adding identity
+to a prompt does not enable memory access.
+</Warning>
+
+Per-sender mode removes and rejects model-supplied `userId`/`agentId` overrides
+and identity fields in add metadata. Advanced search filters reject `user_id`,
+`agent_id`, `run_id` and their camelCase aliases anywhere in the filter tree,
+including AND/OR/NOT branches, operator objects, arrays and dotted selector paths,
+before calling either backend. Non-identity filters such as category and
+importance remain available. AND wrapping alone is insufficient because the
+pinned OSS SDK can flatten predicates and overwrite a namespace.
+Get/update/delete by ID require the
+backend to return a matching `user_id`; unverifiable ownership is denied.
+Sender-less runtime/public-artifact capabilities, wiki export, platform event
+tools, CLI data commands and automatic dream scheduling are disabled rather
+than querying a shared namespace. CLI `init`, `config` and `help` remain
+administrator operations; consolidation can still use scoped memory tools.
+
+Use isolated DM sessions in OpenClaw as well. This setting does not isolate
+conversation history, redesign group-chat policy, or prevent other group
+members from seeing a reply containing the requesting sender's memories.
+Subagent writes remain disabled; subagents without trusted identity cannot
+recall. It is not a security boundary against shell/configuration access or
+direct calls using the Mem0 API key.
 
 ### Platform Mode (Mem0 Cloud)
 
@@ -341,6 +403,7 @@ openclaw mem0 status --json
 |-----|------|---------|-------------|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
 | `userId` | `string` | OS username | Scope memories per user |
+| `userIdScope` | `"static"` \| `"per-sender"` | `"static"` | Request-local sender isolation; requires trusted host identity and disables sender-less surfaces. See compatibility and limitations above. |
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn. Ignored when `skills` is configured. |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn. Ignored when `skills` is configured. |
 | `topK` | `number` | `5` | Max memories per recall |

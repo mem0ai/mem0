@@ -86,6 +86,10 @@
       "placeholder": "default",
       "help": "User ID for scoping memories"
     },
+    "userIdScope": {
+      "label": "User ID Scope",
+      "help": "static preserves per-agent namespaces. per-sender requires trusted sender/channel/account/agent context (OpenClaw v2026.9.1 hook contract); missing identity blocks memory access, never falls back to shared memory."
+    },
     "autoCapture": {
       "label": "Auto-Capture",
       "help": "Automatically store conversation context after each agent turn"
@@ -167,6 +171,12 @@
       },
       "userId": {
         "type": "string"
+      },
+      "userIdScope": {
+        "type": "string",
+        "enum": ["static", "per-sender"],
+        "default": "static",
+        "description": "Opt-in sender isolation. Disables sender-less capabilities, event tools, CLI data commands and automatic dream scheduling. See per-sender compatibility requirements."
       },
       "baseUrl": {
         "type": "string",

@@ -52,6 +52,9 @@ import { loadDreamPrompt } from "../skill-loader.ts";
 // Mock Commander program builder
 // ---------------------------------------------------------------------------
 
+type CommandInfo = { name(): string; parent?: CommandInfo };
+type PreAction = (command: CommandInfo, actionCommand: CommandInfo) => void;
+
 interface MockCommand {
   _name: string;
   _description: string;
@@ -59,6 +62,7 @@ interface MockCommand {
   _options: Array<{ flags: string; desc: string; defaultVal?: string }>;
   _action: ((...args: any[]) => any) | null;
   _args: Array<{ name: string; desc: string }>;
+  _preActions: PreAction[];
   command(name: string): MockCommand;
   description(desc: string): MockCommand;
   configureHelp(opts: any): MockCommand;
@@ -76,6 +80,7 @@ function createMockCommand(name: string): MockCommand {
     _options: [],
     _action: null,
     _args: [],
+    _preActions: [],
     command(n: string) {
       const sub = createMockCommand(n);
       cmd._subcommands.push(sub);
@@ -88,7 +93,8 @@ function createMockCommand(name: string): MockCommand {
     configureHelp(_opts: any) {
       return cmd;
     },
-    hook(_event: string, _fn: (...args: any[]) => any) {
+    hook(event: string, fn: PreAction) {
+      if (event === "preAction") cmd._preActions.push(fn);
       return cmd;
     },
     option(flags: string, desc: string, defaultVal?: string) {
@@ -191,10 +197,10 @@ function createMockCfg() {
  * Register CLI commands using mocked deps, and return the captured
  * mem0 command tree plus all mock objects for assertions.
  */
-function setup() {
+function setup(userIdScope: "static" | "per-sender" = "static") {
   const provider = createMockProvider();
   const backend = createMockBackend();
-  const cfg = createMockCfg();
+  const cfg = { ...createMockCfg(), userIdScope };
   const effectiveUserId = vi.fn().mockReturnValue("testuser");
   const agentUserId = vi.fn((id: string) => `testuser:agent:${id}`);
   const buildSearchOptions = vi.fn().mockReturnValue({
@@ -286,6 +292,42 @@ describe("registerCliCommands", () => {
   // ========================================================================
   // Registration
   // ========================================================================
+
+  describe("per-sender CLI restrictions", () => {
+    it("blocks sender-less CLI data commands, while retaining setup/config/help", () => {
+      const h = setup("per-sender");
+      const gate = h.mem0._preActions[0];
+      const mem0 = { name: () => "mem0" };
+      for (const name of ["search", "add", "get", "list", "update", "delete", "import", "status", "dream"]) {
+        expect(() => gate(mem0, { name: () => name, parent: mem0 }))
+          .toThrow("CLI data commands have no trusted sender identity");
+      }
+      for (const name of ["list", "status"]) {
+        expect(() => gate(mem0, { name: () => name, parent: { name: () => "event" } }))
+          .toThrow("CLI data commands have no trusted sender identity");
+      }
+      for (const name of ["init", "help"]) {
+        expect(() => gate(mem0, { name: () => name, parent: mem0 })).not.toThrow();
+      }
+      for (const name of ["get", "set", "show"]) {
+        expect(() => gate(mem0, { name: () => name, parent: { name: () => "config" } })).not.toThrow();
+      }
+      for (const operation of Object.values(h.provider)) expect(operation).not.toHaveBeenCalled();
+      for (const operation of Object.values(h.backend)) expect(operation).not.toHaveBeenCalled();
+      expect(setup().mem0._preActions).toHaveLength(0);
+    });
+
+    it("validates and persists the user_id_scope config option", async () => {
+      const { mem0 } = setup();
+      const setCmd = findCommand(findCommand(mem0, "config")!, "set")!;
+      await setCmd._action!("user_id_scope", "per-sender", { json: true });
+      expect(writePluginAuth).toHaveBeenCalledWith({ userIdScope: "per-sender" });
+      vi.mocked(writePluginAuth).mockClear();
+      await setCmd._action!("user_id_scope", "per-user", { json: true });
+      expect(writePluginAuth).not.toHaveBeenCalled();
+      expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining("must be"));
+    });
+  });
 
   describe("command registration", () => {
     it("calls api.registerCli exactly once", () => {

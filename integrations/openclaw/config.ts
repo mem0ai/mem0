@@ -150,6 +150,7 @@ const ALLOWED_KEYS = [
   "anonymousTelemetryId",
   "baseUrl",
   "userId",
+  "userIdScope",
   "userEmail",
   "autoCapture",
   "autoRecall",
@@ -179,6 +180,14 @@ export const mem0ConfigSchema = {
     }
     const cfg = value as Record<string, unknown>;
     assertAllowedKeys(cfg, ALLOWED_KEYS, "openclaw-mem0 config");
+
+    if (
+      cfg.userIdScope !== undefined &&
+      cfg.userIdScope !== "static" &&
+      cfg.userIdScope !== "per-sender"
+    ) {
+      throw new Error('openclaw-mem0: userIdScope must be "static" or "per-sender"');
+    }
 
     // Only two modes: "platform" (default) or "open-source"
     if (
@@ -215,6 +224,7 @@ export const mem0ConfigSchema = {
 
     return {
       mode,
+      userIdScope: cfg.userIdScope === "per-sender" ? "per-sender" : "static",
       apiKey: resolvedApiKey,
       anonymousTelemetryId:
         typeof cfg.anonymousTelemetryId === "string"
