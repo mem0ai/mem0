@@ -387,7 +387,9 @@ class TestSafeUnpickler:
             SafeUnpickler(io.BytesIO(malicious_payload)).load()
 
         assert "Unsafe pickle" in str(exc_info.value)
-        assert "posix.system" in str(exc_info.value)
+        # os.system lives in `posix` on Unix and `nt` on Windows, so derive the
+        # expected name from the same callable the payload was built from.
+        assert f"{os.system.__module__}.system" in str(exc_info.value)
 
     def test_safe_unpickler_blocks_subprocess(self):
         """SafeUnpickler should block subprocess execution attempts."""
