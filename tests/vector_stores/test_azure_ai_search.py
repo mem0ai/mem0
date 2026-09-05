@@ -719,3 +719,21 @@ def test_build_filter_escapes_quotes(azure_ai_search_instance):
     instance, _, _ = azure_ai_search_instance
     expr = instance._build_filter_expression({"name": "O'Brien"})
     assert "name eq 'O''Brien'" in expr
+
+
+def test_del_does_not_crash_when_clients_are_missing():
+    """__del__ must not raise if __init__ failed before clients were assigned."""
+    instance = object.__new__(AzureAISearch)
+    instance.__del__()  # should not raise
+
+
+def test_del_closes_both_clients_even_if_one_raises():
+    """__del__ must close both clients even if one close() call raises."""
+    instance = object.__new__(AzureAISearch)
+    instance.search_client = Mock()
+    instance.index_client = Mock()
+    instance.search_client.close.side_effect = Exception("search_client close failed")
+
+    instance.__del__()
+
+    instance.index_client.close.assert_called_once()
