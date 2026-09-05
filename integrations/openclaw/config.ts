@@ -21,6 +21,30 @@ export interface FileConfig {
   baseUrl?: string;
 }
 
+export const DEFAULT_RECALL_TIMEOUT_MS = 8_000;
+export const MIN_RECALL_TIMEOUT_MS = 1_000;
+export const MAX_RECALL_TIMEOUT_MS = 120_000;
+
+export function parseRecallTimeoutMs(value: unknown): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && /^[0-9]+$/.test(value)
+        ? Number(value)
+        : undefined;
+  if (
+    parsed === undefined ||
+    !Number.isSafeInteger(parsed) ||
+    parsed < MIN_RECALL_TIMEOUT_MS ||
+    parsed > MAX_RECALL_TIMEOUT_MS
+  ) {
+    throw new Error(
+      `recallTimeoutMs must be an integer from ${MIN_RECALL_TIMEOUT_MS} to ${MAX_RECALL_TIMEOUT_MS}`,
+    );
+  }
+  return parsed;
+}
+
 // ============================================================================
 // Default Custom Instructions & Categories
 // ============================================================================
@@ -158,6 +182,7 @@ const ALLOWED_KEYS = [
   "customPrompt",
   "searchThreshold",
   "topK",
+  "recallTimeoutMs",
   "oss",
   "skills",
 ];
@@ -249,6 +274,10 @@ export const mem0ConfigSchema = {
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.1,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      recallTimeoutMs:
+        cfg.recallTimeoutMs === undefined
+          ? DEFAULT_RECALL_TIMEOUT_MS
+          : parseRecallTimeoutMs(cfg.recallTimeoutMs),
       needsSetup,
       oss: ossConfig,
       skills:

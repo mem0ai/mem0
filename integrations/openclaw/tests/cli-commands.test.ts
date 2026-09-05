@@ -1226,6 +1226,27 @@ describe("registerCliCommands", () => {
       );
     });
 
+    it("handles recall_timeout_ms", () => {
+      const { mem0 } = setup();
+      const configCmd = findCommand(mem0, "config")!;
+      const setCmd = findCommand(configCmd, "set")!;
+
+      setCmd._action!("recall_timeout_ms", "120000");
+      expect(writePluginAuth).toHaveBeenCalledWith({ recallTimeoutMs: 120000 });
+
+      vi.mocked(readPluginAuth).mockReturnValue({ recallTimeoutMs: 120000 });
+      const showCmd = findCommand(configCmd, "show")!;
+      showCmd._action!({ json: true });
+      expect(process.stdout.write).toHaveBeenCalledWith(
+        expect.stringContaining('"recall_timeout_ms": 120000'),
+      );
+
+      setCmd._action!("recall_timeout_ms", "120001");
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid recall timeout value: 120001"),
+      );
+    });
+
     it("errors on invalid integer value for integer keys", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;

@@ -345,6 +345,7 @@ openclaw mem0 status --json
 | `autoCapture` | `boolean` | `true` | Store facts after each turn. Ignored when `skills` is configured. |
 | `topK` | `number` | `5` | Max memories per recall |
 | `searchThreshold` | `number` | `0.3` | Min similarity (0–1) |
+| `recallTimeoutMs` | `integer` or ASCII digit string | `8000` | Legacy-only recall deadline in milliseconds; allowed range is `1000` to `120000`. Ignored in skills mode. |
 
 ### Platform Mode Options
 
