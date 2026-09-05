@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, PropertyMock
 
 import pytest
 
@@ -1177,4 +1177,85 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         )
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
+        )
+
+
+class TestEntityStoreCleanupOnFreshProcess:
+    """Regression (issue #7226): entity cleanup must also run in processes that
+    never wrote entities themselves. The delete paths resolve the store through
+    the lazy `entity_store` property (like the write path) instead of skipping
+    when the private `_entity_store` attribute is still unset."""
+
+    @staticmethod
+    def _fake_store():
+        store = MagicMock()
+        row = SimpleNamespace(id="e1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+        store.list.return_value = [row]
+        return store
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory._entity_store = None
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory._entity_store = None
+        return memory
+
+    def test_sync_cleanup_runs_in_fresh_process(self, mock_memory, mocker):
+        store = self._fake_store()
+        mocker.patch.object(Memory, "entity_store", new_callable=PropertyMock, return_value=store)
+
+        mock_memory._remove_memory_from_entity_store("mem-1", {"user_id": "alice"})
+
+        store.list.assert_called_once()
+        store.delete.assert_called_once_with(vector_id="e1")
+
+    @pytest.mark.asyncio
+    async def test_async_cleanup_runs_in_fresh_process(self, mock_async_memory, mocker):
+        store = self._fake_store()
+        mocker.patch.object(AsyncMemory, "entity_store", new_callable=PropertyMock, return_value=store)
+
+        await mock_async_memory._remove_memory_from_entity_store("mem-1", {"user_id": "alice"})
+
+        store.list.assert_called_once()
+        store.delete.assert_called_once_with(vector_id="e1")
+
+    def test_cleanup_still_uses_already_initialized_store(self, mock_memory):
+        store = self._fake_store()
+        mock_memory._entity_store = store
+
+        mock_memory._remove_memory_from_entity_store("mem-1", {"user_id": "alice"})
+
+        store.list.assert_called_once()
+        store.delete.assert_called_once_with(vector_id="e1")
+
+    def test_sync_cleanup_survives_store_initialization_failure(self, mock_memory, mocker, caplog):
+        mocker.patch.object(
+            Memory, "entity_store", new_callable=PropertyMock, side_effect=RuntimeError("store down")
+        )
+
+        with caplog.at_level(logging.WARNING):
+            mock_memory._remove_memory_from_entity_store("mem-1", {"user_id": "alice"})
+
+        assert any("Entity store cleanup failed" in r.message for r in caplog.records), (
+            "expected store-initialization failure to degrade to a warning"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_cleanup_survives_store_initialization_failure(self, mock_async_memory, mocker, caplog):
+        mocker.patch.object(
+            AsyncMemory, "entity_store", new_callable=PropertyMock, side_effect=RuntimeError("store down")
+        )
+
+        with caplog.at_level(logging.WARNING):
+            await mock_async_memory._remove_memory_from_entity_store("mem-1", {"user_id": "alice"})
+
+        assert any("Entity store cleanup failed" in r.message for r in caplog.records), (
+            "expected store-initialization failure to degrade to a warning"
         )
