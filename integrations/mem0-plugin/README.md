@@ -57,9 +57,29 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
    # Should print: m0-your-api-key
    ```
 
+    **Codex managed environments (recommended fallback):**
+
+    Some managed Codex environments filter env var names containing `KEY`, `SECRET`, or `TOKEN` before MCP startup. Add this fallback variable so Mem0 can still authenticate without changing global filtering policy:
+
+    ```bash
+    export MEM0_AUTH="Bearer $MEM0_API_KEY"
+    ```
+
+    Or persist it in your shell profile:
+
+    ```bash
+    # For zsh
+    echo 'export MEM0_AUTH="Bearer $MEM0_API_KEY"' >> ~/.zshrc
+    source ~/.zshrc
+
+    # For bash
+    echo 'export MEM0_AUTH="Bearer $MEM0_API_KEY"' >> ~/.bashrc
+    source ~/.bashrc
+    ```
+
 ## Step 2: Install the plugin
 
-Choose one of the options below. All require `MEM0_API_KEY` to be set first (see above).
+Choose one of the options below. Set `MEM0_API_KEY` first, or set `MEM0_AUTH` in managed Codex environments (see above).
 
 ### Codex
 
@@ -71,9 +91,10 @@ Codex reads MCP servers from `~/.codex/config.toml` as TOML. Add:
 [mcp_servers.mem0]
 url = "https://mcp.mem0.ai/mcp"
 bearer_token_env_var = "MEM0_API_KEY"
+env_http_headers = { Authorization = "MEM0_AUTH" }
 ```
 
-Export `MEM0_API_KEY` in your shell and restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
+Codex uses `MEM0_API_KEY` first. If that variable is filtered in managed environments, it falls back to `MEM0_AUTH` for the `Authorization` header. Restart Codex after setting either variable. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
 
 **Option B — Sideload the plugin** (full experience: MCP + skills + opt-in hooks):
 
