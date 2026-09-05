@@ -13,7 +13,7 @@ import math
 from typing import Any, Dict, List, Optional
 
 
-def get_bm25_params(query: str, *, lemmatized: Optional[str] = None) -> tuple:
+def get_bm25_params(query: str, *, lemmatized: Optional[str] = None, spacy_model: str = "en_core_web_sm") -> tuple:
     """Get BM25 sigmoid parameters based on query length.
 
     Longer queries tend to have higher raw BM25 scores, so we adjust
@@ -25,7 +25,7 @@ def get_bm25_params(query: str, *, lemmatized: Optional[str] = None) -> tuple:
     if lemmatized is None:
         from mem0.utils.lemmatization import lemmatize_for_bm25
 
-        lemmatized = lemmatize_for_bm25(query)
+        lemmatized = lemmatize_for_bm25(query, spacy_model=spacy_model)
     num_terms = len(lemmatized.split()) if lemmatized else 1
 
     if num_terms <= 3:
