@@ -57,7 +57,17 @@ class AWSBedrockEmbedding(EmbeddingBase):
         norm_emb = emb / np.linalg.norm(emb)
         return norm_emb.tolist()
 
-    def _get_embedding(self, text):
+    # Cohere v3 embeddings are asymmetric: queries and documents must be encoded
+    # with different ``input_type`` values, otherwise retrieval quality degrades.
+    # mem0 signals the context via ``memory_action`` ("add"/"update"/"search").
+    _COHERE_INPUT_TYPES = {
+        "add": "search_document",
+        "update": "search_document",
+        "search": "search_query",
+    }
+    _DEFAULT_COHERE_INPUT_TYPE = "search_document"
+
+    def _get_embedding(self, text, memory_action: Optional[str] = None):
         """Call out to Bedrock embedding endpoint."""
 
         # Format input body based on the provider
@@ -65,7 +75,7 @@ class AWSBedrockEmbedding(EmbeddingBase):
         input_body = {}
 
         if provider == "cohere":
-            input_body["input_type"] = "search_document"
+            input_body["input_type"] = self._COHERE_INPUT_TYPES.get(memory_action, self._DEFAULT_COHERE_INPUT_TYPE)
             input_body["texts"] = [text]
         else:
             # Amazon and other providers
@@ -107,4 +117,4 @@ class AWSBedrockEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        return self._get_embedding(text)
+        return self._get_embedding(text, memory_action)
