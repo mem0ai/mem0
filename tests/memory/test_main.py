@@ -1178,3 +1178,99 @@ class TestAddPipelineEntityEmbeddingCountGuard:
         assert any("padding/truncating" in r.message for r in caplog.records), (
             "expected count-mismatch warning was not emitted"
         )
+
+
+class TestAddPipelineMemoryEmbeddingCountGuard:
+    """A misbehaving embedder returning fewer vectors than the extracted memory
+    texts must surface the loss, not drop the unmatched texts silently.
+
+    `dict(zip(mem_texts, mem_embeddings_list))` truncates to the shorter side, so a
+    short `embed_batch` return dropped the tail memories with no signal to operators.
+    The add path now logs a count-mismatch warning (mirroring the entity-embedding
+    guard above) so the loss is observable; caller-visible surfacing is tracked
+    separately.
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        return memory
+
+    @staticmethod
+    def _short_memory_embed_batch(texts, memory_action="add"):
+        # The extracted memory texts come back short (1 vector for 2); any other
+        # batch (e.g. entities) embeds normally.
+        if any(t in ("fact one", "fact two") for t in texts):
+            return [[0.1] * 10]
+        return [[0.1] * 10 for _ in texts]
+
+    def test_sync_short_memory_embeddings_warn_not_silent(self, mock_memory, mocker, caplog):
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(side_effect=self._short_memory_embed_batch)
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert any("memory texts" in r.message for r in caplog.records), (
+            "expected memory-embedding count-mismatch warning was not emitted"
+        )
+        # The aligned memory persists; the unmatched text is skipped, not misaligned.
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_short_memory_embeddings_warn_not_silent(self, mock_async_memory, mocker, caplog):
+        mock_async_memory.llm.generate_response.return_value = (
+            '{"memory": [{"text": "fact one"}, {"text": "fact two"}]}'
+        )
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(side_effect=self._short_memory_embed_batch)
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1] * 10)
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[], []])
+        mocker.patch("mem0.memory.main.capture_event")
+
+        with caplog.at_level(logging.WARNING):
+            result = await mock_async_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "two facts"}],
+                metadata={},
+                effective_filters={"user_id": "u1"},
+                infer=True,
+            )
+
+        assert any("memory texts" in r.message for r in caplog.records), (
+            "expected memory-embedding count-mismatch warning was not emitted"
+        )
+        assert len(result) == 1
