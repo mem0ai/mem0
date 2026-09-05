@@ -49,6 +49,17 @@ m.add(messages, user_id="alex")
 
 </Step>
 
+<Step title="Add a memory from a file">
+Ingest a document (`.txt`, `.md`, `.pdf`, `.docx`) instead of messages. The text is extracted, chunked, and each chunk is stored as memories tagged with a `source_file` field.
+
+```python
+m.add(file="handbook.pdf", user_id="alex")
+```
+
+PDF and DOCX parsing needs the optional extras: `pip install "mem0ai[document]"`. Pass either `messages` or `file`, not both.
+
+</Step>
+
 <Step title="Search memories">
 ```python
 results = m.search("What do you know about me?", filters={"user_id": "alex"})
