@@ -329,6 +329,81 @@ describe("ElasticsearchDB", () => {
     });
   });
 
+  describe("keywordSearch", () => {
+    it("builds correct match query", async () => {
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      mockSearch.mockResolvedValueOnce({
+        hits: {
+          hits: [
+            {
+              _id: "id1",
+              _score: 1.5,
+              _source: { metadata: { data: "test memory" } },
+            },
+          ],
+        },
+      });
+
+      const results = await store.keywordSearch("test", 5);
+
+      expect(mockSearch).toHaveBeenCalledWith({
+        index: "mem0",
+        size: 5,
+        query: {
+          bool: {
+            should: [
+              { match: { "metadata.data": "test" } },
+              { match: { "metadata.text_lemmatized": "test" } },
+            ],
+            minimum_should_match: 1,
+          },
+        },
+      });
+
+      expect(results).toEqual([
+        {
+          id: "id1",
+          score: 1.5,
+          payload: { data: "test memory" },
+        },
+      ]);
+    });
+
+    it("applies filters to keywordSearch", async () => {
+      const store = new ElasticsearchDB({
+        collectionName: "mem0",
+        embeddingModelDims: 4,
+        host: "localhost",
+      });
+
+      mockSearch.mockResolvedValueOnce({
+        hits: { hits: [] },
+      });
+
+      await store.keywordSearch("test", 5, { user_id: "u1" });
+
+      expect(mockSearch).toHaveBeenCalledWith({
+        index: "mem0",
+        size: 5,
+        query: {
+          bool: {
+            should: [
+              { match: { "metadata.data": "test" } },
+              { match: { "metadata.text_lemmatized": "test" } },
+            ],
+            minimum_should_match: 1,
+            filter: [{ term: { "metadata.user_id": "u1" } }],
+          },
+        },
+      });
+    });
+  });
+
   describe("get", () => {
     it("returns document by id", async () => {
       const store = new ElasticsearchDB({
