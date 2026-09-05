@@ -220,6 +220,11 @@ specific_memories = await memory.get_all(
     filters={"user_id": "alice", "agent_id": "diet-assistant", "run_id": "consultation-001"}
 )
 
+# Page through large memory sets with page / page_size (also available on the sync Memory).
+# page is 1-based and must be passed together with page_size.
+page_1 = await memory.get_all(filters={"user_id": "alice"}, page=1, page_size=50)
+page_2 = await memory.get_all(filters={"user_id": "alice"}, page=2, page_size=50)
+
 history = await memory.history(memory_id="memory-id-here")
 ```
 
