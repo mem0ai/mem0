@@ -404,6 +404,11 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     results = get_memory_instance().vector_store.list(top_k=limit)
+    # pgvector wraps its rows in a list ([[row, ...]]) while Qdrant returns the raw
+    # (rows, next_offset) tuple from client.scroll(): unwrap the tuple first, or the
+    # tuple itself gets iterated and the listing comes back as two empty rows.
+    if isinstance(results, tuple):
+        results = results[0]
     rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
     return {"results": [_serialize_memory(row) for row in rows]}
 
