@@ -491,7 +491,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         fields_set = getattr(updated_memory, "model_fields_set", getattr(updated_memory, "__fields_set__", set()))
         params = {"memory_id": memory_id}
         if "text" in fields_set:
-            params["data"] = updated_memory.text
+            params["text"] = updated_memory.text
         if "metadata" in fields_set:
             params["metadata"] = updated_memory.metadata
         if "expiration_date" in fields_set:

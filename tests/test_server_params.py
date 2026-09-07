@@ -545,11 +545,20 @@ class TestUpdateMemory:
     """Verify that PUT /memories/{id} extracts text and metadata from the
     request body and forwards them correctly to Memory.update()."""
 
-    def test_text_forwarded_as_data(self, client, mock_memory):
+    def test_text_forwarded_as_text(self, client, mock_memory):
         resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
         assert resp.status_code == 200
         _, kwargs = mock_memory.update.call_args
-        assert kwargs["data"] == "Likes tennis"
+        assert kwargs["text"] == "Likes tennis"
+        assert "data" not in kwargs
+
+    def test_no_deprecation_warning_on_update(self, client, mock_memory, caplog):
+        """Regression guard for #7245: a server-driven update must not trigger
+        Memory.update()'s deprecated `data` alias warning."""
+        with caplog.at_level("WARNING", logger="mem0"):
+            resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        assert not any("is deprecated" in record.message for record in caplog.records)
 
     def test_metadata_forwarded(self, client, mock_memory):
         resp = client.put("/memories/mem-1", json={
@@ -579,12 +588,12 @@ class TestUpdateMemory:
         _, kwargs = mock_memory.update.call_args
         assert kwargs["expiration_date"] is None
 
-    def test_dict_not_passed_as_data(self, client, mock_memory):
-        """Regression test for #3933: the entire dict must NOT be passed as data."""
+    def test_dict_not_passed_as_text(self, client, mock_memory):
+        """Regression test for #3933: the entire dict must NOT be passed as text."""
         resp = client.put("/memories/mem-1", json={"text": "updated content"})
         assert resp.status_code == 200
         _, kwargs = mock_memory.update.call_args
-        assert isinstance(kwargs["data"], str)
+        assert isinstance(kwargs["text"], str)
 
 
 class TestUpdateOpenAPISchema:
