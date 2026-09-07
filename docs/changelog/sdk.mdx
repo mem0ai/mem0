@@ -7,6 +7,14 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-09-02" description="v2.0.20">
+
+**Improvements:**
+- **OSS notices:** Notice configuration now comes from a static, cacheable repository file with a bundled disabled fallback and deterministic rollout assignment, instead of calling PostHog's feature-flag evaluation API. This keeps notices fail-safe when the remote config is unavailable and removes the PostHog feature-flag request from notice evaluation ([#7185](https://github.com/mem0ai/mem0/pull/7185))
+- **Vector Stores:** `RedisDBConfig` now uses Pydantic's native `extra="forbid"` handling for unknown fields instead of a custom model validator, preserving strict validation while returning standard Pydantic errors ([#7089](https://github.com/mem0ai/mem0/pull/7089))
+
+</Update>
+
 <Update label="2026-08-24" description="v2.0.19">
 
 **Bug Fixes:**
@@ -1219,6 +1227,13 @@ See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-
 
 <Tab title="TypeScript">
 
+<Update label="2026-09-02" description="v3.1.8">
+
+**Improvements:**
+- **OSS notices:** Notice configuration now comes from a static, cacheable repository file with a bundled disabled fallback and deterministic rollout assignment, instead of calling PostHog's feature-flag evaluation API. This keeps notices fail-safe when the remote config is unavailable and removes the PostHog feature-flag request from notice evaluation ([#7185](https://github.com/mem0ai/mem0/pull/7185))
+
+</Update>
+
 <Update label="2026-08-24" description="v3.1.7">
 
 **Bug Fixes:**
@@ -1528,7 +1543,7 @@ The largest provider release for the TypeScript OSS SDK so far: 17 new vector st
 **Improvements:**
 - **Telemetry:** Sample OSS hot-path events at 10% to reduce PostHog event volume ([#4771](https://github.com/mem0ai/mem0/pull/4771))
 
-See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to-v3) for upgrade instructions.
+See the [OSS v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions.
 
 </Update>
 

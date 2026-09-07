@@ -7,8 +7,8 @@ estimatedTime: "~2 minutes"
 
 <Info>
   **Prerequisites**
-  - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Sign up here</a>)
-  - API key (<a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Get one from dashboard</a>)
+  - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-mem0-mcp">Sign up here</a>)
+  - API key (<a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp">Get one from dashboard</a>)
   - Node.js 18+ (for npx)
   - An MCP-compatible client (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode)
 </Info>
@@ -53,7 +53,7 @@ The server is authenticated, so connecting is not enough on its own. There are t
   <Tab title="Use your API key">
     For clients without browser sign-in, or for headless environments like CI, send your API key as a bearer token instead. Where you put it depends on the client; see [Client-specific setup](#client-specific-setup) for the exact syntax.
 
-    Get a key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 dashboard</a>, and keep it out of any file you commit.
+    Get a key from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp">Mem0 dashboard</a>, and keep it out of any file you commit.
   </Tab>
 </Tabs>
 
@@ -206,7 +206,7 @@ Two things to look for while you do it:
 - Your client should show the Mem0 tools among its available tools. Most clients list them in a tools or MCP panel.
 - The first tool call should trigger the browser sign-in described above, unless you configured an API key.
 
-To confirm from outside the client, open the <a href="https://app.mem0.ai/dashboard?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 dashboard</a>: anything the agent saved appears there.
+To confirm from outside the client, open the <a href="https://app.mem0.ai/dashboard?utm_source=oss&utm_medium=platform-mem0-mcp">Mem0 dashboard</a>: anything the agent saved appears there.
 
 ---
 
@@ -218,7 +218,7 @@ To confirm from outside the client, open the <a href="https://app.mem0.ai/dashbo
 | "Connection refused" or "failed to connect" | The client cannot reach the server | Check your internet connection, then confirm the URL is exactly `https://mcp.mem0.ai/mcp` |
 | The agent has no Mem0 tools | The config was written but the client has not reloaded it | Restart the client. If the tools are still missing, check that `mcp-add` wrote to the config file your client actually reads |
 | `npx: command not found` | Node.js is not installed | Install it from [nodejs.org](https://nodejs.org) |
-| "Invalid API key" | The key is wrong, revoked, or from a different account | Get a new one from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 dashboard</a> |
+| "Invalid API key" | The key is wrong, revoked, or from a different account | Get a new one from the <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp">Mem0 dashboard</a> |
 
 ---
 

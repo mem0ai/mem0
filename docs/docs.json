@@ -152,7 +152,7 @@
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
-                      "open-source/features/openai_compatibility",
+                      "open-source/features/openai-compatibility",
                       "platform/features/memory-expiration"
                     ]
                   },
@@ -173,14 +173,14 @@
                             "pages": [
                               "components/llms/models/openai",
                               "components/llms/models/anthropic",
-                              "components/llms/models/azure_openai",
+                              "components/llms/models/azure-openai",
                               "components/llms/models/ollama",
                               "components/llms/models/together",
                               "components/llms/models/groq",
                               "components/llms/models/litellm",
-                              "components/llms/models/mistral_AI",
-                              "components/llms/models/google_AI",
-                              "components/llms/models/aws_bedrock",
+                              "components/llms/models/mistral-ai",
+                              "components/llms/models/google-ai",
+                              "components/llms/models/aws-bedrock",
                               "components/llms/models/deepseek",
                               "components/llms/models/minimax",
                               "components/llms/models/xAI",
@@ -210,7 +210,7 @@
                               "components/vectordbs/dbs/mongodb",
                               "components/vectordbs/dbs/oracledb",
                               "components/vectordbs/dbs/azure",
-                              "components/vectordbs/dbs/azure_mysql",
+                              "components/vectordbs/dbs/azure-mysql",
                               "components/vectordbs/dbs/redis",
                               "components/vectordbs/dbs/valkey",
                               "components/vectordbs/dbs/elasticsearch",
@@ -218,16 +218,16 @@
                               "components/vectordbs/dbs/supabase",
                               "components/vectordbs/dbs/upstash-vector",
                               "components/vectordbs/dbs/vectorize",
-                              "components/vectordbs/dbs/vertex_ai",
+                              "components/vectordbs/dbs/vertex-ai",
                               "components/vectordbs/dbs/weaviate",
                               "components/vectordbs/dbs/faiss",
                               "components/vectordbs/dbs/langchain",
                               "components/vectordbs/dbs/baidu",
                               "components/vectordbs/dbs/cassandra",
-                              "components/vectordbs/dbs/s3_vectors",
+                              "components/vectordbs/dbs/s3-vectors",
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neon",
-                              "components/vectordbs/dbs/neptune_analytics",
+                              "components/vectordbs/dbs/neptune-analytics",
                               "components/vectordbs/dbs/turbopuffer"
                             ]
                           }
@@ -244,15 +244,15 @@
                             "icon": "list",
                             "pages": [
                               "components/embedders/models/openai",
-                              "components/embedders/models/azure_openai",
+                              "components/embedders/models/azure-openai",
                               "components/embedders/models/ollama",
                               "components/embedders/models/huggingface",
                               "components/embedders/models/vertexai",
-                              "components/embedders/models/google_AI",
+                              "components/embedders/models/google-ai",
                               "components/embedders/models/lmstudio",
                               "components/embedders/models/together",
                               "components/embedders/models/langchain",
-                              "components/embedders/models/aws_bedrock",
+                              "components/embedders/models/aws-bedrock",
                               "components/embedders/models/fastembed"
                             ]
                           }
@@ -271,10 +271,10 @@
                             "icon": "list",
                             "pages": [
                               "components/rerankers/models/cohere",
-                              "components/rerankers/models/sentence_transformer",
+                              "components/rerankers/models/sentence-transformer",
                               "components/rerankers/models/huggingface",
-                              "components/rerankers/models/llm_reranker",
-                              "components/rerankers/models/zero_entropy"
+                              "components/rerankers/models/llm-reranker",
+                              "components/rerankers/models/zero-entropy"
                             ]
                           }
                         ]
@@ -642,7 +642,7 @@
     },
     {
       "source": "/components/rerankers/models/llm",
-      "destination": "/components/rerankers/models/llm_reranker"
+      "destination": "/components/rerankers/models/llm-reranker"
     },
     {
       "source": "/migration/breaking-changes",
@@ -818,7 +818,7 @@
     },
     {
       "source": "/components/llms/models/azure_openai_structured",
-      "destination": "/components/llms/models/azure_openai"
+      "destination": "/components/llms/models/azure-openai"
     },
     {
       "source": "/components/llms/models/openai_structured",
@@ -834,7 +834,7 @@
     },
     {
       "source": "/components/vectordbs/dbs/vertex_ai_vector_search",
-      "destination": "/components/vectordbs/dbs/vertex_ai"
+      "destination": "/components/vectordbs/dbs/vertex-ai"
     },
     {
       "source": "/platform/features/selective-memory",
@@ -1082,7 +1082,7 @@
     },
     {
       "source": "/components/embedders/models/google_ai",
-      "destination": "/components/embedders/models/google_AI"
+      "destination": "/components/embedders/models/google-ai"
     },
     {
       "source": "/components/embedders/models/lm_studio",
@@ -1094,23 +1094,15 @@
     },
     {
       "source": "/components/llms/models/google_ai",
-      "destination": "/components/llms/models/google_AI"
+      "destination": "/components/llms/models/google-ai"
     },
     {
       "source": "/components/llms/models/mistral_ai",
-      "destination": "/components/llms/models/mistral_AI"
+      "destination": "/components/llms/models/mistral-ai"
     },
     {
       "source": "/components/llms/models/lm_studio",
       "destination": "/components/llms/models/lmstudio"
-    },
-    {
-      "source": "/components/vectordbs/dbs/neptune-analytics",
-      "destination": "/components/vectordbs/dbs/neptune_analytics"
-    },
-    {
-      "source": "/components/vectordbs/dbs/s3-vectors",
-      "destination": "/components/vectordbs/dbs/s3_vectors"
     },
     {
       "source": "/open-source/python_quickstart",
@@ -1511,6 +1503,66 @@
     {
       "source": "/openmemory/mcp/introduction",
       "destination": "https://mem0.ai/blog/introducing-openmemory-mcp"
+    },
+    {
+      "source": "/components/embedders/models/aws_bedrock",
+      "destination": "/components/embedders/models/aws-bedrock"
+    },
+    {
+      "source": "/components/embedders/models/azure_openai",
+      "destination": "/components/embedders/models/azure-openai"
+    },
+    {
+      "source": "/components/embedders/models/google_AI",
+      "destination": "/components/embedders/models/google-ai"
+    },
+    {
+      "source": "/components/llms/models/aws_bedrock",
+      "destination": "/components/llms/models/aws-bedrock"
+    },
+    {
+      "source": "/components/llms/models/azure_openai",
+      "destination": "/components/llms/models/azure-openai"
+    },
+    {
+      "source": "/components/llms/models/google_AI",
+      "destination": "/components/llms/models/google-ai"
+    },
+    {
+      "source": "/components/llms/models/mistral_AI",
+      "destination": "/components/llms/models/mistral-ai"
+    },
+    {
+      "source": "/components/rerankers/models/llm_reranker",
+      "destination": "/components/rerankers/models/llm-reranker"
+    },
+    {
+      "source": "/components/rerankers/models/sentence_transformer",
+      "destination": "/components/rerankers/models/sentence-transformer"
+    },
+    {
+      "source": "/components/rerankers/models/zero_entropy",
+      "destination": "/components/rerankers/models/zero-entropy"
+    },
+    {
+      "source": "/components/vectordbs/dbs/azure_mysql",
+      "destination": "/components/vectordbs/dbs/azure-mysql"
+    },
+    {
+      "source": "/components/vectordbs/dbs/neptune_analytics",
+      "destination": "/components/vectordbs/dbs/neptune-analytics"
+    },
+    {
+      "source": "/components/vectordbs/dbs/s3_vectors",
+      "destination": "/components/vectordbs/dbs/s3-vectors"
+    },
+    {
+      "source": "/components/vectordbs/dbs/vertex_ai",
+      "destination": "/components/vectordbs/dbs/vertex-ai"
+    },
+    {
+      "source": "/open-source/features/openai_compatibility",
+      "destination": "/open-source/features/openai-compatibility"
     }
   ]
 }
