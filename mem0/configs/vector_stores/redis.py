@@ -7,3 +7,7 @@ class RedisDBConfig(BaseModel):
     redis_url: str = Field(..., description="Redis URL")
     collection_name: str = Field("mem0", description="Collection name")
     embedding_model_dims: int = Field(1536, description="Embedding model dimensions")
+    distance: str = Field(
+        "cosine",
+        description="Distance metric for the vector index: cosine, l2, or ip",
+    )
