@@ -73,6 +73,8 @@ Review its result and send any corrections back to the same sidekick.
 
 Changes stay in the sidekick's worktree until the main agent reviews and copies them over. By default the worktree branches from the repo's default branch. Set `worktree.baseRef` to `"head"` in your Claude settings to branch from the current commit instead. Uncommitted changes are not copied into the sidekick's worktree.
 
+At startup, Sidekick receives the memories already recalled for its parent session. It can also call the Mem0 search tool for its assigned task. Start and completion hooks track its work locally; completing a Sidekick task does not independently send a memory-extraction request. Sidekick returns its result, validation, and a local commit when it changes files, so the main agent can review the work before incorporating it.
+
 ## How it works
 
 The plugin follows a simple cycle: capture during a session, extract memories in the background, recall in the next session.
@@ -83,7 +85,7 @@ The plugin follows a simple cycle: capture during a session, extract memories in
 
 **Step by step:**
 
-1. **Capture.** Hooks save the main agent's activity locally: user messages, Claude's answers, changed files, and short test/build results. Subagent (sidekick) output is excluded. No model calls, no blocking.
+1. **Capture.** Hooks save the main agent's activity locally: user messages, Claude's answers, changed files, and short test/build results. Direct Sidekick lifecycle records stay local. Subagent results included in the main transcript can provide supporting evidence for extraction; the main agent's final response establishes the outcome. Capture does not call a model.
 
 2. **Flush.** After every five completed exchanges, a detached background worker sends that batch to Mem0. Large exchanges flush sooner. Ending or compacting the session flushes anything remaining. If the session sits idle, an auto-flush runs after five minutes (configurable with `MEM0_CODE_IDLE_FLUSH_SECONDS`). The timer resets on each new exchange. The worker survives Claude Code exiting.
 
