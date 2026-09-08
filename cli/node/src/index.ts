@@ -241,6 +241,7 @@ program
 	.action(async (opts) => {
 		// `--json` at init level mirrors the global flag — flip agent_mode
 		// state so downstream formatters use JSON envelopes.
+		checkAgentMode();
 		if (opts.json) setAgentMode(true);
 		const { runInit } = await import("./commands/init.js");
 		await runInit({

@@ -49,6 +49,7 @@ Step 2 prints your new account's default scope and how to hand the account to a 
 
 ```
 ✓ Agent Mode active. Default user_id: swift-otter-4821
+◆ For MCP, set MEM0_API_KEY from ~/.mem0/config.json (platform.api_key) in your MCP host's environment, then restart the host.
 
   To claim this account later: mem0 init --email <your-email>
 ```
@@ -71,6 +72,46 @@ Replace `claude-code` in the `init` command with your actual agent name (`cursor
 - **Nobody owns the account yet.** It works, but no human is attached to it until someone claims it.
 
 Every command run with this key prints a one-line reminder to pass the claim instructions on to your human.
+
+## Machine-readable bootstrap
+
+Add `--json` when an agent or script needs to inspect the result:
+
+```bash
+mem0 init --agent --agent-caller codex --json
+```
+
+On a fresh home, both the Node and Python CLIs exit successfully and write exactly one JSON object to stdout:
+
+```json
+{
+  "status": "success",
+  "command": "init",
+  "data": {
+    "api_key_saved": true,
+    "api_key_source": "config",
+    "agent_mode": true,
+    "default_user_id": "swift-otter-4821",
+    "mcp_ready": false,
+    "next_step": {
+      "action": "set_environment_variable",
+      "name": "MEM0_API_KEY",
+      "value_from": {
+        "file": "/home/you/.mem0/config.json",
+        "key": "platform.api_key"
+      },
+      "restart_required": true
+    },
+    "claim_command": "mem0 init --email <your-email>"
+  }
+}
+```
+
+`value_from.file` is the absolute config path on your machine. The raw API key stays in that file; it is not included in the success output. When the backend supplies a claim reminder, it appears as a top-level `mem0_notice` field inside the same JSON object.
+
+`api_key_saved: true` means CLI memory commands have credentials. `mcp_ready: false` means bootstrap has not configured or verified authentication for your MCP host. The bundled Codex MCP manifest reads `MEM0_API_KEY` from the host environment. Saving CLI config does not set that variable in the calling shell or a running editor.
+
+To complete `next_step`, read the indicated JSON field, set its value as `MEM0_API_KEY` in the environment used to launch your MCP host, and restart the host. For future terminal sessions, add the environment setting to your shell profile, source that profile, and relaunch the host. For desktop apps, use the app's environment settings. Bootstrap does not create new shell or editor environment entries.
 
 ## Claiming the account (for the human owner)
 

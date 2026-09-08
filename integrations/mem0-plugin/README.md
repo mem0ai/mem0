@@ -19,7 +19,11 @@ If you're an AI agent setting up Mem0 autonomously (no human dashboard signup av
 mem0 init --agent --json
 ```
 
-This mints an evaluation API key in <5 seconds — no email, no OTP, no browser. The key is written to your config and exported as `MEM0_API_KEY` for the current shell. Use it immediately against the Mem0 Platform or the MCP server. The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, the same API key keeps working, and the agent isn't disrupted.
+This mints an evaluation API key in <5 seconds — no email, no OTP, no browser. The key and default user ID are saved to `~/.mem0/config.json`, so CLI memory commands can use them immediately.
+
+On a fresh home, the JSON response reports `api_key_saved: true` and `mcp_ready: false`. Follow `data.next_step`: read `platform.api_key` from the indicated config file, set it as `MEM0_API_KEY` in your MCP host's environment, then restart the host. The CLI leaves the current shell's environment unchanged and does not create shell profile or editor environment entries. For persistent setup, use the shell profile or desktop environment instructions in Step 1 below with this saved key. Source your profile and restart the host after shell changes. See [Agent signup](https://docs.mem0.ai/platform/agent-signup#machine-readable-bootstrap) for the JSON response format.
+
+The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, the same API key keeps working, and the agent isn't disrupted.
 
 Humans setting up Mem0 by hand should continue with Step 1 below.
 
